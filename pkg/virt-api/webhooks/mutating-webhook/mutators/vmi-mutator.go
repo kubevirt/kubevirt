@@ -42,8 +42,9 @@ import (
 )
 
 type VMIsMutator struct {
-	ClusterConfig     *virtconfig.ClusterConfig
-	VMIPresetInformer cache.SharedIndexInformer
+	ClusterConfig           *virtconfig.ClusterConfig
+	VMIPresetInformer       cache.SharedIndexInformer
+	KubeVirtServiceAccounts map[string]struct{}
 }
 
 const presetDeprecationWarning = "kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."
@@ -152,7 +153,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
 		if !equality.Semantic.DeepEqual(newVMI.Status, oldVMI.Status) {
-			if !webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
+			if _, isKubeVirtServiceAccount := mutator.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]; !isKubeVirtServiceAccount {
 				patchOps = append(patchOps, patch.PatchOperation{
 					Op:    "replace",
 					Path:  "/status",

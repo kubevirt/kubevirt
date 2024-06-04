@@ -51,9 +51,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
-var privilegedUser = fmt.Sprintf("%s:%s:%s:%s", "system", "serviceaccount", "kubevirt", components.ControllerServiceAccountName)
-
 var _ = Describe("VirtualMachineInstance Mutator", func() {
+	const kubeVirtNamespace = "kubevirt"
+
 	var vmi *v1.VirtualMachineInstance
 	var preset *v1.VirtualMachineInstancePreset
 	var presetInformer cache.SharedIndexInformer
@@ -172,6 +172,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		mutator = &VMIsMutator{}
 		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		mutator.VMIPresetInformer = presetInformer
+		mutator.KubeVirtServiceAccounts = webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)
 	})
 
 	It("should apply presets on VMI create", func() {
@@ -854,8 +855,10 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(&oldVMI.Status).To(Equal(status))
 		}
 	},
-		Entry("if our service accounts modfies it", privilegedUser, true),
-		Entry("not if the user is not one of ours", "unknown", false),
+		Entry("When the request originates from the virt-api ServiceAccount", fmt.Sprintf("system:serviceaccount:%s:%s", kubeVirtNamespace, components.ApiServiceAccountName), true),
+		Entry("When the request originates from the virt-controller ServiceAccount", fmt.Sprintf("system:serviceaccount:%s:%s", kubeVirtNamespace, components.ControllerServiceAccountName), true),
+		Entry("When the request originates from the virt-handler ServiceAccount", fmt.Sprintf("system:serviceaccount:%s:%s", kubeVirtNamespace, components.HandlerServiceAccountName), true),
+		Entry("When the request does not originate from KubeVirt", "unknown", false),
 	)
 
 	// Check following convert for ARM64
