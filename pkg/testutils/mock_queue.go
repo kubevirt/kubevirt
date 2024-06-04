@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -257,36 +256,6 @@ func (v *DomainFeeder) Delete(vmi *api.Domain) {
 
 func NewDomainFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *DomainFeeder {
 	return &DomainFeeder{
-		MockQueue: queue,
-		Source:    source,
-	}
-}
-
-type DataVolumeFeeder struct {
-	MockQueue *MockWorkQueue
-	Source    *framework.FakeControllerSource
-}
-
-func (v *DataVolumeFeeder) Add(dataVolume *cdiv1.DataVolume) {
-	v.MockQueue.ExpectAdds(1)
-	v.Source.Add(dataVolume)
-	v.MockQueue.Wait()
-}
-
-func (v *DataVolumeFeeder) Modify(dataVolume *cdiv1.DataVolume) {
-	v.MockQueue.ExpectAdds(1)
-	v.Source.Modify(dataVolume)
-	v.MockQueue.Wait()
-}
-
-func (v *DataVolumeFeeder) Delete(dataVolume *cdiv1.DataVolume) {
-	v.MockQueue.ExpectAdds(1)
-	v.Source.Delete(dataVolume)
-	v.MockQueue.Wait()
-}
-
-func NewDataVolumeFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *DataVolumeFeeder {
-	return &DataVolumeFeeder{
 		MockQueue: queue,
 		Source:    source,
 	}
