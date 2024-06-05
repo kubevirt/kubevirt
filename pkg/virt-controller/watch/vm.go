@@ -1504,16 +1504,6 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	}
 
 	// stop it
-	// if for some reason the VM has been requested to be deleted, we want to use the
-	// deletion grace period specified to the VM as the TerminationGracePeriodSeconds
-	// for the VMI.
-	if vm.DeletionTimestamp != nil {
-		err = c.patchVMITerminationGracePeriod(vm.GetDeletionGracePeriodSeconds(), vmi)
-		if err != nil {
-			log.Log.Object(vmi).Errorf("unable to patch vmi termination grace period: %v", err)
-			return vm, err
-		}
-	}
 	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineInstanceKey(vmi)})
 	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
 
@@ -3469,13 +3459,4 @@ func (c *VMController) setupHotplug(vmi, VMIDefaults *virtv1.VirtualMachineInsta
 
 	c.setupCPUHotplug(vmi, VMIDefaults, maxRatio)
 	c.setupMemoryHotplug(vmi, maxRatio)
-}
-
-func (c *VMController) patchVMITerminationGracePeriod(gracePeriod *int64, vmi *virtv1.VirtualMachineInstance) error {
-	if gracePeriod == nil {
-		return nil
-	}
-	patch := fmt.Sprintf(`{"spec":{"terminationGracePeriodSeconds": %d }}`, *gracePeriod)
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), v1.PatchOptions{})
-	return err
 }
