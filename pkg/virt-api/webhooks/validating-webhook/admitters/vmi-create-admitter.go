@@ -425,6 +425,19 @@ func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 	return causes
 }
 
+func countConfiguredMDEVRamFBs(spec *v1.VirtualMachineInstanceSpec) int {
+	count := 0
+	for _, device := range spec.Domain.Devices.GPUs {
+		if device.VirtualGPUOptions != nil &&
+			device.VirtualGPUOptions.Display != nil &&
+			(device.VirtualGPUOptions.Display.Enabled == nil || *device.VirtualGPUOptions.Display.Enabled) &&
+			(device.VirtualGPUOptions.Display.RamFB == nil || (device.VirtualGPUOptions.Display.RamFB.Enabled != nil && *device.VirtualGPUOptions.Display.RamFB.Enabled)) {
+			count++
+		}
+	}
+	return count
+}
+
 func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	if spec.Domain.Devices.GPUs != nil && !config.GPUPassthroughEnabled() {
@@ -433,6 +446,14 @@ func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMa
 			Message: "GPU feature gate is not enabled in kubevirt-config",
 			Field:   field.Child("GPUs").String(),
 		})
+	}
+	if countConfiguredMDEVRamFBs(spec) > 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "configuring multiple displays with ramfb is not valid ",
+			Field:   field.Child("GPUs").String(),
+		})
+
 	}
 	return causes
 }
