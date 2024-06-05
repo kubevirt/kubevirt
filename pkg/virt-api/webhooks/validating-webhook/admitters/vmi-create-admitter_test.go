@@ -1213,10 +1213,37 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.GPUs"))
 		})
+
+		It("should reject multiple configurations of vGPU displays with ramfb", func() {
+			enableFeatureGate(virtconfig.GPUGate)
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name:       "gpu1",
+					DeviceName: "vendor.com/gpu_name",
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.Bool(true),
+						},
+					},
+				},
+				{
+					Name:       "gpu2",
+					DeviceName: "vendor.com/gpu_name1",
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.Bool(true),
+						},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.GPUs"))
+		})
 		It("should accept legacy GPU devices if PermittedHostDevices aren't set", func() {
-			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+			enableFeatureGate(virtconfig.GPUGate)
 
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
