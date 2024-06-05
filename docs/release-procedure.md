@@ -186,6 +186,10 @@ As per the PR template, if the PR requires additional action from users switchin
 * ```sig/storage```: The PR is relevant to SIG Storage.
 * ```sig/code-quality```: The PR is relevant to SIG Code Quality.
 
+## The 'wg/' Labels Used for Release Notes
+
+* ```wg/ipam```: The PR is relevant to SIG Network, WG IPAM.
+
 ## Viewing Release Notes
 
 Release notes are included in the git tag comment for the release, and copied to the [changelog of the KubeVirt website](https://kubevirt.io/tag/changelog).
