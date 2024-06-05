@@ -6141,6 +6141,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 					vm, vmi := DefaultVirtualMachine(true)
+					vm.Spec.UpdateVolumesStrategy = strategy
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "vol1"})
 					vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{Name: "vol2"})
