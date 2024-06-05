@@ -1655,6 +1655,10 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	return vm, nil
 }
 
+func popStateChangeRequest(vm *virtv1.VirtualMachine) {
+	vm.Status.StateChangeRequests = vm.Status.StateChangeRequests[1:]
+}
+
 func vmRevisionName(vmUID types.UID) string {
 	return fmt.Sprintf("revision-start-vm-%s", vmUID)
 }
@@ -2524,7 +2528,7 @@ func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virt
 	c.updateMemoryDumpRequest(vm, vmi)
 
 	if c.isTrimFirstChangeRequestNeeded(vm, vmi) {
-		vm.Status.StateChangeRequests = vm.Status.StateChangeRequests[1:]
+		popStateChangeRequest(vm)
 	}
 
 	syncStartFailureStatus(vm, vmi)
@@ -2845,14 +2849,9 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine,
 	switch stateChange.Action {
 	case virtv1.StopRequest:
 		if vmi == nil {
-			// because either the VM or VMI informers can trigger processing here
-			// double check the state of the cluster before taking action
-			_, err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
-			if err != nil && apiErrors.IsNotFound(err) {
-				// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
-				log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
-				return true
-			}
+			// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
+			log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
+			return true
 		} else {
 			if stateChange.UID == nil {
 				// It never makes sense to have a request to stop a VMI that doesn't
@@ -2874,9 +2873,7 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine,
 		// If we do not update `vmi` by asking the API Server this function could
 		// erroneously trim the just added StartRequest because it would see a running
 		// vmi with no DeletionTimestamp
-		vmi, _ := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
-		// If the current VMI is running, then it has been started.
-		if vmi != nil && vmi.DeletionTimestamp == nil {
+		if vmi != nil && vmi.DeletionTimestamp == nil && !vmi.IsFinal() {
 			log.Log.Object(vm).V(4).Infof("VMI exists. clearing start request")
 			return true
 		}
