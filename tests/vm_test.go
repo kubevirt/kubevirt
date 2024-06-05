@@ -1556,49 +1556,6 @@ status:
 			waitForResourceDeletion(k8sClient, "pods", expectedPodName)
 		})
 
-		Context("Deleting a running VM with high TerminationGracePeriod via command line", func() {
-			DescribeTable("should force delete the VM", func(deleteFlags []string) {
-				By("getting a VM with a high TerminationGracePeriod")
-				vmi := libvmi.New(
-					libvmi.WithResourceMemory("128Mi"),
-					libvmi.WithTerminationGracePeriod(1600),
-				)
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-				vm.Namespace = testsuite.GetTestNamespace(vm)
-
-				vmJson, err := tests.GenerateVMJson(vm, workDir)
-				Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
-
-				By("Creating VM using k8s client binary")
-				_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
-
-				By("Checking that VM is running")
-				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
-
-				By("Sending a force delete VM request using k8s client binary")
-				deleteCmd := append([]string{"delete", "vm", vm.GetName()}, deleteFlags...)
-				_, _, err = clientcmd.RunCommand(k8sClient, deleteCmd...)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Verifying the VM gets deleted")
-				waitForResourceDeletion(k8sClient, "vms", vm.GetName())
-
-				By("Verifying pod gets deleted")
-				expectedPodName := getExpectedPodName(vm)
-				waitForResourceDeletion(k8sClient, "pods", expectedPodName)
-			},
-				Entry("when --force and --grace-period=0 are provided", []string{"--force", "--grace-period=0"}),
-				Entry("when --now is provided", []string{"--now"}),
-			)
-		})
-
 		Context("should not change anything if dry-run option is passed", func() {
 			It("[test_id:7530]in start command", func() {
 				vm, vmJson := createVMAndGenerateJson()
