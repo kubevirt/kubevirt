@@ -556,6 +556,22 @@ const (
 
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsMigratable VirtualMachineInstanceConditionType = "LiveMigratable"
+
+	// Indicates that the VMI is in progress of Hot vCPU Plug/UnPlug
+	VirtualMachineInstanceVCPUChange VirtualMachineInstanceConditionType = "HotVCPUChange"
+
+	// Indicates that the VMI is hot(un)plugging memory
+	VirtualMachineInstanceMemoryChange VirtualMachineInstanceConditionType = "HotMemoryChange"
+
+	// Indicates that the VMI has an updates in its volume set
+	VirtualMachineInstanceVolumesChange VirtualMachineInstanceConditionType = "VolumesChange"
+
+	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
+	VirtualMachineInstanceDataVolumesReady VirtualMachineInstanceConditionType = "DataVolumesReady"
+)
+
+// These are valid reasons for VMI conditions.
+const (
 	// Reason means that VMI is not live migratioable because of it's disks collection
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 	// Reason means that VMI is not live migratioable because of it's network interfaces collection
@@ -576,16 +592,6 @@ const (
 	VirtualMachineInstanceReasonHypervPassthroughNotMigratable = "HypervPassthroughNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it requested SCSI persitent reservation
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
-	// Indicates that the VMI is in progress of Hot vCPU Plug/UnPlug
-	VirtualMachineInstanceVCPUChange = "HotVCPUChange"
-	// Indicates that the VMI is hot(un)plugging memory
-	VirtualMachineInstanceMemoryChange = "HotMemoryChange"
-	// Indicates that the VMI has an updates in its volume set
-	VirtualMachineInstanceVolumesChange = "VolumesChange"
-
-	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
-	VirtualMachineInstanceDataVolumesReady = "DataVolumesReady"
-
 	// Reason means that not all of the VMI's DVs are ready
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and not running
