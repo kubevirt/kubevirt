@@ -168,12 +168,16 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 
 	Context("Errors metrics", func() {
 		var crb *rbacv1.ClusterRoleBinding
+		const operatorRoleBindingName = "kubevirt-operator-rolebinding"
+		var operatorRoleBinding *rbacv1.RoleBinding
 
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
 
 			crb, err = virtClient.RbacV1().ClusterRoleBindings().Get(context.Background(), "kubevirt-operator", metav1.GetOptions{})
 			util.PanicOnError(err)
+			operatorRoleBinding, err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), operatorRoleBindingName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			increaseRateLimit()
 
@@ -188,9 +192,13 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			crb.ObjectMeta.ResourceVersion = ""
 			crb.ObjectMeta.UID = ""
 			_, err = virtClient.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
-			if !errors.IsAlreadyExists(err) {
-				util.PanicOnError(err)
-			}
+			Expect(err).To(Or(Not(HaveOccurred()), MatchError(errors.IsAlreadyExists, "IsAlreadyExists")))
+
+			operatorRoleBinding.Annotations = nil
+			operatorRoleBinding.ObjectMeta.ResourceVersion = ""
+			operatorRoleBinding.ObjectMeta.UID = ""
+			_, err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Create(context.Background(), operatorRoleBinding, metav1.CreateOptions{})
+			Expect(err).To(Or(Not(HaveOccurred()), MatchError(errors.IsAlreadyExists, "IsAlreadyExists")))
 			scales.RestoreAllScales()
 
 			time.Sleep(10 * time.Second)
@@ -213,6 +221,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 		It("VirtOperatorRESTErrorsBurst and VirtOperatorRESTErrorsHigh should be triggered when requests to virt-operator are failing", func() {
 			scales.RestoreScale(virtOperator.deploymentName)
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Delete(context.Background(), operatorRoleBindingName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega) {
