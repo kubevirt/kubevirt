@@ -1246,6 +1246,16 @@ func (c *VMController) cleanupRestartRequired(vm *virtv1.VirtualMachine) (*virtv
 }
 
 func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	ready, err := c.handleDataVolumes(vm)
+	if err != nil {
+		return vm, err
+	}
+
+	if !ready {
+		log.Log.Object(vm).V(4).Info("Waiting for DataVolumes to be created, delaying start")
+		return vm, nil
+	}
+
 	// TODO add check for existence
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
@@ -3101,16 +3111,6 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		log.Log.Object(vm).Reason(err).Errorf("failed to upgrade instancetype.kubevirt.io ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
 		return vm, &syncErrorImpl{fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}, nil
-	}
-
-	dataVolumesReady, err := c.handleDataVolumes(vm)
-	if err != nil {
-		return vm, &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}, nil
-	}
-
-	if !dataVolumesReady && runStrategy != virtv1.RunStrategyHalted {
-		log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready")
-		return vm, nil, nil
 	}
 
 	vm, syncErr = c.syncRunStrategy(vm, vmi, runStrategy)
