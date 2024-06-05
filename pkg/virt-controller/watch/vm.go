@@ -990,7 +990,7 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 		// Validate if the update volumes can be migrated
 		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
 			vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-				Type:               virtv1.VirtualMachineInstanceVolumesChange,
+				Type:               virtv1.VirtualMachineRestartRequired,
 				LastTransitionTime: v1.Now(),
 				Status:             k8score.ConditionTrue,
 				Message:            err.Error(),
