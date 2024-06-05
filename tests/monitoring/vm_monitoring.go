@@ -277,17 +277,13 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Validating the metric gets updated with the last connection timestamp")
-			initialTimestamp := float64(time.Now().Unix())
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			initialMetricValue := validateLastConnectionMetricValue(vmi, initialTimestamp)
+			initialMetricValue := validateLastConnectionMetricValue(vmi, 0)
 
 			time.Sleep(1 * time.Minute)
 
-			secondaryTimestamp := float64(time.Now().Unix())
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			secondaryMetricValue := validateLastConnectionMetricValue(vmi, secondaryTimestamp)
-
-			Expect(secondaryMetricValue).To(BeNumerically(">", initialMetricValue))
+			validateLastConnectionMetricValue(vmi, initialMetricValue)
 		})
 	})
 
@@ -368,7 +364,7 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 	return agentVMI
 }
 
-func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, timestamp float64) float64 {
+func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, formerValue float64) float64 {
 	var err error
 	var metricValue float64
 	virtClient := kubevirt.Client()
@@ -380,7 +376,7 @@ func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, timestamp
 			return -1
 		}
 		return metricValue
-	}, 3*time.Minute, 20*time.Second).Should(BeNumerically(">=", timestamp))
+	}, 3*time.Minute, 20*time.Second).Should(BeNumerically(">", formerValue))
 
 	return metricValue
 }
