@@ -6525,6 +6525,56 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmi).ToNot(BeNil())
 			})
 
+			It("when starting a VM with Manual and DVs are not ready the start request should not get trimmed", func() {
+				vm, _ := DefaultVirtualMachine(true)
+				vm.Spec.Running = nil
+				vm.Spec.RunStrategy = kvpointer.P(v1.RunStrategyManual)
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "test1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				})
+				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "dv1",
+					},
+				})
+
+				shouldFailDataVolumeCreationNoResourceFound()
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+
+				// update VM from the store
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+
+				By("Add Start Request")
+				startRequest := v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest}
+				vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, startRequest)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).UpdateStatus(context.TODO(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vm).ToNot(BeNil())
+
+				Expect(vm.Status.StateChangeRequests).ToNot(BeEmpty())
+				Expect(vm.Status.StateChangeRequests).To(ContainElement(startRequest))
+			})
+
 			DescribeTable("The VM should get started when switching to RerunOnFailure from", func(runStrategy v1.VirtualMachineRunStrategy) {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
@@ -6609,6 +6659,81 @@ var _ = Describe("VirtualMachine", func() {
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi).ToNot(BeNil())
+			})
+
+			It("when issuing a restart a VM with Always should get restarted", func() {
+				vm, _ := DefaultVirtualMachine(true)
+				vm.Spec.Running = nil
+				vm.Spec.RunStrategy = kvpointer.P(v1.RunStrategyAlways)
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+
+				crSource.Add(createVMRevision(vm))
+				syncCache(controller.crInformer.GetIndexer(), 1)
+
+				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// let the controller pick up the creation
+				vmiFeeder.Add(vmi)
+				sanityExecute(vm)
+
+				// update VM from the store
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Add a stop and start Request")
+				vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
+				vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).UpdateStatus(context.TODO(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("VM should get stopped")
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+
+				By("VM should get now restarted")
+				// pick up deletion
+				crSource.Delete(createVMRevision(vm))
+				syncCache(controller.crInformer.GetIndexer(), 0)
+				vmiFeeder.Delete(vmi)
+				sanityExecute(vm)
+
+				// check for VMI existence
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi).ToNot(BeNil())
+
+				// update VM from Store
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(vm.Status.StateChangeRequests).ToNot(ContainElement(v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID}))
+				Expect(vm.Status.StateChangeRequests).ToNot(BeEmpty())
+
+				// let the controller pick up the creation
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiInformer.GetIndexer(), 1)
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+
+				// update VM from Store
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vm.Status.StateChangeRequests).To(BeEmpty())
+
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(vmi).ToNot(BeNil())
+				Expect(err).ToNot(HaveOccurred())
+
 			})
 		})
 
