@@ -159,7 +159,7 @@ func GetDataVolumeFromCache(namespace, name string, dataVolumeStore cache.Store)
 		return nil, fmt.Errorf("error converting object to DataVolume: object is of type %T", obj)
 	}
 
-	return dv, nil
+	return dv.DeepCopy(), nil
 }
 
 func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeStore cache.Store) error {
