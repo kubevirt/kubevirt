@@ -339,7 +339,7 @@ var _ = Describe("VirtualMachine", func() {
 				"Type":   Equal(v1.VirtualMachineFailure),
 				"Reason": Equal("FailedCreate"),
 				"Message": And(
-					ContainSubstring("Error encountered while creating DataVolumes: failed to create DataVolume"),
+					ContainSubstring("Failure while starting VMI: failed to create DataVolume"),
 					ContainSubstring("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)"),
 				),
 			}))
@@ -1298,8 +1298,8 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(MatchError(ContainSubstring("not found")))
 		})
 
-		It("should create multiple DataVolumes for VirtualMachineInstance", func() {
-			vm, _ := DefaultVirtualMachine(true)
+		DescribeTable("should create multiple DataVolumes for VirtualMachineInstance when running", func(running bool) {
+			vm, _ := DefaultVirtualMachine(running)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1337,12 +1337,19 @@ var _ = Describe("VirtualMachine", func() {
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 
 			sanityExecute(vm)
-			Expect(createCount).To(Equal(2))
-			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
-		})
+			if running {
+				Expect(createCount).To(Equal(2))
+				testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+			} else {
+				Expect(createCount).To(Equal(0))
+			}
+		},
+			Entry("when VM is running", true),
+			Entry("when VM stopped", false),
+		)
 
 		DescribeTable("should properly handle PVC existing before DV created", func(annotations map[string]string, expectedCreations int, initFunc func()) {
-			vm, _ := DefaultVirtualMachine(false)
+			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
