@@ -92,6 +92,27 @@ func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.Vi
 	return nil
 }
 
+const deprecatedPreferredCPUTopologyErrFmt = "PreferredCPUTopology %s is deprecated for removal in a future release, please use %s instead"
+
+var deprecatedTopologies = map[instancetypeapiv1beta1.PreferredCPUTopology]instancetypeapiv1beta1.PreferredCPUTopology{
+	instancetypeapiv1beta1.DeprecatedPreferSockets: instancetypeapiv1beta1.Sockets,
+	instancetypeapiv1beta1.DeprecatedPreferCores:   instancetypeapiv1beta1.Cores,
+	instancetypeapiv1beta1.DeprecatedPreferThreads: instancetypeapiv1beta1.Threads,
+	instancetypeapiv1beta1.DeprecatedPreferSpread:  instancetypeapiv1beta1.Spread,
+	instancetypeapiv1beta1.DeprecatedPreferAny:     instancetypeapiv1beta1.Any,
+}
+
+func checkForDeprecatedPreferredCPUTopology(spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []string {
+	if spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
+		return nil
+	}
+	topology := *spec.CPU.PreferredCPUTopology
+	if _, ok := deprecatedTopologies[topology]; !ok {
+		return nil
+	}
+	return []string{fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, topology, deprecatedTopologies[topology])}
+}
+
 func admitPreference(request *admissionv1.AdmissionRequest, resource string) *admissionv1.AdmissionResponse {
 	// Only handle create and update
 	if request.Operation != admissionv1.Create && request.Operation != admissionv1.Update {
@@ -121,8 +142,8 @@ func admitPreference(request *admissionv1.AdmissionRequest, resource string) *ad
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
-
 	return &admissionv1.AdmissionResponse{
-		Allowed: true,
+		Allowed:  true,
+		Warnings: checkForDeprecatedPreferredCPUTopology(preferenceSpec),
 	}
 }
