@@ -122,7 +122,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		dataVolume := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 		)
 
 		vm := libvmi.NewVirtualMachine(

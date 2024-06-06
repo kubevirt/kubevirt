@@ -161,8 +161,8 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Expect(exist).To(BeTrue())
 			dv := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(size),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(size),
 				),
 			)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
@@ -813,8 +813,8 @@ func createBlankDV(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.Da
 	Expect(exist).To(BeTrue())
 	dv := libdv.NewDataVolume(
 		libdv.WithBlankImageSource(),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc),
-			libdv.PVCWithVolumeSize(size),
+		libdv.WithStorage(libdv.StorageWithStorageClass(sc),
+			libdv.StorageWithVolumeSize(size),
 		),
 	)
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),

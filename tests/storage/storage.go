@@ -1181,7 +1181,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				dv = libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -1392,10 +1392,10 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
-					libdv.WithPVC(libdv.PVCWithStorageClass(pv.Spec.StorageClassName),
-						libdv.PVCWithBlockVolumeMode(),
-						libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
-						libdv.PVCWithVolumeSize("8Mi"),
+					libdv.WithStorage(libdv.StorageWithStorageClass(pv.Spec.StorageClassName),
+						libdv.StorageWithBlockVolumeMode(),
+						libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
+						libdv.StorageWithVolumeSize("8Mi"),
 					),
 				)
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
