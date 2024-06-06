@@ -347,6 +347,10 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 })
 
 func createBridgeNetworkAttachmentDefinition(namespace, networkName string, bridgeName string) error {
+	const (
+		bridgeCNIType  = "bridge"
+		linuxBridgeNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"%s\", \"bridge\": \"%s\"}]}"}}`
+	)
 	return libnet.CreateNetworkAttachmentDefinition(
 		networkName,
 		namespace,
