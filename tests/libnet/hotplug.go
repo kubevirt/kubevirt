@@ -17,50 +17,27 @@
  *
  */
 
-package network
+package libnet
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libmigration"
-
-	"k8s.io/apimachinery/pkg/types"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
-
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
-const (
-	ifaceName   = "iface1"
-	nadName     = "skynet"
-	vmIfaceName = "eth1"
-)
-
-type hotplugMethod string
-
-const (
-	migrationBased hotplugMethod = "migrationBased"
-	inPlace        hotplugMethod = "inPlace"
-)
-
-func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod, queueCount int32) *v1.VirtualMachineInstance {
-	if plugMethod == migrationBased {
-		migrate(vmi)
-	}
-
+func VerifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int32) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
@@ -83,7 +60,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hot
 	return vmi
 }
 
-func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+func WaitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance, ifaceName, nadName string) *v1.VirtualMachineInstance {
 	EventuallyWithOffset(1, func() []v1.Network {
 		var err error
 		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
@@ -152,21 +129,7 @@ func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) [
 	return ifaceStatus
 }
 
-func newVMWithOneInterface() *v1.VirtualMachine {
-	vm := libvmi.NewVirtualMachine(libvmifact.NewAlpineWithTestTooling(), libvmi.WithRunning())
-	vm.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-	return vm
-}
-
-func migrate(vmi *v1.VirtualMachineInstance) {
-	By("migrating the VMI")
-	migration := libmigration.New(vmi.Name, vmi.Namespace)
-	migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-	libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
-}
-
-func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
+func PatchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
 	patchData, err := patch.GeneratePatchPayload(
 		patch.PatchOperation{
 			Op:    patch.PatchTestOp,
@@ -189,23 +152,16 @@ func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIf
 			Value: append(vm.Spec.Template.Spec.Domain.Devices.Interfaces, newIface),
 		},
 	)
-
 	if err != nil {
 		return err
 	}
 
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
-	return err
-}
-
-func removeInterface(vm *v1.VirtualMachine, name string) error {
-	specCopy := vm.Spec.Template.Spec.DeepCopy()
-	ifaceToRemove := vmispec.LookupInterfaceByName(specCopy.Domain.Devices.Interfaces, name)
-	ifaceToRemove.State = v1.InterfaceStateAbsent
-	patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/devices/interfaces", vm.Spec.Template.Spec.Domain.Devices.Interfaces, specCopy.Domain.Devices.Interfaces)
-	if err != nil {
-		return err
-	}
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(
+		context.Background(),
+		vm.Name,
+		types.JSONPatchType,
+		patchData,
+		metav1.PatchOptions{},
+	)
 	return err
 }

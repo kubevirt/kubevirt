@@ -620,11 +620,11 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 					bridgeSubnetMask     = "/24"
 				)
 
-				initialMacAddress, err := GenerateRandomMac()
+				initialMacAddress, err := libnet.GenerateRandomMac()
 				Expect(err).NotTo(HaveOccurred())
 				initialMacAddressStr := initialMacAddress.String()
 
-				spoofedMacAddress, err := GenerateRandomMac()
+				spoofedMacAddress, err := libnet.GenerateRandomMac()
 				Expect(err).NotTo(HaveOccurred())
 				spoofedMacAddressStr := spoofedMacAddress.String()
 
