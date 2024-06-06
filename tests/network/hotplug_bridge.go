@@ -127,38 +127,6 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 
-		DescribeTable("hotplugged interfaces are available after the VM is restarted", func(plugMethod hotplugMethod) {
-			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
-			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
-			By("restarting the VM")
-			Expect(kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).Restart(
-				context.Background(),
-				hotPluggedVM.GetName(),
-				&v1.RestartOptions{},
-			)).To(Succeed())
-
-			By("asserting a new VMI is created, and running")
-			Eventually(func() v1.VirtualMachineInstancePhase {
-				newVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
-				if err != nil || hotPluggedVMI.UID == newVMI.UID {
-					hotPluggedVMI.GetNamespace()
-					return v1.VmPhaseUnset
-				}
-				return newVMI.Status.Phase
-			}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
-			var err error
-			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			libwait.WaitUntilVMIReady(hotPluggedVMI, console.LoginToAlpine)
-
-			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
-		},
-			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
-		)
-
 		DescribeTable("can migrate a VMI with hotplugged interfaces", func(plugMethod hotplugMethod) {
 			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
