@@ -120,6 +120,9 @@ Information about VirtualMachineInstances. Type: Gauge.
 ### kubevirt_vmi_last_api_connection_timestamp_seconds
 Virtual Machine Instance last API connection timestamp. Including VNC, console, portforward, SSH and usbredir connections. Type: Gauge.
 
+### kubevirt_vmi_launcher_memory_overhead_bytes
+Estimation of the memory amount required for virt-launcher's infrastructure components (e.g. libvirt, QEMU). Type: Gauge.
+
 ### kubevirt_vmi_memory_actual_balloon_bytes
 Current balloon size in bytes. Type: Gauge.
 

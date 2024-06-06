@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -16,4 +16,10 @@ go_library(
         "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["virt_handler_suite_test.go"],
+    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
 )

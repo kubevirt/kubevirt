@@ -45,6 +45,7 @@ import (
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
@@ -1447,6 +1448,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 		vmiCPUArch = t.clusterConfig.GetClusterCPUArch()
 	}
 	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	metrics.SetVmiLaucherMemoryOverhead(vmi, memoryOverhead)
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
 	return VMIResourcePredicates{
 		vmi: vmi,

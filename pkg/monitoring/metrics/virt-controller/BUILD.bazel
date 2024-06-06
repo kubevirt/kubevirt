@@ -27,6 +27,7 @@ go_library(
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/github.com/prometheus/client_model/go:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
@@ -39,6 +40,7 @@ go_test(
         "migrationstats_collector_test.go",
         "perfscale_metrics_test.go",
         "virt_controller_suite_test.go",
+        "vmi_metrics_test.go",
         "vmistats_collector_test.go",
         "vmstats_collector_test.go",
     ],
@@ -53,6 +55,7 @@ go_test(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )
