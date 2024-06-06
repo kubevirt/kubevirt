@@ -36,7 +36,7 @@ var _ = Describe("Validating passt core binding", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
 		}}
 		spec.Networks = []v1.Network{{
 			Name:          "default",
@@ -58,7 +58,7 @@ var _ = Describe("Validating passt core binding", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
 		}}
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
@@ -76,7 +76,7 @@ var _ = Describe("Validating passt core binding", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
 		}}
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 

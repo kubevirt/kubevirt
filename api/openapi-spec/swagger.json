@@ -16559,6 +16559,10 @@
     "description": "DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap that connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface. Deprecated: Removed in v1.3",
     "type": "object"
    },
+   "v1.DeprecatedInterfacePasst": {
+    "description": "DeprecatedInterfacePasst is an alias to the deprecated InterfacePasst Deprecated: Removed in v1.3",
+    "type": "object"
+   },
    "v1.DeprecatedInterfaceSlirp": {
     "description": "DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp that connects to a given network using QEMU user networking mode. Deprecated: Removed in v1.3",
     "type": "object"
@@ -17542,8 +17546,8 @@
       "default": ""
      },
      "passt": {
-      "description": "Deprecated, please refer to Kubevirt user guide for alternatives.",
-      "$ref": "#/definitions/v1.InterfacePasst"
+      "description": "DeprecatedPasst is an alias to the deprecated Passt interface, please refer to Kubevirt user guide for alternatives. Deprecated: Removed in v1.3",
+      "$ref": "#/definitions/v1.DeprecatedInterfacePasst"
      },
      "pciAddress": {
       "description": "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
@@ -17614,10 +17618,6 @@
    },
    "v1.InterfaceMasquerade": {
     "description": "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
-    "type": "object"
-   },
-   "v1.InterfacePasst": {
-    "description": "InterfacePasst connects to a given network.",
     "type": "object"
    },
    "v1.InterfaceSRIOV": {

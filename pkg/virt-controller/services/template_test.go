@@ -3898,7 +3898,7 @@ var _ = Describe("Template", func() {
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						Passt: &v1.InterfacePasst{},
+						DeprecatedPasst: &v1.DeprecatedInterfacePasst{},
 					},
 				}}
 				return vmi

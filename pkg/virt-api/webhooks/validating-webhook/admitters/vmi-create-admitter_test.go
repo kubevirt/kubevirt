@@ -1130,12 +1130,16 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 		It("should raise a warning when Deprecated API is used", func() {
-			enableFeatureGate(deprecation.PasstGate)
+			const testsFGName = "test-deprecated"
+			deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+				Name:        testsFGName,
+				State:       deprecation.Deprecated,
+				VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
+			})
+			DeferCleanup(deprecation.UnregisterFeatureGate, testsFGName)
+			enableFeatureGate(testsFGName)
+
 			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}}
-			vmi.Spec.Networks = []v1.Network{
-				{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 			vmiJSON, _ := json.Marshal(&vmi)
 
 			ar := &admissionv1.AdmissionReview{

@@ -2169,13 +2169,16 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	It("should raise a warning when Deprecated API is used", func() {
-		enableFeatureGate(deprecation.PasstGate)
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-			{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}}
-		vmi.Spec.Networks = []v1.Network{
-			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+		const testsFGName = "test-deprecated"
+		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+			Name:        testsFGName,
+			State:       deprecation.Deprecated,
+			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
+		})
+		DeferCleanup(deprecation.UnregisterFeatureGate, testsFGName)
+		enableFeatureGate(testsFGName)
 
+		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,

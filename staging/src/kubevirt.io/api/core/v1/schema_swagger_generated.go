@@ -704,7 +704,7 @@ func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 		"":        "Represents the method which will be used to connect the interface to the guest.\nOnly one of its members may be specified.",
 		"slirp":   "DeprecatedSlirp is an alias to the deprecated Slirp interface\nDeprecated: Removed in v1.3",
 		"macvtap": "DeprecatedMacvtap is an alias to the deprecated Macvtap interface,\nplease refer to Kubevirt user guide for alternatives.\nDeprecated: Removed in v1.3\n+optional",
-		"passt":   "Deprecated, please refer to Kubevirt user guide for alternatives.\n+optional",
+		"passt":   "DeprecatedPasst is an alias to the deprecated Passt interface,\nplease refer to Kubevirt user guide for alternatives.\nDeprecated: Removed in v1.3\n+optional",
 	}
 }
 
@@ -738,9 +738,9 @@ func (DeprecatedInterfaceMacvtap) SwaggerDoc() map[string]string {
 	}
 }
 
-func (InterfacePasst) SwaggerDoc() map[string]string {
+func (DeprecatedInterfacePasst) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "InterfacePasst connects to a given network.",
+		"": "DeprecatedInterfacePasst is an alias to the deprecated InterfacePasst\nDeprecated: Removed in v1.3",
 	}
 }
 
