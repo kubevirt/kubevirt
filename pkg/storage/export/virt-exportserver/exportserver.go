@@ -29,6 +29,7 @@ import (
 	goflag "flag"
 	"fmt"
 	"io"
+	golog "log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -120,6 +121,9 @@ func (er *execReader) Close() error {
 func (s *exportServer) initHandler() {
 	mux := http.NewServeMux()
 	for _, vi := range s.Paths.Volumes {
+		if hasPermissions := checkVolumePermissions(vi.Path); !hasPermissions {
+			golog.Fatalf("unable to manipulate %s's contents, exiting", vi.Path)
+		}
 		for path, handler := range s.getHandlerMap(vi) {
 			log.Log.Infof("Handling path %s\n", path)
 			mux.Handle(path, tokenChecker(s.TokenGetter, handler))
@@ -509,6 +513,24 @@ func checkDirectoryPermissions(filePath string) bool {
 		file.Close()
 	}
 	return true
+}
+
+func checkVolumePermissions(path string) bool {
+	fi, err := os.Stat(path)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error statting %s", path)
+		return false
+	}
+	if !fi.IsDir() {
+		f, err := os.Open(path)
+		if err != nil {
+			log.Log.Reason(err).Errorf("error opening %s", path)
+			return false
+		}
+		f.Close()
+		return true
+	}
+	return checkDirectoryPermissions(path)
 }
 
 func gzipHandler(filePath string) http.Handler {
