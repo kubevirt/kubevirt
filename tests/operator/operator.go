@@ -1627,6 +1627,7 @@ spec:
 			previousImageRegistry := flags.PreviousReleaseRegistry
 			if previousImageTag == "" {
 				previousImageTag, err = detectLatestUpstreamOfficialTag()
+				previousImageTag = "v1.2.2"
 				Expect(err).ToNot(HaveOccurred())
 				By(fmt.Sprintf("By Using detected tag %s for previous kubevirt", previousImageTag))
 			} else {
