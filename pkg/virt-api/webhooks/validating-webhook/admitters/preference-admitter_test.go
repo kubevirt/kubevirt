@@ -134,6 +134,26 @@ var _ = Describe("Validating Preference Admitter", func() {
 		),
 	)
 
+	DescribeTable("should raise warning for", func(deprecatedTopology, expectedAlternativeTopology instancetypev1beta1.PreferredCPUTopology) {
+		preferenceObj := &instancetypev1beta1.VirtualMachinePreference{
+			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1beta1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(deprecatedTopology),
+				},
+			},
+		}
+		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeTrue())
+		Expect(response.Warnings).To(HaveLen(1))
+		Expect(response.Warnings[0]).To(ContainSubstring(fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, deprecatedTopology, expectedAlternativeTopology)))
+	},
+		Entry("DeprecatedPreferSockets and provide Sockets as an alternative", instancetypev1beta1.DeprecatedPreferSockets, instancetypev1beta1.Sockets),
+		Entry("DeprecatedPreferCores and provide Cores as an alternative", instancetypev1beta1.DeprecatedPreferCores, instancetypev1beta1.Cores),
+		Entry("DeprecatedPreferThreads and provide Threads as an alternative", instancetypev1beta1.DeprecatedPreferThreads, instancetypev1beta1.Threads),
+		Entry("DeprecatedPreferSpread and provide Spread as an alternative", instancetypev1beta1.DeprecatedPreferSpread, instancetypev1beta1.Spread),
+		Entry("DeprecatedPreferAny and provide Any as an alternative", instancetypev1beta1.DeprecatedPreferAny, instancetypev1beta1.Any),
+	)
 })
 
 var _ = Describe("Validating ClusterPreference Admitter", func() {
@@ -230,6 +250,27 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 				},
 			},
 		),
+	)
+
+	DescribeTable("should raise warning for", func(deprecatedTopology, expectedAlternativeTopology instancetypev1beta1.PreferredCPUTopology) {
+		preferenceObj := &instancetypev1beta1.VirtualMachineClusterPreference{
+			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1beta1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(deprecatedTopology),
+				},
+			},
+		}
+		ar := createClusterPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeTrue())
+		Expect(response.Warnings).To(HaveLen(1))
+		Expect(response.Warnings[0]).To(ContainSubstring(fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, deprecatedTopology, expectedAlternativeTopology)))
+	},
+		Entry("DeprecatedPreferSockets and provide Sockets as an alternative", instancetypev1beta1.DeprecatedPreferSockets, instancetypev1beta1.Sockets),
+		Entry("DeprecatedPreferCores and provide Cores as an alternative", instancetypev1beta1.DeprecatedPreferCores, instancetypev1beta1.Cores),
+		Entry("DeprecatedPreferThreads and provide Threads as an alternative", instancetypev1beta1.DeprecatedPreferThreads, instancetypev1beta1.Threads),
+		Entry("DeprecatedPreferSpread and provide Spread as an alternative", instancetypev1beta1.DeprecatedPreferSpread, instancetypev1beta1.Spread),
+		Entry("DeprecatedPreferAny and provide Any as an alternative", instancetypev1beta1.DeprecatedPreferAny, instancetypev1beta1.Any),
 	)
 })
 
