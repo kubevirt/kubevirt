@@ -304,21 +304,21 @@ type PreferredCPUTopology string
 
 const (
 	// Prefer vCPUs to be exposed as cores to the guest
-	PreferCores PreferredCPUTopology = "preferCores"
+	DeprecatedPreferCores PreferredCPUTopology = "preferCores"
 
 	// Prefer vCPUs to be exposed as sockets to the guest, this is the default for the PreferredCPUTopology attribute of CPUPreferences.
-	PreferSockets PreferredCPUTopology = "preferSockets"
+	DeprecatedPreferSockets PreferredCPUTopology = "preferSockets"
 
 	// Prefer vCPUs to be exposed as threads to the guest
-	PreferThreads PreferredCPUTopology = "preferThreads"
+	DeprecatedPreferThreads PreferredCPUTopology = "preferThreads"
 
 	// Prefer vCPUs to be spread evenly between cores and sockets with any remaining vCPUs being presented as cores
-	PreferSpread PreferredCPUTopology = "preferSpread"
+	DeprecatedPreferSpread PreferredCPUTopology = "preferSpread"
 
 	// Prefer vCPUs to be spread according to VirtualMachineInstanceTemplateSpec
 	//
 	// If used with VirtualMachineInstanceType it will use sockets as default
-	PreferAny PreferredCPUTopology = "preferAny"
+	DeprecatedPreferAny PreferredCPUTopology = "preferAny"
 
 	// Prefer vCPUs to be exposed as cores to the guest
 	Cores PreferredCPUTopology = "cores"
