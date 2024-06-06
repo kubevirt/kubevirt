@@ -1,4 +1,4 @@
-package remove_key
+package removekey
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmdFlags := &removeSshKeyFlags{}
+	cmdFlags := &removeSSHKeyFlags{}
 	cmd := &cobra.Command{
 		Use:     "remove-ssh-key",
 		Short:   "Remove credentials from a virtual machine.",
@@ -41,19 +41,19 @@ const exampleUsage = `  # Remove an SSH key for a running virtual machine.
   {{ProgramName}} credentials remove-ssh-key --user <username> --file <path-to-ssh-public-key> --force <vm-name>
 `
 
-type removeSshKeyFlags struct {
-	common.SshCommandFlags
+type removeSSHKeyFlags struct {
+	common.SSHCommandFlags
 
 	Force bool
 }
 
-func (r *removeSshKeyFlags) AddToCommand(cmd *cobra.Command) {
-	r.SshCommandFlags.AddToCommand(cmd)
+func (r *removeSSHKeyFlags) AddToCommand(cmd *cobra.Command) {
+	r.SSHCommandFlags.AddToCommand(cmd)
 
 	cmd.Flags().BoolVar(&r.Force, "force", false, "Force update of secret, even if it's not owned by the VM.")
 }
 
-func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSshKeyFlags, cmd *cobra.Command, args []string) error {
+func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSSHKeyFlags, cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
 	vmNamespace, _, err := clientConfig.Namespace()
@@ -62,7 +62,7 @@ func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSs
 	}
 
 	// Reading the key before accessing cluster
-	sshKey, err := common.GetSshKey(&cmdFlags.SshCommandFlags)
+	sshKey, err := common.GetSSHKey(&cmdFlags.SSHCommandFlags)
 	if err != nil {
 		return fmt.Errorf("error getting ssh key: %w", err)
 	}
@@ -77,7 +77,7 @@ func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSs
 		return fmt.Errorf("error getting virtual machine: %w", err)
 	}
 
-	secrets := common.GetSshSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, cmdFlags.User)
+	secrets := common.GetSSHSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, cmdFlags.User)
 	if len(secrets) == 0 {
 		cmd.Printf("No secrets associated with user %s", cmdFlags.User)
 		return nil
@@ -104,7 +104,14 @@ func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSs
 	return nil
 }
 
-func removeKeyFromSecret(ctx context.Context, cli kubecli.KubevirtClient, vm *v1.VirtualMachine, secretName string, key string, force bool) error {
+func removeKeyFromSecret(
+	ctx context.Context,
+	cli kubecli.KubevirtClient,
+	vm *v1.VirtualMachine,
+	secretName string,
+	key string,
+	force bool,
+) error {
 	// Looping, because Update API call can fail with conflict
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		select {
@@ -124,13 +131,13 @@ func removeKeyFromSecret(ctx context.Context, cli kubecli.KubevirtClient, vm *v1
 
 		if !force {
 			// Check if secret is owned by the VM. This is useful to not accidentally update a secret that is used by multiple VMs.
-			if !common.IsOwnedByVm(secret, vm) {
+			if !common.IsOwnedByVM(secret, vm) {
 				return fmt.Errorf("secret %s does not have an owner reference pointing to VM %s", secretName, vm.Name)
 			}
 		}
 
 		for fileName, data := range secret.Data {
-			updatedData := removeSshKeyFromBytes(key, data)
+			updatedData := removeSSHKeyFromBytes(key, data)
 			if len(updatedData) == 0 {
 				delete(secret.Data, fileName)
 			} else {
@@ -146,12 +153,12 @@ func removeKeyFromSecret(ctx context.Context, cli kubecli.KubevirtClient, vm *v1
 	})
 }
 
-func removeSshKeyFromBytes(key string, data []byte) []byte {
+func removeSSHKeyFromBytes(key string, data []byte) []byte {
 	lines := strings.Split(string(data), "\n")
 
 	resultLines := make([]string, 0, len(lines))
 	for i := range lines {
-		if !common.LineContainsKey(lines[i], key) && len(strings.TrimSpace(lines[i])) > 0 {
+		if !common.LineContainsKey(lines[i], key) && strings.TrimSpace(lines[i]) != "" {
 			resultLines = append(resultLines, lines[i])
 		}
 	}

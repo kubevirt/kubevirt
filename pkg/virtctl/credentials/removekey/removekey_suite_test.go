@@ -1,4 +1,4 @@
-package add_key_test
+package removekey_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestAddKey(t *testing.T) {
+func TestRemoveKey(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "AddKey Suite")
+	RunSpecs(t, "RemoveKey Suite")
 }

@@ -1,14 +1,15 @@
-package remove_key_test
+package removekey_test
 
 import (
 	"context"
 	"os"
 	"path/filepath"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/golang/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,12 +21,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
@@ -91,7 +92,7 @@ var _ = Describe("Credentials", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: pointer.P(true),
 				}},
 			},
 			Data: map[string][]byte{
@@ -113,57 +114,59 @@ var _ = Describe("Credentials", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachineInstance, error) {
-			if name == vmName && vmi != nil {
-				return vmi, nil
-			}
-			return nil, errors.NewNotFound(schema.GroupResource{
-				Group:    core.GroupName,
-				Resource: "VirtualMachineInstance",
-			}, name)
-		}).AnyTimes()
+		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachineInstance, error) {
+				if name == vmName && vmi != nil {
+					return vmi, nil
+				}
+				return nil, errors.NewNotFound(schema.GroupResource{
+					Group:    core.GroupName,
+					Resource: "VirtualMachineInstance",
+				}, name)
+			}).AnyTimes()
 
-		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachine, error) {
-			if name == vmName && vm != nil {
-				return vm, nil
-			}
-			return nil, errors.NewNotFound(schema.GroupResource{
-				Group:    core.GroupName,
-				Resource: "VirtualMachine",
-			}, name)
-		}).AnyTimes()
-
-		vmInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), types.JSONPatchType, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ any, name string, _ any, patchData []byte, _ any, _ ...any) (*v1.VirtualMachine, error) {
-			if name != vmName || vm == nil {
+		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachine, error) {
+				if name == vmName && vm != nil {
+					return vm, nil
+				}
 				return nil, errors.NewNotFound(schema.GroupResource{
 					Group:    core.GroupName,
 					Resource: "VirtualMachine",
 				}, name)
-			}
+			}).AnyTimes()
 
-			patch, err := jsonpatch.DecodePatch(patchData)
-			if err != nil {
-				return nil, err
-			}
+		vmInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), types.JSONPatchType, gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ any, name string, _ any, patchData []byte, _ any, _ ...any) (*v1.VirtualMachine, error) {
+				if name != vmName || vm == nil {
+					return nil, errors.NewNotFound(schema.GroupResource{
+						Group:    core.GroupName,
+						Resource: "VirtualMachine",
+					}, name)
+				}
 
-			vmJson, err := json.Marshal(vm)
-			if err != nil {
-				return nil, err
-			}
+				patch, err := jsonpatch.DecodePatch(patchData)
+				if err != nil {
+					return nil, err
+				}
 
-			modifiedVmJson, err := patch.Apply(vmJson)
-			if err != nil {
-				return nil, err
-			}
+				vmJSON, err := json.Marshal(vm)
+				if err != nil {
+					return nil, err
+				}
 
-			err = json.Unmarshal(modifiedVmJson, vm)
-			if err != nil {
-				return nil, err
-			}
+				modifiedVMJSON, err := patch.Apply(vmJSON)
+				if err != nil {
+					return nil, err
+				}
 
-			return vm, nil
-		}).AnyTimes()
+				err = json.Unmarshal(modifiedVMJSON, vm)
+				if err != nil {
+					return nil, err
+				}
 
+				return vm, nil
+			}).AnyTimes()
 	})
 
 	It("should fail if no key is specified", func() {
@@ -239,7 +242,7 @@ var _ = Describe("Credentials", func() {
 
 	It("should remove key from secret with key from file", func() {
 		filename := filepath.Join(GinkgoT().TempDir(), "test-key-file")
-		Expect(os.WriteFile(filename, []byte(testKey), 0666)).To(Succeed())
+		Expect(os.WriteFile(filename, []byte(testKey), 0o600)).To(Succeed())
 
 		err := runRemoveKeyCommand(
 			"--user", userName,
@@ -261,7 +264,7 @@ var _ = Describe("Credentials", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: pointer.P(true),
 				}},
 			},
 			Data: map[string][]byte{
@@ -285,7 +288,8 @@ var _ = Describe("Credentials", func() {
 							Users: []string{userName},
 						},
 					},
-				}})
+				},
+			})
 
 		err = runRemoveKeyCommand(
 			"--user", userName,

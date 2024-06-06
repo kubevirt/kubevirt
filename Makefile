@@ -214,6 +214,7 @@ lint:
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
 	  pkg/network/deviceinfo/... \
+	  pkg/virtctl/credentials/... \
 	  tests/console/... \
 	  tests/instancetype/... \
 	  tests/libinstancetype/... \

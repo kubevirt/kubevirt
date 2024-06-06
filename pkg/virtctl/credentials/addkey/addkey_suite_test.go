@@ -1,4 +1,4 @@
-package set_password_test
+package addkey_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestSetPassword(t *testing.T) {
+func TestAddKey(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "SetPassword Suite")
+	RunSpecs(t, "AddKey Suite")
 }

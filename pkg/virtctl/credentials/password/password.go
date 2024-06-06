@@ -1,4 +1,4 @@
-package set_password
+package password
 
 import (
 	"fmt"
@@ -88,13 +88,13 @@ func runSetPasswordCommand(clientConfig clientcmd.ClientConfig, cmdFlags *passwo
 	}
 
 	if !cmdFlags.Force {
-		secret, err := cli.CoreV1().Secrets(vm.Namespace).Get(cmd.Context(), secretName, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("error getting secret \"%s\": %w", secretName, err)
+		secret, errSecret := cli.CoreV1().Secrets(vm.Namespace).Get(cmd.Context(), secretName, metav1.GetOptions{})
+		if errSecret != nil {
+			return fmt.Errorf("error getting secret \"%s\": %w", secretName, errSecret)
 		}
 
 		// Check if secret is owned by the VM. This is useful to not accidentally update a secret that is used by multiple VMs.
-		if !common.IsOwnedByVm(secret, vm) {
+		if !common.IsOwnedByVM(secret, vm) {
 			return fmt.Errorf("secret %s does not have an owner reference pointing to VM %s", secretName, vm.Name)
 		}
 	}
@@ -102,7 +102,11 @@ func runSetPasswordCommand(clientConfig clientcmd.ClientConfig, cmdFlags *passwo
 	addKeyPatch := common.AddKeyToSecretPatchOp(cmdFlags.User, []byte(cmdFlags.Password))
 
 	// Try patch to only add the new key.
-	_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(), secretName, types.JSONPatchType, common.MustMarshalPatch(addKeyPatch), metav1.PatchOptions{})
+	_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(),
+		secretName,
+		types.JSONPatchType,
+		common.MustMarshalPatch(addKeyPatch),
+		metav1.PatchOptions{})
 	if err != nil {
 		// If it fails, it probably means that /data field is nil. Try second patch to add /data field.
 		fullPatch := common.MustMarshalPatch(append(common.AddDataFieldToSecretPatchOp(), addKeyPatch)...)

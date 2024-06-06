@@ -1,4 +1,4 @@
-package add_key
+package addkey
 
 import (
 	"fmt"
@@ -10,17 +10,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmdFlags := &addSshKeyFlags{}
+	cmdFlags := &addSSHKeyFlags{}
 	cmd := &cobra.Command{
 		Use:     "add-ssh-key",
 		Short:   "Add credentials to a virtual machine.",
@@ -52,8 +52,8 @@ const exampleUsage = `  # Add an SSH key for a running virtual machine.
   {{ProgramName}} credentials add-ssh-key --create-secret --user <username> --file <path-to-ssh-public-key> --force <vm-name>
 `
 
-type addSshKeyFlags struct {
-	common.SshCommandFlags
+type addSSHKeyFlags struct {
+	common.SSHCommandFlags
 
 	CreateSecret bool
 	UpdateSecret bool
@@ -61,22 +61,25 @@ type addSshKeyFlags struct {
 	Force bool
 }
 
-func (a *addSshKeyFlags) AddToCommand(cmd *cobra.Command) {
-	a.SshCommandFlags.AddToCommand(cmd)
+func (a *addSSHKeyFlags) AddToCommand(cmd *cobra.Command) {
+	a.SSHCommandFlags.AddToCommand(cmd)
 
 	const (
 		createSecretFlag = "create-secret"
 		updateSecretFlag = "update-secret"
 	)
 
-	cmd.Flags().BoolVar(&a.CreateSecret, createSecretFlag, false, "Create a new secret for the SSH key. The new key will not be added to a running VM. Use --force to add a new secret even if the VM is running.")
-	cmd.Flags().BoolVar(&a.UpdateSecret, updateSecretFlag, false, "Add the SSH key to an existing secret. Use --force option, if the secret does not have owner reference pointing to the VM.")
+	cmd.Flags().BoolVar(&a.CreateSecret, createSecretFlag, false,
+		"Create a new secret for the SSH key. The new key will not be added to a running VM. "+
+			"Use --force to add a new secret even if the VM is running.")
+	cmd.Flags().BoolVar(&a.UpdateSecret, updateSecretFlag, false,
+		"Add the SSH key to an existing secret. Use --force option, if the secret does not have owner reference pointing to the VM.")
 	cmd.MarkFlagsMutuallyExclusive(createSecretFlag, updateSecretFlag)
 
 	cmd.Flags().BoolVar(&a.Force, "force", false, "Force update of secret, even if it's not owned by the VM.")
 }
 
-func runAddKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *addSshKeyFlags, cmd *cobra.Command, args []string) error {
+func runAddKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *addSSHKeyFlags, cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 	vmNamespace, _, err := clientConfig.Namespace()
 	if err != nil {
@@ -84,7 +87,7 @@ func runAddKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *addSshKeyFl
 	}
 
 	// Reading the key before accessing cluster
-	sshKey, err := common.GetSshKey(&cmdFlags.SshCommandFlags)
+	sshKey, err := common.GetSSHKey(&cmdFlags.SSHCommandFlags)
 	if err != nil {
 		return fmt.Errorf("error getting ssh key: %w", err)
 	}
@@ -100,17 +103,25 @@ func runAddKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *addSshKeyFl
 	}
 
 	if shouldCreateNewSecret(cmdFlags, vm) {
-		return addSecretWithSshKey(cmd, cli, cmdFlags, vm, sshKey)
+		return addSecretWithSSHKey(cmd, cli, cmdFlags, vm, sshKey)
 	}
-	return updateSecretWithSshKey(cmd, cli, cmdFlags, vm, sshKey)
+	return updateSecretWithSSHKey(cmd, cli, cmdFlags, vm, sshKey)
 }
 
-func addSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdFlags *addSshKeyFlags, vm *v1.VirtualMachine, sshKey string) (err error) {
+func addSecretWithSSHKey(
+	cmd *cobra.Command,
+	cli kubecli.KubevirtClient,
+	cmdFlags *addSSHKeyFlags,
+	vm *v1.VirtualMachine,
+	sshKey string,
+) error {
 	if !cmdFlags.Force {
 		// Only create a secret if VM is not running.
 		_, err := cli.VirtualMachineInstance(vm.Namespace).Get(cmd.Context(), vm.Name, metav1.GetOptions{})
 		if err == nil {
-			return fmt.Errorf("virtual machine %s is running. Use --force flag to update a running VM, it will take effect after restart", vm.Name)
+			return fmt.Errorf(
+				"virtual machine %s is running. Use --force flag to update a running VM, it will take effect after restart",
+				vm.Name)
 		}
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("error when getting virtual machine instance: %w", err)
@@ -118,7 +129,7 @@ func addSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdFlag
 	}
 
 	secret := newSecretWithKey(vm, sshKey)
-	secret, err = cli.CoreV1().Secrets(vm.Namespace).Create(cmd.Context(), secret, metav1.CreateOptions{})
+	secret, err := cli.CoreV1().Secrets(vm.Namespace).Create(cmd.Context(), secret, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("error creating secret: %w", err)
 	}
@@ -127,7 +138,11 @@ func addSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdFlag
 	accessCredentialPatch := patchToAddAccessCredential(accessCredential)
 
 	// First, Try to add the new access credential to the existing array.
-	_, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(), vm.Name, types.JSONPatchType, common.MustMarshalPatch(accessCredentialPatch), metav1.PatchOptions{})
+	_, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(),
+		vm.Name,
+		types.JSONPatchType,
+		common.MustMarshalPatch(accessCredentialPatch),
+		metav1.PatchOptions{})
 	if err != nil {
 		// If it fails, it probably means that the array is nil. Try to add the array.
 		fullPatch := common.MustMarshalPatch(append(patchToAddAccessCredentialsArray(), accessCredentialPatch)...)
@@ -140,8 +155,14 @@ func addSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdFlag
 	return nil
 }
 
-func updateSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdFlags *addSshKeyFlags, vm *v1.VirtualMachine, sshKey string) error {
-	secrets := common.GetSshSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, cmdFlags.User)
+func updateSecretWithSSHKey(
+	cmd *cobra.Command,
+	cli kubecli.KubevirtClient,
+	cmdFlags *addSSHKeyFlags,
+	vm *v1.VirtualMachine,
+	sshKey string,
+) error {
+	secrets := common.GetSSHSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, cmdFlags.User)
 	if len(secrets) == 0 {
 		return fmt.Errorf("no secrets specified for user: %s", cmdFlags.User)
 	}
@@ -163,7 +184,7 @@ func updateSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdF
 
 	if !cmdFlags.Force {
 		// Check if secret is owned by the VM. This is useful to not accidentally update a secret that is used by multiple VMs.
-		if !common.IsOwnedByVm(secret, vm) {
+		if !common.IsOwnedByVM(secret, vm) {
 			return fmt.Errorf("secret %s does not have an owner reference pointing to VM %s", secretName, vm.Name)
 		}
 	}
@@ -171,7 +192,12 @@ func updateSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdF
 	addKeyPatch := common.AddKeyToSecretPatchOp(common.RandomWithPrefix("ssh-key-"), []byte(sshKey))
 
 	// First, try patch to add a new key
-	_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(), secretName, types.JSONPatchType, common.MustMarshalPatch(addKeyPatch), metav1.PatchOptions{})
+	_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(
+		cmd.Context(),
+		secretName,
+		types.JSONPatchType,
+		common.MustMarshalPatch(addKeyPatch),
+		metav1.PatchOptions{})
 	if err != nil {
 		// If it fails, the /data may be nil. Try a patch that adds the /data field
 		fullPatch := common.MustMarshalPatch(append(common.AddDataFieldToSecretPatchOp(), addKeyPatch)...)
@@ -185,7 +211,7 @@ func updateSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdF
 	return nil
 }
 
-func shouldCreateNewSecret(flags *addSshKeyFlags, vm *v1.VirtualMachine) bool {
+func shouldCreateNewSecret(flags *addSSHKeyFlags, vm *v1.VirtualMachine) bool {
 	if flags.CreateSecret {
 		return true
 	}
@@ -194,7 +220,7 @@ func shouldCreateNewSecret(flags *addSshKeyFlags, vm *v1.VirtualMachine) bool {
 	}
 
 	// Default behavior: Create a new secret, if no secret is defined for a user
-	secrets := common.GetSshSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, flags.User)
+	secrets := common.GetSSHSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, flags.User)
 	return len(secrets) == 0
 }
 
@@ -208,7 +234,7 @@ func newSecretWithKey(vm *v1.VirtualMachine, sshKey string) *core.Secret {
 				Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 				Name:       vm.Name,
 				UID:        vm.UID,
-				Controller: pointer.Bool(true),
+				Controller: pointer.P(true),
 			}},
 		},
 		Data: map[string][]byte{
@@ -229,7 +255,7 @@ func secretContainsKey(secretData map[string][]byte, key string) bool {
 	return false
 }
 
-func newAccessCredential(secretName string, user string) *v1.AccessCredential {
+func newAccessCredential(secretName, user string) *v1.AccessCredential {
 	return &v1.AccessCredential{
 		SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
 			Source: v1.SSHPublicKeyAccessCredentialSource{

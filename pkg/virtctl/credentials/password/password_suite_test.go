@@ -1,4 +1,4 @@
-package remove_key_test
+package password_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestRemoveKey(t *testing.T) {
+func TestSetPassword(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "RemoveKey Suite")
+	RunSpecs(t, "SetPassword Suite")
 }
