@@ -20,6 +20,7 @@
 package apply
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -1165,5 +1166,86 @@ var _ = Describe("Apply Apps", func() {
 			Entry("Without custom users", []string{}),
 			Entry("With custom users", []string{"someuser"}),
 		)
+	})
+
+	Context("on calling syncDeployment", func() {
+		var cachedDeployment *appsv1.Deployment
+		var strategyDeployment *appsv1.Deployment
+		var clientset *kubecli.MockKubevirtClient
+		var kv *v1.KubeVirt
+		var stores util.Stores
+		var ctrl *gomock.Controller
+		const revisionAnnotation = "deployment.kubernetes.io/revision"
+		const fakeAnnotation = "fakeAnnotation.io/fake"
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
+			clientset = kubecli.NewMockKubevirtClient(ctrl)
+			dpClient := fake.NewSimpleClientset()
+			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+			clientset.EXPECT().AppsV1().Return(dpClient.AppsV1()).AnyTimes()
+
+			kv = &v1.KubeVirt{ObjectMeta: v12.ObjectMeta{Namespace: Namespace}}
+			virtControllerConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+			}
+			var err error
+			strategyDeployment, err = components.NewControllerDeployment(
+				Namespace,
+				virtControllerConfig.GetImageRegistry(),
+				virtControllerConfig.GetImagePrefix(),
+				virtControllerConfig.GetControllerVersion(),
+				virtControllerConfig.GetLauncherVersion(),
+				virtControllerConfig.GetExportServerVersion(),
+				"",
+				"",
+				"",
+				"",
+				virtControllerConfig.VirtControllerImage,
+				virtControllerConfig.VirtLauncherImage,
+				virtControllerConfig.VirtExportServerImage,
+				virtControllerConfig.SidecarShimImage,
+				virtControllerConfig.GetImagePullPolicy(),
+				virtControllerConfig.GetImagePullSecrets(),
+				virtControllerConfig.GetVerbosity(),
+				virtControllerConfig.GetExtraEnv())
+			Expect(err).ToNot(HaveOccurred())
+
+			cachedDeployment = strategyDeployment.DeepCopy()
+			cachedDeployment.Generation = 2
+			cachedDeployment.Annotations = map[string]string{
+				revisionAnnotation: "4",
+				fakeAnnotation:     "fake",
+			}
+			_, err = clientset.AppsV1().Deployments(Namespace).Create(context.TODO(), cachedDeployment, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			stores = util.Stores{DeploymentCache: &MockStore{get: cachedDeployment}}
+		})
+
+		It("should not remove revision annotation", func() {
+			kv.Status.Generations = []v1.GenerationStatus{{
+				Group:     "apps",
+				Resource:  "deployments",
+				Namespace: strategyDeployment.Namespace,
+				Name:      strategyDeployment.Name,
+				//Generation is not up-to-date with cachedDeployment
+				//therefore Operator need to update the deployment
+				LastGeneration: cachedDeployment.Generation - 1,
+			}}
+			r := &Reconciler{
+				clientset:    clientset,
+				kv:           kv,
+				expectations: &util.Expectations{},
+				stores:       stores,
+			}
+			updatedDeploy, err := r.syncDeployment(strategyDeployment)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedDeploy.Annotations).ToNot(BeNil())
+			Expect(updatedDeploy.Annotations).To(HaveKeyWithValue(revisionAnnotation, "4"))
+			Expect(updatedDeploy.Annotations).ToNot(HaveKey(fakeAnnotation))
+		})
 	})
 })
