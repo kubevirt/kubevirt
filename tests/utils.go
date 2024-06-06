@@ -161,11 +161,11 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(sc),
-			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
-			libdv.PVCWithAccessMode(accessMode),
-			libdv.PVCWithVolumeMode(volMode),
+		libdv.WithStorage(
+			libdv.StorageWithStorageClass(sc),
+			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
+			libdv.StorageWithAccessMode(accessMode),
+			libdv.StorageWithVolumeMode(volMode),
 		),
 	)
 
@@ -206,10 +206,10 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
-			libdv.PVCWithAccessMode(accessMode),
+		libdv.WithStorage(
+			libdv.StorageWithStorageClass(storageClass),
+			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
+			libdv.StorageWithAccessMode(accessMode),
 		),
 	)
 

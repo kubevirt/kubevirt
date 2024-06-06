@@ -1177,7 +1177,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				dv := libdv.NewDataVolume(
 					libdv.WithName("restore-pvc-"+rand.String(12)),
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
 				)
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -1718,7 +1718,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 					source := libdv.NewDataVolume(
 						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-						libdv.WithPVC(libdv.PVCWithStorageClass(sourceSC)),
+						libdv.WithStorage(libdv.StorageWithStorageClass(sourceSC)),
 						libdv.WithForceBindAnnotation(),
 					)
 
@@ -1776,7 +1776,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					// TODO: consider ensuring network clone gets done here using StorageProfile CloneStrategy
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
-						libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize("1Gi")),
+						libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass), libdv.StorageWithVolumeSize("1Gi")),
 					)
 
 					vm := libvmi.NewVirtualMachine(
@@ -1841,9 +1841,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 func newVMWithDataVolumeForRestore(storageClass string) *v1.VirtualMachine {
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+		libdv.WithStorage(
+			libdv.StorageWithStorageClass(storageClass),
+			libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
 		),
 	)
 	vm := libvmi.NewVirtualMachine(

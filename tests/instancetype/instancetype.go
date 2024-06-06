@@ -781,7 +781,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				libdv.WithNamespace(namespace),
 				libdv.WithForceBindAnnotation(),
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+				libdv.WithStorage(libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce), libdv.StorageWithVolumeSize("1Gi")),
 			)
 			// TODO - Add withDefault{Instancetype,Preference}Label support to libdv
 			sourceDV.Labels = map[string]string{
@@ -858,7 +858,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
-						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+						libdv.WithStorage(libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce), libdv.StorageWithVolumeSize("1Gi")),
 					)
 					return []virtv1.DataVolumeTemplateSpec{{
 						ObjectMeta: metav1.ObjectMeta{
@@ -892,7 +892,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
-						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+						libdv.WithStorage(libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce), libdv.StorageWithVolumeSize("1Gi")),
 					)
 
 					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
@@ -912,7 +912,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithBlankImageSource(),
-						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+						libdv.WithStorage(libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce), libdv.StorageWithVolumeSize("1Gi")),
 					)
 					blankDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), blankDV, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -946,7 +946,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
-						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+						libdv.WithStorage(libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce), libdv.StorageWithVolumeSize("1Gi")),
 					)
 
 					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
@@ -972,7 +972,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				libdv.WithNamespace(namespace),
 				libdv.WithForceBindAnnotation(),
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+				libdv.WithStorage(libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce), libdv.StorageWithVolumeSize("1Gi")),
 			)
 			vm.Spec.DataVolumeTemplates = generateDataVolumeTemplatesFromDataVolume(dv)
 			vm.Spec.Template.Spec.Volumes = generateVolumesForDataVolumeTemplates()

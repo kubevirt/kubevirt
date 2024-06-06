@@ -176,11 +176,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(cd.AlpineVolumeSize),
-					libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
-					libdv.PVCWithVolumeMode(corev1.PersistentVolumeFilesystem),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+					libdv.StorageWithAccessMode(corev1.ReadWriteOnce),
+					libdv.StorageWithVolumeMode(corev1.PersistentVolumeFilesystem),
 				),
 			)
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
