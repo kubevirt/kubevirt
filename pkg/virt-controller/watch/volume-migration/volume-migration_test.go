@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -46,7 +45,7 @@ import (
 
 var _ = Describe("Volume Migration", func() {
 	Context("ValidateVolumes", func() {
-		DescribeTable("should validate the migrated volumes", func(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine, expectError error) {
+		DescribeTable("should validate the migrated volumes", func(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine, expectError error) {
 			err := volumemigration.ValidateVolumes(vmi, vm)
 			if expectError != nil {
 				Expect(err).To(Equal(expectError))
@@ -54,8 +53,8 @@ var _ = Describe("Volume Migration", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
-			Entry("with empty VMI", nil, &virtv1.VirtualMachine{}, fmt.Errorf("cannot validate the migrated volumes for an empty VMI")),
-			Entry("with empty VM", &virtv1.VirtualMachineInstance{}, nil, fmt.Errorf("cannot validate the migrated volumes for an empty VM")),
+			Entry("with empty VMI", nil, &v1.VirtualMachine{}, fmt.Errorf("cannot validate the migrated volumes for an empty VMI")),
+			Entry("with empty VM", &v1.VirtualMachineInstance{}, nil, fmt.Errorf("cannot validate the migrated volumes for an empty VM")),
 			Entry("without any migrated volumes", libvmi.New(
 				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), libvmi.WithPersistentVolumeClaim("disk1", "vol1"),
 			), libvmi.NewVirtualMachine(libvmi.New(
@@ -109,10 +108,10 @@ var _ = Describe("Volume Migration", func() {
 			virtClient.EXPECT().VirtualMachineInstance(ns).Return(vmiInterface).AnyTimes()
 		})
 
-		shouldPatchVMI := func(vmi *virtv1.VirtualMachineInstance) {
+		shouldPatchVMI := func(vmi *v1.VirtualMachineInstance) {
 			// The first patch operation is for the volumes in the VMI spec
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).
-				DoAndReturn(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) (*virtv1.VirtualMachineInstance, error) {
+				DoAndReturn(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) (*v1.VirtualMachineInstance, error) {
 					originalVMIBytes, err := json.Marshal(vmi)
 					Expect(err).ToNot(HaveOccurred())
 					patchBytes := patch.([]byte)
@@ -122,7 +121,7 @@ var _ = Describe("Volume Migration", func() {
 					newVMIBytes, err := patchJSON.Apply(originalVMIBytes)
 					Expect(err).ToNot(HaveOccurred())
 
-					var newVMI *virtv1.VirtualMachineInstance
+					var newVMI *v1.VirtualMachineInstance
 					err = json.Unmarshal(newVMIBytes, &newVMI)
 					Expect(err).ToNot(HaveOccurred())
 					return newVMI, nil
@@ -139,12 +138,12 @@ var _ = Describe("Volume Migration", func() {
 					newVMIBytes, err := patchJSON.Apply(originalVMIBytes)
 					Expect(err).ToNot(HaveOccurred())
 
-					var newVMI *virtv1.VirtualMachineInstance
+					var newVMI *v1.VirtualMachineInstance
 					err = json.Unmarshal(newVMIBytes, &newVMI)
 					Expect(err).ToNot(HaveOccurred())
 
 					condManager := controller.NewVirtualMachineInstanceConditionManager()
-					c := condManager.GetCondition(newVMI, virtv1.VirtualMachineInstanceVolumesChange)
+					c := condManager.GetCondition(newVMI, v1.VirtualMachineInstanceVolumesChange)
 					Expect(c).ToNot(BeNil())
 					Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(newVMI.Status.MigratedVolumes).To(BeEmpty())
@@ -153,12 +152,12 @@ var _ = Describe("Volume Migration", func() {
 		DescribeTable("should evaluate the volume migration cancellation", func(vmiVols, vmVols []string, migVols []migVolumes, expectRes bool, expectErr error, expectCancellation bool) {
 			vmi := libvmi.New(append(addVMIOptionsForVolumes(vmiVols), libvmi.WithNamespace(ns))...)
 			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
-				Type: virtv1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue})
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue})
 			for _, v := range migVols {
-				vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, virtv1.StorageMigratedVolumeInfo{
+				vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, v1.StorageMigratedVolumeInfo{
 					VolumeName:         v.volName,
-					SourcePVCInfo:      &virtv1.PersistentVolumeClaimInfo{ClaimName: v.src},
-					DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: v.dst},
+					SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: v.src},
+					DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: v.dst},
 				})
 			}
 			vm := libvmi.NewVirtualMachine(libvmi.New(append(addVMIOptionsForVolumes(vmVols), libvmi.WithNamespace(ns))...))
@@ -186,7 +185,7 @@ var _ = Describe("Volume Migration", func() {
 	})
 
 	Context("IsVolumeMigrating", func() {
-		DescribeTable("should detect the volume update condition", func(cond *virtv1.VirtualMachineInstanceCondition, expectRes bool) {
+		DescribeTable("should detect the volume update condition", func(cond *v1.VirtualMachineInstanceCondition, expectRes bool) {
 			vmi := libvmi.New()
 			if cond != nil {
 				vmi.Status.Conditions = append(vmi.Status.Conditions, *cond)
@@ -194,10 +193,10 @@ var _ = Describe("Volume Migration", func() {
 			Expect(volumemigration.IsVolumeMigrating(vmi)).To(Equal(expectRes))
 		},
 			Entry("without the condition", nil, false),
-			Entry("with true condition", &virtv1.VirtualMachineInstanceCondition{
-				Type: virtv1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue}, true),
-			Entry("without false condition", &virtv1.VirtualMachineInstanceCondition{
-				Type: virtv1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionFalse}, false),
+			Entry("with true condition", &v1.VirtualMachineInstanceCondition{
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue}, true),
+			Entry("without false condition", &v1.VirtualMachineInstanceCondition{
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionFalse}, false),
 		)
 	})
 
@@ -245,7 +244,7 @@ var _ = Describe("Volume Migration", func() {
 				})
 			}
 		}
-		shouldPatchVMI := func(vmi *virtv1.VirtualMachineInstance, expectedMigVols map[string]migVolumes) {
+		shouldPatchVMI := func(vmi *v1.VirtualMachineInstance, expectedMigVols map[string]migVolumes) {
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).
 				Do(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) {
 					originalVMIBytes, err := json.Marshal(vmi)
@@ -257,7 +256,7 @@ var _ = Describe("Volume Migration", func() {
 					newVMIBytes, err := patchJSON.Apply(originalVMIBytes)
 					Expect(err).ToNot(HaveOccurred())
 
-					var newVMI *virtv1.VirtualMachineInstance
+					var newVMI *v1.VirtualMachineInstance
 					err = json.Unmarshal(newVMIBytes, &newVMI)
 					Expect(err).ToNot(HaveOccurred())
 					for _, migVol := range vmi.Status.MigratedVolumes {
@@ -293,11 +292,11 @@ var _ = Describe("Volume Migration", func() {
 	})
 })
 
-func addPVC(vmi *virtv1.VirtualMachineInstance, diskName, claim string) {
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+func addPVC(vmi *v1.VirtualMachineInstance, diskName, claim string) {
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: diskName,
-		VolumeSource: virtv1.VolumeSource{
-			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claim}},
 		},
 	})
@@ -306,9 +305,9 @@ func addPVC(vmi *virtv1.VirtualMachineInstance, diskName, claim string) {
 func withShareableVolume(diskName, claim string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
-			virtv1.Disk{Name: diskName,
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{Bus: virtv1.DiskBusVirtio},
+			v1.Disk{Name: diskName,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
 				},
 				Shareable: virtpointer.P(true),
 			})
@@ -330,33 +329,20 @@ func withFilesystemVolume(diskName, claim string) libvmi.Option {
 func withHotpluggedVolume(diskName, claim string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
-			virtv1.Disk{Name: diskName,
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{Bus: virtv1.DiskBusVirtio},
+			v1.Disk{Name: diskName,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
 				},
 			})
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: diskName,
-			VolumeSource: virtv1.VolumeSource{
-				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claim},
 					Hotpluggable:                      true,
 				},
 			},
 		})
-	}
-}
-
-func withDataVolumeTemplate(diskName string) libvmi.VMOption {
-	return func(vm *v1.VirtualMachine) {
-		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates,
-			v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: diskName,
-				},
-			},
-		)
-
 	}
 }
 

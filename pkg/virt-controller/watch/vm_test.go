@@ -6141,6 +6141,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 					vm, vmi := DefaultVirtualMachine(true)
+					vm.Spec.UpdateVolumesStrategy = strategy
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "vol1"})
 					vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{Name: "vol2"})
@@ -6154,6 +6155,54 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("with the replacement updateVolumeStrategy",
 						kvpointer.P(v1.UpdateVolumesStrategyReplacement)),
 				)
+
+				It("should set the restart condition with the Migration updateVolumeStrategy if volumes cannot be migrated", func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{
+										virtconfig.VMLiveUpdateFeaturesGate,
+										virtconfig.VolumesUpdateStrategy,
+										virtconfig.VolumeMigration,
+									},
+								},
+							},
+						},
+					})
+					vm, vmi := DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "vol1"})
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "vol3",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "updated-vol3"}},
+						},
+					})
+					vm.Spec.UpdateVolumesStrategy = kvpointer.P(v1.UpdateVolumesStrategyMigration)
+					vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems,
+						v1.Filesystem{
+							Name:     "vol3",
+							Virtiofs: &v1.FilesystemVirtiofs{},
+						})
+					vmi.Spec.Volumes = append(vmi.Spec.Volumes,
+						v1.Volume{Name: "vol2"},
+						v1.Volume{
+							Name: "vol3",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "vol3"}},
+							},
+						},
+					)
+					controller.handleVolumeUpdateRequest(vm, vmi)
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineRestartRequired)
+					Expect(cond).ToNot(BeNil())
+					Expect(cond.Status).To(Equal(k8score.ConditionTrue))
+					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
+				})
 			})
 
 			Context("Instance Types and Preferences", func() {
