@@ -525,6 +525,7 @@ var _ = Describe("Apply", func() {
 		Context("default scheduling to CP nodes", func() {
 			DescribeTable("should require scheduling to control-plane nodes and avoid worker nodes", func(config *v1.ComponentConfig) {
 				const (
+					masterLabel       = "node-role.kubernetes.io/master"
 					controlPlaceLabel = "node-role.kubernetes.io/control-plane"
 					workerLabel       = "node-role.kubernetes.io/worker"
 				)
@@ -536,7 +537,7 @@ var _ = Describe("Apply", func() {
 
 				By("Testing scheduling requirements")
 				Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
-				Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
+				Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(2))
 
 				requirementSelectorTerm := podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
 				Expect(requirementSelectorTerm.MatchFields).To(BeEmpty())
@@ -544,6 +545,14 @@ var _ = Describe("Apply", func() {
 
 				requirementMatchExpression := requirementSelectorTerm.MatchExpressions[0]
 				Expect(requirementMatchExpression.Key).To(Equal(controlPlaceLabel))
+				Expect(requirementMatchExpression.Operator).To(Equal(corev1.NodeSelectorOpExists))
+
+				requirementSelectorTerm = podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[1]
+				Expect(requirementSelectorTerm.MatchFields).To(BeEmpty())
+				Expect(requirementSelectorTerm.MatchExpressions).To(HaveLen(1))
+
+				requirementMatchExpression = requirementSelectorTerm.MatchExpressions[0]
+				Expect(requirementMatchExpression.Key).To(Equal(masterLabel))
 				Expect(requirementMatchExpression.Operator).To(Equal(corev1.NodeSelectorOpExists))
 
 				By("Testing scheduling preferences")
