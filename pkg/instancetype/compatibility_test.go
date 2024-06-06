@@ -251,7 +251,7 @@ var _ = Describe("compatibility", func() {
 		var expectedPreferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec
 
 		BeforeEach(func() {
-			preferredCPUTopology := instancetypev1beta1.PreferCores
+			preferredCPUTopology := instancetypev1beta1.DeprecatedPreferCores
 			expectedPreferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
 					PreferredCPUTopology: &preferredCPUTopology,
@@ -276,7 +276,7 @@ var _ = Describe("compatibility", func() {
 		}
 
 		generatev1beta1PreferenceSpec := func() instancetypev1beta1.VirtualMachinePreferenceSpec {
-			preferredTopology := instancetypev1beta1.PreferCores
+			preferredTopology := instancetypev1beta1.DeprecatedPreferCores
 			return instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
 					PreferredCPUTopology: &preferredTopology,

@@ -40,9 +40,9 @@ const (
 	NamespacedFlag         = "namespaced"
 	CPUTopologyErr         = "CPU topology must have a value of preferCores, preferSockets or preferThreads"
 
-	stringPreferCores   = string(instancetypev1beta1.PreferCores)
-	stringPreferSockets = string(instancetypev1beta1.PreferSockets)
-	stringPreferThreads = string(instancetypev1beta1.PreferThreads)
+	stringPreferCores   = string(instancetypev1beta1.DeprecatedPreferCores)
+	stringPreferSockets = string(instancetypev1beta1.DeprecatedPreferSockets)
+	stringPreferThreads = string(instancetypev1beta1.DeprecatedPreferThreads)
 )
 
 type createPreference struct {
