@@ -46,6 +46,74 @@ const (
 	BurstReplicas uint = 250
 )
 
+// Reasons for vmi events
+const (
+	// FailedCreatePodReason is added in an event and in a vmi controller condition
+	// when a pod for a vmi controller failed to be created.
+	FailedCreatePodReason = "FailedCreate"
+	// SuccessfulCreatePodReason is added in an event when a pod for a vmi controller
+	// is successfully created.
+	SuccessfulCreatePodReason = "SuccessfulCreate"
+	// FailedDeletePodReason is added in an event and in a vmi controller condition
+	// when a pod for a vmi controller failed to be deleted.
+	FailedDeletePodReason = "FailedDelete"
+	// SuccessfulDeletePodReason is added in an event when a pod for a vmi controller
+	// is successfully deleted.
+	SuccessfulDeletePodReason = "SuccessfulDelete"
+	// FailedHandOverPodReason is added in an event and in a vmi controller condition
+	// when transferring the pod ownership from the controller to virt-hander fails.
+	FailedHandOverPodReason = "FailedHandOver"
+	// FailedBackendStorageCreateReason is added when the creation of the backend storage PVC fails.
+	FailedBackendStorageCreateReason = "FailedBackendStorageCreate"
+	// FailedBackendStorageProbeReason is added when probing the backend storage PVC fails.
+	FailedBackendStorageProbeReason = "FailedBackendStorageProbe"
+	// BackendStorageNotReadyReason is added when the backend storage PVC is pending.
+	BackendStorageNotReadyReason = "BackendStorageNotReady"
+	// SuccessfulHandOverPodReason is added in an event
+	// when the pod ownership transfer from the controller to virt-hander succeeds.
+	SuccessfulHandOverPodReason = "SuccessfulHandOver"
+	// FailedDataVolumeImportReason is added in an event when a dynamically generated
+	// dataVolume reaches the failed status phase.
+	FailedDataVolumeImportReason = "FailedDataVolumeImport"
+	// FailedGuaranteePodResourcesReason is added in an event and in a vmi controller condition
+	// when a pod has been created without a Guaranteed resources.
+	FailedGuaranteePodResourcesReason = "FailedGuaranteeResources"
+	// FailedGatherhingClusterTopologyHints is added if the cluster topology hints can't be collected for a VMI by virt-controller
+	FailedGatherhingClusterTopologyHints = "FailedGatherhingClusterTopologyHints"
+	// FailedPvcNotFoundReason is added in an event
+	// when a PVC for a volume was not found.
+	FailedPvcNotFoundReason = "FailedPvcNotFound"
+	// SuccessfulMigrationReason is added when a migration attempt completes successfully
+	SuccessfulMigrationReason = "SuccessfulMigration"
+	// FailedMigrationReason is added when a migration attempt fails
+	FailedMigrationReason = "FailedMigration"
+	// SuccessfulAbortMigrationReason is added when an attempt to abort migration completes successfully
+	SuccessfulAbortMigrationReason = "SuccessfulAbortMigration"
+	// MigrationTargetPodUnschedulable is added a migration target pod enters Unschedulable phase
+	MigrationTargetPodUnschedulable = "migrationTargetPodUnschedulable"
+	// FailedAbortMigrationReason is added when an attempt to abort migration fails
+	FailedAbortMigrationReason = "FailedAbortMigration"
+	// MissingAttachmentPodReason is set when we have a hotplugged volume, but the attachment pod is missing
+	MissingAttachmentPodReason = "MissingAttachmentPod"
+	// PVCNotReadyReason is set when the PVC is not ready to be hot plugged.
+	PVCNotReadyReason = "PVCNotReady"
+	// FailedHotplugSyncReason is set when a hotplug specific failure occurs during sync
+	FailedHotplugSyncReason = "FailedHotplugSync"
+	// ErrImagePullReason is set when an error has occured while pulling an image for a containerDisk VM volume.
+	ErrImagePullReason = "ErrImagePull"
+	// ImagePullBackOffReason is set when an error has occured while pulling an image for a containerDisk VM volume,
+	// and that kubelet is backing off before retrying.
+	ImagePullBackOffReason = "ImagePullBackOff"
+	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
+	// is suitable for migration (since CPU model / required features are not supported)
+	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
+	// FailedPodPatchReason is set when a pod patch error occurs during sync
+	FailedPodPatchReason = "FailedPodPatch"
+	// MigrationBackoffReason is set when an error has occured while migrating
+	// and virt-controller is backing off before retrying.
+	MigrationBackoffReason = "MigrationBackoff"
+)
+
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, kubevirtNamespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {

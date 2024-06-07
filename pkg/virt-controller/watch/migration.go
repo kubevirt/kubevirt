@@ -88,7 +88,7 @@ const defaultFinalizedMigrationGarbageCollectionBuffer = 5
 // cause the migration to fail when it could have reasonably succeeded.
 const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 
-var migrationBackoffError = errors.New(MigrationBackoffReason)
+var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
 type MigrationController struct {
 	templateService      services.TemplateService
@@ -434,14 +434,14 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		// 3. Begin progressing migration state based on VMI's MigrationState status.
 	} else if vmi == nil {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because vmi does not exist.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because vmi does not exist.")
 		log.Log.Object(migration).Error("vmi does not exist")
 	} else if vmi.IsFinal() {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed vmi shutdown during migration.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed vmi shutdown during migration.")
 		log.Log.Object(migration).Error("Unable to migrate vmi because vmi is shutdown.")
 	} else if migration.DeletionTimestamp != nil && !c.isMigrationHandedOff(migration, vmi) {
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed due to being canceled")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed due to being canceled")
 		if !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested) {
 			condition := virtv1.VirtualMachineInstanceMigrationCondition{
 				Type:          virtv1.VirtualMachineInstanceMigrationAbortRequested,
@@ -453,29 +453,29 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 	} else if podExists && podIsDown(pod) {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because target pod shutdown during migration")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target pod %s/%s shutdown during migration", pod.Namespace, pod.Name)
 	} else if migration.TargetIsCreated() && !podExists {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration target pod was removed during active migration.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration target pod was removed during active migration.")
 		log.Log.Object(migration).Error("target pod disappeared during migration")
 	} else if migration.TargetIsHandedOff() && vmi.Status.MigrationState == nil {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI's migration state was cleared during the active migration.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "VMI's migration state was cleared during the active migration.")
 		log.Log.Object(migration).Error("vmi migration state cleared during migration")
 	} else if migration.TargetIsHandedOff() &&
 		vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.MigrationUID != migration.UID {
 
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI's migration state was taken over by another migration job during active migration.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "VMI's migration state was taken over by another migration job during active migration.")
 		log.Log.Object(migration).Error("vmi's migration state was taken over by another migration object")
 	} else if vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.MigrationUID == migration.UID &&
 		vmi.Status.MigrationState.Failed {
 
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "source node reported migration failed")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "source node reported migration failed")
 		log.Log.Object(migration).Errorf("VMI %s/%s reported migration failed", vmi.Namespace, vmi.Name)
 
 	} else if migration.DeletionTimestamp != nil && !migration.IsFinal() &&
@@ -488,7 +488,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
 	} else if attachmentPodExists && podIsDown(attachmentPod) {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because target attachment pod shutdown during migration")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target attachment pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target attachment pod %s/%s shutdown during migration", attachmentPod.Namespace, attachmentPod.Name)
 	} else {
 		err := c.processMigrationPhase(migration, migrationCopy, pod, attachmentPod, vmi, syncError)
@@ -536,7 +536,7 @@ func (c *MigrationController) processMigrationPhase(
 			// can not migrate because there is an active migration already
 			// in progress for this VMI.
 			migrationCopy.Status.Phase = virtv1.MigrationFailed
-			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI is not eligible for migration because another migration job is in progress.")
+			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "VMI is not eligible for migration because another migration job is in progress.")
 			log.Log.Object(migration).Error("Migration object ont eligible for migration because another job is in progress")
 		}
 	case virtv1.MigrationPending:
@@ -603,7 +603,7 @@ func (c *MigrationController) processMigrationPhase(
 			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
 			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange) {
 			migrationCopy.Status.Phase = virtv1.MigrationSucceeded
-			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
+			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulMigrationReason, "Source node reported migration succeeded")
 			log.Log.Object(migration).Infof("VMI reported migration succeeded.")
 		}
 	}
@@ -712,17 +712,17 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	if err != nil {
 		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
 			err = fmt.Errorf("failed to create target pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, err)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, err)
 
 		} else {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating pod: %v", err)
 			err = fmt.Errorf("failed to create vmi migration target pod: %v", err)
 		}
 		c.podExpectations.CreationObserved(key)
 		return err
 	}
 	log.Log.Object(vmi).Infof("Created migration target pod %s/%s with uuid %s for migration %s with uuid %s", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID))
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created migration target pod %s", pod.Name)
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created migration target pod %s", pod.Name)
 	return nil
 }
 
@@ -832,7 +832,7 @@ func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.V
 	}
 	log.Log.Object(vmi).Infof("Marked Migration %s/%s failed on vmi due to target pod disappearing before migration kicked off.", migration.Namespace, migration.Name)
 	failureReason := "Target pod is down"
-	c.recorder.Event(vmi, k8sv1.EventTypeWarning, FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: %s", string(migration.UID), failureReason))
+	c.recorder.Event(vmi, k8sv1.EventTypeWarning, controller.FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: %s", string(migration.UID), failureReason))
 	if vmiCopy.Status.MigrationState.FailureReason == "" {
 		// Only set the failure reason if empty, as virt-handler may already have provided a better one
 		vmiCopy.Status.MigrationState.FailureReason = failureReason
@@ -850,13 +850,13 @@ func (c *MigrationController) handlePreHandoffMigrationCancel(migration *virtv1.
 	err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 	if err != nil {
 		c.podExpectations.DeletionObserved(controller.MigrationKey(migration), controller.PodKey(pod))
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleting canceled migration target pod: %v", err)
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleting canceled migration target pod: %v", err)
 		return fmt.Errorf("cannot delete pending target pod %s/%s for migration although migration is aborted", pod.Name, pod.Namespace)
 	}
 
 	reason := fmt.Sprintf("migration canceled and pod %s/%s is deleted", pod.Namespace, pod.Name)
 	log.Log.Object(vmi).Infof("Deleted pending migration target pod with uuid %s for migration %s with uuid %s with reason [%s]", string(pod.UID), migration.Name, string(migration.UID), reason)
-	c.recorder.Event(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, reason)
+	c.recorder.Event(migration, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, reason)
 	return nil
 }
 
@@ -923,13 +923,13 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 
 	err = c.patchVMI(vmi, vmiCopy)
 	if err != nil {
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 		return err
 	}
 
 	c.addHandOffKey(controller.MigrationKey(migration))
 	log.Log.Object(vmi).Infof("Handed off migration %s/%s to target virt-handler.", migration.Namespace, migration.Name)
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
 	return nil
 }
 
@@ -957,11 +957,11 @@ func (c *MigrationController) markMigrationAbortInVmiStatus(migration *virtv1.Vi
 		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		if err != nil {
 			msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
-			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, msg)
+			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedAbortMigrationReason, msg)
 			return fmt.Errorf(msg)
 		}
 		log.Log.Object(vmi).Infof("Signaled migration %s/%s to be aborted.", migration.Namespace, migration.Name)
-		c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
 	}
 
 	return nil
@@ -1097,10 +1097,10 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 	attachmentPod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
 	if err != nil {
 		c.podExpectations.CreationObserved(key)
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating attachment pod: %v", err)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating attachment pod: %v", err)
 		return fmt.Errorf("failed to create attachment pod: %v", err)
 	}
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created attachment pod %s", attachmentPod.Name)
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created attachment pod %s", attachmentPod.Name)
 	return nil
 }
 
@@ -1144,11 +1144,11 @@ func (c *MigrationController) deleteTimedOutTargetPod(migration *virtv1.VirtualM
 	err = c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 	if err != nil {
 		c.podExpectations.DeletionObserved(migrationKey, controller.PodKey(pod))
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleted migration target pod: %v", err)
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleted migration target pod: %v", err)
 		return fmt.Errorf("failed to delete vmi migration target pod that reached pending pod timeout period.: %v", err)
 	}
 	log.Log.Object(vmi).Infof("Deleted pending migration target pod with uuid %s for migration %s with uuid %s with reason [%s]", string(pod.UID), migration.Name, string(migration.UID), message)
-	c.recorder.Event(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, message)
+	c.recorder.Event(migration, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, message)
 	return nil
 }
 
@@ -1205,7 +1205,7 @@ func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualM
 		c.recorder.Eventf(
 			migration,
 			k8sv1.EventTypeWarning,
-			MigrationTargetPodUnschedulable,
+			controller.MigrationTargetPodUnschedulable,
 			"Migration target pod for VMI [%s/%s] is currently unschedulable.", vmi.Namespace, vmi.Name)
 		log.Log.Object(migration).Warningf("Migration target pod for VMI [%s/%s] is currently unschedulable.", vmi.Namespace, vmi.Name)
 		if secondsSpentPending >= unschedulableTimeout {
@@ -1883,7 +1883,7 @@ func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.Virtua
 
 	if !fittingNodeFound {
 		warningMsg := fmt.Sprintf("Migration cannot proceed since no node is suitable to run the required CPU model / required features: %v", requiredNodeLabels)
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, NoSuitableNodesForHostModelMigration, warningMsg)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.NoSuitableNodesForHostModelMigration, warningMsg)
 		log.Log.Object(vmi).Warning(warningMsg)
 	}
 }

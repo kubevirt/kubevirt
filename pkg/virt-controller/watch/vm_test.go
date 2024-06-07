@@ -1006,7 +1006,7 @@ var _ = Describe("VirtualMachine", func() {
 			sanityExecute(vm)
 
 			Expect(deletionCount).To(Equal(0))
-			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+			testutils.ExpectEvent(recorder, virtcontroller.FailedDataVolumeImportReason)
 		})
 
 		It("should not delete failed DataVolume for VirtualMachineInstance unless deletion timestamp expires ", func() {
@@ -1055,7 +1055,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			sanityExecute(vm)
 
-			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+			testutils.ExpectEvent(recorder, virtcontroller.FailedDataVolumeImportReason)
 		})
 
 		It("should handle failed DataVolume without Annotations", func() {
@@ -1107,7 +1107,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			sanityExecute(vm)
 
-			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+			testutils.ExpectEvent(recorder, virtcontroller.FailedDataVolumeImportReason)
 		})
 
 		It("should start VMI once DataVolumes are complete", func() {
@@ -4102,7 +4102,7 @@ var _ = Describe("VirtualMachine", func() {
 					v1.VirtualMachineInstanceCondition{
 						Type:   v1.VirtualMachineInstanceSynchronized,
 						Status: k8sv1.ConditionFalse,
-						Reason: FailedPvcNotFoundReason,
+						Reason: virtcontroller.FailedPvcNotFoundReason,
 					},
 				),
 			)
@@ -4129,8 +4129,8 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Succeed())
 				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachinePrintableStatus(reason)))
 			},
-				Entry("Reason: ErrImagePull", ErrImagePullReason),
-				Entry("Reason: ImagePullBackOff", ImagePullBackOffReason),
+				Entry("Reason: ErrImagePull", virtcontroller.ErrImagePullReason),
+				Entry("Reason: ImagePullBackOff", virtcontroller.ImagePullBackOffReason),
 			)
 		})
 

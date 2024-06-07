@@ -55,9 +55,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
-
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -2406,7 +2405,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					_ = libmigration.RunMigration(virtClient, migration)
 
-					events.ExpectEvent(vmi, k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration)
+					events.ExpectEvent(vmi, k8sv1.EventTypeWarning, controller.NoSuitableNodesForHostModelMigration)
 				})
 
 			})
@@ -2469,7 +2468,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					_ = libmigration.RunMigration(virtClient, migration)
 
-					events.ExpectEvent(vmi, k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration)
+					events.ExpectEvent(vmi, k8sv1.EventTypeWarning, controller.NoSuitableNodesForHostModelMigration)
 				})
 
 			})
@@ -3237,7 +3236,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			setEvacuationAnnotation(migration)
 			_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
 
-			events.ExpectEvent(vmi, k8sv1.EventTypeWarning, watch.MigrationBackoffReason)
+			events.ExpectEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
 		})
 
 		It("after a successful migration backoff should be cleared", func() {
@@ -3260,7 +3259,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			// Intentionally modifying history
-			events.DeleteEvents(vmi, k8sv1.EventTypeWarning, watch.MigrationBackoffReason)
+			events.DeleteEvents(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
 
 			By("There should be no backoff now")
 			migration = libmigration.New(vmi.Name, vmi.Namespace)
@@ -3268,11 +3267,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			By("Checking that no backoff event occurred")
-			events.ExpectNoEvent(vmi, k8sv1.EventTypeWarning, watch.MigrationBackoffReason)
+			events.ExpectNoEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
 			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, ev := range events.Items {
-				Expect(ev.Reason).ToNot(Equal(watch.MigrationBackoffReason))
+				Expect(ev.Reason).ToNot(Equal(controller.MigrationBackoffReason))
 			}
 		})
 	})
