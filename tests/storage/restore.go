@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -252,22 +251,18 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	}
 
 	createVMWithCloudInit := func(containerDisk cd.ContainerDisk, storageClass string) *v1.VirtualMachine {
-		vm := RenderVMWithRegistryImportDataVolume(containerDisk, storageClass)
-		cloudInitNoCloudSource := &v1.CloudInitNoCloudSource{}
-		cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(bashHelloScript))
-		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "disk1",
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{
-					Bus: v1.DiskBusVirtio,
-				},
-			},
-		})
-		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-			Name:         "disk1",
-			VolumeSource: v1.VolumeSource{CloudInitNoCloud: cloudInitNoCloudSource},
-		})
-		return vm
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(containerDisk)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithPVC(
+				libdv.PVCWithStorageClass(storageClass),
+				libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
+			),
+		)
+		return libvmi.NewVirtualMachine(
+			libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript)),
+			libvmi.WithDataVolumeTemplate(dv),
+		)
 	}
 
 	Context("With simple VM", func() {
@@ -1088,7 +1083,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
-				vm, vmi = createAndStartVM(RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
 
 				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
@@ -1209,17 +1204,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				if checks.IsARM64(testsuite.Arch) {
 					memory = "256Mi"
 				}
-				vmi = libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-					libvmi.WithResourceMemory(memory),
-					libvmi.WithPersistentVolumeClaim("disk0", originalPVCName),
-					libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
-				)
-				vm = libvmi.NewVirtualMachine(vmi)
-
-				vm, vmi = createAndStartVM(vm)
+				vmi = libstorage.RenderVMIWithDataVolume(originalPVCName, testsuite.GetTestNamespace(nil),
+					libvmi.WithResourceMemory(memory), libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript))
+				vm, vmi = createAndStartVM(libvmi.NewVirtualMachine(vmi))
 
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
@@ -1323,7 +1310,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			It("should reject vm start if restore in progress", func() {
-				vm, vmi = createAndStartVM(RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
 
 				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
@@ -1558,7 +1545,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			It("should restore an already cloned virtual machine", func() {
-				vm, vmi = createAndStartVM(RenderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
 
 				targetVMName := vm.Name + "-clone"
 				cloneVM(vm.Name, targetVMName)
@@ -1581,7 +1568,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			DescribeTable("should restore vm with hot plug disks", func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(RenderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1662,7 +1649,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				DescribeTable("should not restore memory dump volume", func(restoreToNewVM bool) {
-					vm, vmi = createAndStartVM(RenderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
+					vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					By("Get VM memory dump")
@@ -1779,18 +1766,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize("1Gi")),
 					)
 
-					vm := libvmi.NewVirtualMachine(
-						libvmi.New(
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							libvmi.WithDataVolume("disk0", dataVolume.Name),
-							libvmi.WithResourceMemory("1Gi"),
-							libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
-							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-						),
+					return libvmi.NewVirtualMachine(
+						libstorage.RenderVMIWithDataVolume(dataVolume.Name, sourceDV.Namespace, libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript)),
 						libvmi.WithDataVolumeTemplate(dataVolume),
 					)
-					return vm
 				}
 
 				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM, deleteSourcePVC bool) {

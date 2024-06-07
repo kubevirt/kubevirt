@@ -610,13 +610,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithDataVolume("disk0", dv.Name),
-				libvmi.WithResourceMemory("1Gi"),
-				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-			)
+			vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 			By("Creating VirtualMachine")
@@ -1340,11 +1334,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				By("start VM with disk mutation sidecar")
 				hookSidecarsValue := fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s", "imagePullPolicy": "IfNotPresent"}]`,
 					libregistry.GetUtilityImageFromRegistry(hookSidecarImage))
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithDataVolume("disk0", dv.Name),
-					libvmi.WithResourceMemory("1Gi"),
+				vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace,
 					libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n"),
 					libvmi.WithAnnotation("hooks.kubevirt.io/hookSidecars", hookSidecarsValue),
 					libvmi.WithAnnotation("diskimage.vm.kubevirt.io/bootImageName", newDiskImgName),

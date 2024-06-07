@@ -3534,11 +3534,5 @@ func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode
 	Expect(err).ToNot(HaveOccurred())
 	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
-	return libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dv.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
+	return libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
 }

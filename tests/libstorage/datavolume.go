@@ -35,10 +35,12 @@ import (
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	v1 "kubevirt.io/api/core/v1"
 	v13 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -223,4 +225,23 @@ func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
 		},
 	}
 	return role, roleBinding
+}
+
+func RenderVMIWithDataVolume(dvName, ns string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	defaultOptions := []libvmi.Option{
+		libvmi.WithDataVolume("disk0", dvName),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithNamespace(ns),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	}
+	return libvmi.New(append(defaultOptions, opts...)...)
+}
+
+func RenderVMWithDataVolumeTemplate(dv *v1beta1.DataVolume, opts ...libvmi.VMOption) *v1.VirtualMachine {
+	defaultOptions := []libvmi.VMOption{libvmi.WithDataVolumeTemplate(dv)}
+	return libvmi.NewVirtualMachine(
+		RenderVMIWithDataVolume(dv.Name, dv.Namespace),
+		append(defaultOptions, opts...)...,
+	)
 }

@@ -996,17 +996,8 @@ var _ = SIGDescribe("Storage", func() {
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Launching a VMI with PVC")
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithDataVolume("disk0", dv.Name),
-					libvmi.WithResourceMemory("1Gi"),
-					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-				)
-
+				vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
 				createAndWaitForVMIReady(vmi, dv, 240)
-
 				By(checkingVMInstanceConsoleOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})

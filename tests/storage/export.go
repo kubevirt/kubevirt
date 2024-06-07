@@ -1282,7 +1282,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
+		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
@@ -1357,7 +1357,7 @@ var _ = SIGDescribe("Export", func() {
 			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 		)
 
-		vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
+		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
@@ -1425,7 +1425,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
+		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -1553,14 +1553,7 @@ var _ = SIGDescribe("Export", func() {
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 			)
 			dataVolume = createDataVolume(dataVolume)
-			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("1Gi"),
-				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-			)
-			vmi = createVMI(vmi)
+			vmi := createVMI(libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil)))
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
@@ -1603,14 +1596,7 @@ var _ = SIGDescribe("Export", func() {
 			// Remove limit range to avoid having to configure proper VMI ratio for VMI.
 			removeLimitRangeFromNamespace()
 			By("Starting VMI, the export should return to pending")
-			vmi = libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("1Gi"),
-				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-			)
-			vmi = createVMI(vmi)
+			vmi = createVMI(libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil)))
 			waitForExportPhase(export, exportv1.Pending)
 			waitForExportCondition(export, expectedPVCInUseCondition(dataVolume.Name, dataVolume.Namespace), "export should report pvc in use")
 		})
@@ -1765,7 +1751,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -1800,7 +1786,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -1866,14 +1852,9 @@ var _ = SIGDescribe("Export", func() {
 		blankDv = createDataVolume(blankDv)
 
 		vm := libvmi.NewVirtualMachine(
-			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("1Gi"),
+			libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil),
 				libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
 				libvmi.WithDataVolume("blankdisk", blankDv.Name),
-				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 			),
 			libvmi.WithRunning(),
 		)
@@ -2160,7 +2141,7 @@ var _ = SIGDescribe("Export", func() {
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
-			vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
+			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 			libstorage.AddDataVolumeTemplate(vm, blankDv)
 			addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
@@ -2184,7 +2165,7 @@ var _ = SIGDescribe("Export", func() {
 
 		It("Create succeeds using VM source", func() {
 			// Create a populated VM
-			vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
+			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 			vm.Spec.Running = pointer.Bool(true)
 			vm = createVM(vm)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -2308,7 +2289,7 @@ var _ = SIGDescribe("Export", func() {
 					libdv.WithBlankImageSource(),
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 				)
-				vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
+				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 				libstorage.AddDataVolumeTemplate(vm, blankDv)
 				addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
@@ -2357,7 +2338,7 @@ var _ = SIGDescribe("Export", func() {
 
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
 				// Create a populated VM
-				vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
+				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 				vm.Spec.Running = pointer.Bool(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -2534,7 +2515,7 @@ var _ = SIGDescribe("Export", func() {
 		Context("Get export manifest from vmexport", func() {
 			DescribeTable("manifest should be successfully retrieved on running VM export", func(expectedObjects int, extraArgs ...string) {
 				// Create a populated VM
-				vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
+				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 				vm.Spec.Running = pointer.Bool(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {

@@ -11,6 +11,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -40,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libinstancetype"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/storage"
 )
 
 const (
@@ -527,7 +527,15 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 			}
 
 			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
-				vm := storage.RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, storageClass)
+				dv := libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(storageClass),
+						libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+					),
+				)
+				vm := libstorage.RenderVMWithDataVolumeTemplate(dv)
 				vm.Spec.Running = pointer.Bool(running)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -662,7 +670,15 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						preference, err := virtClient.VirtualMachinePreference(ns).Create(context.Background(), preference, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						sourceVM = storage.RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
+						dv := libdv.NewDataVolume(
+							libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+							libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+							libdv.WithPVC(
+								libdv.PVCWithStorageClass(snapshotStorageClass),
+								libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+							),
+						)
+						sourceVM = libstorage.RenderVMWithDataVolumeTemplate(dv)
 						sourceVM.Spec.Running = nil
 						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
 						sourceVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
