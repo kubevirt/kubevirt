@@ -477,3 +477,89 @@ func AttachmentPods(ownerPod *k8sv1.Pod, podIndexer cache.Indexer) ([]*k8sv1.Pod
 	}
 	return attachmentPods, nil
 }
+
+// IsPodReady treats the pod as ready to be handed over to virt-handler, as soon as all pods except
+// the compute pod are ready.
+func IsPodReady(pod *k8sv1.Pod) bool {
+	if IsPodDownOrGoingDown(pod) {
+		return false
+	}
+
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		// The compute container potentially holds a readiness probe for the VMI. Therefore
+		// don't wait for the compute container to become ready (the VMI later on will trigger the change to ready)
+		// and only check that the container started
+		if containerStatus.Name == "compute" {
+			if containerStatus.State.Running == nil {
+				return false
+			}
+		} else if containerStatus.Name == "istio-proxy" {
+			// When using istio the istio-proxy container will not be ready
+			// until there is a service pointing to this pod.
+			// We need to start the VM anyway
+			if containerStatus.State.Running == nil {
+				return false
+			}
+
+		} else if containerStatus.Ready == false {
+			return false
+		}
+	}
+
+	return pod.Status.Phase == k8sv1.PodRunning
+}
+
+func IsPodDownOrGoingDown(pod *k8sv1.Pod) bool {
+	return PodIsDown(pod) || isComputeContainerDown(pod) || pod.DeletionTimestamp != nil
+}
+
+func IsPodFailedOrGoingDown(pod *k8sv1.Pod) bool {
+	return isPodFailed(pod) || isComputeContainerFailed(pod) || pod.DeletionTimestamp != nil
+}
+
+func isComputeContainerDown(pod *k8sv1.Pod) bool {
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "compute" {
+			return containerStatus.State.Terminated != nil
+		}
+	}
+	return false
+}
+
+func isComputeContainerFailed(pod *k8sv1.Pod) bool {
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "compute" {
+			return containerStatus.State.Terminated != nil && containerStatus.State.Terminated.ExitCode != 0
+		}
+	}
+	return false
+}
+
+func PodIsDown(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
+}
+
+func isPodFailed(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodFailed
+}
+
+func PodExists(pod *k8sv1.Pod) bool {
+	return pod != nil
+}
+
+func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*v1.Volume {
+	hotplugVolumes := make([]*v1.Volume, 0)
+	podVolumes := virtlauncherPod.Spec.Volumes
+	vmiVolumes := vmi.Spec.Volumes
+
+	podVolumeMap := make(map[string]k8sv1.Volume)
+	for _, podVolume := range podVolumes {
+		podVolumeMap[podVolume.Name] = podVolume
+	}
+	for _, vmiVolume := range vmiVolumes {
+		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil) {
+			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
+		}
+	}
+	return hotplugVolumes
+}

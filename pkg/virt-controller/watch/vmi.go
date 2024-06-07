@@ -479,8 +479,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	podConditionManager := controller.NewPodConditionManager()
 	vmiCopy := vmi.DeepCopy()
-	vmiPodExists := podExists(pod) && !isTempPod(pod)
-	tempPodExists := podExists(pod) && isTempPod(pod)
+	vmiPodExists := controller.PodExists(pod) && !isTempPod(pod)
+	tempPodExists := controller.PodExists(pod) && isTempPod(pod)
 
 	vmiCopy, err := c.setActivePods(vmiCopy)
 	if err != nil {
@@ -541,7 +541,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 						// Remove PodScheduling condition from the VM
 						conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 					}
-					if isPodFailedOrGoingDown(pod) {
+					if controller.IsPodFailedOrGoingDown(pod) {
 						vmiCopy.Status.Phase = virtv1.Failed
 					}
 				}
@@ -588,7 +588,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				syncErr = imageErr
 			}
 
-			if isPodReady(pod) && vmi.DeletionTimestamp == nil {
+			if controller.IsPodReady(pod) && vmi.DeletionTimestamp == nil {
 				// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
 				podQosClass := pod.Status.QOSClass
 				if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
@@ -632,7 +632,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 						return err
 					}
 				}
-			} else if isPodDownOrGoingDown(pod) {
+			} else if controller.IsPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
 		case !vmiPodExists:
@@ -888,7 +888,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 			LastTransitionTime: now,
 		})
 
-	} else if isPodDownOrGoingDown(pod) {
+	} else if controller.IsPodDownOrGoingDown(pod) {
 		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
@@ -1006,75 +1006,6 @@ func checkForContainerImageError(pod *k8sv1.Pod) syncError {
 	return nil
 }
 
-// isPodReady treats the pod as ready to be handed over to virt-handler, as soon as all pods except
-// the compute pod are ready.
-func isPodReady(pod *k8sv1.Pod) bool {
-	if isPodDownOrGoingDown(pod) {
-		return false
-	}
-
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		// The compute container potentially holds a readiness probe for the VMI. Therefore
-		// don't wait for the compute container to become ready (the VMI later on will trigger the change to ready)
-		// and only check that the container started
-		if containerStatus.Name == "compute" {
-			if containerStatus.State.Running == nil {
-				return false
-			}
-		} else if containerStatus.Name == "istio-proxy" {
-			// When using istio the istio-proxy container will not be ready
-			// until there is a service pointing to this pod.
-			// We need to start the VM anyway
-			if containerStatus.State.Running == nil {
-				return false
-			}
-
-		} else if containerStatus.Ready == false {
-			return false
-		}
-	}
-
-	return pod.Status.Phase == k8sv1.PodRunning
-}
-
-func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
-	return podIsDown(pod) || isComputeContainerDown(pod) || pod.DeletionTimestamp != nil
-}
-
-func isPodFailedOrGoingDown(pod *k8sv1.Pod) bool {
-	return isPodFailed(pod) || isComputeContainerFailed(pod) || pod.DeletionTimestamp != nil
-}
-
-func isComputeContainerDown(pod *k8sv1.Pod) bool {
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Name == "compute" {
-			return containerStatus.State.Terminated != nil
-		}
-	}
-	return false
-}
-
-func isComputeContainerFailed(pod *k8sv1.Pod) bool {
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Name == "compute" {
-			return containerStatus.State.Terminated != nil && containerStatus.State.Terminated.ExitCode != 0
-		}
-	}
-	return false
-}
-
-func podIsDown(pod *k8sv1.Pod) bool {
-	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
-}
-
-func isPodFailed(pod *k8sv1.Pod) bool {
-	return pod.Status.Phase == k8sv1.PodFailed
-}
-
-func podExists(pod *k8sv1.Pod) bool {
-	return pod != nil
-}
-
 func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) (bool, syncError) {
 	if controller.VMIHasHotplugVolumes(vmi) {
 		hotplugAttachmentPods, err := controller.AttachmentPods(virtLauncherPod, c.podIndexer)
@@ -1082,7 +1013,7 @@ func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, vir
 			return false, &syncErrorImpl{fmt.Errorf("failed to get attachment pods: %v", err), controller.FailedHotplugSyncReason}
 		}
 		for _, attachmentPod := range hotplugAttachmentPods {
-			if isPodReady(attachmentPod) && attachmentPod.DeletionTimestamp == nil && attachmentPod.Spec.NodeName == virtLauncherPod.Spec.NodeName {
+			if controller.IsPodReady(attachmentPod) && attachmentPod.DeletionTimestamp == nil && attachmentPod.Spec.NodeName == virtLauncherPod.Spec.NodeName {
 				return true, nil
 			}
 		}
@@ -1126,7 +1057,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		return syncErr
 	}
 
-	if !podExists(pod) {
+	if !controller.PodExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
 			return nil
@@ -1202,7 +1133,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 	}
 
-	if !isTempPod(pod) && isPodReady(pod) {
+	if !isTempPod(pod) && controller.IsPodReady(pod) {
 		newAnnotations := network.GeneratePodAnnotations(vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot], c.clusterConfig.GetNetworkBindings())
 		if len(newAnnotations) != 0 {
 			patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
@@ -1212,7 +1143,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			*pod = *patchedPod
 		}
 
-		hotplugVolumes := getHotplugVolumes(vmi, pod)
+		hotplugVolumes := controller.GetHotplugVolumes(vmi, pod)
 		hotplugAttachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to get attachment pods: %v", err), controller.FailedHotplugSyncReason}
@@ -1700,23 +1631,6 @@ func shouldSetMigrationTransport(pod *k8sv1.Pod) bool {
 	return ok
 }
 
-func getHotplugVolumes(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*virtv1.Volume {
-	hotplugVolumes := make([]*virtv1.Volume, 0)
-	podVolumes := virtlauncherPod.Spec.Volumes
-	vmiVolumes := vmi.Spec.Volumes
-
-	podVolumeMap := make(map[string]k8sv1.Volume)
-	for _, podVolume := range podVolumes {
-		podVolumeMap[podVolume.Name] = podVolume
-	}
-	for _, vmiVolume := range vmiVolumes {
-		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil) {
-			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
-		}
-	}
-	return hotplugVolumes
-}
-
 func (c *VMIController) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) error {
 	triggerPods, err := c.waitForFirstConsumerTemporaryPods(vmi, virtLauncherPod)
 	if err != nil {
@@ -2102,7 +2016,7 @@ func (c *VMIController) deleteOrphanedAttachmentPods(vmi *virtv1.VirtualMachineI
 			continue
 		}
 
-		if !podIsDown(pod) {
+		if !controller.PodIsDown(pod) {
 			continue
 		}
 
@@ -2131,7 +2045,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 		oldStatusMap[status.Name] = status
 	}
 
-	hotplugVolumes := getHotplugVolumes(vmi, virtlauncherPod)
+	hotplugVolumes := controller.GetHotplugVolumes(vmi, virtlauncherPod)
 	hotplugVolumesMap := make(map[string]*virtv1.Volume)
 	for _, volume := range hotplugVolumes {
 		hotplugVolumesMap[volume.Name] = volume

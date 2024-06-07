@@ -451,7 +451,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 			migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
 		}
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-	} else if podExists && podIsDown(pod) {
+	} else if podExists && controller.PodIsDown(pod) {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target pod %s/%s shutdown during migration", pod.Namespace, pod.Name)
@@ -486,7 +486,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 			LastProbeTime: v1.Now(),
 		}
 		migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
-	} else if attachmentPodExists && podIsDown(attachmentPod) {
+	} else if attachmentPodExists && controller.PodIsDown(attachmentPod) {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target attachment pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target attachment pod %s/%s shutdown during migration", attachmentPod.Namespace, attachmentPod.Name)
@@ -560,9 +560,9 @@ func (c *MigrationController) processMigrationPhase(
 		if conditionManager.HasCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
 			conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
 		}
-		if isPodReady(pod) {
+		if controller.IsPodReady(pod) {
 			if controller.VMIHasHotplugVolumes(vmi) {
-				if attachmentPod != nil && isPodReady(attachmentPod) {
+				if attachmentPod != nil && controller.IsPodReady(attachmentPod) {
 					log.Log.Object(migration).Infof("Attachment pod %s for vmi %s/%s is ready", attachmentPod.Name, vmi.Namespace, vmi.Name)
 					migrationCopy.Status.Phase = virtv1.MigrationScheduled
 				}
@@ -1065,7 +1065,7 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 		return fmt.Errorf("failed to get current VMI pod: %v", err)
 	}
 
-	volumes := getHotplugVolumes(vmi, sourcePod)
+	volumes := controller.GetHotplugVolumes(vmi, sourcePod)
 
 	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcStore, virtLauncherPod.Namespace)
 	if err != nil {
@@ -1269,7 +1269,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				log.Log.Reason(err).Error("Failed to fetch pods for namespace from cache.")
 				return err
 			}
-			if !podExists(sourcePod) {
+			if !controller.PodExists(sourcePod) {
 				// for instance sudden deletes can cause this. In this
 				// case we don't have to do anything in the creation flow anymore.
 				// Once the VMI is in a final state or deleted the migration
@@ -1291,7 +1291,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			}
 
 			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
-		} else if isPodReady(pod) {
+		} else if controller.IsPodReady(pod) {
 			if controller.VMIHasHotplugVolumes(vmi) {
 				attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 				if err != nil {
@@ -1321,11 +1321,11 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 
 		// once target pod is running, then alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
-		if targetPodExists && isPodReady(pod) {
+		if targetPodExists && controller.IsPodReady(pod) {
 			return c.handleTargetPodHandoff(migration, vmi, pod)
 		}
 	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady, virtv1.MigrationFailed:
-		if (!targetPodExists || podIsDown(pod)) &&
+		if (!targetPodExists || controller.PodIsDown(pod)) &&
 			vmi.Status.MigrationState != nil &&
 			len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 &&
 			vmi.Status.MigrationState.StartTimestamp == nil &&
