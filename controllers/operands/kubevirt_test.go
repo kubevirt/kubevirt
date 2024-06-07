@@ -3339,6 +3339,15 @@ Version: 1.2.3`)
 			})
 		})
 
+		Context("Rollout Strategy", func() {
+			It("should be set to live update", func() {
+				kv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(kv.Spec.Configuration.VMRolloutStrategy).To(HaveValue(Equal(kubevirtcorev1.VMRolloutStrategyLiveUpdate)))
+			})
+		})
+
 		It("should handle conditions", func() {
 			expectedResource, err := NewKubeVirt(hco, commontestutils.Namespace)
 			Expect(err).ToNot(HaveOccurred())

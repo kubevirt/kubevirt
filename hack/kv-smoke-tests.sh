@@ -229,6 +229,10 @@ echo "waiting for testing infrastructure to be ready"
 ${CMD} wait deployment cdi-http-import-server -n "${INSTALLED_NAMESPACE}" --for condition=Available --timeout=10m
 ${CMD} wait pods -l "kubevirt.io=disks-images-provider" -n "${INSTALLED_NAMESPACE}" --for condition=Ready --timeout=10m
 
+# TODO: remove once https://github.com/kubevirt/kubevirt/pull/12073 will be merged
+# and we will be able to consume a new release with a fix
+KVPR12073='(test_id:6867)'
+
 echo "starting tests"
 ${TESTS_BINARY} \
     -cdi-namespace="$INSTALLED_NAMESPACE" \
@@ -239,7 +243,7 @@ ${TESTS_BINARY} \
     -ginkgo.focus='(rfe_id:1177)|(rfe_id:273)|(rfe_id:151)' \
     -ginkgo.no-color \
     -ginkgo.seed=0 \
-    -ginkgo.skip='(Slirp Networking)|(with CPU spec)|(with TX offload disabled)|(with cni flannel and ptp plugin interface)|(with ovs-cni plugin)|(test_id:1752)|(SRIOV)|(with EFI)|(Operator)|(GPU)|(DataVolume Integration)|(when virt-handler is not responsive)|(with default cpu model)|(should set the default MachineType when created without explicit value)|(should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself)|(test_id:3468)|(test_id:3466)|(test_id:1015)|(rfe_id:393)|(test_id:4646)|(test_id:4647)|(test_id:4648)|(test_id:4649)|(test_id:4650)|(test_id:4651)|(test_id:4652)|(test_id:4654)|(test_id:4655)|(test_id:4656)|(test_id:4657)|(test_id:4658)|(test_id:4659)|(should obey the disk verification limits in the KubeVirt CR)' \
+    -ginkgo.skip="(Slirp Networking)|(with CPU spec)|(with TX offload disabled)|(with cni flannel and ptp plugin interface)|(with ovs-cni plugin)|(test_id:1752)|(SRIOV)|(with EFI)|(Operator)|(GPU)|(DataVolume Integration)|(when virt-handler is not responsive)|(with default cpu model)|(should set the default MachineType when created without explicit value)|(should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself)|(test_id:3468)|(test_id:3466)|(test_id:1015)|(rfe_id:393)|(test_id:4646)|(test_id:4647)|(test_id:4648)|(test_id:4649)|(test_id:4650)|(test_id:4651)|(test_id:4652)|(test_id:4654)|(test_id:4655)|(test_id:4656)|(test_id:4657)|(test_id:4658)|(test_id:4659)|(should obey the disk verification limits in the KubeVirt CR)|${KVPR12073}" \
     -ginkgo.slow-spec-threshold=60s \
     -ginkgo.succinct \
     -ginkgo.flake-attempts=3 \
