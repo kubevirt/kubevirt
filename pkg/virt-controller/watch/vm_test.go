@@ -2587,7 +2587,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
 			vm, vmi := DefaultVirtualMachine(true)
-			vm.DeletionTimestamp = now()
+			vm.DeletionTimestamp = pointer.P(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2608,7 +2608,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should remove controller finalizer once VirtualMachineInstance is gone", func() {
 			//DefaultVirtualMachine already set finalizer
 			vm, _ := DefaultVirtualMachine(true)
-			vm.DeletionTimestamp = now()
+			vm.DeletionTimestamp = pointer.P(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2646,7 +2646,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should not delete the VirtualMachineInstance again if it is already marked for deletion", func() {
 			vm, vmi := DefaultVirtualMachine(false)
-			vmi.DeletionTimestamp = now()
+			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())

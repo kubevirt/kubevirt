@@ -869,7 +869,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Status.Phase = phase
-			vmi.DeletionTimestamp = now()
+			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 
 			if vmi.IsRunning() {
 				setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
@@ -932,7 +932,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
 
 			vmi.Status.Phase = virtv1.Scheduling
-			vmi.DeletionTimestamp = now()
+			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -945,7 +945,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectPodDoesNotExist(pod.Namespace, pod.Name)
 
 			modifiedPod := pod.DeepCopy()
-			modifiedPod.DeletionTimestamp = now()
+			modifiedPod.DeletionTimestamp = pointer.P(metav1.Now())
 
 			mockQueue.ExpectAdds(1)
 			podSource.Modify(modifiedPod)
@@ -1228,7 +1228,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should move the vmi to failed state if the vmi is pending, no pod exists yet and gets deleted", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.DeletionTimestamp = now()
+			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 
 			addVirtualMachine(vmi)
 
@@ -1383,7 +1383,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		It("should set an error condition if deleting the virtual machine pod fails", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.DeletionTimestamp = now()
+			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			// Expect pod delete
@@ -1725,7 +1725,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Status.Conditions = nil
 			vmi.Status.Phase = virtv1.Running
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			pod.DeletionTimestamp = now()
+			pod.DeletionTimestamp = pointer.P(metav1.Now())
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
 
 			addVirtualMachine(vmi)
@@ -2707,7 +2707,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			attachmentPods := makePodWithVirtlauncher(virtlauncherPod, podIndexes...)
 
 			for _, pod := range attachmentPods {
-				pod.DeletionTimestamp = now()
+				pod.DeletionTimestamp = pointer.P(metav1.Now())
 				Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
 			}
 			for _, pvcIndex := range pvcIndexes {
@@ -4052,11 +4052,6 @@ func NewPodForVirtlauncher(virtlauncher *k8sv1.Pod, name, uid string, phase k8sv
 			},
 		},
 	}
-}
-
-func now() *metav1.Time {
-	now := metav1.Now()
-	return &now
 }
 
 func markAsReady(vmi *virtv1.VirtualMachineInstance) {

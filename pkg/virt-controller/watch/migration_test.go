@@ -869,8 +869,7 @@ var _ = Describe("Migration watcher", func() {
 				Status: k8sv1.ConditionFalse,
 				Reason: k8sv1.PodReasonUnschedulable,
 			})
-			now := now()
-			pod.CreationTimestamp = metav1.NewTime(now.Time.Add(time.Duration(-timeLapse) * time.Second))
+			pod.CreationTimestamp = metav1.NewTime(metav1.Now().Time.Add(time.Duration(-timeLapse) * time.Second))
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -901,8 +900,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, phase)
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 
-			now := now()
-			pod.CreationTimestamp = metav1.NewTime(now.Time.Add(time.Duration(-timeLapse) * time.Second))
+			pod.CreationTimestamp = metav1.NewTime(metav1.Now().Time.Add(time.Duration(-timeLapse) * time.Second))
 
 			if annotationVal != "" {
 				migration.Annotations[virtv1.MigrationPendingPodTimeoutSecondsAnnotation] = annotationVal
@@ -1012,7 +1010,7 @@ var _ = Describe("Migration watcher", func() {
 	Context("Migration should immediately fail if", func() {
 		DescribeTable("vmi moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", virtv1.Succeeded)
-			vmi.DeletionTimestamp = now()
+			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 			migration := newMigration("testmigration", vmi.Name, phase)
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
 				MigrationUID: migration.UID,
@@ -1043,7 +1041,7 @@ var _ = Describe("Migration watcher", func() {
 				MigrationUID: migration.UID,
 			}
 			if phase == virtv1.MigrationTargetReady {
-				vmi.Status.MigrationState.StartTimestamp = now()
+				vmi.Status.MigrationState.StartTimestamp = pointer.P(metav1.Now())
 			}
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodSucceeded)
 			pod.Spec.NodeName = "node01"
@@ -1072,8 +1070,8 @@ var _ = Describe("Migration watcher", func() {
 				MigrationUID:   migration.UID,
 				Failed:         true,
 				Completed:      true,
-				StartTimestamp: now(),
-				EndTimestamp:   now(),
+				StartTimestamp: pointer.P(metav1.Now()),
+				EndTimestamp:   pointer.P(metav1.Now()),
 			}
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			pod.Spec.NodeName = "node01"
@@ -1321,7 +1319,7 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:        "node01",
 				SourceNode:        "node02",
 				TargetNodeAddress: "10.10.10.10:1234",
-				StartTimestamp:    now(),
+				StartTimestamp:    pointer.P(metav1.Now()),
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -1344,9 +1342,9 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:                     "node01",
 				SourceNode:                     "node02",
 				TargetNodeAddress:              "10.10.10.10:1234",
-				StartTimestamp:                 now(),
-				EndTimestamp:                   now(),
-				TargetNodeDomainReadyTimestamp: now(),
+				StartTimestamp:                 pointer.P(metav1.Now()),
+				EndTimestamp:                   pointer.P(metav1.Now()),
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
 				Failed:                         false,
 				Completed:                      true,
 			}
@@ -1373,7 +1371,7 @@ var _ = Describe("Migration watcher", func() {
 					virtv1.VirtualMachineInstanceCondition{
 						Type:          c,
 						Status:        k8sv1.ConditionTrue,
-						LastProbeTime: *now(),
+						LastProbeTime: metav1.Now(),
 					})
 			}
 
@@ -1382,9 +1380,9 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:                     "node01",
 				SourceNode:                     "node02",
 				TargetNodeAddress:              "10.10.10.10:1234",
-				StartTimestamp:                 now(),
-				EndTimestamp:                   now(),
-				TargetNodeDomainReadyTimestamp: now(),
+				StartTimestamp:                 pointer.P(metav1.Now()),
+				EndTimestamp:                   pointer.P(metav1.Now()),
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
 				Failed:                         false,
 				Completed:                      true,
 			}
@@ -1414,8 +1412,8 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:        "node01",
 				SourceNode:        "node02",
 				TargetNodeAddress: "10.10.10.10:1234",
-				StartTimestamp:    now(),
-				EndTimestamp:      now(),
+				StartTimestamp:    pointer.P(metav1.Now()),
+				EndTimestamp:      pointer.P(metav1.Now()),
 				Failed:            false,
 				Completed:         true,
 			}
@@ -1446,18 +1444,18 @@ var _ = Describe("Migration watcher", func() {
 			condition := virtv1.VirtualMachineInstanceMigrationCondition{
 				Type:          virtv1.VirtualMachineInstanceMigrationAbortRequested,
 				Status:        k8sv1.ConditionTrue,
-				LastProbeTime: *now(),
+				LastProbeTime: metav1.Now(),
 			}
 			migration.Status.Conditions = append(migration.Status.Conditions, condition)
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			pod.Spec.NodeName = "node01"
-			migration.DeletionTimestamp = now()
+			migration.DeletionTimestamp = pointer.P(metav1.Now())
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
 				MigrationUID:      migration.UID,
 				TargetNode:        "node01",
 				SourceNode:        "node02",
 				TargetNodeAddress: "10.10.10.10:1234",
-				StartTimestamp:    now(),
+				StartTimestamp:    pointer.P(metav1.Now()),
 			}
 			controller.addHandOffKey(virtcontroller.MigrationKey(migration))
 			addMigration(migration)
@@ -1842,7 +1840,7 @@ var _ = Describe("Migration watcher", func() {
 				node.Labels = make(map[string]string)
 			}
 			node.Labels[virtv1.HostModelCPULabel+"other-fake-model"] = "true"
-			targetPod.CreationTimestamp = metav1.NewTime(now().Time.Add(time.Duration(-defaultUnschedulablePendingTimeoutSeconds) * time.Second))
+			targetPod.CreationTimestamp = metav1.NewTime(pointer.P(metav1.Now()).Time.Add(time.Duration(-defaultUnschedulablePendingTimeoutSeconds) * time.Second))
 			targetPod.Status.Conditions = append(targetPod.Status.Conditions, k8sv1.PodCondition{
 				Type:   k8sv1.PodScheduled,
 				Status: k8sv1.ConditionFalse,
@@ -1871,7 +1869,7 @@ var _ = Describe("Migration watcher", func() {
 		BeforeEach(func() {
 			vmi = newVirtualMachine("testvmi", virtv1.Running)
 			migration = newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-			migration.DeletionTimestamp = now()
+			migration.DeletionTimestamp = pointer.P(metav1.Now())
 
 			Expect(controller.isMigrationHandedOff(migration, vmi)).To(BeFalse(), "this test assumes migration was not handed off yet")
 			addMigration(migration)
