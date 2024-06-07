@@ -52,6 +52,7 @@ func (CPUInstancetype) SwaggerDoc() map[string]string {
 		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
 		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
 		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
+		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can be hotplugged\n+optional",
 	}
 }
 
@@ -61,6 +62,7 @@ func (MemoryInstancetype) SwaggerDoc() map[string]string {
 		"guest":             "Required amount of memory which is visible inside the guest OS.",
 		"hugepages":         "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
 		"overcommitPercent": "OvercommitPercent is the percentage of the guest memory which will be overcommitted.\nThis means that the VMIs parent pod (virt-launcher) will request less\nphysical memory by a factor specified by the OvercommitPercent.\nOvercommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.\nDefaults to 0\n+optional\n+kubebuilder:validation:Maximum=100\n+kubebuilder:validation:Minimum=0",
+		"maxGuest":          "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.\nThe delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.\n+optional",
 	}
 }
 

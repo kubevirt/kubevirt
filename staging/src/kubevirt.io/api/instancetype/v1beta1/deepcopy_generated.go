@@ -54,6 +54,11 @@ func (in *CPUInstancetype) DeepCopyInto(out *CPUInstancetype) {
 		*out = new(v1.Realtime)
 		**out = **in
 	}
+	if in.MaxSockets != nil {
+		in, out := &in.MaxSockets, &out.MaxSockets
+		*out = new(uint32)
+		**out = **in
+	}
 	return
 }
 
@@ -337,6 +342,11 @@ func (in *MemoryInstancetype) DeepCopyInto(out *MemoryInstancetype) {
 		in, out := &in.Hugepages, &out.Hugepages
 		*out = new(v1.Hugepages)
 		**out = **in
+	}
+	if in.MaxGuest != nil {
+		in, out := &in.MaxGuest, &out.MaxGuest
+		x := (*in).DeepCopy()
+		*out = &x
 	}
 	return
 }

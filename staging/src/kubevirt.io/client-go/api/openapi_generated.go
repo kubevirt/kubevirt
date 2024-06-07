@@ -28550,6 +28550,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_CPUInstancetype(ref common.Refer
 							Ref:         ref("kubevirt.io/api/core/v1.Realtime"),
 						},
 					},
+					"maxSockets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxSockets specifies the maximum amount of sockets that can be hotplugged",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 				Required: []string{"guest"},
 			},
@@ -28963,6 +28970,12 @@ func schema_kubevirtio_api_instancetype_v1beta1_MemoryInstancetype(ref common.Re
 							Description: "OvercommitPercent is the percentage of the guest memory which will be overcommitted. This means that the VMIs parent pod (virt-launcher) will request less physical memory by a factor specified by the OvercommitPercent. Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully. Defaults to 0",
 							Type:        []string{"integer"},
 							Format:      "int32",
+						},
+					},
+					"maxGuest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS. The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 				},

@@ -50,6 +50,7 @@ type Methods interface {
 	InferDefaultInstancetype(vm *virtv1.VirtualMachine) error
 	InferDefaultPreference(vm *virtv1.VirtualMachine) error
 	CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (Conflicts, error)
+	ApplyToVM(vm *virtv1.VirtualMachine) error
 }
 
 type Conflicts []*k8sfield.Path
@@ -72,6 +73,24 @@ type InstancetypeMethods struct {
 }
 
 var _ Methods = &InstancetypeMethods{}
+
+func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
+	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
+		return nil
+	}
+	instancetypeSpec, err := m.FindInstancetypeSpec(vm)
+	if err != nil {
+		return err
+	}
+	preferenceSpec, err := m.FindPreferenceSpec(vm)
+	if err != nil {
+		return err
+	}
+	if conflicts := m.ApplyToVmi(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.ObjectMeta); len(conflicts) > 0 {
+		return fmt.Errorf("VM conflicts with instancetype spec in fields: [%s]", conflicts.String())
+	}
+	return nil
+}
 
 func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) instancetypev1beta1.PreferredCPUTopology {
 	// Default to PreferSockets when a PreferredCPUTopology isn't provided
@@ -988,6 +1007,10 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Virtua
 		vmiSpec.Domain.CPU.Realtime = instancetypeSpec.CPU.Realtime.DeepCopy()
 	}
 
+	if instancetypeSpec.CPU.MaxSockets != nil {
+		vmiSpec.Domain.CPU.MaxSockets = *instancetypeSpec.CPU.MaxSockets
+	}
+
 	applyGuestCPUTopology(instancetypeSpec.CPU.Guest, preferenceSpec, vmiSpec)
 
 	return nil
@@ -1164,6 +1187,11 @@ func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Vir
 
 	if instancetypeSpec.Memory.Hugepages != nil {
 		vmiSpec.Domain.Memory.Hugepages = instancetypeSpec.Memory.Hugepages.DeepCopy()
+	}
+
+	if instancetypeSpec.Memory.MaxGuest != nil {
+		m := instancetypeSpec.Memory.MaxGuest.DeepCopy()
+		vmiSpec.Domain.Memory.MaxGuest = &m
 	}
 
 	return nil

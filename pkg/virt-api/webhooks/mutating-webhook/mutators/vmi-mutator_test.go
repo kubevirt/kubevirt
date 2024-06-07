@@ -154,38 +154,43 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 
-		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{"test": "test"}}
-		preset = &v1.VirtualMachineInstancePreset{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Name: "test-preset",
-			},
-			Spec: v1.VirtualMachineInstancePresetSpec{
-				Domain: &v1.DomainSpec{
-					CPU: &v1.CPU{Cores: 4},
-				},
-				Selector: selector,
-			},
-		}
-		presetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
-		presetInformer.GetIndexer().Add(preset)
-
 		mutator = &VMIsMutator{}
 		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+
+		presetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
 		mutator.VMIPresetInformer = presetInformer
 		mutator.KubeVirtServiceAccounts = webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)
 	})
 
-	It("should apply presets on VMI create", func() {
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-		Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
-		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
-	})
+	Context("with presets", func() {
+		BeforeEach(func() {
+			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{"test": "test"}}
+			preset = &v1.VirtualMachineInstancePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: "test-preset",
+				},
+				Spec: v1.VirtualMachineInstancePresetSpec{
+					Domain: &v1.DomainSpec{
+						CPU: &v1.CPU{Cores: 4},
+					},
+					Selector: selector,
+				},
+			}
+			presetInformer.GetIndexer().Add(preset)
+		})
 
-	It("should include deprecation warning in response when presets are applied to VMI", func() {
-		resp := admitVMI(vmi.Spec.Architecture)
-		Expect(resp.Allowed).To(BeTrue())
-		Expect(resp.Warnings).ToNot(BeEmpty())
-		Expect(resp.Warnings[0]).To(ContainSubstring("VirtualMachineInstancePresets is now deprecated"))
+		It("should apply presets on VMI create", func() {
+			_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+			Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
+			Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
+		})
+
+		It("should include deprecation warning in response when presets are applied to VMI", func() {
+			resp := admitVMI(vmi.Spec.Architecture)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Warnings).ToNot(BeEmpty())
+			Expect(resp.Warnings[0]).To(ContainSubstring("VirtualMachineInstancePresets is now deprecated"))
+		})
 	})
 
 	DescribeTable("should apply defaults on VMI create", func(arch string, cpuModel string) {
@@ -1267,5 +1272,181 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(*status.Memory.GuestAtBoot).To(Equal(memory))
 		Expect(*status.Memory.GuestCurrent).To(Equal(memory))
 		Expect(*status.Memory.GuestRequested).To(Equal(memory))
+	})
+
+	Context("CPU topology", func() {
+		It("should set default CPU topology in Status when not provided by VMI", func() {
+			vmi.Spec.Domain.CPU = nil
+			_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
+			Expect(status.CurrentCPUTopology).ToNot(BeNil())
+			Expect(status.CurrentCPUTopology.Sockets).To(Equal(uint32(1)))
+			Expect(status.CurrentCPUTopology.Cores).To(Equal(uint32(1)))
+			Expect(status.CurrentCPUTopology.Threads).To(Equal(uint32(1)))
+		})
+
+		DescribeTable("should copy VMI provided", func(cpu *v1.CPU) {
+			vmi.Spec.Domain.CPU = cpu
+			_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
+			Expect(status.CurrentCPUTopology).ToNot(BeNil())
+			Expect(status.CurrentCPUTopology.Sockets).To(Equal(vmi.Spec.Domain.CPU.Sockets))
+			Expect(status.CurrentCPUTopology.Cores).To(Equal(vmi.Spec.Domain.CPU.Cores))
+			Expect(status.CurrentCPUTopology.Threads).To(Equal(vmi.Spec.Domain.CPU.Threads))
+		},
+			Entry("full guest CPU topology", &v1.CPU{Sockets: 3, Cores: 3, Threads: 2}),
+			Entry("partial guest CPU topology", &v1.CPU{Sockets: 1, Cores: 1, Threads: 0}),
+		)
+
+		It("should not overwrite existing CurrentCPUTopology within status", func() {
+			vmi.Status = v1.VirtualMachineInstanceStatus{
+				CurrentCPUTopology: &v1.CPUTopology{
+					Sockets: 1,
+					Cores:   1,
+					Threads: 1,
+				},
+			}
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Sockets: 2,
+				Cores:   1,
+				Threads: 1,
+			}
+			_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
+			Expect(status.CurrentCPUTopology.Sockets).To(Equal(vmi.Status.CurrentCPUTopology.Sockets))
+			Expect(status.CurrentCPUTopology.Cores).To(Equal(vmi.Status.CurrentCPUTopology.Cores))
+			Expect(status.CurrentCPUTopology.Threads).To(Equal(vmi.Status.CurrentCPUTopology.Threads))
+		})
+	})
+
+	Context("when LiveUpdate and VMLiveUpdateFeatures is enabled", func() {
+		BeforeEach(func() {
+			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+			rolloutStrategy := v1.VMRolloutStrategyLiveUpdate
+			kvCR.Spec.Configuration.VMRolloutStrategy = &rolloutStrategy
+			kvCR.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+		})
+		Context("configure CPU hotplug", func() {
+			It("to use maximum sockets configured in cluster config when its not set in VMI spec", func() {
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+				maxSockets := uint32(10)
+				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+					MaxCpuSockets: &maxSockets,
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(maxSockets)))
+			})
+			It("to prefer and use MaxCpuSockets from KV over MaxHotplugRatio", func() {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 2,
+				}
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+				maxSockets := uint32(10)
+				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+					MaxCpuSockets:   &maxSockets,
+					MaxHotplugRatio: 2,
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+				Expect(spec.Domain.CPU.MaxSockets).To(Equal(maxSockets))
+			})
+			It("to keep VMI values of max sockets when provided", func() {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets:    2,
+					MaxSockets: 16,
+				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(16)))
+			})
+			It("to use hot plug ratio configured in cluster config when max sockets isn't provided in the VMI", func() {
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+					MaxHotplugRatio: 2,
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(2)))
+			})
+			It("to calculate max sockets to be 4x times the configured sockets when no max sockets defined", func() {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 2,
+				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(8)))
+			})
+			It("to calculate max sockets to be 4x times the default sockets when default CPU topology used", func() {
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(4)))
+			})
+		})
+		Context("configure Memory hotplug", func() {
+			It("to keep VMI values of max guest when provided", func() {
+				guest := resource.MustParse("2Gi")
+				maxGuest := resource.MustParse("6Gi")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest:    &guest,
+					MaxGuest: &maxGuest,
+				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.Memory.Guest.Value()).To(Equal(guest.Value()))
+				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
+			})
+			It("to use maxGuest configured in cluster config when its not set in VM spec", func() {
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+				maxGuest := resource.MustParse("10Gi")
+				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+					MaxGuest: &maxGuest,
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				guest := resource.MustParse("1Gi")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest: &guest,
+				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
+			})
+			It("to prefer maxGuest from KV over MaxHotplugRatio", func() {
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+				maxGuest := resource.MustParse("10Gi")
+				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+					MaxGuest:        &maxGuest,
+					MaxHotplugRatio: 2,
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				guest := resource.MustParse("1Gi")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest: &guest,
+				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.Memory.Guest.Value()).To(Equal(guest.Value()))
+				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
+			})
+			It("to calculate maxGuest to be `MaxHotplugRatio` times the configured guest memory when no maxGuest is defined", func() {
+				guest := resource.MustParse("1Gi")
+				expectedMaxGuest := resource.MustParse("4Gi")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest: &guest,
+				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
+			})
+			It("to use hot plug ratio configured in cluster config when max guest isn't provided in the VMI", func() {
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+					MaxHotplugRatio: 2,
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				guest := resource.MustParse("1Gi")
+				expectedMaxGuest := resource.MustParse("2Gi")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest: &guest,
+				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
+			})
+		})
 	})
 })

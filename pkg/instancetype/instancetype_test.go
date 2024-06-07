@@ -1003,6 +1003,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						Realtime: &v1.Realtime{
 							Mask: "0-3,^1",
 						},
+						MaxSockets: pointer.P(uint32(6)),
 					},
 				}
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
@@ -1022,6 +1023,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
+				Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(*instancetypeSpec.CPU.MaxSockets))
 			})
 
 			It("should default to Sockets, when instancetype is used with PreferAny", func() {
@@ -1495,12 +1497,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 		Context("instancetype.Spec.Memory", func() {
 			BeforeEach(func() {
+				maxGuest := resource.MustParse("2G")
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1beta1.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
 						Hugepages: &v1.Hugepages{
 							PageSize: "1Gi",
 						},
+						MaxGuest: &maxGuest,
 					},
 				}
 			})
@@ -1511,6 +1515,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetypeSpec.Memory.Guest))
 				Expect(*vmi.Spec.Domain.Memory.Hugepages).To(Equal(*instancetypeSpec.Memory.Hugepages))
+				Expect(vmi.Spec.Domain.Memory.MaxGuest.Equal(*instancetypeSpec.Memory.MaxGuest)).To(BeTrue())
 			})
 
 			It("should apply memory overcommit correctly to VMI", func() {
