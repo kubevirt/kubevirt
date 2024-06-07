@@ -68,6 +68,7 @@ go_test(
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
