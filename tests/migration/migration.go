@@ -3587,11 +3587,11 @@ func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode
 
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(containerDisk), cdiv1.RegistryPullNode),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
-			libdv.PVCWithAccessMode(accessMode),
-			libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+		libdv.WithStorage(
+			libdv.StorageWithStorageClass(storageClass),
+			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
+			libdv.StorageWithAccessMode(accessMode),
+			libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 		),
 	)
 

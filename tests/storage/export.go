@@ -49,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -1140,12 +1141,12 @@ var _ = SIGDescribe("Export", func() {
 		return vm
 	}
 
-	deleteVMI := func(vmi *v1.VirtualMachineInstance) {
+	deleteVMI := func(vmi *virtv1.VirtualMachineInstance) {
 		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	newSnapshot := func(vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
+	newSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
 		apiGroup := "kubevirt.io"
 		return &snapshotv1.VirtualMachineSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1889,14 +1890,14 @@ var _ = SIGDescribe("Export", func() {
 		err = yaml.Unmarshal([]byte(split[2]), diskDV)
 		Expect(err).ToNot(HaveOccurred())
 		diskDV.Name = fmt.Sprintf("%s-clone", diskDV.Name)
-		diskDV.Spec.PVC.StorageClassName = virtpointer.P(sc)
-		Expect(diskDV.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.CirrosVolumeSize)))
+		diskDV.Spec.Storage.StorageClassName = virtpointer.P(sc)
+		Expect(diskDV.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.CirrosVolumeSize)))
 		blankDv = &cdiv1.DataVolume{}
 		err = yaml.Unmarshal([]byte(split[3]), blankDv)
 		Expect(err).ToNot(HaveOccurred())
 		blankDv.Name = fmt.Sprintf("%s-clone", blankDv.Name)
-		blankDv.Spec.PVC.StorageClassName = virtpointer.P(sc)
-		Expect(blankDv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.BlankVolumeSize)))
+		blankDv.Spec.Storage.StorageClassName = virtpointer.P(sc)
+		Expect(blankDv.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.BlankVolumeSize)))
 
 		By("Getting token secret header")
 		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader), token.Data["token"])

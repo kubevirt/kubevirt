@@ -899,12 +899,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
-<<<<<<< HEAD
-						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
-						libdv.WithDataVolumeSourceRef("DataSource", namespace, dataSource.Name),
-=======
 						libdv.WithStorage(libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce), libdv.StorageWithVolumeSize("1Gi")),
->>>>>>> 9796766afc (Change storage tests from withPVC to withStorage)
+						libdv.WithDataVolumeSourceRef("DataSource", namespace, dataSource.Name),
 					)
 
 					return generateDataVolumeTemplatesFromDataVolume(dataVolume)
@@ -951,12 +947,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
-<<<<<<< HEAD
-						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
-						libdv.WithDataVolumeSourceRef("DataSource", namespace, dataSource.Name),
-=======
 						libdv.WithStorage(libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce), libdv.StorageWithVolumeSize("1Gi")),
->>>>>>> 9796766afc (Change storage tests from withPVC to withStorage)
+						libdv.WithDataVolumeSourceRef("DataSource", namespace, dataSource.Name),
 					)
 
 					return generateDataVolumeTemplatesFromDataVolume(dataVolume)

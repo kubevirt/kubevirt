@@ -566,11 +566,11 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			dv := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
-					libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
-					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 				),
 			)
 			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})

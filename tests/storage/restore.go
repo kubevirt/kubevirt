@@ -259,9 +259,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(containerDisk)),
 			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-			libdv.WithPVC(
-				libdv.PVCWithStorageClass(storageClass),
-				libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(storageClass),
+				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
 			),
 		)
 		return libvmi.NewVirtualMachine(
@@ -1111,7 +1111,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
 				quantity, err := resource.ParseQuantity("1528Mi")
 				Expect(err).ToNot(HaveOccurred())
-				vm.Spec.DataVolumeTemplates[0].Spec.PVC.Resources.Requests["storage"] = quantity
+				vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests["storage"] = quantity
 				vm, vmi = createAndStartVM(vm)
 				expectedCapacity, err := resource.ParseQuantity("2Gi")
 				Expect(err).ToNot(HaveOccurred())
@@ -1124,7 +1124,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(content.Spec.VolumeBackups[0].PersistentVolumeClaim.Spec.Resources.Requests["storage"]).To(Equal(quantity))
+				resQuantity := content.Spec.VolumeBackups[0].PersistentVolumeClaim.Spec.Resources.Requests["storage"]
+				Expect(resQuantity.Value()).To(Equal(quantity.Value()))
 				vs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(vm.Namespace).Get(context.Background(), *content.Spec.VolumeBackups[0].VolumeSnapshotName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*vs.Status.RestoreSize).To(Equal(expectedCapacity))

@@ -71,6 +71,7 @@ func WithName(name string) dvOption {
 	}
 }
 
+type pvcOption func(*corev1.PersistentVolumeClaimSpec)
 type storageOption func(*v1beta1.StorageSpec)
 
 // WithStorage is a dvOption to add a StorageOption spec to the DataVolume
@@ -96,6 +97,28 @@ func WithStorage(options ...storageOption) dvOption {
 
 	return func(dv *v1beta1.DataVolume) {
 		dv.Spec.Storage = storage
+	}
+}
+
+// WithPVC is a dvOption to add a PVCOption spec to the DataVolume
+// The function receives an optional list of pvcOption, to override the defaults
+// * access mode of ReadWriteOnce
+// * no volume mode. kubernetes default is PersistentVolumeFilesystem
+func WithPVC(options ...pvcOption) dvOption {
+	pvc := &corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				"storage": resource.MustParse(cd.CirrosVolumeSize),
+			},
+		},
+	}
+	for _, opt := range options {
+		opt(pvc)
+	}
+
+	return func(dv *v1beta1.DataVolume) {
+		dv.Spec.PVC = pvc
 	}
 }
 
@@ -188,11 +211,24 @@ func randName() string {
 }
 
 // PVC Options
+// PVCWithStorageClass add the sc storage class name to the DV
+func PVCWithStorageClass(sc string) pvcOption {
+	return func(pvc *corev1.PersistentVolumeClaimSpec) {
+		if pvc == nil {
+			// TODO: Fail here instead? This is programmer error
+			return
+		}
 
+		pvc.StorageClassName = &sc
+	}
+}
+
+// Storage Options
 // StorageWithStorageClass add the sc storage class name to the DV
 func StorageWithStorageClass(sc string) storageOption {
 	return func(storage *v1beta1.StorageSpec) {
 		if storage == nil {
+			// TODO: Fail here instead? This is programmer error
 			return
 		}
 
@@ -205,6 +241,7 @@ func StorageWithStorageClass(sc string) storageOption {
 func StorageWithVolumeSize(size string) storageOption {
 	return func(storage *v1beta1.StorageSpec) {
 		if storage == nil {
+			// TODO: Fail here instead? This is programmer error
 			return
 		}
 
@@ -216,6 +253,7 @@ func StorageWithVolumeSize(size string) storageOption {
 func StorageWithVolumeMode(volumeMode corev1.PersistentVolumeMode) storageOption {
 	return func(storage *v1beta1.StorageSpec) {
 		if storage == nil {
+			// TODO: Fail here instead? This is programmer error
 			return
 		}
 
@@ -232,6 +270,7 @@ func StorageWithBlockVolumeMode() storageOption {
 func StorageWithAccessMode(accessMode corev1.PersistentVolumeAccessMode) storageOption {
 	return func(storage *v1beta1.StorageSpec) {
 		if storage == nil {
+			// TODO: Fail here instead? This is programmer error
 			return
 		}
 

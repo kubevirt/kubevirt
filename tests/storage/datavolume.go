@@ -252,11 +252,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize("512Mi"),
-					libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
-					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize("512Mi"),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
 				),
 			)
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -531,7 +531,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				dv = libdv.NewDataVolume(
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)), // need it for deletion. Reading it from Create() does not work here
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithStorage(libdv.StorageWithStorageClass(storageClass.Name)),
+					libdv.WithPVC(libdv.PVCWithStorageClass(storageClass.Name)),
 				)
 				vmi = libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
 			})
@@ -868,7 +868,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						},
 					},
 				}
-				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = pointer.P(storageClass)
+				vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName = pointer.P(storageClass)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, saVol)
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{Name: volumeName})
 			})
@@ -1376,19 +1376,19 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 		It("should use PreferredStorageClassName when storage class not provided by VM", func() {
 			// Remove storage class name from VM definition
-			vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = nil
+			vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName = nil
 
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
 		})
 
 		It("should always use VM defined storage class over PreferredStorageClassName", func() {
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
 		})
 	})
 })
