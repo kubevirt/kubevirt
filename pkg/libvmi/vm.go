@@ -59,8 +59,15 @@ func NewVirtualMachine(vmi *v1.VirtualMachineInstance, opts ...VMOption) *v1.Vir
 	return vm
 }
 
+// Deprecated: WithRunning is deprecated.
+// While the running field itself is not deprecated, it is discouraged;
+// We try to steer users towards using RunStrategy which allow for greater variation of user states
+// To keep this option functional, we nil out RunStrategy to avoid conflict
 func WithRunning() VMOption {
 	return func(vm *v1.VirtualMachine) {
+		// RunStrategy and running are mutually exclusive, because they can be contradictory
+		// The API server will reject VirtualMachine resources that define both
+		vm.Spec.RunStrategy = nil
 		vm.Spec.Running = pointer.P(true)
 	}
 }
