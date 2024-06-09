@@ -154,7 +154,9 @@ var _ = Describe("Application", func() {
 			instancetypeMethods,
 			recorder,
 			virtClient,
-			config)
+			config,
+			nil,
+		)
 		app.migrationController, _ = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,

@@ -32,10 +32,9 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	"github.com/google/uuid"
@@ -65,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -110,16 +108,15 @@ const (
 )
 
 const (
-	HotPlugVolumeErrorReason           = "HotPlugVolumeError"
-	HotPlugCPUErrorReason              = "HotPlugCPUError"
-	MemoryDumpErrorReason              = "MemoryDumpError"
-	FailedUpdateErrorReason            = "FailedUpdateError"
-	FailedCreateReason                 = "FailedCreate"
-	VMIFailedDeleteReason              = "FailedDelete"
-	HotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
-	AffinityChangeErrorReason          = "AffinityChangeError"
-	HotPlugMemoryErrorReason           = "HotPlugMemoryError"
-	VolumesUpdateErrorReason           = "VolumesUpdateError"
+	HotPlugVolumeErrorReason  = "HotPlugVolumeError"
+	HotPlugCPUErrorReason     = "HotPlugCPUError"
+	MemoryDumpErrorReason     = "MemoryDumpError"
+	FailedUpdateErrorReason   = "FailedUpdateError"
+	FailedCreateReason        = "FailedCreate"
+	VMIFailedDeleteReason     = "FailedDelete"
+	AffinityChangeErrorReason = "AffinityChangeError"
+	HotPlugMemoryErrorReason  = "HotPlugMemoryError"
+	VolumesUpdateErrorReason  = "VolumesUpdateError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -135,7 +132,9 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	instancetypeMethods instancetype.Methods,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
-	clusterConfig *virtconfig.ClusterConfig) (*VMController, error) {
+	clusterConfig *virtconfig.ClusterConfig,
+	netSynchronizer synchronizer,
+) (*VMController, error) {
 
 	c := &VMController{
 		Queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vm"),
@@ -146,7 +145,6 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		namespaceStore:         namespaceStore,
 		pvcStore:               pvcInformer.GetStore(),
 		crIndexer:              crInformer.GetIndexer(),
-		podIndexer:             podInformer.GetIndexer(),
 		instancetypeMethods:    instancetypeMethods,
 		recorder:               recorder,
 		clientset:              clientset,
@@ -156,8 +154,9 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
 			return response.Allowed, response.Reason, err
 		},
-		statusUpdater: status.NewVMStatusUpdater(clientset),
-		clusterConfig: clusterConfig,
+		statusUpdater:   status.NewVMStatusUpdater(clientset),
+		clusterConfig:   clusterConfig,
+		netSynchronizer: netSynchronizer,
 	}
 
 	c.hasSynced = func() bool {
@@ -231,6 +230,10 @@ func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, er
 	return ds, nil
 }
 
+type synchronizer interface {
+	Sync(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
+}
+
 type VMController struct {
 	clientset              kubecli.KubevirtClient
 	Queue                  workqueue.RateLimitingInterface
@@ -241,7 +244,6 @@ type VMController struct {
 	namespaceStore         cache.Store
 	pvcStore               cache.Store
 	crIndexer              cache.Indexer
-	podIndexer             cache.Indexer
 	instancetypeMethods    instancetype.Methods
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
@@ -250,6 +252,8 @@ type VMController struct {
 	statusUpdater          *status.VMStatusUpdater
 	clusterConfig          *virtconfig.ClusterConfig
 	hasSynced              func() bool
+
+	netSynchronizer synchronizer
 }
 
 func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -290,6 +294,7 @@ func (c *VMController) Execute() bool {
 	defer virtControllerVMWorkQueueTracer.StopTrace(key.(string))
 
 	defer c.Queue.Done(key)
+
 	if err := c.execute(key.(string)); err != nil {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachine %v", key)
 		c.Queue.AddRateLimited(key)
@@ -3133,31 +3138,17 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 	vmCopy := vm.DeepCopy()
 
-	if c.clusterConfig.HotplugNetworkInterfacesEnabled() &&
-		vmi != nil && vmi.DeletionTimestamp == nil {
-		vmiCopy := vmi.DeepCopy()
-
-		indexedStatusIfaces := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
-			func(ifaceStatus virtv1.VirtualMachineInstanceNetworkInterface) bool { return true })
-
-		ifaces, networks := network.ClearDetachedInterfaces(vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces, vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces)
-		vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
-		vmCopy.Spec.Template.Spec.Networks = networks
-
-		ifaces, networks = network.ClearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
-		vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
-		vmiCopy.Spec.Networks = networks
-
-		hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi)
-		if err != nil {
-			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err), HotPlugNetworkInterfaceErrorReason}, nil
+	if c.netSynchronizer != nil {
+		syncedVM, errSync := c.netSynchronizer.Sync(vmCopy, vmi)
+		var errWithReason syncError
+		if errSync != nil {
+			if errors.As(errSync, &errWithReason) {
+				return vm, errWithReason, nil
+			}
+			return vm, &syncErrorImpl{fmt.Errorf("unsupported error: %v", errSync), "UnsupportedSyncError"}, nil
 		}
-		updatedVmiSpec := network.ApplyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
-		vmiCopy.Spec = *updatedVmiSpec
-
-		if err := c.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
-			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to patch vmi: %v", err), FailedUpdateErrorReason}, nil
-		}
+		vmCopy.ObjectMeta = syncedVM.ObjectMeta
+		vmCopy.Spec = syncedVM.Spec
 	}
 
 	if err := c.handleVolumeRequests(vmCopy, vmi); err != nil {
@@ -3252,20 +3243,6 @@ func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *vi
 		return preferenceSpec, nil
 	}
 	return nil, nil
-}
-
-func (c *VMController) hasOrdinalNetworkInterfaces(vmi *virtv1.VirtualMachineInstance) (bool, error) {
-	pod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to fetch pod from cache.")
-		return false, err
-	}
-	if pod == nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to find VMI pod in cache.")
-		return false, err
-	}
-	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(pod))
-	return hasOrdinalIfaces, nil
 }
 
 func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
@@ -3384,22 +3361,4 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 	log.Log.Object(vmi).Infof(logMsg)
 
 	return nil
-}
-
-func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInstanceSpec, vmi *virtv1.VirtualMachineInstance) error {
-	if equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Interfaces, newVmiSpec.Domain.Devices.Interfaces) {
-		return nil
-	}
-	patchBytes, err := patch.New(
-		patch.WithTest("/spec/networks", vmi.Spec.Networks),
-		patch.WithAdd("/spec/networks", newVmiSpec.Networks),
-		patch.WithTest("/spec/domain/devices/interfaces", vmi.Spec.Domain.Devices.Interfaces),
-		patch.WithAdd("/spec/domain/devices/interfaces", newVmiSpec.Domain.Devices.Interfaces),
-	).GeneratePayload()
-	if err != nil {
-		return err
-	}
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-
-	return err
 }

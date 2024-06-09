@@ -137,7 +137,9 @@ var _ = Describe("VirtualMachine", func() {
 				instancetypeMethods,
 				recorder,
 				virtClient,
-				config)
+				config,
+				nil,
+			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -5544,6 +5546,53 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("networks is non-empty", []v1.Interface{}, []v1.Network{{Name: "b"}}),
 		)
 
+		DescribeTable("call to synchronizer", func(syncer testSynchronizer, expectCond v1.VirtualMachineCondition, expectCondCount int) {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			addVirtualMachine(vm)
+			controller.netSynchronizer = syncer
+
+			markAsReady(vmi)
+			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			controller.vmiIndexer.Add(vmi)
+
+			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Status.Conditions).To(ContainElement(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":    Equal(expectCond.Type),
+					"Status":  Equal(expectCond.Status),
+					"Reason":  Equal(expectCond.Reason),
+					"Message": Equal(expectCond.Message),
+				}),
+			))
+			Expect(vm.Status.Conditions).To(HaveLen(expectCondCount))
+
+			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		},
+			Entry(
+				"succeeds",
+				testSynchronizer{},
+				v1.VirtualMachineCondition{Type: v1.VirtualMachineReady, Status: k8sv1.ConditionTrue}, 1,
+			),
+			Entry(
+				"fails with proper error",
+				testSynchronizer{err: &syncErrorImpl{err: fmt.Errorf("good error"), reason: "good reason"}},
+				v1.VirtualMachineCondition{Type: v1.VirtualMachineFailure, Status: k8sv1.ConditionTrue, Reason: "good reason", Message: "good error"}, 2,
+			),
+			Entry(
+				"fails with unsupported error",
+				testSynchronizer{err: fmt.Errorf("bad error")},
+				v1.VirtualMachineCondition{Type: v1.VirtualMachineFailure, Status: k8sv1.ConditionTrue, Reason: "UnsupportedSyncError", Message: "unsupported error: bad error"}, 2,
+			),
+		)
+
 		It("should add a missing volume disk", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			presentVolumeName := "present-vol"
@@ -7117,4 +7166,12 @@ func failVMSpecUpdate(virtFakeClient *fake.Clientset) {
 		}
 		return true, nil, fmt.Errorf("conflict")
 	})
+}
+
+type testSynchronizer struct {
+	err error
+}
+
+func (t testSynchronizer) Sync(vm *v1.VirtualMachine, _ *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
+	return vm, t.err
 }

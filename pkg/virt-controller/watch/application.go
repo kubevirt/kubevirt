@@ -82,6 +82,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
+	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
@@ -719,7 +720,13 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		instancetypeMethods,
 		recorder,
 		vca.clientSet,
-		vca.clusterConfig)
+		vca.clusterConfig,
+		network.NewVMNetController(
+			vca.clientSet.GeneratedKubeVirtClient(),
+			vca.clusterConfig,
+			controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
+		),
+	)
 	if err != nil {
 		panic(err)
 	}
