@@ -41,6 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -141,11 +142,7 @@ func createRunningVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return vm.Status.Ready
-	}, 300*time.Second, 1*time.Second).Should(BeTrue())
+	Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 	libwait.WaitForSuccessfulVMIStart(vmi)
 
 	return vm

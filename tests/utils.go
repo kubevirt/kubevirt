@@ -572,11 +572,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 		return err
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 	By("VMI has the running condition")
-	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return vm.Status.Ready
-	}, 300*time.Second, 1*time.Second).Should(BeTrue())
+	Eventually(ThisVM(updatedVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 	return updatedVM
 }
 
@@ -930,11 +926,7 @@ func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 
 	By("VMI has the running condition")
-	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return vm.Status.Ready
-	}, 300*time.Second, 1*time.Second).Should(BeTrue())
+	Eventually(ThisVM(updatedVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 	return updatedVM
 }
