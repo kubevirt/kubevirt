@@ -56,6 +56,8 @@ const (
 	// devices, its creation and deletion
 	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
 	// HotplugNetworkIfacesGate enables the virtio network interface hotplug feature
+	// Alpha: v1.1.0
+	// Beta: v1.3.0
 	HotplugNetworkIfacesGate = "HotplugNICs"
 	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
 	PersistentReservation = "PersistentReservation"
