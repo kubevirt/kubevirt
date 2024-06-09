@@ -625,18 +625,6 @@ func (t *vmRestoreTarget) getControllerRevision(namespace, name string) (*appsv1
 	return obj.(*appsv1.ControllerRevision), nil
 }
 
-func (t *vmRestoreTarget) getVirtualMachineSnapshot(namespace, name string) (*snapshotv1.VirtualMachineSnapshot, error) {
-	vmSnapshotKey := cacheKeyFunc(namespace, name)
-	obj, exists, err := t.controller.VMSnapshotInformer.GetStore().GetByKey(vmSnapshotKey)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, fmt.Errorf("Unable to find VirtualMachineSnapshot %s", vmSnapshotKey)
-	}
-	return obj.(*snapshotv1.VirtualMachineSnapshot), nil
-}
-
 func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisionName, vmSnapshotName string, vm *kubevirtv1.VirtualMachine, isPreference bool) (*appsv1.ControllerRevision, error) {
 	snapshotCR, err := t.getControllerRevision(vm.Namespace, vmSnapshotRevisionName)
 	if err != nil {
@@ -969,11 +957,17 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	if err != nil {
 		return err
 	}
+	if volumeSnapshot == nil {
+		return fmt.Errorf("missing volumeSnapshot %s", *volumeBackup.VolumeSnapshotName)
+	}
 
 	if volumeRestore == nil {
 		return fmt.Errorf("missing volumeRestore")
 	}
-	pvc := CreateRestorePVCDefFromVMRestore(vmRestore.Name, volumeRestore.PersistentVolumeClaimName, volumeSnapshot, volumeBackup, sourceVmName, sourceVmNamespace)
+	pvc, err := CreateRestorePVCDefFromVMRestore(vmRestore.Name, volumeRestore.PersistentVolumeClaimName, volumeSnapshot, volumeBackup, sourceVmName, sourceVmNamespace)
+	if err != nil {
+		return err
+	}
 	target.Own(pvc)
 
 	_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
@@ -984,10 +978,9 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	return nil
 }
 
-func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup) *corev1.PersistentVolumeClaim {
+func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup) (*corev1.PersistentVolumeClaim, error) {
 	if volumeBackup == nil || volumeBackup.VolumeSnapshotName == nil {
-		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
-		return nil
+		return nil, fmt.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
 	}
 	sourcePVC := volumeBackup.PersistentVolumeClaim.DeepCopy()
 	pvc := &corev1.PersistentVolumeClaim{
@@ -1000,8 +993,7 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 	}
 
 	if volumeSnapshot == nil {
-		log.Log.Errorf("VolumeSnapshot missing %+v", volumeSnapshot)
-		return nil
+		return nil, fmt.Errorf("VolumeSnapshot missing %+v", volumeSnapshot)
 	}
 	if volumeSnapshot.Status != nil && volumeSnapshot.Status.RestoreSize != nil {
 		restorePVCSize, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
@@ -1036,7 +1028,7 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 	pvc.Spec.DataSourceRef = &dataSourceRef
 
 	pvc.Spec.VolumeName = ""
-	return pvc
+	return pvc, nil
 }
 
 func getRestoreAnnotationValue(restore *snapshotv1.VirtualMachineRestore) string {
@@ -1054,8 +1046,11 @@ func setLastRestoreAnnotation(restore *snapshotv1.VirtualMachineRestore, obj met
 	obj.GetAnnotations()[lastRestoreAnnotation] = getRestoreAnnotationValue(restore)
 }
 
-func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) *corev1.PersistentVolumeClaim {
-	pvc := CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) (*corev1.PersistentVolumeClaim, error) {
+	pvc, err := CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	if err != nil {
+		return nil, err
+	}
 	if pvc.Labels == nil {
 		pvc.Labels = make(map[string]string)
 	}
@@ -1066,7 +1061,7 @@ func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volu
 	pvc.Labels[restoreSourceNameLabel] = sourceVmName
 	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
 	pvc.Annotations[RestoreNameAnnotation] = vmRestoreName
-	return pvc
+	return pvc, nil
 }
 
 func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Condition) {
