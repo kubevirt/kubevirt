@@ -24,6 +24,9 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -244,6 +247,49 @@ var _ = Describe("Clone", func() {
 			newProgressingCondition(k8sv1.ConditionTrue, "Still processing"),
 			newReadyCondition(k8sv1.ConditionFalse, "Still processing"),
 		)
+	}
+
+	offlinePatchVM := func(vm *virtv1.VirtualMachine, patches []string) (virtv1.VirtualMachine, error) {
+		patchedVM := virtv1.VirtualMachine{}
+
+		marshalledVM, err := json.Marshal(vm)
+		if err != nil {
+			return patchedVM, fmt.Errorf("cannot marshall VM %s: %v", vm.Name, err)
+		}
+
+		jsonPatch := "[\n" + strings.Join(patches, ",\n") + "\n]"
+
+		patch, err := jsonpatch.DecodePatch([]byte(jsonPatch))
+		if err != nil {
+			return patchedVM, fmt.Errorf("cannot decode vm patches %s: %v", jsonPatch, err)
+		}
+
+		modifiedMarshalledVM, err := patch.Apply(marshalledVM)
+		if err != nil {
+			return patchedVM, fmt.Errorf("failed to apply patch for VM %s: %v", jsonPatch, err)
+		}
+
+		err = json.Unmarshal(modifiedMarshalledVM, &patchedVM)
+		if err != nil {
+			return patchedVM, fmt.Errorf("cannot unmarshal modified marshalled vm %s: %v", string(modifiedMarshalledVM), err)
+		}
+
+		return patchedVM, nil
+	}
+
+	getClonedVM := func() *virtv1.VirtualMachine {
+		restore, err := client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
+		patchedVM, err := offlinePatchVM(sourceVM, restore.Spec.Patches)
+		Expect(err).ToNot(HaveOccurred())
+
+		return &patchedVM
+	}
+
+	expectVMCreationFromPatches := func(expectedVM *virtv1.VirtualMachine) {
+		clonedVM := getClonedVM()
+		Expect(clonedVM.Spec).To(Equal(expectedVM.Spec))
 	}
 
 	BeforeEach(func() {
@@ -656,43 +702,6 @@ var _ = Describe("Clone", func() {
 			expectCloneBeInPhase(clonev1alpha1.RestoreInProgress)
 		})
 
-		offlinePatchVM := func(vm *virtv1.VirtualMachine, patches []string) (virtv1.VirtualMachine, error) {
-			patchedVM := virtv1.VirtualMachine{}
-
-			marshalledVM, err := json.Marshal(vm)
-			if err != nil {
-				return patchedVM, fmt.Errorf("cannot marshall VM %s: %v", vm.Name, err)
-			}
-
-			jsonPatch := "[\n" + strings.Join(patches, ",\n") + "\n]"
-
-			patch, err := jsonpatch.DecodePatch([]byte(jsonPatch))
-			if err != nil {
-				return patchedVM, fmt.Errorf("cannot decode vm patches %s: %v", jsonPatch, err)
-			}
-
-			modifiedMarshalledVM, err := patch.Apply(marshalledVM)
-			if err != nil {
-				return patchedVM, fmt.Errorf("failed to apply patch for VM %s: %v", jsonPatch, err)
-			}
-
-			err = json.Unmarshal(modifiedMarshalledVM, &patchedVM)
-			if err != nil {
-				return patchedVM, fmt.Errorf("cannot unmarshal modified marshalled vm %s: %v", string(modifiedMarshalledVM), err)
-			}
-
-			return patchedVM, nil
-		}
-
-		expectVMCreationFromPatches := func(expectedVM *virtv1.VirtualMachine) {
-			restore, err := client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
-			patchedVM, err := offlinePatchVM(sourceVM, restore.Spec.Patches)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(patchedVM.Spec).To(Equal(expectedVM.Spec))
-		}
-
 		Context("MAC address", func() {
 			var macAddressesCreatedCount int
 
@@ -930,7 +939,82 @@ var _ = Describe("Clone", func() {
 				expectVMCreationFromPatches(expectedVM)
 			})
 		})
+	})
 
+	Context("with volumes that's excluded from snapshots", func() {
+		// This is mainly relevant for situations in which the DV / PVC
+		// the VM is using is not bounded yet due to WFFC.
+
+		var snapshot *snapshotv1.VirtualMachineSnapshot
+
+		BeforeEach(func() {
+			snapshot = createVirtualMachineSnapshot(sourceVM)
+			snapshot.Status.ReadyToUse = pointer.P(true)
+
+			vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+			vmClone.Status.Phase = clonev1alpha1.RestoreInProgress
+
+			sourceVM.Spec.DataVolumeTemplates = nil
+			sourceVM.Spec.Template.Spec.Volumes = nil
+
+			addClone(vmClone)
+		})
+
+		AfterEach(func() {
+			expectEvent(RestoreCreated)
+			expectCloneBeInPhase(clonev1alpha1.RestoreInProgress)
+		})
+
+		executeController := func() {
+			content := createVirtualMachineSnapshotContent(sourceVM)
+			addSnapshotContent(content)
+			addVM(sourceVM)
+			addSnapshot(snapshot)
+
+			controller.Execute()
+		}
+
+		It("with a DataVolume template", func() {
+			const dvTemplateName = "origDVTemplate"
+			addDataVolumeToVm(sourceVM, dvTemplateName, "test-volume")
+			addDataVolumeTemplateToVm(sourceVM, dvTemplateName)
+
+			addExcludedVolumesToSnapshot(snapshot, sourceVM.Spec.Template.Spec.Volumes[0].Name)
+
+			executeController()
+
+			clonedVM := getClonedVM()
+			Expect(clonedVM.Spec.DataVolumeTemplates).To(HaveLen(len(sourceVM.Spec.DataVolumeTemplates)), "source and target clone VM volume templates have different length")
+			Expect(clonedVM.Spec.DataVolumeTemplates[0].Name).ToNot(Equal(sourceVM.Spec.DataVolumeTemplates[0].Name))
+			Expect(clonedVM.Spec.Template.Spec.Volumes[0].Name).To(Equal(sourceVM.Spec.Template.Spec.Volumes[0].Name))
+			Expect(clonedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name).ToNot(Equal(sourceVM.Spec.Template.Spec.Volumes[0].DataVolume.Name))
+		})
+
+		It("with a DataVolume, without a template, should be ignored", func() {
+			addDataVolumeToVm(sourceVM, "test-dv", "test-volume")
+
+			addExcludedVolumesToSnapshot(snapshot, sourceVM.Spec.Template.Spec.Volumes[0].Name)
+
+			executeController()
+
+			clonedVM := getClonedVM()
+			Expect(clonedVM.Spec.DataVolumeTemplates).To(BeEmpty())
+			Expect(clonedVM.Spec.Template.Spec.Volumes).To(BeEmpty())
+		})
+
+		It("with a PVC", func() {
+			const pvcName = "origPVC"
+			addPvcToVm(sourceVM, pvcName, "test-volume")
+
+			addExcludedVolumesToSnapshot(snapshot, sourceVM.Spec.Template.Spec.Volumes[0].Name)
+
+			executeController()
+
+			clonedVM := getClonedVM()
+			Expect(clonedVM.Spec.DataVolumeTemplates).To(BeEmpty())
+			Expect(clonedVM.Spec.Template.Spec.Volumes[0].Name).To(Equal(sourceVM.Spec.Template.Spec.Volumes[0].Name))
+			Expect(clonedVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).ToNot(Equal(sourceVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName))
+		})
 	})
 })
 
@@ -1026,5 +1110,52 @@ func createOwnerReference(owner metav1.Object) metav1.OwnerReference {
 		APIVersion:         clonev1alpha1.VirtualMachineCloneKind.GroupVersion().String(),
 		BlockOwnerDeletion: pointer.P(true),
 		Controller:         pointer.P(true),
+	}
+}
+
+func addDataVolumeToVm(vm *virtv1.VirtualMachine, dvName, volumeName string) {
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+		Name: volumeName,
+		VolumeSource: virtv1.VolumeSource{
+			DataVolume: &virtv1.DataVolumeSource{
+				Name: dvName,
+			},
+		},
+	})
+}
+
+func addDataVolumeTemplateToVm(vm *virtv1.VirtualMachine, dvName string) {
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dvName,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				Resources: k8sv1.ResourceRequirements{
+					Requests: map[k8sv1.ResourceName]resource.Quantity{
+						k8sv1.ResourceRequestsStorage: resource.MustParse("1Gi"),
+					},
+				},
+			},
+		},
+	})
+}
+
+func addPvcToVm(vm *virtv1.VirtualMachine, claimName, volumeName string) {
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+		Name: volumeName,
+		VolumeSource: virtv1.VolumeSource{
+			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: claimName,
+				},
+			},
+		},
+	})
+}
+
+func addExcludedVolumesToSnapshot(snapshot *snapshotv1.VirtualMachineSnapshot, volumeNames ...string) {
+	snapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
+		ExcludedVolumes: volumeNames,
 	}
 }
