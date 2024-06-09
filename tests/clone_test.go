@@ -832,6 +832,42 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						}, 1*time.Minute).Should(Succeed(), "vmsnapshot and vmrestore should be deleted once the pvc is bound")
 					})
 
+					It("with a source with an unbound DV - target should point to a different DV", func() {
+						By("Creating VMs")
+						sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
+						Expect(sourceVM.Spec.DataVolumeTemplates).To(HaveLen(1))
+						Expect(sourceVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+						vmClone = generateCloneFromVM()
+
+						Eventually(func() error {
+							sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, v1.GetOptions{})
+							Expect(err).ShouldNot(HaveOccurred())
+
+							for _, s := range sourceVM.Status.VolumeSnapshotStatuses {
+								if s.Enabled == false {
+									return fmt.Errorf("volume %s snapshot is disabled", s.Name)
+								}
+							}
+
+							return nil
+						}).WithTimeout(30*time.Second).WithPolling(1*time.Second).ShouldNot(HaveOccurred(), "volumes are expected to be snapshotable")
+
+						createCloneAndWaitForFinish(vmClone)
+
+						By("Running VMs")
+						targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+
+						sourceVM = StartVirtualMachine(sourceVM)
+						targetVM = StartVirtualMachine(targetVM)
+
+						By("making sure different DVs are used")
+						Expect(targetVM.Spec.DataVolumeTemplates).To(HaveLen(1))
+						Expect(targetVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+						Expect(targetVM.Spec.DataVolumeTemplates[0].Name).ToNot(Equal(sourceVM.Spec.DataVolumeTemplates[0].Name))
+						Expect(targetVM.Spec.Template.Spec.Volumes[0].DataVolume.Name).ToNot(Equal(sourceVM.Spec.Template.Spec.Volumes[0].DataVolume.Name))
+					})
+
 				})
 
 			})
