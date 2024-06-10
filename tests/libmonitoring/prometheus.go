@@ -312,6 +312,7 @@ func CheckAlertExists(virtClient kubecli.KubevirtClient, alertName string) bool 
 		return false
 	}
 	for _, alert := range currentAlerts {
+		fmt.Printf("\nRAM alert %v ==? %s\n\n", alert, alertName)
 		if string(alert.Labels["alertname"]) == alertName {
 			return true
 		}

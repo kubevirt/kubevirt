@@ -6,61 +6,30 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
-	openapi_spec "github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
 	openapi_validate "github.com/go-openapi/validate"
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/kube-openapi/pkg/builder"
+	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/errors"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"kubevirt.io/client-go/api"
 )
 
 type Validator struct {
-	specSchemes   *openapi_spec.Schema
-	statusSchemes *openapi_spec.Schema
+	specSchemes   *spec.Schema
+	statusSchemes *spec.Schema
 	topLevelKeys  map[string]interface{}
 }
 
-func addInfoToSwaggerObject(swo *spec.Swagger) {
-	swo.Info = &spec.Info{
-		InfoProps: spec.InfoProps{
-			Title:       "KubeVirt API",
-			Description: "This is KubeVirt API an add-on for Kubernetes.",
-			Contact: &spec.ContactInfo{
-				Name:  "kubevirt-dev",
-				Email: "kubevirt-dev@googlegroups.com",
-				URL:   "https://github.com/kubevirt/kubevirt",
-			},
-			License: &spec.License{
-				Name: "Apache 2.0",
-				URL:  "https://www.apache.org/licenses/LICENSE-2.0",
-			},
-		},
-	}
-	swo.SecurityDefinitions = spec.SecurityDefinitions{
-		"BearerToken": &spec.SecurityScheme{
-			SecuritySchemeProps: spec.SecuritySchemeProps{
-				Type:        "apiKey",
-				Name:        "authorization",
-				In:          "header",
-				Description: "Bearer Token authentication",
-			},
-		},
-	}
-	swo.Swagger = "2.0"
-	swo.Security = make([]map[string][]string, 1)
-	swo.Security[0] = map[string][]string{"BearerToken": {}}
-}
-
-func CreateConfig() *common.Config {
-	return &common.Config{
-		CommonResponses: map[int]spec.Response{
+func CreateConfig() *common.OpenAPIV3Config {
+	return &common.OpenAPIV3Config{
+		CommonResponses: map[int]*spec3.Response{
 			401: {
-				ResponseProps: spec.ResponseProps{
+				ResponseProps: spec3.ResponseProps{
 					Description: "Unauthorized",
 				},
 			},
@@ -80,9 +49,9 @@ func CreateConfig() *common.Config {
 				},
 			},
 		},
-		SecurityDefinitions: &spec.SecurityDefinitions{
-			"BearerToken": &spec.SecurityScheme{
-				SecuritySchemeProps: spec.SecuritySchemeProps{
+		SecuritySchemes: spec3.SecuritySchemes{
+			"BearerToken": &spec3.SecurityScheme{
+				SecuritySchemeProps: spec3.SecuritySchemeProps{
 					Type:        "apiKey",
 					Name:        "authorization",
 					In:          "header",
@@ -99,7 +68,6 @@ func CreateConfig() *common.Config {
 			}
 			return m
 		},
-
 		GetDefinitionName: func(name string) (string, spec.Extensions) {
 			if strings.Contains(name, "kubevirt.io") {
 				// keeping for validation
@@ -113,7 +81,7 @@ func CreateConfig() *common.Config {
 
 func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 	config := CreateConfig()
-	openapispec, err := builder.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(webServices), config)
+	openapispec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(webServices), config)
 	if err != nil {
 		panic(fmt.Errorf("Failed to build swagger: %s", err))
 	}
@@ -125,7 +93,7 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 	// can't set conditions without timestamps
 
 	objectmeta := ""
-	for k := range openapispec.Definitions {
+	for k := range openapispec.Definitions("v1.ObjectMeta") {
 		if strings.Contains(k, "v1.ObjectMeta") {
 			objectmeta = k
 			break
