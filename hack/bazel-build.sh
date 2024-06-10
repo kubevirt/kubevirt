@@ -63,6 +63,7 @@ bazel run \
 
 # build platform native virtctl explicitly
 bazel run \
+    --config=${ARCHITECTURE} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
 
 # Copy kubevirt-passt-binding binary to a reachable place outside of the build container
