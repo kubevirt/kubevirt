@@ -49,7 +49,7 @@ func generateNameWithRandomSuffix(names ...string) string {
 	// Kubernetes' object names have limit of 252 characters.
 	// For more info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/
 	if len(generatedName) > 252 {
-		generatedName = "clone-object"
+		generatedName = "clone-" + rand.String(randomStringLength)
 	}
 
 	generatedName = fmt.Sprintf("%s-%s", generatedName, rand.String(randomStringLength))
