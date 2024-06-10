@@ -583,7 +583,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("Offline VM with a block volume", func() {
+	Context("Offline VM with a block volume", decorators.RequiresBlockStorageClass, func() {
 		var (
 			vm *v1.VirtualMachine
 			sc string
@@ -696,7 +696,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 	})
 
-	Context("WFFC storage", func() {
+	Context("WFFC storage", decorators.RequiresFilesystemStorageClass, func() {
 		var (
 			vm *v1.VirtualMachine
 			sc string
@@ -809,13 +809,13 @@ var _ = SIGDescribe("Hotplug", func() {
 			DescribeTable("should add/remove volume", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
 				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, vmiOnly, waitToStart)
 			},
-				Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
-				Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
-				Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
-				Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
-				Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
-				Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
-				Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
+				Entry("with DataVolume immediate attach", decorators.RequiresFilesystemStorageClass, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
+				Entry("with PersistentVolume immediate attach", decorators.RequiresFilesystemStorageClass, addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
+				Entry("with DataVolume wait for VM to finish starting", decorators.RequiresFilesystemStorageClass, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
+				Entry("with PersistentVolume wait for VM to finish starting", decorators.RequiresFilesystemStorageClass, addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
+				Entry("with DataVolume immediate attach, VMI directly", decorators.RequiresFilesystemStorageClass, addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
+				Entry("with PersistentVolume immediate attach, VMI directly", decorators.RequiresFilesystemStorageClass, addPVCVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
+				Entry("with Block DataVolume immediate attach", decorators.RequiresBlockStorageClass, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
 			)
 
 			DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
@@ -866,9 +866,9 @@ var _ = SIGDescribe("Hotplug", func() {
 					}
 				}
 			},
-				Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
-				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				Entry("with VMs", decorators.RequiresFilesystemStorageClass, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
+				Entry("with VMIs", decorators.RequiresFilesystemStorageClass, addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
+				Entry("with VMs and block", decorators.RequiresBlockStorageClass, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
 			DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
@@ -954,12 +954,12 @@ var _ = SIGDescribe("Hotplug", func() {
 					}
 				}
 			},
-				Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
-				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				Entry("with VMs", decorators.RequiresFilesystemStorageClass, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
+				Entry("with VMIs", decorators.RequiresFilesystemStorageClass, addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
+				Entry("[Serial] with VMs and block", decorators.RequiresBlockStorageClass, Serial, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
-			It("should allow to hotplug 75 volumes simultaneously", func() {
+			It("should allow to hotplug 75 volumes simultaneously", decorators.RequiresFilesystemStorageClass, func() {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1003,7 +1003,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumeStatus(vmi, v1.VolumeReady, "", testVolumes...)
 			})
 
-			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", func() {
+			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", decorators.RequiresBlockStorageClass, func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1052,7 +1052,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumeNolongerAccessible(vmi, targets[0])
 			})
 
-			It("should reject hotplugging a volume with the same name as an existing volume", func() {
+			It("should reject hotplugging a volume with the same name as an existing volume", decorators.RequiresBlockStorageClass, func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1070,7 +1070,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err.Error()).To(ContainSubstring("Unable to add volume [disk0] because volume with that name already exists"))
 			})
 
-			It("should reject hotplugging the same volume with an existing volume name", func() {
+			It("should reject hotplugging the same volume with an existing volume name", decorators.RequiresBlockStorageClass, func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1113,7 +1113,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Entry("which doesn't exist", "doesntexist", "Unable to remove volume [doesntexist] because it does not exist"),
 			)
 
-			It("should allow hotplugging both a filesystem and block volume", func() {
+			It("should allow hotplugging both a filesystem and block volume", decorators.RequiresFilesystemStorageClass, decorators.RequiresBlockStorageClass, func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
 				dvFileSystem := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeFilesystem)
 
@@ -1189,7 +1189,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 			})
 
-			DescribeTable("should allow live migration with attached hotplug volumes", func(vmiFunc func() *v1.VirtualMachineInstance) {
+			DescribeTable("should allow live migration with attached hotplug volumes", decorators.RequiresBlockStorageClass, func(vmiFunc func() *v1.VirtualMachineInstance) {
 				vmi = vmiFunc()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 				volumeName := "testvolume"
@@ -1287,7 +1287,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				libstorage.DeleteDataVolume(&dv)
 			})
 
-			DescribeTable("should be able to add and remove volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, storageClassFunc storageClassFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
+			DescribeTable("should be able to add and remove volumes", decorators.RequiresFilesystemStorageClass, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, storageClassFunc storageClassFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
 				sc, exists := storageClassFunc()
 				if !exists {
 					Skip("Skip test when appropriate storage class is not available")
@@ -1347,9 +1347,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, vmiOnly, true)
 			},
-				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, corev1.PersistentVolumeFilesystem, false),
-				Entry("with DataVolume and VMI directly", addDVVolumeVMI, removeVolumeVMI, libstorage.GetRWOBlockStorageClass, corev1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, corev1.PersistentVolumeBlock, false),
+				Entry("with DataVolume and running VM", decorators.RequiresFilesystemStorageClass, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, corev1.PersistentVolumeFilesystem, false),
+				Entry("with DataVolume and VMI directly", decorators.RequiresFilesystemStorageClass, addDVVolumeVMI, removeVolumeVMI, libstorage.GetRWOBlockStorageClass, corev1.PersistentVolumeFilesystem, true),
+				Entry("[Serial] with Block DataVolume immediate attach", decorators.RequiresBlockStorageClass, Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, corev1.PersistentVolumeBlock, false),
 			)
 		})
 	})
@@ -1399,7 +1399,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		}
 
-		It("should remain active", func() {
+		It("should remain active", decorators.RequiresBlockStorageClass, func() {
 			checkVolumeName := "checkvolume"
 			volumeMode := corev1.PersistentVolumeBlock
 			addVolumeFunc := addDVVolumeVMI
@@ -1641,7 +1641,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		// Needs to be serial since I am putting limit range on namespace
-		DescribeTable("hotplug volume should have mem ratio same as VMI with limit range applied", func(memRatio, cpuRatio float64) {
+		DescribeTable("hotplug volume should have mem ratio same as VMI with limit range applied", decorators.RequiresBlockStorageClass, func(memRatio, cpuRatio float64) {
 			updateCDIToRatio(memRatio, cpuRatio)
 			updateKubeVirtToRatio(memRatio, cpuRatio)
 			createLimitRangeInNamespace(util.NamespaceTestDefault, memRatio, cpuRatio)
@@ -1725,7 +1725,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("hostpath", func() {
+	Context("hostpath", decorators.RequiresHostpathVolume, func() {
 		var (
 			vm *v1.VirtualMachine
 		)
@@ -1807,7 +1807,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
-		It("should allow adding and removing hotplugged volumes", func() {
+		It("should allow adding and removing hotplugged volumes", decorators.RequiresFilesystemStorageClass, func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Skip("Skip no filesystem storage class available")
@@ -1846,7 +1846,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 	})
 
-	Context("hostpath-separate-device", func() {
+	Context("hostpath-separate-device", decorators.RequiresHostpathVolume, func() {
 		var (
 			vm *v1.VirtualMachine
 		)
@@ -1999,7 +1999,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 	})
 
-	Context("virtctl", func() {
+	Context("virtctl", decorators.RequiresFilesystemStorageClass, func() {
 		var (
 			vm *v1.VirtualMachine
 			sc string
