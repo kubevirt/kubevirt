@@ -22,7 +22,10 @@ package clone
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
+
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/client-go/log"
 
@@ -30,7 +33,7 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 )
 
-func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.VirtualMachineCloneSpec) (patches []string) {
+func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.VirtualMachineCloneSpec, snapshot *snapshotv1.VirtualMachineSnapshot) (patches []string) {
 
 	macAddressPatches := generateMacAddressPatches(source.Spec.Template.Spec.Domain.Devices.Interfaces, cloneSpec.NewMacAddresses)
 	patches = append(patches, macAddressPatches...)
@@ -52,6 +55,9 @@ func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.Virt
 
 	firmwareUUIDPatches := generateFirmwareUUIDPatches(source.Spec.Template.Spec.Domain.Firmware)
 	patches = append(patches, firmwareUUIDPatches...)
+
+	changeUnsnapshottedVolumeNamesPatches := generateChangeUnsnapshottedVolumeNamesPatches(source.Spec.Template.Spec.Volumes, source.Spec.DataVolumeTemplates, snapshot.Status.SnapshotVolumes)
+	patches = append(patches, changeUnsnapshottedVolumeNamesPatches...)
 
 	log.Log.V(defaultVerbosityLevel).Object(source).Infof("patches generated for vm %s clone: %v", source.Name, patches)
 	return patches
@@ -196,4 +202,66 @@ func generateFirmwareUUIDPatches(firmware *k6tv1.Firmware) (patches []string) {
 	}
 
 	return []string{firmwareUUIDPatch}
+}
+
+func generateChangeUnsnapshottedVolumeNamesPatches(targetVmVolumes []k6tv1.Volume, dvTemplates []k6tv1.DataVolumeTemplateSpec, snapshotVolumes *snapshotv1.SnapshotVolumesLists) (patches []string) {
+	if targetVmVolumes == nil || snapshotVolumes == nil || snapshotVolumes.ExcludedVolumes == nil {
+		return nil
+	}
+	volumesExcludedFromSnapshot := snapshotVolumes.ExcludedVolumes
+
+	type volumeType string
+	const (
+		pvcVolume volumeType = "persistentVolumeClaim"
+		dvVolume  volumeType = "dataVolume"
+	)
+	generateRenamePatch := func(volType volumeType, volumeIdx int, newName string) (patch string) {
+		volumePathPattern := "/spec/template/spec/volumes/%d"
+		switch volType {
+		case pvcVolume:
+			volumePathPattern += "/persistentVolumeClaim/claimName"
+		case dvVolume:
+			volumePathPattern += "/dataVolume/name"
+		}
+
+		volumePatchPattern := `{"op": "replace", "path": "` + volumePathPattern + `", "value": "%s"}`
+		return fmt.Sprintf(volumePatchPattern, volumeIdx, newName)
+	}
+
+	hasDvTemplate := func(dvName string) bool {
+		return slices.ContainsFunc(dvTemplates, func(dv k6tv1.DataVolumeTemplateSpec) bool { return dv.Name == dvName })
+	}
+
+	// Replace the name of volumes that weren't snapshotted if they are of PVC or DV types.
+	oldToNewDvNames := map[string]string{}
+	for i, vol := range targetVmVolumes {
+		if !slices.Contains(volumesExcludedFromSnapshot, vol.Name) {
+			continue
+		}
+
+		switch {
+		case vol.PersistentVolumeClaim != nil:
+			patches = append(patches, generateRenamePatch(pvcVolume, i, generateVolumeName(vol.PersistentVolumeClaim.ClaimName)))
+		case vol.DataVolume != nil:
+			if dvName := vol.DataVolume.Name; hasDvTemplate(dvName) {
+				newName := generateVolumeName(dvName)
+				patches = append(patches, generateRenamePatch(dvVolume, i, newName))
+				oldToNewDvNames[dvName] = newName
+			} else {
+				// TODO: support this case by "cloning" the unbounded DV
+				patches = append(patches, fmt.Sprintf(`{"op": "remove", "path": "/spec/template/spec/volumes/%d"}`, i))
+			}
+		}
+	}
+
+	// Replace DV template names if necessary
+	for i, dvTemplate := range dvTemplates {
+		const changeDvTemplateNamePatchPattern = `{"op": "replace", "path": "/spec/dataVolumeTemplates/%d/metadata/name", "value": "%s"}`
+
+		if newName, exists := oldToNewDvNames[dvTemplate.Name]; exists {
+			patches = append(patches, fmt.Sprintf(changeDvTemplateNamePatchPattern, i, newName))
+		}
+	}
+
+	return
 }
