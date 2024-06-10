@@ -20,7 +20,6 @@
 package mutators
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -35,6 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -64,7 +64,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	var patchOps []patch.PatchOperation
+	patchSet := patch.New()
 
 	// Patch the spec, metadata and status with defaults if we deal with a create operation
 	if ar.Request.Operation == admissionv1.Create {
@@ -126,27 +126,11 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			util.MarkAsNonroot(newVMI)
 		}
 
-		var value interface{}
-		value = newVMI.Spec
-		patchOps = append(patchOps, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/spec",
-			Value: value,
-		})
-
-		value = newVMI.ObjectMeta
-		patchOps = append(patchOps, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/metadata",
-			Value: value,
-		})
-
-		value = newVMI.Status
-		patchOps = append(patchOps, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/status",
-			Value: value,
-		})
+		patchSet.AddOption(
+			patch.WithReplace("/spec", newVMI.Spec),
+			patch.WithReplace("/metadata", newVMI.ObjectMeta),
+			patch.WithReplace("/status", newVMI.Status),
+		)
 
 	} else if ar.Request.Operation == admissionv1.Update {
 		// Ignore status updates if they are not coming from our service accounts
@@ -154,40 +138,37 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
 		if !equality.Semantic.DeepEqual(newVMI.Status, oldVMI.Status) {
 			if _, isKubeVirtServiceAccount := mutator.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]; !isKubeVirtServiceAccount {
-				patchOps = append(patchOps, patch.PatchOperation{
-					Op:    "replace",
-					Path:  "/status",
-					Value: oldVMI.Status,
-				})
+				patchSet.AddOption(patch.WithReplace("/status", oldVMI.Status))
 			}
 		}
 
 	}
 
-	patchBytes, err := json.Marshal(patchOps)
+	if patchSet.IsEmpty() {
+		return &admissionv1.AdmissionResponse{
+			Allowed: true,
+		}
+	}
+
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	jsonPatchType := admissionv1.PatchTypeJSONPatch
-
+	response := &admissionv1.AdmissionResponse{
+		Allowed:   true,
+		Patch:     patchBytes,
+		PatchType: kvpointer.P(admissionv1.PatchTypeJSONPatch),
+	}
 	// If newVMI has been annotated with presets include a deprecation warning in the response
 	for annotation := range newVMI.Annotations {
 		if strings.Contains(annotation, "virtualmachinepreset") {
-			return &admissionv1.AdmissionResponse{
-				Allowed:   true,
-				Patch:     patchBytes,
-				PatchType: &jsonPatchType,
-				Warnings:  []string{presetDeprecationWarning},
-			}
+			response.Warnings = []string{presetDeprecationWarning}
+			break
 		}
 	}
 
-	return &admissionv1.AdmissionResponse{
-		Allowed:   true,
-		Patch:     patchBytes,
-		PatchType: &jsonPatchType,
-	}
+	return response
 }
 
 func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {
