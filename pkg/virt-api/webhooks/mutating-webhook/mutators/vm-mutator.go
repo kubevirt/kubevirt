@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,6 +124,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	preferenceSpec := mutator.getPreferenceSpec(&vm)
 	mutator.setDefaultArchitecture(&vm)
 	mutator.setDefaultMachineType(&vm, preferenceSpec)
+	mutator.setDefaultFirmwareUUID(&vm)
 	mutator.setPreferenceStorageClassName(&vm, preferenceSpec)
 
 	patchBytes, err := patch.GeneratePatchPayload(
@@ -165,6 +168,34 @@ func (mutator *VMsMutator) getPreferenceSpec(vm *v1.VirtualMachine) *instancetyp
 
 	return preferenceSpec
 }
+
+// Set a default random firmware UUID at VM creation time
+//
+// The VM UUID is set during VM admission time, because here we know that
+// the VM got created without any UUID set.
+// In a controller for example we would not know if the VM existed before
+// and relies on the previous behavior of a name based UID or not.
+// Thus this mutator will generate a UUID once a VM is entering the system
+// AND no UUID is set.
+func (mutator *VMsMutator) setDefaultFirmwareUUID(vm *v1.VirtualMachine) {
+	// Nothing to do, let's the validating webhook fail later
+	if vm.Spec.Template == nil {
+		return
+	}
+
+	if firmware := vm.Spec.Template.Spec.Domain.Firmware; firmware != nil && firmware.UUID != "" {
+		return
+	}
+
+	if vm.Spec.Template.Spec.Domain.Firmware == nil {
+		vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
+	}
+
+	if vm.Spec.Template.Spec.Domain.Firmware.UUID == "" {
+		vm.Spec.Template.Spec.Domain.Firmware.UUID = types.UID(uuid.New().String())
+	}
+}
+
 
 func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
 	// Nothing to do, let's the validating webhook fail later
