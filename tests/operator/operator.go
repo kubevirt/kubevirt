@@ -68,6 +68,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -1453,8 +1454,12 @@ spec:
 				installTestingManifests(flags.TestingManifestPath)
 			} else {
 				By("Updating KubeVirt object With current tag")
-				data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, curVersion, curRegistry))
-				patchKV(kv.Name, data)
+				patches := patch.New(
+					patch.WithReplace("/spec/imageTag", curVersion),
+					patch.WithReplace("/spec/imageRegistry", curRegistry),
+				)
+
+				patchKV(kv.Name, patches)
 			}
 
 			By("Wait for Updating Condition")
@@ -1836,8 +1841,8 @@ spec:
 			vmisNonMigratable = startAllVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
-			data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, flags.KubeVirtVersionTagAlt))
-			patchKV(kv.Name, data)
+			patches := patch.New(patch.WithAdd("/spec/imageTag", flags.KubeVirtVersionTagAlt))
+			patchKV(kv.Name, patches)
 
 			By("Wait for Updating Condition")
 			waitForUpdateCondition(kv)
@@ -1963,22 +1968,25 @@ spec:
 		})
 
 		It("[test_id:5010]should be able to update product related labels of kubevirt install", func() {
-			productName := "kubevirt-test"
-			productVersion := "0.0.0"
-			productComponent := "kubevirt-component"
+			const (
+				productName      = "kubevirt-test"
+				productVersion   = "0.0.0"
+				productComponent = "kubevirt-component"
+			)
+
 			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			kv := copyOriginalKv(originalKv)
 
 			By("Patching kubevirt resource with productName , productVersion  and productComponent")
-			const format = `{ "op": "replace", "path": "%s", "value": "%s"}`
-			data := []byte("[" + fmt.Sprintf(format, "/spec/productName", productName) + "," +
-				fmt.Sprintf(format, "/spec/productVersion", productVersion) + "," +
-				fmt.Sprintf(format, "/spec/productComponent", productComponent) +
-				"]")
+			patches := patch.New(
+				patch.WithReplace("/spec/productName", productName),
+				patch.WithReplace("/spec/productVersion", productVersion),
+				patch.WithReplace("/spec/productComponent", productComponent),
+			)
 
-			patchKV(kv.Name, data)
+			patchKV(kv.Name, patches)
 
 			for _, deployment := range []string{"virt-api", "virt-controller"} {
 				By(fmt.Sprintf("Ensuring that the %s deployment is updated", deployment))
@@ -2483,14 +2491,13 @@ spec:
 
 		It("[test_id:6257]should accept valid cert rotation parameters", func() {
 			kv := copyOriginalKv(originalKv)
-			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
-			certRotationStrategy.SelfSigned = certConfig
-			certConfigData, err := json.Marshal(certRotationStrategy)
-			Expect(err).ToNot(HaveOccurred())
+			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{
+				SelfSigned: certConfig,
+			}
 
-			data := []byte(fmt.Sprintf(`[{"op": "replace", "path": "/spec/certificateRotateStrategy", "value": %s}]`, string(certConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			patchKV(kv.Name, data)
+			By(fmt.Sprintf("update certificateRotateStrategy"))
+			patches := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy))
+			patchKV(kv.Name, patches)
 		})
 
 		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
@@ -3333,7 +3340,10 @@ func waitForKv(newKv *v1.KubeVirt) {
 	waitForKvWithTimeout(newKv, 300)
 }
 
-func patchKV(name string, data []byte) {
+func patchKV(name string, patches *patch.PatchSet) {
+	data, err := patches.GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
 	Eventually(func() error {
 		_, err := kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 
