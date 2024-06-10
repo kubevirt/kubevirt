@@ -40,6 +40,10 @@ func (archConverterPPC64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, doma
 	}
 }
 
+func (archConverterPPC64) scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
+	return defaultSCSIController(c, driver)
+}
+
 func (archConverterPPC64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	//In ppc64le usb devices like mouse / keyboard are set by default,
 	//so we can't disable the controller otherwise we run into the following error:

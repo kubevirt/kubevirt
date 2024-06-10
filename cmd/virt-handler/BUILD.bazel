@@ -150,6 +150,11 @@ container_image(
             ":nsswitch-tar",
             "//rpm:handlerbase_aarch64",
         ],
+        "@io_bazel_rules_go//go/platform:linux_s390x": [
+            ":passwd-tar",
+            ":nsswitch-tar",
+            "//rpm:handlerbase_s390x",
+        ],
         "//conditions:default": [
             ":passwd-tar",
             ":nsswitch-tar",
@@ -162,6 +167,7 @@ container_image(
     name = "virt-handler-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = ":version-container",

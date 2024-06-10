@@ -31,6 +31,7 @@ const (
 
 type archConverter interface {
 	addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext)
+	scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller
 	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 }
 
@@ -40,10 +41,21 @@ func newArchConverter(arch string) archConverter {
 		return archConverterARM64{}
 	case isPPC64(arch):
 		return archConverterPPC64{}
+	case isS390X(arch):
+		return archConverterS390X{}
 	case isAMD64(arch):
 		return archConverterAMD64{}
 	default:
 		log.Log.Warning("Trying to create an arch converter from an unknown arch: " + arch + ". Falling back to AMD64")
 		return archConverterAMD64{}
+	}
+}
+
+func defaultSCSIController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
+	return api.Controller{
+		Type:   "scsi",
+		Index:  "0",
+		Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture),
+		Driver: driver,
 	}
 }

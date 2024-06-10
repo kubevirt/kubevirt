@@ -112,15 +112,18 @@ cc_library(
     name = "libvirt-libs",
     srcs = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:libvirt-libs_aarch64/usr/lib64"],
+        "@io_bazel_rules_go//go/platform:linux_s390x": ["//rpm:libvirt-libs_s390x/usr/lib64"],
         "//conditions:default": ["//rpm:libvirt-libs_x86_64/usr/lib64"],
     }),
     hdrs = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:libvirt-libs_aarch64/usr/include/libvirt"],
+        "@io_bazel_rules_go//go/platform:linux_s390x": ["//rpm:libvirt-libs_s390x/usr/include/libvirt"],
         "//conditions:default": ["//rpm:libvirt-libs_x86_64/usr/include/libvirt"],
     }),
     linkstatic = 1,
     strip_include_prefix = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "/rpm/libvirt-libs_aarch64/usr/include/",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "/rpm/libvirt-libs_s390x/usr/include/",
         "//conditions:default": "/rpm/libvirt-libs_x86_64/usr/include/",
     }),
     visibility = ["//visibility:public"],
@@ -164,10 +167,12 @@ container_image(
     name = "passwd-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64//image",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x//image",
         "//conditions:default": "@go_image_base//image",
     }),
     tars = [":passwd-tar"],
@@ -545,6 +550,16 @@ genrule(
         "//cmd/virtctl:virtctl-darwin-arm64",
     ],
     outs = ["virtctl-copier-darwin-arm64"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-virtctl-s390x",
+    srcs = [
+        "//cmd/virtctl:virtctl-s390x",
+    ],
+    outs = ["virtctl-copier-s390x"],
     cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )

@@ -36,6 +36,7 @@ func SetDefaultVirtualMachine(clusterConfig *virtconfig.ClusterConfig, vm *v1.Vi
 	if err := setDefaultVirtualMachineInstanceSpec(clusterConfig, &vm.Spec.Template.Spec); err != nil {
 		return err
 	}
+	setDefaultFeatures(&vm.Spec.Template.Spec)
 	v1.SetObjectDefaults_VirtualMachine(vm)
 	setDefaultHypervFeatureDependencies(&vm.Spec.Template.Spec)
 	setDefaultCPUArch(clusterConfig, &vm.Spec.Template.Spec)
@@ -46,6 +47,7 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 	if err := setDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec); err != nil {
 		return err
 	}
+	setDefaultFeatures(&vmi.Spec)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	setDefaultHypervFeatureDependencies(&vmi.Spec)
 	setDefaultCPUArch(clusterConfig, &vmi.Spec)
@@ -107,15 +109,25 @@ func setGuestMemoryStatus(vmi *v1.VirtualMachineInstance) {
 	}
 }
 
+func setDefaultFeatures(spec *v1.VirtualMachineInstanceSpec) {
+	if IsS390X(spec) {
+		setS390xDefaultFeatures(spec)
+	}
+}
+
 func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	// Do some CPU arch specific setting.
-	if IsARM64(spec) {
+	switch {
+	case IsARM64(spec):
 		log.Log.V(4).Info("Apply Arm64 specific setting")
 		SetArm64Defaults(spec)
-	} else {
+	case IsS390X(spec):
+		log.Log.V(4).Info("Apply s390x specific setting")
+		SetS390xDefaults(spec)
+	default:
 		SetAmd64Defaults(spec)
-		setDefaultCPUModel(clusterConfig, spec)
 	}
+	setDefaultCPUModel(clusterConfig, spec)
 }
 
 func setDefaultHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) {
