@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -59,20 +58,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", func() {
 	}
 
 	createPVCFilesystem := func(name, namespace string) {
-		quantity, _ := resource.ParseQuantity("500Mi")
-		_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), &corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						"storage": quantity,
-					},
-				},
-			},
-		}, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
+		libstorage.CreateFSPVC(name, namespace, "500Mi", nil)
 	}
 
 	createFakeAttacher := func() *fakeAttacher {

@@ -301,9 +301,14 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	memoryDumpVirtctlCreatePVC := func(name, namespace, claimName string) {
 		By("Invoking virtctl memory dump with create flag")
+		storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
 		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
 		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
 		commandAndArgs = append(commandAndArgs, virtCtlCreate)
+		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlStorageClass, storageClass))
 		memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Eventually(func() error {
 			err := memorydumpCommand()

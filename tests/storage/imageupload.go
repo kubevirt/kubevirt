@@ -344,12 +344,18 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		}
 
 		DescribeTable("Should succeed", func(resource, targetName string, uploadDV bool) {
+			storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when Filesystem storage is not present")
+			}
+
 			By("Upload archive content")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
 				resource, targetName,
 				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				sizeArg, pvcSize,
+				"--storage-class", storageClass,
 				"--force-bind",
 				insecureArg)
 
