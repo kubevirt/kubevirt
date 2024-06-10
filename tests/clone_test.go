@@ -672,6 +672,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 							snapshotStorageClass,
 							k8sv1.ReadWriteOnce,
 						)
+						sourceVM.Spec.Running = nil
 
 						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
 						sourceVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -682,23 +683,18 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 							Name: preference.Name,
 							Kind: "VirtualMachinePreference",
 						}
+					})
 
+					DescribeTable("should create new ControllerRevisions for cloned VM", Label("instancetype", "clone"), func(runStrategy virtv1.VirtualMachineRunStrategy) {
+						sourceVM.Spec.RunStrategy = &runStrategy
 						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(context.Background(), sourceVM, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
 						for _, dvt := range sourceVM.Spec.DataVolumeTemplates {
 							libstorage.EventuallyDVWith(sourceVM.Namespace, dvt.Name, 180, HaveSucceeded())
 						}
-					})
-
-					DescribeTable("should create new ControllerRevisions for cloned VM", Label("instancetype", "clone"), func(toRunSourceVM bool) {
 						By("Waiting until the source VM has instancetype and preference RevisionNames")
 						libinstancetype.WaitForVMInstanceTypeRevisionNames(sourceVM.Name, virtClient)
-
-						if toRunSourceVM {
-							By("Starting the VM and expecting it to run")
-							sourceVM = RunVMAndExpectLaunchWithRunStrategy(virtClient, sourceVM, virtv1.RunStrategyAlways)
-						}
 
 						vmClone = generateCloneFromVM()
 						createCloneAndWaitForFinish(vmClone)
@@ -719,8 +715,8 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, targetVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
 						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, targetVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
 					},
-						Entry("with a running VM", true),
-						Entry("with a stopped VM", false),
+						Entry("with a running VM", virtv1.RunStrategyAlways),
+						Entry("with a stopped VM", virtv1.RunStrategyHalted),
 					)
 				})
 
