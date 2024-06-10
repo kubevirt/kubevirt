@@ -31,7 +31,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -680,30 +679,6 @@ func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
-}
-
-// EnsurePodsCertIsSynced waits until new certificates are rolled out  to all pods which are matching the specified labelselector.
-// Once all certificates are in sync, the final secret is returned
-func EnsurePodsCertIsSynced(labelSelector string, namespace string, port string) []byte {
-	var certs [][]byte
-	EventuallyWithOffset(1, func() bool {
-		var err error
-		certs, err = libpod.GetCertsForPods(labelSelector, namespace, port)
-		Expect(err).ToNot(HaveOccurred())
-		if len(certs) == 0 {
-			return true
-		}
-		for _, crt := range certs {
-			if !reflect.DeepEqual(certs[0], crt) {
-				return false
-			}
-		}
-		return true
-	}, 90*time.Second, 1*time.Second).Should(BeTrue(), "certificates across '%s' pods are not in sync", labelSelector)
-	if len(certs) > 0 {
-		return certs[0]
-	}
-	return nil
 }
 
 func RandTmpDir() string {

@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/x509"
 	"reflect"
+	"time"
 
 	"github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libpod"
 )
 
 func ContainsCrt(bundle []byte, containedCrt []byte) bool {
@@ -58,4 +60,29 @@ func GetBundleFromConfigMap(ctx context.Context, configMapName string) ([]byte, 
 		return []byte(rawBundle), crts
 	}
 	return nil, nil
+}
+
+// EnsurePodsCertIsSynced waits until new certificates are rolled out to all pods
+// that are matching the specified labelselector.
+// Once all certificates are in sync, the final secret is returned
+func EnsurePodsCertIsSynced(labelSelector string, namespace string, port string) []byte {
+	var certs [][]byte
+	gomega.EventuallyWithOffset(1, func() bool {
+		var err error
+		certs, err = libpod.GetCertsForPods(labelSelector, namespace, port)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		if len(certs) == 0 {
+			return true
+		}
+		for _, crt := range certs {
+			if !reflect.DeepEqual(certs[0], crt) {
+				return false
+			}
+		}
+		return true
+	}, 90*time.Second, 1*time.Second).Should(gomega.BeTrue(), "certificates across '%s' pods are not in sync", labelSelector)
+	if len(certs) > 0 {
+		return certs[0]
+	}
+	return nil
 }
