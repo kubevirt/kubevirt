@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"kubevirt.io/client-go/kubecli"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
@@ -18,7 +18,8 @@ const priorityClassName = "kubevirt-cluster-critical"
 
 var _ = Describe("check update priorityClass", Ordered, Serial, func() {
 	var (
-		cli                 kubecli.KubevirtClient
+		cli                 client.Client
+		cliSet              *kubernetes.Clientset
 		ctx                 context.Context
 		oldPriorityClassUID types.UID
 	)
@@ -38,11 +39,11 @@ var _ = Describe("check update priorityClass", Ordered, Serial, func() {
 
 	BeforeAll(func() {
 		var err error
-		cli, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		cli = tests.GetControllerRuntimeClient()
+		cliSet = tests.GetK8sClientSet()
 
 		ctx = context.Background()
-		pc, err := cli.SchedulingV1().PriorityClasses().Get(ctx, priorityClassName, metav1.GetOptions{})
+		pc, err := cliSet.SchedulingV1().PriorityClasses().Get(ctx, priorityClassName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(pc.UID).ToNot(BeEmpty())
@@ -60,14 +61,14 @@ var _ = Describe("check update priorityClass", Ordered, Serial, func() {
 		patch := []byte(`[{"op": "replace", "path": "/metadata/labels/app.kubernetes.io~1managed-by", "value": "test"}]`)
 
 		Eventually(func() error {
-			_, err := cli.SchedulingV1().PriorityClasses().Patch(ctx, priorityClassName, types.JSONPatchType, patch, metav1.PatchOptions{})
+			_, err := cliSet.SchedulingV1().PriorityClasses().Patch(ctx, priorityClassName, types.JSONPatchType, patch, metav1.PatchOptions{})
 			return err
 		}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).Should(Succeed())
 
 		var newUID types.UID
 		Eventually(func(g Gomega) {
 			By("make sure a new priority class was created, by checking its UID")
-			pc, err := cli.SchedulingV1().PriorityClasses().Get(ctx, priorityClassName, metav1.GetOptions{})
+			pc, err := cliSet.SchedulingV1().PriorityClasses().Get(ctx, priorityClassName, metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
 
 			newUID = pc.UID

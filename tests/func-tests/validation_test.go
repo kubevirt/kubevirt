@@ -4,30 +4,26 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
-	"kubevirt.io/client-go/kubecli"
 )
 
 var _ = Describe("Check CR validation", Label("validation"), Serial, func() {
 	var (
-		cli kubecli.KubevirtClient
+		cli client.Client
 		ctx context.Context
 	)
 
 	BeforeEach(func() {
-		var err error
-
-		cli, err = kubecli.GetKubevirtClient()
-		Expect(cli).ToNot(BeNil())
-		Expect(err).ToNot(HaveOccurred())
+		cli = tests.GetControllerRuntimeClient()
 
 		ctx = context.Background()
 

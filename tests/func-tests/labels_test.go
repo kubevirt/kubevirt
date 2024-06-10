@@ -6,17 +6,19 @@ import (
 	"strings"
 	"time"
 
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/gertd/go-pluralize"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"kubevirt.io/client-go/kubecli"
+	kvv1 "kubevirt.io/api/core/v1"
+
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
@@ -24,14 +26,14 @@ import (
 var _ = Describe("Check that all the sub-resources have the required labels", Label("labels"), func() {
 	tests.FlagParse()
 	var (
-		cli kubecli.KubevirtClient
-		ctx context.Context
+		cli    client.Client
+		cliSet *kubernetes.Clientset
+		ctx    context.Context
 	)
 
 	BeforeEach(func() {
-		var err error
-		cli, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		cli = tests.GetControllerRuntimeClient()
+		cliSet = tests.GetK8sClientSet()
 
 		ctx = context.Background()
 	})
@@ -39,22 +41,36 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 	It("should have all the required labels in all the controlled resources", func() {
 		hc := tests.GetHCO(ctx, cli)
 		plural := pluralize.NewClient()
-		const kv_name = "kubevirt-kubevirt-hyperconverged"
+		const kvName = "kubevirt-kubevirt-hyperconverged"
+
+		kvTypeMeta := metav1.TypeMeta{
+			Kind:       "KubeVirt",
+			APIVersion: "kubevirt.io/v1",
+		}
 
 		By("removing one of the managed labels and wait for it to be added back")
-		kv, err := cli.KubeVirt(hc.Namespace).Get(ctx, kv_name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		kv := &kvv1.KubeVirt{
+			TypeMeta: kvTypeMeta,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kvName,
+				Namespace: hc.Namespace,
+			},
+		}
+
+		Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
+		kv.TypeMeta = kvTypeMeta
 		expectedVersion := kv.Labels[hcoutil.AppLabelVersion]
 
-		patch := []byte(`[{"op": "remove", "path": "/metadata/labels/app.kubernetes.io~1version"}]`)
+		patchBytes := []byte(`[{"op": "remove", "path": "/metadata/labels/app.kubernetes.io~1version"}]`)
+		patch := client.RawPatch(types.JSONPatchType, patchBytes)
+
 		Eventually(func() error {
-			_, err := cli.KubeVirt(hc.Namespace).Patch(ctx, kv_name, types.JSONPatchType, patch, metav1.PatchOptions{})
-			return err
+			return cli.Patch(ctx, kv, patch)
 		}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).Should(Succeed())
 
 		Eventually(func(g Gomega) {
-			kv, err := cli.KubeVirt(hc.Namespace).Get(ctx, kv_name, metav1.GetOptions{})
-			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
+			kv.TypeMeta = kvTypeMeta
 			g.Expect(kv.Labels).To(HaveKeyWithValue(hcoutil.AppLabelVersion, expectedVersion))
 		}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 
@@ -65,18 +81,21 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 			if len(parts) == 1 {
 				switch resource.Kind {
 				case "ConfigMap":
-					cm, err := cli.CoreV1().ConfigMaps(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
+					cm, err := cliSet.CoreV1().ConfigMaps(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					checkLabels(cm.GetLabels())
 
 				case "Service":
-					svc, err := cli.CoreV1().Services(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
+					svc, err := cliSet.CoreV1().Services(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					checkLabels(svc.GetLabels())
 				default:
 					GinkgoWriter.Printf("Missed corev1 resource to check the labels for; %s/%s\n", resource.Kind, resource.Name)
 				}
 			} else {
+				dynamicClient, err := dynamic.NewForConfig(tests.GetClientConfig())
+				Expect(err).ToNot(HaveOccurred())
+
 				kind := plural.Plural(strings.ToLower(resource.Kind))
 				gvr := schema.GroupVersionResource{
 					Group:    parts[0],
@@ -84,11 +103,11 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 					Resource: kind,
 				}
 				if len(resource.Namespace) == 0 {
-					rc, err := cli.DynamicClient().Resource(gvr).Get(ctx, resource.Name, metav1.GetOptions{})
+					rc, err := dynamicClient.Resource(gvr).Get(ctx, resource.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					checkLabels(rc.GetLabels())
 				} else {
-					rc, err := cli.DynamicClient().Resource(gvr).Namespace(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
+					rc, err := dynamicClient.Resource(gvr).Namespace(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					checkLabels(rc.GetLabels())
 				}

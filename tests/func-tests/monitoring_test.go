@@ -21,10 +21,12 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/tests/flags"
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
@@ -40,22 +42,28 @@ const (
 var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", Serial, Ordered, Label(tests.OpenshiftLabel), func() {
 	flag.Parse()
 
-	var err error
-	var virtCli kubecli.KubevirtClient
-	var promClient promApiv1.API
-	var prometheusRule monitoringv1.PrometheusRule
-	var initialOperatorHealthMetricValue float64
-	ctx := context.TODO()
+	var (
+		cli                              client.Client
+		cliSet                           *kubernetes.Clientset
+		restClient                       rest.Interface
+		promClient                       promApiv1.API
+		prometheusRule                   monitoringv1.PrometheusRule
+		initialOperatorHealthMetricValue float64
+		ctx                              context.Context
+	)
 
 	runbookClient.Timeout = time.Second * 3
 
 	BeforeEach(func() {
-		virtCli, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		cli = tests.GetControllerRuntimeClient()
+		cliSet = tests.GetK8sClientSet()
+		restClient = cliSet.RESTClient()
 
-		tests.FailIfNotOpenShift(virtCli, "Prometheus")
-		promClient = initializePromClient(getPrometheusURL(virtCli), getAuthorizationTokenForPrometheus(virtCli))
-		prometheusRule = getPrometheusRule(virtCli)
+		ctx = context.Background()
+
+		tests.FailIfNotOpenShift(ctx, cli, "Prometheus")
+		promClient = initializePromClient(getPrometheusURL(restClient), getAuthorizationTokenForPrometheus(ctx, cliSet))
+		prometheusRule = getPrometheusRule(restClient)
 
 		initialOperatorHealthMetricValue = getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
 	})
@@ -105,21 +113,39 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			valueBefore = getMetricValue(promClient, query)
 		}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
 
+		patchBytes := []byte(fmt.Sprintf(`[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": %q}]`, fakeFG))
+		patch := client.RawPatch(types.JSONPatchType, patchBytes)
+
+		retries := float64(0)
 		Eventually(func(g Gomega) []string {
-			patch := []byte(fmt.Sprintf(`[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": %q}]`, fakeFG))
-			kv, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Patch(ctx, "kubevirt-kubevirt-hyperconverged", types.JSONPatchType, patch, metav1.PatchOptions{})
-			g.Expect(err).ToNot(HaveOccurred())
+			kv := &kubevirtcorev1.KubeVirt{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "KubeVirt",
+					APIVersion: "kubevirt.io/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt-kubevirt-hyperconverged",
+					Namespace: tests.InstallNamespace,
+				},
+			}
+
+			g.Expect(cli.Patch(ctx, kv, patch)).To(Succeed())
+			retries++
+			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
+
 			return kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
 		}).WithTimeout(10 * time.Second).
 			WithPolling(100 * time.Millisecond).
 			Should(ContainElement(fakeFG))
 
+		Expect(retries).To(BeNumerically(">", 0))
+
 		Eventually(func(g Gomega) float64 {
 			return getMetricValue(promClient, query)
-		}).WithTimeout(60 * time.Second).WithPolling(time.Second).Should(Equal(valueBefore + 1))
+		}).WithTimeout(60 * time.Second).WithPolling(time.Second).Should(Equal(valueBefore + retries))
 
 		Eventually(func() *promApiv1.Alert {
-			alerts, err := promClient.Alerts(context.TODO())
+			alerts, err := promClient.Alerts(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			alert := getAlertByName(alerts, "KubeVirtCRModified")
 			return alert
@@ -130,12 +156,12 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 	It("UnsupportedHCOModification alert should fired when there is an jsonpatch annotation to modify an operand CRs", func() {
 		By("Updating HCO object with a new label")
-		hco := tests.GetHCO(ctx, virtCli)
+		hco := tests.GetHCO(ctx, cli)
 
 		hco.Annotations = map[string]string{
 			"kubevirt.kubevirt.io/jsonpatch": `[{"op": "add", "path": "/spec/configuration/migrations", "value": {"allowPostCopy": true}}]`,
 		}
-		tests.UpdateHCORetry(ctx, virtCli, hco)
+		tests.UpdateHCORetry(ctx, cli, hco)
 
 		Eventually(func() *promApiv1.Alert {
 			alerts, err := promClient.Alerts(context.TODO())
@@ -189,17 +215,13 @@ func getMetricValue(promClient promApiv1.API, metricName string) float64 {
 	return metricValue
 }
 
-func getPrometheusRule(client kubecli.KubevirtClient) monitoringv1.PrometheusRule {
-	s := scheme.Scheme
-	_ = monitoringv1.AddToScheme(s)
-	s.AddKnownTypes(monitoringv1.SchemeGroupVersion)
-
+func getPrometheusRule(cli rest.Interface) monitoringv1.PrometheusRule {
 	var prometheusRule monitoringv1.PrometheusRule
 
-	ExpectWithOffset(1, client.RestClient().Get().
+	ExpectWithOffset(1, cli.Get().
 		Resource("prometheusrules").
 		Name("kubevirt-hyperconverged-prometheus-rule").
-		Namespace(flags.KubeVirtInstallNamespace).
+		Namespace(tests.InstallNamespace).
 		AbsPath("/apis", monitoringv1.SchemeGroupVersion.Group, monitoringv1.SchemeGroupVersion.Version).
 		Timeout(10*time.Second).
 		Do(context.TODO()).Into(&prometheusRule)).Should(Succeed())
@@ -228,11 +250,11 @@ func initializePromClient(prometheusURL string, token string) promApiv1.API {
 	return promClient
 }
 
-func getAuthorizationTokenForPrometheus(cli kubecli.KubevirtClient) string {
+func getAuthorizationTokenForPrometheus(ctx context.Context, cli *kubernetes.Clientset) string {
 	var token string
 	Eventually(func() bool {
 		treq, err := cli.CoreV1().ServiceAccounts("openshift-monitoring").CreateToken(
-			context.TODO(),
+			ctx,
 			"prometheus-k8s",
 			&authenticationv1.TokenRequest{
 				Spec: authenticationv1.TokenRequestSpec{
@@ -251,7 +273,7 @@ func getAuthorizationTokenForPrometheus(cli kubecli.KubevirtClient) string {
 	return token
 }
 
-func getPrometheusURL(cli kubecli.KubevirtClient) string {
+func getPrometheusURL(cli rest.Interface) string {
 	s := scheme.Scheme
 	_ = openshiftroutev1.Install(s)
 	s.AddKnownTypes(openshiftroutev1.GroupVersion)
@@ -259,7 +281,7 @@ func getPrometheusURL(cli kubecli.KubevirtClient) string {
 	var route openshiftroutev1.Route
 
 	Eventually(func() error {
-		return cli.RestClient().Get().
+		return cli.Get().
 			Resource("routes").
 			Name("prometheus-k8s").
 			Namespace("openshift-monitoring").

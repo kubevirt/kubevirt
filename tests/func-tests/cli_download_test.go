@@ -6,47 +6,52 @@ import (
 	"flag"
 	"net/http"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-
-	"kubevirt.io/client-go/kubecli"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
-var _ = Describe("[rfe_id:5100][crit:medium][vendor:cnv-qe@redhat.com][level:system]HyperConverged Cluster Operator should create ConsoleCliDownload objects", Label(tests.OpenshiftLabel), func() {
+var _ = Describe("[rfe_id:5100][crit:medium][vendor:cnv-qe@redhat.com][level:system]HyperConverged Cluster Operator should create ConsoleCliDownload objects", Label(tests.OpenshiftLabel, "ConsoleCliDownload"), func() {
 	flag.Parse()
 
-	var cli kubecli.KubevirtClient
+	var (
+		cli client.Client
+		ctx context.Context
+	)
+
 	BeforeEach(func() {
 		tests.BeforeEach()
-		virtCli, err := kubecli.GetKubevirtClient()
+		cfg, err := config.GetConfig()
 		Expect(err).ToNot(HaveOccurred())
 
-		cli, err = kubecli.GetKubevirtClientFromRESTConfig(virtCli.Config())
+		s := scheme.Scheme
+		Expect(consolev1.AddToScheme(s)).To(Succeed())
+		cli, err = client.New(cfg, client.Options{Scheme: s})
 		Expect(err).ToNot(HaveOccurred())
-		tests.FailIfNotOpenShift(cli, "ConsoleCliDownload")
+
+		ctx = context.Background()
+		tests.FailIfNotOpenShift(ctx, cli, "ConsoleCliDownload")
 	})
 
 	It("[test_id:6956]should create ConsoleCliDownload objects with expected spec", Label("test_id:6956"), func() {
 		By("Checking existence of ConsoleCliDownload")
-		s := scheme.Scheme
-		_ = consolev1.Install(s)
-		s.AddKnownTypes(consolev1.GroupVersion)
 
-		var ccd consolev1.ConsoleCLIDownload
-		ExpectWithOffset(1, cli.RestClient().Get().
-			Resource("consoleclidownloads").
-			Name("virtctl-clidownloads-kubevirt-hyperconverged").
-			AbsPath("/apis", consolev1.GroupVersion.Group, consolev1.GroupVersion.Version).
-			Timeout(10*time.Second).
-			Do(context.TODO()).Into(&ccd)).To(Succeed())
+		ccd := &consolev1.ConsoleCLIDownload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "virtctl-clidownloads-kubevirt-hyperconverged",
+			},
+		}
 
-		ExpectWithOffset(1, ccd.Spec.Links).Should(HaveLen(6))
+		Expect(cli.Get(ctx, client.ObjectKeyFromObject(ccd), ccd)).To(Succeed())
+
+		Expect(ccd.Spec.Links).To(HaveLen(6))
 
 		for _, link := range ccd.Spec.Links {
 			// virtctl for Windows for ARM 64 is still not shipped, avoid checking it

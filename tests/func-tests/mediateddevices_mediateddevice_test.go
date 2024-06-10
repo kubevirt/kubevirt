@@ -4,46 +4,42 @@ import (
 	"context"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/kubevirt/tests/flags"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiservererrors "k8s.io/apiserver/pkg/admission/plugin/webhook/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
-	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
-	"kubevirt.io/client-go/kubecli"
-
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 
-	apiservererrors "k8s.io/apiserver/pkg/admission/plugin/webhook/errors"
+	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
-var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", func() {
+var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", Label("MediatedDevices"), func() {
+	var (
+		cli            client.Client
+		ctx            context.Context
+		initialMDC     *v1beta1.MediatedDevicesConfiguration
+		apiServerError = apiservererrors.ToStatusErr(
+			util.HcoValidatingWebhook,
+			&metav1.Status{
+				Message: "mediatedDevicesTypes is deprecated, please use mediatedDeviceTypes instead",
+				Reason:  metav1.StatusReasonForbidden,
+				Code:    403,
+			},
+		)
+	)
+
 	tests.FlagParse()
-	var cli kubecli.KubevirtClient
-	ctx := context.TODO()
-
-	var initialMDC *v1beta1.MediatedDevicesConfiguration
-
-	apiServerError := apiservererrors.ToStatusErr(
-		util.HcoValidatingWebhook,
-		&metav1.Status{
-			Message: "mediatedDevicesTypes is deprecated, please use mediatedDeviceTypes instead",
-			Reason:  metav1.StatusReasonForbidden,
-			Code:    403,
-		})
-	apiServerError.ErrStatus.APIVersion = "v1"
-	apiServerError.ErrStatus.Kind = "Status"
 
 	BeforeEach(func() {
-		var err error
-		cli, err = kubecli.GetKubevirtClient()
-		Expect(cli).ToNot(BeNil())
-		Expect(err).ToNot(HaveOccurred())
+		cli = tests.GetControllerRuntimeClient()
+		ctx = context.Background()
+
 		tests.BeforeEach()
 		hc := tests.GetHCO(ctx, cli)
 		initialMDC = nil
@@ -66,9 +62,20 @@ var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", func() {
 				hc = tests.UpdateHCORetry(ctx, cli, hc)
 				Expect(hc.Spec.MediatedDevicesConfiguration).To(Equal(expectedMediatedDevicesConfiguration))
 				Eventually(func() *kubevirtcorev1.MediatedDevicesConfiguration {
-					kubevirt, err := cli.KubeVirt(flags.KubeVirtInstallNamespace).Get(ctx, "kubevirt-kubevirt-hyperconverged", metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return kubevirt.Spec.Configuration.MediatedDevicesConfiguration
+					kv := &kubevirtcorev1.KubeVirt{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "KubeVirt",
+							APIVersion: "kubevirt.io/v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "kubevirt-kubevirt-hyperconverged",
+							Namespace: tests.InstallNamespace,
+						},
+					}
+
+					Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
+
+					return kv.Spec.Configuration.MediatedDevicesConfiguration
 				}, 10*time.Second, time.Second).Should(Equal(expectedKVMediatedDevicesConfiguration))
 			} else {
 				Eventually(func() error {

@@ -18,8 +18,9 @@ if [ "${JOB_TYPE}" == "travis" ]; then
     ginkgo -cover -output-dir=./coverprofiles -coverprofile=cover.coverprofile -r ${PKG_PACKAGE_PATH} -r ${CONTROLLERS_PACKAGE_PATH}
 else
     test_path="tests/func-tests"
-    (cd $test_path; GOFLAGS='' go install github.com/onsi/ginkgo/v2/ginkgo@$(grep github.com/onsi/ginkgo ../go.mod | cut -d " " -f2))
-    (cd $test_path; go mod tidy; go mod vendor)
+    GOFLAGS='' go install github.com/onsi/ginkgo/v2/ginkgo@$(grep github.com/onsi/ginkgo go.mod | cut -d " " -f2)
+    go mod tidy
+    go mod vendor
     test_out_path=${test_path}/_out
     mkdir -p ${test_out_path}
     (cd $test_path; ginkgo build .)

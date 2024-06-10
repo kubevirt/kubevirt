@@ -28,7 +28,6 @@ sanity: generate generate-doc validate-no-offensive-lang goimport lint-metrics l
 	go mod tidy -v
 	go mod vendor
 	./hack/build-manifests.sh
-	(cd tests && go mod tidy -v && go mod vendor)
 	git add -N vendor
 	git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh
 

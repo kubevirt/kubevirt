@@ -10,14 +10,14 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
-	"kubevirt.io/kubevirt/tests/flags"
 
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
@@ -28,22 +28,23 @@ const (
 )
 
 var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, Serial, Label(tests.HighlyAvailableClusterLabel), func() {
-	ctx := context.TODO()
 	tests.FlagParse()
 	hco := &hcov1beta1.HyperConverged{}
 	var (
 		workloadsNode        *v1.Node
 		originalInfraSpec    hcov1beta1.HyperConvergedConfig
 		originalWorkloadSpec hcov1beta1.HyperConvergedConfig
-		cli                  kubecli.KubevirtClient
+		cli                  client.Client
+		cliSet               *kubernetes.Clientset
+		ctx                  context.Context
 	)
 
 	BeforeAll(func() {
-		var err error
-		cli, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		cli = tests.GetControllerRuntimeClient()
+		cliSet = tests.GetK8sClientSet()
+		ctx = context.Background()
 
-		nodes := listNodesByLabels(cli, "node-role.kubernetes.io/control-plane!=")
+		nodes := listNodesByLabels(ctx, cliSet, "node-role.kubernetes.io/control-plane!=")
 		tests.FailIfSingleNode(len(nodes.Items) < 2)
 
 		// Label all but first node with "node.kubernetes.io/hco-test-node-type=infra"
@@ -51,14 +52,14 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		// labels the nodes this way
 		Eventually(func(g Gomega) {
 			for _, node := range nodes.Items[:len(nodes.Items)-1] {
-				done, err := setHcoNodeTypeLabel(cli, &node, infra)
+				done, err := setHcoNodeTypeLabel(ctx, cliSet, &node, infra)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(done).To(BeTrue())
 			}
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 		// Label the last node with "node.kubernetes.io/hco-test-node-type=workloads"
 		Eventually(func(g Gomega) {
-			done, err := setHcoNodeTypeLabel(cli, &nodes.Items[len(nodes.Items)-1], workloads)
+			done, err := setHcoNodeTypeLabel(ctx, cliSet, &nodes.Items[len(nodes.Items)-1], workloads)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(done).To(BeTrue())
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
@@ -86,7 +87,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 		tests.UpdateHCORetry(ctx, cli, hco)
 
-		workloadsNodes := listNodesByLabels(cli, "node.kubernetes.io/hco-test-node-type==workloads")
+		workloadsNodes := listNodesByLabels(ctx, cliSet, "node.kubernetes.io/hco-test-node-type==workloads")
 		Expect(workloadsNodes.Items).To(HaveLen(1))
 
 		workloadsNode = &workloadsNodes.Items[0]
@@ -107,7 +108,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		tests.UpdateHCORetry(ctx, cli, hco)
 
 		// unlabel the nodes
-		nodes := listNodesByLabels(cli, hcoLabel)
+		nodes := listNodesByLabels(ctx, cliSet, hcoLabel)
 
 		// wrap unlabelling in Eventually because for resourceVersion errors
 		Eventually(func(g Gomega) {
@@ -115,10 +116,10 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 				n := &node
 				labels := n.GetLabels()
 				delete(labels, hcoLabel)
-				n, err := cli.CoreV1().Nodes().Get(context.TODO(), n.Name, k8smetav1.GetOptions{})
+				n, err := cliSet.CoreV1().Nodes().Get(ctx, n.Name, k8smetav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
 				n.SetLabels(labels)
-				_, err = cli.CoreV1().Nodes().Update(context.TODO(), n, k8smetav1.UpdateOptions{})
+				_, err = cliSet.CoreV1().Nodes().Update(ctx, n, k8smetav1.UpdateOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
 			}
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
@@ -139,7 +140,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 			}
 
 			By("Getting Network Addons Configs")
-			cnaoCR := getNetworkAddonsConfigs(cli)
+			cnaoCR := getNetworkAddonsConfigs(ctx, cliSet)
 			if cnaoCR.Spec.Ovs == nil {
 				delete(expectedWorkloadsPods, "ovs-cni-marker")
 			}
@@ -149,7 +150,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 			Eventually(func(g Gomega) {
 				By("Listing pods in infra node")
-				pods := listPodsInNode(g, cli, workloadsNode.Name)
+				pods := listPodsInNode(ctx, g, cliSet, workloadsNode.Name)
 
 				By("Collecting nodes of pods")
 				updatePodAssignments(pods, expectedWorkloadsPods, "workload", workloadsNode.Name)
@@ -174,11 +175,11 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 			Eventually(func(g Gomega) {
 				By("Listing infra nodes")
-				infraNodes := listInfraNodes(cli)
+				infraNodes := listInfraNodes(ctx, cliSet)
 
 				for _, node := range infraNodes.Items {
 					By("Listing pods in " + node.Name)
-					pods := listPodsInNode(g, cli, node.Name)
+					pods := listPodsInNode(ctx, g, cliSet, node.Name)
 
 					By("Collecting nodes of pods")
 					updatePodAssignments(pods, expectedInfraPods, "infra", node.Name)
@@ -216,8 +217,8 @@ func updatePodAssignments(pods []v1.Pod, podMap map[string]bool, nodeType string
 	}
 }
 
-func listPodsInNode(g Gomega, client kubecli.KubevirtClient, nodeName string) []v1.Pod {
-	pods, err := client.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.TODO(), k8smetav1.ListOptions{
+func listPodsInNode(ctx context.Context, g Gomega, cli *kubernetes.Clientset, nodeName string) []v1.Pod {
+	pods, err := cli.CoreV1().Pods(tests.InstallNamespace).List(ctx, k8smetav1.ListOptions{
 		FieldSelector: fmt.Sprintf("spec.nodeName=%s,status.phase=Running", nodeName),
 	})
 	g.ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -225,8 +226,8 @@ func listPodsInNode(g Gomega, client kubecli.KubevirtClient, nodeName string) []
 	return pods.Items
 }
 
-func listInfraNodes(client kubecli.KubevirtClient) *v1.NodeList {
-	infraNodes, err := client.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
+func listInfraNodes(ctx context.Context, cli *kubernetes.Clientset) *v1.NodeList {
+	infraNodes, err := cli.CoreV1().Nodes().List(ctx, k8smetav1.ListOptions{
 		LabelSelector: "node.kubernetes.io/hco-test-node-type==infra",
 	})
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
@@ -234,43 +235,43 @@ func listInfraNodes(client kubecli.KubevirtClient) *v1.NodeList {
 	return infraNodes
 }
 
-func getNetworkAddonsConfigs(client kubecli.KubevirtClient) *networkaddonsv1.NetworkAddonsConfig {
+func getNetworkAddonsConfigs(ctx context.Context, cli *kubernetes.Clientset) *networkaddonsv1.NetworkAddonsConfig {
 	var cnaoCR networkaddonsv1.NetworkAddonsConfig
 
 	s := scheme.Scheme
 	_ = networkaddonsv1.AddToScheme(s)
 	s.AddKnownTypes(networkaddonsv1.GroupVersion)
 
-	ExpectWithOffset(1, client.RestClient().Get().
+	ExpectWithOffset(1, cli.RESTClient().Get().
 		Resource("networkaddonsconfigs").
 		Name("cluster").
 		AbsPath("/apis", networkaddonsv1.GroupVersion.Group, networkaddonsv1.GroupVersion.Version).
 		Timeout(10*time.Second).
-		Do(context.TODO()).Into(&cnaoCR)).To(Succeed())
+		Do(ctx).Into(&cnaoCR)).To(Succeed())
 
 	return &cnaoCR
 }
 
-func setHcoNodeTypeLabel(client kubecli.KubevirtClient, node *v1.Node, value string) (bool, error) {
+func setHcoNodeTypeLabel(ctx context.Context, cli *kubernetes.Clientset, node *v1.Node, value string) (bool, error) {
 	labels := node.GetLabels()
 	labels[hcoLabel] = value
-	node, err := client.CoreV1().Nodes().Get(context.TODO(), node.Name, k8smetav1.GetOptions{})
+	node, err := cli.CoreV1().Nodes().Get(ctx, node.Name, k8smetav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
 	node.SetLabels(labels)
-	_, err = client.CoreV1().Nodes().Update(context.TODO(), node, k8smetav1.UpdateOptions{})
+	_, err = cli.CoreV1().Nodes().Update(ctx, node, k8smetav1.UpdateOptions{})
 	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func listNodesByLabels(cli kubecli.KubevirtClient, labelSelector string) *v1.NodeList {
+func listNodesByLabels(ctx context.Context, cli *kubernetes.Clientset, labelSelector string) *v1.NodeList {
 	var nodes *v1.NodeList
 	Eventually(func() error {
 		var err error
-		nodes, err = cli.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{LabelSelector: labelSelector})
+		nodes, err = cli.CoreV1().Nodes().List(ctx, k8smetav1.ListOptions{LabelSelector: labelSelector})
 		return err
 	}).WithTimeout(10 * time.Second).
 		WithPolling(time.Second).
