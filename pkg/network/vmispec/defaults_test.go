@@ -81,7 +81,7 @@ var _ = Describe("Default pod network", func() {
 				defaultNetworkInterface:              string(v1.BridgeInterface),
 				isBridgeInterfaceEnabledOnPodNetwork: false,
 			},
-			"Bridge interface is not enabled in kubevirt-config",
+			"bridge interface is not enabled in kubevirt-config",
 		),
 		Entry("when the deprecated slirp binding is the cluster-wide default",
 			stubClusterConfig{defaultNetworkInterface: string(v1.DeprecatedSlirpInterface)},

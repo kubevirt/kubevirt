@@ -31,27 +31,28 @@ type netClusterConfiger interface {
 }
 
 func SetDefaultNetworkInterface(config netClusterConfiger, spec *v1.VirtualMachineInstanceSpec) error {
-	autoAttach := spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && !*autoAttach {
+	if autoAttach := spec.Domain.Devices.AutoattachPodInterface; autoAttach != nil && !*autoAttach {
 		return nil
 	}
 
 	// Override only when nothing is specified
-	if len(spec.Networks) == 0 && len(spec.Domain.Devices.Interfaces) == 0 {
-		iface := v1.NetworkInterfaceType(config.GetDefaultNetworkInterface())
-		switch iface {
-		case v1.BridgeInterface:
-			if !config.IsBridgeInterfaceOnPodNetworkEnabled() {
-				return fmt.Errorf("Bridge interface is not enabled in kubevirt-config")
-			}
-			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-		case v1.MasqueradeInterface:
-			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		case v1.DeprecatedSlirpInterface:
-			return fmt.Errorf("slirp interface is deprecated as of v1.3")
-		}
-
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+	if len(spec.Networks) != 0 || len(spec.Domain.Devices.Interfaces) != 0 {
+		return nil
 	}
+
+	switch v1.NetworkInterfaceType(config.GetDefaultNetworkInterface()) {
+	case v1.BridgeInterface:
+		if !config.IsBridgeInterfaceOnPodNetworkEnabled() {
+			return fmt.Errorf("bridge interface is not enabled in kubevirt-config")
+		}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+	case v1.MasqueradeInterface:
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+	case v1.DeprecatedSlirpInterface:
+		return fmt.Errorf("slirp interface is deprecated as of v1.3")
+	}
+
+	spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
 	return nil
 }

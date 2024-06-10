@@ -1064,7 +1064,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmi := libvmifact.NewCirros()
 
 			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err.Error()).To(ContainSubstring("Bridge interface is not enabled in kubevirt-config"))
+			Expect(err.Error()).To(ContainSubstring("bridge interface is not enabled in kubevirt-config"))
 		})
 	})
 })
