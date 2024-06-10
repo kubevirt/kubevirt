@@ -56,9 +56,6 @@ import (
 
 	util2 "kubevirt.io/kubevirt/tests/util"
 
-	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -707,18 +704,6 @@ func EnsurePodsCertIsSynced(labelSelector string, namespace string, port string)
 		return certs[0]
 	}
 	return nil
-}
-
-func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) {
-	virtClient := kubevirt.Client()
-	configMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), configMapName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	if rawBundle, ok := configMap.Data[components.CABundleKey]; ok {
-		crts, err := cert.ParseCertsPEM([]byte(rawBundle))
-		Expect(err).ToNot(HaveOccurred())
-		return []byte(rawBundle), crts
-	}
-	return nil, nil
 }
 
 func RandTmpDir() string {

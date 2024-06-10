@@ -85,6 +85,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
+	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -2993,7 +2994,7 @@ func serviceMonitorEnabled() bool {
 // verifyOperatorWebhookCertificate can be used when inside tests doing reinstalls of kubevirt, to ensure that virt-operator already got the new certificate.
 // This is necessary, since it can take up to a minute to get the fresh certificates when secrets are updated.
 func verifyOperatorWebhookCertificate() {
-	caBundle, _ := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+	caBundle, _ := libinfra.GetBundleFromConfigMap(components.KubeVirtCASecretName)
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(caBundle)
 	// ensure that the state is fully restored before each test
