@@ -5,19 +5,16 @@ import (
 	"fmt"
 	"net/http"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	k8scorev1 "k8s.io/api/core/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	virtv1 "kubevirt.io/api/core/v1"
-
 	kubevirt "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -96,21 +93,24 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 }
 
 func (admitter *PodEvictionAdmitter) markVMI(vmiNamespace, vmiName, nodeName string, dryRun bool) error {
-	data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
+	patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", nodeName)).GeneratePayload()
+	if err != nil {
+		return err
+	}
 
 	var patchOptions metav1.PatchOptions
 	if dryRun {
 		patchOptions.DryRun = []string{metav1.DryRunAll}
 	}
 
-	_, err := admitter.
+	_, err = admitter.
 		virtClient.
 		KubevirtV1().
 		VirtualMachineInstances(vmiNamespace).
 		Patch(context.Background(),
 			vmiName,
 			types.JSONPatchType,
-			[]byte(data),
+			patchBytes,
 			patchOptions,
 		)
 
