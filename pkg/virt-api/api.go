@@ -31,9 +31,9 @@ import (
 	"syscall"
 	"time"
 
-	"k8s.io/kube-openapi/pkg/builder"
+	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
-	"k8s.io/kube-openapi/pkg/validation/spec"
+	"k8s.io/kube-openapi/pkg/spec3"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -746,7 +746,7 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
 
 	once := sync.Once{}
-	var openapispec *spec.Swagger
+	var openapispec *spec3.OpenAPI
 	ws.Route(ws.GET("openapi/v2").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON).
@@ -786,7 +786,7 @@ func (app *virtAPIApp) Compose() {
 func (app *virtAPIApp) ConfigureOpenAPIService() {
 	config := openapi.CreateConfig()
 	config.GetDefinitions = v12.GetOpenAPIDefinitions
-	spec, err := builder.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
+	spec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
 	if err != nil {
 		panic(err)
 	}

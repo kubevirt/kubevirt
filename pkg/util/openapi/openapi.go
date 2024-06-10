@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
+	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
 	openapi_validate "github.com/go-openapi/validate"
 	"github.com/golang/glog"
@@ -15,7 +16,7 @@ import (
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/errors"
-	"k8s.io/kube-openapi/pkg/validation/spec"
+	validationspec "k8s.io/kube-openapi/pkg/validation/spec"
 	"kubevirt.io/client-go/api"
 )
 
@@ -34,16 +35,16 @@ func CreateConfig() *common.OpenAPIV3Config {
 				},
 			},
 		},
-		Info: &spec.Info{
-			InfoProps: spec.InfoProps{
+		Info: &validationspec.Info{
+			InfoProps: validationspec.InfoProps{
 				Title:       "KubeVirt API",
 				Description: "This is KubeVirt API an add-on for Kubernetes.",
-				Contact: &spec.ContactInfo{
+				Contact: &validationspec.ContactInfo{
 					Name:  "kubevirt-dev",
 					Email: "kubevirt-dev@googlegroups.com",
 					URL:   "https://github.com/kubevirt/kubevirt",
 				},
-				License: &spec.License{
+				License: &validationspec.License{
 					Name: "Apache 2.0",
 					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
 				},
@@ -68,7 +69,7 @@ func CreateConfig() *common.OpenAPIV3Config {
 			}
 			return m
 		},
-		GetDefinitionName: func(name string) (string, spec.Extensions) {
+		GetDefinitionName: func(name string) (string, validationspec.Extensions) {
 			if strings.Contains(name, "kubevirt.io") {
 				// keeping for validation
 				return name[strings.LastIndex(name, "/")+1:], nil
@@ -79,7 +80,7 @@ func CreateConfig() *common.OpenAPIV3Config {
 	}
 }
 
-func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
+func LoadOpenAPISpec(webServices []*restful.WebService) *spec3.OpenAPI {
 	config := CreateConfig()
 	openapispec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(webServices), config)
 	if err != nil {
@@ -93,13 +94,13 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 	// can't set conditions without timestamps
 
 	objectmeta := ""
-	for k := range openapispec.Definitions("v1.ObjectMeta") {
+	for k := range openapispec.Components.Schemas {
 		if strings.Contains(k, "v1.ObjectMeta") {
 			objectmeta = k
 			break
 		}
 	}
-	resourceRequirements, exists := openapispec.Definitions["v1.ResourceRequirements"]
+	resourceRequirements, exists := openapispec.Components.Schemas["v1.ResourceRequirements"]
 	if exists {
 		limits, exists := resourceRequirements.Properties["limits"]
 		if exists {
@@ -114,56 +115,64 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 
 	}
 
-	objectMeta, exists := openapispec.Definitions[objectmeta]
+	objectMeta, exists := openapispec.Components.Schemas[objectmeta]
 	if exists {
 		prop := objectMeta.Properties["creationTimestamp"]
-		prop.Type = spec.StringOrArray{"string", "null"}
+		prop.Type = validationspec.StringOrArray{"string", "null"}
 		// mask v1.Time as in validation v1.Time override sting,null type
-		prop.Ref = spec.Ref{}
+		prop.Ref = validationspec.Ref{}
 		objectMeta.Properties["creationTimestamp"] = prop
 	}
 
-	for k, s := range openapispec.Definitions {
+	for k, s := range openapispec.Components.Schemas {
 		// allow nullable statuses
 		if status, found := s.Properties["status"]; found {
 			if !status.Type.Contains("string") {
-				definitionName := strings.Split(status.Ref.GetPointer().String(), "/")[2]
-				object := openapispec.Definitions[definitionName]
+				var definitionName string
+				if !status.Ref.GetPointer().IsEmpty() {
+					definitionName = strings.Split(status.Ref.GetPointer().String(), "/")[3]
+				} else if len(status.AllOf) > 0 && !status.AllOf[0].Ref.GetPointer().IsEmpty() {
+					definitionName = strings.Split(status.AllOf[0].Ref.GetPointer().String(), "/")[3]
+				} else {
+					continue
+				}
+
+				object := openapispec.Components.Schemas[definitionName]
 				object.Nullable = true
-				openapispec.Definitions[definitionName] = object
+				openapispec.Components.Schemas[definitionName] = object
 			}
 		}
 
 		if strings.HasSuffix(k, "Condition") {
 			prop := s.Properties["lastProbeTime"]
-			prop.Type = spec.StringOrArray{"string", "null"}
-			prop.Ref = spec.Ref{}
+			prop.Type = validationspec.StringOrArray{"string", "null"}
+			prop.Ref = validationspec.Ref{}
 			s.Properties["lastProbeTime"] = prop
 
 			prop = s.Properties["lastTransitionTime"]
-			prop.Type = spec.StringOrArray{"string", "null"}
-			prop.Ref = spec.Ref{}
+			prop.Type = validationspec.StringOrArray{"string", "null"}
+			prop.Ref = validationspec.Ref{}
 			s.Properties["lastTransitionTime"] = prop
 		}
 		if strings.Contains(k, "v1.HTTPGetAction") {
 			prop := s.Properties["port"]
-			prop.Type = spec.StringOrArray{"string", "number"}
+			prop.Type = validationspec.StringOrArray{"string", "number"}
 			// As intstr.IntOrString, the ref for that must be masked
-			prop.Ref = spec.Ref{}
+			prop.Ref = validationspec.Ref{}
 			s.Properties["port"] = prop
 		}
 		if strings.Contains(k, "v1.TCPSocketAction") {
 			prop := s.Properties["port"]
-			prop.Type = spec.StringOrArray{"string", "number"}
+			prop.Type = validationspec.StringOrArray{"string", "number"}
 			// As intstr.IntOrString, the ref for that must be masked
-			prop.Ref = spec.Ref{}
+			prop.Ref = validationspec.Ref{}
 			s.Properties["port"] = prop
 		}
 		if strings.Contains(k, "v1.PersistentVolumeClaimSpec") {
 			for i, r := range s.Required {
 				if r == "dataSource" {
 					s.Required = append(s.Required[:i], s.Required[i+1:]...)
-					openapispec.Definitions[k] = s
+					openapispec.Components.Schemas[k] = s
 					break
 				}
 			}
@@ -180,7 +189,7 @@ func CreateOpenAPIValidator(webServices []*restful.WebService) *Validator {
 		glog.Fatal(err)
 	}
 
-	specSchema := &openapi_spec.Schema{}
+	specSchema := &spec.Schema{}
 	err = json.Unmarshal(data, specSchema)
 	if err != nil {
 		panic(err)
@@ -188,26 +197,26 @@ func CreateOpenAPIValidator(webServices []*restful.WebService) *Validator {
 
 	// Make sure that no unknown fields are allowed in specs
 	for k, v := range specSchema.Definitions {
-		v.AdditionalProperties = &openapi_spec.SchemaOrBool{Allows: false}
-		v.AdditionalItems = &openapi_spec.SchemaOrBool{Allows: false}
+		v.AdditionalProperties = &spec.SchemaOrBool{Allows: false}
+		v.AdditionalItems = &spec.SchemaOrBool{Allows: false}
 		specSchema.Definitions[k] = v
 	}
 
 	// Expand the specSchemes
-	err = openapi_spec.ExpandSchema(specSchema, specSchema, nil)
+	err = spec.ExpandSchema(specSchema, specSchema, nil)
 	if err != nil {
 		glog.Fatal(err)
 	}
 
 	// Load spec once again for status. The status should accept unknown fields
-	statusSchema := &openapi_spec.Schema{}
+	statusSchema := &spec.Schema{}
 	err = json.Unmarshal(data, statusSchema)
 	if err != nil {
 		panic(err)
 	}
 
 	// Expand the statusSchemes
-	err = openapi_spec.ExpandSchema(statusSchema, statusSchema, nil)
+	err = spec.ExpandSchema(statusSchema, statusSchema, nil)
 	if err != nil {
 		glog.Fatal(err)
 	}

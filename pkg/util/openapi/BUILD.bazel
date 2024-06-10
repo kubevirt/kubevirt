@@ -9,6 +9,7 @@ go_library(
         "//staging/src/github.com/golang/glog:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//vendor/github.com/emicklei/go-restful/v3:go_default_library",
+        "//vendor/github.com/go-openapi/spec:go_default_library",
         "//vendor/github.com/go-openapi/strfmt:go_default_library",
         "//vendor/github.com/go-openapi/validate:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
