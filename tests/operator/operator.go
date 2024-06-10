@@ -113,6 +113,12 @@ type vmYamlDefinition struct {
 }
 
 var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperator, func() {
+
+	const (
+		virtApiDepName        = "virt-api"
+		virtControllerDepName = "virt-controller"
+	)
+
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
 	var originalOperatorVersion string
@@ -125,31 +131,14 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		copyOriginalCDI                        func() *cdiv1.CDI
-		copyOriginalKv                         func() *v1.KubeVirt
-		createKv                               func(*v1.KubeVirt)
-		createCdi                              func()
-		sanityCheckDeploymentsDeleted          func()
-		allPodsAreReady                        func(*v1.KubeVirt)
-		allPodsAreTerminated                   func(*v1.KubeVirt)
-		waitForUpdateCondition                 func(*v1.KubeVirt)
-		waitForKvWithTimeout                   func(*v1.KubeVirt, int)
-		waitForKv                              func(*v1.KubeVirt)
-		patchKvProductNameVersionAndComponent  func(string, string, string, string)
-		patchKvVersionAndRegistry              func(string, string, string)
-		patchKvVersion                         func(string, string)
 		patchKvNodePlacement                   func(string, string, string, *v1.ComponentConfig)
 		patchKvNodePlacementExpectError        func(string, string, string, *v1.ComponentConfig, string)
 		patchKvInfra                           func(*v1.ComponentConfig, bool, string)
 		patchKvWorkloads                       func(*v1.ComponentConfig, bool, string)
-		patchKvCertConfig                      func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
 		patchKvCertConfigExpectError           func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
-		parseDaemonset                         func(string) string
-		parseImage                             func(string) (string, string, string)
 		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
 		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
 		patchOperator                          func(*string, *string) bool
-		installOperator                        func(string)
 		installTestingManifests                func(string)
 		deleteOperator                         func(string)
 		deleteTestingManifests                 func(string)
@@ -173,239 +162,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		copyOriginalCDI = func() *cdiv1.CDI {
-			newCDI := &cdiv1.CDI{
-				Spec: *originalCDI.Spec.DeepCopy(),
-			}
-			newCDI.Name = originalCDI.Name
-			newCDI.Namespace = originalCDI.Namespace
-			newCDI.ObjectMeta.Labels = originalCDI.ObjectMeta.Labels
-			newCDI.ObjectMeta.Annotations = originalCDI.ObjectMeta.Annotations
-
-			return newCDI
-
-		}
-
-		copyOriginalKv = func() *v1.KubeVirt {
-			newKv := &v1.KubeVirt{
-				Spec: *originalKv.Spec.DeepCopy(),
-			}
-			newKv.Name = originalKv.Name
-			newKv.Namespace = originalKv.Namespace
-			newKv.ObjectMeta.Labels = originalKv.ObjectMeta.Labels
-			newKv.ObjectMeta.Annotations = originalKv.ObjectMeta.Annotations
-
-			return newKv
-
-		}
-
-		createKv = func(newKv *v1.KubeVirt) {
-			Eventually(func() error {
-				_, err = virtClient.KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		createCdi = func() {
-			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Create(context.Background(), copyOriginalCDI(), metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() bool {
-				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
-				if err != nil {
-					return false
-				} else if cdi.Status.Phase != sdkapi.PhaseDeployed {
-					return false
-				}
-				return true
-			}, 240*time.Second, 1*time.Second).Should(BeTrue())
-		}
-
-		sanityCheckDeploymentsDeleted = func() {
-			Eventually(func() int {
-				deploymentCount := 2
-				for _, deployment := range []string{"virt-api", "virt-controller"} {
-					_, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deployment, metav1.GetOptions{})
-					if err != nil && errors.IsNotFound(err) {
-						deploymentCount--
-					}
-				}
-				return deploymentCount
-			}, 15*time.Second, 1*time.Second).Should(Equal(0))
-		}
-
-		allPodsAreTerminated = func(kv *v1.KubeVirt) {
-			Eventually(func() error {
-				pods, err := virtClient.CoreV1().Pods(kv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
-				if err != nil {
-					return err
-				}
-
-				for _, pod := range pods.Items {
-					manager, managed := pod.Labels[v1.ManagedByLabel]
-					if !managed || manager != v1.ManagedByLabelOperatorValue {
-						continue
-					}
-
-					if pod.Status.Phase != k8sv1.PodFailed && pod.Status.Phase != k8sv1.PodSucceeded {
-						return fmt.Errorf("Waiting for pod %s with phase %s to reach final phase", pod.Name, pod.Status.Phase)
-					}
-				}
-				return nil
-			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		allPodsAreReady = func(kv *v1.KubeVirt) {
-			Eventually(func() error {
-
-				curKv, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				if curKv.Status.TargetDeploymentID != curKv.Status.ObservedDeploymentID {
-					return fmt.Errorf("Target and obeserved id don't match")
-				}
-
-				podsReadyAndOwned := 0
-
-				pods, err := virtClient.CoreV1().Pods(curKv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
-				if err != nil {
-					return err
-				}
-
-				for _, pod := range pods.Items {
-					if !util.IsManagedByOperator(pod.Labels) {
-						continue
-					}
-
-					if pod.Status.Phase != k8sv1.PodRunning {
-						return fmt.Errorf("Waiting for pod %s with phase %s to reach Running phase", pod.Name, pod.Status.Phase)
-					}
-
-					for _, containerStatus := range pod.Status.ContainerStatuses {
-						if !containerStatus.Ready {
-							return fmt.Errorf("Waiting for pod %s to have all containers in Ready state", pod.Name)
-						}
-					}
-
-					id, ok := pod.Annotations[v1.InstallStrategyIdentifierAnnotation]
-					if !ok {
-						return fmt.Errorf("Pod %s is owned by operator but has no id annotation", pod.Name)
-					}
-
-					expectedID := curKv.Status.ObservedDeploymentID
-					if id != expectedID {
-						return fmt.Errorf("Pod %s is of version %s when we expected id %s", pod.Name, id, expectedID)
-					}
-					podsReadyAndOwned++
-				}
-
-				// this just sanity checks that at least one pod was found and verified.
-				// 0 would indicate our labeling was incorrect.
-				Expect(podsReadyAndOwned).ToNot(Equal(0))
-
-				return nil
-			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		waitForUpdateCondition = func(kv *v1.KubeVirt) {
-			Eventually(func() *v1.KubeVirt {
-				kv, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				return kv
-			}, 120*time.Second, 1*time.Second).Should(
-				SatisfyAll(
-					matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
-					matcher.HaveConditionTrue(v1.KubeVirtConditionProgressing),
-					matcher.HaveConditionTrue(v1.KubeVirtConditionDegraded),
-				))
-
-		}
-
-		waitForKvWithTimeout = func(newKv *v1.KubeVirt, timeoutSeconds int) {
-			Eventually(func() error {
-				kv, err := virtClient.KubeVirt(newKv.Namespace).Get(context.Background(), newKv.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-
-				if kv.Status.Phase != v1.KubeVirtPhaseDeployed {
-					return fmt.Errorf("Waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
-				}
-
-				available := false
-				progressing := true
-				degraded := true
-				created := false
-				for _, condition := range kv.Status.Conditions {
-					if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
-						available = true
-					} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionFalse {
-						progressing = false
-					} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionFalse {
-						degraded = false
-					} else if condition.Type == v1.KubeVirtConditionCreated && condition.Status == k8sv1.ConditionTrue {
-						created = true
-					}
-				}
-
-				if !available || progressing || degraded || !created {
-					if kv.Status.ObservedGeneration != nil {
-						if *kv.Status.ObservedGeneration == kv.ObjectMeta.Generation {
-							return fmt.Errorf("observed generation must not match the current configuration")
-						}
-					}
-					return fmt.Errorf("Waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
-				}
-
-				if kv.Status.ObservedGeneration != nil {
-					if *kv.Status.ObservedGeneration != kv.ObjectMeta.Generation {
-						return fmt.Errorf("the observed generation must match the current generation")
-					}
-				}
-
-				return nil
-			}, time.Duration(timeoutSeconds)*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		waitForKv = func(newKv *v1.KubeVirt) {
-			waitForKvWithTimeout(newKv, 300)
-		}
-
-		patchKvProductNameVersionAndComponent = func(name, productName string, productVersion string, productComponent string) {
-
-			format := `{ "op": "replace", "path": "%s", "value": "%s"}`
-			data := []byte("[" + fmt.Sprintf(format, "/spec/productName", productName) + "," +
-				fmt.Sprintf(format, "/spec/productVersion", productVersion) + "," +
-				fmt.Sprintf(format, "/spec/productComponent", productComponent) +
-				"]")
-
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		patchKvVersionAndRegistry = func(name string, version string, registry string) {
-			data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, version, registry))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		patchKvVersion = func(name string, version string) {
-			data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, version))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
 
 		patchKvNodePlacement = func(name string, path string, verb string, componentConfig *v1.ComponentConfig) {
 			var data []byte
@@ -436,7 +192,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		}
 
 		patchKvInfra = func(infra *v1.ComponentConfig, expectError bool, errMsg string) {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			verb := "add"
 
 			if kv.Spec.Infra != nil {
@@ -454,7 +210,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		}
 
 		patchKvWorkloads = func(workloads *v1.ComponentConfig, expectError bool, errMsg string) {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			verb := "add"
 
 			if kv.Spec.Workloads != nil {
@@ -468,23 +224,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			} else {
 				patchKvNodePlacementExpectError(kv.Name, "workloads", verb, workloads, errMsg)
 			}
-		}
-
-		patchKvCertConfig = func(name string, certConfig *v1.KubeVirtSelfSignConfiguration) {
-			var data []byte
-
-			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
-			certRotationStrategy.SelfSigned = certConfig
-			certConfigData, _ := json.Marshal(certRotationStrategy)
-
-			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
 		}
 
 		patchKvCertConfigExpectError = func(name string, certConfig *v1.KubeVirtSelfSignConfiguration) {
@@ -502,40 +241,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 				return err
 			}, 10*time.Second, 1*time.Second).Should(HaveOccurred())
 
-		}
-
-		parseDaemonset = func(name string) (imagePrefix string) {
-			var err error
-			daemonSet, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			image := daemonSet.Spec.Template.Spec.Containers[0].Image
-			imageRegEx := regexp.MustCompile(fmt.Sprintf("%s%s%s", `^(.*)/(.*)`, name, `([@:].*)?$`))
-			matches := imageRegEx.FindAllStringSubmatch(image, 1)
-			Expect(matches).To(HaveLen(1))
-			Expect(matches[0]).To(HaveLen(4))
-			imagePrefix = matches[0][2]
-			return
-		}
-
-		parseImage = func(image string) (registry, imageName, version string) {
-			var getVersion func(matches [][]string) string
-			var imageRegEx *regexp.Regexp
-
-			if strings.Contains(image, "@sha") {
-				imageRegEx = regexp.MustCompile(`^(.+)/(.+)(@sha\d+:)([\da-fA-F]+)$`)
-				getVersion = func(matches [][]string) string { return matches[0][3] + matches[0][4] }
-			} else {
-				imageRegEx = regexp.MustCompile(`^(.+)/(.+)(:.+)$`)
-				getVersion = func(matches [][]string) string { return matches[0][3] }
-			}
-
-			matches := imageRegEx.FindAllStringSubmatch(image, 1)
-			Expect(matches).To(HaveLen(1))
-			registry = matches[0][1]
-			imageName = matches[0][2]
-			version = getVersion(matches)
-
-			return
 		}
 
 		parseDeployment = func(name string) (deployment *v12.Deployment, image, registry, imageName, version string) {
@@ -595,21 +300,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			return modified
-		}
-
-		installOperator = func(manifestPath string) {
-			// namespace is already hardcoded within the manifests
-			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for KubeVirt CRD to be created")
-			ext, err := extclient.NewForConfig(virtClient.Config())
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() error {
-				_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "kubevirts.kubevirt.io", metav1.GetOptions{})
-				return err
-			}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		installTestingManifests = func(manifestPath string) {
@@ -1054,7 +744,7 @@ spec:
 		kvs := util2.GetKvList(virtClient)
 		if len(kvs) == 0 {
 			By("Re-creating the original KV to stabilize")
-			createKv(copyOriginalKv())
+			createKv(copyOriginalKv(originalKv))
 		}
 
 		modified := patchOperator(nil, &originalOperatorVersion)
@@ -1065,7 +755,7 @@ spec:
 
 		By("Waiting for original KV to stabilize")
 		waitForKvWithTimeout(originalKv, 420)
-		allPodsAreReady(originalKv)
+		allKvInfraPodsAreReady(originalKv)
 
 		// repost original CDI object if it doesn't still exist
 		// in order to restore original environment
@@ -1101,7 +791,7 @@ spec:
 					Expect(err).ToNot(HaveOccurred())
 				}
 			} else if !cdiExists {
-				createCdi()
+				createCdi(originalCDI)
 			}
 		}
 
@@ -1645,7 +1335,7 @@ spec:
 			curVersion := originalKv.Status.ObservedKubeVirtVersion
 			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			// Delete current KubeVirt install so we can install previous release.
@@ -1653,10 +1343,11 @@ spec:
 			deleteAllKvAndWait(false)
 
 			By("Verifying all infra pods have terminated")
-			allPodsAreTerminated(originalKv)
+			expectVirtOperatorPodsToTerminate(originalKv)
 
 			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
+			eventuallyDeploymentNotFound(virtApiDepName)
+			eventuallyDeploymentNotFound(virtControllerDepName)
 
 			if updateOperator {
 				By("Deleting testing manifests")
@@ -1672,7 +1363,7 @@ spec:
 
 			// Install previous release of KubeVirt
 			By("Creating KubeVirt object")
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-release-install"
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
 
@@ -1691,7 +1382,7 @@ spec:
 			waitForKvWithTimeout(kv, 420)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 			sanityCheckDeploymentsExist()
 
 			// kubectl API discovery cache only refreshes every 10 minutes
@@ -1762,7 +1453,8 @@ spec:
 				installTestingManifests(flags.TestingManifestPath)
 			} else {
 				By("Updating KubeVirt object With current tag")
-				patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
+				data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, curVersion, curRegistry))
+				patchKV(kv.Name, data)
 			}
 
 			By("Wait for Updating Condition")
@@ -1772,7 +1464,7 @@ spec:
 			waitForKvWithTimeout(kv, 420)
 
 			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 
 			// Verify console connectivity to VMI still works and stop VM
 			for _, vmYaml := range vmYamls {
@@ -1919,7 +1611,7 @@ spec:
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {
 		It("[test_id:3146]should be able to delete and re-create kubevirt install", decorators.Upgrade, func() {
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			// This ensures that we can remove kubevirt while workloads are running
@@ -1935,7 +1627,8 @@ spec:
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
+			eventuallyDeploymentNotFound(virtApiDepName)
+			eventuallyDeploymentNotFound(virtControllerDepName)
 
 			By("ensuring that namespaces can be successfully created and deleted")
 			_, err := virtClient.CoreV1().Namespaces().Create(context.Background(), &k8sv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testsuite.NamespaceTestOperator}}, metav1.CreateOptions{})
@@ -1950,13 +1643,13 @@ spec:
 			}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 			By("Creating KubeVirt Object")
-			createKv(copyOriginalKv())
+			createKv(copyOriginalKv(originalKv))
 
 			By("Creating KubeVirt Object Created and Ready Condition")
 			waitForKv(originalKv)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
@@ -1964,7 +1657,7 @@ spec:
 
 		Describe("[rfe_id:3578][crit:high][vendor:cnv-qe@redhat.com][level:component] deleting with BlockUninstallIfWorkloadsExist", func() {
 			It("[test_id:3683]should be blocked if a workload exists", func() {
-				allPodsAreReady(originalKv)
+				allKvInfraPodsAreReady(originalKv)
 				sanityCheckDeploymentsExist()
 
 				By("setting the right uninstall strategy")
@@ -1994,7 +1687,7 @@ spec:
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
@@ -2002,10 +1695,11 @@ spec:
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
+			eventuallyDeploymentNotFound(virtApiDepName)
+			eventuallyDeploymentNotFound(virtControllerDepName)
 
 			By("Creating KubeVirt Object")
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-alt-install"
 			kv.Spec = v1.KubeVirtSpec{
 				ImageTag:      flags.KubeVirtVersionTagAlt,
@@ -2017,7 +1711,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
@@ -2033,9 +1727,9 @@ spec:
 				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
 			}
 
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			_, _, _, oldImageName, _ := parseOperatorImage()
@@ -2052,19 +1746,19 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 
 			By("Verifying deployments have correct image name")
 			for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
 				_, _, _, actualImageName, _ := parseDeployment(name)
 				Expect(actualImageName).To(ContainSubstring(flags.ImagePrefixAlt), fmt.Sprintf("%s should have correct image prefix", name))
 			}
-			handlerImageName := parseDaemonset("virt-handler")
+			handlerImageName := getDaemonsetImage("virt-handler")
 			Expect(handlerImageName).To(ContainSubstring(flags.ImagePrefixAlt), "virt-handler should have correct image prefix")
 
 			By("Verifying VMs are working")
 			vmi := libvmifact.NewAlpine()
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -2093,7 +1787,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Restored to original version")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 		})
 
 		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
@@ -2107,7 +1801,7 @@ spec:
 			}
 			vmisNonMigratable := []*v1.VirtualMachineInstance{libvmifact.NewCirros(), libvmifact.NewCirros()}
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
@@ -2115,10 +1809,11 @@ spec:
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
+			eventuallyDeploymentNotFound(virtApiDepName)
+			eventuallyDeploymentNotFound(virtControllerDepName)
 
 			By("Creating KubeVirt Object")
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-alt-install"
 			kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
 				PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(true),
@@ -2131,7 +1826,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
@@ -2141,7 +1836,8 @@ spec:
 			vmisNonMigratable = startAllVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
-			patchKvVersion(kv.Name, flags.KubeVirtVersionTagAlt)
+			data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, flags.KubeVirtVersionTagAlt))
+			patchKV(kv.Name, data)
 
 			By("Wait for Updating Condition")
 			waitForUpdateCondition(kv)
@@ -2150,7 +1846,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 
 			By("Verifying all non-migratable vmi workloads are shutdown")
 			verifyVMIsEvicted(vmisNonMigratable)
@@ -2175,9 +1871,9 @@ spec:
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
 
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			By("Update Virt-Operator using  Alt Tag")
@@ -2191,7 +1887,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 
 			// by using the tag, we also test if resetting (in AfterEach) from tag to sha for the same "version" works
 			By("Restore Operator Version using original tag. ")
@@ -2204,13 +1900,13 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Restored to original version")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 		})
 
 		// TODO: not Serial
 		It("[test_id:3152]should fail if KV object already exists", func() {
 
-			newKv := copyOriginalKv()
+			newKv := copyOriginalKv(originalKv)
 			newKv.Name = "someother-kubevirt"
 
 			By("Creating another KubeVirt object")
@@ -2270,13 +1966,19 @@ spec:
 			productName := "kubevirt-test"
 			productVersion := "0.0.0"
 			productComponent := "kubevirt-component"
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 
 			By("Patching kubevirt resource with productName , productVersion  and productComponent")
-			patchKvProductNameVersionAndComponent(kv.Name, productName, productVersion, productComponent)
+			const format = `{ "op": "replace", "path": "%s", "value": "%s"}`
+			data := []byte("[" + fmt.Sprintf(format, "/spec/productName", productName) + "," +
+				fmt.Sprintf(format, "/spec/productVersion", productVersion) + "," +
+				fmt.Sprintf(format, "/spec/productComponent", productComponent) +
+				"]")
+
+			patchKV(kv.Name, data)
 
 			for _, deployment := range []string{"virt-api", "virt-controller"} {
 				By(fmt.Sprintf("Ensuring that the %s deployment is updated", deployment))
@@ -2542,7 +2244,7 @@ spec:
 					return nodeSelectorExistInDeployment(virtClient, deploymentName, fakeLabelKey, fakeLabelValue)
 				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
 				//The reason we check this is that sometime it takes a while until the pod is created and
-				//if the pod is created after the call to allPodsAreReady in the AfterEach scope
+				//if the pod is created after the call to allKvInfraPodsAreReady in the AfterEach scope
 				//than we will run the next test with side effect of pending pods of virt-api and virt-controller
 				//and increase flakiness
 				errMsg = "the deployment should try to rollup the pods with the new selector and fail to schedule pods because the nodes don't have the fake label"
@@ -2690,8 +2392,8 @@ spec:
 		})
 		It("should update new single-replica CRs with a finalizer and be stable", func() {
 			By("copying the original kv CR")
-			kvOrig := copyOriginalKv()
-			kv := copyOriginalKv()
+			kvOrig := copyOriginalKv(originalKv)
+			kv := copyOriginalKv(originalKv)
 
 			By("storing the actual replica counts for the cluster")
 			originalReplicaCounts := make(map[string]int)
@@ -2780,30 +2482,37 @@ spec:
 		})
 
 		It("[test_id:6257]should accept valid cert rotation parameters", func() {
-			kv := copyOriginalKv()
-			patchKvCertConfig(kv.Name, certConfig)
+			kv := copyOriginalKv(originalKv)
+			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
+			certRotationStrategy.SelfSigned = certConfig
+			certConfigData, err := json.Marshal(certRotationStrategy)
+			Expect(err).ToNot(HaveOccurred())
+
+			data := []byte(fmt.Sprintf(`[{"op": "replace", "path": "/spec/certificateRotateStrategy", "value": %s}]`, string(certConfigData)))
+			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
+			patchKV(kv.Name, data)
 		})
 
 		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
 		It("[test_id:6259]should reject CA expires before rotation", func() {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
 		It("[test_id:6260]should reject Cert expires before rotation", func() {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
 		It("[test_id:6261]should reject Cert rotates after CA expires", func() {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
 			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
@@ -3450,4 +3159,238 @@ func deprecatedBeforeAll(fn func()) {
 
 func usesSha(image string) bool {
 	return strings.Contains(image, "@sha256:")
+}
+
+func copyOriginalKv(originalKv *v1.KubeVirt) *v1.KubeVirt {
+	newKv := &v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        originalKv.Name,
+			Namespace:   originalKv.Namespace,
+			Labels:      originalKv.ObjectMeta.Labels,
+			Annotations: originalKv.ObjectMeta.Annotations,
+		},
+		Spec: *originalKv.Spec.DeepCopy(),
+	}
+
+	return newKv
+}
+
+func createKv(newKv *v1.KubeVirt) {
+	Eventually(func() error {
+		_, err := kubevirt.Client().KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
+		return err
+	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func createCdi(originalCDI *cdiv1.CDI) {
+	newCDI := &cdiv1.CDI{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        originalCDI.Name,
+			Namespace:   originalCDI.Namespace,
+			Labels:      originalCDI.ObjectMeta.Labels,
+			Annotations: originalCDI.ObjectMeta.Annotations,
+		},
+		Spec: *originalCDI.Spec.DeepCopy(),
+	}
+
+	_, err := kubevirt.Client().CdiClient().CdiV1beta1().CDIs().Create(context.Background(), newCDI, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() bool {
+		cdi, err := kubevirt.Client().CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
+		return err == nil && cdi.Status.Phase == sdkapi.PhaseDeployed
+	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(BeTrue())
+}
+
+func eventuallyDeploymentNotFound(name string) {
+	Eventually(func() error {
+		_, err := kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
+		return err
+	}).WithTimeout(15 * time.Second).WithPolling(1 * time.Second).Should(MatchError(errors.IsNotFound, "not found error"))
+}
+
+func allKvInfraPodsAreReady(kv *v1.KubeVirt) {
+	Eventually(func(g Gomega) error {
+
+		curKv, err := kubevirt.Client().KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if curKv.Status.TargetDeploymentID != curKv.Status.ObservedDeploymentID {
+			return fmt.Errorf("target and obeserved id don't match")
+		}
+
+		foundReadyAndOwnedPod := false
+		pods, err := kubevirt.Client().CoreV1().Pods(curKv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io,app.kubernetes.io/managed-by in (virt-operator, kubevirt-operator)"})
+		if err != nil {
+			return err
+		}
+
+		for _, pod := range pods.Items {
+			if pod.Status.Phase != k8sv1.PodRunning {
+				return fmt.Errorf("waiting for pod %s with phase %s to reach Running phase", pod.Name, pod.Status.Phase)
+			}
+
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if !containerStatus.Ready {
+					return fmt.Errorf("waiting for pod %s to have all containers in Ready state", pod.Name)
+				}
+			}
+
+			id, ok := pod.Annotations[v1.InstallStrategyIdentifierAnnotation]
+			if !ok {
+				return fmt.Errorf("pod %s is owned by operator but has no id annotation", pod.Name)
+			}
+
+			expectedID := curKv.Status.ObservedDeploymentID
+			if id != expectedID {
+				return fmt.Errorf("pod %s is of version %s when we expected id %s", pod.Name, id, expectedID)
+			}
+			foundReadyAndOwnedPod = true
+		}
+
+		// this just sanity checks that at least one pod was found and verified.
+		// false would indicate our labeling was incorrect.
+		g.Expect(foundReadyAndOwnedPod).To(BeTrue(), "no ready and owned pod was found. Check if the labeling was incorrect")
+
+		return nil
+	}).WithTimeout(300 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func expectVirtOperatorPodsToTerminate(kv *v1.KubeVirt) {
+	Eventually(func(g Gomega) {
+		pods, err := kubevirt.Client().CoreV1().Pods(kv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io,app.kubernetes.io/managed-by=virt-operator"})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		for _, pod := range pods.Items {
+			g.Expect(pod.Status.Phase).To(BeElementOf(k8sv1.PodFailed, k8sv1.PodSucceeded), "waiting for pod %s with phase %s to reach final phase", pod.Name, pod.Status.Phase)
+		}
+	}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func waitForUpdateCondition(kv *v1.KubeVirt) {
+	Eventually(func(g Gomega) *v1.KubeVirt {
+		foundKV, err := kubevirt.Client().KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		return foundKV
+	}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(
+		SatisfyAll(
+			matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
+			matcher.HaveConditionTrue(v1.KubeVirtConditionProgressing),
+			matcher.HaveConditionTrue(v1.KubeVirtConditionDegraded),
+		),
+	)
+}
+
+func waitForKvWithTimeout(newKv *v1.KubeVirt, timeoutSeconds int) {
+	Eventually(func() error {
+		kv, err := kubevirt.Client().KubeVirt(newKv.Namespace).Get(context.Background(), newKv.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if kv.Status.Phase != v1.KubeVirtPhaseDeployed {
+			return fmt.Errorf("waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
+		}
+
+		available := false
+		progressing := true
+		degraded := true
+		created := false
+		for _, condition := range kv.Status.Conditions {
+			if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
+				available = true
+			} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionFalse {
+				progressing = false
+			} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionFalse {
+				degraded = false
+			} else if condition.Type == v1.KubeVirtConditionCreated && condition.Status == k8sv1.ConditionTrue {
+				created = true
+			}
+		}
+
+		if !available || progressing || degraded || !created {
+			if kv.Status.ObservedGeneration != nil {
+				if *kv.Status.ObservedGeneration == kv.ObjectMeta.Generation {
+					return fmt.Errorf("observed generation must not match the current configuration")
+				}
+			}
+			return fmt.Errorf("waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
+		}
+
+		if kv.Status.ObservedGeneration != nil {
+			if *kv.Status.ObservedGeneration != kv.ObjectMeta.Generation {
+				return fmt.Errorf("the observed generation must match the current generation")
+			}
+		}
+
+		return nil
+	}).WithTimeout(time.Duration(timeoutSeconds) * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func waitForKv(newKv *v1.KubeVirt) {
+	waitForKvWithTimeout(newKv, 300)
+}
+
+func patchKV(name string, data []byte) {
+	Eventually(func() error {
+		_, err := kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
+
+		return err
+	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+var (
+	imageShaRegEx = regexp.MustCompile(`^(.+)/(.+)(@sha\d+:)([\da-fA-F]+)$`)
+	imageTagRegEx = regexp.MustCompile(`^(.+)/(.+)(:.+)$`)
+)
+
+func parseImage(image string) (registry, imageName, version string) {
+	var getVersion func(matches [][]string) string
+	var imageRegEx *regexp.Regexp
+
+	if strings.Contains(image, "@sha") {
+		imageRegEx = imageShaRegEx
+		getVersion = func(matches [][]string) string { return matches[0][3] + matches[0][4] }
+	} else {
+		imageRegEx = imageTagRegEx
+		getVersion = func(matches [][]string) string { return matches[0][3] }
+	}
+
+	matches := imageRegEx.FindAllStringSubmatch(image, 1)
+	Expect(matches).To(HaveLen(1))
+	registry = matches[0][1]
+	imageName = matches[0][2]
+	version = getVersion(matches)
+
+	return
+}
+
+func installOperator(manifestPath string) {
+	// namespace is already hardcoded within the manifests
+	_, _, err := clientcmd.RunCommandWithNS(metav1.NamespaceNone, clientcmd.GetK8sCmdClient(), "apply", "-f", manifestPath)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Waiting for KubeVirt CRD to be created")
+	ext, err := extclient.NewForConfig(kubevirt.Client().Config())
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() error {
+		_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "kubevirts.kubevirt.io", metav1.GetOptions{})
+		return err
+	}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).ShouldNot(HaveOccurred())
+}
+
+func getDaemonsetImage(name string) string {
+	var err error
+	daemonSet, err := kubevirt.Client().AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	image := daemonSet.Spec.Template.Spec.Containers[0].Image
+	imageRegEx := regexp.MustCompile(fmt.Sprintf("%s%s%s", `^(.*)/(.*)`, name, `([@:].*)?$`))
+	matches := imageRegEx.FindAllStringSubmatch(image, 1)
+	Expect(matches).To(HaveLen(1))
+	Expect(matches[0]).To(HaveLen(4))
+
+	return matches[0][2]
 }
