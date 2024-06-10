@@ -158,7 +158,10 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 	}
 
 	// leaving source name and namespace blank because we don't care in this context
-	pvc := snapshot.CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	pvc, err := snapshot.CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	if err != nil {
+		return nil, err
+	}
 	if volumeBackupIsKubeVirtContent(volumeBackup, sourceVm) {
 		if len(pvc.GetAnnotations()) == 0 {
 			pvc.SetAnnotations(make(map[string]string))
