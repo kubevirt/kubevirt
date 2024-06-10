@@ -483,14 +483,6 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - configmaps
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - ""
-          resources:
           - namespaces
           verbs:
           - get
@@ -738,42 +730,6 @@ spec:
           - list
           - watch
         - apiGroups:
-          - route.openshift.io
-          resources:
-          - routes
-          verbs:
-          - list
-          - get
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - secrets
-          verbs:
-          - list
-          - get
-          - watch
-        - apiGroups:
-          - networking.k8s.io
-          resources:
-          - ingresses
-          verbs:
-          - list
-          - get
-          - watch
-        - apiGroups:
-          - coordination.k8s.io
-          resources:
-          - leases
-          verbs:
-          - get
-          - list
-          - watch
-          - delete
-          - update
-          - create
-          - patch
-        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachineinstances
@@ -830,14 +786,6 @@ spec:
           - list
           - watch
         - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
           - export.kubevirt.io
           resources:
           - virtualmachineexports
@@ -850,16 +798,6 @@ spec:
           resources:
           - kubevirts
           verbs:
-          - list
-          - watch
-        - apiGroups:
-          - ""
-          resourceNames:
-          - kubevirt-export-ca
-          resources:
-          - configmaps
-          verbs:
-          - get
           - list
           - watch
         - apiGroups:
@@ -1446,6 +1384,68 @@ spec:
           - update
           - create
           - patch
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          verbs:
+          - list
+          - get
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - list
+          - get
+          - watch
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - ingresses
+          verbs:
+          - list
+          - get
+          - watch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resourceNames:
+          - kubevirt-export-ca
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
         serviceAccountName: kubevirt-operator
     strategy: deployment
   installModes:
