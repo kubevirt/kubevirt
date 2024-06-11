@@ -460,17 +460,6 @@ func (_mr *_MockVirDomainRecorder) GetXMLDesc(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetXMLDesc", arg0)
 }
 
-func (_m *MockVirDomain) GetMetadata(tipus libvirt.DomainMetadataType, uri string, flags libvirt.DomainModificationImpact) (string, error) {
-	ret := _m.ctrl.Call(_m, "GetMetadata", tipus, uri, flags)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirDomainRecorder) GetMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0, arg1, arg2)
-}
-
 func (_m *MockVirDomain) MigrateToURI3(_param0 string, _param1 *libvirt.DomainMigrateParameters, _param2 libvirt.DomainMigrateFlags) error {
 	ret := _m.ctrl.Call(_m, "MigrateToURI3", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
