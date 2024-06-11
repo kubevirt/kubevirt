@@ -110,6 +110,16 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 				Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
 			}
 		})
+
+		It("should have kubevirt_rest_client_requests_total for the 'virtualmachineinstances' resource", func() {
+			metric := operatormetrics.NewCounter(
+				operatormetrics.MetricOpts{Name: "kubevirt_rest_client_requests_total"},
+			)
+
+			labels := map[string]string{"resource": "virtualmachineinstances"}
+
+			Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
+		})
 	})
 })
 
