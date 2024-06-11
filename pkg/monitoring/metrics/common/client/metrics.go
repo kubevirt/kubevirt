@@ -31,10 +31,13 @@ import (
 
 var resourceParsingRegexs []*regexp.Regexp
 
-func SetupMetrics() error {
+// RegisterRestConfigHooks adds hooks to the KubeVirt client and should be executed before building its config
+func RegisterRestConfigHooks() {
 	setupResourcesToWatch()
 	kubecli.RegisterRestConfigHook(addHTTPRoundTripClientMonitoring)
+}
 
+func SetupMetrics() error {
 	metrics.Register(metrics.RegisterOpts{
 		RequestLatency:     &latencyAdapter{requestLatency},
 		RateLimiterLatency: &latencyAdapter{rateLimiterLatency},

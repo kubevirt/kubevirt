@@ -55,6 +55,7 @@ import (
 	clientutil "kubevirt.io/client-go/util"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -139,6 +140,7 @@ func Execute() {
 		os.Setenv(k, v)
 	}
 
+	clientmetrics.RegisterRestConfigHooks()
 	config, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		panic(err)
