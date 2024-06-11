@@ -28,6 +28,7 @@ import (
 )
 
 var _ = BeforeSuite(func() {
+	RegisterRestConfigHooks()
 	err := SetupMetrics()
 	Expect(err).ToNot(HaveOccurred())
 })
