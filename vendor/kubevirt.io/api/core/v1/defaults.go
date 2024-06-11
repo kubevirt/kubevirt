@@ -191,31 +191,11 @@ func DefaultBridgeNetworkInterface() *Interface {
 	return iface
 }
 
-func DefaultSlirpNetworkInterface() *Interface {
-	iface := &Interface{
-		Name: "default",
-		InterfaceBindingMethod: InterfaceBindingMethod{
-			Slirp: &InterfaceSlirp{},
-		},
-	}
-	return iface
-}
-
 func DefaultMasqueradeNetworkInterface() *Interface {
 	iface := &Interface{
 		Name: "default",
 		InterfaceBindingMethod: InterfaceBindingMethod{
 			Masquerade: &InterfaceMasquerade{},
-		},
-	}
-	return iface
-}
-
-func DefaultMacvtapNetworkInterface(ifaceName string) *Interface {
-	iface := &Interface{
-		Name: ifaceName,
-		InterfaceBindingMethod: InterfaceBindingMethod{
-			Macvtap: &InterfaceMacvtap{},
 		},
 	}
 	return iface

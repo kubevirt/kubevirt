@@ -247,9 +247,9 @@ func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"useVirtioTransitional":      "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices.\nThis is helpful for old machines like CentOS6 or RHEL6 which\ndo not understand virtio_non_transitional (virtio 1.0).",
 		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
-		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.",
+		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.\n+kubebuilder:validation:MaxItems:=256",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
-		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.",
+		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.\n+kubebuilder:validation:MaxItems:=256",
 		"inputs":                     "Inputs describe input devices",
 		"autoattachPodInterface":     "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice":   "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
@@ -568,14 +568,21 @@ func (HypervTimer) SwaggerDoc() map[string]string {
 	}
 }
 
+func (HyperVPassthrough) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "+optional",
+	}
+}
+
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"acpi":       "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
-		"apic":       "Defaults to the machine type setting.\n+optional",
-		"hyperv":     "Defaults to the machine type setting.\n+optional",
-		"smm":        "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
-		"kvm":        "Configure how KVM presence is exposed to the guest.\n+optional",
-		"pvspinlock": "Notify the guest that the host supports paravirtual spinlocks.\nFor older kernels this feature should be explicitly disabled.\n+optional",
+		"acpi":              "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
+		"apic":              "Defaults to the machine type setting.\n+optional",
+		"hypervPassthrough": "This enables all supported hyperv flags automatically.\nBear in mind that if this enabled hyperV features cannot\nbe enabled explicitly. In addition, a Virtual Machine\nusing it will be non-migratable.\n+optional",
+		"hyperv":            "Defaults to the machine type setting.\n+optional",
+		"smm":               "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
+		"kvm":               "Configure how KVM presence is exposed to the guest.\n+optional",
+		"pvspinlock":        "Notify the guest that the host supports paravirtual spinlocks.\nFor older kernels this feature should be explicitly disabled.\n+optional",
 	}
 }
 
@@ -695,7 +702,8 @@ func (DHCPPrivateOptions) SwaggerDoc() map[string]string {
 func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":        "Represents the method which will be used to connect the interface to the guest.\nOnly one of its members may be specified.",
-		"macvtap": "Deprecated, please refer to Kubevirt user guide for alternatives.\n+optional",
+		"slirp":   "DeprecatedSlirp is an alias to the deprecated Slirp interface\nDeprecated: Removed in v1.3",
+		"macvtap": "DeprecatedMacvtap is an alias to the deprecated Macvtap interface,\nplease refer to Kubevirt user guide for alternatives.\nDeprecated: Removed in v1.3\n+optional",
 		"passt":   "Deprecated, please refer to Kubevirt user guide for alternatives.\n+optional",
 	}
 }
@@ -706,9 +714,9 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 	}
 }
 
-func (InterfaceSlirp) SwaggerDoc() map[string]string {
+func (DeprecatedInterfaceSlirp) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "InterfaceSlirp connects to a given network using QEMU user networking mode.",
+		"": "DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp\nthat connects to a given network using QEMU user networking mode.\nDeprecated: Removed in v1.3",
 	}
 }
 
@@ -724,9 +732,9 @@ func (InterfaceSRIOV) SwaggerDoc() map[string]string {
 	}
 }
 
-func (InterfaceMacvtap) SwaggerDoc() map[string]string {
+func (DeprecatedInterfaceMacvtap) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
+		"": "DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap\nthat connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.\nDeprecated: Removed in v1.3",
 	}
 }
 

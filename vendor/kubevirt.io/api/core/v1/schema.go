@@ -446,10 +446,12 @@ type Devices struct {
 	// DisableHotplug disabled the ability to hotplug disks.
 	DisableHotplug bool `json:"disableHotplug,omitempty"`
 	// Disks describes disks, cdroms and luns which are connected to the vmi.
+	// +kubebuilder:validation:MaxItems:=256
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vmi.
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vmi.
+	// +kubebuilder:validation:MaxItems:=256
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Inputs describe input devices
 	Inputs []Input `json:"inputs,omitempty"`
@@ -1052,6 +1054,11 @@ type HypervTimer struct {
 	Enabled *bool `json:"present,omitempty"`
 }
 
+type HyperVPassthrough struct {
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
 type Features struct {
 	// ACPI enables/disables ACPI inside the guest.
 	// Defaults to enabled.
@@ -1060,6 +1067,12 @@ type Features struct {
 	// Defaults to the machine type setting.
 	// +optional
 	APIC *FeatureAPIC `json:"apic,omitempty"`
+	// This enables all supported hyperv flags automatically.
+	// Bear in mind that if this enabled hyperV features cannot
+	// be enabled explicitly. In addition, a Virtual Machine
+	// using it will be non-migratable.
+	// +optional
+	HypervPassthrough *HyperVPassthrough `json:"hypervPassthrough,omitempty"`
 	// Defaults to the machine type setting.
 	// +optional
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`
@@ -1322,13 +1335,17 @@ type DHCPPrivateOptions struct {
 // Represents the method which will be used to connect the interface to the guest.
 // Only one of its members may be specified.
 type InterfaceBindingMethod struct {
-	Bridge     *InterfaceBridge     `json:"bridge,omitempty"`
-	Slirp      *InterfaceSlirp      `json:"slirp,omitempty"`
-	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
-	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
-	// Deprecated, please refer to Kubevirt user guide for alternatives.
+	Bridge *InterfaceBridge `json:"bridge,omitempty"`
+	// DeprecatedSlirp is an alias to the deprecated Slirp interface
+	// Deprecated: Removed in v1.3
+	DeprecatedSlirp *DeprecatedInterfaceSlirp `json:"slirp,omitempty"`
+	Masquerade      *InterfaceMasquerade      `json:"masquerade,omitempty"`
+	SRIOV           *InterfaceSRIOV           `json:"sriov,omitempty"`
+	// DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
+	// please refer to Kubevirt user guide for alternatives.
+	// Deprecated: Removed in v1.3
 	// +optional
-	Macvtap *InterfaceMacvtap `json:"macvtap,omitempty"`
+	DeprecatedMacvtap *DeprecatedInterfaceMacvtap `json:"macvtap,omitempty"`
 	// Deprecated, please refer to Kubevirt user guide for alternatives.
 	// +optional
 	Passt *InterfacePasst `json:"passt,omitempty"`
@@ -1337,8 +1354,10 @@ type InterfaceBindingMethod struct {
 // InterfaceBridge connects to a given network via a linux bridge.
 type InterfaceBridge struct{}
 
-// InterfaceSlirp connects to a given network using QEMU user networking mode.
-type InterfaceSlirp struct{}
+// DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp
+// that connects to a given network using QEMU user networking mode.
+// Deprecated: Removed in v1.3
+type DeprecatedInterfaceSlirp struct{}
 
 // InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.
 type InterfaceMasquerade struct{}
@@ -1346,8 +1365,10 @@ type InterfaceMasquerade struct{}
 // InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.
 type InterfaceSRIOV struct{}
 
-// InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
-type InterfaceMacvtap struct{}
+// DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap
+// that connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
+// Deprecated: Removed in v1.3
+type DeprecatedInterfaceMacvtap struct{}
 
 // InterfacePasst connects to a given network.
 type InterfacePasst struct{}
