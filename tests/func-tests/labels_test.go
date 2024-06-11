@@ -43,14 +43,8 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 		plural := pluralize.NewClient()
 		const kvName = "kubevirt-kubevirt-hyperconverged"
 
-		kvTypeMeta := metav1.TypeMeta{
-			Kind:       "KubeVirt",
-			APIVersion: "kubevirt.io/v1",
-		}
-
 		By("removing one of the managed labels and wait for it to be added back")
 		kv := &kvv1.KubeVirt{
-			TypeMeta: kvTypeMeta,
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      kvName,
 				Namespace: hc.Namespace,
@@ -58,7 +52,6 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 		}
 
 		Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
-		kv.TypeMeta = kvTypeMeta
 		expectedVersion := kv.Labels[hcoutil.AppLabelVersion]
 
 		patchBytes := []byte(`[{"op": "remove", "path": "/metadata/labels/app.kubernetes.io~1version"}]`)
@@ -70,7 +63,6 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 
 		Eventually(func(g Gomega) {
 			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
-			kv.TypeMeta = kvTypeMeta
 			g.Expect(kv.Labels).To(HaveKeyWithValue(hcoutil.AppLabelVersion, expectedVersion))
 		}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 

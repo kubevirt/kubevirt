@@ -104,10 +104,6 @@ func vmi2JSON(vmi *kubevirtcorev1.VirtualMachineInstance) string {
 
 func createVMIObject(vmiName string) *kubevirtcorev1.VirtualMachineInstance {
 	return &kubevirtcorev1.VirtualMachineInstance{
-		TypeMeta: k8smetav1.TypeMeta{
-			Kind:       "VirtualMachineInstance",
-			APIVersion: "kubevirt.io/v1",
-		},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:      vmiName,
 			Namespace: tests.TestNamespace,

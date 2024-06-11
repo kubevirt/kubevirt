@@ -63,10 +63,6 @@ var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", Label("MediatedD
 				Expect(hc.Spec.MediatedDevicesConfiguration).To(Equal(expectedMediatedDevicesConfiguration))
 				Eventually(func() *kubevirtcorev1.MediatedDevicesConfiguration {
 					kv := &kubevirtcorev1.KubeVirt{
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "KubeVirt",
-							APIVersion: "kubevirt.io/v1",
-						},
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "kubevirt-kubevirt-hyperconverged",
 							Namespace: tests.InstallNamespace,

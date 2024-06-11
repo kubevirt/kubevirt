@@ -119,10 +119,6 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		retries := float64(0)
 		Eventually(func(g Gomega) []string {
 			kv := &kubevirtcorev1.KubeVirt{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "KubeVirt",
-					APIVersion: "kubevirt.io/v1",
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "kubevirt-kubevirt-hyperconverged",
 					Namespace: tests.InstallNamespace,
@@ -142,7 +138,12 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 		Eventually(func(g Gomega) float64 {
 			return getMetricValue(promClient, query)
-		}).WithTimeout(60 * time.Second).WithPolling(time.Second).Should(Equal(valueBefore + retries))
+		}).WithTimeout(60*time.Second).
+			WithPolling(time.Second).
+			Should(
+				Equal(valueBefore+retries),
+				"expected different counter value; valueBefore: %0.2f; retries: %0.2f", valueBefore, retries,
+			)
 
 		Eventually(func() *promApiv1.Alert {
 			alerts, err := promClient.Alerts(ctx)

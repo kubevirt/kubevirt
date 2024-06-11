@@ -17,7 +17,7 @@ import (
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
-var _ = Describe("Check that the TuningPolicy annotation is configuring the KV object as expected", Serial, func() {
+var _ = Describe("Check that the TuningPolicy annotation is configuring the KV object as expected", Serial, Label("TuningPolicy"), func() {
 	tests.FlagParse()
 	var (
 		cli client.Client
@@ -77,10 +77,6 @@ var _ = Describe("Check that the TuningPolicy annotation is configuring the KV o
 func checkTuningPolicy(ctx context.Context, cli client.Client, expected kvv1.TokenBucketRateLimiter) {
 	Eventually(func(g Gomega) {
 		kv := &kvv1.KubeVirt{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "KubeVirt",
-				APIVersion: "kubevirt.io/v1",
-			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt-kubevirt-hyperconverged",
 				Namespace: tests.InstallNamespace,
