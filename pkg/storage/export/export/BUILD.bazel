@@ -25,6 +25,7 @@ go_library(
         "//pkg/virt-controller/watch/util:go_default_library",
         "//pkg/virt-operator/resource/apply:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
+        "//pkg/virt-operator/util:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",

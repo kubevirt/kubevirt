@@ -913,6 +913,8 @@ var _ = Describe("Export controller", func() {
 		Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Value()).To(Equal(int64(1)))
 		Expect(pod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
 		Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1024 * 1024 * 1024)))
+		Expect(pod.Spec.Containers[0].ReadinessProbe).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].ReadinessProbe.ProbeHandler.HTTPGet.Path).To(Equal(ReadinessPath))
 	},
 		Entry("PVC", createPVCVMExport, 3),
 		Entry("VM", populateVmExportVM, 4),
