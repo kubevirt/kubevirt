@@ -38,7 +38,6 @@ import (
 var programName string
 
 func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
-
 	programName := GetProgramName(filepath.Base(os.Args[0]))
 
 	// used in cobra templates to display either `kubectl virt` or `virtctl`
@@ -77,7 +76,6 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 	optionsCmd.SetUsageTemplate(templates.OptionsUsageTemplate())
 	//TODO: Add a ClientConfigFactory which allows substituting the KubeVirt client with a mock for unit testing
 	clientConfig := kubecli.DefaultClientConfig(rootCmd.PersistentFlags())
-	AddGlogFlags(rootCmd.PersistentFlags())
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.AddCommand(

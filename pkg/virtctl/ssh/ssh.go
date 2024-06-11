@@ -24,11 +24,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/tools/clientcmd"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -55,6 +55,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    templates.ExactArgs("ssh", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.InitializeLogging("ssh")
 			return c.Run(cmd, args)
 		},
 	}
@@ -82,7 +83,7 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 func DefaultSSHOptions() SSHOptions {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		glog.Warningf("failed to determine user home directory: %v", err)
+		log.Log.Warningf("failed to determine user home directory: %v", err)
 	}
 	options := SSHOptions{
 		SSHPort:                   22,

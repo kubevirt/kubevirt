@@ -22,22 +22,10 @@ package virtctl
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/pflag"
 )
-
-// AddGlogFlags adds flags from github.com/golang/glog
-func AddGlogFlags(fs *pflag.FlagSet) {
-	// lookup flags in global flag set and re-register the values with our flagset
-	global := flag.CommandLine
-	local := pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
-
-	register(global, local, "v")
-
-	fs.AddFlagSet(local)
-}
 
 // normalize replaces underscores with hyphens
 // we should always use hyphens instead of underscores when registering kubelet flags

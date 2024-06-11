@@ -35,6 +35,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    templates.ExactArgs("usb", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.InitializeLogging("usbredir")
 			c := usbredirCommand{clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
+	"kubevirt.io/client-go/log"
 )
 
 var runCommand = func(cmd *exec.Cmd) error {
@@ -28,7 +28,7 @@ func RunLocalClient(kind, namespace, name string, options *SSHOptions, clientArg
 	args = append(args, clientArgs...)
 
 	cmd := exec.Command(options.LocalClientName, args...)
-	glog.V(3).Info("running: ", cmd)
+	log.Log.V(3).Infof("running: %v", cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
