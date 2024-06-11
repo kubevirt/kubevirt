@@ -51,6 +51,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/service"
+	"kubevirt.io/kubevirt/pkg/storage/export/export"
 )
 
 const (
@@ -150,7 +151,8 @@ func (s *exportServer) initHandler() {
 			}
 		}
 	}
-
+	// Readiness probe
+	mux.HandleFunc(export.ReadinessPath, s.readyHandler)
 	s.handler = mux
 }
 
@@ -535,16 +537,16 @@ func checkVolumePermissions(path string) bool {
 		log.Log.Reason(err).Errorf("error statting %s", path)
 		return false
 	}
-	if !fi.IsDir() {
-		f, err := os.Open(path)
-		if err != nil {
-			log.Log.Reason(err).Errorf("error opening %s", path)
-			return false
-		}
-		f.Close()
-		return true
+	if fi.IsDir() {
+		return checkDirectoryPermissions(path)
 	}
-	return checkDirectoryPermissions(path)
+	f, err := os.Open(path)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error opening %s", path)
+		return false
+	}
+	f.Close()
+	return true
 }
 
 func gzipHandler(filePath string) http.Handler {
@@ -770,4 +772,8 @@ func secretHandler(tokenGetter TokenGetterFunc) http.Handler {
 		}
 		log.Log.Infof("Wrote %d bytes\n", n)
 	})
+}
+
+func (s *exportServer) readyHandler(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "OK")
 }
