@@ -169,10 +169,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 	}
 
 	expectHandlerPod := func() {

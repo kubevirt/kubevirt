@@ -2104,7 +2104,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
 				overheadRatio := "2"
 				kvCR.Spec.Configuration.AdditionalGuestMemoryOverheadRatio = &overheadRatio
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 
 				controller.syncMemoryHotplug(vmi)
 

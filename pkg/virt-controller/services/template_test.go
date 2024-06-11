@@ -98,11 +98,11 @@ var _ = Describe("Template", func() {
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 	}
 
 	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 	}
 
 	BeforeEach(func() {
@@ -230,7 +230,7 @@ var _ = Describe("Template", func() {
 					},
 				},
 			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 
 			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
 			Expect(err).NotTo(HaveOccurred())
@@ -500,7 +500,7 @@ var _ = Describe("Template", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.SELinuxLauncherType = "spc_t"
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -527,7 +527,7 @@ var _ = Describe("Template", func() {
 						append(kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 							virtconfig.DockerSELinuxMCSWorkaround)
 				}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 
 				volumes := []v1.Volume{
 					{
@@ -1333,7 +1333,7 @@ var _ = Describe("Template", func() {
 				kvConfig := kv.DeepCopy()
 				nodeSelectors := map[string]string{k8sv1.LabelHostname: "node02", "node-role.kubernetes.io/compute": "true"}
 				kvConfig.Spec.Configuration.DeveloperConfiguration.NodeSelectors = nodeSelectors
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2193,7 +2193,7 @@ var _ = Describe("Template", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio = 1
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2240,7 +2240,7 @@ var _ = Describe("Template", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio = 16
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -3751,7 +3751,7 @@ var _ = Describe("Template", func() {
 				runtimeClassName := "customRuntime"
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.DefaultRuntimeClass = runtimeClassName
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -4545,7 +4545,7 @@ var _ = Describe("Template", func() {
 				kvConfig.Spec.Configuration.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
 					MatchLabels: map[string]string{"testAutoLimits": "true"},
 				}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 			})
 
 			It("should not automatically set CPU limits when namespace labels does not match AutoCPULimitNamespaceLabelSelector", func() {
@@ -4614,7 +4614,7 @@ var _ = Describe("Template", func() {
 				By("enabling the auto resource limits feature gate")
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 			})
 
 			Context("when the creation namespace has a resource quota with CPU limits associated to it", func() {
@@ -4688,7 +4688,7 @@ var _ = Describe("Template", func() {
 						MatchLabels: map[string]string{"testAutoLimits": "true"},
 					}
 					kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 				})
 
 				It("should not automatically set CPU limits when namespace labels does not match AutoCPULimitNamespaceLabelSelector", func() {
@@ -4795,7 +4795,7 @@ var _ = Describe("Template", func() {
 				By("enabling the auto resource limits feature gate")
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 			})
 
 			Context("when the creation namespace has a resource quota with memory limits associated to it", func() {
@@ -4981,7 +4981,7 @@ var _ = Describe("Template", func() {
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{Binding: bindingPlugins}
 			_, kvInformer, svc = configFactory(defaultArch)
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 		})
 		It("has no downward-api for network-info when missing supported network-binding", func() {
 			vmi := libvmi.New(libvmi.WithNamespace("default"),

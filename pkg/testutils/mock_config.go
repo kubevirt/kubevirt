@@ -101,14 +101,14 @@ func GetFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer) *K
 
 }
 
-func UpdateFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer, kv *KVv1.KubeVirt) {
+func UpdateFakeKubeVirtClusterConfig(kubeVirtStore cache.Store, kv *KVv1.KubeVirt) {
 	clone := kv.DeepCopy()
 	clone.ResourceVersion = rand.String(10)
 	clone.Name = kvObjectName
 	clone.Namespace = kvObjectNamespace
 	clone.Status.Phase = "Deployed"
 
-	kubeVirtInformer.GetStore().Update(clone)
+	kubeVirtStore.Update(clone)
 }
 
 func AddServiceMonitorAPI(crdInformer cache.SharedIndexInformer) {

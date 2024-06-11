@@ -331,7 +331,7 @@ var _ = Describe("TLS", func() {
 		kvConfig.Spec.Configuration.TLSConfiguration = &v12.TLSConfiguration{
 			MinTLSVersion: "VersionTLS13",
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer, kvConfig)
+		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer.GetStore(), kvConfig)
 		client = &http.Client{Transport: &http.Transport{TLSClientConfig: clientTLSConfig}}
 		resp, err = client.Get(srv.URL)
 		Expect(err).To(HaveOccurred())

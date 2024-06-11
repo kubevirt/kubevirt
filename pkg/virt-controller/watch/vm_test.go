@@ -5442,7 +5442,7 @@ var _ = Describe("VirtualMachine", func() {
 			func(iface string, field gstruct.Fields) {
 				vm, _ := DefaultVirtualMachine(true)
 
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 					Spec: v1.KubeVirtSpec{
 						Configuration: v1.KubeVirtConfiguration{
 							NetworkConfiguration: &v1.NetworkConfiguration{
@@ -5475,7 +5475,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should reject adding a default deprecated slirp interface", func() {
 			vm, _ := DefaultVirtualMachine(true)
 
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						NetworkConfiguration: &v1.NetworkConfiguration{
@@ -5598,7 +5598,7 @@ var _ = Describe("VirtualMachine", func() {
 				It("should prefer maximum CPU sockets from VM spec rather than from cluster config", func() {
 					vm, _ := DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{MaxSockets: maxSocketsFromSpec}
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
@@ -5749,7 +5749,7 @@ var _ = Describe("VirtualMachine", func() {
 						Guest:    &guestMemory,
 						MaxGuest: &maxGuestFromSpec,
 					}
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
@@ -5916,7 +5916,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("Affinity", func() {
 				It("should be live-updated", func() {
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
@@ -5966,7 +5966,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("Volumes", func() {
 				DescribeTable("should set the restart condition", func(strategy *v1.UpdateVolumesStrategy) {
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
@@ -5996,7 +5996,7 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				It("should set the restart condition with the Migration updateVolumeStrategy if volumes cannot be migrated", func() {
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
@@ -6102,7 +6102,7 @@ var _ = Describe("VirtualMachine", func() {
 						Clientset:               virtClient,
 					}
 
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
@@ -6224,13 +6224,13 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					},
 				}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 
 				var maxSockets uint32 = 8
 
 				By("Setting a cluster-wide CPU maxSockets value")
 				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = pointer.P(maxSockets)
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
@@ -6264,7 +6264,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should appear when changing a non-live-updatable field", func() {
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 
 				By("Creating a VMI with hostname 'a'")
 				vm.Spec.Template.Spec.Hostname = "a"
@@ -6379,7 +6379,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 				kv.Spec.Configuration.VMRolloutStrategy = strat
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 
 				By("Creating a VM with CPU sockets set to 2")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2

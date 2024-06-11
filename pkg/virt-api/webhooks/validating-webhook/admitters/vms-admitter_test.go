@@ -84,24 +84,24 @@ var _ = Describe("Validating VM Admitter", func() {
 		} else {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, featureGates...)
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 	}
 	disableFeatureGates := func() {
 		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
 		if kv.Spec.Configuration.DeveloperConfiguration != nil {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = make([]string, 0)
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 	}
 	enableLiveUpdate := func() {
 		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
 		kv.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyLiveUpdate)
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 	}
 	disableLiveUpdate := func() {
 		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
 		kv.Spec.Configuration.VMRolloutStrategy = nil
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 	}
 
 	notRunning := false

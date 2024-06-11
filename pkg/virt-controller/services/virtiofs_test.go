@@ -32,7 +32,7 @@ var _ = Describe("virtiofs container", func() {
 	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -44,7 +44,7 @@ var _ = Describe("virtiofs container", func() {
 	}
 
 	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 	}
 
 	AfterEach(func() {

@@ -438,7 +438,7 @@ var _ = Describe("test configuration", func() {
 				Phase: "Deployed",
 			},
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 		Eventually(func() uint32 {
 			return *clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode
 		}).Should(BeEquivalentTo(9))
@@ -465,7 +465,7 @@ var _ = Describe("test configuration", func() {
 				Phase: "Deployed",
 			},
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 
 		Consistently(func() kubev1.PullPolicy {
 			return clusterConfig.GetImagePullPolicy()
@@ -582,7 +582,7 @@ var _ = Describe("test configuration", func() {
 
 		Expect(clusterConfig.GetVirtLauncherVerbosity()).To(Equal(uint(3)))
 		KV.Spec.Configuration.DeveloperConfiguration.LogVerbosity.VirtLauncher = 6
-		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer, KV)
+		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer.GetStore(), KV)
 		Expect(clusterConfig.GetVirtLauncherVerbosity()).To(Equal(uint(6)))
 		Eventually(func() bool {
 			lock.Lock()
