@@ -455,6 +455,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   else
     label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU,netCustomBindingPlugins))'
   fi
+
+  if [[ ! $TARGET =~ k8s-1\.3[0-9].* ]]; then
+    add_to_label_filter "(!kubernetes130)" "&&"
+  fi
 fi
 
 # No lane currently supports loading a custom policy
