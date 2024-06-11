@@ -768,6 +768,8 @@ var _ = Describe("Export controller", func() {
 			MountPath: "/token",
 		}))
 		Expect(pod.Annotations[annCertParams]).To(Equal("{\"Duration\":7200000000000,\"RenewBefore\":3600000000000}"))
+		Expect(pod.Spec.Containers[0].ReadinessProbe).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].ReadinessProbe.ProbeHandler.HTTPGet.Path).To(Equal(ReadinessPath))
 	})
 
 	It("Should create a secret based on the vm export", func() {
