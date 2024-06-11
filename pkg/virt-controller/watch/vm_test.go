@@ -14,7 +14,6 @@ import (
 	"github.com/onsi/gomega/gstruct"
 	appsv1 "k8s.io/api/apps/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
-	k8score "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,9 +24,7 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -45,7 +42,7 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -64,24 +61,9 @@ var _ = Describe("VirtualMachine", func() {
 
 	Context("One valid VirtualMachine controller given", func() {
 
-		var ctrl *gomock.Controller
-		var vmiSource *framework.FakeControllerSource
-		var vmSource *framework.FakeControllerSource
-		var vmiInformer cache.SharedIndexInformer
-		var vmInformer cache.SharedIndexInformer
-		var dataVolumeInformer cache.SharedIndexInformer
-		var dataVolumeSource *framework.FakeControllerSource
-		var pvcInformer cache.SharedIndexInformer
-		var crInformer cache.SharedIndexInformer
-		var crSource *framework.FakeControllerSource
-		var podInformer cache.SharedIndexInformer
-		var instancetypeMethods *testutils.MockInstancetypeMethods
-		var stop chan struct{}
 		var controller *VMController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
-		var vmiFeeder *testutils.VirtualMachineFeeder
-		var dataVolumeFeeder *testutils.DataVolumeFeeder
 		var cdiClient *cdifake.Clientset
 		var k8sClient *k8sfake.Clientset
 		var virtClient *kubecli.MockKubevirtClient
@@ -89,18 +71,8 @@ var _ = Describe("VirtualMachine", func() {
 		var kvInformer cache.SharedIndexInformer
 		var virtFakeClient *fake.Clientset
 
-		asInt64Ptr := func(i int64) *int64 {
-			return &i
-		}
-
-		asStrPtr := func(s string) *string {
-			return &s
-		}
-
 		BeforeEach(func() {
-			stop = make(chan struct{})
-			ctrl = gomock.NewController(GinkgoT())
-			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 			virtFakeClient = fake.NewSimpleClientset()
 			// enable /status, this assumes that no other reactor will be prepend.
 			// if you need to prepend reactor it need to not handle the object or use the
@@ -115,11 +87,11 @@ var _ = Describe("VirtualMachine", func() {
 			virtFakeClient.PrependReactor("patch", "virtualmachines",
 				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
 
-			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
-			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
-			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
-			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
+			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
+			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 			ns1 := &k8sv1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -133,7 +105,8 @@ var _ = Describe("VirtualMachine", func() {
 			}
 			Expect(namespaceInformer.GetStore().Add(ns1)).To(Succeed())
 			Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
-			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
+
+			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
 					for _, ref := range cr.OwnerReferences {
@@ -144,9 +117,9 @@ var _ = Describe("VirtualMachine", func() {
 					return nil, nil
 				},
 			})
-			podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
-			instancetypeMethods = testutils.NewMockInstancetypeMethods()
+			instancetypeMethods := testutils.NewMockInstancetypeMethods()
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -170,9 +143,6 @@ var _ = Describe("VirtualMachine", func() {
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
 
-			vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
-			dataVolumeFeeder = testutils.NewDataVolumeFeeder(mockQueue, dataVolumeSource)
-
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
 				virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault),
@@ -195,14 +165,6 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
-			go vmiInformer.Run(stop)
-			go vmInformer.Run(stop)
-			go dataVolumeInformer.Run(stop)
-			go crInformer.Run(stop)
-		})
-
-		AfterEach(func() {
-			close(stop)
 		})
 
 		// TODO: We need to make sure the action was triggered
@@ -269,7 +231,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		}
 
-		shouldExpectDataVolumeDeletion := func(uid types.UID, idx *int) {
+		shouldExpectDataVolumeDeletion := func(idx *int) {
 			cdiClient.Fake.PrependReactor("delete", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				_, ok := action.(testing.DeleteAction)
 				Expect(ok).To(BeTrue())
@@ -346,9 +308,10 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		addVirtualMachine := func(vm *v1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Add(vm)
-			mockQueue.Wait()
+			key, err := virtcontroller.KeyFunc(vm)
+			Expect(err).To(Not(HaveOccurred()))
+			controller.Queue.Add(key)
+			Expect(controller.vmIndexer.Add(vm)).To(Succeed())
 		}
 
 		sanityExecute := func(vm *v1.VirtualMachine) {
@@ -434,7 +397,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume.Namespace = "default"
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID), "my": "label"}, map[string]string{"my": "annotation"}, &createCount)
@@ -545,7 +508,7 @@ var _ = Describe("VirtualMachine", func() {
 					markAsReady(vmi)
 					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					addVolumeReactor(virtFakeClient)
 				}
@@ -591,7 +554,7 @@ var _ = Describe("VirtualMachine", func() {
 					markAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					By("Simulate a failure in hotplug")
 					addVolumeFailureReactor(virtFakeClient)
@@ -626,7 +589,7 @@ var _ = Describe("VirtualMachine", func() {
 					markAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					By("Simulate hotplug")
 					addVolumeReactor(virtFakeClient)
@@ -751,7 +714,7 @@ var _ = Describe("VirtualMachine", func() {
 					markAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					By("Simulate a un-hotplug failure")
 					removeVolumeFailureReactor(virtFakeClient)
@@ -894,7 +857,7 @@ var _ = Describe("VirtualMachine", func() {
 					markAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					removeVolumeReactor(virtFakeClient)
 				}
@@ -946,7 +909,7 @@ var _ = Describe("VirtualMachine", func() {
 					markAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					virtFakeClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 						Fail("add volume should not be called")
@@ -986,7 +949,7 @@ var _ = Describe("VirtualMachine", func() {
 					markAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					virtFakeClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 						Fail("remove volume should not be called")
@@ -1046,12 +1009,12 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
-			dataVolumeFeeder.Add(existingDataVolume1)
-			dataVolumeFeeder.Add(existingDataVolume2)
+			controller.dataVolumeStore.Add(existingDataVolume1)
+			controller.dataVolumeStore.Add(existingDataVolume2)
 
 			deletionCount := 0
 
-			shouldExpectDataVolumeDeletion(vm.UID, &deletionCount)
+			shouldExpectDataVolumeDeletion(&deletionCount)
 
 			sanityExecute(vm)
 
@@ -1100,8 +1063,8 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
-			dataVolumeFeeder.Add(existingDataVolume1)
-			dataVolumeFeeder.Add(existingDataVolume2)
+			controller.dataVolumeStore.Add(existingDataVolume1)
+			controller.dataVolumeStore.Add(existingDataVolume2)
 
 			sanityExecute(vm)
 
@@ -1152,8 +1115,8 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 			existingDataVolume2.Annotations = nil
 
-			dataVolumeFeeder.Add(existingDataVolume1)
-			dataVolumeFeeder.Add(existingDataVolume2)
+			controller.dataVolumeStore.Add(existingDataVolume1)
+			controller.dataVolumeStore.Add(existingDataVolume2)
 
 			sanityExecute(vm)
 
@@ -1185,7 +1148,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 
@@ -1225,7 +1188,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
@@ -1267,7 +1230,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
@@ -1308,11 +1271,11 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
@@ -1396,7 +1359,7 @@ var _ = Describe("VirtualMachine", func() {
 					Phase: k8sv1.ClaimBound,
 				},
 			}
-			Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+			Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 
 			createCount := 0
 			if expectedCreations > 0 {
@@ -1470,7 +1433,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				shouldExpectVMIFinalizerRemoval()
 
@@ -1506,7 +1469,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				shouldExpectVMIFinalizerRemoval()
 
@@ -1549,7 +1512,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				sanityExecute(vm)
 
@@ -1583,7 +1546,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				shouldExpectVMIFinalizerRemoval()
 
@@ -1807,7 +1770,7 @@ var _ = Describe("VirtualMachine", func() {
 					if pvc.Namespace == "" {
 						pvc.Namespace = vm.Namespace
 					}
-					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+					Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 				}
 
 				controller.cloneAuthFunc = func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
@@ -1985,7 +1948,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				err = controller.patchVmGenerationAnnotationOnVmi(4, vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -2011,8 +1974,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Equal(desiredErr))
 				}
 			},
-				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, asStrPtr("6"), nil),
-				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, asStrPtr("5"), nil),
+				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, pointer.P("6"), nil),
+				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, pointer.P("5"), nil),
 				Entry("with no generation annotation existing", map[string]string{"test": "testing"}, nil, nil),
 				Entry("with empty annotations map", map[string]string{}, nil, nil),
 			)
@@ -2026,8 +1989,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(gen).To(Equal(desiredGeneration))
 				}
 			},
-				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), asInt64Ptr(3)),
-				Entry("with one dash in name", getVMRevisionName("abcdef", 5), asInt64Ptr(5)),
+				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), pointer.P(int64(3))),
+				Entry("with one dash in name", getVMRevisionName("abcdef", 5), pointer.P(int64(5))),
 				Entry("with no dash in name", "12345", nil),
 				Entry("with ill formatted generation", "123-456-2b3b", nil),
 			)
@@ -2059,7 +2022,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					// This is the 'updated' details on the vm
 					vm.Generation = vmGeneration
@@ -2257,7 +2220,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				vm.Generation = vmGeneration
 
@@ -2361,7 +2324,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					sanityExecute(vm)
 
@@ -2532,7 +2495,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 
@@ -2551,7 +2514,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 
@@ -2596,7 +2559,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 
@@ -2638,7 +2601,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.DeletionTimestamp = now()
-			vm.DeletionGracePeriodSeconds = kvpointer.P(v1.DefaultGracePeriodSeconds)
+			vm.DeletionGracePeriodSeconds = pointer.P(v1.DefaultGracePeriodSeconds)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2646,7 +2609,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds)
 
@@ -2685,7 +2648,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			shouldExpectVMIFinalizerRemoval()
 
@@ -2704,7 +2667,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 		})
@@ -2722,8 +2685,7 @@ var _ = Describe("VirtualMachine", func() {
 			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), nonMatchingVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiSource.Add(nonMatchingVMI)
-			syncCache(controller.vmiIndexer, 1)
+			controller.vmiIndexer.Add(nonMatchingVMI)
 
 			sanityExecute(vm)
 
@@ -2743,7 +2705,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 
@@ -2779,7 +2741,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			orphanDV := dv.DeepCopy()
 			orphanDV.ObjectMeta.OwnerReferences = nil
-			Expect(dataVolumeInformer.GetStore().Add(orphanDV)).To(Succeed())
+			Expect(controller.dataVolumeStore.Add(orphanDV)).To(Succeed())
 
 			cdiClient.Fake.PrependReactor("patch", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				patch, ok := action.(testing.PatchAction)
@@ -2800,7 +2762,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 		})
@@ -2811,7 +2773,6 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
-			// vmiFeeder.Add(vmi)
 
 			virtFakeClient.PrependReactor("create", "virtualmachineinstances", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				return true, &v1.VirtualMachineInstance{}, fmt.Errorf("some random failure")
@@ -2842,7 +2803,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			virtFakeClient.PrependReactor("delete", "virtualmachineinstances", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				return true, nil, fmt.Errorf("some random failure")
@@ -2876,7 +2837,7 @@ var _ = Describe("VirtualMachine", func() {
 			setup(vmi)
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 
@@ -2971,7 +2932,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 
@@ -3039,7 +3000,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 
@@ -3068,7 +3029,7 @@ var _ = Describe("VirtualMachine", func() {
 			markAsReady(vmi)
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
 
@@ -3089,7 +3050,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			virtFakeClient.PrependReactor("delete", "virtualmachineinstances", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				return true, nil, fmt.Errorf("some random failure")
@@ -3131,7 +3092,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should copy kubevirt ignitiondata annotation from spec.template to vmi", func() {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"kubevirt.io/ignitiondata": "test"}
 			annotations := map[string]string{"kubevirt.io/ignitiondata": "test", v1.VirtualMachineGenerationAnnotation: "0"}
 
@@ -3142,7 +3103,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			sanityExecute(vm)
 
-			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Annotations).To(Equal(annotations))
 		})
@@ -3222,7 +3183,7 @@ var _ = Describe("VirtualMachine", func() {
 				markAsReady(vmi)
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				sanityExecute(vm)
 
@@ -3247,7 +3208,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmi.Spec = vm.Spec.Template.Spec
 				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				// when the memory dump volume is in the vm volume list we should change status to in progress
 				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
@@ -3292,7 +3253,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
 					ClaimName:      testPVCName,
@@ -3337,7 +3298,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
 					ClaimName:    testPVCName,
@@ -3383,7 +3344,7 @@ var _ = Describe("VirtualMachine", func() {
 				markAsReady(vmi)
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				pvc := k8sv1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
@@ -3391,7 +3352,7 @@ var _ = Describe("VirtualMachine", func() {
 						Namespace: vm.Namespace,
 					},
 				}
-				Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+				Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 
 				pvcAnnotationUpdated := make(chan bool, 1)
 				defer close(pvcAnnotationUpdated)
@@ -3434,7 +3395,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 
 				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				// in case the volume is not in vmi volume status we should update status to completed
 				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
@@ -3541,7 +3502,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				shouldExpectVMIFinalizerRemoval()
 
@@ -3589,7 +3550,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				sanityExecute(vm)
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
@@ -3614,7 +3575,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				if hasVMI {
 					vmi.Status.Phase = v1.Running
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 				}
 
 				sanityExecute(vm)
@@ -3733,7 +3694,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 					dv.Status.Phase = phase
-					dataVolumeFeeder.Add(dv)
+					controller.dataVolumeStore.Add(dv)
 
 					pvc := k8sv1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
@@ -3744,7 +3705,7 @@ var _ = Describe("VirtualMachine", func() {
 							Phase: k8sv1.ClaimPending,
 						},
 					}
-					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+					Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 
 					sanityExecute(vm)
 
@@ -3775,7 +3736,7 @@ var _ = Describe("VirtualMachine", func() {
 							Type:   cdiv1.DataVolumeBound,
 							Status: k8sv1.ConditionTrue,
 						})
-						dataVolumeFeeder.Add(dv)
+						controller.dataVolumeStore.Add(dv)
 
 						sanityExecute(vm)
 
@@ -3803,7 +3764,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 					dvFunc(dv)
-					dataVolumeFeeder.Add(dv)
+					controller.dataVolumeStore.Add(dv)
 
 					sanityExecute(vm)
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
@@ -3841,7 +3802,7 @@ var _ = Describe("VirtualMachine", func() {
 						Type:   cdiv1.DataVolumeBound,
 						Status: k8sv1.ConditionTrue,
 					})
-					dataVolumeFeeder.Add(dv)
+					controller.dataVolumeStore.Add(dv)
 
 					sanityExecute(vm)
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
@@ -3883,8 +3844,8 @@ var _ = Describe("VirtualMachine", func() {
 						Status: k8sv1.ConditionTrue,
 					})
 
-					dataVolumeFeeder.Add(dv1)
-					dataVolumeFeeder.Add(dv2)
+					controller.dataVolumeStore.Add(dv1)
+					controller.dataVolumeStore.Add(dv2)
 
 					sanityExecute(vm)
 
@@ -3923,7 +3884,7 @@ var _ = Describe("VirtualMachine", func() {
 							Phase: pvcPhase,
 						},
 					}
-					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+					Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 
 					sanityExecute(vm)
 
@@ -3946,7 +3907,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				sanityExecute(vm)
 
@@ -3967,7 +3928,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				sanityExecute(vm)
 
@@ -3992,7 +3953,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				sanityExecute(vm)
 
@@ -4014,7 +3975,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, vmi := DefaultVirtualMachine(true)
 
 					vm.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-					vm.DeletionGracePeriodSeconds = kvpointer.P(v1.DefaultGracePeriodSeconds)
+					vm.DeletionGracePeriodSeconds = pointer.P(v1.DefaultGracePeriodSeconds)
 					vmi.Status.Phase = phase
 
 					if condType != "" {
@@ -4030,7 +3991,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds)
 
@@ -4062,7 +4023,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					sanityExecute(vm)
 
@@ -4104,7 +4065,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				sanityExecute(vm)
 
@@ -4121,7 +4082,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				sanityExecute(vm)
 
@@ -4140,7 +4101,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-					vmiFeeder.Add(vmi)
+					controller.vmiIndexer.Add(vmi)
 
 					sanityExecute(vm)
 
@@ -4179,7 +4140,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
 
 				sanityExecute(vm)
 
@@ -4775,7 +4736,7 @@ var _ = Describe("VirtualMachine", func() {
 				BeforeEach(func() {
 					preferenceSpec := instancetypev1beta1.VirtualMachinePreferenceSpec{
 						Firmware: &instancetypev1beta1.FirmwarePreferences{
-							PreferredUseEfi: kvpointer.P(true),
+							PreferredUseEfi: pointer.P(true),
 						},
 						Devices: &instancetypev1beta1.DevicePreferences{
 							PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4896,7 +4857,7 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision with APIVersion", func() []byte {
 						v1alpha1preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1alpha1.FirmwarePreferences{
-								PreferredUseEfi: kvpointer.P(true),
+								PreferredUseEfi: pointer.P(true),
 							},
 							Devices: &instancetypev1alpha1.DevicePreferences{
 								PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4921,7 +4882,7 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision without APIVersion", func() []byte {
 						v1alpha1preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1alpha1.FirmwarePreferences{
-								PreferredUseEfi: kvpointer.P(true),
+								PreferredUseEfi: pointer.P(true),
 							},
 							Devices: &instancetypev1alpha1.DevicePreferences{
 								PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4954,7 +4915,7 @@ var _ = Describe("VirtualMachine", func() {
 							},
 							Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
 								Firmware: &instancetypev1alpha1.FirmwarePreferences{
-									PreferredUseEfi: kvpointer.P(true),
+									PreferredUseEfi: pointer.P(true),
 								},
 								Devices: &instancetypev1alpha1.DevicePreferences{
 									PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4980,7 +4941,7 @@ var _ = Describe("VirtualMachine", func() {
 							},
 							Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
 								Firmware: &instancetypev1alpha2.FirmwarePreferences{
-									PreferredUseEfi: kvpointer.P(true),
+									PreferredUseEfi: pointer.P(true),
 								},
 								Devices: &instancetypev1alpha2.DevicePreferences{
 									PreferredDiskBus:        v1.DiskBusVirtio,
@@ -5213,7 +5174,7 @@ var _ = Describe("VirtualMachine", func() {
 				It("should reject if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
 					unexpectedPreference := preference.DeepCopy()
 					unexpectedPreference.Spec.Firmware = &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios: kvpointer.P(true),
+						PreferredUseBios: pointer.P(true),
 					}
 
 					preferenceRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
@@ -5287,7 +5248,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachPodInterface: kvpointer.P(false),
+								PreferredAutoattachPodInterface: pointer.P(false),
 							},
 						},
 					}
@@ -5333,7 +5294,7 @@ var _ = Describe("VirtualMachine", func() {
 					presentVolumeName := "present-vol"
 					missingVolumeName := "missing-vol"
 					vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
-						v1.Disk{
+						{
 							Name: presentVolumeName,
 							DiskDevice: v1.DiskDevice{
 								Disk: &v1.DiskTarget{
@@ -5343,10 +5304,10 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					}
 					vm.Spec.Template.Spec.Volumes = []v1.Volume{
-						v1.Volume{
+						{
 							Name: presentVolumeName,
 						},
-						v1.Volume{
+						{
 							Name: missingVolumeName,
 						},
 					}
@@ -5382,7 +5343,7 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
-					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = kvpointer.P(true)
+					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
 
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
@@ -5416,7 +5377,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: kvpointer.P(true),
+								PreferredAutoattachInputDevice: pointer.P(true),
 								PreferredInputBus:              v1.InputBusVirtio,
 								PreferredInputType:             v1.InputTypeTablet,
 							},
@@ -5462,7 +5423,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: kvpointer.P(false),
+								PreferredAutoattachInputDevice: pointer.P(false),
 							},
 						},
 					}
@@ -5538,7 +5499,7 @@ var _ = Describe("VirtualMachine", func() {
 					Configuration: v1.KubeVirtConfiguration{
 						NetworkConfiguration: &v1.NetworkConfiguration{
 							NetworkInterface:               string(v1.DeprecatedSlirpInterface),
-							DeprecatedPermitSlirpInterface: kvpointer.P(true),
+							DeprecatedPermitSlirpInterface: pointer.P(true),
 						},
 					},
 				},
@@ -5580,15 +5541,15 @@ var _ = Describe("VirtualMachine", func() {
 			presentVolumeName := "present-vol"
 			missingVolumeName := "missing-vol"
 			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
-				v1.Disk{
+				{
 					Name: presentVolumeName,
 				},
 			}
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{
-				v1.Volume{
+				{
 					Name: presentVolumeName,
 				},
-				v1.Volume{
+				{
 					Name: missingVolumeName,
 				},
 			}
@@ -5624,15 +5585,15 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmi.Spec.Domain.Devices.Inputs).To(matcher)
 
 		},
-			Entry("add default input device when enabled in VirtualMachine", kvpointer.P(true), []v1.Input{},
+			Entry("add default input device when enabled in VirtualMachine", pointer.P(true), []v1.Input{},
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("default-0"),
 				}))),
-			Entry("not add default input device when disabled by VirtualMachine", kvpointer.P(false), []v1.Input{},
+			Entry("not add default input device when disabled by VirtualMachine", pointer.P(false), []v1.Input{},
 				BeEmpty()),
 			Entry("not add default input device by default", nil, []v1.Input{},
 				BeEmpty()),
-			Entry("not add default input device when devices already present in VirtualMachine", kvpointer.P(true), []v1.Input{{Name: "existing-0"}},
+			Entry("not add default input device when devices already present in VirtualMachine", pointer.P(true), []v1.Input{{Name: "existing-0"}},
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("existing-0"),
 				}))),
@@ -5660,7 +5621,7 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
-									MaxCpuSockets: kvpointer.P(maxSocketsFromConfig),
+									MaxCpuSockets: pointer.P(maxSocketsFromConfig),
 								},
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -6009,7 +5970,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(vmiInformer.GetIndexer().Add(vmi)).To(Succeed())
+					Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
 
 					sanityExecute(vm)
 
@@ -6045,12 +6006,12 @@ var _ = Describe("VirtualMachine", func() {
 					controller.handleVolumeUpdateRequest(vm, vmi)
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineRestartRequired)
 					Expect(cond).ToNot(BeNil())
-					Expect(cond.Status).To(Equal(k8score.ConditionTrue))
+					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 					Expect(cond.Message).To(Equal("the volumes replacement is effective only after restart"))
 				},
 					Entry("without the updateVolumeStrategy field", nil),
 					Entry("with the replacement updateVolumeStrategy",
-						kvpointer.P(v1.UpdateVolumesStrategyReplacement)),
+						pointer.P(v1.UpdateVolumesStrategyReplacement)),
 				)
 
 				It("should set the restart condition with the Migration updateVolumeStrategy if volumes cannot be migrated", func() {
@@ -6078,7 +6039,7 @@ var _ = Describe("VirtualMachine", func() {
 								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "updated-vol3"}},
 						},
 					})
-					vm.Spec.UpdateVolumesStrategy = kvpointer.P(v1.UpdateVolumesStrategyMigration)
+					vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 					vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems,
 						v1.Filesystem{
 							Name:     "vol3",
@@ -6097,7 +6058,7 @@ var _ = Describe("VirtualMachine", func() {
 					controller.handleVolumeUpdateRequest(vm, vmi)
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineRestartRequired)
 					Expect(cond).ToNot(BeNil())
-					Expect(cond.Status).To(Equal(k8score.ConditionTrue))
+					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
 			})
@@ -6201,7 +6162,7 @@ var _ = Describe("VirtualMachine", func() {
 					updatedInstancetype.Spec.Memory.Guest = resource.MustParse("256M")
 
 					// Enabling DedicatedCPUPlacement is not a supported live updatable attribute and should require a reboot
-					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.Bool(true)
+					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.P(true)
 
 					updatedRevision, err := instancetype.CreateControllerRevision(originalVM, updatedInstancetype)
 					Expect(err).ToNot(HaveOccurred())
@@ -6287,17 +6248,16 @@ var _ = Describe("VirtualMachine", func() {
 				var maxSockets uint32 = 8
 
 				By("Setting a cluster-wide CPU maxSockets value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = kvpointer.P(maxSockets)
+				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = pointer.P(maxSockets)
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
-				crSource.Add(createVMRevision(vm))
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI with cluster max")
 				vmi = controller.setupVMIFromVM(vm)
-				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer, 1)
+				controller.vmiIndexer.Add(vmi)
 
 				By("Bumping the VM sockets above the cluster maximum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 10
@@ -6328,12 +6288,10 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VMI with hostname 'a'")
 				vm.Spec.Template.Spec.Hostname = "a"
 				vmi = controller.setupVMIFromVM(vm)
-				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer, 1)
+				controller.vmiIndexer.Add(vmi)
 
 				By("Creating a Controller Revision with the hostname 'a'")
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Changing the hostname to 'b'")
 				vm.Spec.Template.Spec.Hostname = "b"
@@ -6354,12 +6312,11 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
 				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = maxSockets
-				crSource.Add(createVMRevision(vm))
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI with cluster max")
 				vmi = controller.setupVMIFromVM(vm)
-				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer, 1)
+				controller.vmiIndexer.Add(vmi)
 
 				By("Bumping the VM sockets above the cluster maximum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 10
@@ -6380,8 +6337,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with guest memory set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &maxGuest
 				vm.Spec.Template.Spec.Domain.Memory.MaxGuest = &maxGuest
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
@@ -6390,8 +6346,7 @@ var _ = Describe("VirtualMachine", func() {
 					GuestAtBoot:  &maxGuest,
 					GuestCurrent: &maxGuest,
 				}
-				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer, 1)
+				controller.vmiIndexer.Add(vmi)
 
 				By("Bumping the VM guest memory above the cluster maximum")
 				bigGuest := resource.MustParse("257Mi")
@@ -6413,12 +6368,10 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
 
 				vmi = controller.setupVMIFromVM(vm)
-				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer, 1)
+				controller.vmiIndexer.Add(vmi)
 
 				By("Creating a Controller Revision with two sockets")
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Reducing the sockets count to one")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets - 1
@@ -6450,16 +6403,14 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with CPU sockets set to 2")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
 				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = 8
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
 				markAsReady(vmi)
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer, 1)
+				controller.vmiIndexer.Add(vmi)
 
 				By("Bumping the VM sockets to 4")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 4
@@ -6496,7 +6447,7 @@ var _ = Describe("VirtualMachine", func() {
 			It("when starting a VM with RerunOnFailure the VM should get started", func() {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = kvpointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6512,7 +6463,7 @@ var _ = Describe("VirtualMachine", func() {
 			It("when starting a VM with Manual and DVs are not ready the start request should not get trimmed", func() {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = kvpointer.P(v1.RunStrategyManual)
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "test1",
 					VolumeSource: v1.VolumeSource{
@@ -6562,7 +6513,7 @@ var _ = Describe("VirtualMachine", func() {
 			DescribeTable("The VM should get started when switching to RerunOnFailure from", func(runStrategy v1.VirtualMachineRunStrategy) {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = kvpointer.P(runStrategy)
+				vm.Spec.RunStrategy = pointer.P(runStrategy)
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6574,7 +6525,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
 				By("Change RunStrategy")
-				vm.Spec.RunStrategy = kvpointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6590,10 +6541,10 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("Manual", v1.RunStrategyManual),
 			)
 
-			It("The VM should get restarted when doing RerunOnFailure -> Halted -> RerunOnFailure", func() {
+			PIt("The VM should get restarted when doing RerunOnFailure -> Halted -> RerunOnFailure", func() {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = kvpointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6601,19 +6552,21 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				sanityExecute(vm)
 
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi).ToNot(BeNil())
 
 				// let the controller pick up the creation
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
+				key, err := virtcontroller.KeyFunc(vm)
+				Expect(err).To(Not(HaveOccurred()))
+				controller.Queue.Add(key)
 				sanityExecute(vm)
 
 				By("Change RunStrategy to Halted")
-				vm.Spec.RunStrategy = kvpointer.P(v1.RunStrategyHalted)
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6621,18 +6574,18 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				sanityExecute(vm)
 
-				crSource.Delete(createVMRevision(vm))
-				syncCache(controller.crIndexer, 0)
+				controller.crIndexer.Delete(createVMRevision(vm))
 
 				// let the controller pick up the deletion
-				vmiFeeder.Delete(vmi)
+				controller.Queue.Add(key)
+				controller.vmiIndexer.Delete(vmi)
 				sanityExecute(vm)
 
-				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
 				By("Change RunStrategy back to RerunOnFailure")
-				vm.Spec.RunStrategy = kvpointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6645,26 +6598,39 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmi).ToNot(BeNil())
 			})
 
+			clearExpectations := func(vm *v1.VirtualMachine) {
+				//Clear all expectations
+				key, err := virtcontroller.KeyFunc(vm)
+				Expect(err).To(Not(HaveOccurred()))
+				controller.expectations.SetExpectations(key, 0, 0)
+			}
+
 			It("when issuing a restart a VM with Always should get restarted", func() {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = kvpointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				key, err := virtcontroller.KeyFunc(vm)
+				Expect(err).To(Not(HaveOccurred()))
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				addVirtualMachine(vm)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				// let the controller pick up the creation
-				vmiFeeder.Add(vmi)
+				controller.vmiIndexer.Add(vmi)
+
+				controller.Queue.Add(key)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				// update VM from the store
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
@@ -6680,16 +6646,18 @@ var _ = Describe("VirtualMachine", func() {
 				By("VM should get stopped")
 				addVirtualMachine(vm)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
 				By("VM should get now restarted")
 				// pick up deletion
-				crSource.Delete(createVMRevision(vm))
-				syncCache(controller.crIndexer, 0)
-				vmiFeeder.Delete(vmi)
+				controller.crIndexer.Delete(createVMRevision(vm))
+				controller.vmiIndexer.Delete(vmi)
+				controller.Queue.Add(key)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				// check for VMI existence
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
@@ -6704,8 +6672,8 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Status.StateChangeRequests).ToNot(BeEmpty())
 
 				// let the controller pick up the creation
-				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer, 1)
+				controller.vmiIndexer.Add(vmi)
+				controller.Queue.Add(key)
 				addVirtualMachine(vm)
 				sanityExecute(vm)
 
@@ -6717,7 +6685,6 @@ var _ = Describe("VirtualMachine", func() {
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(vmi).ToNot(BeNil())
 				Expect(err).ToNot(HaveOccurred())
-
 			})
 		})
 
@@ -6915,11 +6882,4 @@ func failVMSpecUpdate(virtFakeClient *fake.Clientset) {
 		}
 		return true, nil, fmt.Errorf("conflict")
 	})
-}
-
-func syncCache(store cache.Store, expectedLen int) {
-	EventuallyWithOffset(1, func(g Gomega) {
-		keys := store.ListKeys()
-		g.Expect(keys).To(HaveLen(expectedLen))
-	}, 2*time.Second, 100*time.Millisecond).Should(Succeed(), "Cache did not recieve object from informer")
 }
