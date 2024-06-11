@@ -1767,6 +1767,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	}
 
 	VMIDefaults := &virtv1.VirtualMachineInstance{}
+	VMIDefaults.Spec.Domain.Resources = vmi.Spec.Domain.Resources
 	webhooks.SetDefaultGuestCPUTopology(c.clusterConfig, &VMIDefaults.Spec)
 
 	vmi.Status.CurrentCPUTopology = &virtv1.CPUTopology{
