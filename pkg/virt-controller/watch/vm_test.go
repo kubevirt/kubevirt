@@ -168,19 +168,6 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		// TODO: We need to make sure the action was triggered
-		shouldExpectGracePeriodPatched := func(expectedGracePeriod int64) {
-			patch := fmt.Sprintf(`{"spec":{"terminationGracePeriodSeconds": %d }}`, expectedGracePeriod)
-			virtFakeClient.PrependReactor("update", "virtualmachineinstance", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-				switch action := action.(type) {
-				case testing.PatchActionImpl:
-					Expect(action.Patch).To(Equal([]byte(patch)))
-				default:
-					Fail("Expected to see patch")
-				}
-				return false, nil, nil
-			})
-		}
-		// TODO: We need to make sure the action was triggered
 		shouldExpectVMIFinalizerRemoval := func() {
 			virtFakeClient.PrependReactor("update", "virtualmachineinstance", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				switch action := action.(type) {
@@ -2601,7 +2588,6 @@ var _ = Describe("VirtualMachine", func() {
 		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.DeletionTimestamp = now()
-			vm.DeletionGracePeriodSeconds = pointer.P(v1.DefaultGracePeriodSeconds)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2610,8 +2596,6 @@ var _ = Describe("VirtualMachine", func() {
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			controller.vmiIndexer.Add(vmi)
-
-			shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds)
 
 			sanityExecute(vm)
 
@@ -3975,7 +3959,6 @@ var _ = Describe("VirtualMachine", func() {
 					vm, vmi := DefaultVirtualMachine(true)
 
 					vm.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-					vm.DeletionGracePeriodSeconds = pointer.P(v1.DefaultGracePeriodSeconds)
 					vmi.Status.Phase = phase
 
 					if condType != "" {
@@ -3992,8 +3975,6 @@ var _ = Describe("VirtualMachine", func() {
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					controller.vmiIndexer.Add(vmi)
-
-					shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds)
 
 					sanityExecute(vm)
 

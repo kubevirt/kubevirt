@@ -38,7 +38,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -174,14 +173,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
 			Expect(foundSC).To(BeTrue(), "Filesystem storage is not present")
 
-			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
+			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
 				libdv.WithPVC(
 					libdv.PVCWithStorageClass(sc),
 					libdv.PVCWithVolumeSize(cd.AlpineVolumeSize),
-					libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
-					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+					libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					libdv.PVCWithVolumeMode(corev1.PersistentVolumeFilesystem),
 				),
 			)
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -191,9 +190,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithResourceMemory("256Mi"),
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"),
+				libvmi.WithTerminationGracePeriod(30),
 			)
 			return vmi, dataVolume
 		}
@@ -244,7 +244,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 			vm.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
-			vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+			vm.Spec.Template.Spec.Domain.Resources.Limits = make(corev1.ResourceList)
 			vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceCPU] = resource.MustParse(oldCpu)
 			vm.Spec.Template.Spec.Domain.Resources.Limits[corev1.ResourceCPU] = resource.MustParse(oldCpu)
 			vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = resource.MustParse(oldMemory)
@@ -371,22 +371,44 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			startVM(virtClient, createVM(virtClient, template))
 		},
 			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewCirros(), nil }),
-			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
-			Entry("[Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
+			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
+			Entry("[storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
 		)
 
-		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
+		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder, ensureGracefulTermination bool) {
 			template, dv := createTemplate()
 			defer libstorage.DeleteDataVolume(&dv)
 			vm := startVM(virtClient, createVM(virtClient, template))
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			// Delete it
 			Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, k8smetav1.DeleteOptions{})).To(Succeed())
 			// Wait until VMI is gone
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 2*time.Second).ShouldNot(Exist())
+			if !ensureGracefulTermination {
+				return
+			}
+			// Under default settings, termination is graceful (shutdown instead of destroy)
+			virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func(g Gomega) string {
+				out, err := virtClient.CoreV1().
+					Pods(virtHandlerPod.GetNamespace()).
+					GetLogs(virtHandlerPod.GetName(), &corev1.PodLogOptions{
+						SinceTime: &metav1.Time{Time: CurrentSpecReport().StartTime},
+						Container: "virt-handler",
+					}).
+					DoRaw(context.Background())
+				g.Expect(err).ToNot(HaveOccurred(), "Should get the virthandler logs")
+				return string(out)
+			}, time.Minute, 2*time.Second).Should(
+				MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Shutdown","name":"%s"`, vmi.GetName()),
+				"Logs should confirm graceful shutdown",
+			)
 		},
-			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewCirros(), nil }),
-			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
-			Entry("[Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
+			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewCirros(), nil }, false),
+			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk, true),
+			Entry("[storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk, false),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -464,8 +486,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			stopVM(virtClient, startVM(virtClient, createVM(virtClient, template)))
 		},
 			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewCirros(), nil }),
-			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
-			Entry("[Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
+			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
+			Entry("[storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
@@ -695,7 +717,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Creating a VM with a DataVolume cloned from an invalid source")
 			// Registry URL scheme validated in CDI
 			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
-				testsuite.GetTestNamespace(nil), storageClassName, k8sv1.ReadWriteOnce)
+				testsuite.GetTestNamespace(nil), storageClassName, corev1.ReadWriteOnce)
 			vm.Spec.Running = pointer.BoolPtr(true)
 			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1346,7 +1368,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Eventually(launcherPod.Status.Phase).
 							Within(160 * time.Second).
 							WithPolling(time.Second).
-							Should(Equal(k8sv1.PodFailed))
+							Should(Equal(corev1.PodFailed))
 					}
 				},
 					Entry("[test_id:7164][QUARANTINE]VMI launcher pod should fail", "false", decorators.Quarantine),
@@ -1554,49 +1576,6 @@ status:
 			By("Verifying pod gets deleted")
 			expectedPodName := getExpectedPodName(vm)
 			waitForResourceDeletion(k8sClient, "pods", expectedPodName)
-		})
-
-		Context("Deleting a running VM with high TerminationGracePeriod via command line", func() {
-			DescribeTable("should force delete the VM", func(deleteFlags []string) {
-				By("getting a VM with a high TerminationGracePeriod")
-				vmi := libvmi.New(
-					libvmi.WithResourceMemory("128Mi"),
-					libvmi.WithTerminationGracePeriod(1600),
-				)
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-				vm.Namespace = testsuite.GetTestNamespace(vm)
-
-				vmJson, err := tests.GenerateVMJson(vm, workDir)
-				Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
-
-				By("Creating VM using k8s client binary")
-				_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
-
-				By("Checking that VM is running")
-				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
-
-				By("Sending a force delete VM request using k8s client binary")
-				deleteCmd := append([]string{"delete", "vm", vm.GetName()}, deleteFlags...)
-				_, _, err = clientcmd.RunCommand(k8sClient, deleteCmd...)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Verifying the VM gets deleted")
-				waitForResourceDeletion(k8sClient, "vms", vm.GetName())
-
-				By("Verifying pod gets deleted")
-				expectedPodName := getExpectedPodName(vm)
-				waitForResourceDeletion(k8sClient, "pods", expectedPodName)
-			},
-				Entry("when --force and --grace-period=0 are provided", []string{"--force", "--grace-period=0"}),
-				Entry("when --now is provided", []string{"--now"}),
-			)
 		})
 
 		Context("should not change anything if dry-run option is passed", func() {
@@ -1993,7 +1972,7 @@ status:
 		AfterEach(func() {
 			libpod.DeleteKubernetesAPIBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
 			Eventually(func(g Gomega) {
-				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionTrue(k8sv1.PodReady))
+				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionTrue(corev1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())
 
 			tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", util.GetCurrentKv(virtClient).ResourceVersion,
@@ -2012,7 +1991,7 @@ status:
 			By("Blocking virt-handler from reconciling the VMI")
 			libpod.AddKubernetesAPIBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
 			Eventually(func(g Gomega) {
-				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionFalse(k8sv1.PodReady))
+				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionFalse(corev1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())
 
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -2040,7 +2019,7 @@ status:
 	})
 })
 
-func getHandlerNodePod(virtClient kubecli.KubevirtClient, nodeName string) *k8sv1.PodList {
+func getHandlerNodePod(virtClient kubecli.KubevirtClient, nodeName string) *corev1.PodList {
 	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
 		metav1.ListOptions{
 			LabelSelector: "kubevirt.io=virt-handler",
