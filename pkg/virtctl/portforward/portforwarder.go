@@ -5,9 +5,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/golang/glog"
-
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
+	"kubevirt.io/client-go/log"
 )
 
 type portForwarder struct {
@@ -20,7 +19,7 @@ type portforwardableResource interface {
 }
 
 func (p *portForwarder) startForwarding(address *net.IPAddr, port forwardedPort) error {
-	glog.Infof("forwarding %s %s:%d to %d", port.protocol, address, port.local, port.remote)
+	log.Log.Infof("forwarding %s %s:%d to %d", port.protocol, address, port.local, port.remote)
 	if port.protocol == protocolUDP {
 		return p.startForwardingUDP(address, port)
 	}
@@ -34,6 +33,6 @@ func (p *portForwarder) startForwarding(address *net.IPAddr, port forwardedPort)
 
 func handleConnectionError(err error, port forwardedPort) {
 	if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-		glog.Errorf("error handling connection for %d: %v", port.local, err)
+		log.Log.Errorf("error handling connection for %d: %v", port.local, err)
 	}
 }
