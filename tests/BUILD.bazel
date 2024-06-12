@@ -168,6 +168,7 @@ go_test(
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virtctl/pause:go_default_library",
         "//pkg/virtctl/softreboot:go_default_library",
+        "//pkg/virtctl/usbredir:go_default_library",
         "//pkg/virtctl/vm:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
