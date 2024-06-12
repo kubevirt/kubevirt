@@ -33,6 +33,7 @@ go_library(
         "//pkg/util/net/dns:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/network:go_default_library",
+        "//pkg/virt-controller/watch/descheduler:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-operator/util:go_default_library",

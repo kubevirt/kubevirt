@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -313,7 +314,7 @@ var _ = Describe("Pool", func() {
 		It("should delete controller revisions when pool is being deleted", func() {
 			pool, _ := DefaultPool(1)
 			pool.Status.Replicas = 0
-			pool.DeletionTimestamp = now()
+			pool.DeletionTimestamp = pointer.P(metav1.Now())
 
 			poolRevision := createPoolRevision(pool)
 
@@ -606,7 +607,7 @@ var _ = Describe("Pool", func() {
 			for x := 5; x < 10; x++ {
 				newVM := vm.DeepCopy()
 				newVM.Name = fmt.Sprintf("%s-%d", pool.Name, x)
-				newVM.DeletionTimestamp = now()
+				newVM.DeletionTimestamp = pointer.P(metav1.Now())
 				addVM(newVM)
 			}
 

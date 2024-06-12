@@ -19,6 +19,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -197,7 +198,7 @@ var _ = Describe("Replicaset", func() {
 				vmi := api.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
 				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
-				vmi.DeletionTimestamp = now()
+				vmi.DeletionTimestamp = pointer.P(metav1.Now())
 				vmiFeeder.Add(vmi)
 			}
 
@@ -260,7 +261,7 @@ var _ = Describe("Replicaset", func() {
 				vmi := api.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
 				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
-				vmi.DeletionTimestamp = now()
+				vmi.DeletionTimestamp = pointer.P(metav1.Now())
 				vmiFeeder.Add(vmi)
 			}
 
