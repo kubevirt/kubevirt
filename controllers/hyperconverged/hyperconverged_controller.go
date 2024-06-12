@@ -161,7 +161,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 	err = c.Watch(
 		source.Kind(
 			mgr.GetCache(), client.Object(&hcov1beta1.HyperConverged{}),
-			&operatorhandler.InstrumentedEnqueueRequestForObject{},
+			&operatorhandler.InstrumentedEnqueueRequestForObject[client.Object]{},
 			predicate.Or[client.Object](predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}),
 		))
 	if err != nil {

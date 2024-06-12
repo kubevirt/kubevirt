@@ -47,30 +47,30 @@ type Options struct {
 
 // NewFalsyPredicate returns a predicate that passes objects
 // that do not have annotation with key string key or whose value is falsy.
-func NewFalsyPredicate(key string, opts Options) (predicate.Predicate, error) {
+func NewFalsyPredicate[T client.Object](key string, opts Options) (predicate.TypedPredicate[T], error) {
 	opts.truthy = false
-	return newFilter(key, opts)
+	return newFilter[T](key, opts)
 }
 
 // NewFalsyEventHandler returns an event handler that enqueues objects
 // that do not have annotation with key string key or whose value is falsy.
-func NewFalsyEventHandler(key string, opts Options) (handler.EventHandler, error) {
+func NewFalsyEventHandler[T client.Object](key string, opts Options) (handler.TypedEventHandler[T], error) {
 	opts.truthy = false
-	return newEventHandler(key, opts)
+	return newEventHandler[T](key, opts)
 }
 
 // NewTruthyPredicate returns a predicate that passes objects
 // that do have annotation with key string key and whose value is truthy.
-func NewTruthyPredicate(key string, opts Options) (predicate.Predicate, error) {
+func NewTruthyPredicate[T client.Object](key string, opts Options) (predicate.TypedPredicate[T], error) {
 	opts.truthy = true
-	return newFilter(key, opts)
+	return newFilter[T](key, opts)
 }
 
 // NewTruthyEventHandler returns an event handler that enqueues objects
 // that do have annotation with key string key and whose value is truthy.
-func NewTruthyEventHandler(key string, opts Options) (handler.EventHandler, error) {
+func NewTruthyEventHandler[T client.Object](key string, opts Options) (handler.TypedEventHandler[T], error) {
 	opts.truthy = true
-	return newEventHandler(key, opts)
+	return newEventHandler[T](key, opts)
 }
 
 func defaultOptions(opts *Options) {
@@ -80,30 +80,30 @@ func defaultOptions(opts *Options) {
 }
 
 // newEventHandler returns a filter for use as an event handler.
-func newEventHandler(key string, opts Options) (handler.EventHandler, error) {
-	f, err := newFilter(key, opts)
+func newEventHandler[T client.Object](key string, opts Options) (handler.TypedEventHandler[T], error) {
+	f, err := newFilter[T](key, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	f.hdlr = &handler.EnqueueRequestForObject{}
-	return handler.Funcs{
-		CreateFunc: func(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+	f.hdlr = &handler.TypedEnqueueRequestForObject[T]{}
+	return handler.TypedFuncs[T]{
+		CreateFunc: func(ctx context.Context, evt event.TypedCreateEvent[T], q workqueue.RateLimitingInterface) {
 			if f.Create(evt) {
 				f.hdlr.Create(ctx, evt, q)
 			}
 		},
-		UpdateFunc: func(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+		UpdateFunc: func(ctx context.Context, evt event.TypedUpdateEvent[T], q workqueue.RateLimitingInterface) {
 			if f.Update(evt) {
 				f.hdlr.Update(ctx, evt, q)
 			}
 		},
-		DeleteFunc: func(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+		DeleteFunc: func(ctx context.Context, evt event.TypedDeleteEvent[T], q workqueue.RateLimitingInterface) {
 			if f.Delete(evt) {
 				f.hdlr.Delete(ctx, evt, q)
 			}
 		},
-		GenericFunc: func(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+		GenericFunc: func(ctx context.Context, evt event.TypedGenericEvent[T], q workqueue.RateLimitingInterface) {
 			if f.Generic(evt) {
 				f.hdlr.Generic(ctx, evt, q)
 			}
@@ -112,7 +112,7 @@ func newEventHandler(key string, opts Options) (handler.EventHandler, error) {
 }
 
 // newFilter returns a filter for use as a predicate.
-func newFilter(key string, opts Options) (*filter, error) {
+func newFilter[T client.Object](key string, opts Options) (*filter[T], error) {
 	defaultOptions(&opts)
 
 	// Make sure the annotation key and eventual value are valid together.
@@ -120,7 +120,7 @@ func newFilter(key string, opts Options) (*filter, error) {
 		return nil, err
 	}
 
-	f := filter{}
+	f := filter[T]{}
 	f.key = key
 	// Falsy filters return true in all cases except when the annotation is present and true.
 	// Truthy filters only return true when the annotation is present and true.
@@ -138,31 +138,37 @@ func validateAnnotation(key string, truthy bool) error {
 // filter implements a filter for objects with a truthy "paused" annotation (see Key).
 // When this annotation is removed or value does not evaluate to "true",
 // the controller will see events from these objects again.
-type filter struct {
+type filter[T client.Object] struct {
 	key  string
 	ret  bool
 	log  logr.Logger
-	hdlr *handler.EnqueueRequestForObject
+	hdlr *handler.TypedEnqueueRequestForObject[T]
 }
 
 // Create implements predicate.Predicate.Create().
-func (f *filter) Create(evt event.CreateEvent) bool {
-	if evt.Object == nil {
+func (f *filter[T]) Create(evt event.TypedCreateEvent[T]) bool {
+	var obj client.Object = evt.Object
+	if obj == nil {
 		if f.hdlr == nil {
 			f.log.Error(nil, "CreateEvent received with no metadata", "event", evt)
 		}
 		return f.ret
 	}
-	return f.run(evt.Object)
+	return f.run(obj)
 }
 
 // Update implements predicate.Predicate.Update().
-func (f *filter) Update(evt event.UpdateEvent) bool {
-	if evt.ObjectNew != nil {
-		return f.run(evt.ObjectNew)
-	} else if evt.ObjectOld != nil {
-		return f.run(evt.ObjectOld)
+func (f *filter[T]) Update(evt event.TypedUpdateEvent[T]) bool {
+	var newObj client.Object = evt.ObjectNew
+	if newObj != nil {
+		return f.run(newObj)
 	}
+
+	var oldObj client.Object = evt.ObjectOld
+	if oldObj != nil {
+		return f.run(oldObj)
+	}
+
 	if f.hdlr == nil {
 		f.log.Error(nil, "UpdateEvent received with no metadata", "event", evt)
 	}
@@ -170,28 +176,30 @@ func (f *filter) Update(evt event.UpdateEvent) bool {
 }
 
 // Delete implements predicate.Predicate.Delete().
-func (f *filter) Delete(evt event.DeleteEvent) bool {
-	if evt.Object == nil {
+func (f *filter[T]) Delete(evt event.TypedDeleteEvent[T]) bool {
+	var obj client.Object = evt.Object
+	if obj == nil {
 		if f.hdlr == nil {
 			f.log.Error(nil, "DeleteEvent received with no metadata", "event", evt)
 		}
 		return f.ret
 	}
-	return f.run(evt.Object)
+	return f.run(obj)
 }
 
 // Generic implements predicate.Predicate.Generic().
-func (f *filter) Generic(evt event.GenericEvent) bool {
-	if evt.Object == nil {
+func (f *filter[T]) Generic(evt event.TypedGenericEvent[T]) bool {
+	var obj client.Object = evt.Object
+	if obj == nil {
 		if f.hdlr == nil {
 			f.log.Error(nil, "GenericEvent received with no metadata", "event", evt)
 		}
 		return f.ret
 	}
-	return f.run(evt.Object)
+	return f.run(obj)
 }
 
-func (f *filter) run(obj client.Object) bool {
+func (f *filter[T]) run(obj client.Object) bool {
 	annotations := obj.GetAnnotations()
 	if len(annotations) == 0 {
 		return f.ret

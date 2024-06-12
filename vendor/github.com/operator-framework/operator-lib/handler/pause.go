@@ -15,6 +15,7 @@
 package handler
 
 import (
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
 	"github.com/operator-framework/operator-lib/internal/annotation"
@@ -31,6 +32,6 @@ import (
 // a stricter annotation modification policy. See AdmissionReview configuration for user info available
 // to a webhook:
 // https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#request
-func NewPause(key string) (handler.EventHandler, error) {
-	return annotation.NewFalsyEventHandler(key, annotation.Options{Log: log})
+func NewPause[T client.Object](key string) (handler.TypedEventHandler[T], error) {
+	return annotation.NewFalsyEventHandler[T](key, annotation.Options{Log: log})
 }

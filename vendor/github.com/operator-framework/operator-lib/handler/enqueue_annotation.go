@@ -81,21 +81,21 @@ const (
 // if a parent creates a child resource across scopes not supported by owner references, it becomes the
 // responsibility of the reconciler to clean up the child resource. Hence, the resource utilizing this handler
 // SHOULD ALWAYS BE IMPLEMENTED WITH A FINALIZER.
-type EnqueueRequestForAnnotation struct {
+type EnqueueRequestForAnnotation[T client.Object] struct {
 	Type schema.GroupKind
 }
 
-var _ crtHandler.EventHandler = &EnqueueRequestForAnnotation{}
+var _ crtHandler.EventHandler = &EnqueueRequestForAnnotation[client.Object]{}
 
 // Create implements EventHandler
-func (e *EnqueueRequestForAnnotation) Create(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForAnnotation[T]) Create(_ context.Context, evt event.TypedCreateEvent[T], q workqueue.RateLimitingInterface) {
 	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
 
 // Update implements EventHandler
-func (e *EnqueueRequestForAnnotation) Update(_ context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForAnnotation[T]) Update(_ context.Context, evt event.TypedUpdateEvent[T], q workqueue.RateLimitingInterface) {
 	if ok, req := e.getAnnotationRequests(evt.ObjectOld); ok {
 		q.Add(req)
 	}
@@ -105,21 +105,21 @@ func (e *EnqueueRequestForAnnotation) Update(_ context.Context, evt event.Update
 }
 
 // Delete implements EventHandler
-func (e *EnqueueRequestForAnnotation) Delete(_ context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForAnnotation[T]) Delete(_ context.Context, evt event.TypedDeleteEvent[T], q workqueue.RateLimitingInterface) {
 	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
 
 // Generic implements EventHandler
-func (e *EnqueueRequestForAnnotation) Generic(_ context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForAnnotation[T]) Generic(_ context.Context, evt event.TypedGenericEvent[T], q workqueue.RateLimitingInterface) {
 	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
 
 // getAnnotationRequests checks if the provided object has the annotations so as to enqueue the reconcile request.
-func (e *EnqueueRequestForAnnotation) getAnnotationRequests(object metav1.Object) (bool, reconcile.Request) {
+func (e *EnqueueRequestForAnnotation[T]) getAnnotationRequests(object metav1.Object) (bool, reconcile.Request) {
 	if len(object.GetAnnotations()) == 0 {
 		return false, reconcile.Request{}
 	}
