@@ -3280,15 +3280,16 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return err
 	}
 
-	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory == nil {
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory == nil ||
+		vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest == nil ||
+		vmi.Spec.Domain.Memory == nil ||
+		vmi.Spec.Domain.Memory.Guest == nil ||
+		vmi.Status.Memory == nil ||
+		vmi.Status.Memory.GuestCurrent == nil {
 		return nil
 	}
 
-	guestMemory := vmi.Spec.Domain.Memory.Guest
-
-	if vmi.Status.Memory == nil ||
-		vmi.Status.Memory.GuestCurrent == nil ||
-		vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Equal(*guestMemory) {
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
 		return nil
 	}
 
