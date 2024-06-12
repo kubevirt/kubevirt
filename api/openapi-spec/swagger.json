@@ -17330,6 +17330,11 @@
       "type": "string",
       "default": ""
      },
+     "acpiIndex": {
+      "description": "If specified, the ACPI index is used to provide network interface device naming, that is stable across changes in PCI addresses assigned to the device. This value is required to be unique across all devices and be between 1 and (16*1024-1).",
+      "type": "integer",
+      "format": "int32"
+     },
      "name": {
       "type": "string",
       "default": ""

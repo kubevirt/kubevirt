@@ -18285,6 +18285,13 @@ func schema_kubevirtio_api_core_v1_HostDevice(ref common.ReferenceCallback) comm
 							Format:      "",
 						},
 					},
+					"acpiIndex": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the ACPI index is used to provide network interface device naming, that is stable across changes in PCI addresses assigned to the device. This value is required to be unique across all devices and be between 1 and (16*1024-1).",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 					"tag": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
