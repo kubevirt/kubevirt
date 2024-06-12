@@ -2219,7 +2219,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			// disk[0]cache=none
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
-			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
+			vmi.Spec.Domain.Devices.Disks[3].IO = v1.DriverIOThreads
 
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -2229,8 +2229,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("checking if number of attached disks is equal to real disks number")
 			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(len(disks)))
 
-			ioNative := v1.IONative
-			ioThreads := v1.IOThreads
+			ioNative := v1.DriverIONative
+			ioThreads := v1.DriverIOThreads
 			ioNone := ""
 
 			By("checking if default io has not been set for sparsed file")

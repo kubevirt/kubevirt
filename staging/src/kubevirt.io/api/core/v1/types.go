@@ -1758,12 +1758,12 @@ const (
 	// CacheWriteBack - I/O from the guest is cached on the host.
 	CacheWriteBack DriverCache = "writeback"
 
-	// IOThreads - User mode based threads with a shared lock that perform I/O tasks. Can impact performance but offers
+	// DriveIOThreads - User mode based threads with a shared lock that perform I/O tasks. Can impact performance but offers
 	// more predictable behaviour. This method is also takes fewer CPU cycles to submit I/O requests.
-	IOThreads DriverIO = "threads"
-	// IONative - Kernel native I/O tasks (AIO) offer a better performance but can block the VM if the file is not fully
+	DriverIOThreads DriverIO = "threads"
+	// DriveIONative - Kernel native I/O tasks (AIO) offer a better performance but can block the VM if the file is not fully
 	// allocated so this method recommended only when the backing file/disk/etc is fully preallocated.
-	IONative DriverIO = "native"
+	DriverIONative DriverIO = "native"
 )
 
 // Handler defines a specific action that should be taken

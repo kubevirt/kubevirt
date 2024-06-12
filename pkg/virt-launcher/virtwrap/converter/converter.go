@@ -501,7 +501,7 @@ func SetOptimalIOMode(disk *api.Disk) error {
 	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
 		// set native for block device or pre-allocateed image file
 		if (disk.Source.Dev != "") || IsPreAllocated(disk.Source.File) {
-			disk.Driver.IO = v1.IONative
+			disk.Driver.IO = v1.DriverIONative
 		}
 	}
 	// For now we don't explicitly set io=threads even for sparse files as it's
@@ -1642,7 +1642,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 			// We can find a workaround by adding IOThreads to the SCSI controller
 			case v1.DiskBusSCSI:
-				newDisk.Driver.IO = v1.IOThreads
+				newDisk.Driver.IO = v1.DriverIOThreads
 
 			default:
 				// TODO: if possible, find a workaround for SATA and USB buses.
