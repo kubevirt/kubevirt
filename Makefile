@@ -50,6 +50,7 @@ generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
 	hack/dockerized hack/sync-kubevirtci.sh
 	hack/dockerized hack/sync-common-instancetypes.sh
+	./hack/update-generated-api-testdata.sh
 
 generate-verify: generate
 	./hack/verify-generate.sh
@@ -239,6 +240,9 @@ lint-metrics:
 gofumpt:
 	./hack/dockerized "hack/gofumpt.sh"
 
+update-generated-api-testdata:
+	./hack/update-generated-api-testdata.sh
+    
 .PHONY: \
 	build-verify \
 	conformance \
@@ -275,5 +279,6 @@ gofumpt:
 	format \
 	fmt \
 	lint \
-	lint-metrics\
+	lint-metrics \
+	update-generated-api-testdata \
 	$(NULL)
