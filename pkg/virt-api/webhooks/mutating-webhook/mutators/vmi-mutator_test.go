@@ -133,11 +133,11 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		patchOps := []patch.PatchOperation{
 			{Value: vmiStatus},
 		}
-		err = json.Unmarshal(resp.Patch, &patchOps)
-		Expect(err).ToNot(HaveOccurred())
-		if len(patchOps) == 0 {
+		if resp.Patch == nil {
 			return &newVMI.Status
 		}
+		err = json.Unmarshal(resp.Patch, &patchOps)
+		Expect(err).ToNot(HaveOccurred())
 
 		return vmiStatus
 	}

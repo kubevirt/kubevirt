@@ -30,20 +30,18 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
 	virtv1 "kubevirt.io/api/core/v1"
-
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -129,8 +127,9 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 
-		expectedJSONPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, vmi.Status.NodeName)
-		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(vmi, expectedJSONPatchData)))
+		patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", vmi.Status.NodeName)).GeneratePayload()
+		Expect(err).To(Not(HaveOccurred()))
+		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(vmi, patchBytes)))
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is migratable",
 			nil,
@@ -328,8 +327,9 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 
-		expectedJSONPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, migratableVMI.Status.NodeName)
-		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, expectedJSONPatchData)))
+		patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", migratableVMI.Status.NodeName)).GeneratePayload()
+		Expect(err).To(Not(HaveOccurred()))
+		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, patchBytes)))
 	})
 
 	It("should allow the request and not mark the VMI again when the VMI is already marked for evacuation", func() {
@@ -384,8 +384,9 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 
-		expectedJSONPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, migratableVMI.Status.NodeName)
-		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, expectedJSONPatchData)))
+		patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", migratableVMI.Status.NodeName)).GeneratePayload()
+		Expect(err).To(Not(HaveOccurred()))
+		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, patchBytes)))
 	})
 })
 
@@ -492,7 +493,7 @@ func newDeniedAdmissionResponse(message string) *admissionv1.AdmissionResponse {
 	}
 }
 
-func newExpectedJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, expectedJSONPatchData string) testing.PatchActionImpl {
+func newExpectedJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, expectedJSONPatchData []byte) testing.PatchActionImpl {
 	return testing.PatchActionImpl{
 		ActionImpl: testing.ActionImpl{
 			Namespace: vmi.Namespace,
@@ -506,7 +507,7 @@ func newExpectedJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, expectedJSONP
 		},
 		Name:      vmi.Name,
 		PatchType: types.JSONPatchType,
-		Patch:     []byte(expectedJSONPatchData),
+		Patch:     expectedJSONPatchData,
 	}
 }
 

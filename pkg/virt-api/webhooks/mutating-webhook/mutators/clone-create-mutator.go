@@ -78,16 +78,8 @@ func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admi
 		}
 	}
 
-	var patchOps []patch.PatchOperation
-	var value interface{}
-	value = vmClone.Spec
-	patchOps = append(patchOps, patch.PatchOperation{
-		Op:    "replace",
-		Path:  "/spec",
-		Value: value,
-	})
+	patchBytes, err := patch.New(patch.WithReplace("/spec", vmClone.Spec)).GeneratePayload()
 
-	patchBytes, err := json.Marshal(patchOps)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
