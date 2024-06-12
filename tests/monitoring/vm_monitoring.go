@@ -251,7 +251,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 	})
 
 	Context("VM metrics that are based on the guest agent", func() {
-		It("should have kubevirt_vmi_info correctly configured with guest OS labels", func() {
+		It("[test_id:11267]should have kubevirt_vmi_info correctly configured with guest OS labels", func() {
 			agentVMI := createAgentVMI()
 			Expect(agentVMI.Status.GuestOSInfo.KernelRelease).ToNot(BeEmpty())
 			Expect(agentVMI.Status.GuestOSInfo.Machine).ToNot(BeEmpty())
