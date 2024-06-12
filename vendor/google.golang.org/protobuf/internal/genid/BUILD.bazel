@@ -10,6 +10,7 @@ go_library(
         "duration_gen.go",
         "empty_gen.go",
         "field_mask_gen.go",
+        "go_features_gen.go",
         "goname.go",
         "map_entry.go",
         "source_context_gen.go",

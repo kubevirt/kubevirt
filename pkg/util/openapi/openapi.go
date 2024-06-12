@@ -14,6 +14,7 @@ import (
 	"k8s.io/kube-openapi/pkg/builder"
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/errors"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"kubevirt.io/client-go/api"
@@ -83,6 +84,61 @@ func CreateConfig() *common.Config {
 		SecurityDefinitions: &spec.SecurityDefinitions{
 			"BearerToken": &spec.SecurityScheme{
 				SecuritySchemeProps: spec.SecuritySchemeProps{
+					Type:        "apiKey",
+					Name:        "authorization",
+					In:          "header",
+					Description: "Bearer Token authentication",
+				},
+			},
+		},
+		GetDefinitions: func(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
+			m := api.GetOpenAPIDefinitions(ref)
+			for k, v := range m {
+				if _, ok := m[k]; !ok {
+					m[k] = v
+				}
+			}
+			return m
+		},
+
+		GetDefinitionName: func(name string) (string, spec.Extensions) {
+			if strings.Contains(name, "kubevirt.io") {
+				// keeping for validation
+				return name[strings.LastIndex(name, "/")+1:], nil
+			}
+			//adpting k8s style
+			return strings.ReplaceAll(name, "/", "."), nil
+		},
+	}
+}
+
+func CreateV3Config() *common.OpenAPIV3Config {
+	return &common.OpenAPIV3Config{
+		CommonResponses: map[int]*spec3.Response{
+			401: {
+				ResponseProps: spec3.ResponseProps{
+					Description: "Unauthorized",
+				},
+			},
+		},
+		Info: &spec.Info{
+			InfoProps: spec.InfoProps{
+				Title:       "KubeVirt API",
+				Description: "This is KubeVirt API an add-on for Kubernetes.",
+				Contact: &spec.ContactInfo{
+					Name:  "kubevirt-dev",
+					Email: "kubevirt-dev@googlegroups.com",
+					URL:   "https://github.com/kubevirt/kubevirt",
+				},
+				License: &spec.License{
+					Name: "Apache 2.0",
+					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+				},
+			},
+		},
+		SecuritySchemes: spec3.SecuritySchemes{
+			"BearerToken": &spec3.SecurityScheme{
+				SecuritySchemeProps: spec3.SecuritySchemeProps{
 					Type:        "apiKey",
 					Name:        "authorization",
 					In:          "header",

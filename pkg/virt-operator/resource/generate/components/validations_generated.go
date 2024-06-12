@@ -70,6 +70,7 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+              x-kubernetes-list-type: atomic
             dataSource:
               description: |-
                 dataSource field can be used to specify either:
@@ -154,33 +155,6 @@ var CRDsValidation map[string]string = map[string]string{
                 status field of the claim.
                 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
               properties:
-                claims:
-                  description: |-
-                    Claims lists the names of resources, defined in spec.resourceClaims,
-                    that are used by this container.
-
-
-                    This is an alpha field and requires enabling the
-                    DynamicResourceAllocation feature gate.
-
-
-                    This field is immutable. It can only be set for containers.
-                  items:
-                    description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                    properties:
-                      name:
-                        description: |-
-                          Name must match the name of one entry in pod.spec.resourceClaims of
-                          the Pod where this field is used. It makes that resource available
-                          inside a container.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type: array
-                  x-kubernetes-list-map-keys:
-                  - name
-                  x-kubernetes-list-type: map
                 limits:
                   additionalProperties:
                     anyOf:
@@ -236,11 +210,13 @@ var CRDsValidation map[string]string = map[string]string{
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                     required:
                     - key
                     - operator
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 matchLabels:
                   additionalProperties:
                     type: string
@@ -255,6 +231,21 @@ var CRDsValidation map[string]string = map[string]string{
               description: |-
                 storageClassName is the name of the StorageClass required by the claim.
                 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+              type: string
+            volumeAttributesClassName:
+              description: |-
+                volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
+                If specified, the CSI driver will create or update the volume with the attributes defined
+                in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
+                it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
+                will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
+                If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
+                will be set by the persistentvolume controller if it exists.
+                If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
+                set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
+                exists.
+                More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+                (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
               type: string
             volumeMode:
               description: |-
@@ -616,11 +607,13 @@ var CRDsValidation map[string]string = map[string]string{
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                     required:
                     - key
                     - operator
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 matchLabels:
                   additionalProperties:
                     type: string
@@ -844,11 +837,13 @@ var CRDsValidation map[string]string = map[string]string{
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                     required:
                     - key
                     - operator
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 matchLabels:
                   additionalProperties:
                     type: string
@@ -1074,11 +1069,13 @@ var CRDsValidation map[string]string = map[string]string{
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                         - key
                         - operator
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     matchLabels:
                       additionalProperties:
                         type: string
@@ -1741,11 +1738,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchFields:
                                     description: A list of node selector requirements
                                       by node's fields.
@@ -1773,11 +1772,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                 type: object
                                 x-kubernetes-map-type: atomic
                               weight:
@@ -1790,6 +1791,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the affinity requirements specified by this field are not met at
@@ -1834,11 +1836,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchFields:
                                     description: A list of node selector requirements
                                       by node's fields.
@@ -1866,14 +1870,17 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                 type: object
                                 x-kubernetes-map-type: atomic
                               type: array
+                              x-kubernetes-list-type: atomic
                           required:
                           - nodeSelectorTerms
                           type: object
@@ -1904,8 +1911,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   with the corresponding weight.
                                 properties:
                                   labelSelector:
-                                    description: A label query over a set of resources,
-                                      in this case pods.
+                                    description: |-
+                                      A label query over a set of resources, in this case pods.
+                                      If it's null, this PodAffinityTerm matches with no Pods.
                                     properties:
                                       matchExpressions:
                                         description: matchExpressions is a list of
@@ -1934,11 +1942,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -1949,6 +1959,36 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  matchLabelKeys:
+                                    description: |-
+                                      MatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                      Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  mismatchLabelKeys:
+                                    description: |-
+                                      MismatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                      Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
                                   namespaceSelector:
                                     description: |-
                                       A label query over the set of namespaces that the term applies to.
@@ -1984,11 +2024,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -2008,6 +2050,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       type: string
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   topologyKey:
                                     description: |-
                                       This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -2030,6 +2073,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the affinity requirements specified by this field are not met at
@@ -2049,8 +2093,9 @@ var CRDsValidation map[string]string = map[string]string{
                               a pod of the set of pods is running
                             properties:
                               labelSelector:
-                                description: A label query over a set of resources,
-                                  in this case pods.
+                                description: |-
+                                  A label query over a set of resources, in this case pods.
+                                  If it's null, this PodAffinityTerm matches with no Pods.
                                 properties:
                                   matchExpressions:
                                     description: matchExpressions is a list of label
@@ -2079,11 +2124,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -2094,6 +2141,36 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                 type: object
                                 x-kubernetes-map-type: atomic
+                              matchLabelKeys:
+                                description: |-
+                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              mismatchLabelKeys:
+                                description: |-
+                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               namespaceSelector:
                                 description: |-
                                   A label query over the set of namespaces that the term applies to.
@@ -2129,11 +2206,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -2153,6 +2232,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               topologyKey:
                                 description: |-
                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -2165,6 +2245,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - topologyKey
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     podAntiAffinity:
                       description: Describes pod anti-affinity scheduling rules (e.g.
@@ -2192,8 +2273,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   with the corresponding weight.
                                 properties:
                                   labelSelector:
-                                    description: A label query over a set of resources,
-                                      in this case pods.
+                                    description: |-
+                                      A label query over a set of resources, in this case pods.
+                                      If it's null, this PodAffinityTerm matches with no Pods.
                                     properties:
                                       matchExpressions:
                                         description: matchExpressions is a list of
@@ -2222,11 +2304,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -2237,6 +2321,36 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  matchLabelKeys:
+                                    description: |-
+                                      MatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                      Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  mismatchLabelKeys:
+                                    description: |-
+                                      MismatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                      Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
                                   namespaceSelector:
                                     description: |-
                                       A label query over the set of namespaces that the term applies to.
@@ -2272,11 +2386,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -2296,6 +2412,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       type: string
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   topologyKey:
                                     description: |-
                                       This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -2318,6 +2435,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the anti-affinity requirements specified by this field are not met at
@@ -2337,8 +2455,9 @@ var CRDsValidation map[string]string = map[string]string{
                               a pod of the set of pods is running
                             properties:
                               labelSelector:
-                                description: A label query over a set of resources,
-                                  in this case pods.
+                                description: |-
+                                  A label query over a set of resources, in this case pods.
+                                  If it's null, this PodAffinityTerm matches with no Pods.
                                 properties:
                                   matchExpressions:
                                     description: matchExpressions is a list of label
@@ -2367,11 +2486,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -2382,6 +2503,36 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                 type: object
                                 x-kubernetes-map-type: atomic
+                              matchLabelKeys:
+                                description: |-
+                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              mismatchLabelKeys:
+                                description: |-
+                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               namespaceSelector:
                                 description: |-
                                   A label query over the set of namespaces that the term applies to.
@@ -2417,11 +2568,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -2441,6 +2594,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               topologyKey:
                                 description: |-
                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -2453,6 +2607,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - topologyKey
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                   type: object
                 nodeSelector:
@@ -2656,11 +2811,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchFields:
                                     description: A list of node selector requirements
                                       by node's fields.
@@ -2688,11 +2845,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                 type: object
                                 x-kubernetes-map-type: atomic
                               weight:
@@ -2705,6 +2864,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the affinity requirements specified by this field are not met at
@@ -2749,11 +2909,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchFields:
                                     description: A list of node selector requirements
                                       by node's fields.
@@ -2781,14 +2943,17 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                 type: object
                                 x-kubernetes-map-type: atomic
                               type: array
+                              x-kubernetes-list-type: atomic
                           required:
                           - nodeSelectorTerms
                           type: object
@@ -2819,8 +2984,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   with the corresponding weight.
                                 properties:
                                   labelSelector:
-                                    description: A label query over a set of resources,
-                                      in this case pods.
+                                    description: |-
+                                      A label query over a set of resources, in this case pods.
+                                      If it's null, this PodAffinityTerm matches with no Pods.
                                     properties:
                                       matchExpressions:
                                         description: matchExpressions is a list of
@@ -2849,11 +3015,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -2864,6 +3032,36 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  matchLabelKeys:
+                                    description: |-
+                                      MatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                      Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  mismatchLabelKeys:
+                                    description: |-
+                                      MismatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                      Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
                                   namespaceSelector:
                                     description: |-
                                       A label query over the set of namespaces that the term applies to.
@@ -2899,11 +3097,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -2923,6 +3123,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       type: string
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   topologyKey:
                                     description: |-
                                       This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -2945,6 +3146,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the affinity requirements specified by this field are not met at
@@ -2964,8 +3166,9 @@ var CRDsValidation map[string]string = map[string]string{
                               a pod of the set of pods is running
                             properties:
                               labelSelector:
-                                description: A label query over a set of resources,
-                                  in this case pods.
+                                description: |-
+                                  A label query over a set of resources, in this case pods.
+                                  If it's null, this PodAffinityTerm matches with no Pods.
                                 properties:
                                   matchExpressions:
                                     description: matchExpressions is a list of label
@@ -2994,11 +3197,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -3009,6 +3214,36 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                 type: object
                                 x-kubernetes-map-type: atomic
+                              matchLabelKeys:
+                                description: |-
+                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              mismatchLabelKeys:
+                                description: |-
+                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               namespaceSelector:
                                 description: |-
                                   A label query over the set of namespaces that the term applies to.
@@ -3044,11 +3279,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -3068,6 +3305,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               topologyKey:
                                 description: |-
                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -3080,6 +3318,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - topologyKey
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     podAntiAffinity:
                       description: Describes pod anti-affinity scheduling rules (e.g.
@@ -3107,8 +3346,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   with the corresponding weight.
                                 properties:
                                   labelSelector:
-                                    description: A label query over a set of resources,
-                                      in this case pods.
+                                    description: |-
+                                      A label query over a set of resources, in this case pods.
+                                      If it's null, this PodAffinityTerm matches with no Pods.
                                     properties:
                                       matchExpressions:
                                         description: matchExpressions is a list of
@@ -3137,11 +3377,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -3152,6 +3394,36 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  matchLabelKeys:
+                                    description: |-
+                                      MatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                      Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  mismatchLabelKeys:
+                                    description: |-
+                                      MismatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                      Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
                                   namespaceSelector:
                                     description: |-
                                       A label query over the set of namespaces that the term applies to.
@@ -3187,11 +3459,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -3211,6 +3485,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       type: string
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   topologyKey:
                                     description: |-
                                       This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -3233,6 +3508,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the anti-affinity requirements specified by this field are not met at
@@ -3252,8 +3528,9 @@ var CRDsValidation map[string]string = map[string]string{
                               a pod of the set of pods is running
                             properties:
                               labelSelector:
-                                description: A label query over a set of resources,
-                                  in this case pods.
+                                description: |-
+                                  A label query over a set of resources, in this case pods.
+                                  If it's null, this PodAffinityTerm matches with no Pods.
                                 properties:
                                   matchExpressions:
                                     description: matchExpressions is a list of label
@@ -3282,11 +3559,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -3297,6 +3576,36 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                 type: object
                                 x-kubernetes-map-type: atomic
+                              matchLabelKeys:
+                                description: |-
+                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              mismatchLabelKeys:
+                                description: |-
+                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               namespaceSelector:
                                 description: |-
                                   A label query over the set of namespaces that the term applies to.
@@ -3332,11 +3641,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -3356,6 +3667,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               topologyKey:
                                 description: |-
                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -3368,6 +3680,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - topologyKey
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                   type: object
                 nodeSelector:
@@ -3690,6 +4003,7 @@ var CRDsValidation map[string]string = map[string]string{
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       dataSource:
                         description: |-
                           dataSource field can be used to specify either:
@@ -3774,33 +4088,6 @@ var CRDsValidation map[string]string = map[string]string{
                           status field of the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                         properties:
-                          claims:
-                            description: |-
-                              Claims lists the names of resources, defined in spec.resourceClaims,
-                              that are used by this container.
-
-
-                              This is an alpha field and requires enabling the
-                              DynamicResourceAllocation feature gate.
-
-
-                              This field is immutable. It can only be set for containers.
-                            items:
-                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                              properties:
-                                name:
-                                  description: |-
-                                    Name must match the name of one entry in pod.spec.resourceClaims of
-                                    the Pod where this field is used. It makes that resource available
-                                    inside a container.
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                            type: array
-                            x-kubernetes-list-map-keys:
-                            - name
-                            x-kubernetes-list-type: map
                           limits:
                             additionalProperties:
                               anyOf:
@@ -3856,11 +4143,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -3875,6 +4164,21 @@ var CRDsValidation map[string]string = map[string]string{
                         description: |-
                           storageClassName is the name of the StorageClass required by the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+                        type: string
+                      volumeAttributesClassName:
+                        description: |-
+                          volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
+                          If specified, the CSI driver will create or update the volume with the attributes defined
+                          in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
+                          it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
+                          will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
+                          If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
+                          will be set by the persistentvolume controller if it exists.
+                          If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
+                          set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
+                          exists.
+                          More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+                          (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
                         type: string
                       volumeMode:
                         description: |-
@@ -4240,11 +4544,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -4526,11 +4832,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchFields:
                                     description: A list of node selector requirements
                                       by node's fields.
@@ -4558,11 +4866,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                 type: object
                                 x-kubernetes-map-type: atomic
                               weight:
@@ -4575,6 +4885,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the affinity requirements specified by this field are not met at
@@ -4619,11 +4930,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchFields:
                                     description: A list of node selector requirements
                                       by node's fields.
@@ -4651,14 +4964,17 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                 type: object
                                 x-kubernetes-map-type: atomic
                               type: array
+                              x-kubernetes-list-type: atomic
                           required:
                           - nodeSelectorTerms
                           type: object
@@ -4689,8 +5005,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   with the corresponding weight.
                                 properties:
                                   labelSelector:
-                                    description: A label query over a set of resources,
-                                      in this case pods.
+                                    description: |-
+                                      A label query over a set of resources, in this case pods.
+                                      If it's null, this PodAffinityTerm matches with no Pods.
                                     properties:
                                       matchExpressions:
                                         description: matchExpressions is a list of
@@ -4719,11 +5036,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -4734,6 +5053,36 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  matchLabelKeys:
+                                    description: |-
+                                      MatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                      Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  mismatchLabelKeys:
+                                    description: |-
+                                      MismatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                      Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
                                   namespaceSelector:
                                     description: |-
                                       A label query over the set of namespaces that the term applies to.
@@ -4769,11 +5118,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -4793,6 +5144,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       type: string
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   topologyKey:
                                     description: |-
                                       This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -4815,6 +5167,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the affinity requirements specified by this field are not met at
@@ -4834,8 +5187,9 @@ var CRDsValidation map[string]string = map[string]string{
                               a pod of the set of pods is running
                             properties:
                               labelSelector:
-                                description: A label query over a set of resources,
-                                  in this case pods.
+                                description: |-
+                                  A label query over a set of resources, in this case pods.
+                                  If it's null, this PodAffinityTerm matches with no Pods.
                                 properties:
                                   matchExpressions:
                                     description: matchExpressions is a list of label
@@ -4864,11 +5218,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -4879,6 +5235,36 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                 type: object
                                 x-kubernetes-map-type: atomic
+                              matchLabelKeys:
+                                description: |-
+                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              mismatchLabelKeys:
+                                description: |-
+                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               namespaceSelector:
                                 description: |-
                                   A label query over the set of namespaces that the term applies to.
@@ -4914,11 +5300,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -4938,6 +5326,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               topologyKey:
                                 description: |-
                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -4950,6 +5339,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - topologyKey
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     podAntiAffinity:
                       description: Describes pod anti-affinity scheduling rules (e.g.
@@ -4977,8 +5367,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   with the corresponding weight.
                                 properties:
                                   labelSelector:
-                                    description: A label query over a set of resources,
-                                      in this case pods.
+                                    description: |-
+                                      A label query over a set of resources, in this case pods.
+                                      If it's null, this PodAffinityTerm matches with no Pods.
                                     properties:
                                       matchExpressions:
                                         description: matchExpressions is a list of
@@ -5007,11 +5398,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -5022,6 +5415,36 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  matchLabelKeys:
+                                    description: |-
+                                      MatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                      Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  mismatchLabelKeys:
+                                    description: |-
+                                      MismatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                      Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
                                   namespaceSelector:
                                     description: |-
                                       A label query over the set of namespaces that the term applies to.
@@ -5057,11 +5480,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -5081,6 +5506,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       type: string
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   topologyKey:
                                     description: |-
                                       This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -5103,6 +5529,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the anti-affinity requirements specified by this field are not met at
@@ -5122,8 +5549,9 @@ var CRDsValidation map[string]string = map[string]string{
                               a pod of the set of pods is running
                             properties:
                               labelSelector:
-                                description: A label query over a set of resources,
-                                  in this case pods.
+                                description: |-
+                                  A label query over a set of resources, in this case pods.
+                                  If it's null, this PodAffinityTerm matches with no Pods.
                                 properties:
                                   matchExpressions:
                                     description: matchExpressions is a list of label
@@ -5152,11 +5580,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -5167,6 +5597,36 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                 type: object
                                 x-kubernetes-map-type: atomic
+                              matchLabelKeys:
+                                description: |-
+                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              mismatchLabelKeys:
+                                description: |-
+                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               namespaceSelector:
                                 description: |-
                                   A label query over the set of namespaces that the term applies to.
@@ -5202,11 +5662,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -5226,6 +5688,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               topologyKey:
                                 description: |-
                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -5238,6 +5701,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - topologyKey
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                   type: object
                 architecture:
@@ -5259,6 +5723,7 @@ var CRDsValidation map[string]string = map[string]string{
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                     options:
                       description: |-
                         A list of DNS resolver options.
@@ -5276,6 +5741,7 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     searches:
                       description: |-
                         A list of DNS search domains for host-name lookup.
@@ -5284,6 +5750,7 @@ var CRDsValidation map[string]string = map[string]string{
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                   type: object
                 dnsPolicy:
                   description: |-
@@ -6513,6 +6980,7 @@ var CRDsValidation map[string]string = map[string]string{
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     failureThreshold:
                       description: |-
@@ -6540,7 +7008,9 @@ var CRDsValidation map[string]string = map[string]string{
                               used in HTTP probes
                             properties:
                               name:
-                                description: The header field name
+                                description: |-
+                                  The header field name.
+                                  This will be canonicalized upon output, so case-variant names will be understood as the same header.
                                 type: string
                               value:
                                 description: The header field value
@@ -6550,6 +7020,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - value
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         path:
                           description: Path to access on the HTTP server.
                           type: string
@@ -6708,6 +7179,7 @@ var CRDsValidation map[string]string = map[string]string{
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     failureThreshold:
                       description: |-
@@ -6735,7 +7207,9 @@ var CRDsValidation map[string]string = map[string]string{
                               used in HTTP probes
                             properties:
                               name:
-                                description: The header field name
+                                description: |-
+                                  The header field name.
+                                  This will be canonicalized upon output, so case-variant names will be understood as the same header.
                                 type: string
                               value:
                                 description: The header field value
@@ -6745,6 +7219,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - value
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         path:
                           description: Path to access on the HTTP server.
                           type: string
@@ -6917,11 +7392,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -6992,9 +7469,6 @@ var CRDsValidation map[string]string = map[string]string{
                           In this situation, new pod with the same labelSelector cannot be scheduled,
                           because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
                           it will violate MaxSkew.
-
-
-                          This is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).
                         format: int32
                         type: integer
                       nodeAffinityPolicy:
@@ -7245,8 +7719,8 @@ var CRDsValidation map[string]string = map[string]string{
                               properties:
                                 fieldRef:
                                   description: 'Required: Selects a field of the pod:
-                                    only annotations, labels, name and namespace are
-                                    supported.'
+                                    only annotations, labels, name, namespace and
+                                    uid are supported.'
                                   properties:
                                     apiVersion:
                                       description: Version of the schema the FieldPath
@@ -9438,11 +9912,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchFields:
                             description: A list of node selector requirements by node's
                               fields.
@@ -9470,11 +9946,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                         type: object
                         x-kubernetes-map-type: atomic
                       weight:
@@ -9487,6 +9965,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - weight
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 requiredDuringSchedulingIgnoredDuringExecution:
                   description: |-
                     If the affinity requirements specified by this field are not met at
@@ -9531,11 +10010,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchFields:
                             description: A list of node selector requirements by node's
                               fields.
@@ -9563,14 +10044,17 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                         type: object
                         x-kubernetes-map-type: atomic
                       type: array
+                      x-kubernetes-list-type: atomic
                   required:
                   - nodeSelectorTerms
                   type: object
@@ -9600,8 +10084,9 @@ var CRDsValidation map[string]string = map[string]string{
                           the corresponding weight.
                         properties:
                           labelSelector:
-                            description: A label query over a set of resources, in
-                              this case pods.
+                            description: |-
+                              A label query over a set of resources, in this case pods.
+                              If it's null, this PodAffinityTerm matches with no Pods.
                             properties:
                               matchExpressions:
                                 description: matchExpressions is a list of label selector
@@ -9629,11 +10114,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   required:
                                   - key
                                   - operator
                                   type: object
                                 type: array
+                                x-kubernetes-list-type: atomic
                               matchLabels:
                                 additionalProperties:
                                   type: string
@@ -9644,6 +10131,36 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                             type: object
                             x-kubernetes-map-type: atomic
+                          matchLabelKeys:
+                            description: |-
+                              MatchLabelKeys is a set of pod label keys to select which pods will
+                              be taken into consideration. The keys are used to lookup values from the
+                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                              to select the group of existing pods which pods will be taken into consideration
+                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                              pod labels will be ignored. The default value is empty.
+                              The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                              Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          mismatchLabelKeys:
+                            description: |-
+                              MismatchLabelKeys is a set of pod label keys to select which pods will
+                              be taken into consideration. The keys are used to lookup values from the
+                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                              to select the group of existing pods which pods will be taken into consideration
+                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                              pod labels will be ignored. The default value is empty.
+                              The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                              Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
                           namespaceSelector:
                             description: |-
                               A label query over the set of namespaces that the term applies to.
@@ -9678,11 +10195,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   required:
                                   - key
                                   - operator
                                   type: object
                                 type: array
+                                x-kubernetes-list-type: atomic
                               matchLabels:
                                 additionalProperties:
                                   type: string
@@ -9702,6 +10221,7 @@ var CRDsValidation map[string]string = map[string]string{
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           topologyKey:
                             description: |-
                               This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -9724,6 +10244,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - weight
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 requiredDuringSchedulingIgnoredDuringExecution:
                   description: |-
                     If the affinity requirements specified by this field are not met at
@@ -9743,8 +10264,9 @@ var CRDsValidation map[string]string = map[string]string{
                       a pod of the set of pods is running
                     properties:
                       labelSelector:
-                        description: A label query over a set of resources, in this
-                          case pods.
+                        description: |-
+                          A label query over a set of resources, in this case pods.
+                          If it's null, this PodAffinityTerm matches with no Pods.
                         properties:
                           matchExpressions:
                             description: matchExpressions is a list of label selector
@@ -9772,11 +10294,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -9787,6 +10311,36 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                         type: object
                         x-kubernetes-map-type: atomic
+                      matchLabelKeys:
+                        description: |-
+                          MatchLabelKeys is a set of pod label keys to select which pods will
+                          be taken into consideration. The keys are used to lookup values from the
+                          incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                          to select the group of existing pods which pods will be taken into consideration
+                          for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                          pod labels will be ignored. The default value is empty.
+                          The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                          Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      mismatchLabelKeys:
+                        description: |-
+                          MismatchLabelKeys is a set of pod label keys to select which pods will
+                          be taken into consideration. The keys are used to lookup values from the
+                          incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                          to select the group of existing pods which pods will be taken into consideration
+                          for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                          pod labels will be ignored. The default value is empty.
+                          The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                          Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       namespaceSelector:
                         description: |-
                           A label query over the set of namespaces that the term applies to.
@@ -9821,11 +10375,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -9845,6 +10401,7 @@ var CRDsValidation map[string]string = map[string]string{
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       topologyKey:
                         description: |-
                           This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -9857,6 +10414,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - topologyKey
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
               type: object
             podAntiAffinity:
               description: Describes pod anti-affinity scheduling rules (e.g. avoid
@@ -9882,8 +10440,9 @@ var CRDsValidation map[string]string = map[string]string{
                           the corresponding weight.
                         properties:
                           labelSelector:
-                            description: A label query over a set of resources, in
-                              this case pods.
+                            description: |-
+                              A label query over a set of resources, in this case pods.
+                              If it's null, this PodAffinityTerm matches with no Pods.
                             properties:
                               matchExpressions:
                                 description: matchExpressions is a list of label selector
@@ -9911,11 +10470,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   required:
                                   - key
                                   - operator
                                   type: object
                                 type: array
+                                x-kubernetes-list-type: atomic
                               matchLabels:
                                 additionalProperties:
                                   type: string
@@ -9926,6 +10487,36 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                             type: object
                             x-kubernetes-map-type: atomic
+                          matchLabelKeys:
+                            description: |-
+                              MatchLabelKeys is a set of pod label keys to select which pods will
+                              be taken into consideration. The keys are used to lookup values from the
+                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                              to select the group of existing pods which pods will be taken into consideration
+                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                              pod labels will be ignored. The default value is empty.
+                              The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                              Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          mismatchLabelKeys:
+                            description: |-
+                              MismatchLabelKeys is a set of pod label keys to select which pods will
+                              be taken into consideration. The keys are used to lookup values from the
+                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                              to select the group of existing pods which pods will be taken into consideration
+                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                              pod labels will be ignored. The default value is empty.
+                              The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                              Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
                           namespaceSelector:
                             description: |-
                               A label query over the set of namespaces that the term applies to.
@@ -9960,11 +10551,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   required:
                                   - key
                                   - operator
                                   type: object
                                 type: array
+                                x-kubernetes-list-type: atomic
                               matchLabels:
                                 additionalProperties:
                                   type: string
@@ -9984,6 +10577,7 @@ var CRDsValidation map[string]string = map[string]string{
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           topologyKey:
                             description: |-
                               This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -10006,6 +10600,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - weight
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 requiredDuringSchedulingIgnoredDuringExecution:
                   description: |-
                     If the anti-affinity requirements specified by this field are not met at
@@ -10025,8 +10620,9 @@ var CRDsValidation map[string]string = map[string]string{
                       a pod of the set of pods is running
                     properties:
                       labelSelector:
-                        description: A label query over a set of resources, in this
-                          case pods.
+                        description: |-
+                          A label query over a set of resources, in this case pods.
+                          If it's null, this PodAffinityTerm matches with no Pods.
                         properties:
                           matchExpressions:
                             description: matchExpressions is a list of label selector
@@ -10054,11 +10650,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -10069,6 +10667,36 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                         type: object
                         x-kubernetes-map-type: atomic
+                      matchLabelKeys:
+                        description: |-
+                          MatchLabelKeys is a set of pod label keys to select which pods will
+                          be taken into consideration. The keys are used to lookup values from the
+                          incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                          to select the group of existing pods which pods will be taken into consideration
+                          for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                          pod labels will be ignored. The default value is empty.
+                          The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                          Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      mismatchLabelKeys:
+                        description: |-
+                          MismatchLabelKeys is a set of pod label keys to select which pods will
+                          be taken into consideration. The keys are used to lookup values from the
+                          incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                          to select the group of existing pods which pods will be taken into consideration
+                          for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                          pod labels will be ignored. The default value is empty.
+                          The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                          Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       namespaceSelector:
                         description: |-
                           A label query over the set of namespaces that the term applies to.
@@ -10103,11 +10731,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -10127,6 +10757,7 @@ var CRDsValidation map[string]string = map[string]string{
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       topologyKey:
                         description: |-
                           This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -10139,6 +10770,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - topologyKey
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
               type: object
           type: object
         architecture:
@@ -10159,6 +10791,7 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+              x-kubernetes-list-type: atomic
             options:
               description: |-
                 A list of DNS resolver options.
@@ -10176,6 +10809,7 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                 type: object
               type: array
+              x-kubernetes-list-type: atomic
             searches:
               description: |-
                 A list of DNS search domains for host-name lookup.
@@ -10184,6 +10818,7 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+              x-kubernetes-list-type: atomic
           type: object
         dnsPolicy:
           description: |-
@@ -11394,6 +12029,7 @@ var CRDsValidation map[string]string = map[string]string{
                   items:
                     type: string
                   type: array
+                  x-kubernetes-list-type: atomic
               type: object
             failureThreshold:
               description: |-
@@ -11421,7 +12057,9 @@ var CRDsValidation map[string]string = map[string]string{
                       HTTP probes
                     properties:
                       name:
-                        description: The header field name
+                        description: |-
+                          The header field name.
+                          This will be canonicalized upon output, so case-variant names will be understood as the same header.
                         type: string
                       value:
                         description: The header field value
@@ -11431,6 +12069,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - value
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 path:
                   description: Path to access on the HTTP server.
                   type: string
@@ -11588,6 +12227,7 @@ var CRDsValidation map[string]string = map[string]string{
                   items:
                     type: string
                   type: array
+                  x-kubernetes-list-type: atomic
               type: object
             failureThreshold:
               description: |-
@@ -11615,7 +12255,9 @@ var CRDsValidation map[string]string = map[string]string{
                       HTTP probes
                     properties:
                       name:
-                        description: The header field name
+                        description: |-
+                          The header field name.
+                          This will be canonicalized upon output, so case-variant names will be understood as the same header.
                         type: string
                       value:
                         description: The header field value
@@ -11625,6 +12267,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - value
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 path:
                   description: Path to access on the HTTP server.
                   type: string
@@ -11796,11 +12439,13 @@ var CRDsValidation map[string]string = map[string]string{
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                       required:
                       - key
                       - operator
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   matchLabels:
                     additionalProperties:
                       type: string
@@ -11871,9 +12516,6 @@ var CRDsValidation map[string]string = map[string]string{
                   In this situation, new pod with the same labelSelector cannot be scheduled,
                   because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
                   it will violate MaxSkew.
-
-
-                  This is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).
                 format: int32
                 type: integer
               nodeAffinityPolicy:
@@ -12120,7 +12762,7 @@ var CRDsValidation map[string]string = map[string]string{
                       properties:
                         fieldRef:
                           description: 'Required: Selects a field of the pod: only
-                            annotations, labels, name and namespace are supported.'
+                            annotations, labels, name, namespace and uid are supported.'
                           properties:
                             apiVersion:
                               description: Version of the schema the FieldPath is
@@ -14521,11 +15163,13 @@ var CRDsValidation map[string]string = map[string]string{
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: atomic
                 required:
                 - key
                 - operator
                 type: object
               type: array
+              x-kubernetes-list-type: atomic
             matchLabels:
               additionalProperties:
                 type: string
@@ -14605,11 +15249,13 @@ var CRDsValidation map[string]string = map[string]string{
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: atomic
                 required:
                 - key
                 - operator
                 type: object
               type: array
+              x-kubernetes-list-type: atomic
             matchLabels:
               additionalProperties:
                 type: string
@@ -14791,11 +15437,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchFields:
                                     description: A list of node selector requirements
                                       by node's fields.
@@ -14823,11 +15471,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                 type: object
                                 x-kubernetes-map-type: atomic
                               weight:
@@ -14840,6 +15490,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the affinity requirements specified by this field are not met at
@@ -14884,11 +15535,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchFields:
                                     description: A list of node selector requirements
                                       by node's fields.
@@ -14916,14 +15569,17 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                 type: object
                                 x-kubernetes-map-type: atomic
                               type: array
+                              x-kubernetes-list-type: atomic
                           required:
                           - nodeSelectorTerms
                           type: object
@@ -14954,8 +15610,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   with the corresponding weight.
                                 properties:
                                   labelSelector:
-                                    description: A label query over a set of resources,
-                                      in this case pods.
+                                    description: |-
+                                      A label query over a set of resources, in this case pods.
+                                      If it's null, this PodAffinityTerm matches with no Pods.
                                     properties:
                                       matchExpressions:
                                         description: matchExpressions is a list of
@@ -14984,11 +15641,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -14999,6 +15658,36 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  matchLabelKeys:
+                                    description: |-
+                                      MatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                      Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  mismatchLabelKeys:
+                                    description: |-
+                                      MismatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                      Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
                                   namespaceSelector:
                                     description: |-
                                       A label query over the set of namespaces that the term applies to.
@@ -15034,11 +15723,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -15058,6 +15749,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       type: string
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   topologyKey:
                                     description: |-
                                       This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -15080,6 +15772,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the affinity requirements specified by this field are not met at
@@ -15099,8 +15792,9 @@ var CRDsValidation map[string]string = map[string]string{
                               a pod of the set of pods is running
                             properties:
                               labelSelector:
-                                description: A label query over a set of resources,
-                                  in this case pods.
+                                description: |-
+                                  A label query over a set of resources, in this case pods.
+                                  If it's null, this PodAffinityTerm matches with no Pods.
                                 properties:
                                   matchExpressions:
                                     description: matchExpressions is a list of label
@@ -15129,11 +15823,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -15144,6 +15840,36 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                 type: object
                                 x-kubernetes-map-type: atomic
+                              matchLabelKeys:
+                                description: |-
+                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              mismatchLabelKeys:
+                                description: |-
+                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               namespaceSelector:
                                 description: |-
                                   A label query over the set of namespaces that the term applies to.
@@ -15179,11 +15905,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -15203,6 +15931,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               topologyKey:
                                 description: |-
                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -15215,6 +15944,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - topologyKey
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     podAntiAffinity:
                       description: Describes pod anti-affinity scheduling rules (e.g.
@@ -15242,8 +15972,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   with the corresponding weight.
                                 properties:
                                   labelSelector:
-                                    description: A label query over a set of resources,
-                                      in this case pods.
+                                    description: |-
+                                      A label query over a set of resources, in this case pods.
+                                      If it's null, this PodAffinityTerm matches with no Pods.
                                     properties:
                                       matchExpressions:
                                         description: matchExpressions is a list of
@@ -15272,11 +16003,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -15287,6 +16020,36 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  matchLabelKeys:
+                                    description: |-
+                                      MatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                      Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  mismatchLabelKeys:
+                                    description: |-
+                                      MismatchLabelKeys is a set of pod label keys to select which pods will
+                                      be taken into consideration. The keys are used to lookup values from the
+                                      incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                      to select the group of existing pods which pods will be taken into consideration
+                                      for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                      pod labels will be ignored. The default value is empty.
+                                      The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                      Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
                                   namespaceSelector:
                                     description: |-
                                       A label query over the set of namespaces that the term applies to.
@@ -15322,11 +16085,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -15346,6 +16111,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       type: string
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   topologyKey:
                                     description: |-
                                       This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -15368,6 +16134,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - weight
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         requiredDuringSchedulingIgnoredDuringExecution:
                           description: |-
                             If the anti-affinity requirements specified by this field are not met at
@@ -15387,8 +16154,9 @@ var CRDsValidation map[string]string = map[string]string{
                               a pod of the set of pods is running
                             properties:
                               labelSelector:
-                                description: A label query over a set of resources,
-                                  in this case pods.
+                                description: |-
+                                  A label query over a set of resources, in this case pods.
+                                  If it's null, this PodAffinityTerm matches with no Pods.
                                 properties:
                                   matchExpressions:
                                     description: matchExpressions is a list of label
@@ -15417,11 +16185,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -15432,6 +16202,36 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                 type: object
                                 x-kubernetes-map-type: atomic
+                              matchLabelKeys:
+                                description: |-
+                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              mismatchLabelKeys:
+                                description: |-
+                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                  be taken into consideration. The keys are used to lookup values from the
+                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                  to select the group of existing pods which pods will be taken into consideration
+                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                  pod labels will be ignored. The default value is empty.
+                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               namespaceSelector:
                                 description: |-
                                   A label query over the set of namespaces that the term applies to.
@@ -15467,11 +16267,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -15491,6 +16293,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               topologyKey:
                                 description: |-
                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -15503,6 +16306,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - topologyKey
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                   type: object
                 architecture:
@@ -15524,6 +16328,7 @@ var CRDsValidation map[string]string = map[string]string{
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                     options:
                       description: |-
                         A list of DNS resolver options.
@@ -15541,6 +16346,7 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     searches:
                       description: |-
                         A list of DNS search domains for host-name lookup.
@@ -15549,6 +16355,7 @@ var CRDsValidation map[string]string = map[string]string{
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                   type: object
                 dnsPolicy:
                   description: |-
@@ -16778,6 +17585,7 @@ var CRDsValidation map[string]string = map[string]string{
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     failureThreshold:
                       description: |-
@@ -16805,7 +17613,9 @@ var CRDsValidation map[string]string = map[string]string{
                               used in HTTP probes
                             properties:
                               name:
-                                description: The header field name
+                                description: |-
+                                  The header field name.
+                                  This will be canonicalized upon output, so case-variant names will be understood as the same header.
                                 type: string
                               value:
                                 description: The header field value
@@ -16815,6 +17625,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - value
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         path:
                           description: Path to access on the HTTP server.
                           type: string
@@ -16973,6 +17784,7 @@ var CRDsValidation map[string]string = map[string]string{
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     failureThreshold:
                       description: |-
@@ -17000,7 +17812,9 @@ var CRDsValidation map[string]string = map[string]string{
                               used in HTTP probes
                             properties:
                               name:
-                                description: The header field name
+                                description: |-
+                                  The header field name.
+                                  This will be canonicalized upon output, so case-variant names will be understood as the same header.
                                 type: string
                               value:
                                 description: The header field value
@@ -17010,6 +17824,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - value
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         path:
                           description: Path to access on the HTTP server.
                           type: string
@@ -17182,11 +17997,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -17257,9 +18074,6 @@ var CRDsValidation map[string]string = map[string]string{
                           In this situation, new pod with the same labelSelector cannot be scheduled,
                           because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
                           it will violate MaxSkew.
-
-
-                          This is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).
                         format: int32
                         type: integer
                       nodeAffinityPolicy:
@@ -17510,8 +18324,8 @@ var CRDsValidation map[string]string = map[string]string{
                               properties:
                                 fieldRef:
                                   description: 'Required: Selects a field of the pod:
-                                    only annotations, labels, name and namespace are
-                                    supported.'
+                                    only annotations, labels, name, namespace and
+                                    uid are supported.'
                                   properties:
                                     apiVersion:
                                       description: Version of the schema the FieldPath
@@ -18134,11 +18948,13 @@ var CRDsValidation map[string]string = map[string]string{
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: atomic
                 required:
                 - key
                 - operator
                 type: object
               type: array
+              x-kubernetes-list-type: atomic
             matchLabels:
               additionalProperties:
                 type: string
@@ -18237,6 +19053,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               dataSource:
                                 description: |-
                                   dataSource field can be used to specify either:
@@ -18325,34 +19142,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   status field of the claim.
                                   More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                                 properties:
-                                  claims:
-                                    description: |-
-                                      Claims lists the names of resources, defined in spec.resourceClaims,
-                                      that are used by this container.
-
-
-                                      This is an alpha field and requires enabling the
-                                      DynamicResourceAllocation feature gate.
-
-
-                                      This field is immutable. It can only be set for containers.
-                                    items:
-                                      description: ResourceClaim references one entry
-                                        in PodSpec.ResourceClaims.
-                                      properties:
-                                        name:
-                                          description: |-
-                                            Name must match the name of one entry in pod.spec.resourceClaims of
-                                            the Pod where this field is used. It makes that resource available
-                                            inside a container.
-                                          type: string
-                                      required:
-                                      - name
-                                      type: object
-                                    type: array
-                                    x-kubernetes-list-map-keys:
-                                    - name
-                                    x-kubernetes-list-type: map
                                   limits:
                                     additionalProperties:
                                       anyOf:
@@ -18409,11 +19198,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -18428,6 +19219,21 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: |-
                                   storageClassName is the name of the StorageClass required by the claim.
                                   More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+                                type: string
+                              volumeAttributesClassName:
+                                description: |-
+                                  volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
+                                  If specified, the CSI driver will create or update the volume with the attributes defined
+                                  in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
+                                  it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
+                                  will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
+                                  If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
+                                  will be set by the persistentvolume controller if it exists.
+                                  If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
+                                  set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
+                                  exists.
+                                  More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+                                  (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
                                 type: string
                               volumeMode:
                                 description: |-
@@ -18808,11 +19614,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -19098,11 +19906,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchFields:
                                             description: A list of node selector requirements
                                               by node's fields.
@@ -19130,11 +19940,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       weight:
@@ -19148,6 +19960,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     - weight
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 requiredDuringSchedulingIgnoredDuringExecution:
                                   description: |-
                                     If the affinity requirements specified by this field are not met at
@@ -19192,11 +20005,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchFields:
                                             description: A list of node selector requirements
                                               by node's fields.
@@ -19224,14 +20039,17 @@ var CRDsValidation map[string]string = map[string]string{
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   required:
                                   - nodeSelectorTerms
                                   type: object
@@ -19263,8 +20081,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           associated with the corresponding weight.
                                         properties:
                                           labelSelector:
-                                            description: A label query over a set
-                                              of resources, in this case pods.
+                                            description: |-
+                                              A label query over a set of resources, in this case pods.
+                                              If it's null, this PodAffinityTerm matches with no Pods.
                                             properties:
                                               matchExpressions:
                                                 description: matchExpressions is a
@@ -19294,11 +20113,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
@@ -19309,6 +20130,36 @@ var CRDsValidation map[string]string = map[string]string{
                                                 type: object
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          matchLabelKeys:
+                                            description: |-
+                                              MatchLabelKeys is a set of pod label keys to select which pods will
+                                              be taken into consideration. The keys are used to lookup values from the
+                                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                              to select the group of existing pods which pods will be taken into consideration
+                                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                              pod labels will be ignored. The default value is empty.
+                                              The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                              Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          mismatchLabelKeys:
+                                            description: |-
+                                              MismatchLabelKeys is a set of pod label keys to select which pods will
+                                              be taken into consideration. The keys are used to lookup values from the
+                                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                              to select the group of existing pods which pods will be taken into consideration
+                                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                              pod labels will be ignored. The default value is empty.
+                                              The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                              Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
                                           namespaceSelector:
                                             description: |-
                                               A label query over the set of namespaces that the term applies to.
@@ -19345,11 +20196,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
@@ -19369,6 +20222,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           topologyKey:
                                             description: |-
                                               This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -19391,6 +20245,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     - weight
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 requiredDuringSchedulingIgnoredDuringExecution:
                                   description: |-
                                     If the affinity requirements specified by this field are not met at
@@ -19410,8 +20265,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       a pod of the set of pods is running
                                     properties:
                                       labelSelector:
-                                        description: A label query over a set of resources,
-                                          in this case pods.
+                                        description: |-
+                                          A label query over a set of resources, in this case pods.
+                                          If it's null, this PodAffinityTerm matches with no Pods.
                                         properties:
                                           matchExpressions:
                                             description: matchExpressions is a list
@@ -19440,11 +20296,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -19455,6 +20313,36 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: object
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      matchLabelKeys:
+                                        description: |-
+                                          MatchLabelKeys is a set of pod label keys to select which pods will
+                                          be taken into consideration. The keys are used to lookup values from the
+                                          incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                          to select the group of existing pods which pods will be taken into consideration
+                                          for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                          pod labels will be ignored. The default value is empty.
+                                          The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                          Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      mismatchLabelKeys:
+                                        description: |-
+                                          MismatchLabelKeys is a set of pod label keys to select which pods will
+                                          be taken into consideration. The keys are used to lookup values from the
+                                          incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                          to select the group of existing pods which pods will be taken into consideration
+                                          for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                          pod labels will be ignored. The default value is empty.
+                                          The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                          Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
                                       namespaceSelector:
                                         description: |-
                                           A label query over the set of namespaces that the term applies to.
@@ -19490,11 +20378,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -19514,6 +20404,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       topologyKey:
                                         description: |-
                                           This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -19526,6 +20417,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     - topologyKey
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               type: object
                             podAntiAffinity:
                               description: Describes pod anti-affinity scheduling
@@ -19553,8 +20445,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           associated with the corresponding weight.
                                         properties:
                                           labelSelector:
-                                            description: A label query over a set
-                                              of resources, in this case pods.
+                                            description: |-
+                                              A label query over a set of resources, in this case pods.
+                                              If it's null, this PodAffinityTerm matches with no Pods.
                                             properties:
                                               matchExpressions:
                                                 description: matchExpressions is a
@@ -19584,11 +20477,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
@@ -19599,6 +20494,36 @@ var CRDsValidation map[string]string = map[string]string{
                                                 type: object
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          matchLabelKeys:
+                                            description: |-
+                                              MatchLabelKeys is a set of pod label keys to select which pods will
+                                              be taken into consideration. The keys are used to lookup values from the
+                                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                              to select the group of existing pods which pods will be taken into consideration
+                                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                              pod labels will be ignored. The default value is empty.
+                                              The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                              Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          mismatchLabelKeys:
+                                            description: |-
+                                              MismatchLabelKeys is a set of pod label keys to select which pods will
+                                              be taken into consideration. The keys are used to lookup values from the
+                                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                              to select the group of existing pods which pods will be taken into consideration
+                                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                              pod labels will be ignored. The default value is empty.
+                                              The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                              Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
                                           namespaceSelector:
                                             description: |-
                                               A label query over the set of namespaces that the term applies to.
@@ -19635,11 +20560,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
@@ -19659,6 +20586,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           topologyKey:
                                             description: |-
                                               This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -19681,6 +20609,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     - weight
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 requiredDuringSchedulingIgnoredDuringExecution:
                                   description: |-
                                     If the anti-affinity requirements specified by this field are not met at
@@ -19700,8 +20629,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       a pod of the set of pods is running
                                     properties:
                                       labelSelector:
-                                        description: A label query over a set of resources,
-                                          in this case pods.
+                                        description: |-
+                                          A label query over a set of resources, in this case pods.
+                                          If it's null, this PodAffinityTerm matches with no Pods.
                                         properties:
                                           matchExpressions:
                                             description: matchExpressions is a list
@@ -19730,11 +20660,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -19745,6 +20677,36 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: object
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      matchLabelKeys:
+                                        description: |-
+                                          MatchLabelKeys is a set of pod label keys to select which pods will
+                                          be taken into consideration. The keys are used to lookup values from the
+                                          incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                          to select the group of existing pods which pods will be taken into consideration
+                                          for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                          pod labels will be ignored. The default value is empty.
+                                          The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                          Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      mismatchLabelKeys:
+                                        description: |-
+                                          MismatchLabelKeys is a set of pod label keys to select which pods will
+                                          be taken into consideration. The keys are used to lookup values from the
+                                          incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                          to select the group of existing pods which pods will be taken into consideration
+                                          for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                          pod labels will be ignored. The default value is empty.
+                                          The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                          Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
                                       namespaceSelector:
                                         description: |-
                                           A label query over the set of namespaces that the term applies to.
@@ -19780,11 +20742,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -19804,6 +20768,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       topologyKey:
                                         description: |-
                                           This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -19816,6 +20781,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     - topologyKey
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               type: object
                           type: object
                         architecture:
@@ -19837,6 +20803,7 @@ var CRDsValidation map[string]string = map[string]string{
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                             options:
                               description: |-
                                 A list of DNS resolver options.
@@ -19854,6 +20821,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: string
                                 type: object
                               type: array
+                              x-kubernetes-list-type: atomic
                             searches:
                               description: |-
                                 A list of DNS search domains for host-name lookup.
@@ -19862,6 +20830,7 @@ var CRDsValidation map[string]string = map[string]string{
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                           type: object
                         dnsPolicy:
                           description: |-
@@ -21120,6 +22089,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               type: object
                             failureThreshold:
                               description: |-
@@ -21147,7 +22117,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       to be used in HTTP probes
                                     properties:
                                       name:
-                                        description: The header field name
+                                        description: |-
+                                          The header field name.
+                                          This will be canonicalized upon output, so case-variant names will be understood as the same header.
                                         type: string
                                       value:
                                         description: The header field value
@@ -21157,6 +22129,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     - value
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 path:
                                   description: Path to access on the HTTP server.
                                   type: string
@@ -21315,6 +22288,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               type: object
                             failureThreshold:
                               description: |-
@@ -21342,7 +22316,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       to be used in HTTP probes
                                     properties:
                                       name:
-                                        description: The header field name
+                                        description: |-
+                                          The header field name.
+                                          This will be canonicalized upon output, so case-variant names will be understood as the same header.
                                         type: string
                                       value:
                                         description: The header field value
@@ -21352,6 +22328,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     - value
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 path:
                                   description: Path to access on the HTTP server.
                                   type: string
@@ -21526,11 +22503,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           items:
                                             type: string
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - key
                                       - operator
                                       type: object
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   matchLabels:
                                     additionalProperties:
                                       type: string
@@ -21601,9 +22580,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   In this situation, new pod with the same labelSelector cannot be scheduled,
                                   because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
                                   it will violate MaxSkew.
-
-
-                                  This is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).
                                 format: int32
                                 type: integer
                               nodeAffinityPolicy:
@@ -21858,7 +22834,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         fieldRef:
                                           description: 'Required: Selects a field
                                             of the pod: only annotations, labels,
-                                            name and namespace are supported.'
+                                            name, namespace and uid are supported.'
                                           properties:
                                             apiVersion:
                                               description: Version of the schema the
@@ -23211,6 +24187,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       type: string
                                     type: array
+                                    x-kubernetes-list-type: atomic
                                   dataSource:
                                     description: |-
                                       dataSource field can be used to specify either:
@@ -23299,34 +24276,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       status field of the claim.
                                       More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                                     properties:
-                                      claims:
-                                        description: |-
-                                          Claims lists the names of resources, defined in spec.resourceClaims,
-                                          that are used by this container.
-
-
-                                          This is an alpha field and requires enabling the
-                                          DynamicResourceAllocation feature gate.
-
-
-                                          This field is immutable. It can only be set for containers.
-                                        items:
-                                          description: ResourceClaim references one
-                                            entry in PodSpec.ResourceClaims.
-                                          properties:
-                                            name:
-                                              description: |-
-                                                Name must match the name of one entry in pod.spec.resourceClaims of
-                                                the Pod where this field is used. It makes that resource available
-                                                inside a container.
-                                              type: string
-                                          required:
-                                          - name
-                                          type: object
-                                        type: array
-                                        x-kubernetes-list-map-keys:
-                                        - name
-                                        x-kubernetes-list-type: map
                                       limits:
                                         additionalProperties:
                                           anyOf:
@@ -23383,11 +24332,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -23402,6 +24353,21 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: |-
                                       storageClassName is the name of the StorageClass required by the claim.
                                       More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+                                    type: string
+                                  volumeAttributesClassName:
+                                    description: |-
+                                      volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
+                                      If specified, the CSI driver will create or update the volume with the attributes defined
+                                      in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
+                                      it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
+                                      will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
+                                      If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
+                                      will be set by the persistentvolume controller if it exists.
+                                      If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
+                                      set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
+                                      exists.
+                                      More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+                                      (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
                                     type: string
                                   volumeMode:
                                     description: |-
@@ -23793,11 +24759,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -24088,11 +25056,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchFields:
                                                 description: A list of node selector
                                                   requirements by node's fields.
@@ -24120,11 +25090,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                             type: object
                                             x-kubernetes-map-type: atomic
                                           weight:
@@ -24138,6 +25110,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         - weight
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     requiredDuringSchedulingIgnoredDuringExecution:
                                       description: |-
                                         If the affinity requirements specified by this field are not met at
@@ -24182,11 +25155,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchFields:
                                                 description: A list of node selector
                                                   requirements by node's fields.
@@ -24214,14 +25189,17 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                             type: object
                                             x-kubernetes-map-type: atomic
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                       required:
                                       - nodeSelectorTerms
                                       type: object
@@ -24254,8 +25232,9 @@ var CRDsValidation map[string]string = map[string]string{
                                               weight.
                                             properties:
                                               labelSelector:
-                                                description: A label query over a
-                                                  set of resources, in this case pods.
+                                                description: |-
+                                                  A label query over a set of resources, in this case pods.
+                                                  If it's null, this PodAffinityTerm matches with no Pods.
                                                 properties:
                                                   matchExpressions:
                                                     description: matchExpressions
@@ -24286,11 +25265,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                           items:
                                                             type: string
                                                           type: array
+                                                          x-kubernetes-list-type: atomic
                                                       required:
                                                       - key
                                                       - operator
                                                       type: object
                                                     type: array
+                                                    x-kubernetes-list-type: atomic
                                                   matchLabels:
                                                     additionalProperties:
                                                       type: string
@@ -24301,6 +25282,36 @@ var CRDsValidation map[string]string = map[string]string{
                                                     type: object
                                                 type: object
                                                 x-kubernetes-map-type: atomic
+                                              matchLabelKeys:
+                                                description: |-
+                                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                                  be taken into consideration. The keys are used to lookup values from the
+                                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                                  to select the group of existing pods which pods will be taken into consideration
+                                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                                  pod labels will be ignored. The default value is empty.
+                                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                                items:
+                                                  type: string
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              mismatchLabelKeys:
+                                                description: |-
+                                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                                  be taken into consideration. The keys are used to lookup values from the
+                                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                                  to select the group of existing pods which pods will be taken into consideration
+                                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                                  pod labels will be ignored. The default value is empty.
+                                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                                items:
+                                                  type: string
+                                                type: array
+                                                x-kubernetes-list-type: atomic
                                               namespaceSelector:
                                                 description: |-
                                                   A label query over the set of namespaces that the term applies to.
@@ -24338,11 +25349,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                           items:
                                                             type: string
                                                           type: array
+                                                          x-kubernetes-list-type: atomic
                                                       required:
                                                       - key
                                                       - operator
                                                       type: object
                                                     type: array
+                                                    x-kubernetes-list-type: atomic
                                                   matchLabels:
                                                     additionalProperties:
                                                       type: string
@@ -24362,6 +25375,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                 items:
                                                   type: string
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               topologyKey:
                                                 description: |-
                                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -24384,6 +25398,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         - weight
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     requiredDuringSchedulingIgnoredDuringExecution:
                                       description: |-
                                         If the affinity requirements specified by this field are not met at
@@ -24403,8 +25418,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           a pod of the set of pods is running
                                         properties:
                                           labelSelector:
-                                            description: A label query over a set
-                                              of resources, in this case pods.
+                                            description: |-
+                                              A label query over a set of resources, in this case pods.
+                                              If it's null, this PodAffinityTerm matches with no Pods.
                                             properties:
                                               matchExpressions:
                                                 description: matchExpressions is a
@@ -24434,11 +25450,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
@@ -24449,6 +25467,36 @@ var CRDsValidation map[string]string = map[string]string{
                                                 type: object
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          matchLabelKeys:
+                                            description: |-
+                                              MatchLabelKeys is a set of pod label keys to select which pods will
+                                              be taken into consideration. The keys are used to lookup values from the
+                                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                              to select the group of existing pods which pods will be taken into consideration
+                                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                              pod labels will be ignored. The default value is empty.
+                                              The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                              Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          mismatchLabelKeys:
+                                            description: |-
+                                              MismatchLabelKeys is a set of pod label keys to select which pods will
+                                              be taken into consideration. The keys are used to lookup values from the
+                                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                              to select the group of existing pods which pods will be taken into consideration
+                                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                              pod labels will be ignored. The default value is empty.
+                                              The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                              Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
                                           namespaceSelector:
                                             description: |-
                                               A label query over the set of namespaces that the term applies to.
@@ -24485,11 +25533,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
@@ -24509,6 +25559,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           topologyKey:
                                             description: |-
                                               This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -24521,6 +25572,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         - topologyKey
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   type: object
                                 podAntiAffinity:
                                   description: Describes pod anti-affinity scheduling
@@ -24549,8 +25601,9 @@ var CRDsValidation map[string]string = map[string]string{
                                               weight.
                                             properties:
                                               labelSelector:
-                                                description: A label query over a
-                                                  set of resources, in this case pods.
+                                                description: |-
+                                                  A label query over a set of resources, in this case pods.
+                                                  If it's null, this PodAffinityTerm matches with no Pods.
                                                 properties:
                                                   matchExpressions:
                                                     description: matchExpressions
@@ -24581,11 +25634,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                           items:
                                                             type: string
                                                           type: array
+                                                          x-kubernetes-list-type: atomic
                                                       required:
                                                       - key
                                                       - operator
                                                       type: object
                                                     type: array
+                                                    x-kubernetes-list-type: atomic
                                                   matchLabels:
                                                     additionalProperties:
                                                       type: string
@@ -24596,6 +25651,36 @@ var CRDsValidation map[string]string = map[string]string{
                                                     type: object
                                                 type: object
                                                 x-kubernetes-map-type: atomic
+                                              matchLabelKeys:
+                                                description: |-
+                                                  MatchLabelKeys is a set of pod label keys to select which pods will
+                                                  be taken into consideration. The keys are used to lookup values from the
+                                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                                  to select the group of existing pods which pods will be taken into consideration
+                                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                                  pod labels will be ignored. The default value is empty.
+                                                  The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                                  Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                                items:
+                                                  type: string
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              mismatchLabelKeys:
+                                                description: |-
+                                                  MismatchLabelKeys is a set of pod label keys to select which pods will
+                                                  be taken into consideration. The keys are used to lookup values from the
+                                                  incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                                  to select the group of existing pods which pods will be taken into consideration
+                                                  for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                                  pod labels will be ignored. The default value is empty.
+                                                  The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                                  Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                                items:
+                                                  type: string
+                                                type: array
+                                                x-kubernetes-list-type: atomic
                                               namespaceSelector:
                                                 description: |-
                                                   A label query over the set of namespaces that the term applies to.
@@ -24633,11 +25718,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                           items:
                                                             type: string
                                                           type: array
+                                                          x-kubernetes-list-type: atomic
                                                       required:
                                                       - key
                                                       - operator
                                                       type: object
                                                     type: array
+                                                    x-kubernetes-list-type: atomic
                                                   matchLabels:
                                                     additionalProperties:
                                                       type: string
@@ -24657,6 +25744,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                 items:
                                                   type: string
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               topologyKey:
                                                 description: |-
                                                   This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -24679,6 +25767,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         - weight
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     requiredDuringSchedulingIgnoredDuringExecution:
                                       description: |-
                                         If the anti-affinity requirements specified by this field are not met at
@@ -24698,8 +25787,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           a pod of the set of pods is running
                                         properties:
                                           labelSelector:
-                                            description: A label query over a set
-                                              of resources, in this case pods.
+                                            description: |-
+                                              A label query over a set of resources, in this case pods.
+                                              If it's null, this PodAffinityTerm matches with no Pods.
                                             properties:
                                               matchExpressions:
                                                 description: matchExpressions is a
@@ -24729,11 +25819,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
@@ -24744,6 +25836,36 @@ var CRDsValidation map[string]string = map[string]string{
                                                 type: object
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          matchLabelKeys:
+                                            description: |-
+                                              MatchLabelKeys is a set of pod label keys to select which pods will
+                                              be taken into consideration. The keys are used to lookup values from the
+                                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key in (value)'
+                                              to select the group of existing pods which pods will be taken into consideration
+                                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                              pod labels will be ignored. The default value is empty.
+                                              The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                              Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          mismatchLabelKeys:
+                                            description: |-
+                                              MismatchLabelKeys is a set of pod label keys to select which pods will
+                                              be taken into consideration. The keys are used to lookup values from the
+                                              incoming pod labels, those key-value labels are merged with 'labelSelector' as 'key notin (value)'
+                                              to select the group of existing pods which pods will be taken into consideration
+                                              for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                              pod labels will be ignored. The default value is empty.
+                                              The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                              Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
                                           namespaceSelector:
                                             description: |-
                                               A label query over the set of namespaces that the term applies to.
@@ -24780,11 +25902,13 @@ var CRDsValidation map[string]string = map[string]string{
                                                       items:
                                                         type: string
                                                       type: array
+                                                      x-kubernetes-list-type: atomic
                                                   required:
                                                   - key
                                                   - operator
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
@@ -24804,6 +25928,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           topologyKey:
                                             description: |-
                                               This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
@@ -24816,6 +25941,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         - topologyKey
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   type: object
                               type: object
                             architecture:
@@ -24837,6 +25963,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 options:
                                   description: |-
                                     A list of DNS resolver options.
@@ -24854,6 +25981,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 searches:
                                   description: |-
                                     A list of DNS search domains for host-name lookup.
@@ -24862,6 +25990,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               type: object
                             dnsPolicy:
                               description: |-
@@ -26131,6 +27260,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   type: object
                                 failureThreshold:
                                   description: |-
@@ -26159,7 +27289,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           header to be used in HTTP probes
                                         properties:
                                           name:
-                                            description: The header field name
+                                            description: |-
+                                              The header field name.
+                                              This will be canonicalized upon output, so case-variant names will be understood as the same header.
                                             type: string
                                           value:
                                             description: The header field value
@@ -26169,6 +27301,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         - value
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     path:
                                       description: Path to access on the HTTP server.
                                       type: string
@@ -26328,6 +27461,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   type: object
                                 failureThreshold:
                                   description: |-
@@ -26356,7 +27490,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           header to be used in HTTP probes
                                         properties:
                                           name:
-                                            description: The header field name
+                                            description: |-
+                                              The header field name.
+                                              This will be canonicalized upon output, so case-variant names will be understood as the same header.
                                             type: string
                                           value:
                                             description: The header field value
@@ -26366,6 +27502,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         - value
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     path:
                                       description: Path to access on the HTTP server.
                                       type: string
@@ -26540,11 +27677,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -26615,9 +27754,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       In this situation, new pod with the same labelSelector cannot be scheduled,
                                       because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
                                       it will violate MaxSkew.
-
-
-                                      This is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).
                                     format: int32
                                     type: integer
                                   nodeAffinityPolicy:
@@ -26878,7 +28014,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             fieldRef:
                                               description: 'Required: Selects a field
                                                 of the pod: only annotations, labels,
-                                                name and namespace are supported.'
+                                                name, namespace and uid are supported.'
                                               properties:
                                                 apiVersion:
                                                   description: Version of the schema
@@ -27603,6 +28739,7 @@ var CRDsValidation map[string]string = map[string]string{
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       dataSource:
                         description: |-
                           dataSource field can be used to specify either:
@@ -27687,33 +28824,6 @@ var CRDsValidation map[string]string = map[string]string{
                           status field of the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                         properties:
-                          claims:
-                            description: |-
-                              Claims lists the names of resources, defined in spec.resourceClaims,
-                              that are used by this container.
-
-
-                              This is an alpha field and requires enabling the
-                              DynamicResourceAllocation feature gate.
-
-
-                              This field is immutable. It can only be set for containers.
-                            items:
-                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                              properties:
-                                name:
-                                  description: |-
-                                    Name must match the name of one entry in pod.spec.resourceClaims of
-                                    the Pod where this field is used. It makes that resource available
-                                    inside a container.
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                            type: array
-                            x-kubernetes-list-map-keys:
-                            - name
-                            x-kubernetes-list-type: map
                           limits:
                             additionalProperties:
                               anyOf:
@@ -27769,11 +28879,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -27788,6 +28900,21 @@ var CRDsValidation map[string]string = map[string]string{
                         description: |-
                           storageClassName is the name of the StorageClass required by the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+                        type: string
+                      volumeAttributesClassName:
+                        description: |-
+                          volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
+                          If specified, the CSI driver will create or update the volume with the attributes defined
+                          in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
+                          it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
+                          will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
+                          If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
+                          will be set by the persistentvolume controller if it exists.
+                          If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
+                          set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
+                          exists.
+                          More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+                          (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
                         type: string
                       volumeMode:
                         description: |-

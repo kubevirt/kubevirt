@@ -144,9 +144,8 @@ func (w *Writer) write(data []byte, safe bool) error {
 	return nil
 }
 
-// Close closes the Writer, flushing any unwritten data to the underlying io.Writer,
-// but does not close the underlying io.Writer.
-func (w *Writer) Close() (err error) {
+// Flush any buffered data to the underlying writer immediately.
+func (w *Writer) Flush() (err error) {
 	switch w.state.state {
 	case writeState:
 	case errorState:
@@ -154,7 +153,7 @@ func (w *Writer) Close() (err error) {
 	default:
 		return nil
 	}
-	defer w.state.nextd(&err)
+
 	if w.idx > 0 {
 		// Flush pending data, disable w.data freeing as it is done later on.
 		if err = w.write(w.data[:w.idx], false); err != nil {
@@ -162,13 +161,22 @@ func (w *Writer) Close() (err error) {
 		}
 		w.idx = 0
 	}
-	err = w.frame.CloseW(w.src, w.num)
+	return nil
+}
+
+// Close closes the Writer, flushing any unwritten data to the underlying writer
+// without closing it.
+func (w *Writer) Close() error {
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	err := w.frame.CloseW(w.src, w.num)
 	// It is now safe to free the buffer.
 	if w.data != nil {
 		lz4block.Put(w.data)
 		w.data = nil
 	}
-	return
+	return err
 }
 
 // Reset clears the state of the Writer w such that it is equivalent to its
@@ -226,6 +234,5 @@ func (w *Writer) ReadFrom(r io.Reader) (n int64, err error) {
 			data = size.Get()
 		}
 	}
-	err = w.Close()
 	return
 }

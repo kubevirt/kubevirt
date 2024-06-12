@@ -4,7 +4,7 @@
 package syntax
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -66,35 +66,90 @@ func stmtsEnd(stmts []*Stmt, last []Comment) Pos {
 
 // Pos is a position within a shell source file.
 type Pos struct {
-	offs      uint32
-	line, col uint16
+	offs, lineCol uint32
+}
+
+// We used to split line and column numbers evenly in 16 bits, but line numbers
+// are significantly more important in practice. Use more bits for them.
+const (
+	lineBitSize = 18
+	lineMax     = (1 << lineBitSize) - 1
+
+	colBitSize = 32 - lineBitSize
+	colMax     = (1 << colBitSize) - 1
+	colBitMask = colMax
+)
+
+// TODO(v4): consider using uint32 for Offset/Line/Col to better represent bit sizes.
+// Or go with int64, which more closely resembles portable "sizes" elsewhere.
+// The latter is probably nicest, as then we can change the number of internal
+// bits later, and we can also do overflow checks for the user in NewPos.
+
+// NewPos creates a position with the given offset, line, and column.
+//
+// Note that Pos uses a limited number of bits to store these numbers.
+// If line or column overflow their allocated space, they are replaced with 0.
+func NewPos(offset, line, column uint) Pos {
+	if line > lineMax {
+		line = 0 // protect against overflows; rendered as "?"
+	}
+	if column > colMax {
+		column = 0 // protect against overflows; rendered as "?"
+	}
+	return Pos{
+		offs:    uint32(offset),
+		lineCol: (uint32(line) << colBitSize) | uint32(column),
+	}
 }
 
 // Offset returns the byte offset of the position in the original source file.
 // Byte offsets start at 0.
+//
+// Note that Offset is not protected against overflows;
+// if an input is larger than 4GiB, the offset will wrap around to 0.
 func (p Pos) Offset() uint { return uint(p.offs) }
 
 // Line returns the line number of the position, starting at 1.
-func (p Pos) Line() uint { return uint(p.line) }
+//
+// Line is protected against overflows; if an input has too many lines, extra
+// lines will have a line number of 0, rendered as "?" by [Pos.String].
+func (p Pos) Line() uint { return uint(p.lineCol >> colBitSize) }
 
 // Col returns the column number of the position, starting at 1. It counts in
 // bytes.
-func (p Pos) Col() uint { return uint(p.col) }
+//
+// Col is protected against overflows; if an input line has too many columns,
+// extra columns will have a column number of 0, rendered as "?" by [Pos.String].
+func (p Pos) Col() uint { return uint(p.lineCol & colBitMask) }
 
 func (p Pos) String() string {
-	return fmt.Sprintf("%d:%d", p.Line(), p.Col())
+	var b strings.Builder
+	if line := p.Line(); line > 0 {
+		b.WriteString(strconv.FormatUint(uint64(line), 10))
+	} else {
+		b.WriteByte('?')
+	}
+	b.WriteByte(':')
+	if col := p.Col(); col > 0 {
+		b.WriteString(strconv.FormatUint(uint64(col), 10))
+	} else {
+		b.WriteByte('?')
+	}
+	return b.String()
 }
 
-// IsValid reports whether the position is valid. All positions in nodes
-// returned by Parse are valid.
-func (p Pos) IsValid() bool { return p.line > 0 }
+// IsValid reports whether the position contains useful position information.
+// Some positions returned via [Parse] may be invalid: for example, [Stmt.Semicolon]
+// will only be valid if a statement contained a closing token such as ';'.
+func (p Pos) IsValid() bool { return p != Pos{} }
 
 // After reports whether the position p is after p2. It is a more expressive
 // version of p.Offset() > p2.Offset().
 func (p Pos) After(p2 Pos) bool { return p.offs > p2.offs }
 
 func posAddCol(p Pos, n int) Pos {
-	p.col += uint16(n)
+	// TODO: guard against overflows
+	p.lineCol += uint32(n)
 	p.offs += uint32(n)
 	return p
 }
@@ -178,6 +233,7 @@ func (*DeclClause) commandNode()   {}
 func (*LetClause) commandNode()    {}
 func (*TimeClause) commandNode()   {}
 func (*CoprocClause) commandNode() {}
+func (*TestDecl) commandNode()     {}
 
 // Assign represents an assignment to a variable.
 //
@@ -367,12 +423,13 @@ func (w *WordIter) End() Pos {
 	return posMax(w.Name.End(), posAddCol(w.InPos, 2))
 }
 
-// CStyleLoop represents the behaviour of a for clause similar to the C
+// CStyleLoop represents the behavior of a for clause similar to the C
 // language.
 //
 // This node will only appear with LangBash.
 type CStyleLoop struct {
-	Lparen, Rparen   Pos
+	Lparen, Rparen Pos
+	// Init, Cond, Post can each be nil, if the for loop construct omits it.
 	Init, Cond, Post ArithmExpr
 }
 
@@ -392,7 +449,8 @@ func (b *BinaryCmd) End() Pos { return b.Y.End() }
 // FuncDecl represents the declaration of a function.
 type FuncDecl struct {
 	Position Pos
-	RsrvWord bool // non-posix "function f()" style
+	RsrvWord bool // non-posix "function f" style
+	Parens   bool // with () parentheses, only meaningful with RsrvWord=true
 	Name     *Lit
 	Body     *Stmt
 }
@@ -401,7 +459,7 @@ func (f *FuncDecl) Pos() Pos { return f.Position }
 func (f *FuncDecl) End() Pos { return f.Body.End() }
 
 // Word represents a shell word, containing one or more word parts contiguous to
-// each other. The word is delimeted by word boundaries, such as spaces,
+// each other. The word is delimited by word boundaries, such as spaces,
 // newlines, semicolons, or parentheses.
 type Word struct {
 	Parts []WordPart
@@ -610,7 +668,7 @@ type BinaryArithm struct {
 func (b *BinaryArithm) Pos() Pos { return b.X.Pos() }
 func (b *BinaryArithm) End() Pos { return b.Y.End() }
 
-// UnaryArithm represents an unary arithmetic expression. The unary opearator
+// UnaryArithm represents an unary arithmetic expression. The unary operator
 // may come before or after the sub-expression.
 //
 // If Op is Inc or Dec, X will be a word with a single *Lit whose value is a
@@ -713,7 +771,7 @@ type BinaryTest struct {
 func (b *BinaryTest) Pos() Pos { return b.X.Pos() }
 func (b *BinaryTest) End() Pos { return b.Y.End() }
 
-// UnaryTest represents a unary test expression. The unary opearator may come
+// UnaryTest represents a unary test expression. The unary operator may come
 // before or after the sub-expression.
 type UnaryTest struct {
 	OpPos Pos
@@ -876,6 +934,16 @@ func (b *BraceExp) Pos() Pos {
 func (b *BraceExp) End() Pos {
 	return posAddCol(wordLastEnd(b.Elems), 1)
 }
+
+// TestDecl represents the declaration of a Bats test function.
+type TestDecl struct {
+	Position    Pos
+	Description *Word
+	Body        *Stmt
+}
+
+func (f *TestDecl) Pos() Pos { return f.Position }
+func (f *TestDecl) End() Pos { return f.Body.End() }
 
 func wordLastEnd(ws []*Word) Pos {
 	if len(ws) == 0 {

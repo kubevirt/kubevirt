@@ -21,7 +21,6 @@ package libinfra
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	v12 "k8s.io/api/core/v1"
@@ -31,7 +30,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -42,15 +40,10 @@ import (
 func GetLeader() string {
 	virtClient := kubevirt.Client()
 
-	controllerEndpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), leaderelectionconfig.DefaultEndpointName, v1.GetOptions{})
+	controllerLease, err := virtClient.CoordinationV1().Leases(flags.KubeVirtInstallNamespace).Get(context.Background(), leaderelectionconfig.DefaultLeaseName, v1.GetOptions{})
 	util.PanicOnError(err)
 
-	var record resourcelock.LeaderElectionRecord
-	if recordBytes, found := controllerEndpoint.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]; found {
-		err := json.Unmarshal([]byte(recordBytes), &record)
-		util.PanicOnError(err)
-	}
-	return record.HolderIdentity
+	return *controllerLease.Spec.HolderIdentity
 }
 
 func GetNewLeaderPod(virtClient kubecli.KubevirtClient) *v12.Pod {
