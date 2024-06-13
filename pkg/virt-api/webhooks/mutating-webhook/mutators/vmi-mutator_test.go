@@ -43,6 +43,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -681,6 +682,26 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
 	})
+
+	DescribeTable("should always set memory.guest", func(options ...libvmi.Option) {
+		for _, option := range options {
+			option(vmi)
+		}
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+		Expect(vmiSpec.Domain.Memory.Guest).ToNot(BeNil())
+		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("1Gi"))
+	},
+		Entry("when requests are set",
+			libvmi.WithResourceMemory("1Gi")),
+		Entry("when limits are set",
+			libvmi.WithLimitMemory("1Gi")),
+		Entry("when both requests and limits are set",
+			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithLimitMemory("1Gi"),
+		),
+		Entry("when only hugepages pagesize is set",
+			libvmi.WithHugepages("1Gi")),
+	)
 
 	It("should set the hyperv dependencies", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
