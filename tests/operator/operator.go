@@ -132,7 +132,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		patchKvCertConfigExpectError           func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
 		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
 		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
 		patchOperator                          func(*string, *string) bool
@@ -159,23 +158,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		patchKvCertConfigExpectError = func(name string, certConfig *v1.KubeVirtSelfSignConfiguration) {
-			var data []byte
-
-			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
-			certRotationStrategy.SelfSigned = certConfig
-			certConfigData, _ := json.Marshal(certRotationStrategy)
-
-			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).Should(HaveOccurred())
-
-		}
 
 		parseDeployment = func(name string) (deployment *v12.Deployment, image, registry, imageName, version string) {
 			var err error
@@ -2438,26 +2420,26 @@ spec:
 		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
 			kv := copyOriginalKv(originalKv)
 			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
-			patchKvCertConfigExpectError(kv.Name, certConfig)
+			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
 		})
 
 		It("[test_id:6259]should reject CA expires before rotation", func() {
 			kv := copyOriginalKv(originalKv)
 			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
-			patchKvCertConfigExpectError(kv.Name, certConfig)
+			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
 		})
 
 		It("[test_id:6260]should reject Cert expires before rotation", func() {
 			kv := copyOriginalKv(originalKv)
 			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
-			patchKvCertConfigExpectError(kv.Name, certConfig)
+			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
 		})
 
 		It("[test_id:6261]should reject Cert rotates after CA expires", func() {
 			kv := copyOriginalKv(originalKv)
 			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
 			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}
-			patchKvCertConfigExpectError(kv.Name, certConfig)
+			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
 		})
 	})
 
@@ -3370,5 +3352,17 @@ func patchKVComponentConfig(kvName string, toChange, origField *v1.ComponentConf
 
 	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, metav1.PatchOptions{})
 
+	return err
+}
+
+func patchKvCertConfig(name string, certConfig *v1.KubeVirtSelfSignConfiguration) error {
+	certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{
+		SelfSigned: certConfig,
+	}
+
+	data, err := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy)).GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 	return err
 }
