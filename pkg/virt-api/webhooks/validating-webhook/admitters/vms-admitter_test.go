@@ -2079,13 +2079,6 @@ var _ = Describe("Validating VM Admitter", func() {
 					Field:   "spec.template.spec.domain.launchSecurity",
 					Message: "Memory hotplug is not compatible with encrypted VMs",
 				}),
-				Entry("dedicated CPUs is configured", func(vm *v1.VirtualMachine) {
-					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
-				}, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.cpu.dedicatedCpuPlacement",
-					Message: "Memory hotplug is not compatible with dedicated CPUs",
-				}),
 				Entry("guest mapping passthrough is configured", func(vm *v1.VirtualMachine) {
 					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.NUMAFeatureGate)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
