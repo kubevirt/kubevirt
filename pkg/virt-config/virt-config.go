@@ -24,7 +24,6 @@ package virtconfig
 */
 
 import (
-	"fmt"
 	"strings"
 
 	"kubevirt.io/client-go/log"
@@ -199,32 +198,6 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 
 func (c *ClusterConfig) GetDefaultArchitecture() string {
 	return c.GetConfig().ArchitectureConfiguration.DefaultArchitecture
-}
-
-func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachineInstanceSpec) error {
-	autoAttach := spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && !*autoAttach {
-		return nil
-	}
-
-	// Override only when nothing is specified
-	if len(spec.Networks) == 0 && len(spec.Domain.Devices.Interfaces) == 0 {
-		iface := v1.NetworkInterfaceType(c.GetDefaultNetworkInterface())
-		switch iface {
-		case v1.BridgeInterface:
-			if !c.IsBridgeInterfaceOnPodNetworkEnabled() {
-				return fmt.Errorf("Bridge interface is not enabled in kubevirt-config")
-			}
-			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-		case v1.MasqueradeInterface:
-			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		case v1.DeprecatedSlirpInterface:
-			return fmt.Errorf("slirp interface is deprecated as of v1.3")
-		}
-
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	}
-	return nil
 }
 
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
