@@ -551,15 +551,6 @@ func validateLiveUpdateMemory(field *k8sfield.Path, domain *v1.DomainSpec, archi
 		})
 	}
 
-	if domain.Memory != nil &&
-		domain.Memory.Hugepages != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Memory hotplug is not compatible with hugepages"),
-			Field:   field.Child("template", "spec", "domain", "memory", "hugepages").String(),
-		})
-	}
-
 	if domain.Memory == nil ||
 		domain.Memory.Guest == nil {
 		causes = append(causes, metav1.StatusCause{
