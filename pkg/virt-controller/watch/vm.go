@@ -3295,11 +3295,13 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
-	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
-		return nil
-	}
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 
-	if vmi.Spec.Domain.Memory.MaxGuest == nil {
+	if vmi.Spec.Domain.Memory.MaxGuest == nil ||
+		conditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionFalse) {
+		// memory hotplug either failed or is incompatible, let's trigger the restart required condition
+		// to make the memory bump effective
+
 		vmConditions := controller.NewVirtualMachineConditionManager()
 		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
@@ -3310,7 +3312,10 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
-	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
+		return nil
+	}
+
 	if conditionManager.HasConditionWithStatus(vmi,
 		virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionTrue) {
 		return fmt.Errorf("another memory hotplug is in progress")
