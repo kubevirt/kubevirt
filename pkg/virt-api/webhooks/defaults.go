@@ -76,7 +76,7 @@ func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMac
 }
 
 func setupMemoryHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.Memory == nil {
+	if vmi.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory.Guest == nil {
 		return
 	}
 	if vmi.Spec.Domain.Memory.MaxGuest == nil {

@@ -254,6 +254,32 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
+	It("should accept VM requesting hugepages but missing spec.template.spec.domain.memory.guest", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Memory = &v1.Memory{
+			Hugepages: &v1.Hugepages{
+				PageSize: "2Mi",
+			},
+		}
+		vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+			Requests: k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("1Gi"),
+			},
+		}
+
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
 	DescribeTable("should reject VolumeRequests on a migrating vm", func(requests []v1.VirtualMachineVolumeRequest) {
 		now := metav1.Now()
 		vmi := api.NewMinimalVMI("testvmi")
