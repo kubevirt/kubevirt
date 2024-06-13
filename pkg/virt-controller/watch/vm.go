@@ -1890,7 +1890,7 @@ func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, VMIDe
 }
 
 func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vmi.Spec.Domain.Memory == nil {
+	if vmi.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory.Guest == nil {
 		return
 	}
 
@@ -3260,15 +3260,16 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
-	if vm.Spec.Template.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory == nil {
+	if vm.Spec.Template.Spec.Domain.Memory == nil ||
+		vm.Spec.Template.Spec.Domain.Memory.Guest == nil ||
+		vmi.Spec.Domain.Memory == nil ||
+		vmi.Spec.Domain.Memory.Guest == nil {
 		return nil
 	}
 
-	guestMemory := vmi.Spec.Domain.Memory.Guest
-
 	if vmi.Status.Memory == nil ||
 		vmi.Status.Memory.GuestCurrent == nil ||
-		vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*guestMemory) {
+		vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
 		return nil
 	}
 
