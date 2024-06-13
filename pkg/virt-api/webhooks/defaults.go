@@ -149,7 +149,7 @@ func setDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 	setDefaultMachineType(clusterConfig, spec)
 	setDefaultResourceRequests(clusterConfig, spec)
 	SetDefaultGuestCPUTopology(clusterConfig, spec)
-	setDefaultPullPoliciesOnContainerDisks(clusterConfig, spec)
+	setDefaultPullPoliciesOnContainerDisks(spec)
 	setDefaultEvictionStrategy(clusterConfig, spec)
 	if err := clusterConfig.SetVMISpecDefaultNetworkInterface(spec); err != nil {
 		return err
@@ -177,7 +177,7 @@ func setDefaultMachineType(clusterConfig *virtconfig.ClusterConfig, spec *v1.Vir
 
 }
 
-func setDefaultPullPoliciesOnContainerDisks(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func setDefaultPullPoliciesOnContainerDisks(spec *v1.VirtualMachineInstanceSpec) {
 	for _, volume := range spec.Volumes {
 		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullPolicy == "" {
 			if strings.HasSuffix(volume.ContainerDisk.Image, ":latest") || !strings.ContainsAny(volume.ContainerDisk.Image, ":@") {
