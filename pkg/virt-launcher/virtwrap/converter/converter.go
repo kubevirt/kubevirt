@@ -1189,30 +1189,12 @@ func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 		Value: maxMemory.Value,
 	}
 
-	domain.Spec.Memory = maxMemory
-
-	pluggableMemory := vmi.Spec.Domain.Memory.MaxGuest.DeepCopy()
-	pluggableMemory.Sub(*vmi.Status.Memory.GuestAtBoot)
-	pluggableMemorySize, err := vcpu.QuantityToByte(pluggableMemory)
+	currentMemory, err := vcpu.QuantityToByte(*vmi.Spec.Domain.Memory.Guest)
 	if err != nil {
 		return err
 	}
 
-	blockAlignment := MemoryHotplugBlockAlignmentBytes
-	if vmi.Spec.Domain.Memory != nil &&
-		vmi.Spec.Domain.Memory.Hugepages != nil &&
-		vmi.Spec.Domain.Memory.Hugepages.PageSize == "1Gi" {
-		blockAlignment = MemoryHotplug1GHugePagesBlockAlignmentBytes
-	}
-
-	domain.Spec.Devices.Memory = &api.MemoryDevice{
-		Model: "virtio-mem",
-		Target: &api.MemoryTarget{
-			Size:  pluggableMemorySize,
-			Node:  "0",
-			Block: api.Memory{Unit: "b", Value: uint64(blockAlignment)},
-		},
-	}
+	domain.Spec.Memory = currentMemory
 
 	return nil
 }
