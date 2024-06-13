@@ -24,6 +24,7 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/ignition:go_default_library",
+        "//pkg/liveupdate/memory:go_default_library",
         "//pkg/network/cache:go_default_library",
         "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/link:go_default_library",
