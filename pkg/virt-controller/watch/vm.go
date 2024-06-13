@@ -3277,13 +3277,26 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 	if vm.Spec.Template.Spec.Domain.Memory == nil ||
 		vm.Spec.Template.Spec.Domain.Memory.Guest == nil ||
 		vmi.Spec.Domain.Memory == nil ||
-		vmi.Spec.Domain.Memory.Guest == nil {
+		vmi.Spec.Domain.Memory.Guest == nil ||
+		vmi.Status.Memory == nil ||
+		vmi.Status.Memory.GuestCurrent == nil {
 		return nil
 	}
 
-	if vmi.Status.Memory == nil ||
-		vmi.Status.Memory.GuestCurrent == nil ||
-		vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+
+	if conditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionFalse) {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: metav1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "memory updated in template spec. Memory-hotplug failed and is not available for this VM configuration",
+		})
+		return nil
+	}
+
+	if vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
 		return nil
 	}
 
@@ -3298,7 +3311,6 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
-	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	if conditionManager.HasConditionWithStatus(vmi,
 		virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionTrue) {
 		return fmt.Errorf("another memory hotplug is in progress")
