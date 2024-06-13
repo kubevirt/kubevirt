@@ -396,6 +396,21 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			By("Detect failed memory hotplug")
 			Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionFalse(v1.VirtualMachineInstanceMemoryChange))
 			Eventually(ThisVM(vm), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineRestartRequired))
+
+			By("Checking that migration has been marked as succeeded")
+			var migration *v1.VirtualMachineInstanceMigration
+			Eventually(func() bool {
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, mig := range migrations.Items {
+					if mig.Spec.VMIName == vmi.Name {
+						migration = mig.DeepCopy()
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, time.Second).Should(BeTrue())
+			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 		})
 
 	})

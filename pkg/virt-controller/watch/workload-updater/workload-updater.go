@@ -316,7 +316,7 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 func isHotplugInProgress(vmi *virtv1.VirtualMachineInstance) bool {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	return condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) ||
-		condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange)
+		condManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionTrue)
 }
 
 func isVolumesUpdateInProgress(vmi *virtv1.VirtualMachineInstance) bool {
