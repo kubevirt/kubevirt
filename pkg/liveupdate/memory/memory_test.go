@@ -28,6 +28,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
 var _ = Describe("LiveUpdate Memory", func() {
@@ -78,5 +80,64 @@ var _ = Describe("LiveUpdate Memory", func() {
 				),
 			)
 		})
+
+		Context("virtio-mem device", func() {
+
+			DescribeTable("should be correctly built", func(opts ...libvmi.Option) {
+				currentGuestMemory := resource.MustParse("64Mi")
+
+				vmiOpts := []libvmi.Option{
+					libvmi.WithArchitecture("amd64"),
+					libvmi.WithGuestMemory("128Mi"),
+					libvmi.WithMaxGuest("256Mi"),
+				}
+				vmiOpts = append(vmiOpts, opts...)
+
+				vmi := libvmi.New(vmiOpts...)
+
+				vmi.Status = v1.VirtualMachineInstanceStatus{
+					Memory: &v1.MemoryStatus{
+						GuestCurrent:   &currentGuestMemory,
+						GuestRequested: &currentGuestMemory,
+						GuestAtBoot:    &currentGuestMemory,
+					},
+				}
+
+				memoryDevice, err := memory.BuildMemoryDevice(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				size, err := vcpu.QuantityToByte(resource.MustParse("192Mi"))
+				Expect(err).ToNot(HaveOccurred())
+
+				requested, err := vcpu.QuantityToByte(resource.MustParse("64Mi"))
+				Expect(err).ToNot(HaveOccurred())
+
+				block := api.Memory{Unit: "b", Value: uint64(memory.HotplugBlockAlignmentBytes)}
+
+				hugepages := vmi.Spec.Domain.Memory.Hugepages
+				if hugepages != nil {
+					var err error
+					block, err = vcpu.QuantityToByte(resource.MustParse(hugepages.PageSize))
+					Expect(err).ToNot(HaveOccurred())
+				}
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(memoryDevice).ToNot(BeNil())
+				Expect(*memoryDevice).To(Equal(api.MemoryDevice{
+					Model: "virtio-mem",
+					Target: &api.MemoryTarget{
+						Size:      size,
+						Node:      "0",
+						Block:     block,
+						Requested: requested,
+					},
+				}))
+			},
+				Entry("when using a common VM"),
+				Entry("when using a VM with 2Mi sized hugepages", libvmi.WithHugepages("2Mi")),
+				Entry("when using a VM with 1Gi sized hugepages", libvmi.WithHugepages("1Gi")),
+			)
+		})
+
 	})
 })
