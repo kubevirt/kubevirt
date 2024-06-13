@@ -132,9 +132,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
-		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
-		patchOperator                          func(*string, *string) bool
 		installTestingManifests                func(string)
 		deleteOperator                         func(string)
 		deleteTestingManifests                 func(string)
@@ -158,65 +155,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		parseDeployment = func(name string) (deployment *v12.Deployment, image, registry, imageName, version string) {
-			var err error
-			deployment, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			image = deployment.Spec.Template.Spec.Containers[0].Image
-			registry, imageName, version = parseImage(image)
-			return
-		}
-
-		parseOperatorImage = func() (operator *v12.Deployment, image, registry, imageName, version string) {
-			return parseDeployment("virt-operator")
-		}
-
-		patchOperator = func(newImageName, version *string) bool {
-
-			modified := true
-
-			Eventually(func() error {
-
-				operator, oldImage, registry, oldImageName, oldVersion := parseOperatorImage()
-				if newImageName == nil {
-					// keep old prefix
-					newImageName = &oldImageName
-				}
-				if version == nil {
-					// keep old version
-					version = &oldVersion
-				} else {
-					newVersion := components.AddVersionSeparatorPrefix(*version)
-					version = &newVersion
-				}
-				newImage := fmt.Sprintf("%s/%s%s", registry, *newImageName, *version)
-
-				if oldImage == newImage {
-					modified = false
-					return nil
-				}
-
-				operator.Spec.Template.Spec.Containers[0].Image = newImage
-				for idx, env := range operator.Spec.Template.Spec.Containers[0].Env {
-					if env.Name == util.VirtOperatorImageEnvName {
-						env.Value = newImage
-						operator.Spec.Template.Spec.Containers[0].Env[idx] = env
-						break
-					}
-				}
-
-				newTemplate, _ := json.Marshal(operator.Spec.Template)
-
-				op := fmt.Sprintf(`[{ "op": "replace", "path": "/spec/template", "value": %s }]`, string(newTemplate))
-
-				_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), "virt-operator", types.JSONPatchType, []byte(op), metav1.PatchOptions{})
-
-				return err
-			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-			return modified
-		}
 
 		installTestingManifests = func(manifestPath string) {
 			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
@@ -3365,4 +3303,68 @@ func patchKvCertConfig(name string, certConfig *v1.KubeVirtSelfSignConfiguration
 
 	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 	return err
+}
+
+func patchOperator(newImageName, version *string) bool {
+	operator, oldImage, registry, oldImageName, oldVersion := parseOperatorImage()
+	if newImageName == nil {
+		// keep old prefix
+		newImageName = &oldImageName
+	}
+	if version == nil {
+		// keep old version
+		version = &oldVersion
+	} else {
+		newVersion := components.AddVersionSeparatorPrefix(*version)
+		version = &newVersion
+	}
+	newImage := fmt.Sprintf("%s/%s%s", registry, *newImageName, *version)
+
+	if oldImage == newImage {
+		return false
+	}
+
+	operator.Spec.Template.Spec.Containers[0].Image = newImage
+	idx := -1
+	var env k8sv1.EnvVar
+	for idx, env = range operator.Spec.Template.Spec.Containers[0].Env {
+		if env.Name == util.VirtOperatorImageEnvName {
+			break
+		}
+	}
+	Expect(idx).To(BeNumerically(">=", 0), "virt-operator image name environment variable is not found")
+
+	path := fmt.Sprintf("/spec/template/spec/containers/0/env/%d/value", idx)
+	op, err := patch.New(
+		patch.WithReplace("/spec/template/spec/containers/0/image", newImage),
+		patch.WithReplace(path, newImage),
+	).GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() error {
+		_, err = kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), "virt-operator", types.JSONPatchType, op, metav1.PatchOptions{})
+
+		return err
+	}).WithTimeout(15 * time.Second).WithPolling(time.Second).Should(Succeed())
+
+	return true
+}
+
+func parseOperatorImage() (*v12.Deployment, string, string, string, string) {
+	return parseDeployment("virt-operator")
+}
+
+func parseDeployment(name string) (*v12.Deployment, string, string, string, string) {
+	var (
+		err        error
+		deployment *v12.Deployment
+	)
+
+	deployment, err = kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	image := deployment.Spec.Template.Spec.Containers[0].Image
+	registry, imageName, version := parseImage(image)
+
+	return deployment, image, registry, imageName, version
 }
