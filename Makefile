@@ -113,6 +113,9 @@ conformance:
 perftest: build-functests
 	hack/perftests.sh
 
+kwok-perftest: build-functests
+	hack/kwok-perftests.sh
+
 realtime-perftest: build-functests
 	hack/realtime-perftests.sh
 

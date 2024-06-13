@@ -54,6 +54,7 @@ var OperatorManifestPath string
 var TestingManifestPath string
 var ApplyDefaulte2eConfiguration bool
 
+var DeployFakeKWOKNodesFlag = false
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
 var DNSServiceName = ""
@@ -78,6 +79,7 @@ func init() {
 	flag.StringVar(&KubeVirtExampleGuestAgentPath, "example-guest-agent-path", "", "Set path to the example-guest-agent binary which is used for vsock testing")
 	flag.StringVar(&KubeVirtGoCliPath, "gocli-path", "", "Set path to gocli binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "", "Set the namespace KubeVirt is installed in")
+	flag.BoolVar(&DeployFakeKWOKNodesFlag, "deploy-fake-kwok-nodes", false, "Deploy fake KWOK nodes to test performance.")
 	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
 	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
