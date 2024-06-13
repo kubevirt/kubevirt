@@ -56,4 +56,10 @@ var (
 	RequiresSnapshotStorageClass = []interface{}{Label("RequiresSnapshotStorageClass")}
 	// Requires a storage class without support for snapshots
 	RequiresNoSnapshotStorageClass = []interface{}{Label("RequiresNoSnapshotStorageClass")}
+	// Requires a storage class with support for block volumes
+	RequiresBlockStorageClass = []interface{}{Label("RequiresBlockStorageClass")}
+	// Requires a storage class with support for file volumes
+	RequiresFilesystemStorageClass = []interface{}{Label("RequiresFilesystemStorageClass")}
+	// Requires a storage class which has intree hostpath volumes
+	RequiresHostpathVolume = []interface{}{Label("RequiresHostpathVolume")}
 )
