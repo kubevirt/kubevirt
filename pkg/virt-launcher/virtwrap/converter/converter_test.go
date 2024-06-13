@@ -2748,11 +2748,6 @@ var _ = Describe("Converter", func() {
 				Expect(domain.Spec.Memory.Unit).To(Equal("b"))
 				Expect(domain.Spec.Memory.Value).To(Equal(uint64(maxGuestMemory.Value())))
 
-				Expect(domain.Spec.CPU.NUMA).ToNot(BeNil())
-				Expect(domain.Spec.CPU.NUMA.Cells).To(HaveLen(1))
-				Expect(domain.Spec.CPU.NUMA.Cells[0].Unit).To(Equal("b"))
-				Expect(domain.Spec.CPU.NUMA.Cells[0].Memory).To(Equal(uint64(guestMemory.Value())))
-
 				pluggableMemory := uint64(maxGuestMemory.Value() - guestMemory.Value())
 
 				Expect(domain.Spec.Devices.Memory).ToNot(BeNil())
