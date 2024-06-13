@@ -542,15 +542,6 @@ func validateLiveUpdateMemory(field *k8sfield.Path, domain *v1.DomainSpec, archi
 		})
 	}
 
-	if domain.CPU != nil &&
-		domain.CPU.DedicatedCPUPlacement {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Memory hotplug is not compatible with dedicated CPUs"),
-			Field:   field.Child("template", "spec", "domain", "cpu", "dedicatedCpuPlacement").String(),
-		})
-	}
-
 	if domain.Memory == nil ||
 		domain.Memory.Guest == nil {
 		causes = append(causes, metav1.StatusCause{
