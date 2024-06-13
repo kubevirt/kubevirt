@@ -586,6 +586,40 @@ var _ = Describe("Migration watcher", func() {
 				expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig())
 				expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"), HaveKeyWithValue(virtv1.VirtualMachinePodMemoryRequestsLabel, "150Mi"))
 			})
+
+			It("should mark migration as succeeded if memory hotplug failed", func() {
+				vmi.Status.Conditions = append(vmi.Status.Conditions,
+					virtv1.VirtualMachineInstanceCondition{
+						Type:   virtv1.VirtualMachineInstanceMemoryChange,
+						Status: k8sv1.ConditionFalse,
+					},
+				)
+
+				addNodeNameToVMI(vmi, "node02")
+				runningMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationRunning)
+				runningTargetPod := newTargetPodForVirtualMachine(vmi, runningMigration, k8sv1.PodRunning)
+				runningTargetPod.Spec.NodeName = "node01"
+
+				vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+					MigrationUID:      runningMigration.UID,
+					TargetNode:        "node01",
+					SourceNode:        "node02",
+					TargetNodeAddress: "10.10.10.10:1234",
+					StartTimestamp:    pointer.P(metav1.Now()),
+					EndTimestamp:      pointer.P(metav1.Now()),
+					Failed:            false,
+					Completed:         true,
+				}
+				addMigration(runningMigration)
+				addVirtualMachineInstance(vmi)
+				addPod(newSourcePodForVirtualMachine(vmi))
+				addPod(runningTargetPod)
+
+				controller.Execute()
+
+				testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
+				expectMigrationCompletedState(migration.Namespace, migration.Name)
+			})
 		})
 	})
 
