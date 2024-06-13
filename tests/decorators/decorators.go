@@ -56,4 +56,7 @@ var (
 	RequiresSnapshotStorageClass = []interface{}{Label("RequiresSnapshotStorageClass")}
 	// Requires a storage class without support for snapshots
 	RequiresNoSnapshotStorageClass = []interface{}{Label("RequiresNoSnapshotStorageClass")}
+
+	// Kubernetes versions
+	Kubernetes130 = []interface{}{Label("kubernetes130")}
 )
