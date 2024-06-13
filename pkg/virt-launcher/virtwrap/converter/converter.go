@@ -89,7 +89,10 @@ const (
 	// must be a power of 2 and at least equal
 	// to the size of a transparent hugepage (2MiB on x84_64).
 	// Recommended value by QEMU is 2MiB
-	MemoryHotplugBlockAlignmentBytes = 2097152
+	MemoryHotplugBlockAlignmentBytes = 0x200000
+
+	// 1GiB, the size of 1Gi HugePages
+	MemoryHotplug1GHugePagesBlockAlignmentBytes = 0x40000000
 )
 
 var (
@@ -1261,7 +1264,6 @@ func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	domain.Spec.MaxMemory = &api.MaxMemory{
 		Unit:  maxMemory.Unit,
 		Value: maxMemory.Value,
-		Slots: 1,
 	}
 
 	domain.Spec.Memory = maxMemory
@@ -1291,12 +1293,19 @@ func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 		return err
 	}
 
+	blockAlignment := MemoryHotplugBlockAlignmentBytes
+	if vmi.Spec.Domain.Memory != nil &&
+		vmi.Spec.Domain.Memory.Hugepages != nil &&
+		vmi.Spec.Domain.Memory.Hugepages.PageSize == "1Gi" {
+		blockAlignment = MemoryHotplug1GHugePagesBlockAlignmentBytes
+	}
+
 	domain.Spec.Devices.Memory = &api.MemoryDevice{
 		Model: "virtio-mem",
 		Target: &api.MemoryTarget{
 			Size:  pluggableMemorySize,
 			Node:  "0",
-			Block: api.Memory{Unit: "b", Value: MemoryHotplugBlockAlignmentBytes},
+			Block: api.Memory{Unit: "b", Value: uint64(blockAlignment)},
 		},
 	}
 
