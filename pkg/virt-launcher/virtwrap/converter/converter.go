@@ -1191,24 +1191,6 @@ func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 
 	domain.Spec.Memory = maxMemory
 
-	initialMemoryApi, err := vcpu.QuantityToByte(*vmi.Status.Memory.GuestAtBoot)
-	if err != nil {
-		return err
-	}
-
-	// The usage of memory devices requires a NUMA configuration for
-	// the domain, even if it's just a single NUMA node
-	domain.Spec.CPU.NUMA = &api.NUMA{
-		Cells: []api.NUMACell{
-			{
-				ID:     "0",
-				CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
-				Memory: initialMemoryApi.Value,
-				Unit:   initialMemoryApi.Unit,
-			},
-		},
-	}
-
 	pluggableMemory := vmi.Spec.Domain.Memory.MaxGuest.DeepCopy()
 	pluggableMemory.Sub(*vmi.Status.Memory.GuestAtBoot)
 	pluggableMemorySize, err := vcpu.QuantityToByte(pluggableMemory)
