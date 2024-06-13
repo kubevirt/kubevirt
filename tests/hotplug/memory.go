@@ -315,5 +315,57 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			Expect(reqMemory).To(BeNumerically(">=", newMemory.Value()))
 		})
 
+		// This is needed as the first hotplug attaches the virtio-mem device
+		// while the next ones only update the device. This test exercises
+		// both cases
+		It("should successfully hotplug memory twice", func() {
+			By("Creating a VM")
+			guest := resource.MustParse("128Mi")
+			vm, vmi := createHotplugVM(&guest, nil, nil, 0)
+
+			for _, newMemory := range []*resource.Quantity{pointer.P(resource.MustParse("256Mi")), pointer.P(resource.MustParse("512Mi"))} {
+				oldGuestMemory := vm.Spec.Template.Spec.Domain.Memory.Guest
+
+				By("Ensuring the compute container has the expected memory")
+				compute, err := libpod.LookupComputeContainerFromVmi(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(compute).NotTo(BeNil(), "failed to find compute container")
+				reqMemory := compute.Resources.Requests.Memory().Value()
+				Expect(reqMemory).To(BeNumerically(">=", oldGuestMemory.Value()))
+
+				By("Hotplug some memory")
+				patchSet := patch.New(
+					patch.WithAdd("/spec/template/spec/domain/memory/guest", newMemory.String()),
+				)
+				patchBytes, err := patchSet.GeneratePayload()
+				Expect(err).NotTo(HaveOccurred())
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Ensuring the libvirt domain has more available guest memory")
+				Eventually(func() int64 {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					return getCurrentDomainMemory(vmi).Value()
+				}, 240*time.Second, time.Second).Should(BeNumerically(">", oldGuestMemory.Value()))
+
+				By("Ensuring the VMI has more available guest memory")
+				Eventually(func() int64 {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					return vmi.Status.Memory.GuestCurrent.Value()
+				}, 240*time.Second, time.Second).Should(BeNumerically(">", oldGuestMemory.Value()))
+
+				By("Ensuring the virt-launcher pod now has more memory")
+				compute, err = libpod.LookupComputeContainerFromVmi(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(compute).NotTo(BeNil(), "failed to find compute container")
+				reqMemory = compute.Resources.Requests.Memory().Value()
+				Expect(reqMemory).To(BeNumerically(">=", newMemory.Value()))
+			}
+		})
+
 	})
 })
