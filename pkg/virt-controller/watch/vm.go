@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
@@ -1895,12 +1896,21 @@ func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, ma
 		return
 	}
 
+	var maxGuest *resource.Quantity
 	switch {
 	case c.clusterConfig.GetMaximumGuestMemory() != nil:
-		vmi.Spec.Domain.Memory.MaxGuest = c.clusterConfig.GetMaximumGuestMemory()
+		maxGuest = c.clusterConfig.GetMaximumGuestMemory()
 	case vmi.Spec.Domain.Memory.Guest != nil:
-		vmi.Spec.Domain.Memory.MaxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(maxRatio), resource.BinarySI)
+		maxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(maxRatio), resource.BinarySI)
 	}
+
+	if err := memory.ValidateLiveUpdateMemory(&vmi.Spec, maxGuest); err != nil {
+		// memory hotplug is not compatible with this VM configuration
+		log.Log.V(2).Object(vmi).Infof("memory-hotplug disabled: %s", err)
+		return
+	}
+
+	vmi.Spec.Domain.Memory.MaxGuest = maxGuest
 }
 
 // filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state
