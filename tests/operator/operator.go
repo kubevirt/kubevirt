@@ -132,10 +132,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		patchKvNodePlacement                   func(string, string, string, *v1.ComponentConfig)
-		patchKvNodePlacementExpectError        func(string, string, string, *v1.ComponentConfig, string)
-		patchKvInfra                           func(*v1.ComponentConfig, bool, string)
-		patchKvWorkloads                       func(*v1.ComponentConfig, bool, string)
 		patchKvCertConfigExpectError           func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
 		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
 		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
@@ -163,69 +159,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		patchKvNodePlacement = func(name string, path string, verb string, componentConfig *v1.ComponentConfig) {
-			var data []byte
-
-			componentConfigData, _ := json.Marshal(componentConfig)
-
-			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-		}
-
-		patchKvNodePlacementExpectError = func(name string, path string, verb string, componentConfig *v1.ComponentConfig, errMsg string) {
-			var data []byte
-
-			componentConfigData, _ := json.Marshal(componentConfig)
-
-			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(errMsg))
-
-		}
-
-		patchKvInfra = func(infra *v1.ComponentConfig, expectError bool, errMsg string) {
-			kv := copyOriginalKv(originalKv)
-			verb := "add"
-
-			if kv.Spec.Infra != nil {
-				verb = "replace"
-			}
-			if infra == nil {
-				verb = "remove"
-			}
-
-			if !expectError {
-				patchKvNodePlacement(kv.Name, "infra", verb, infra)
-			} else {
-				patchKvNodePlacementExpectError(kv.Name, "infra", verb, infra, errMsg)
-			}
-		}
-
-		patchKvWorkloads = func(workloads *v1.ComponentConfig, expectError bool, errMsg string) {
-			kv := copyOriginalKv(originalKv)
-			verb := "add"
-
-			if kv.Spec.Workloads != nil {
-				verb = "replace"
-			}
-			if workloads == nil {
-				verb = "remove"
-			}
-			if !expectError {
-				patchKvNodePlacement(kv.Name, "workloads", verb, workloads)
-			} else {
-				patchKvNodePlacementExpectError(kv.Name, "workloads", verb, workloads, errMsg)
-			}
-		}
 
 		patchKvCertConfigExpectError = func(name string, certConfig *v1.KubeVirtSelfSignConfiguration) {
 			var data []byte
@@ -2239,13 +2172,14 @@ spec:
 			// new ones are stood up (and the new ones will get stuck in scheduling)
 			fakeLabelKey := "kubevirt-test"
 			fakeLabelValue := "test-label"
-			infra := v1.ComponentConfig{
+			infra := &v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
 					NodeSelector: map[string]string{fakeLabelKey: fakeLabelValue},
 				},
 			}
 			By("Adding fake label to Virt components")
-			patchKvInfra(&infra, false, "")
+			Expect(patchKVInfra(originalKv, infra)).To(Succeed())
+
 			for _, deploymentName := range []string{"virt-controller", "virt-api"} {
 				errMsg := "NodeSelector should be propegated to the deployment eventually"
 				Eventually(func() bool {
@@ -2260,18 +2194,18 @@ spec:
 					return atLeastOnePendingPodExistInDeployment(virtClient, deploymentName)
 				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
 			}
-			patchKvInfra(nil, false, "")
+			Expect(patchKVInfra(originalKv, nil)).To(Succeed())
 		})
 
 		It("[test_id:4928]should dynamically update workloads config", func() {
 			labelKey := "kubevirt-test"
 			labelValue := "test-label"
-			workloads := v1.ComponentConfig{
+			workloads := &v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
 					NodeSelector: map[string]string{labelKey: labelValue},
 				},
 			}
-			patchKvWorkloads(&workloads, false, "")
+			Expect(patchKVWorkloads(originalKv, workloads)).To(Succeed())
 
 			Eventually(func() bool {
 				daemonset, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
@@ -2282,12 +2216,12 @@ spec:
 				return true
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
-			patchKvWorkloads(nil, false, "")
+			Expect(patchKVWorkloads(originalKv, nil)).To(Succeed())
 		})
 
 		It("should reject infra placement configuration with incorrect toleration operator", func() {
-			incorrectOperator := "foo"
-			incorrectWorkload := v1.ComponentConfig{
+			const incorrectOperator = "foo"
+			incorrectInfra := &v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
 					Tolerations: []k8sv1.Toleration{{
 						Key:      "someKey",
@@ -2296,13 +2230,13 @@ spec:
 					}},
 				},
 			}
-			errMsg := "spec.infra.nodePlacement.tolerations.operator in body should be one of"
-			patchKvInfra(&incorrectWorkload, true, errMsg)
+			const errMsg = "spec.infra.nodePlacement.tolerations.operator in body should be one of"
+			Expect(patchKVInfra(originalKv, incorrectInfra)).To(MatchError(ContainSubstring(errMsg)))
 		})
 
 		It("should reject workload placement configuration with incorrect toleraion operator", func() {
-			incorrectOperator := "foo"
-			incorrectWorkload := v1.ComponentConfig{
+			const incorrectOperator = "foo"
+			incorrectWorkload := &v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
 					Tolerations: []k8sv1.Toleration{{
 						Key:      "someKey",
@@ -2311,8 +2245,8 @@ spec:
 					}},
 				},
 			}
-			errMsg := "spec.workloads.nodePlacement.tolerations.operator in body should be one of"
-			patchKvWorkloads(&incorrectWorkload, true, errMsg)
+			const errMsg = "spec.workloads.nodePlacement.tolerations.operator in body should be one of"
+			Expect(patchKVWorkloads(originalKv, incorrectWorkload)).To(MatchError(ContainSubstring(errMsg)))
 		})
 
 		It("[test_id:8235]should check if kubevirt components have linux node selector", func() {
@@ -2353,16 +2287,17 @@ spec:
 			infra := &v1.ComponentConfig{
 				Replicas: &replicas,
 			}
-			patchKvInfra(infra, true, "infra replica count can't be 0")
+
+			Expect(patchKVInfra(originalKv, infra)).To(MatchError(ContainSubstring("infra replica count can't be 0")))
 		})
 		It("should dynamically adjust virt- pod count and PDBs", func() {
 			for _, replicas := range []uint8{3, 1, 2} {
 				By(fmt.Sprintf("Setting the replica count in kvInfra to %d", replicas))
-				var infra *v1.ComponentConfig
-				infra = &v1.ComponentConfig{
+				var infra = &v1.ComponentConfig{
 					Replicas: &replicas,
 				}
-				patchKvInfra(infra, false, "")
+
+				Expect(patchKVInfra(originalKv, infra)).To(Succeed())
 
 				By(fmt.Sprintf("Expecting %d replicas of virt-api and virt-controller", replicas))
 				Eventually(func() []k8sv1.Pod {
@@ -2400,8 +2335,8 @@ spec:
 		})
 		It("should update new single-replica CRs with a finalizer and be stable", func() {
 			By("copying the original kv CR")
-			kvOrig := copyOriginalKv(originalKv)
 			kv := copyOriginalKv(originalKv)
+			kvOrigInfra := kv.Spec.Infra.DeepCopy()
 
 			By("storing the actual replica counts for the cluster")
 			originalReplicaCounts := make(map[string]int)
@@ -2458,7 +2393,7 @@ spec:
 			}, 30*time.Second, 2*time.Second).Should(Equal(kv.GetGeneration()))
 
 			By("restoring the original replica count")
-			patchKvInfra(kvOrig.Spec.Infra, false, "")
+			Expect(patchKVInfra(originalKv, kvOrigInfra)).To(Succeed())
 
 			By("waiting for virt-api and virt-controller replicas to respawn")
 			Eventually(func() error {
@@ -3403,4 +3338,37 @@ func getDaemonsetImage(name string) string {
 	Expect(matches[0]).To(HaveLen(4))
 
 	return matches[0][2]
+}
+
+func getComponentConfigPatchOption(toChange *v1.ComponentConfig, orig *v1.ComponentConfig, path string) patch.PatchOption {
+	var opt patch.PatchOption
+	if toChange == nil {
+		opt = patch.WithRemove(path)
+	} else {
+		if orig != nil {
+			opt = patch.WithReplace(path, toChange)
+		} else {
+			opt = patch.WithAdd(path, toChange)
+		}
+	}
+	return opt
+}
+
+func patchKVInfra(origKV *v1.KubeVirt, toChange *v1.ComponentConfig) error {
+	return patchKVComponentConfig(origKV.Name, toChange, origKV.Spec.Infra, "/spec/infra")
+}
+
+func patchKVWorkloads(origKV *v1.KubeVirt, toChange *v1.ComponentConfig) error {
+	return patchKVComponentConfig(origKV.Name, toChange, origKV.Spec.Workloads, "/spec/workloads")
+}
+
+func patchKVComponentConfig(kvName string, toChange, origField *v1.ComponentConfig, path string) error {
+	opt := getComponentConfigPatchOption(toChange, origField, path)
+	patches := patch.New(opt)
+	data, err := patches.GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, metav1.PatchOptions{})
+
+	return err
 }
