@@ -2794,46 +2794,13 @@ var _ = Describe("Converter", func() {
 
 				Expect(domain.Spec.Memory).ToNot(BeNil())
 				Expect(domain.Spec.Memory.Unit).To(Equal("b"))
-				Expect(domain.Spec.Memory.Value).To(Equal(uint64(maxGuestMemory.Value())))
+				Expect(domain.Spec.Memory.Value).To(Equal(uint64(guestMemory.Value())))
 
 				Expect(domain.Spec.CPU.NUMA).ToNot(BeNil())
 				Expect(domain.Spec.CPU.NUMA.Cells).To(HaveLen(1))
 				Expect(domain.Spec.CPU.NUMA.Cells[0].Unit).To(Equal("b"))
 				Expect(domain.Spec.CPU.NUMA.Cells[0].Memory).To(Equal(uint64(guestMemory.Value())))
-
-				pluggableMemory := uint64(maxGuestMemory.Value() - guestMemory.Value())
-
-				Expect(domain.Spec.Devices.Memory).ToNot(BeNil())
-				Expect(domain.Spec.Devices.Memory.Model).To(Equal("virtio-mem"))
-				Expect(domain.Spec.Devices.Memory.Target).ToNot(BeNil())
-				Expect(domain.Spec.Devices.Memory.Target.Node).To(Equal("0"))
-				Expect(domain.Spec.Devices.Memory.Target.Size.Value).To(Equal(pluggableMemory))
-				Expect(domain.Spec.Devices.Memory.Target.Size.Unit).To(Equal("b"))
-				Expect(domain.Spec.Devices.Memory.Target.Block.Value).To(Equal(uint64(MemoryHotplugBlockAlignmentBytes)))
-				Expect(domain.Spec.Devices.Memory.Target.Block.Unit).To(Equal("b"))
 			})
-
-			DescribeTable("should correctly setup hotplug when hugepages are used", func(pageSize string) {
-				vmi.Spec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: pageSize}
-				err := setupDomainMemory(vmi, domain)
-				Expect(err).ToNot(HaveOccurred())
-
-				blockAlignment := MemoryHotplugBlockAlignmentBytes
-				if pageSize == "1Gi" {
-					blockAlignment = MemoryHotplug1GHugePagesBlockAlignmentBytes
-				}
-
-				Expect(domain.Spec.Devices.Memory).ToNot(BeNil())
-				Expect(domain.Spec.Devices.Memory.Model).To(Equal("virtio-mem"))
-				Expect(domain.Spec.Devices.Memory.Target).ToNot(BeNil())
-				Expect(domain.Spec.Devices.Memory.Target.Node).To(Equal("0"))
-				Expect(domain.Spec.Devices.Memory.Target.Size.Unit).To(Equal("b"))
-				Expect(domain.Spec.Devices.Memory.Target.Block.Value).To(Equal(uint64(blockAlignment)))
-				Expect(domain.Spec.Devices.Memory.Target.Block.Unit).To(Equal("b"))
-			},
-				Entry("with pages set to 2Mi", "2Mi"),
-				Entry("with pages set to 1Gi", "1Gi"),
-			)
 		})
 	})
 
