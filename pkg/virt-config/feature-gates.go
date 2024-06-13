@@ -75,6 +75,7 @@ const (
 
 	// Owner: @lyarwood
 	// Alpha: v1.1.0
+	// Beta:  v1.2.0
 	//
 	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
