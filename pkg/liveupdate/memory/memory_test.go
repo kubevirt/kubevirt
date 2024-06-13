@@ -28,9 +28,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
 var _ = Describe("LiveUpdate Memory", func() {
+
 	Context("Memory", func() {
 		Context("Validation", func() {
 			maxGuest := resource.MustParse("128Mi")
@@ -106,6 +109,65 @@ var _ = Describe("LiveUpdate Memory", func() {
 				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 				}),
+			)
+		})
+
+		Context("virtio-mem device", func() {
+
+			DescribeTable("should be correctly built", func(hugepages *v1.Hugepages) {
+				currentGuestMemory := resource.MustParse("64Mi")
+				vmi := &v1.VirtualMachineInstance{
+					Spec: v1.VirtualMachineInstanceSpec{
+						Architecture: "amd64",
+						Domain: v1.DomainSpec{
+							Memory: &v1.Memory{
+								Guest:    pointer.P(resource.MustParse("128Mi")),
+								MaxGuest: pointer.P(resource.MustParse("256Mi")),
+							},
+						},
+					},
+					Status: v1.VirtualMachineInstanceStatus{
+						Memory: &v1.MemoryStatus{
+							GuestCurrent:   &currentGuestMemory,
+							GuestRequested: &currentGuestMemory,
+							GuestAtBoot:    &currentGuestMemory,
+						},
+					},
+				}
+
+				vmi.Spec.Domain.Memory.Hugepages = hugepages
+
+				memoryDevice, err := memory.BuildMemoryDevice(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				size, err := vcpu.QuantityToByte(resource.MustParse("192Mi"))
+				Expect(err).ToNot(HaveOccurred())
+
+				requested, err := vcpu.QuantityToByte(resource.MustParse("64Mi"))
+				Expect(err).ToNot(HaveOccurred())
+
+				block := api.Memory{Unit: "b", Value: uint64(memory.HotplugBlockAlignmentBytes)}
+				if hugepages != nil {
+					var err error
+					block, err = vcpu.QuantityToByte(resource.MustParse(hugepages.PageSize))
+					Expect(err).ToNot(HaveOccurred())
+				}
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(memoryDevice).ToNot(BeNil())
+				Expect(*memoryDevice).To(Equal(api.MemoryDevice{
+					Model: "virtio-mem",
+					Target: &api.MemoryTarget{
+						Size:      size,
+						Node:      "0",
+						Block:     block,
+						Requested: requested,
+					},
+				}))
+			},
+				Entry("when using a common VM", nil),
+				Entry("when using a VM with 2Mi sized hugepages", &v1.Hugepages{PageSize: "2Mi"}),
+				Entry("when using a VM with 1Gi sized hugepages", &v1.Hugepages{PageSize: "1Gi"}),
 			)
 		})
 	})

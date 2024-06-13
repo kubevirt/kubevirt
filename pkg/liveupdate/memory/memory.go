@@ -24,6 +24,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -87,4 +90,39 @@ func ValidateLiveUpdateMemory(vmSpec *v1.VirtualMachineInstanceSpec, maxGuest *r
 	}
 
 	return nil
+}
+
+func BuildMemoryDevice(vmi *v1.VirtualMachineInstance) (*api.MemoryDevice, error) {
+	domain := vmi.Spec.Domain
+
+	pluggableMemory := domain.Memory.MaxGuest.DeepCopy()
+	pluggableMemory.Sub(*vmi.Status.Memory.GuestAtBoot)
+	pluggableMemorySize, err := vcpu.QuantityToByte(pluggableMemory)
+	if err != nil {
+		return nil, err
+	}
+
+	requestedHotPlugMemory := domain.Memory.Guest.DeepCopy()
+	requestedHotPlugMemory.Sub(*vmi.Status.Memory.GuestAtBoot)
+	pluggableMemoryRequested, err := vcpu.QuantityToByte(requestedHotPlugMemory)
+	if err != nil {
+		return nil, err
+	}
+
+	blockAlignment := HotplugBlockAlignmentBytes
+	if domain.Memory != nil &&
+		domain.Memory.Hugepages != nil &&
+		domain.Memory.Hugepages.PageSize == "1Gi" {
+		blockAlignment = Hotplug1GHugePagesBlockAlignmentBytes
+	}
+
+	return &api.MemoryDevice{
+		Model: "virtio-mem",
+		Target: &api.MemoryTarget{
+			Size:      pluggableMemorySize,
+			Node:      "0",
+			Block:     api.Memory{Unit: "b", Value: uint64(blockAlignment)},
+			Requested: pluggableMemoryRequested,
+		},
+	}, nil
 }

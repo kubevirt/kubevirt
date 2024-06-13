@@ -6,6 +6,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/liveupdate/memory",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
@@ -20,6 +22,8 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/pointer:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
