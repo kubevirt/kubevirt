@@ -1788,6 +1788,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		}
 	}
 
+	setGuestMemory(&vmi.Spec)
 	c.setupHotplug(vmi, VMIDefaults)
 
 	return vmi
@@ -1890,15 +1891,14 @@ func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, VMIDe
 }
 
 func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vmi.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory.Guest == nil {
+	if vmi.Spec.Domain.Memory.MaxGuest != nil {
 		return
 	}
 
-	if vmi.Spec.Domain.Memory.MaxGuest == nil {
+	switch {
+	case c.clusterConfig.GetMaximumGuestMemory() != nil:
 		vmi.Spec.Domain.Memory.MaxGuest = c.clusterConfig.GetMaximumGuestMemory()
-	}
-
-	if vmi.Spec.Domain.Memory.MaxGuest == nil {
+	case vmi.Spec.Domain.Memory.Guest != nil:
 		vmi.Spec.Domain.Memory.MaxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(maxRatio), resource.BinarySI)
 	}
 }
@@ -3387,6 +3387,29 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
 
 	return err
+}
+
+func setGuestMemory(spec *virtv1.VirtualMachineInstanceSpec) {
+	if spec.Domain.Memory != nil &&
+		spec.Domain.Memory.Guest != nil {
+		return
+	}
+
+	switch {
+	case !spec.Domain.Resources.Requests.Memory().IsZero():
+		spec.Domain.Memory = &virtv1.Memory{
+			Guest: spec.Domain.Resources.Requests.Memory(),
+		}
+	case !spec.Domain.Resources.Limits.Memory().IsZero():
+		spec.Domain.Memory = &virtv1.Memory{
+			Guest: spec.Domain.Resources.Limits.Memory(),
+		}
+	case spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil:
+		if hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize); err == nil {
+			spec.Domain.Memory.Guest = &hugepagesSize
+		}
+	}
+
 }
 
 func (c *VMController) setupHotplug(vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
