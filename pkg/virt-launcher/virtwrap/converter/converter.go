@@ -82,16 +82,6 @@ const (
 	QEMUSeaBiosDebugPipe = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
 )
 
-const (
-	// must be a power of 2 and at least equal
-	// to the size of a transparent hugepage (2MiB on x84_64).
-	// Recommended value by QEMU is 2MiB
-	MemoryHotplugBlockAlignmentBytes = 0x200000
-
-	// 1GiB, the size of 1Gi HugePages
-	MemoryHotplug1GHugePagesBlockAlignmentBytes = 0x40000000
-)
-
 var (
 	BootMenuTimeoutMS = uint(10000)
 )

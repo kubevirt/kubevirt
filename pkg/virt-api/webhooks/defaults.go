@@ -80,13 +80,21 @@ func setupMemoryHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.Virtual
 		return
 	}
 
+	var maxGuest *resource.Quantity
 	switch {
 	case clusterConfig.GetMaximumGuestMemory() != nil:
-		vmi.Spec.Domain.Memory.MaxGuest = clusterConfig.GetMaximumGuestMemory()
+		maxGuest = clusterConfig.GetMaximumGuestMemory()
 	case vmi.Spec.Domain.Memory.Guest != nil:
-		vmi.Spec.Domain.Memory.MaxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(clusterConfig.GetMaxHotplugRatio()), resource.BinarySI)
+		maxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(clusterConfig.GetMaxHotplugRatio()), resource.BinarySI)
 	}
 
+	if err := memory.ValidateLiveUpdateMemory(&vmi.Spec, maxGuest); err != nil {
+		// memory hotplug is not compatible with this VM configuration
+		log.Log.V(2).Object(vmi).Infof("memory-hotplug disabled: %s", err)
+		return
+	}
+
+	vmi.Spec.Domain.Memory.MaxGuest = maxGuest
 }
 
 func setCurrentCPUTopologyStatus(vmi *v1.VirtualMachineInstance) {
