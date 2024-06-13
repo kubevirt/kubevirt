@@ -364,5 +364,38 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			}
 		})
 
+		It("should detect a failed memory hotplug", func() {
+			By("Creating a VM")
+			guest := resource.MustParse("128Mi")
+			vmi := libvmifact.NewAlpineWithTestTooling(append(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithAnnotation(v1.FuncTestMemoryHotplugFailAnnotation, ""),
+				libvmi.WithResourceMemory(guest.String()))...,
+			)
+			vmi.Namespace = testsuite.GetTestNamespace(vmi)
+			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guest}
+
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			EventuallyWithOffset(1, ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("Hotplug additional memory")
+			newMemory := resource.MustParse("256Mi")
+			patchSet := patch.New(
+				patch.WithAdd("/spec/template/spec/domain/memory/guest", newMemory.String()),
+			)
+			patchBytes, err := patchSet.GeneratePayload()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Detect failed memory hotplug")
+			Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionFalse(v1.VirtualMachineInstanceMemoryChange))
+		})
+
 	})
 })
