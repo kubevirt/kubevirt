@@ -3022,9 +3022,14 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 		if lastSeenVMSpec.Template.Spec.Domain.CPU != nil && currentVM.Spec.Template.Spec.Domain.CPU != nil {
 			lastSeenVMSpec.Template.Spec.Domain.CPU.Sockets = currentVM.Spec.Template.Spec.Domain.CPU.Sockets
 		}
-		if lastSeenVM.Spec.Template.Spec.Domain.Memory != nil && currentVM.Spec.Template.Spec.Domain.Memory != nil {
+
+		if currentVM.Spec.Template.Spec.Domain.Memory != nil && currentVM.Spec.Template.Spec.Domain.Memory.Guest != nil {
+			if lastSeenVM.Spec.Template.Spec.Domain.Memory == nil {
+				lastSeenVM.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{}
+			}
 			lastSeenVM.Spec.Template.Spec.Domain.Memory.Guest = currentVM.Spec.Template.Spec.Domain.Memory.Guest
 		}
+
 		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
 		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
 	}
