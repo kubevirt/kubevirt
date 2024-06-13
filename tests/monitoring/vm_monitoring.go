@@ -271,19 +271,27 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 	Context("Metrics that are based on VMI connections", func() {
 		It("should have kubevirt_vmi_last_api_connection_timestamp_seconds correctly configured", func() {
-
 			By("Starting a VirtualMachineInstance")
 			vmi := libvmifact.NewAlpine()
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
-			By("Validating the metric gets updated with the last connection timestamp")
+			By("Validating the metric gets updated with the first connection timestamp")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			initialMetricValue := validateLastConnectionMetricValue(vmi, 0)
 
-			time.Sleep(1 * time.Minute)
+			By("Deleting the VirtualMachineInstance")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
+			By("Starting the same VirtualMachineInstance")
+			vmi = libvmifact.NewAlpine()
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("Validating the metric gets updated with the last connection timestamp")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			validateLastConnectionMetricValue(vmi, initialMetricValue)
 		})
