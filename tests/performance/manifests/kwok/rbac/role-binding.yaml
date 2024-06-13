@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kwok-with-vmi
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kwok-with-vmi
+subjects:
+  - kind: ServiceAccount
+    name: kwok-controller
+    namespace: kube-system

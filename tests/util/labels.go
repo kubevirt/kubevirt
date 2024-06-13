@@ -20,3 +20,4 @@
 package util
 
 const KubevirtIoTest = "kubevirt.io/test"
+const NamespaceTestDefault = "kubevirt-test-default1"
