@@ -413,7 +413,7 @@ var _ = Describe("test configuration", func() {
 
 	It("Should update the config if a newer version is available", func() {
 		oldValue := uint32(10)
-		clusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			MigrationConfiguration: &v1.MigrationConfiguration{
 				ParallelOutboundMigrationsPerNode: &oldValue,
 			},
@@ -438,7 +438,7 @@ var _ = Describe("test configuration", func() {
 				Phase: "Deployed",
 			},
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 		Eventually(func() uint32 {
 			return *clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode
 		}).Should(BeEquivalentTo(9))
@@ -446,7 +446,7 @@ var _ = Describe("test configuration", func() {
 
 	It("Should stick with the last good config", func() {
 
-		clusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			ImagePullPolicy: kubev1.PullAlways,
 		})
 		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(kubev1.PullAlways))
@@ -465,7 +465,7 @@ var _ = Describe("test configuration", func() {
 				Phase: "Deployed",
 			},
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
 		Consistently(func() kubev1.PullPolicy {
 			return clusterConfig.GetImagePullPolicy()
@@ -574,7 +574,7 @@ var _ = Describe("test configuration", func() {
 				Phase: v1.KubeVirtPhaseDeploying,
 			},
 		}
-		clusterConfig, _, kubeVirtInformer := testutils.NewFakeClusterConfigUsingKV(KV)
+		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKV(KV)
 		callbackSet1 = false
 		callbackSet2 = false
 		clusterConfig.SetConfigModifiedCallback(callback1)
@@ -582,7 +582,7 @@ var _ = Describe("test configuration", func() {
 
 		Expect(clusterConfig.GetVirtLauncherVerbosity()).To(Equal(uint(3)))
 		KV.Spec.Configuration.DeveloperConfiguration.LogVerbosity.VirtLauncher = 6
-		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer.GetStore(), KV)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, KV)
 		Expect(clusterConfig.GetVirtLauncherVerbosity()).To(Equal(uint(6)))
 		Eventually(func() bool {
 			lock.Lock()

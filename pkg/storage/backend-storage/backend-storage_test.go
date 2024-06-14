@@ -41,7 +41,7 @@ import (
 var _ = Describe("Backend Storage", func() {
 	var backendStorage *BackendStorage
 	var config *virtconfig.ClusterConfig
-	var kvInformer cache.SharedIndexInformer
+	var kvStore cache.Store
 	var storageClassInformer cache.SharedIndexInformer
 	var storageProfileInformer cache.SharedIndexInformer
 
@@ -49,7 +49,7 @@ var _ = Describe("Backend Storage", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		kubevirtFakeConfig := &virtv1.KubeVirtConfiguration{}
-		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
+		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		storageProfileInformer, _ = testutils.NewFakeInformerFor(&v1beta1.StorageProfile{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&v1.PersistentVolumeClaim{})
@@ -60,9 +60,9 @@ var _ = Describe("Backend Storage", func() {
 	Context("Storage class", func() {
 		It("Should return VMStateStorageClass and RWX when set", func() {
 			By("Setting a VM state storage class in the CR")
-			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 			kvCR.Spec.Configuration.VMStateStorageClass = "myfave"
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
 
 			By("Expecting getStorageClass() to return that one")
 			sc, err := backendStorage.getStorageClass()

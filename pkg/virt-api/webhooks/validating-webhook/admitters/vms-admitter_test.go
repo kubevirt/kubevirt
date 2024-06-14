@@ -63,7 +63,7 @@ import (
 )
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	config, crdInformer, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var (
 		vmsAdmitter         *VMsAdmitter
 		dataSourceInformer  cache.SharedIndexInformer
@@ -75,7 +75,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	)
 
 	enableFeatureGate := func(featureGates ...string) {
-		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		if kv.Spec.Configuration.DeveloperConfiguration == nil {
 			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 		}
@@ -84,24 +84,24 @@ var _ = Describe("Validating VM Admitter", func() {
 		} else {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, featureGates...)
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 	disableFeatureGates := func() {
-		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		if kv.Spec.Configuration.DeveloperConfiguration != nil {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = make([]string, 0)
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 	enableLiveUpdate := func() {
-		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		kv.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyLiveUpdate)
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 	disableLiveUpdate := func() {
-		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		kv.Spec.Configuration.VMRolloutStrategy = nil
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
 	notRunning := false

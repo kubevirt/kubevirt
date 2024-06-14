@@ -179,7 +179,7 @@ var _ = Describe("Mediated Device", func() {
 					Phase: v1.KubeVirtPhaseDeploying,
 				},
 			}
-			fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+			fakeClusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 
 			By("creating an empty device controller")
 			var noDevices []Device
@@ -196,7 +196,7 @@ var _ = Describe("Mediated Device", func() {
 					},
 				},
 			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			permittedDevices := fakeClusterConfig.GetPermittedHostDevices()
 			Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
 			Expect(permittedDevices.MediatedDevices).To(HaveLen(1), "the fake device was not found")
@@ -215,7 +215,7 @@ var _ = Describe("Mediated Device", func() {
 
 			By("deletting the device from the configmap")
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			permittedDevices = fakeClusterConfig.GetPermittedHostDevices()
 			Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
 			Expect(permittedDevices.MediatedDevices).To(BeEmpty(), "the fake device was not deleted")

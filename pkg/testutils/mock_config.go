@@ -20,11 +20,11 @@ const (
 	kvObjectName      = "kubevirt"
 )
 
-func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.Store) {
 	return NewFakeClusterConfigUsingKVWithCPUArch(kv, runtime.GOARCH)
 }
 
-func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.Store) {
 	kv.ResourceVersion = rand.String(10)
 	kv.Status.Phase = "Deployed"
 	crdInformer, _ := NewFakeInformerFor(&extv1.CustomResourceDefinition{})
@@ -34,10 +34,10 @@ func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (
 
 	AddDataVolumeAPI(crdInformer)
 	cfg, _ := virtconfig.NewClusterConfigWithCPUArch(crdInformer, kubeVirtInformer, kvObjectNamespace, CPUArch)
-	return cfg, crdInformer, kubeVirtInformer
+	return cfg, crdInformer, kubeVirtInformer.GetStore()
 }
 
-func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.Store) {
 	kv := &KVv1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kvObjectName,
@@ -95,8 +95,8 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 	})
 }
 
-func GetFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer) *KVv1.KubeVirt {
-	obj, _, _ := kubeVirtInformer.GetStore().GetByKey(kvObjectNamespace + "/" + kvObjectName)
+func GetFakeKubeVirtClusterConfig(kubeVirtStore cache.Store) *KVv1.KubeVirt {
+	obj, _, _ := kubeVirtStore.GetByKey(kvObjectNamespace + "/" + kvObjectName)
 	return obj.(*KVv1.KubeVirt)
 
 }

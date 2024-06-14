@@ -108,9 +108,7 @@ var _ = Describe("TLS", func() {
 				},
 			},
 		}
-		config, _, kubeVirtInformer := testutils.NewFakeClusterConfigUsingKV(kv)
-		clusterConfig = config
-		kubeVirtStore = kubeVirtInformer.GetStore()
+		clusterConfig, _, kubeVirtStore = testutils.NewFakeClusterConfigUsingKV(kv)
 	})
 
 	DescribeTable("on virt-handler with self-signed CA should", func(serverSecret, clientSecret string, errStr string) {
