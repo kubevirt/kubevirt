@@ -410,9 +410,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		template := libvmifact.NewCirros(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithTerminationGracePeriod(200),
 		)
-		var gracePeriod int64 = 200
-		template.Spec.TerminationGracePeriodSeconds = &gracePeriod
 		rs := newReplicaSetWithTemplate(template)
 
 		// ensure that the shutdown will take as long as possible
