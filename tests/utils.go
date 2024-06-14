@@ -20,7 +20,6 @@
 package tests
 
 import (
-	"archive/tar"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -63,7 +62,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -72,10 +70,8 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/watcher"
@@ -97,20 +93,6 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 	By(waitingVMInstanceStart)
 	return libwait.WaitForVMIPhase(vmi,
 		[]v1.VirtualMachineInstancePhase{v1.Running},
-		libwait.WithTimeout(timeout),
-	)
-}
-
-func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By("Waiting until the DataVolume is ready")
-	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
-	By(waitingVMInstanceStart)
-	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		libwait.WithWarningsIgnoreList(warningsIgnoreList),
 		libwait.WithTimeout(timeout),
 	)
 }
@@ -151,79 +133,6 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 	}
 
 	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
-}
-
-// NewRandomVirtualMachineInstanceWithDisk
-//
-// Deprecated: Use libvmi directly
-func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-	virtCli := kubevirt.Client()
-
-	dv := libdv.NewDataVolume(
-		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(sc),
-			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
-			libdv.PVCWithAccessMode(accessMode),
-			libdv.PVCWithVolumeMode(volMode),
-		),
-	)
-
-	var err error
-	dv, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
-	return libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dv.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	), dv
-}
-
-// NewRandomVirtualMachineInstanceWithBlockDisk
-//
-// Deprecated: Use libvmi directly
-func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-	if !libstorage.HasCDI() {
-		Skip("Skip DataVolume tests when CDI is not present")
-	}
-	sc, exists := libstorage.GetRWOBlockStorageClass()
-	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = libstorage.GetRWXBlockStorageClass()
-	}
-	if !exists {
-		Skip("Skip test when Block storage is not present")
-	}
-
-	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
-}
-
-// NewRandomVMWithDataVolumeWithRegistryImport
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
-			libdv.PVCWithAccessMode(accessMode),
-		),
-	)
-
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dataVolume.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm
 }
 
 func cirrosMemory() string {
@@ -309,25 +218,8 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerIma
 //
 // Deprecated: Use libvmi
 func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
-	AddCloudInitNoCloudData(vmi, name, userData, "", true)
-}
-
-// AddCloudInitNoCloudData
-//
-// Deprecated: Use libvmi
-func AddCloudInitNoCloudData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
 	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{}
-	if b64encode {
-		cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
-		if networkData != "" {
-			cloudInitNoCloudSource.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
-		}
-	} else {
-		cloudInitNoCloudSource.UserData = userData
-		if networkData != "" {
-			cloudInitNoCloudSource.NetworkData = networkData
-		}
-	}
+	cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
 	addCloudInitDiskAndVolume(vmi, name, v1.VolumeSource{CloudInitNoCloud: &cloudInitNoCloudSource})
 }
 
@@ -401,29 +293,6 @@ func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
 
 func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
 	return RunPodInNamespace(pod, testsuite.GetTestNamespace(pod))
-}
-
-func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
-	args := []string{fmt.Sprintf(`chmod 640 %s && chown root:root %s && sync`, filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"))}
-
-	By("changing disk.img permissions to non qemu")
-	pod := libstorage.RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
-
-	// overwrite securityContext
-	rootUser := int64(0)
-	pod.Spec.Containers[0].SecurityContext = &k8sv1.SecurityContext{
-		Capabilities: &k8sv1.Capabilities{
-			Drop: []k8sv1.Capability{"ALL"},
-		},
-		Privileged:   pointer.P(true),
-		RunAsUser:    &rootUser,
-		RunAsNonRoot: pointer.P(false),
-	}
-
-	virtClient := kubevirt.Client()
-	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
@@ -881,29 +750,6 @@ func MountCloudInitFunc(devName string) func(*v1.VirtualMachineInstance) {
 			&expect.BSnd{S: EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 		}, 15)
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
-
-func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
-	w := tar.NewWriter(tgtFile)
-	defer w.Close()
-
-	for _, src := range sourceFilesNames {
-		srcFile, err := os.Open(src)
-		Expect(err).ToNot(HaveOccurred())
-		defer srcFile.Close()
-
-		srcFileInfo, err := srcFile.Stat()
-		Expect(err).ToNot(HaveOccurred())
-
-		hdr, err := tar.FileInfoHeader(srcFileInfo, "")
-		Expect(err).ToNot(HaveOccurred())
-
-		err = w.WriteHeader(hdr)
-		Expect(err).ToNot(HaveOccurred())
-
-		_, err = io.Copy(w, srcFile)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }

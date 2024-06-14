@@ -41,11 +41,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instanceType "kubevirt.io/api/instancetype/v1beta1"
@@ -94,12 +96,19 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		}
 	})
 
+	createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume) *v1.VirtualMachineInstance {
+		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		By("Waiting until the DataVolume is ready")
+		libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+		By("Waiting until the VirtualMachineInstance starts")
+		return libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
+	}
+
 	Context("[storage-req]PVC expansion", decorators.StorageReq, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
-			if !libstorage.HasCDI() {
-				Skip("Skip DataVolume tests when CDI is not present")
-			}
+
 			var sc string
 			exists := false
 			if volumeMode == k8sv1.PersistentVolumeBlock {
@@ -131,11 +140,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := libvmi.New(
-				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("1Gi"),
-				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"),
-			)
+			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace, libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
 
 			By("Expecting the VirtualMachineInstance console")
@@ -216,18 +221,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 30*time.Second).Should(Not(BeNil()))
 				By("waiting for the dv import to pvc to finish")
 				libstorage.EventuallyDV(dv, 180, HaveSucceeded())
-				tests.ChangeImgFilePermissionsToNonQEMU(pvc)
-
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithDataVolume("disk0", dv.Name),
-					libvmi.WithResourceMemory("1Gi"),
-					libvmi.WithNamespace(testsuite.NamespacePrivileged),
-				)
+				libstorage.ChangeImgFilePermissionsToNonQEMU(pvc)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
+				vmi := tests.RunVMIAndExpectLaunch(libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace), 120)
 
 				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -262,12 +259,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithDataVolume("disk0", dataVolume.Name),
-					libvmi.WithResourceMemory("1Gi"),
-				)
+				vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil))
 
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -279,7 +271,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
-					vmi := tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+					vmi := createAndWaitForVMIReady(vmi, dataVolume)
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
@@ -313,12 +305,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 					)
 
-					vmi := libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithDataVolume("disk0", dataVolume.Name),
-						libvmi.WithResourceMemory("128Mi"),
-					)
+					vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil))
 
 					dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -355,12 +342,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-					libvmi.WithResourceMemory("128Mi"),
-				)
+				vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil))
 
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -370,7 +352,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
-				vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+				vmi = createAndWaitForVMIReady(vmi, dataVolume)
 
 				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -448,12 +430,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 					libdv.WithPVC(libdv.PVCWithStorageClass(storageClass.Name)),
 				)
-				vmi = libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("32Mi"),
-					libvmi.WithPersistentVolumeClaim(diskName, dv.ObjectMeta.Name),
-				)
+				vmi = libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
 			})
 			AfterEach(func() {
 				if storageClass != nil && storageClass.Name != "" {
@@ -493,18 +470,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 
 				dataVolume := libdv.NewDataVolume(
+					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libdv.WithRegistryURLSourceAndPullMethod(InvalidDataVolumeUrl, cdiv1.RegistryPullPod),
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
-				vm := libvmi.NewVirtualMachine(
-					libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithDataVolume("disk0", dataVolume.Name),
-						libvmi.WithResourceMemory("1Gi"),
-						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-					), libvmi.WithRunning(), libvmi.WithDataVolumeTemplate(dataVolume))
+				vm := libstorage.RenderVMWithDataVolumeTemplate(dataVolume)
+				vm.Spec.Running = pointer.P(true)
 
 				By(creatingVMInvalidDataVolume)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -525,13 +497,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				)
 
 				//  Add the invalid DataVolume to a VMI
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithDataVolume("disk0", dataVolume.Name),
-					libvmi.WithResourceMemory("1Gi"),
-					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-				)
+				vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil))
 				// Create a VM for this VMI
 				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
@@ -579,13 +545,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				By(creatingVMInvalidDataVolume)
 				//  Add the invalid DataVolume to a VMI
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithDataVolume("disk0", dataVolume.Name),
-					libvmi.WithResourceMemory("1Gi"),
-					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-				)
+				vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil))
 				// Create a VM for this VMI
 				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -626,12 +586,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			running := true
 
-			var foundSC bool
-			vm, foundSC = newRandomVMWithDataVolume()
-			if !foundSC {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
+			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 			vm.Spec.Running = &running
 
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
@@ -720,11 +680,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume", func() {
 		Context("using Alpine http import", func() {
 			It("a DataVolume with preallocation shouldn't have discard=unmap", func() {
-				vm, foundSC := newRandomVMWithDataVolume()
-				if !foundSC {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
+				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				preallocation := true
 				vm.Spec.DataVolumeTemplates[0].Spec.Preallocation = &preallocation
 
@@ -743,11 +704,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
-				vm, foundSC := newRandomVMWithDataVolume()
-				if !foundSC {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
+				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				num := 2
@@ -768,11 +730,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
-				vm, foundSC := newRandomVMWithDataVolume()
-				if !foundSC {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
+				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -815,7 +778,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 90, HaveSucceeded())
 
-				vm = newRandomVMWithCloneDataVolume(testsuite.NamespaceTestAlternative, dataVolume.Name, testsuite.GetTestNamespace(nil), storageClass)
+				vm = renderVMWithCloneDataVolume(testsuite.NamespaceTestAlternative, dataVolume.Name, testsuite.GetTestNamespace(nil), storageClass)
 
 				const volumeName = "sa"
 				saVol := v1.Volume{
@@ -826,7 +789,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						},
 					},
 				}
-				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = pointer.String(storageClass)
+				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = pointer.P(storageClass)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, saVol)
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{Name: volumeName})
 			})
@@ -1085,11 +1048,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		DescribeTable("Verify DV of VM with DataVolumeTemplates is garbage collected when", func(ttlBefore, ttlAfter *int32, gcAnnotation string) {
 			libstorage.SetDataVolumeGC(virtClient, ttlBefore)
 
-			vm, foundSC := newRandomVMWithDataVolume()
-			if !foundSC {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
+			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1115,8 +1079,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			vm = tests.StopVirtualMachine(vm)
 		},
-			Entry("[test_id:8567]GC is enabled", pointer.Int32(0), pointer.Int32(0), ""),
-			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.Int32(-1), pointer.Int32(0), "true"),
+			Entry("[test_id:8567]GC is enabled", pointer.P(int32(0)), pointer.P(int32(0)), ""),
+			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.P(int32(-1)), pointer.P(int32(0)), "true"),
 		)
 	})
 
@@ -1187,13 +1151,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolume = dvChange(dataVolume)
 			preallocated := dataVolume.Spec.Preallocation != nil && *dataVolume.Spec.Preallocation
 
-			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("512M"),
-				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\n echo hello\n"),
-			)
+			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil), libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\n echo hello\n"))
 			vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = "scsi"
 
 			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -1204,7 +1162,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			By("Making sure the slow Fedora import is complete before creating the VMI")
 			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 
-			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+			vmi = createAndWaitForVMIReady(vmi, dataVolume)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1286,7 +1244,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		var virtualMachinePreference *instanceType.VirtualMachinePreference
 
 		BeforeEach(func() {
-			vm, _ = newRandomVMWithDataVolume()
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when Filesystem storage class is not present")
+			}
+
+			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 
 			storageClass = &storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1453,45 +1416,24 @@ func volumeExpansionAllowed(sc string) bool {
 		*storageClass.AllowVolumeExpansion
 }
 
-func newRandomVMWithDataVolume() (*v1.VirtualMachine, bool) {
-	sc, exists := libstorage.GetRWOFileSystemStorageClass()
-	if !exists {
-		return nil, false
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
-	)
-
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dataVolume.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm, true
-}
-
-func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
-	dataVolume := libdv.NewDataVolume(
+func renderVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
+	dv := libdv.NewDataVolume(
+		libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 		libdv.WithPVCSource(sourceNamespace, sourceName),
 		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize("1Gi")),
 	)
+	return libstorage.RenderVMWithDataVolumeTemplate(dv)
+}
 
-	vm := libvmi.NewVirtualMachine(
-		libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithDataVolume("disk0", dataVolume.Name),
-			libvmi.WithResourceMemory("1Gi"),
-			libvmi.WithNamespace(targetNamespace),
+func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *virtv1.VirtualMachine {
+	importUrl := cd.DataVolumeImportUrlForContainerDisk(containerDisk)
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(importUrl),
+		libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(storageClass),
+			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(importUrl)),
 		),
-		libvmi.WithDataVolumeTemplate(dataVolume),
 	)
-	return vm
+	return libstorage.RenderVMWithDataVolumeTemplate(dv)
 }

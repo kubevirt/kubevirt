@@ -77,8 +77,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 
@@ -231,7 +231,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			assertConnectivityToService := func(msg string) {
 				By(msg)
 				tcpJob := job.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
-				tcpJob.Spec.BackoffLimit = pointer.Int32(3)
+				tcpJob.Spec.BackoffLimit = pointer.P(int32(3))
 				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1016,9 +1016,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
 			})
 			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, func() {
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
+				sc, exists := libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Skip("Skip test when Block storage is not present")
+				}
 
 				By("Starting the VirtualMachineInstance")
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 300)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1073,10 +1077,19 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 		})
 		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, func() {
+			var sc string
+			var exists bool
+
+			BeforeEach(func() {
+				sc, exists = libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Skip("Skip test when Block storage is not present")
+				}
+			})
 
 			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
 				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
 				image := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 				tests.AddEphemeralDisk(vmi, "myephemeral", v1.VirtIO, image)
 
@@ -1095,8 +1108,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi := tests.RunVMIAndExpectLaunch(newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc), 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1111,8 +1123,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskCirros, k8sv1.ReadWriteMany, sc)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
@@ -1227,7 +1238,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			}, 30*time.Second).Should(Not(BeNil()))
 			By("waiting for the dv import to pvc to finish")
 			libstorage.EventuallyDV(dv, 180, HaveSucceeded())
-			tests.ChangeImgFilePermissionsToNonQEMU(pvc)
+			libstorage.ChangeImgFilePermissionsToNonQEMU(pvc)
 			return dv
 		}
 
@@ -1411,7 +1422,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Context("[Serial] with TLS disabled", Serial, func() {
 				It("[test_id:6976] should be successfully migrated", func() {
 					cfg := getCurrentKvConfig(virtClient)
-					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
+					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					vmi := libvmifact.NewAlpineWithTestTooling(
@@ -1435,7 +1446,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				It("[test_id:6977]should not secure migrations with TLS", func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewQuantity(1, resource.BinarySI)
-					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
+					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
@@ -1621,8 +1632,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				BeforeEach(func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-						ProgressTimeout:         pointer.Int64(5),
-						CompletionTimeoutPerGiB: pointer.Int64(5),
+						ProgressTimeout:         pointer.P(int64(5)),
+						CompletionTimeoutPerGiB: pointer.P(int64(5)),
 						BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
 					}
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
@@ -1966,9 +1977,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		Context("[storage-req]with an Alpine non-shared block volume PVC", decorators.StorageReq, func() {
 
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
-				// Start the VirtualMachineInstance with the PVC attached
+				sc, exists := libstorage.GetRWOBlockStorageClass()
+				if !exists {
+					Skip("Skip test when Block storage is not present")
+				}
 
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteOnce)
+				// Start the VirtualMachineInstance with the PVC attached
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteOnce, sc)
 				vmi.Spec.Hostname = string(cd.ContainerDiskAlpine)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
@@ -2526,7 +2541,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKvConfig(virtClient)
-				config.MigrationConfiguration.AllowAutoConverge = pointer.BoolPtr(true)
+				config.MigrationConfiguration.AllowAutoConverge = pointer.P(true)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := libvmifact.NewAlpine(
@@ -2538,7 +2553,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
 					policy := GeneratePolicyAndAlignVMI(vmi)
-					policy.Spec.AllowAutoConverge = pointer.BoolPtr(false)
+					policy.Spec.AllowAutoConverge = pointer.P(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -3193,7 +3208,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi := libvmifact.NewWindows()
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 				vmi.Spec.Volumes = []v1.Volume{}
-				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
+				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.P(true)}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				expectTopologyHintsToBeSet(vmi)
@@ -3546,4 +3561,24 @@ func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return output, nil
+}
+
+func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode k8sv1.PersistentVolumeAccessMode, storageClass string) *v1.VirtualMachineInstance {
+	virtClient := kubevirt.Client()
+
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(containerDisk), cdiv1.RegistryPullNode),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(storageClass),
+			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
+			libdv.PVCWithAccessMode(accessMode),
+			libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+		),
+	)
+
+	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
+
+	return libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
 }

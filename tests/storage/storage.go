@@ -140,6 +140,16 @@ var _ = SIGDescribe("Storage", func() {
 				}
 			}
 		}
+
+		createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume, timeoutSec int) *v1.VirtualMachineInstance {
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("Waiting until the DataVolume is ready")
+			libstorage.EventuallyDV(dataVolume, timeoutSec, HaveSucceeded())
+			By("Waiting until the VirtualMachineInstance starts")
+			return libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(timeoutSec))
+		}
+
 		Context("[Serial]with error disk", Serial, func() {
 			var (
 				nodeName, address, device string
@@ -967,11 +977,27 @@ var _ = SIGDescribe("Storage", func() {
 
 			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
-				// Start the VirtualMachineInstance with the PVC attached
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
-				By("Launching a VMI with PVC ")
-				tests.RunVMIAndExpectLaunch(vmi, 180)
+				sc, exists := libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Skip("Skip test when Block storage is not present")
+				}
 
+				// Start the VirtualMachineInstance with the PVC attached
+				dv := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+						libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
+						libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+					),
+				)
+
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
+				createAndWaitForVMIReady(vmi, dv, 240)
 				By(checkingVMInstanceConsoleOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
@@ -1191,8 +1217,8 @@ var _ = SIGDescribe("Storage", func() {
 				setShareable(vmi2, "disk0")
 
 				By("Starting the VirtualMachineInstances")
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi1, dv, 500)
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi2, dv, 500)
+				createAndWaitForVMIReady(vmi1, dv, 500)
+				createAndWaitForVMIReady(vmi2, dv, 500)
 			})
 		})
 		Context("write and read data from a shared disk", func() {
@@ -1452,13 +1478,13 @@ func deletePvAndPvc(name string) {
 	}
 }
 
-func runPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
+func runPodAndExpectPhase(pod *k8sv1.Pod, phase k8sv1.PodPhase) *k8sv1.Pod {
 	virtClient := kubevirt.Client()
 
 	var err error
 	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+	Eventually(ThisPod(pod), 120).Should(BeInPhase(phase))
 
 	pod, err = ThisPod(pod)()
 	Expect(err).ToNot(HaveOccurred())
@@ -1473,7 +1499,7 @@ func copyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	By("creating an image with without qemu permissions")
 	pod := libpod.RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
-	nodeName = runPodAndExpectCompletion(pod).Spec.NodeName
+	nodeName = runPodAndExpectPhase(pod, k8sv1.PodSucceeded).Spec.NodeName
 	return
 }
 
@@ -1483,5 +1509,5 @@ func deleteAlpineWithNonQEMUPermissions() {
 
 	pod := libpod.RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
-	runPodAndExpectCompletion(pod)
+	runPodAndExpectPhase(pod, k8sv1.PodSucceeded)
 }

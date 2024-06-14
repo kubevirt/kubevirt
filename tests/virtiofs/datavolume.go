@@ -317,10 +317,16 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithFilesystemDV(dataVolume.Name),
 				libvmi.WithNamespace(namespace),
 			)
+
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 			// import and start
-			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
-
+			By("Waiting until the DataVolume is ready")
+			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+			By("Waiting until the VirtualMachineInstance starts")
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
 			// Wait for cloud init to finish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 

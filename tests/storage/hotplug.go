@@ -38,6 +38,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -597,11 +598,19 @@ var _ = SIGDescribe("Hotplug", func() {
 				Skip("Skip test when RWXBlock storage class is not present")
 			}
 
-			vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(
-				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-				testsuite.GetTestNamespace(nil),
-				corev1.ReadWriteMany,
+			dv := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
+					libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
+					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
 			)
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 			By("Creating VirtualMachine")
@@ -1325,11 +1334,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				By("start VM with disk mutation sidecar")
 				hookSidecarsValue := fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s", "imagePullPolicy": "IfNotPresent"}]`,
 					libregistry.GetUtilityImageFromRegistry(hookSidecarImage))
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithDataVolume("disk0", dv.Name),
-					libvmi.WithResourceMemory("1Gi"),
+				vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace,
 					libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n"),
 					libvmi.WithAnnotation("hooks.kubevirt.io/hookSidecars", hookSidecarsValue),
 					libvmi.WithAnnotation("diskimage.vm.kubevirt.io/bootImageName", newDiskImgName),

@@ -38,6 +38,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -168,25 +169,23 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	Context("A valid VirtualMachine given", func() {
 		type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
 
-		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+		newVirtualMachineInstanceWithDV := func(imgUrl, sc string, volumeMode corev1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 			Expect(libstorage.HasCDI()).To(BeTrue(), "Skip DataVolume tests when CDI is not present")
-			sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
-			Expect(foundSC).To(BeTrue(), "Filesystem storage is not present")
 
-			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 			dataVolume := libdv.NewDataVolume(
-				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+				libdv.WithRegistryURLSourceAndPullMethod(imgUrl, cdiv1.RegistryPullNode),
 				libdv.WithPVC(
 					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(cd.AlpineVolumeSize),
+					libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imgUrl)),
 					libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
-					libdv.PVCWithVolumeMode(corev1.PersistentVolumeFilesystem),
+					libdv.PVCWithVolumeMode(volumeMode),
 				),
 			)
+
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := libvmi.New(
+			return libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", dataVolume.Name),
@@ -194,12 +193,21 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"),
 				libvmi.WithTerminationGracePeriod(30),
-			)
-			return vmi, dataVolume
+			), dataVolume
+		}
+
+		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
+			Expect(foundSC).To(BeTrue(), "Filesystem storage is not present")
+			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), sc, k8sv1.PersistentVolumeFilesystem)
 		}
 
 		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), corev1.ReadWriteOnce)
+			sc, foundSC := libstorage.GetRWOBlockStorageClass()
+			if !foundSC {
+				Skip("Skip test when Block storage is not present")
+			}
+			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), sc, k8sv1.PersistentVolumeBlock)
 		}
 
 		newVirtualMachineWithRunStrategy := func(runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
@@ -716,8 +724,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Creating a VM with a DataVolume cloned from an invalid source")
 			// Registry URL scheme validated in CDI
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
-				testsuite.GetTestNamespace(nil), storageClassName, corev1.ReadWriteOnce)
+			vmi, _ := newVirtualMachineInstanceWithDV("docker://no.such/image", storageClassName, corev1.PersistentVolumeFilesystem)
+			vm := libvmi.NewVirtualMachine(vmi)
 			vm.Spec.Running = pointer.BoolPtr(true)
 			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

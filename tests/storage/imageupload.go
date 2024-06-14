@@ -17,14 +17,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/remotecommand"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/errorhandling"
@@ -133,12 +129,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 			if startVM {
 				By("Start VM")
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithDataVolume("disk0", targetName),
-					libvmi.WithResourceMemory("1Gi"),
-				)
+				vmi := libstorage.RenderVMIWithDataVolume(targetName, testsuite.GetTestNamespace(nil))
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {
@@ -276,12 +267,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			Expect(err.Error()).To(ContainSubstring("make sure the PVC is Bound, or use force-bind flag"))
 
 			By("Start VM")
-			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithDataVolume("disk0", "target-dv"),
-				libvmi.WithResourceMemory("1Gi"),
-			)
+			vmi := libstorage.RenderVMIWithDataVolume("target-dv", testsuite.GetTestNamespace(nil))
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			defer func() {
@@ -456,7 +442,7 @@ func createArchive(targetFile, tgtDir string, sourceFilesNames ...string) string
 	Expect(err).ToNot(HaveOccurred())
 	defer errorhandling.SafelyCloseFile(tgtFile)
 
-	tests.ArchiveToFile(tgtFile, sourceFilesNames...)
+	libstorage.ArchiveToFile(tgtFile, sourceFilesNames...)
 
 	return tgtPath
 }
