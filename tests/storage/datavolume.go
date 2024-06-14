@@ -121,11 +121,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
-					libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
-					libdv.PVCWithVolumeMode(volumeMode),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
+					libdv.StorageWithVolumeMode(volumeMode),
 				),
 			)
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -196,10 +196,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(sc),
-						libdv.PVCWithVolumeSize(size),
-						libdv.PVCWithReadWriteManyAccessMode(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(sc),
+						libdv.StorageWithVolumeSize(size),
+						libdv.StorageWithReadWriteManyAccessMode(),
 					),
 					libdv.WithForceBindAnnotation(),
 				)
@@ -259,7 +259,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
 
 				vmi := libvmi.New(
@@ -310,7 +310,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				for idx := 0; idx < numVmis; idx++ {
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithRegistryURLSource(imageUrl),
-						libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+						libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 					)
 
 					vmi := libvmi.New(
@@ -352,7 +352,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
 
 				vmi := libvmi.New(
@@ -384,11 +384,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("should accurately aggregate DataVolume conditions from many DVs", func() {
 				dataVolume1 := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(),
+					libdv.WithStorage(),
 				)
 				dataVolume2 := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithPVC(),
+					libdv.WithStorage(),
 				)
 
 				By("requiring a VM with 2 DataVolumes")
@@ -494,7 +494,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(InvalidDataVolumeUrl, cdiv1.RegistryPullPod),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
 
 				vm := libvmi.NewVirtualMachine(
@@ -521,7 +521,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// Don't actually create the DataVolume since it's invalid.
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(InvalidDataVolumeUrl),
-					libdv.WithPVC(libdv.PVCWithStorageClass("fakeStorageClass")),
+					libdv.WithStorage(libdv.StorageWithStorageClass("fakeStorageClass")),
 				)
 
 				//  Add the invalid DataVolume to a VMI
@@ -568,7 +568,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullPod),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
 
 				defer libstorage.DeleteDataVolume(&dataVolume)
@@ -807,7 +807,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dataVolume = libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(libdv.PVCWithStorageClass(storageClass)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(storageClass)),
 					libdv.WithForceBindAnnotation(),
 				)
 
@@ -826,7 +826,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						},
 					},
 				}
-				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = pointer.String(storageClass)
+				vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName = pointer.String(storageClass)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, saVol)
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{Name: volumeName})
 			})
@@ -1180,7 +1180,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.FedoraVolumeSize)),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.FedoraVolumeSize)),
 				libdv.WithForceBindAnnotation(), // So we can wait for DV to finish before starting the VMI
 			)
 
@@ -1327,19 +1327,19 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 		It("should use PreferredStorageClassName when storage class not provided by VM", func() {
 			// Remove storage class name from VM definition
-			vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = nil
+			vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName = nil
 
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
 		})
 
 		It("should always use VM defined storage class over PreferredStorageClassName", func() {
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
 		})
 	})
 })
@@ -1461,7 +1461,7 @@ func newRandomVMWithDataVolume() (*v1.VirtualMachine, bool) {
 
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+		libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 	)
 
 	vmi := libvmi.New(
@@ -1480,7 +1480,7 @@ func newRandomVMWithDataVolume() (*v1.VirtualMachine, bool) {
 func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithPVCSource(sourceNamespace, sourceName),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize("1Gi")),
+		libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize("1Gi")),
 	)
 
 	vm := libvmi.NewVirtualMachine(

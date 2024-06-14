@@ -51,7 +51,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	routev1 "github.com/openshift/api/route/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -66,6 +65,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -282,7 +282,7 @@ var _ = SIGDescribe("Export", func() {
 		By("Creating source volume")
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeMode(volumeMode)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeMode(volumeMode)),
 			libdv.WithForceBindAnnotation(),
 		)
 
@@ -310,7 +310,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(md5sum).To(HaveLen(32))
 
 		err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
-			GracePeriodSeconds: pointer.Int64(0),
+			GracePeriodSeconds: pointer.P[int64](0),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		return pvc, md5sum
@@ -633,7 +633,7 @@ var _ = SIGDescribe("Export", func() {
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: pointer.String(token.Name),
+				TokenSecretRef: pointer.P(token.Name),
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachineSnapshot",
@@ -791,7 +791,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 			libdv.WithForceBindAnnotation(),
 		)
 
@@ -987,7 +987,7 @@ var _ = SIGDescribe("Export", func() {
 					Namespace: flags.KubeVirtInstallNamespace,
 				},
 				Spec: networkingv1.IngressSpec{
-					IngressClassName: pointer.String("ingress-class-name"),
+					IngressClassName: pointer.P("ingress-class-name"),
 					DefaultBackend: &networkingv1.IngressBackend{
 						Service: &networkingv1.IngressServiceBackend{
 							Name: "virt-exportproxy",
@@ -1153,7 +1153,7 @@ var _ = SIGDescribe("Export", func() {
 			if err != nil {
 				return err
 			}
-			vm.Spec.Running = pointer.Bool(false)
+			vm.Spec.Running = pointer.P(false)
 			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 			return err
 		}, 15*time.Second, time.Second).Should(BeNil())
@@ -1171,7 +1171,7 @@ var _ = SIGDescribe("Export", func() {
 		Eventually(func() error {
 			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.Running = pointer.P(true)
 			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 			return err
 		}, 15*time.Second, time.Second).Should(Succeed())
@@ -1286,7 +1286,7 @@ var _ = SIGDescribe("Export", func() {
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.Running = pointer.P(true)
 		}
 		vm = createVM(vm)
 		stopVM(vm)
@@ -1354,7 +1354,7 @@ var _ = SIGDescribe("Export", func() {
 
 		blankDv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 		)
 
 		vm := newVMWithDataVolumeForExport(sc)
@@ -1363,7 +1363,7 @@ var _ = SIGDescribe("Export", func() {
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.Running = pointer.P(true)
 		}
 		vm = createVM(vm)
 		stopVM(vm)
@@ -1430,7 +1430,7 @@ var _ = SIGDescribe("Export", func() {
 			testsuite.GetTestNamespace(nil),
 			sc,
 			k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.Running = pointer.P(true)
 		vm = createVM(vm)
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1554,7 +1554,7 @@ var _ = SIGDescribe("Export", func() {
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 			)
 			dataVolume = createDataVolume(dataVolume)
 			vmi := libvmi.New(
@@ -1770,7 +1770,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.Running = pointer.P(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
 		vm = stopVM(vm)
@@ -1805,7 +1805,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 
 		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.Running = pointer.P(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
 		vm = stopVM(vm)
@@ -1858,13 +1858,13 @@ var _ = SIGDescribe("Export", func() {
 		imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 		dataVolume := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.CirrosVolumeSize)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.CirrosVolumeSize)),
 		)
 		dataVolume.SetNamespace(testsuite.GetTestNamespace(dataVolume))
 		dataVolume = createDataVolume(dataVolume)
 		blankDv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 		)
 		blankDv.SetNamespace(testsuite.GetTestNamespace(blankDv))
 		blankDv = createDataVolume(blankDv)
@@ -1944,14 +1944,19 @@ var _ = SIGDescribe("Export", func() {
 		err = yaml.Unmarshal([]byte(split[2]), diskDV)
 		Expect(err).ToNot(HaveOccurred())
 		diskDV.Name = fmt.Sprintf("%s-clone", diskDV.Name)
-		diskDV.Spec.PVC.StorageClassName = pointer.String(sc)
-		Expect(diskDV.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.CirrosVolumeSize)))
+		diskDV.Spec.PVC.StorageClassName = pointer.P(sc)
+		resultSize := diskDV.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]
+		expectedSize := resource.MustParse(cd.CirrosVolumeSize)
+		// We expect the size to be at least the expected size
+		Expect(resultSize.Value()).To(BeNumerically(">=", expectedSize.Value()))
 		blankDv = &cdiv1.DataVolume{}
 		err = yaml.Unmarshal([]byte(split[3]), blankDv)
 		Expect(err).ToNot(HaveOccurred())
 		blankDv.Name = fmt.Sprintf("%s-clone", blankDv.Name)
-		blankDv.Spec.PVC.StorageClassName = pointer.String(sc)
-		Expect(blankDv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.BlankVolumeSize)))
+		blankDv.Spec.PVC.StorageClassName = pointer.P(sc)
+		resQuantity := blankDv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]
+		expectedQuantity := resource.MustParse(cd.BlankVolumeSize)
+		Expect(expectedQuantity.Value()).To(BeNumerically("<=", resQuantity.Value()))
 
 		By("Getting token secret header")
 		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader), token.Data["token"])
@@ -2004,7 +2009,7 @@ var _ = SIGDescribe("Export", func() {
 		dv := libdv.NewDataVolume(
 			libdv.WithNamespace(vm.Namespace),
 			libdv.WithBlankImageSource(),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 		)
 		dv = createDataVolume(dv)
 		Eventually(ThisPVCWith(vm.Namespace, dv.Name), 160).Should(Exist())
@@ -2161,7 +2166,7 @@ var _ = SIGDescribe("Export", func() {
 			// Create a populated Snapshot
 			blankDv := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
 			vm := newVMWithDataVolumeForExport(sc)
@@ -2170,7 +2175,7 @@ var _ = SIGDescribe("Export", func() {
 			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 				// In WFFC need to start the VM in order for the
 				// dv to get populated
-				vm.Spec.Running = pointer.Bool(true)
+				vm.Spec.Running = pointer.P(true)
 			}
 			vm = createVM(vm)
 			vm = stopVM(vm)
@@ -2193,7 +2198,7 @@ var _ = SIGDescribe("Export", func() {
 				testsuite.GetTestNamespace(nil),
 				sc,
 				k8sv1.ReadWriteOnce)
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.Running = pointer.P(true)
 			vm = createVM(vm)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -2314,7 +2319,7 @@ var _ = SIGDescribe("Export", func() {
 				// Create a populated Snapshot
 				blankDv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 				)
 				vm := newVMWithDataVolumeForExport(sc)
 				libstorage.AddDataVolumeTemplate(vm, blankDv)
@@ -2322,7 +2327,7 @@ var _ = SIGDescribe("Export", func() {
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 					// In WFFC need to start the VM in order for the
 					// dv to get populated
-					vm.Spec.Running = pointer.Bool(true)
+					vm.Spec.Running = pointer.P(true)
 				}
 				vm = createVM(vm)
 				vm = stopVM(vm)
@@ -2370,7 +2375,7 @@ var _ = SIGDescribe("Export", func() {
 					testsuite.GetTestNamespace(nil),
 					sc,
 					k8sv1.ReadWriteOnce)
-				vm.Spec.Running = pointer.Bool(true)
+				vm.Spec.Running = pointer.P(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -2551,7 +2556,7 @@ var _ = SIGDescribe("Export", func() {
 					testsuite.GetTestNamespace(nil),
 					sc,
 					k8sv1.ReadWriteOnce)
-				vm.Spec.Running = pointer.Bool(true)
+				vm.Spec.Running = pointer.P(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -2662,9 +2667,9 @@ func (matcher *ConditionNoTimeMatcher) NegatedFailureMessage(actual interface{})
 func newVMWithDataVolumeForExport(storageClass string) *virtv1.VirtualMachine {
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+		libdv.WithStorage(
+			libdv.StorageWithStorageClass(storageClass),
+			libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
 		),
 	)
 	vm := libvmi.NewVirtualMachine(
