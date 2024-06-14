@@ -18,7 +18,7 @@ require (
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	k8s.io/apimachinery v0.20.15
 	k8s.io/klog v0.3.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
