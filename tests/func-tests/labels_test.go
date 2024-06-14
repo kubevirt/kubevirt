@@ -28,17 +28,14 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 	var (
 		cli    client.Client
 		cliSet *kubernetes.Clientset
-		ctx    context.Context
 	)
 
 	BeforeEach(func() {
 		cli = tests.GetControllerRuntimeClient()
 		cliSet = tests.GetK8sClientSet()
-
-		ctx = context.Background()
 	})
 
-	It("should have all the required labels in all the controlled resources", func() {
+	It("should have all the required labels in all the controlled resources", func(ctx context.Context) {
 		hc := tests.GetHCO(ctx, cli)
 		plural := pluralize.NewClient()
 		const kvName = "kubevirt-kubevirt-hyperconverged"
@@ -57,14 +54,14 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 		patchBytes := []byte(`[{"op": "remove", "path": "/metadata/labels/app.kubernetes.io~1version"}]`)
 		patch := client.RawPatch(types.JSONPatchType, patchBytes)
 
-		Eventually(func() error {
+		Eventually(func(ctx context.Context) error {
 			return cli.Patch(ctx, kv, patch)
-		}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).Should(Succeed())
+		}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).WithContext(ctx).Should(Succeed())
 
-		Eventually(func(g Gomega) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
 			g.Expect(kv.Labels).To(HaveKeyWithValue(hcoutil.AppLabelVersion, expectedVersion))
-		}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+		}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
 		By("checking all the labels")
 		for _, resource := range hc.Status.RelatedObjects {

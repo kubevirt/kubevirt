@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"sync"
 	"time"
 
@@ -47,9 +46,8 @@ func FlagParse() {
 	flag.Parse()
 }
 
-func BeforeEach() {
+func BeforeEach(ctx context.Context) {
 	cli := GetK8sClientSet().RESTClient()
-	ctx := context.Background()
 
 	deleteAllResources(ctx, cli, "virtualmachines")
 	deleteAllResources(ctx, cli, "virtualmachineinstances")
@@ -58,11 +56,11 @@ func BeforeEach() {
 
 func FailIfNotOpenShift(ctx context.Context, cli client.Client, testName string) {
 	isOpenShift := false
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		var err error
 		isOpenShift, err = IsOpenShift(ctx, cli)
 		return err
-	}).WithTimeout(10*time.Second).WithPolling(time.Second).Should(Succeed(), "failed to check if running on an openshift cluster")
+	}).WithTimeout(10*time.Second).WithPolling(time.Second).WithContext(ctx).Should(Succeed(), "failed to check if running on an openshift cluster")
 
 	ExpectWithOffset(1, isOpenShift).To(BeTrue(), `the %q test must run on openshift cluster. Use the "!%s" label filter in order to skip this test`, testName, OpenshiftLabel)
 }
@@ -107,8 +105,6 @@ func (c *cacheIsOpenShift) IsOpenShift(ctx context.Context, cli client.Client) (
 		return c.isOpenShift, nil
 	}
 
-	fmt.Printf("err: %v, %t\n", err, err)
-
 	return false, err
 }
 
@@ -143,7 +139,7 @@ func UpdateHCORetry(ctx context.Context, cli client.Client, input *v1beta1.Hyper
 	var output *v1beta1.HyperConverged
 	var err error
 
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		hco := GetHCO(ctx, cli)
 		input.Spec.DeepCopyInto(&hco.Spec)
 		hco.ObjectMeta.Annotations = input.ObjectMeta.Annotations
@@ -152,7 +148,7 @@ func UpdateHCORetry(ctx context.Context, cli client.Client, input *v1beta1.Hyper
 
 		output, err = UpdateHCO(ctx, cli, hco)
 		return err
-	}, 10*time.Second, time.Second).Should(Succeed())
+	}).WithTimeout(10 * time.Second).WithPolling(time.Second).WithContext(ctx).Should(Succeed())
 
 	return output
 }
@@ -194,11 +190,13 @@ func PatchHCO(ctx context.Context, cli client.Client, patchBytes []byte) error {
 }
 
 func RestoreDefaults(ctx context.Context, cli client.Client) {
-	Eventually(PatchHCO).
-		WithArguments(ctx, cli, []byte(`[{"op": "replace", "path": "/spec", "value": {}}]`)).
+	Eventually(func(ctx context.Context) error {
+		return PatchHCO(ctx, cli, []byte(`[{"op": "replace", "path": "/spec", "value": {}}]`))
+	}).
 		WithOffset(1).
 		WithTimeout(time.Second * 5).
 		WithPolling(time.Millisecond * 100).
+		WithContext(ctx).
 		Should(Succeed())
 }
 

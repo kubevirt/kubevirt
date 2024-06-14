@@ -22,7 +22,6 @@ import (
 var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", Label("MediatedDevices"), func() {
 	var (
 		cli            client.Client
-		ctx            context.Context
 		initialMDC     *v1beta1.MediatedDevicesConfiguration
 		apiServerError = apiservererrors.ToStatusErr(
 			util.HcoValidatingWebhook,
@@ -36,11 +35,10 @@ var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", Label("MediatedD
 
 	tests.FlagParse()
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
 		cli = tests.GetControllerRuntimeClient()
-		ctx = context.Background()
 
-		tests.BeforeEach()
+		tests.BeforeEach(ctx)
 		hc := tests.GetHCO(ctx, cli)
 		initialMDC = nil
 		if hc.Spec.MediatedDevicesConfiguration != nil {
@@ -48,20 +46,20 @@ var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", Label("MediatedD
 		}
 	})
 
-	AfterEach(func() {
+	AfterEach(func(ctx context.Context) {
 		hc := tests.GetHCO(ctx, cli)
 		hc.Spec.MediatedDevicesConfiguration = initialMDC
 		_ = tests.UpdateHCORetry(ctx, cli, hc)
 	})
 
 	DescribeTable("should correctly handle MediatedDevicesTypes -> MediatedDeviceTypes transition",
-		func(mediatedDevicesConfiguration *v1beta1.MediatedDevicesConfiguration, expectedErr error, expectedMediatedDevicesConfiguration *v1beta1.MediatedDevicesConfiguration, expectedKVMediatedDevicesConfiguration *kubevirtcorev1.MediatedDevicesConfiguration) {
+		func(ctx context.Context, mediatedDevicesConfiguration *v1beta1.MediatedDevicesConfiguration, expectedErr error, expectedMediatedDevicesConfiguration *v1beta1.MediatedDevicesConfiguration, expectedKVMediatedDevicesConfiguration *kubevirtcorev1.MediatedDevicesConfiguration) {
 			if expectedErr == nil {
 				hc := tests.GetHCO(ctx, cli)
 				hc.Spec.MediatedDevicesConfiguration = mediatedDevicesConfiguration
 				hc = tests.UpdateHCORetry(ctx, cli, hc)
 				Expect(hc.Spec.MediatedDevicesConfiguration).To(Equal(expectedMediatedDevicesConfiguration))
-				Eventually(func() *kubevirtcorev1.MediatedDevicesConfiguration {
+				Eventually(func(g Gomega, ctx context.Context) *kubevirtcorev1.MediatedDevicesConfiguration {
 					kv := &kubevirtcorev1.KubeVirt{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "kubevirt-kubevirt-hyperconverged",
@@ -69,17 +67,23 @@ var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", Label("MediatedD
 						},
 					}
 
-					Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
+					g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
 
 					return kv.Spec.Configuration.MediatedDevicesConfiguration
-				}, 10*time.Second, time.Second).Should(Equal(expectedKVMediatedDevicesConfiguration))
+				}).WithTimeout(10 * time.Second).
+					WithPolling(time.Second).
+					WithContext(ctx).
+					Should(Equal(expectedKVMediatedDevicesConfiguration))
 			} else {
-				Eventually(func() error {
+				Eventually(func(ctx context.Context) error {
 					hc := tests.GetHCO(ctx, cli)
 					hc.Spec.MediatedDevicesConfiguration = mediatedDevicesConfiguration
 					_, err := tests.UpdateHCO(ctx, cli, hc)
 					return err
-				}, 10*time.Second, time.Second).Should(MatchError(expectedErr))
+				}).WithTimeout(10 * time.Second).
+					WithPolling(time.Second).
+					WithContext(ctx).
+					Should(MatchError(expectedErr))
 			}
 		},
 		Entry("should do nothing when mediatedDevicesConfiguration is not present",

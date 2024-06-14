@@ -18,7 +18,7 @@ func TestTests(t *testing.T) {
 	RunSpecs(t, "HyperConverged cluster E2E Test suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx context.Context) {
 	cli := tests.GetK8sClientSet()
 
 	ns := &v1.Namespace{
@@ -28,19 +28,19 @@ var _ = BeforeSuite(func() {
 	}
 
 	opt := metav1.CreateOptions{}
-	_, err := cli.CoreV1().Namespaces().Create(context.Background(), ns, opt)
+	_, err := cli.CoreV1().Namespaces().Create(ctx, ns, opt)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			panic(err)
 		}
 	}
 
-	tests.BeforeEach()
+	tests.BeforeEach(ctx)
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx context.Context) {
 	cli := tests.GetK8sClientSet()
-	err := cli.CoreV1().Namespaces().Delete(context.Background(), tests.TestNamespace, metav1.DeleteOptions{})
+	err := cli.CoreV1().Namespaces().Delete(ctx, tests.TestNamespace, metav1.DeleteOptions{})
 	if err != nil {
 		panic(err)
 	}

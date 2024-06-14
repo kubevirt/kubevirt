@@ -16,8 +16,8 @@ var _ = Describe("[rfe_id:5672][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 	var stopChan chan struct{}
 
-	BeforeEach(func() {
-		tests.BeforeEach()
+	BeforeEach(func(ctx context.Context) {
+		tests.BeforeEach(ctx)
 		stopChan = make(chan struct{})
 	})
 
@@ -25,9 +25,9 @@ var _ = Describe("[rfe_id:5672][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		close(stopChan)
 	})
 
-	It("[test_id:5674]should get the created priority class for critical workloads", Label("test_id:5674"), func() {
+	It("[test_id:5674]should get the created priority class for critical workloads", Label("test_id:5674"), func(ctx context.Context) {
 		cli := tests.GetK8sClientSet()
-		_, err := cli.SchedulingV1().PriorityClasses().Get(context.TODO(), priorityClassName, v1.GetOptions{})
+		_, err := cli.SchedulingV1().PriorityClasses().Get(ctx, priorityClassName, v1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
 

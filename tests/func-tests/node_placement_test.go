@@ -36,13 +36,11 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		originalWorkloadSpec hcov1beta1.HyperConvergedConfig
 		cli                  client.Client
 		cliSet               *kubernetes.Clientset
-		ctx                  context.Context
 	)
 
-	BeforeAll(func() {
+	BeforeAll(func(ctx context.Context) {
 		cli = tests.GetControllerRuntimeClient()
 		cliSet = tests.GetK8sClientSet()
-		ctx = context.Background()
 
 		nodes := listNodesByLabels(ctx, cliSet, "node-role.kubernetes.io/control-plane!=")
 		tests.FailIfSingleNode(len(nodes.Items) < 2)
@@ -50,19 +48,19 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		// Label all but first node with "node.kubernetes.io/hco-test-node-type=infra"
 		// We are doing this to remove dependency of this Describe block on a shell script that
 		// labels the nodes this way
-		Eventually(func(g Gomega) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			for _, node := range nodes.Items[:len(nodes.Items)-1] {
 				done, err := setHcoNodeTypeLabel(ctx, cliSet, &node, infra)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(done).To(BeTrue())
 			}
-		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).WithContext(ctx).Should(Succeed())
 		// Label the last node with "node.kubernetes.io/hco-test-node-type=workloads"
-		Eventually(func(g Gomega) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			done, err := setHcoNodeTypeLabel(ctx, cliSet, &nodes.Items[len(nodes.Items)-1], workloads)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(done).To(BeTrue())
-		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).WithContext(ctx).Should(Succeed())
 
 		// modify the HCO CR to use the labels we just applied to the nodes
 		originalHco := tests.GetHCO(ctx, cli)
@@ -97,7 +95,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		_ = w.Encode(workloadsNode.Labels)
 	})
 
-	AfterAll(func() {
+	AfterAll(func(ctx context.Context) {
 		// undo the modification to HCO CR done in BeforeAll stage
 		modifiedHco := tests.GetHCO(ctx, cli)
 
@@ -111,7 +109,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		nodes := listNodesByLabels(ctx, cliSet, hcoLabel)
 
 		// wrap unlabelling in Eventually because for resourceVersion errors
-		Eventually(func(g Gomega) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			for _, node := range nodes.Items {
 				n := &node
 				labels := n.GetLabels()
@@ -122,15 +120,15 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 				_, err = cliSet.CoreV1().Nodes().Update(ctx, n, k8smetav1.UpdateOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
 			}
-		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).WithContext(ctx).Should(Succeed())
 	})
 
-	BeforeEach(func() {
-		tests.BeforeEach()
+	BeforeEach(func(ctx context.Context) {
+		tests.BeforeEach(ctx)
 	})
 
 	Context("validate node placement in workloads nodes", func() {
-		It("[test_id:5677] all expected 'workloads' pod must be on infra node", Label("test_id:5677"), func() {
+		It("[test_id:5677] all expected 'workloads' pod must be on infra node", Label("test_id:5677"), func(ctx context.Context) {
 			expectedWorkloadsPods := map[string]bool{
 				"bridge-marker":  false,
 				"cni-plugins":    false,
@@ -148,7 +146,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 				delete(expectedWorkloadsPods, "secondary-dns")
 			}
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				By("Listing pods in infra node")
 				pods := listPodsInNode(ctx, g, cliSet, workloadsNode.Name)
 
@@ -157,12 +155,12 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 				By("Verifying that all expected workload pods exist in workload nodes")
 				g.Expect(expectedWorkloadsPods).ToNot(ContainElement(false))
-			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).WithContext(ctx).Should(Succeed())
 		})
 	})
 
 	Context("validate node placement on infra nodes", func() {
-		It("[test_id:5678] all expected 'infra' pod must be on infra node", Label("test_id:5678"), func() {
+		It("[test_id:5678] all expected 'infra' pod must be on infra node", Label("test_id:5678"), func(ctx context.Context) {
 			expectedInfraPods := map[string]bool{
 				"cdi-apiserver":    false,
 				"cdi-deployment":   false,
@@ -173,7 +171,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 				"virt-exportproxy": false,
 			}
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				By("Listing infra nodes")
 				infraNodes := listInfraNodes(ctx, cliSet)
 
@@ -187,7 +185,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 				By("Verifying that all expected infra pods exist in infra nodes")
 				g.Expect(expectedInfraPods).ToNot(ContainElement(false))
-			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).WithContext(ctx).Should(Succeed())
 		})
 	})
 })
@@ -269,13 +267,14 @@ func setHcoNodeTypeLabel(ctx context.Context, cli *kubernetes.Clientset, node *v
 
 func listNodesByLabels(ctx context.Context, cli *kubernetes.Clientset, labelSelector string) *v1.NodeList {
 	var nodes *v1.NodeList
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		var err error
 		nodes, err = cli.CoreV1().Nodes().List(ctx, k8smetav1.ListOptions{LabelSelector: labelSelector})
 		return err
 	}).WithTimeout(10 * time.Second).
 		WithPolling(time.Second).
 		WithOffset(1).
+		WithContext(ctx).
 		Should(Succeed())
 
 	return nodes

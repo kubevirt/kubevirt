@@ -19,17 +19,15 @@ var _ = Describe("[rfe_id:5882][crit:high][vendor:cnv-qe@redhat.com][level:syste
 
 	var (
 		cli client.Client
-		ctx context.Context
 	)
-	BeforeEach(func() {
-		tests.BeforeEach()
+	BeforeEach(func(ctx context.Context) {
+		tests.BeforeEach(ctx)
 		cli = tests.GetControllerRuntimeClient()
-		ctx = context.Background()
 
 		tests.FailIfNotOpenShift(ctx, cli, "quickstart")
 	})
 
-	It("[test_id:5883]should create ConsoleQuickStart objects", Label("test_id:5883"), func() {
+	It("[test_id:5883]should create ConsoleQuickStart objects", Label("test_id:5883"), func(ctx context.Context) {
 		By("Checking expected quickstart objects")
 		s := scheme.Scheme
 		_ = consolev1.Install(s)

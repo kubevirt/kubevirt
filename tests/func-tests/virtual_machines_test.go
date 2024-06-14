@@ -29,16 +29,14 @@ var _ = Describe("[rfe_id:273][crit:critical][vendor:cnv-qe@redhat.com][level:sy
 
 	var (
 		cli client.Client
-		ctx context.Context
 	)
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
 		cli = tests.GetControllerRuntimeClient()
-		ctx = context.Background()
-		tests.BeforeEach()
+		tests.BeforeEach(ctx)
 	})
 
-	It("[test_id:5696] should create, verify and delete VMIs", Label("test_id:5696"), func() {
+	It("[test_id:5696] should create, verify and delete VMIs", Label("test_id:5696"), func(ctx context.Context) {
 		vmiName := verifyVMICreation(ctx, cli)
 		verifyVMIRunning(ctx, cli, vmiName)
 		verifyVMIDeletion(ctx, cli, vmiName)
@@ -68,14 +66,14 @@ func verifyVMICreation(ctx context.Context, cli client.Client) string {
 func verifyVMIRunning(ctx context.Context, cli client.Client, vmiName string) *kubevirtcorev1.VirtualMachineInstance {
 	By("Verifying VMI is running")
 	var vmi *kubevirtcorev1.VirtualMachineInstance
-	EventuallyWithOffset(1, func(g Gomega) kubevirtcorev1.VirtualMachineInstancePhase {
+	EventuallyWithOffset(1, func(g Gomega, ctx context.Context) kubevirtcorev1.VirtualMachineInstancePhase {
 		vmi = createVMIObject(vmiName)
 
 		g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(vmi), vmi)).To(Succeed())
 		Expect(vmi.Status.Phase).ToNot(Equal(kubevirtcorev1.Failed), "vmi scheduling failed: %s\n", vmi2JSON(vmi))
 
 		return vmi.Status.Phase
-	}).WithTimeout(timeout).WithPolling(pollingInterval).Should(Equal(kubevirtcorev1.Running), "failed to get the vmi Running")
+	}).WithTimeout(timeout).WithPolling(pollingInterval).WithContext(ctx).Should(Equal(kubevirtcorev1.Running), "failed to get the vmi Running")
 
 	return vmi
 }
@@ -84,9 +82,9 @@ func verifyVMIDeletion(ctx context.Context, cli client.Client, vmiName string) {
 	By("Verifying node placement of VMI")
 	vmi := createVMIObject(vmiName)
 
-	EventuallyWithOffset(1, func() error {
+	EventuallyWithOffset(1, func(ctx context.Context) error {
 		return cli.Delete(ctx, vmi)
-	}).WithTimeout(timeout).WithPolling(pollingInterval).Should(Succeed(), "failed to delete a vmi")
+	}).WithTimeout(timeout).WithPolling(pollingInterval).WithContext(ctx).Should(Succeed(), "failed to delete a vmi")
 }
 
 func vmi2JSON(vmi *kubevirtcorev1.VirtualMachineInstance) string {

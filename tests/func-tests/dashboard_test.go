@@ -15,23 +15,19 @@ import (
 var _ = Describe("[rfe_id:5108][crit:medium][vendor:cnv-qe@redhat.com][level:system]Dashboard configmaps", Label(tests.OpenshiftLabel), func() {
 	flag.Parse()
 
-	var (
-		cli *kubernetes.Clientset
-		ctx context.Context
-	)
+	var cli *kubernetes.Clientset
 
-	BeforeEach(func() {
-		tests.BeforeEach()
+	BeforeEach(func(ctx context.Context) {
+		tests.BeforeEach(ctx)
 
 		k8sCli := tests.GetControllerRuntimeClient()
-		ctx = context.Background()
 
 		tests.FailIfNotOpenShift(ctx, k8sCli, "Dashboard configmaps")
 
 		cli = tests.GetK8sClientSet()
 	})
 
-	It("[test_id:5919]should create configmaps for OCP Dashboard", Label("test_id:5919"), func() {
+	It("[test_id:5919]should create configmaps for OCP Dashboard", Label("test_id:5919"), func(ctx context.Context) {
 		By("Checking expected configmaps")
 		items := tests.GetConfig().Dashboard.TestItems
 

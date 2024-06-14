@@ -22,15 +22,10 @@ const (
 )
 
 var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
-	var (
-		cli client.Client
-		ctx context.Context
-	)
+	var cli client.Client
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
 		cli = tests.GetControllerRuntimeClient()
-
-		ctx = context.Background()
 
 		tests.RestoreDefaults(ctx, cli)
 	})
@@ -47,16 +42,16 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			},
 		}
 
-		DescribeTable("Check that certConfig defaults are behaving as expected", func(path string) {
+		DescribeTable("Check that certConfig defaults are behaving as expected", func(ctx context.Context, path string) {
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
-			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				hc := tests.GetHCO(ctx, cli)
 				g.Expect(reflect.DeepEqual(hc.Spec.CertConfig, defaultCertConfig)).To(BeTrue(), "certConfig should be equal to default")
-			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		},
 			Entry("when removing /spec/certConfig/ca/duration", "/spec/certConfig/ca/duration"),
 			Entry("when removing /spec/certConfig/ca/renewBefore", "/spec/certConfig/ca/renewBefore"),
@@ -86,16 +81,16 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			EnableApplicationAwareQuota: ptr.To(false),
 		}
 
-		DescribeTable("Check that featureGates defaults are behaving as expected", func(path string) {
+		DescribeTable("Check that featureGates defaults are behaving as expected", func(ctx context.Context, path string) {
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
-			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				hc := tests.GetHCO(ctx, cli)
 				g.Expect(reflect.DeepEqual(hc.Spec.FeatureGates, defaultFeatureGates)).To(BeTrue(), "featureGates should be equal to default")
-			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		},
 			Entry("when removing /spec/featureGates/downwardMetrics", "/spec/featureGates/downwardMetrics"),
 			Entry("when removing /spec/featureGates/deployKubeSecondaryDNS", "/spec/featureGates/deployKubeSecondaryDNS"),
@@ -124,16 +119,16 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			ProgressTimeout:                   ptr.To(int64(150)),
 		}
 
-		DescribeTable("Check that liveMigrationConfig defaults are behaving as expected", func(path string) {
+		DescribeTable("Check that liveMigrationConfig defaults are behaving as expected", func(ctx context.Context, path string) {
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
-			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				hc := tests.GetHCO(ctx, cli)
 				g.Expect(reflect.DeepEqual(hc.Spec.LiveMigrationConfig, defaultLiveMigrationConfig)).To(BeTrue(), "liveMigrationConfig should be equal to default")
-			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		},
 			Entry("when removing /spec/liveMigrationConfig/allowAutoConverge", "/spec/liveMigrationConfig/allowAutoConverge"),
 			Entry("when removing /spec/liveMigrationConfig/allowPostCopy", "/spec/liveMigrationConfig/allowPostCopy"),
@@ -151,16 +146,16 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			VmiCPUAllocationRatio: ptr.To(10),
 		}
 
-		DescribeTable("Check that resourceRequirements defaults are behaving as expected", func(path string) {
+		DescribeTable("Check that resourceRequirements defaults are behaving as expected", func(ctx context.Context, path string) {
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
-			}).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				hc := tests.GetHCO(ctx, cli)
 				g.Expect(reflect.DeepEqual(hc.Spec.ResourceRequirements, &defaultResourceRequirements)).To(BeTrue(), "resourceRequirements should be equal to default")
-			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		},
 			Entry("when removing /spec/resourceRequirements/vmiCPUAllocationRatio", "/spec/resourceRequirements/vmiCPUAllocationRatio"),
 			Entry("when removing /spec/resourceRequirements", "/spec/resourceRequirements"),
@@ -175,16 +170,16 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			WorkloadUpdateMethods: []string{"LiveMigrate"},
 		}
 
-		DescribeTable("Check that workloadUpdateStrategy defaults are behaving as expected", func(path string) {
+		DescribeTable("Check that workloadUpdateStrategy defaults are behaving as expected", func(ctx context.Context, path string) {
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
-			}).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				hc := tests.GetHCO(ctx, cli)
 				g.Expect(reflect.DeepEqual(hc.Spec.WorkloadUpdateStrategy, defaultWorkloadUpdateStrategy)).To(BeTrue(), "workloadUpdateStrategy should be equal to default")
-			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		},
 			Entry("when removing /spec/workloadUpdateStrategy/batchEvictionInterval", "/spec/workloadUpdateStrategy/batchEvictionInterval"),
 			Entry("when removing /spec/workloadUpdateStrategy/batchEvictionSize", "/spec/workloadUpdateStrategy/batchEvictionSize"),
@@ -197,16 +192,16 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 	Context("uninstallStrategy defaults", func() {
 		const defaultUninstallStrategy = `BlockUninstallIfWorkloadsExist`
 
-		DescribeTable("Check that uninstallStrategy default is behaving as expected", func(path string) {
+		DescribeTable("Check that uninstallStrategy default is behaving as expected", func(ctx context.Context, path string) {
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
-			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				hc := tests.GetHCO(ctx, cli)
 				g.Expect(hc.Spec.UninstallStrategy).To(Equal(v1beta1.HyperConvergedUninstallStrategy(defaultUninstallStrategy)), "uninstallStrategy should be equal to default")
-			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		},
 			Entry("when removing /spec/uninstallStrategy", "/spec/uninstallStrategy"),
 			Entry("when removing /spec", "/spec"),
@@ -219,16 +214,16 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			DisableSerialConsoleLog:  ptr.To(true),
 		}
 
-		DescribeTable("Check that featureGates defaults are behaving as expected", func(path string) {
+		DescribeTable("Check that featureGates defaults are behaving as expected", func(ctx context.Context, path string) {
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
-			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				hc := tests.GetHCO(ctx, cli)
 				g.Expect(reflect.DeepEqual(hc.Spec.VirtualMachineOptions, defaultVirtualMachineOptions)).To(BeTrue(), "virtualMachineOptions should be equal to default")
-			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		},
 			Entry("when removing /spec/virtualMachineOptions/disableFreePageReporting", "/spec/virtualMachineOptions/disableFreePageReporting"),
 			Entry("when removing /spec/virtualMachineOptions/disableSerialConsoleLog", "/spec/virtualMachineOptions/disableSerialConsoleLog"),
@@ -242,16 +237,16 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			MemoryOvercommitPercentage: 100,
 		}
 
-		DescribeTable("Check that HigherWorkloadDensity defaults are behaving as expected", func(path string) {
+		DescribeTable("Check that HigherWorkloadDensity defaults are behaving as expected", func(ctx context.Context, path string) {
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
-			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				hc := tests.GetHCO(ctx, cli)
 				g.Expect(reflect.DeepEqual(hc.Spec.HigherWorkloadDensity, defaultHigherWorkloadDensity)).To(BeTrue(), "HigherWorkloadDensity should be equal to default")
-			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		},
 			Entry("when removing /spec/higherWorkloadDensity/memoryOvercommitPercentage", "/spec/higherWorkloadDensity/memoryOvercommitPercentage"),
 			Entry("when removing /spec/higherWorkloadDensity", "/spec/higherWorkloadDensity"),

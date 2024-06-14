@@ -23,11 +23,10 @@ var _ = Describe("[rfe_id:5100][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 	var (
 		cli client.Client
-		ctx context.Context
 	)
 
-	BeforeEach(func() {
-		tests.BeforeEach()
+	BeforeEach(func(ctx context.Context) {
+		tests.BeforeEach(ctx)
 		cfg, err := config.GetConfig()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -36,11 +35,10 @@ var _ = Describe("[rfe_id:5100][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		cli, err = client.New(cfg, client.Options{Scheme: s})
 		Expect(err).ToNot(HaveOccurred())
 
-		ctx = context.Background()
 		tests.FailIfNotOpenShift(ctx, cli, "ConsoleCliDownload")
 	})
 
-	It("[test_id:6956]should create ConsoleCliDownload objects with expected spec", Label("test_id:6956"), func() {
+	It("[test_id:6956]should create ConsoleCliDownload objects with expected spec", Label("test_id:6956"), func(ctx context.Context) {
 		By("Checking existence of ConsoleCliDownload")
 
 		ccd := &consolev1.ConsoleCLIDownload{

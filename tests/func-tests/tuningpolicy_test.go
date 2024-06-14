@@ -21,15 +21,13 @@ var _ = Describe("Check that the TuningPolicy annotation is configuring the KV o
 	tests.FlagParse()
 	var (
 		cli client.Client
-		ctx context.Context
 	)
 
 	BeforeEach(func() {
 		cli = tests.GetControllerRuntimeClient()
-		ctx = context.Background()
 	})
 
-	AfterEach(func() {
+	AfterEach(func(ctx context.Context) {
 		hc := tests.GetHCO(ctx, cli)
 
 		delete(hc.Annotations, common.TuningPolicyAnnotationName)
@@ -38,7 +36,7 @@ var _ = Describe("Check that the TuningPolicy annotation is configuring the KV o
 		tests.UpdateHCORetry(ctx, cli, hc)
 	})
 
-	It("should update KV with the tuningPolicy annotation", func() {
+	It("should update KV with the tuningPolicy annotation", func(ctx context.Context) {
 		hc := tests.GetHCO(ctx, cli)
 
 		if hc.Annotations == nil {
@@ -57,7 +55,7 @@ var _ = Describe("Check that the TuningPolicy annotation is configuring the KV o
 		checkTuningPolicy(ctx, cli, expected)
 	})
 
-	It("should update KV with the highBurst tuningPolicy", func() {
+	It("should update KV with the highBurst tuningPolicy", func(ctx context.Context) {
 		hc := tests.GetHCO(ctx, cli)
 
 		delete(hc.Annotations, common.TuningPolicyAnnotationName)
@@ -75,7 +73,7 @@ var _ = Describe("Check that the TuningPolicy annotation is configuring the KV o
 })
 
 func checkTuningPolicy(ctx context.Context, cli client.Client, expected kvv1.TokenBucketRateLimiter) {
-	Eventually(func(g Gomega) {
+	Eventually(func(g Gomega, ctx context.Context) {
 		kv := &kvv1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt-kubevirt-hyperconverged",
@@ -90,7 +88,7 @@ func checkTuningPolicy(ctx context.Context, cli client.Client, expected kvv1.Tok
 		checkReloadableComponentConfiguration(g, kv.Spec.Configuration.ControllerConfiguration, expected)
 		checkReloadableComponentConfiguration(g, kv.Spec.Configuration.HandlerConfiguration, expected)
 		checkReloadableComponentConfiguration(g, kv.Spec.Configuration.WebhookConfiguration, expected)
-	}).WithTimeout(time.Minute * 2).WithPolling(time.Second).Should(Succeed())
+	}).WithTimeout(time.Minute * 2).WithPolling(time.Second).WithContext(ctx).Should(Succeed())
 
 }
 

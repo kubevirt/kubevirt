@@ -29,36 +29,33 @@ var _ = Describe("Test AAQ", Label("AAQ"), Serial, Ordered, func() {
 	tests.FlagParse()
 	var (
 		k8scli client.Client
-		ctx    context.Context
 	)
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
 		k8scli = tests.GetControllerRuntimeClient()
-
-		ctx = context.Background()
 
 		disableAAQFeatureGate(ctx, k8scli)
 	})
 
-	AfterAll(func() {
+	AfterAll(func(ctx context.Context) {
 		disableAAQFeatureGate(ctx, k8scli)
 	})
 
 	When("set the applicationAwareConfig exists", func() {
-		It("should create the AAQ CR and all the pods", func() {
+		It("should create the AAQ CR and all the pods", func(ctx context.Context) {
 
 			enableAAQFeatureGate(ctx, k8scli)
 
 			By("check the AAQ CR")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				aaq, err := getAAQ(ctx, k8scli)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(aaq.Status.Conditions).ToNot(BeEmpty())
 				return conditionsv1.IsStatusConditionTrue(aaq.Status.Conditions, conditionsv1.ConditionAvailable)
-			}).WithTimeout(5 * time.Minute).WithPolling(time.Second).ShouldNot(BeTrue())
+			}).WithTimeout(5 * time.Minute).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeTrue())
 
 			By("check AAQ pods")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				deps := &appsv1.DeploymentList{}
 				Expect(
 					k8scli.List(ctx, deps, client.MatchingLabels{"app.kubernetes.io/managed-by": "aaq-operator"}),
@@ -78,6 +75,7 @@ var _ = Describe("Test AAQ", Label("AAQ"), Serial, Ordered, func() {
 				g.Expect(pods.Items).To(HaveLen(int(expectedPods)))
 			}).WithTimeout(5 * time.Minute).
 				WithPolling(time.Second).
+				WithContext(ctx).
 				Should(Succeed())
 		})
 	})
@@ -105,12 +103,13 @@ func disableAAQFeatureGate(ctx context.Context, cli client.Client) {
 	setAAQFeatureGate(ctx, cli, false)
 
 	By("make sure the AAQ CR was removed")
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		_, err := getAAQ(ctx, cli)
 		return err
 	}).WithTimeout(5 * time.Minute).
 		WithPolling(100 * time.Millisecond).
 		WithOffset(1).
+		WithContext(ctx).
 		Should(MatchError(errors.IsNotFound, "not found error"))
 }
 
@@ -121,6 +120,7 @@ func setAAQFeatureGate(ctx context.Context, cli client.Client, fgState bool) {
 		WithArguments(ctx, cli, patchBytes).
 		WithTimeout(10 * time.Second).
 		WithPolling(100 * time.Millisecond).
+		WithContext(ctx).
 		WithOffset(2).
 		Should(Succeed())
 }

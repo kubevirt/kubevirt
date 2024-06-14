@@ -17,33 +17,30 @@ var _ = Describe("Cluster level evictionStrategy default value", Serial, Ordered
 	tests.FlagParse()
 	var (
 		cli client.Client
-		ctx context.Context
 
 		initialEvictionStrategy *v1.EvictionStrategy
 		singleWorkerCluster     bool
 	)
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
 		cli = tests.GetControllerRuntimeClient()
-
-		ctx = context.Background()
 
 		var err error
 		singleWorkerCluster, err = isSingleWorkerCluster(ctx, cli)
 		Expect(err).ToNot(HaveOccurred())
 
-		tests.BeforeEach()
+		tests.BeforeEach(ctx)
 		hc := tests.GetHCO(ctx, cli)
 		initialEvictionStrategy = hc.Spec.EvictionStrategy
 	})
 
-	AfterEach(func() {
+	AfterEach(func(ctx context.Context) {
 		hc := tests.GetHCO(ctx, cli)
 		hc.Spec.EvictionStrategy = initialEvictionStrategy
 		tests.UpdateHCORetry(ctx, cli, hc)
 	})
 
-	It("Should set spec.evictionStrategy = None by default on single worker clusters", Label(tests.SingleNodeLabel), func() {
+	It("Should set spec.evictionStrategy = None by default on single worker clusters", Label(tests.SingleNodeLabel), func(ctx context.Context) {
 		Expect(singleWorkerCluster).To(BeTrue(), "this test requires single worker cluster; use the %q label to skip this test", tests.SingleNodeLabel)
 
 		hco := tests.GetHCO(ctx, cli)
@@ -54,7 +51,7 @@ var _ = Describe("Cluster level evictionStrategy default value", Serial, Ordered
 		Expect(hco.Spec.EvictionStrategy).To(Equal(&noneEvictionStrategy))
 	})
 
-	It("Should set spec.evictionStrategy = LiveMigrate by default with multiple worker node", Label(tests.HighlyAvailableClusterLabel), func() {
+	It("Should set spec.evictionStrategy = LiveMigrate by default with multiple worker node", Label(tests.HighlyAvailableClusterLabel), func(ctx context.Context) {
 		tests.FailIfSingleNode(singleWorkerCluster)
 		hco := tests.GetHCO(ctx, cli)
 		hco.Spec.EvictionStrategy = nil

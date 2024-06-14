@@ -49,23 +49,20 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		promClient                       promApiv1.API
 		prometheusRule                   monitoringv1.PrometheusRule
 		initialOperatorHealthMetricValue float64
-		ctx                              context.Context
 	)
 
 	runbookClient.Timeout = time.Second * 3
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
 		cli = tests.GetControllerRuntimeClient()
 		cliSet = tests.GetK8sClientSet()
 		restClient = cliSet.RESTClient()
 
-		ctx = context.Background()
-
 		tests.FailIfNotOpenShift(ctx, cli, "Prometheus")
-		promClient = initializePromClient(getPrometheusURL(restClient), getAuthorizationTokenForPrometheus(ctx, cliSet))
-		prometheusRule = getPrometheusRule(restClient)
+		promClient = initializePromClient(getPrometheusURL(ctx, restClient), getAuthorizationTokenForPrometheus(ctx, cliSet))
+		prometheusRule = getPrometheusRule(ctx, restClient)
 
-		initialOperatorHealthMetricValue = getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
+		initialOperatorHealthMetricValue = getMetricValue(ctx, promClient, "kubevirt_hyperconverged_operator_health_status")
 	})
 
 	It("Alert rules should have all the requried annotations", func() {
@@ -101,7 +98,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		}
 	})
 
-	It("KubeVirtCRModified alert should fired when there is a modification on a CR", func() {
+	It("KubeVirtCRModified alert should fired when there is a modification on a CR", func(ctx context.Context) {
 		By("Patching kubevirt object")
 		const (
 			fakeFG = "fake-fg-for-testing"
@@ -109,15 +106,15 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		)
 
 		var valueBefore float64
-		Eventually(func(g Gomega) {
-			valueBefore = getMetricValue(promClient, query)
-		}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+		Eventually(func(g Gomega, ctx context.Context) {
+			valueBefore = getMetricValue(ctx, promClient, query)
+		}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
 		patchBytes := []byte(fmt.Sprintf(`[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": %q}]`, fakeFG))
 		patch := client.RawPatch(types.JSONPatchType, patchBytes)
 
 		retries := float64(0)
-		Eventually(func(g Gomega) []string {
+		Eventually(func(g Gomega, ctx context.Context) []string {
 			kv := &kubevirtcorev1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "kubevirt-kubevirt-hyperconverged",
@@ -132,30 +129,32 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			return kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
 		}).WithTimeout(10 * time.Second).
 			WithPolling(100 * time.Millisecond).
+			WithContext(ctx).
 			Should(ContainElement(fakeFG))
 
 		Expect(retries).To(BeNumerically(">", 0))
 
-		Eventually(func(g Gomega) float64 {
-			return getMetricValue(promClient, query)
+		Eventually(func(g Gomega, ctx context.Context) float64 {
+			return getMetricValue(ctx, promClient, query)
 		}).WithTimeout(60*time.Second).
 			WithPolling(time.Second).
+			WithContext(ctx).
 			Should(
 				Equal(valueBefore+retries),
 				"expected different counter value; valueBefore: %0.2f; retries: %0.2f", valueBefore, retries,
 			)
 
-		Eventually(func() *promApiv1.Alert {
+		Eventually(func(ctx context.Context) *promApiv1.Alert {
 			alerts, err := promClient.Alerts(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			alert := getAlertByName(alerts, "KubeVirtCRModified")
 			return alert
-		}).WithTimeout(60 * time.Second).WithPolling(time.Second).ShouldNot(BeNil())
+		}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
 
-		verifyOperatorHealthMetricValue(promClient, initialOperatorHealthMetricValue, warningImpact)
+		verifyOperatorHealthMetricValue(ctx, promClient, initialOperatorHealthMetricValue, warningImpact)
 	})
 
-	It("UnsupportedHCOModification alert should fired when there is an jsonpatch annotation to modify an operand CRs", func() {
+	It("UnsupportedHCOModification alert should fired when there is an jsonpatch annotation to modify an operand CRs", func(ctx context.Context) {
 		By("Updating HCO object with a new label")
 		hco := tests.GetHCO(ctx, cli)
 
@@ -164,13 +163,13 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		}
 		tests.UpdateHCORetry(ctx, cli, hco)
 
-		Eventually(func() *promApiv1.Alert {
-			alerts, err := promClient.Alerts(context.TODO())
+		Eventually(func(ctx context.Context) *promApiv1.Alert {
+			alerts, err := promClient.Alerts(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			alert := getAlertByName(alerts, "UnsupportedHCOModification")
 			return alert
-		}, 60*time.Second, time.Second).ShouldNot(BeNil())
-		verifyOperatorHealthMetricValue(promClient, initialOperatorHealthMetricValue, warningImpact)
+		}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
+		verifyOperatorHealthMetricValue(ctx, promClient, initialOperatorHealthMetricValue, warningImpact)
 	})
 })
 
@@ -183,11 +182,11 @@ func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.
 	return nil
 }
 
-func verifyOperatorHealthMetricValue(promClient promApiv1.API, initialOperatorHealthMetricValue, alertImpact float64) {
-	Eventually(func(g Gomega) {
+func verifyOperatorHealthMetricValue(ctx context.Context, promClient promApiv1.API, initialOperatorHealthMetricValue, alertImpact float64) {
+	Eventually(func(g Gomega, ctx context.Context) {
 		if alertImpact >= initialOperatorHealthMetricValue {
-			systemHealthMetricValue := getMetricValue(promClient, "kubevirt_hco_system_health_status")
-			operatorHealthMetricValue := getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
+			systemHealthMetricValue := getMetricValue(ctx, promClient, "kubevirt_hco_system_health_status")
+			operatorHealthMetricValue := getMetricValue(ctx, promClient, "kubevirt_hyperconverged_operator_health_status")
 			expectedOperatorHealthMetricValue := math.Max(alertImpact, systemHealthMetricValue)
 
 			g.Expect(operatorHealthMetricValue).To(Equal(expectedOperatorHealthMetricValue),
@@ -196,11 +195,11 @@ func verifyOperatorHealthMetricValue(promClient promApiv1.API, initialOperatorHe
 				operatorHealthMetricValue, expectedOperatorHealthMetricValue, systemHealthMetricValue)
 		}
 
-	}, 60*time.Second, 5*time.Second).Should(Succeed())
+	}).WithTimeout(60 * time.Second).WithPolling(5 * time.Second).WithContext(ctx).Should(Succeed())
 }
 
-func getMetricValue(promClient promApiv1.API, metricName string) float64 {
-	queryResult, _, err := promClient.Query(context.TODO(), metricName, time.Now())
+func getMetricValue(ctx context.Context, promClient promApiv1.API, metricName string) float64 {
+	queryResult, _, err := promClient.Query(ctx, metricName, time.Now())
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
 
 	resultVector := queryResult.(promModel.Vector)
@@ -216,7 +215,7 @@ func getMetricValue(promClient promApiv1.API, metricName string) float64 {
 	return metricValue
 }
 
-func getPrometheusRule(cli rest.Interface) monitoringv1.PrometheusRule {
+func getPrometheusRule(ctx context.Context, cli rest.Interface) monitoringv1.PrometheusRule {
 	var prometheusRule monitoringv1.PrometheusRule
 
 	ExpectWithOffset(1, cli.Get().
@@ -225,7 +224,7 @@ func getPrometheusRule(cli rest.Interface) monitoringv1.PrometheusRule {
 		Namespace(tests.InstallNamespace).
 		AbsPath("/apis", monitoringv1.SchemeGroupVersion.Group, monitoringv1.SchemeGroupVersion.Version).
 		Timeout(10*time.Second).
-		Do(context.TODO()).Into(&prometheusRule)).Should(Succeed())
+		Do(ctx).Into(&prometheusRule)).Should(Succeed())
 	return prometheusRule
 }
 
@@ -253,7 +252,7 @@ func initializePromClient(prometheusURL string, token string) promApiv1.API {
 
 func getAuthorizationTokenForPrometheus(ctx context.Context, cli *kubernetes.Clientset) string {
 	var token string
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		treq, err := cli.CoreV1().ServiceAccounts("openshift-monitoring").CreateToken(
 			ctx,
 			"prometheus-k8s",
@@ -270,27 +269,28 @@ func getAuthorizationTokenForPrometheus(ctx context.Context, cli *kubernetes.Cli
 		}
 		token = treq.Status.Token
 		return true
-	}, 10*time.Second, time.Second).Should(BeTrue())
+	}).WithTimeout(10 * time.Second).WithPolling(time.Second).WithContext(ctx).Should(BeTrue())
 	return token
 }
 
-func getPrometheusURL(cli rest.Interface) string {
+func getPrometheusURL(ctx context.Context, cli rest.Interface) string {
 	s := scheme.Scheme
 	_ = openshiftroutev1.Install(s)
 	s.AddKnownTypes(openshiftroutev1.GroupVersion)
 
 	var route openshiftroutev1.Route
 
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		return cli.Get().
 			Resource("routes").
 			Name("prometheus-k8s").
 			Namespace("openshift-monitoring").
 			AbsPath("/apis", openshiftroutev1.GroupVersion.Group, openshiftroutev1.GroupVersion.Version).
 			Timeout(10 * time.Second).
-			Do(context.TODO()).Into(&route)
+			Do(ctx).Into(&route)
 	}).WithTimeout(2 * time.Minute).
 		WithPolling(15 * time.Second). // longer than the request timeout
+		WithContext(ctx).
 		Should(Succeed())
 
 	return fmt.Sprintf("https://%s", route.Spec.Host)

@@ -33,15 +33,13 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 	var (
 		cli          client.Client
 		k8sClientSet *kubernetes.Clientset
-		ctx          context.Context
 	)
 
 	tests.FlagParse()
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
 		cli = tests.GetControllerRuntimeClient()
 
-		ctx = context.Background()
 		tests.FailIfNotOpenShift(ctx, cli, "kubevirt console plugin")
 
 		hco := tests.GetHCO(ctx, cli)
@@ -49,14 +47,13 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 
 		k8sClientSet = tests.GetK8sClientSet()
 
-		DeferCleanup(func() {
+		DeferCleanup(func(ctx context.Context) {
 			hco.Spec.Infra = originalInfra
 			tests.UpdateHCORetry(ctx, cli, hco)
 		})
-
 	})
 
-	It("console should reach kubevirt-plugin manifests", func() {
+	It("console should reach kubevirt-plugin manifests", func(ctx context.Context) {
 		kubevirtPlugin := &consolev1.ConsolePlugin{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: expectedKubevirtConsolePluginName,
@@ -93,7 +90,7 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 		Expect(pluginName).To(Equal(expectedKubevirtConsolePluginName))
 	})
 
-	It("nodePlacement should be propagated from HyperConverged CR to console-plugin and apiserver-proxy Deployments", Serial, func() {
+	It("nodePlacement should be propagated from HyperConverged CR to console-plugin and apiserver-proxy Deployments", Serial, func(ctx context.Context) {
 
 		expectedNodeSelector := map[string]string{
 			"foo": "bar",
@@ -103,14 +100,15 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 		expectedNodeSelectorStr := string(expectedNodeSelectorBytes)
 		addNodeSelectorPatch := []byte(fmt.Sprintf(`[{"op": "add", "path": "/spec/infra", "value": {"nodePlacement": {"nodeSelector": %s}}}]`, expectedNodeSelectorStr))
 
-		Eventually(func() error {
+		Eventually(func(ctx context.Context) error {
 			err = tests.PatchHCO(ctx, cli, addNodeSelectorPatch)
 			return err
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(1 * time.Millisecond).
+			WithContext(ctx).
 			Should(Succeed())
 
-		Eventually(func(g Gomega) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			consoleUIDeployment := &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      string(hcoutil.AppComponentUIPlugin),
@@ -123,9 +121,10 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 			g.Expect(consoleUIDeployment.Spec.Template.Spec.NodeSelector).To(Equal(expectedNodeSelector))
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(100 * time.Millisecond).
+			WithContext(ctx).
 			Should(Succeed())
 
-		Eventually(func(g Gomega) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			proxyUIDeployment := &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      string(hcoutil.AppComponentUIProxy),
@@ -136,18 +135,20 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 			g.Expect(proxyUIDeployment.Spec.Template.Spec.NodeSelector).To(Equal(expectedNodeSelector))
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(100 * time.Millisecond).
+			WithContext(ctx).
 			Should(Succeed())
 
 		// clear node placement from HyperConverged CR and verify the nodeSelector has been cleared as well from the UI Deployments
 		removeNodeSelectorPatch := []byte(`[{"op": "replace", "path": "/spec/infra", "value": {}}]`)
-		Eventually(func() error {
+		Eventually(func(ctx context.Context) error {
 			err = tests.PatchHCO(ctx, cli, removeNodeSelectorPatch)
 			return err
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(1 * time.Millisecond).
+			WithContext(ctx).
 			Should(Succeed())
 
-		Eventually(func(g Gomega) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			consoleUIDeployment := &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      string(hcoutil.AppComponentUIPlugin),
@@ -159,9 +160,10 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 			g.Expect(consoleUIDeployment.Spec.Template.Spec.NodeSelector).To(BeEmpty())
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(100 * time.Millisecond).
+			WithContext(ctx).
 			Should(Succeed())
 
-		Eventually(func(g Gomega) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			proxyUIDeployment := &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      string(hcoutil.AppComponentUIProxy),
@@ -172,6 +174,7 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 			g.Expect(proxyUIDeployment.Spec.Template.Spec.NodeSelector).To(BeEmpty())
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(100 * time.Millisecond).
+			WithContext(ctx).
 			Should(Succeed())
 	})
 })
