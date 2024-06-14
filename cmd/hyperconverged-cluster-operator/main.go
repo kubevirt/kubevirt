@@ -236,7 +236,7 @@ func getCacheOption(operatorNamespace string, isMonitoringAvailable, isOpenshift
 		},
 	}
 
-	cacheOptionsByOjectForMonitoring := map[client.Object]cache.ByObject{
+	cacheOptionsByObjectForMonitoring := map[client.Object]cache.ByObject{
 		&monitoringv1.ServiceMonitor{}: {
 			Label: labelSelector,
 			Field: namespaceSelector,
@@ -247,7 +247,7 @@ func getCacheOption(operatorNamespace string, isMonitoringAvailable, isOpenshift
 		},
 	}
 
-	cacheOptionsByOjectForOpenshift := map[client.Object]cache.ByObject{
+	cacheOptionsByObjectForOpenshift := map[client.Object]cache.ByObject{
 		&openshiftroutev1.Route{}: {
 			Field: namespaceSelector,
 		},
@@ -267,10 +267,10 @@ func getCacheOption(operatorNamespace string, isMonitoringAvailable, isOpenshift
 	}
 
 	if isMonitoringAvailable {
-		maps.Copy(cacheOptions.ByObject, cacheOptionsByOjectForMonitoring)
+		maps.Copy(cacheOptions.ByObject, cacheOptionsByObjectForMonitoring)
 	}
 	if isOpenshift {
-		maps.Copy(cacheOptions.ByObject, cacheOptionsByOjectForOpenshift)
+		maps.Copy(cacheOptions.ByObject, cacheOptionsByObjectForOpenshift)
 	}
 
 	return cacheOptions
