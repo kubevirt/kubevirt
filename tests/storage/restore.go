@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -135,7 +133,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 		// sometimes it takes a bit for permission to actually be applied so eventually
 		Eventually(func() bool {
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			if err != nil {
 				fmt.Printf("command should have succeeded maybe new permissions not applied yet\nerror\n%s\n", err)
 				return false
@@ -143,6 +141,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			return true
 		}, 90*time.Second, time.Second).Should(BeTrue())
 
+		vm.Namespace = testsuite.GetTestNamespace(vm)
 		vm, err := ThisVM(vm)()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -1068,7 +1067,17 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
-				vm, vmi = createAndStartVM(newVMWithDataVolumeForRestore(snapshotStorageClass))
+				vm, vmi = createAndStartVM(
+					libvmifact.NewPersistentDiskTinyOS(
+						libdv.NewDataVolume(
+							libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+							libdv.WithPVC(
+								libdv.PVCWithStorageClass(snapshotStorageClass),
+								libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+							),
+						),
+					),
+				)
 
 				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
@@ -1094,7 +1103,15 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			// behavior. In case of running this test with other provisioner or if ceph
 			// will change this behavior it will fail.
 			DescribeTable("should restore a vm with restore size bigger then PVC size", func(restoreToNewVM bool) {
-				vm = newVMWithDataVolumeForRestore(snapshotStorageClass)
+				vm = libvmifact.NewPersistentDiskTinyOS(
+					libdv.NewDataVolume(
+						libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+						libdv.WithPVC(
+							libdv.PVCWithStorageClass(snapshotStorageClass),
+							libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						),
+					),
+				)
 				quantity, err := resource.ParseQuantity("1528Mi")
 				Expect(err).ToNot(HaveOccurred())
 				vm.Spec.DataVolumeTemplates[0].Spec.PVC.Resources.Requests["storage"] = quantity
@@ -1126,7 +1143,17 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm that boots from a datavolumetemplate", func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(newVMWithDataVolumeForRestore(snapshotStorageClass))
+				vm, vmi = createAndStartVM(
+					libvmifact.NewPersistentDiskTinyOS(
+						libdv.NewDataVolume(
+							libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+							libdv.WithPVC(
+								libdv.PVCWithStorageClass(snapshotStorageClass),
+								libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+							),
+						),
+					),
+				)
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
@@ -1137,11 +1164,19 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm that boots from a datavolume (not template)", func(restoreToNewVM bool) {
-				vm = newVMWithDataVolumeForRestore(snapshotStorageClass)
+				vm = libvmifact.NewPersistentDiskTinyOS(
+					libdv.NewDataVolume(
+						libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+						libdv.WithPVC(
+							libdv.PVCWithStorageClass(snapshotStorageClass),
+							libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						),
+					),
+				)
 				dv := orphanDataVolumeTemplate(vm, 0)
 				originalPVCName := dv.Name
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vm)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm, vmi = createAndStartVM(vm)
@@ -1185,15 +1220,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				originalPVCName := dv.Name
 
-				memory := "128Mi"
-				if checks.IsARM64(testsuite.Arch) {
-					memory = "256Mi"
-				}
 				vmi = libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-					libvmi.WithResourceMemory(memory),
+					libvmifact.WithMinimalOSMemory(),
 					libvmi.WithPersistentVolumeClaim("disk0", originalPVCName),
 					libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
 				)
@@ -1303,7 +1334,17 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			It("should reject vm start if restore in progress", func() {
-				vm, vmi = createAndStartVM(newVMWithDataVolumeForRestore(snapshotStorageClass))
+				vm, vmi = createAndStartVM(
+					libvmifact.NewPersistentDiskTinyOS(
+						libdv.NewDataVolume(
+							libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+							libdv.WithPVC(
+								libdv.PVCWithStorageClass(snapshotStorageClass),
+								libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+							),
+						),
+					),
+				)
 
 				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
@@ -1402,7 +1443,15 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			DescribeTable("should restore a vm from an online snapshot", func(restoreToNewVM bool) {
-				vm = newVMWithDataVolumeForRestore(snapshotStorageClass)
+				vm = libvmifact.NewPersistentDiskTinyOS(
+					libdv.NewDataVolume(
+						libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+						libdv.WithPVC(
+							libdv.PVCWithStorageClass(snapshotStorageClass),
+							libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						),
+					),
+				)
 				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
 				vm, vmi = createAndStartVM(vm)
 
@@ -1774,23 +1823,15 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				createNetworkCloneVMFromSource := func() *v1.VirtualMachine {
 					// TODO: consider ensuring network clone gets done here using StorageProfile CloneStrategy
-					dataVolume := libdv.NewDataVolume(
-						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
-						libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize("1Gi")),
-					)
-
-					vm := libvmi.NewVirtualMachine(
-						libvmi.New(
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							libvmi.WithDataVolume("disk0", dataVolume.Name),
-							libvmi.WithResourceMemory("1Gi"),
-							libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
-							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					return libvmifact.NewPersistentDiskTinyOS(
+						libdv.NewDataVolume(
+							libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
+							libdv.WithPVC(
+								libdv.PVCWithStorageClass(snapshotStorageClass),
+								libdv.PVCWithVolumeSize("1Gi"),
+							),
 						),
-						libvmi.WithDataVolumeTemplate(dataVolume),
 					)
-					return vm
 				}
 
 				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM, deleteSourcePVC bool) {
@@ -1814,7 +1855,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					vm = createNetworkCloneVMFromSource()
 					dv := orphanDataVolumeTemplate(vm, 0)
 
-					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vm)).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					defer libstorage.DeleteDataVolume(&dv)
 
@@ -1837,26 +1878,3 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		})
 	})
 })
-
-func newVMWithDataVolumeForRestore(storageClass string) *v1.VirtualMachine {
-	dv := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
-		),
-	)
-	vm := libvmi.NewVirtualMachine(
-		libvmi.New(
-			libvmi.WithDataVolume("disk0", dv.Name),
-			libvmi.WithResourceMemory("256Mi"),
-			libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
-			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		),
-		libvmi.WithDataVolumeTemplate(dv),
-	)
-
-	return vm
-}

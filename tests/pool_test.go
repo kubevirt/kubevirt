@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -124,17 +125,11 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			Skip("Skip test when Filesystem storage is not present")
 		}
 
-		dataVolume := libdv.NewDataVolume(
-			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
-		)
-
-		vm := libvmi.NewVirtualMachine(
-			libvmi.New(
-				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("100M"),
+		vm := libvmifact.NewPersistentDiskTinyOS(
+			libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 			),
-			libvmi.WithDataVolumeTemplate(dataVolume),
 		)
 
 		newPool := newPoolFromVMI(&v1.VirtualMachineInstance{
@@ -144,7 +139,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		newPool.Spec.VirtualMachineTemplate.Spec.DataVolumeTemplates = vm.Spec.DataVolumeTemplates
 		running := true
 		newPool.Spec.VirtualMachineTemplate.Spec.Running = &running
-		newPool, err = virtClient.VirtualMachinePool(util.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
+		newPool, err = virtClient.VirtualMachinePool(testsuite.GetTestNamespace(vm)).Create(context.Background(), newPool, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		return newPool

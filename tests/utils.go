@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
@@ -226,15 +227,6 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
-func cirrosMemory() string {
-	// Cirros image need 256M to boot on ARM64,
-	// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
-	if checks.IsARM64(testsuite.Arch) {
-		return "256Mi"
-	}
-	return "128Mi"
-}
-
 // NewRandomVMIWithEphemeralDisk
 //
 // Deprecated: Use libvmi directly
@@ -243,7 +235,7 @@ func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInst
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-		libvmi.WithResourceMemory(cirrosMemory()),
+		libvmifact.WithMinimalOSMemory(),
 		libvmi.WithContainerDisk("disk0", containerImage),
 	}
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
@@ -557,14 +549,14 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	virtClient := kubevirt.Client()
 
 	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		updatedVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = pointer.P(true)
 		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	updatedVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance created
 	Eventually(func() error {

@@ -22,6 +22,8 @@ package libvmifact
 import (
 	kvirtv1 "kubevirt.io/api/core/v1"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
@@ -55,7 +57,7 @@ func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
-		libvmi.WithResourceMemory(cirrosMemory()),
+		WithMinimalOSMemory(),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	return libvmi.New(cirrosOpts...)
@@ -63,10 +65,9 @@ func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 
 // NewAlpine instantiates a new Alpine based VMI configuration
 func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
-	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		libvmi.WithResourceMemory(alpineMemory()),
+		WithMinimalOSMemory(),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -74,13 +75,12 @@ func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 }
 
 func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
-	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
+	// Supplied with no user data, AlpineWithTestTooling image takes more than 200s to allow login
 	withNonEmptyUserData := libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
-	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		withNonEmptyUserData,
-		libvmi.WithResourceMemory(alpineMemory()),
+		WithMinimalOSMemory(),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -92,6 +92,10 @@ func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 		[]libvmi.Option{libvmi.WithResourceMemory(qemuMinimumMemory())},
 		opts...)
 	return libvmi.New(opts...)
+}
+
+func WithMinimalOSMemory() libvmi.Option {
+	return libvmi.WithResourceMemory(cirrosMemory())
 }
 
 func qemuMinimumMemory() string {
@@ -145,4 +149,24 @@ func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	}
 	vmi.Spec.Domain.Firmware = &kvirtv1.Firmware{UUID: WindowsFirmware}
 	return vmi
+}
+
+func NewPersistentDiskTinyOS(dv *cdiv1.DataVolume, extraVMOpts ...libvmi.VMOption) *kvirtv1.VirtualMachine {
+	// Supplied with no user data, AlpineWithTestTooling image takes more than 200s to allow login
+	withNonEmptyUserData := libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
+	opts := []libvmi.VMOption{
+		libvmi.WithDataVolumeTemplate(dv),
+	}
+	opts = append(opts, extraVMOpts...)
+
+	return libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithDataVolume("disk0", dv.Name),
+			WithMinimalOSMemory(),
+			withNonEmptyUserData,
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(kvirtv1.DefaultPodNetwork()),
+		),
+		opts...,
+	)
 }
