@@ -36,8 +36,15 @@ const (
 	TargetVMCreated       Event = "TargetVMCreated"
 	PVCBound              Event = "PVCBound"
 
-	SnapshotDeleted    Event = "SnapshotDeleted"
-	SourceDoesNotExist Event = "SourceDoesNotExist"
+	SnapshotDeleted          Event = "SnapshotDeleted"
+	SourceDoesNotExist       Event = "SourceDoesNotExist"
+	VMVolumeSnapshotsInvalid Event = "VMVolumeSnapshotsInvalid"
+)
+
+var (
+	ErrSourceDoesNotExist           = fmt.Errorf("permission denied")
+	ErrVolumeNotSnapshotable        = "Virtual Machine volume %s does not support snapshots"
+	ErrVolumeSnapshotSupportUnknown = "Virtual Machine volume %s snapshot support unknown"
 )
 
 type VMCloneController struct {
@@ -120,7 +127,9 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 
 	_, err = ctrl.vmInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			DeleteFunc: ctrl.handleDeleteVM,
+			AddFunc:    ctrl.handleVM,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
+			DeleteFunc: ctrl.handleVM,
 		},
 	)
 
@@ -258,7 +267,7 @@ func (ctrl *VMCloneController) handlePVC(obj interface{}) {
 	}
 }
 
-func (ctrl *VMCloneController) handleDeleteVM(obj interface{}) {
+func (ctrl *VMCloneController) handleVM(obj interface{}) {
 	vm, ok := obj.(*virtv1.VirtualMachine)
 	// When a delete is dropped, the relist will notice a vm in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -275,23 +284,29 @@ func (ctrl *VMCloneController) handleDeleteVM(obj interface{}) {
 			return
 		}
 	}
-	vmCloneList, err := ctrl.listVmCloneMatchingVM(vm.Namespace, vm.Name)
+	vmKey, err := cache.MetaNamespaceKeyFunc(vm)
 	if err != nil {
-		log.Log.Errorf("error retrieving vm clone list: %v", err.Error())
+		log.Log.Object(vm).Reason(err).Error("cannot get vm key")
 		return
 	}
-	log.Log.V(4).Object(vm).Infof("vm clone lis: %v", vmCloneList)
-	for _, vmClone := range vmCloneList {
-		log.Log.V(4).Object(vm).Infof("vm deleted for vm clone %s", vmClone.Name)
-		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(vmClone)
-		if err != nil {
-			log.Log.Errorf("vm clone controller failed to get key from object: %v, %v", err, vmClone)
-			return
-		}
-		ctrl.vmCloneQueue.AddRateLimited(objName)
+	keys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys("vmSource", vmKey)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("cannot get clone from vmSource indexer")
+		return
 	}
 
-	return
+	for _, k := range keys {
+		ctrl.vmCloneQueue.Add(k)
+	}
+	keys, err = ctrl.vmCloneInformer.GetIndexer().IndexKeys("vmTarget", vmKey)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("cannot get clone from vmTarget indexer")
+		return
+	}
+
+	for _, k := range keys {
+		ctrl.vmCloneQueue.Add(k)
+	}
 }
 
 func (ctrl *VMCloneController) Run(threadiness int, stopCh <-chan struct{}) error {
@@ -341,28 +356,4 @@ func (ctrl *VMCloneController) Execute() bool {
 func (ctrl *VMCloneController) runWorker() {
 	for ctrl.Execute() {
 	}
-}
-
-// takes a namespace and returns all vm clone with the specified target vm name
-func (ctrl *VMCloneController) listVmCloneMatchingVM(namespace, name string) ([]*clonev1alpha1.VirtualMachineClone, error) {
-	return ctrl.filterVmClone(namespace, func(vmClone *clonev1alpha1.VirtualMachineClone) bool {
-		return vmClone.Spec.Target.Name == name
-	})
-}
-
-func (ctrl *VMCloneController) filterVmClone(namespace string, filter func(*clonev1alpha1.VirtualMachineClone) bool) ([]*clonev1alpha1.VirtualMachineClone, error) {
-	objs, err := ctrl.vmCloneInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	var vmClones []*clonev1alpha1.VirtualMachineClone
-	for _, obj := range objs {
-		vmClone := obj.(*clonev1alpha1.VirtualMachineClone)
-
-		if filter(vmClone) {
-			vmClones = append(vmClones, vmClone)
-		}
-	}
-	return vmClones, nil
 }

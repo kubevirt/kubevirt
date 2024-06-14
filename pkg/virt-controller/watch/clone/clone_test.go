@@ -283,6 +283,34 @@ var _ = Describe("Clone", func() {
 
 	Context("basic controller operations", func() {
 		Context("with source VM", func() {
+
+			It("should report event if source VM doesn't exist, phase shouldn't change", func() {
+				vmClone.Status.Phase = clonev1alpha1.PhaseUnset
+				addClone(vmClone)
+
+				controller.Execute()
+				expectEvent(SourceDoesNotExist)
+				expectCloneBeInPhase(clonev1alpha1.PhaseUnset)
+			})
+
+			It("should report event if VM volumeSnapshots are invalid", func() {
+				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, virtv1.Volume{
+					Name: "disk0",
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{
+							Name: "testdv",
+						},
+					},
+				})
+				addVM(sourceVM)
+				vmClone.Status.Phase = clonev1alpha1.PhaseUnset
+				addClone(vmClone)
+
+				controller.Execute()
+				expectEvent(VMVolumeSnapshotsInvalid)
+				expectCloneBeInPhase(clonev1alpha1.PhaseUnset)
+			})
+
 			DescribeTable("should create snapshot if not exists yet", func(phase clonev1alpha1.VirtualMachineClonePhase) {
 				vmClone.Status.Phase = phase
 

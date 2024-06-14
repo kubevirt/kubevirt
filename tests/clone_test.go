@@ -11,6 +11,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -173,11 +174,13 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		return vmClone
 	}
 
-	createCloneAndWaitForFinish := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+	createClone := func(vmClone *clonev1alpha1.VirtualMachineClone) *clonev1alpha1.VirtualMachineClone {
 		By(fmt.Sprintf("Creating clone object %s", vmClone.Name))
 		vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
-
+		return vmClone
+	}
+	waitCloneSucceeded := func(vmClone *clonev1alpha1.VirtualMachineClone) {
 		By(fmt.Sprintf("Waiting for the clone %s to finish", vmClone.Name))
 		Eventually(func() clonev1alpha1.VirtualMachineClonePhase {
 			vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, v1.GetOptions{})
@@ -185,6 +188,11 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 			return vmClone.Status.Phase
 		}, 3*time.Minute, 3*time.Second).Should(Equal(clonev1alpha1.Succeeded), "clone should finish successfully")
+	}
+
+	createCloneAndWaitForFinish := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+		vmClone = createClone(vmClone)
+		waitCloneSucceeded(vmClone)
 	}
 
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
@@ -524,7 +532,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				return expectVMRunnable(vm, console.LoginToAlpine)
 			}
 
-			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
+			generateVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
 				vm := NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					testsuite.GetTestNamespace(nil),
@@ -532,7 +540,10 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					k8sv1.ReadWriteOnce,
 				)
 				vm.Spec.Running = pointer.Bool(running)
+				return vm
+			}
 
+			createVM := func(vm *virtv1.VirtualMachine, storageClass string, running bool) *virtv1.VirtualMachine {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -545,6 +556,11 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				}
 
 				return vm
+			}
+
+			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
+				vm := generateVMWithStorageClass(storageClass, running)
+				return createVM(vm, storageClass, running)
 			}
 
 			Context("and no snapshot storage class", decorators.RequiresNoSnapshotStorageClass, func() {
@@ -563,13 +579,6 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, v1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						sourceVM = StopVirtualMachine(sourceVM)
-					})
-
-					It("with VM source", func() {
-						vmClone = generateCloneFromVM()
-						vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
-						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).Should(ContainSubstring("does not support snapshots"))
 					})
 
 					It("with snapshot source", func() {
@@ -601,17 +610,21 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					Expect(snapshotStorageClass).ToNot(BeEmpty(), "no storage class with snapshot support")
 				})
 
-				It("with a simple clone", func() {
+				It("with a simple clone, create clone before VM", func() {
 					running := false
 					if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass) {
 						// with wffc need to start the virtual machine
 						// in order for the pvc to be populated
 						running = true
 					}
-					sourceVM = createVMWithStorageClass(snapshotStorageClass, running)
+					sourceVM = generateVMWithStorageClass(snapshotStorageClass, running)
 					vmClone = generateCloneFromVM()
+					vmClone = createClone(vmClone)
 
-					createCloneAndWaitForFinish(vmClone)
+					events.ExpectEvent(vmClone, k8sv1.EventTypeNormal, "SourceDoesNotExist")
+					createVM(sourceVM, snapshotStorageClass, running)
+
+					waitCloneSucceeded(vmClone)
 
 					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
