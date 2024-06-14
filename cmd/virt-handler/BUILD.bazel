@@ -177,7 +177,6 @@ container_image(
     entrypoint = ["/usr/bin/virt-handler"],
     files = [
         ":virt-handler",
-        "//cmd/container-disk-v2alpha:container-disk",
         "//cmd/virt-chroot",
     ],
     visibility = ["//visibility:public"],

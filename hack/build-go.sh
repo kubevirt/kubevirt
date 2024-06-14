@@ -61,8 +61,8 @@ esac
 if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
         (
-            # Ignoring container-disk-v2alpha since it is written in C, not in go
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" --ignore=container-disk-v2alpha ./cmd/...
+            # Ignoring container-disk-v3alpha since it is written in C, not in go
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" --ignore=container-disk-v3alpha ./cmd/...
         )
         (
             # Skip fuzz tests, as they are not part of regular unit testing
@@ -95,11 +95,11 @@ if [ "${target}" = "install" ]; then
 
     (
         if [ -z "$BIN_NAME" ] || [[ $BIN_NAME == *"container-disk"* ]]; then
-            mkdir -p ${CMD_OUT_DIR}/container-disk-v2alpha
-            cd cmd/container-disk-v2alpha
+            mkdir -p ${CMD_OUT_DIR}/container-disk-v3alpha
+            cd cmd/container-disk-v3alpha
             # The containerdisk binary needs to be static, as it runs in a scratch container
             echo "building static binary container-disk"
-            gcc -static -o ${CMD_OUT_DIR}/container-disk-v2alpha/container-disk main.c
+            gcc -static -o ${CMD_OUT_DIR}/container-disk-v3alpha/container-disk main.c
         fi
     )
 fi
