@@ -54,9 +54,10 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 	Context("A VM with memory liveUpdate enabled", func() {
 
-		createHotplugVM := func(guest, maxGuest *resource.Quantity, sockets *uint32, maxSockets uint32) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-			vmi := libvmi.NewAlpineWithTestTooling(
-				libvmi.WithMasqueradeNetworking()...,
+		createHotplugVM := func(guest *resource.Quantity, sockets *uint32, maxSockets uint32) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+			vmi := libvmi.NewAlpineWithTestTooling(append(
+				libvmi.WithMasqueradeNetworking(),
+				libvmi.WithResourceMemory(guest.String()))...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
@@ -70,7 +71,6 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			}
 
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			vm.Spec.Template.Spec.Domain.Memory.MaxGuest = maxGuest
 			if maxSockets != 0 {
 				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = maxSockets
 			}
@@ -94,8 +94,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		It("should successfully hotplug memory", func() {
 			By("Creating a VM")
 			guest := resource.MustParse("128Mi")
-			maxGuest := resource.MustParse("256Mi")
-			vm, vmi := createHotplugVM(&guest, &maxGuest, nil, 0)
+			vm, vmi := createHotplugVM(&guest, nil, 0)
 
 			By("Limiting the bandwidth of migrations in the test namespace")
 			migrationBandwidthLimit := resource.MustParse("1Ki")
@@ -108,8 +107,9 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			reqMemory := compute.Resources.Requests.Memory().Value()
 			Expect(reqMemory).To(BeNumerically(">=", guest.Value()))
 
-			By("Hotplug 128Mi of memory")
-			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", "128Mi", "256Mi")
+			By("Hotplug additional memory")
+			newGuestMemory := resource.MustParse("256Mi")
+			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", "128Mi", newGuestMemory.String())
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -150,14 +150,13 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			compute = tests.GetComputeContainerOfPod(tests.GetVmiPod(virtClient, vmi))
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqMemory = compute.Resources.Requests.Memory().Value()
-			Expect(reqMemory).To(BeNumerically(">=", maxGuest.Value()))
+			Expect(reqMemory).To(BeNumerically(">=", newGuestMemory.Value()))
 		})
 
 		It("after a hotplug memory and a restart the new memory value should be the base for the VM", func() {
 			By("Creating a VM")
 			guest := resource.MustParse("128Mi")
-			maxGuest := resource.MustParse("512Mi")
-			vm, vmi := createHotplugVM(&guest, &maxGuest, nil, 0)
+			vm, vmi := createHotplugVM(&guest, nil, 0)
 
 			By("Hotplug 128Mi of memory")
 			newGuestMemory := resource.MustParse("256Mi")
@@ -197,9 +196,8 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		It("should successfully hotplug Memory and CPU in parallel", func() {
 			By("Creating a VM")
 			guest := resource.MustParse("128Mi")
-			maxGuest := resource.MustParse("512Mi")
 			newSockets := uint32(2)
-			vm, vmi := createHotplugVM(&guest, &maxGuest, pointer.P(uint32(1)), newSockets)
+			vm, vmi := createHotplugVM(&guest, pointer.P(uint32(1)), newSockets)
 
 			By("Hotplug Memory and CPU")
 			newGuestMemory := resource.MustParse("256Mi")
@@ -332,7 +330,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		It("should successfully hotplug memory twice", func() {
 			By("Creating a VM")
 			guest := resource.MustParse("128Mi")
-			vm, vmi := createHotplugVM(&guest, nil, nil, 0)
+			vm, vmi := createHotplugVM(&guest, nil, 0)
 
 			for _, newMemory := range []*resource.Quantity{pointer.P(resource.MustParse("256Mi")), pointer.P(resource.MustParse("512Mi"))} {
 				oldGuestMemory := vm.Spec.Template.Spec.Domain.Memory.Guest
