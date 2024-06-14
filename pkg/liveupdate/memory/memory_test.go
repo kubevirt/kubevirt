@@ -106,7 +106,7 @@ var _ = Describe("LiveUpdate Memory", func() {
 					vm.Spec.Template.Spec.Domain.Memory.MaxGuest = pointer.P(resource.MustParse("16Gi"))
 					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: "1Gi"}
 				}),
-				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
+				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 				}),
 			)

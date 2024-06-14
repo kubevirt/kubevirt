@@ -2003,13 +2003,13 @@ var _ = Describe("Validating VM Admitter", func() {
 					Field:   "spec.template.spec.domain.memory.guest",
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.Hotplug1GHugePagesBlockAlignmentBytes, resource.BinarySI)),
 				}),
-				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
+				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
 					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.Multiarchitecture)
-					vm.Spec.Template.Spec.Architecture = "arm"
+					vm.Spec.Template.Spec.Architecture = "risc-v"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "spec.template.spec.domain.memory.guest",
-					Message: "Memory hotplug is only available for x86_64 VMs",
+					Message: "Memory hotplug is only available for x86_64 and arm64 VMs",
 				}),
 			)
 		})

@@ -6171,8 +6171,8 @@ var _ = Describe("VirtualMachine", func() {
 						vmiSpec.Domain.Memory.Guest = kvpointer.P(resource.MustParse("2G"))
 						vmiSpec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: "1Gi"}
 					}),
-					Entry("architecture is not amd64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-						vmiSpec.Architecture = "arm"
+					Entry("architecture is not amd64 or arm64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+						vmiSpec.Architecture = "risc-v"
 					}),
 				)
 
