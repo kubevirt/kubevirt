@@ -1533,8 +1533,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					vmiSpec.Domain.Memory.MaxGuest = kvpointer.P(resource.MustParse("16Gi"))
 					vmiSpec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: "1Gi"}
 				}),
-				Entry("architecture is not amd64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-					vmiSpec.Architecture = "arm"
+				Entry("architecture is not amd64 or arm64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					vmiSpec.Architecture = "risc-v"
 				}),
 			)
 		})
