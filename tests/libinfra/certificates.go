@@ -48,9 +48,9 @@ func ContainsCrt(bundle []byte, containedCrt []byte) bool {
 	return attached
 }
 
-func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) {
+func GetBundleFromConfigMap(ctx context.Context, configMapName string) ([]byte, []*x509.Certificate) {
 	virtClient := kubevirt.Client()
-	configMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), configMapName, v1.GetOptions{})
+	configMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(ctx, configMapName, v1.GetOptions{})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	if rawBundle, ok := configMap.Data[components.CABundleKey]; ok {
 		crts, err := cert.ParseCertsPEM([]byte(rawBundle))
