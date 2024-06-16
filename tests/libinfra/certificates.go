@@ -67,20 +67,20 @@ func GetBundleFromConfigMap(ctx context.Context, configMapName string) ([]byte, 
 // Once all certificates are in sync, the final secret is returned
 func EnsurePodsCertIsSynced(labelSelector string, namespace string, port string) []byte {
 	var certs [][]byte
-	gomega.EventuallyWithOffset(1, func() bool {
+	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) bool {
 		var err error
 		certs, err = libpod.GetCertsForPods(labelSelector, namespace, port)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		if len(certs) == 0 {
 			return true
 		}
-		for _, crt := range certs {
+		for _, crt := range certs[1:] {
 			if !reflect.DeepEqual(certs[0], crt) {
 				return false
 			}
 		}
 		return true
-	}, 90*time.Second, 1*time.Second).Should(gomega.BeTrue(), "certificates across '%s' pods are not in sync", labelSelector)
+	}).WithTimeout(90*time.Second).WithPolling(time.Second).Should(gomega.BeTrue(), "certificates across '%s' pods are not in sync", labelSelector)
 	if len(certs) > 0 {
 		return certs[0]
 	}
