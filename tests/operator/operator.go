@@ -1396,12 +1396,10 @@ spec:
 
 					// by making a change to the VM, we ensure that writing the object is possible.
 					// This ensures VMs created previously before the update are still compatible with our validation webhooks
-					vm.Annotations["some-annotation"] = "some-val"
-					annotationBytes, err := json.Marshal(vm.Annotations)
+					ops, err := patch.New(patch.WithAdd("/metadata/annotations/some-annotation", "some-val")).GeneratePayload()
 					Expect(err).ToNot(HaveOccurred())
 
-					ops := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations", "value": %s }]`, string(annotationBytes))
-					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
+					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 					return err
 				}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -2052,7 +2050,9 @@ spec:
 
 	It("[test_id:4617]should adopt previously unmanaged entities by updating its metadata", func() {
 		By("removing registration metadata")
-		patchData := []byte(fmt.Sprint(`[{ "op": "replace", "path": "/metadata/labels", "value": {} }]`))
+		patchData, err := patch.New(patch.WithReplace("/metadata/labels", struct{}{})).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+
 		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), components.VirtApiCertSecretName, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		_, err = aggregatorClient.ApiregistrationV1().APIServices().Patch(context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), types.JSONPatchType, patchData, metav1.PatchOptions{})
