@@ -290,6 +290,8 @@ rules:
   resources:
   - validatingwebhookconfigurations
   - mutatingwebhookconfigurations
+  - validatingadmissionpolicybindings
+  - validatingadmissionpolicies
   verbs:
   - get
   - list

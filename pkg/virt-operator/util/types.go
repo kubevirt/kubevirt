@@ -28,32 +28,36 @@ import (
 )
 
 type Stores struct {
-	ServiceAccountCache           cache.Store
-	ClusterRoleCache              cache.Store
-	ClusterRoleBindingCache       cache.Store
-	RoleCache                     cache.Store
-	RoleBindingCache              cache.Store
-	CrdCache                      cache.Store
-	ServiceCache                  cache.Store
-	DeploymentCache               cache.Store
-	DaemonSetCache                cache.Store
-	ValidationWebhookCache        cache.Store
-	MutatingWebhookCache          cache.Store
-	APIServiceCache               cache.Store
-	SCCCache                      cache.Store
-	RouteCache                    cache.Store
-	InstallStrategyConfigMapCache cache.Store
-	InstallStrategyJobCache       cache.Store
-	InfrastructurePodCache        cache.Store
-	PodDisruptionBudgetCache      cache.Store
-	ServiceMonitorCache           cache.Store
-	NamespaceCache                cache.Store
-	PrometheusRuleCache           cache.Store
-	SecretCache                   cache.Store
-	ConfigMapCache                cache.Store
-	IsOnOpenshift                 bool
-	ServiceMonitorEnabled         bool
-	PrometheusRulesEnabled        bool
+	ServiceAccountCache                     cache.Store
+	ClusterRoleCache                        cache.Store
+	ClusterRoleBindingCache                 cache.Store
+	RoleCache                               cache.Store
+	RoleBindingCache                        cache.Store
+	CrdCache                                cache.Store
+	ServiceCache                            cache.Store
+	DeploymentCache                         cache.Store
+	DaemonSetCache                          cache.Store
+	ValidationWebhookCache                  cache.Store
+	MutatingWebhookCache                    cache.Store
+	APIServiceCache                         cache.Store
+	SCCCache                                cache.Store
+	RouteCache                              cache.Store
+	InstallStrategyConfigMapCache           cache.Store
+	InstallStrategyJobCache                 cache.Store
+	InfrastructurePodCache                  cache.Store
+	PodDisruptionBudgetCache                cache.Store
+	ServiceMonitorCache                     cache.Store
+	NamespaceCache                          cache.Store
+	PrometheusRuleCache                     cache.Store
+	SecretCache                             cache.Store
+	ConfigMapCache                          cache.Store
+	ValidatingAdmissionPolicyBindingCache   cache.Store
+	ValidatingAdmissionPolicyCache          cache.Store
+	IsOnOpenshift                           bool
+	ServiceMonitorEnabled                   bool
+	PrometheusRulesEnabled                  bool
+	ValidatingAdmissionPolicyBindingEnabled bool
+	ValidatingAdmissionPolicyEnabled        bool
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -75,7 +79,9 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.ServiceMonitorCache) &&
 		IsStoreEmpty(s.PrometheusRuleCache) &&
 		IsStoreEmpty(s.SecretCache) &&
-		IsStoreEmpty(s.ConfigMapCache)
+		IsStoreEmpty(s.ConfigMapCache) &&
+		IsStoreEmpty(s.ValidatingAdmissionPolicyBindingCache) &&
+		IsStoreEmpty(s.ValidatingAdmissionPolicyCache)
 
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
@@ -103,53 +109,57 @@ func IsSCCStoreEmpty(store cache.Store) bool {
 }
 
 type Expectations struct {
-	ServiceAccount           *controller.UIDTrackingControllerExpectations
-	ClusterRole              *controller.UIDTrackingControllerExpectations
-	ClusterRoleBinding       *controller.UIDTrackingControllerExpectations
-	Role                     *controller.UIDTrackingControllerExpectations
-	RoleBinding              *controller.UIDTrackingControllerExpectations
-	Crd                      *controller.UIDTrackingControllerExpectations
-	Service                  *controller.UIDTrackingControllerExpectations
-	Deployment               *controller.UIDTrackingControllerExpectations
-	DaemonSet                *controller.UIDTrackingControllerExpectations
-	ValidationWebhook        *controller.UIDTrackingControllerExpectations
-	MutatingWebhook          *controller.UIDTrackingControllerExpectations
-	APIService               *controller.UIDTrackingControllerExpectations
-	SCC                      *controller.UIDTrackingControllerExpectations
-	Route                    *controller.UIDTrackingControllerExpectations
-	InstallStrategyConfigMap *controller.UIDTrackingControllerExpectations
-	InstallStrategyJob       *controller.UIDTrackingControllerExpectations
-	PodDisruptionBudget      *controller.UIDTrackingControllerExpectations
-	ServiceMonitor           *controller.UIDTrackingControllerExpectations
-	PrometheusRule           *controller.UIDTrackingControllerExpectations
-	Secrets                  *controller.UIDTrackingControllerExpectations
-	ConfigMap                *controller.UIDTrackingControllerExpectations
+	ServiceAccount                   *controller.UIDTrackingControllerExpectations
+	ClusterRole                      *controller.UIDTrackingControllerExpectations
+	ClusterRoleBinding               *controller.UIDTrackingControllerExpectations
+	Role                             *controller.UIDTrackingControllerExpectations
+	RoleBinding                      *controller.UIDTrackingControllerExpectations
+	Crd                              *controller.UIDTrackingControllerExpectations
+	Service                          *controller.UIDTrackingControllerExpectations
+	Deployment                       *controller.UIDTrackingControllerExpectations
+	DaemonSet                        *controller.UIDTrackingControllerExpectations
+	ValidationWebhook                *controller.UIDTrackingControllerExpectations
+	MutatingWebhook                  *controller.UIDTrackingControllerExpectations
+	APIService                       *controller.UIDTrackingControllerExpectations
+	SCC                              *controller.UIDTrackingControllerExpectations
+	Route                            *controller.UIDTrackingControllerExpectations
+	InstallStrategyConfigMap         *controller.UIDTrackingControllerExpectations
+	InstallStrategyJob               *controller.UIDTrackingControllerExpectations
+	PodDisruptionBudget              *controller.UIDTrackingControllerExpectations
+	ServiceMonitor                   *controller.UIDTrackingControllerExpectations
+	PrometheusRule                   *controller.UIDTrackingControllerExpectations
+	Secrets                          *controller.UIDTrackingControllerExpectations
+	ConfigMap                        *controller.UIDTrackingControllerExpectations
+	ValidatingAdmissionPolicyBinding *controller.UIDTrackingControllerExpectations
+	ValidatingAdmissionPolicy        *controller.UIDTrackingControllerExpectations
 }
 
 type Informers struct {
-	ServiceAccount           cache.SharedIndexInformer
-	ClusterRole              cache.SharedIndexInformer
-	ClusterRoleBinding       cache.SharedIndexInformer
-	Role                     cache.SharedIndexInformer
-	RoleBinding              cache.SharedIndexInformer
-	Crd                      cache.SharedIndexInformer
-	Service                  cache.SharedIndexInformer
-	Deployment               cache.SharedIndexInformer
-	DaemonSet                cache.SharedIndexInformer
-	ValidationWebhook        cache.SharedIndexInformer
-	MutatingWebhook          cache.SharedIndexInformer
-	APIService               cache.SharedIndexInformer
-	SCC                      cache.SharedIndexInformer
-	Route                    cache.SharedIndexInformer
-	InstallStrategyConfigMap cache.SharedIndexInformer
-	InstallStrategyJob       cache.SharedIndexInformer
-	InfrastructurePod        cache.SharedIndexInformer
-	PodDisruptionBudget      cache.SharedIndexInformer
-	ServiceMonitor           cache.SharedIndexInformer
-	Namespace                cache.SharedIndexInformer
-	PrometheusRule           cache.SharedIndexInformer
-	Secrets                  cache.SharedIndexInformer
-	ConfigMap                cache.SharedIndexInformer
+	ServiceAccount                   cache.SharedIndexInformer
+	ClusterRole                      cache.SharedIndexInformer
+	ClusterRoleBinding               cache.SharedIndexInformer
+	Role                             cache.SharedIndexInformer
+	RoleBinding                      cache.SharedIndexInformer
+	Crd                              cache.SharedIndexInformer
+	Service                          cache.SharedIndexInformer
+	Deployment                       cache.SharedIndexInformer
+	DaemonSet                        cache.SharedIndexInformer
+	ValidationWebhook                cache.SharedIndexInformer
+	MutatingWebhook                  cache.SharedIndexInformer
+	APIService                       cache.SharedIndexInformer
+	SCC                              cache.SharedIndexInformer
+	Route                            cache.SharedIndexInformer
+	InstallStrategyConfigMap         cache.SharedIndexInformer
+	InstallStrategyJob               cache.SharedIndexInformer
+	InfrastructurePod                cache.SharedIndexInformer
+	PodDisruptionBudget              cache.SharedIndexInformer
+	ServiceMonitor                   cache.SharedIndexInformer
+	Namespace                        cache.SharedIndexInformer
+	PrometheusRule                   cache.SharedIndexInformer
+	Secrets                          cache.SharedIndexInformer
+	ConfigMap                        cache.SharedIndexInformer
+	ValidatingAdmissionPolicyBinding cache.SharedIndexInformer
+	ValidatingAdmissionPolicy        cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {
@@ -174,6 +184,8 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.PrometheusRule.DeleteExpectations(key)
 	e.Secrets.DeleteExpectations(key)
 	e.ConfigMap.DeleteExpectations(key)
+	e.ValidatingAdmissionPolicyBinding.DeleteExpectations(key)
+	e.ValidatingAdmissionPolicy.DeleteExpectations(key)
 }
 
 func (e *Expectations) ResetExpectations(key string) {
@@ -198,6 +210,8 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.PrometheusRule.SetExpectations(key, 0, 0)
 	e.Secrets.SetExpectations(key, 0, 0)
 	e.ConfigMap.SetExpectations(key, 0, 0)
+	e.ValidatingAdmissionPolicyBinding.SetExpectations(key, 0, 0)
+	e.ValidatingAdmissionPolicy.SetExpectations(key, 0, 0)
 }
 
 func (e *Expectations) SatisfiedExpectations(key string) bool {
@@ -221,5 +235,7 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.ServiceMonitor.SatisfiedExpectations(key) &&
 		e.PrometheusRule.SatisfiedExpectations(key) &&
 		e.Secrets.SatisfiedExpectations(key) &&
-		e.ConfigMap.SatisfiedExpectations(key)
+		e.ConfigMap.SatisfiedExpectations(key) &&
+		e.ValidatingAdmissionPolicyBinding.SatisfiedExpectations(key) &&
+		e.ValidatingAdmissionPolicy.SatisfiedExpectations(key)
 }
