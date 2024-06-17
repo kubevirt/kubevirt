@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -201,7 +202,8 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 // Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	AddCloudInitConfigDriveData(vmi, "disk1", userData, "", false)
+	cloudInitConfigDriveData := libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData))
+	cloudInitConfigDriveData(vmi)
 	return vmi
 }
 
@@ -210,7 +212,13 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage string, 
 // Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	AddCloudInitConfigDriveData(vmi, "disk1", userData, networkData, b64encode)
+	if b64encode {
+		cloudInitConfigDriveData := libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveEncodedUserData(userData), libvmici.WithConfigDriveEncodedNetworkData(networkData))
+		cloudInitConfigDriveData(vmi)
+	} else {
+		cloudInitConfigDriveData := libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData), libvmici.WithConfigDriveNetworkData(networkData))
+		cloudInitConfigDriveData(vmi)
+	}
 	return vmi
 }
 
@@ -221,25 +229,6 @@ func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{}
 	cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
 	addCloudInitDiskAndVolume(vmi, name, v1.VolumeSource{CloudInitNoCloud: &cloudInitNoCloudSource})
-}
-
-// AddCloudInitConfigDriveData
-//
-// Deprecated: Use libvmi
-func AddCloudInitConfigDriveData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
-	cloudInitConfigDriveSource := v1.CloudInitConfigDriveSource{}
-	if b64encode {
-		cloudInitConfigDriveSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
-		if networkData != "" {
-			cloudInitConfigDriveSource.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
-		}
-	} else {
-		cloudInitConfigDriveSource.UserData = userData
-		if networkData != "" {
-			cloudInitConfigDriveSource.NetworkData = networkData
-		}
-	}
-	addCloudInitDiskAndVolume(vmi, name, v1.VolumeSource{CloudInitConfigDrive: &cloudInitConfigDriveSource})
 }
 
 func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volumeSource v1.VolumeSource) {
