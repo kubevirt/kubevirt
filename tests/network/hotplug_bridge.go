@@ -36,6 +36,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -175,7 +176,9 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(iface),
 				libvmi.WithNetwork(&net),
-				libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ip2+subnetMask)),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
+					cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ip2+subnetMask),
+				)),
 				libvmi.WithNodeAffinityFor(hotPluggedVMI.Status.NodeName))
 			anotherVmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())

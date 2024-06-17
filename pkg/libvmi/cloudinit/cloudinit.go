@@ -38,3 +38,9 @@ func WithNoCloudEncodedUserData(data string) NoCloudOption {
 		source.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(data))
 	}
 }
+
+func WithNoCloudNetworkData(data string) NoCloudOption {
+	return func(source *v1.CloudInitNoCloudSource) {
+		source.NetworkData = data
+	}
+}

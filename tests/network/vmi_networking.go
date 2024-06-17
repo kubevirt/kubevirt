@@ -367,7 +367,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			deadbeafVMI := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(masqIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithCloudInitNoCloudNetworkData(networkData),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 			)
 			deadbeafVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), deadbeafVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -654,7 +654,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 				libvmi.WithNetwork(net),
-				libvmi.WithCloudInitNoCloudNetworkData(networkData),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 			)
 
 			return vmi, nil
@@ -968,7 +968,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi = libvmifact.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudNetworkData(networkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})

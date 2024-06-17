@@ -48,6 +48,7 @@ import (
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -656,7 +657,7 @@ func newSRIOVVmi(networks []string, cloudInitNetworkData string) *v1.VirtualMach
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	}
 	if cloudInitNetworkData != "" {
-		cloudinitOption := libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkData)
+		cloudinitOption := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudInitNetworkData))
 		options = append(options, cloudinitOption)
 	}
 

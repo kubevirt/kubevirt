@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -123,7 +124,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())),
 				libvmi.WithUefi(false),
 				libvmi.WithResourceMemory("1Gi"),
 			)

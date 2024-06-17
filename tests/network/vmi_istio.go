@@ -350,7 +350,7 @@ var istioTests = func(vmType VmType) {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 					libvmi.WithLabel("version", "v1"),
 					libvmi.WithLabel(vmiAppSelectorKey, vmiServerAppSelectorValue),
-					libvmi.WithCloudInitNoCloudNetworkData(networkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 					libvmi.WithNamespace(namespace),
 				)
 				By("Starting VirtualMachineInstance")
@@ -515,8 +515,10 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData),
-		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(enablePasswordAuth)),
+		libvmi.WithCloudInitNoCloud(
+			libvmici.WithNoCloudNetworkData(networkData),
+			libvmici.WithNoCloudEncodedUserData(enablePasswordAuth),
+		),
 	)
 	return vmi
 }

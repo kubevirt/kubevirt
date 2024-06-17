@@ -35,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
@@ -401,7 +402,7 @@ func startPasstVMI(vmiBuilder func(opts ...libvmi.Option) *v1.VirtualMachineInst
 	vmi := libvmifact.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 	)
 	vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
