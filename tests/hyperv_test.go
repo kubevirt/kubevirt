@@ -61,9 +61,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 		var reEnlightenmentVMI *v1.VirtualMachineInstance
 
 		vmiWithReEnlightenment := func() *v1.VirtualMachineInstance {
-			options := libnet.WithMasqueradeNetworking()
-			options = append(options, withReEnlightenment())
-			return libvmifact.NewAlpine(options...)
+			return libvmifact.NewAlpine(libnet.WithMasqueradeNetworking(), withReEnlightenment())
 		}
 
 		BeforeEach(func() {

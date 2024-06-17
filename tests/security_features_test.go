@@ -317,7 +317,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 	})
 	Context("The VMI SELinux context status", func() {
 		It("Should get set and stay the the same after a migration", decorators.RequiresTwoSchedulableNodes, func() {
-			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
 
 			By("Starting a New VMI")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})

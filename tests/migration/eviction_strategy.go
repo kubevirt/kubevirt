@@ -654,20 +654,14 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 })
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
-	opts := append(libnet.WithMasqueradeNetworking(),
+	return libvmifact.NewFedora(libnet.WithMasqueradeNetworking(),
 		libvmi.WithResourceMemory(fedoraVMSize),
 		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-	return libvmifact.NewFedora(opts...)
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
 }
 
 func alpineVMIWithEvictionStrategy(additionalOpts ...libvmi.Option) *v1.VirtualMachineInstance {
-	opts := append(libnet.WithMasqueradeNetworking(),
-		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-
+	opts := []libvmi.Option{libnet.WithMasqueradeNetworking(), libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate), libvmi.WithNamespace(testsuite.GetTestNamespace(nil))}
 	opts = append(opts, additionalOpts...)
 
 	return libvmifact.NewAlpine(opts...)
