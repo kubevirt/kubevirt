@@ -18,6 +18,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
@@ -46,7 +47,7 @@ func newFedoraRealtime(realtimeMask string) *v1.VirtualMachineInstance {
 	return libvmi.New(
 		libvmi.WithRng(),
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime)),
-		libvmi.WithCloudInitNoCloudEncodedUserData(tuneAdminRealtimeCloudInitData),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(tuneAdminRealtimeCloudInitData)),
 		libvmi.WithLimitMemory(memory),
 		libvmi.WithLimitCPU("2"),
 		libvmi.WithResourceMemory(memory),

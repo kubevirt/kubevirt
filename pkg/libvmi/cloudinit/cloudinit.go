@@ -20,6 +20,8 @@
 package cloudinit
 
 import (
+	"encoding/base64"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -28,5 +30,11 @@ type NoCloudOption func(*v1.CloudInitNoCloudSource)
 func WithNoCloudUserData(data string) NoCloudOption {
 	return func(source *v1.CloudInitNoCloudSource) {
 		source.UserData = data
+	}
+}
+
+func WithNoCloudEncodedUserData(data string) NoCloudOption {
+	return func(source *v1.CloudInitNoCloudSource) {
+		source.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(data))
 	}
 }

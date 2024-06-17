@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -182,7 +183,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithResourceMemory("128Mi"),
 				libvmi.WithDataVolume(volName, dv.Name),
-				libvmi.WithCloudInitNoCloudEncodedUserData(("#!/bin/bash\necho hello\n")),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n")),
 			)
 			vm := libvmi.NewVirtualMachine(vmi,
 				libvmi.WithRunning(),

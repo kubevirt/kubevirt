@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
@@ -110,7 +111,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				virtiofsMountPath(pvc2), pvc2, virtiofsMountPath(pvc2), virtiofsTestFile(virtiofsMountPath(pvc2)))
 
 			vmi = libvmifact.NewFedora(
-				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommands)),
 				libvmi.WithFilesystemPVC(pvc1),
 				libvmi.WithFilesystemPVC(pvc2),
 				libvmi.WithNamespace(namespace),
@@ -224,7 +225,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                            `, virtiofsMountPath, pvcName, virtiofsMountPath, virtiofsTestFile)
 
 			vmi = libvmifact.NewFedora(
-				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommands)),
 				libvmi.WithFilesystemPVC(pvcName),
 				libvmi.WithNamespace(namespace),
 			)
@@ -313,7 +314,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                                `, virtiofsMountPath, dataVolume.Name, virtiofsMountPath, virtiofsTestFile)
 
 			vmi = libvmifact.NewFedora(
-				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommands)),
 				libvmi.WithFilesystemDV(dataVolume.Name),
 				libvmi.WithNamespace(namespace),
 			)
