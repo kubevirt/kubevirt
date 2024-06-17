@@ -2124,7 +2124,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", Serial, decorators.StorageReq, func() {
+	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", Serial, decorators.SigStorage, decorators.StorageReq, func() {
 		var dataVolume *cdiv1.DataVolume
 
 		BeforeEach(func() {
@@ -2212,6 +2212,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
+			libstorage.CreateHostPathPv("alpine-host-path", testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
+			libstorage.CreateHostPathPVC("alpine-host-path", testsuite.GetTestNamespace(nil), "1Gi")
 			vmi := libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -2268,7 +2270,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", decorators.StorageReq, func() {
+		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, func() {
 			By("creating a block volume")
 			dataVolume, err := createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())
@@ -2311,7 +2313,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966][storage-req]Should set BlockIO when set to match volume block sizes on block devices", decorators.StorageReq, func() {
+		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, func() {
 			By("creating a block volume")
 			dataVolume, err := createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())
