@@ -23,7 +23,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -193,7 +192,8 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 // Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	AddUserData(vmi, "disk1", userData)
+	cloudInitNoCloudEncodedUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(userData))
+	cloudInitNoCloudEncodedUserData(vmi)
 	return vmi
 }
 
@@ -220,30 +220,6 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerIma
 		cloudInitConfigDriveData(vmi)
 	}
 	return vmi
-}
-
-// AddUserData
-//
-// Deprecated: Use libvmi
-func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
-	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{}
-	cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
-	addCloudInitDiskAndVolume(vmi, name, v1.VolumeSource{CloudInitNoCloud: &cloudInitNoCloudSource})
-}
-
-func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volumeSource v1.VolumeSource) {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: name,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusVirtio,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name:         name,
-		VolumeSource: volumeSource,
-	})
 }
 
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {

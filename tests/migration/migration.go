@@ -1104,8 +1104,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskCirros, k8sv1.ReadWriteMany, sc)
-				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskCirros, k8sv1.ReadWriteMany, sc, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")))
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
@@ -3540,7 +3539,7 @@ func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 	return output, nil
 }
 
-func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode k8sv1.PersistentVolumeAccessMode, storageClass string) *v1.VirtualMachineInstance {
+func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode k8sv1.PersistentVolumeAccessMode, storageClass string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 
 	dv := libdv.NewDataVolume(
@@ -3557,5 +3556,5 @@ func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode
 	Expect(err).ToNot(HaveOccurred())
 	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
-	return libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
+	return libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, opts...)
 }
