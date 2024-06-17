@@ -61,12 +61,12 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			)
 		})
 
-		It("[test_id:4115]Should be applied to VMIs", func() {
+		It("[test_id:4115]Should be applied to VMIs", func(ctx context.Context) {
 			// create the VMI first
-			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(ctx, vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(ctx, vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// check defaults
@@ -75,15 +75,15 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			Expect(disk.Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
 		})
 
-		It("[test_id:]Should be applied to any auto attached volume disks", func() {
+		It("[test_id:]Should be applied to any auto attached volume disks", func(ctx context.Context) {
 
 			// Drop the disks to ensure they are added in by setDefaultVolumeDisk
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 
-			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(ctx, vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(ctx, vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(newVMI.Spec.Domain.Devices.Disks).To(HaveLen(1))
@@ -109,9 +109,9 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			kvConfiguration = kv.Spec.Configuration
 		})
 
-		It("[test_id:4556]Should be present in domain", func() {
+		It("[test_id:4556]Should be present in domain", func(ctx context.Context) {
 			By("Creating a virtual machine")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(ctx, vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -143,7 +143,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			Expect(*domain.Devices.Ballooning).To(Equal(expected), "Default to virtio model and 10 seconds pooling")
 		})
 
-		DescribeTable("[Serial]Should override period in domain if present in virt-config ", Serial, func(period uint32, expected api.MemBalloon) {
+		DescribeTable("[Serial]Should override period in domain if present in virt-config ", Serial, func(ctx context.Context, period uint32, expected api.MemBalloon) {
 			By("Adding period to virt-config")
 			kvConfigurationCopy := kvConfiguration.DeepCopy()
 			kvConfigurationCopy.MemBalloonStatsPeriod = &period
@@ -155,7 +155,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			}
 
 			By("Creating a virtual machine")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(ctx, vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -193,10 +193,10 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			}),
 		)
 
-		It("[test_id:4559]Should not be present in domain ", func() {
+		It("[test_id:4559]Should not be present in domain ", func(ctx context.Context) {
 			By("Creating a virtual machine with autoAttachmemballoon set to false")
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(ctx, vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -217,7 +217,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 
 	Context("Input defaults", func() {
 
-		It("[test_id:TODO]Should be set in VirtualMachineInstance", func() {
+		It("[test_id:TODO]Should be set in VirtualMachineInstance", func(ctx context.Context) {
 
 			By("Creating a VirtualMachineInstance with an input device without a bus or type set")
 			vmi = libvmifact.NewCirros()
@@ -225,7 +225,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 				Name: "foo-1",
 			})
 
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(ctx, vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmi.Spec.Domain.Devices.Inputs).ToNot(BeEmpty(), "There should be input devices")
@@ -235,15 +235,15 @@ var _ = SIGDescribe("VMIDefaults", func() {
 
 		})
 
-		It("[test_id:TODO]Should be applied to a device added by AutoattachInputDevice", func() {
+		It("[test_id:TODO]Should be applied to a device added by AutoattachInputDevice", func(ctx context.Context) {
 			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunning())
 			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(ctx, vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Getting VirtualMachineInstance")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(ctx, vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmi.Spec.Domain.Devices.Inputs).ToNot(BeEmpty(), "There should be input devices")
