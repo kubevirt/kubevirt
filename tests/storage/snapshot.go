@@ -272,7 +272,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 
 		It("[test_id:4610]create a snapshot when VM is running should succeed", func() {
-			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
+			patch, err := patch.New(patch.WithReplace("/spec/running", true)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*vm.Spec.Running).Should(BeTrue())
@@ -281,7 +283,12 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 
 		It("should create a snapshot when VM runStrategy is Manual", func() {
-			patch := []byte("[{ \"op\": \"remove\", \"path\": \"/spec/running\"}, { \"op\": \"add\", \"path\": \"/spec/runStrategy\", \"value\": \"Manual\"}]")
+			patch, err := patch.New(
+				patch.WithRemove("/spec/running"),
+				patch.WithAdd("/spec/runStrategy", "Manual"),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
@@ -291,7 +298,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 
 		It("VM should contain snapshot status for all volumes", func() {
-			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
+			patch, err := patch.New(patch.WithReplace("/spec/running", true)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -466,7 +475,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				newMemory := resource.MustParse("1Gi")
 				Expect(newMemory).ToNot(Equal(initialMemory))
 
-				//update vm to make sure vm revision is saved in the snapshot
+				// update vm to make sure vm revision is saved in the snapshot
 				By("Updating the VM template spec")
 				patchData, err := patch.GenerateTestReplacePatch(
 					"/spec/template/spec/domain/resources/requests/"+string(corev1.ResourceMemory),

@@ -319,19 +319,14 @@ var _ = SIGDescribe("Export", func() {
 	populateArchiveContent := func(sc string, volumeMode k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string) {
 		pvc, md5sum := populateKubeVirtContent(sc, volumeMode)
 
-		patchData, err := patch.GeneratePatchPayload(
-			patch.PatchOperation{
-				Op:    patch.PatchAddOp,
-				Path:  "/metadata/annotations/" + patch.EscapeJSONPointer(annContentType),
-				Value: "archive",
-			},
-			patch.PatchOperation{
-				Op:    patch.PatchAddOp,
-				Path:  "/metadata/ownerReferences",
-				Value: []metav1.OwnerReference{},
-			},
+		patchSet := patch.New(
+			patch.WithAdd("/metadata/annotations/"+patch.EscapeJSONPointer(annContentType), "archive"),
+			patch.WithAdd("/metadata/ownerReferences", []metav1.OwnerReference{}),
 		)
+
+		patchData, err := patchSet.GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
+
 		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 

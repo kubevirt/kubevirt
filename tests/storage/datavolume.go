@@ -147,12 +147,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			By("Expanding PVC")
-			patchData, err := patch.GeneratePatchPayload(patch.PatchOperation{
-				Op:    patch.PatchAddOp,
-				Path:  "/spec/resources/requests/storage",
-				Value: resource.MustParse("2Gi"),
-			})
+			patchSet := patch.New(
+				patch.WithAdd("/spec/resources/requests/storage", resource.MustParse("2Gi")),
+			)
+			patchData, err := patchSet.GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
+
 			_, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Patch(context.Background(), dataVolume.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
