@@ -20,8 +20,6 @@
 package libvmi
 
 import (
-	"encoding/base64"
-
 	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	k8scorev1 "k8s.io/api/core/v1"
@@ -41,18 +39,6 @@ func WithCloudInitNoCloud(opts ...cloudinit.NoCloudOption) Option {
 		for _, f := range opts {
 			f(volume.CloudInitNoCloud)
 		}
-	}
-}
-
-// WithCloudInitNoCloudEncodedNetworkData adds cloud-init no-cloud base64 encoded network data.
-func WithCloudInitNoCloudEncodedNetworkData(networkData string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
-		volume.CloudInitNoCloud.NetworkData = ""
-		volume.CloudInitNoCloud.NetworkDataSecretRef = nil
 	}
 }
 
