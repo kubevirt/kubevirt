@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -155,9 +156,9 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			const secretID = "my-pub-key"
 			vmi := libvmifact.NewFedora(
 				withSSHPK(secretID, withQuestAgentPropagationMethod),
-				libvmi.WithCloudInitNoCloudUserData(
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
 					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-ssh-add-authorized-keys"),
-				),
+				)),
 			)
 
 			By("Creating a secret with an ssh key")
@@ -178,7 +179,9 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			const secretID = "my-user-pass"
 			vmi := libvmifact.NewFedora(
 				withPassword(secretID),
-				libvmi.WithCloudInitNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password")),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
+					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password"),
+				)),
 			)
 
 			customPassword := "imadethisup"
@@ -242,7 +245,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 				}),
 			)),
 			Entry("using nocloud", libvmifact.NewFedora(
-				libvmi.WithCloudInitNoCloudUserData(userData),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userData)),
 				withSSHPK(secretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
 					NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
 				}),

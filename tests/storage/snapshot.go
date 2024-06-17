@@ -26,6 +26,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -756,7 +757,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					"  - sudo sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config\n"
 
 				vmi := libvmifact.NewFedora(
-					libvmi.WithCloudInitNoCloudUserData(userData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userData)),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
 
 				dv := libdv.NewDataVolume(

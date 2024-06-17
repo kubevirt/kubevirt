@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -582,7 +583,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1779]should have custom resolv.conf", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
 			userData := "#cloud-config\n"
-			dnsVMI := libvmifact.NewCirros(libvmi.WithCloudInitNoCloudUserData(userData))
+			dnsVMI := libvmifact.NewCirros(libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userData)))
 
 			dnsVMI.Spec.DNSPolicy = "None"
 

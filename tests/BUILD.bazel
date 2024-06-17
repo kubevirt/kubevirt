@@ -146,6 +146,7 @@ go_test(
         "//pkg/hooks/v1alpha2:go_default_library",
         "//pkg/hooks/v1alpha3:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/network/dns:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",

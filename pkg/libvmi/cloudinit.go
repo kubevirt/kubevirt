@@ -22,6 +22,8 @@ package libvmi
 import (
 	"encoding/base64"
 
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+
 	k8scorev1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -29,14 +31,16 @@ import (
 
 const cloudInitDiskName = "disk1"
 
-// WithCloudInitNoCloudUserData adds cloud-init no-cloud user data.
-func WithCloudInitNoCloudUserData(data string) Option {
+// WithCloudInitNoCloud adds cloud-init no-cloud sources.
+func WithCloudInitNoCloud(opts ...cloudinit.NoCloudOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.UserData = data
-		volume.CloudInitNoCloud.UserDataBase64 = ""
+
+		for _, f := range opts {
+			f(volume.CloudInitNoCloud)
+		}
 	}
 }
 

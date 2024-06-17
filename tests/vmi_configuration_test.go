@@ -31,6 +31,7 @@ import (
 	"unicode"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -1336,7 +1337,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				})
 
 				It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
-					agentVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithCloudInitNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-shutdown")))
+					agentVMI := libvmifact.NewFedora(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithCloudInitNoCloud(
+							libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-shutdown")),
+						),
+					)
 					By("Starting a VirtualMachineInstance")
 					agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -1346,7 +1352,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				})
 
 				It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
-					agentVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithCloudInitNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-set-password")))
+					agentVMI := libvmifact.NewFedora(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithCloudInitNoCloud(
+							libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-set-password")),
+						),
+					)
 					By("Starting a VirtualMachineInstance")
 					agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -2154,7 +2165,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk5", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk3", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-				libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n"),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData("#!/bin/bash\necho 'hello'\n")),
 				libvmi.WithHostDisk("hostdisk", filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate),
 				// hostdisk needs a privileged namespace
 				libvmi.WithNamespace(testsuite.NamespacePrivileged),
