@@ -22,6 +22,8 @@ package cloudinit
 import (
 	"encoding/base64"
 
+	k8scorev1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -42,5 +44,17 @@ func WithNoCloudEncodedUserData(data string) NoCloudOption {
 func WithNoCloudNetworkData(data string) NoCloudOption {
 	return func(source *v1.CloudInitNoCloudSource) {
 		source.NetworkData = data
+	}
+}
+
+func WithNoCloudEncodedNetworkData(data string) NoCloudOption {
+	return func(source *v1.CloudInitNoCloudSource) {
+		source.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(data))
+	}
+}
+
+func WithNoCloudNetworkDataSecretName(secretName string) NoCloudOption {
+	return func(source *v1.CloudInitNoCloudSource) {
+		source.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
 	}
 }
