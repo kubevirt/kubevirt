@@ -109,6 +109,7 @@ go_test(
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/liveupdate/memory:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",

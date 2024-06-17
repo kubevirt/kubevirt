@@ -239,7 +239,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			verifySSHKeys(vmi)
 		},
 			Entry("[test_id:6224]using configdrive", libvmifact.NewFedora(
-				libvmi.WithCloudInitConfigDriveUserData(userData),
+				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData)),
 				withSSHPK(secretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
 					ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
 				}),

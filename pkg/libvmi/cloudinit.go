@@ -40,14 +40,16 @@ func WithCloudInitNoCloud(opts ...cloudinit.NoCloudOption) Option {
 	}
 }
 
-// WithCloudInitConfigDriveUserData adds cloud-init config-drive user data.
-func WithCloudInitConfigDriveUserData(data string) Option {
+// WithCloudInitConfigDrive adds cloud-init config-drive sources.
+func WithCloudInitConfigDrive(opts ...cloudinit.ConfigDriveOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitConfigDrive.UserData = data
-		volume.CloudInitConfigDrive.UserDataBase64 = ""
+
+		for _, f := range opts {
+			f(volume.CloudInitConfigDrive)
+		}
 	}
 }
 

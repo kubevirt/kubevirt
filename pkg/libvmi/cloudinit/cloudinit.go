@@ -58,3 +58,11 @@ func WithNoCloudNetworkDataSecretName(secretName string) NoCloudOption {
 		source.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
 	}
 }
+
+type ConfigDriveOption func(*v1.CloudInitConfigDriveSource)
+
+func WithConfigDriveUserData(data string) ConfigDriveOption {
+	return func(source *v1.CloudInitConfigDriveSource) {
+		source.UserData = data
+	}
+}
