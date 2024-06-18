@@ -265,6 +265,8 @@ tests:
     input_series:
       - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
         values: "stale stale stale stale stale stale stale stale stale stale"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "stale stale stale stale stale stale stale stale stale stale"
 
     alert_rule_test:
       # no alert before 10 minutes
@@ -287,7 +289,9 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
-        values: "0 0 0 0 0 0 0 0 0 0 0"
+        values: "0x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "0x10"
 
     alert_rule_test:
       # no alert before 10 minutes
@@ -305,6 +309,71 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+
+  # All virt operators are not ready, according to kubevirt_virt_operator_ready_status
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "0x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "1x10"
+
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-operator was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # All virt operators are not ready, according to kube_pod_status_ready
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "1x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
+        values: "0x10"
+
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-operator was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # virt operator is ready, according to both metrics
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "1x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
+        values: "1x10"
+
+    alert_rule_test:
+      # no alert at 10 minutes
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+
 
   # Burst REST errors
   # values: '0+10x20' == values: "0 10 20 30 40 ... 190"
