@@ -24,11 +24,7 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	expect "github.com/google/goexpect"
-
-	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,35 +35,41 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]", func() {
 	var virtClient kubecli.KubevirtClient
-	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		vmi = libvmifact.NewAlpine()
 	})
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		Context("when virt-handler is responsive", func() {
 			DescribeTable("[Serial]VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
+				var vmiOptions []libvmi.Option
+
 				if bridgeNetworking {
 					libnet.SkipWhenClusterNotSupportIpv4()
-					// Remove the masquerade interface to use the default bridge one
-					vmi.Spec.Domain.Devices.Interfaces = nil
-					vmi.Spec.Networks = nil
-					v1.SetDefaults_NetworkInterface(vmi)
-					Expect(vmi.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+
+					vmiOptions = []libvmi.Option{
+						libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					}
 				}
+
+				vmi := libvmifact.NewAlpine(vmiOptions...)
 
 				By("starting a VMI on a node")
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -110,18 +112,15 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", decorators.Networking, func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
-				bridgeVMI := libvmifact.NewCirros()
-				// Remove the masquerade interface to use the default bridge one
-				bridgeVMI.Spec.Domain.Devices.Interfaces = nil
-				bridgeVMI.Spec.Networks = nil
-				v1.SetDefaults_NetworkInterface(bridgeVMI)
-				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+				bridgeVMI := libvmifact.NewCirros(
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 
 				By("creating a VMI with bridged network on a node")
 				bridgeVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(bridgeVMI)).Create(context.Background(), bridgeVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				// Start a VirtualMachineInstance with bridged networking
 				By("Waiting the VirtualMachineInstance start")
 				bridgeVMI = libwait.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
 				verifyDummyNicForBridgeNetwork(bridgeVMI)
