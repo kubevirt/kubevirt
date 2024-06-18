@@ -714,36 +714,18 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 	// Since we're here, we can also assume MaxSockets was not changed in the VM spec since last boot.
 	// Therefore, bumping Sockets to a value higher than MaxSockets is fine, it just requires a reboot.
 	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets > vmi.Spec.Domain.CPU.MaxSockets {
-		vmConditions := controller.NewVirtualMachineConditionManager()
-		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            "CPU sockets updated in template spec to a value higher than what's available",
-		})
+		setRestartRequired(vm, "CPU sockets updated in template spec to a value higher than what's available")
 		return nil
 	}
 
 	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets < vmi.Spec.Domain.CPU.Sockets {
-		vmConditions := controller.NewVirtualMachineConditionManager()
-		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            "Reduction of CPU socket count requires a restart",
-		})
+		setRestartRequired(vm, "Reduction of CPU socket count requires a restart")
 		return nil
 	}
 
 	networkInterfaceMultiQueue := vmCopyWithInstancetype.Spec.Template.Spec.Domain.Devices.NetworkInterfaceMultiQueue
 	if networkInterfaceMultiQueue != nil && *networkInterfaceMultiQueue {
-		vmConditions := controller.NewVirtualMachineConditionManager()
-		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            "Changes to CPU sockets require a restart when NetworkInterfaceMultiQueue is enabled",
-		})
+		setRestartRequired(vm, "Changes to CPU sockets require a restart when NetworkInterfaceMultiQueue is enabled")
 		return nil
 	}
 
@@ -978,12 +960,7 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 		*vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyReplacement:
 		if !vmConditions.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
 			log.Log.Object(vm).Infof("Set restart required condition because of a volumes update")
-			vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-				Type:               virtv1.VirtualMachineRestartRequired,
-				LastTransitionTime: v1.Now(),
-				Status:             k8score.ConditionTrue,
-				Message:            "the volumes replacement is effective only after restart",
-			})
+			setRestartRequired(vm, "the volumes replacement is effective only after restart")
 		}
 	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
 		if !c.clusterConfig.VolumeMigrationEnabled() {
@@ -991,12 +968,7 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 		}
 		// Validate if the update volumes can be migrated
 		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
-			vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-				Type:               virtv1.VirtualMachineRestartRequired,
-				LastTransitionTime: v1.Now(),
-				Status:             k8score.ConditionTrue,
-				Message:            err.Error(),
-			})
+			setRestartRequired(vm, err.Error())
 			return nil
 		}
 
@@ -3001,6 +2973,16 @@ func validLiveUpdateDisks(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Virtu
 	return true
 }
 
+func setRestartRequired(vm *virtv1.VirtualMachine, message string) {
+	vmConditions := controller.NewVirtualMachineConditionManager()
+	vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+		Type:               virtv1.VirtualMachineRestartRequired,
+		LastTransitionTime: metav1.Now(),
+		Status:             k8score.ConditionTrue,
+		Message:            message,
+	})
+}
+
 // addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
 func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) bool {
 	if lastSeenVMSpec == nil {
@@ -3047,13 +3029,7 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 	}
 
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
-		vmConditionManager := controller.NewVirtualMachineConditionManager()
-		vmConditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            "a non-live-updatable field was changed in the template spec",
-		})
+		setRestartRequired(vm, "a non-live-updatable field was changed in the template spec")
 		return true
 	}
 
@@ -3310,13 +3286,7 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 
 	if conditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionFalse) {
-		vmConditions := controller.NewVirtualMachineConditionManager()
-		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            "memory updated in template spec. Memory-hotplug failed and is not available for this VM configuration",
-		})
+		setRestartRequired(vm, "memory updated in template spec. Memory-hotplug failed and is not available for this VM configuration")
 		return nil
 	}
 
@@ -3325,13 +3295,7 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 	}
 
 	if vmi.Spec.Domain.Memory.MaxGuest == nil {
-		vmConditions := controller.NewVirtualMachineConditionManager()
-		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            "memory updated in template spec. Memory-hotplug is not available for this VM configuration",
-		})
+		setRestartRequired(vm, "memory updated in template spec. Memory-hotplug is not available for this VM configuration")
 		return nil
 	}
 
@@ -3345,25 +3309,13 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 	}
 
 	if err := memory.ValidateLiveUpdateMemory(&vmCopyWithInstancetype.Spec.Template.Spec, vmi.Spec.Domain.Memory.MaxGuest); err != nil {
-		vmConditions := controller.NewVirtualMachineConditionManager()
-		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            fmt.Sprintf("memory hotplug not supported, %s", err.Error()),
-		})
+		setRestartRequired(vm, fmt.Sprintf("memory hotplug not supported, %s", err.Error()))
 		return nil
 	}
 
 	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Status.Memory.GuestAtBoot != nil &&
 		vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Status.Memory.GuestAtBoot) == -1 {
-		vmConditions := controller.NewVirtualMachineConditionManager()
-		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            "memory updated in template spec to a value lower than what the VM started with",
-		})
+		setRestartRequired(vm, "memory updated in template spec to a value lower than what the VM started with")
 		return nil
 	}
 
@@ -3372,13 +3324,7 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 	// Therefore, bumping Guest to a value higher than MaxGuest is fine, it just requires a reboot.
 	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Spec.Domain.Memory.MaxGuest != nil &&
 		vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Spec.Domain.Memory.MaxGuest) == 1 {
-		vmConditions := controller.NewVirtualMachineConditionManager()
-		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            "memory updated in template spec to a value higher than what's available",
-		})
+		setRestartRequired(vm, "memory updated in template spec to a value higher than what's available")
 		return nil
 	}
 
