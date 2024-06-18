@@ -21,37 +21,30 @@ package virt_controller
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	ioprometheusclient "github.com/prometheus/client_model/go"
-
-	"k8s.io/apimachinery/pkg/api/resource"
-
-	v1 "kubevirt.io/api/core/v1"
 )
 
 var (
-	vmiMetrics = []operatormetrics.Metric{
-		vmiLauncherMemoryOverhead,
+	leaderMetrics = []operatormetrics.Metric{
+		outdatedVirtualMachineInstanceWorkloads,
 	}
 
-	vmiLauncherMemoryOverhead = operatormetrics.NewGaugeVec(
+	outdatedVirtualMachineInstanceWorkloads = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_launcher_memory_overhead_bytes",
-			Help: "Estimation of the memory amount required for virt-launcher's infrastructure components (e.g. libvirt, QEMU).",
+			Name: "kubevirt_vmi_number_of_outdated",
+			Help: "Indication for the total number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.",
 		},
-		[]string{"namespace", "name"},
 	)
 )
 
-func SetVmiLaucherMemoryOverhead(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity) {
-	vmiLauncherMemoryOverhead.
-		WithLabelValues(vmi.Namespace, vmi.Name).
-		Set(float64(memoryOverhead.Value()))
+func SetOutdatedVirtualMachineInstanceWorkloads(value int) {
+	outdatedVirtualMachineInstanceWorkloads.Set(float64(value))
 }
 
-func GetVmiLaucherMemoryOverhead(vmi *v1.VirtualMachineInstance) (float64, error) {
+func GetOutdatedVirtualMachineInstanceWorkloads() (int, error) {
 	dto := &ioprometheusclient.Metric{}
-	if err := vmiLauncherMemoryOverhead.WithLabelValues(vmi.Namespace, vmi.Name).Write(dto); err != nil {
-		return -1, err
+	if err := outdatedVirtualMachineInstanceWorkloads.Write(dto); err != nil {
+		return 0, err
 	}
 
-	return *dto.Gauge.Value, nil
+	return int(dto.GetGauge().GetValue()), nil
 }

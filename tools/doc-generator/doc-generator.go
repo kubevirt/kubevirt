@@ -45,11 +45,19 @@ func main() {
 		panic(err)
 	}
 
+	if err := virtcontroller.RegisterLeaderMetrics(); err != nil {
+		panic(err)
+	}
+
 	if err := virtapi.SetupMetrics(); err != nil {
 		panic(err)
 	}
 
 	if err := virtoperator.SetupMetrics(); err != nil {
+		panic(err)
+	}
+
+	if err := virtoperator.RegisterLeaderMetrics(); err != nil {
 		panic(err)
 	}
 

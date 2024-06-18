@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "component_metrics.go",
+        "leader_metrics.go",
         "metrics.go",
         "migration_metrics.go",
         "migrationstats_collector.go",

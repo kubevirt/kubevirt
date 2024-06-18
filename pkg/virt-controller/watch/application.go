@@ -528,6 +528,10 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
 			vca.disruptionBudgetControllerThreads)
 
+		if err := metrics.RegisterLeaderMetrics(); err != nil {
+			golog.Fatalf("failed to register leader metrics: %v", err)
+		}
+
 		if err := metrics.AddVMIPhaseTransitionHandlers(vca.vmiInformer); err != nil {
 			golog.Fatalf("failed to add vmi phase transition handler: %v", err)
 		}

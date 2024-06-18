@@ -439,6 +439,9 @@ func (app *VirtOperatorApp) Run() {
 			RetryPeriod:   app.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(ctx context.Context) {
+					if err := metrics.RegisterLeaderMetrics(); err != nil {
+						golog.Fatalf("failed to register leader metrics: %v", err)
+					}
 					metrics.SetLeader(true)
 					log.Log.Infof("Started leading")
 
