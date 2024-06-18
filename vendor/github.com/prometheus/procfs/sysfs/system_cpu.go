@@ -65,6 +65,10 @@ type SystemCPUCpufreqStats struct {
 	Governor                 string
 	RelatedCpus              string
 	SetSpeed                 string
+	// Refer `CONFIG_CPU_FREQ_STAT`: https://www.kernel.org/doc/html/latest/cpu-freq/cpufreq-stats.html#configuring-cpufreq-stats
+	CpuinfoFrequencyDuration         *map[uint64]uint64
+	CpuinfoFrequencyTransitionsTotal *uint64
+	CpuinfoTransitionTable           *[][]uint64
 }
 
 // CPUs returns a slice of all CPUs in `/sys/devices/system/cpu`.
@@ -292,19 +296,93 @@ func parseCpufreqCpuinfo(cpuPath string) (*SystemCPUCpufreqStats, error) {
 		}
 	}
 
+	// "total_trans" is the total number of times the CPU has changed frequency.
+	var cpuinfoFrequencyTransitionsTotal *uint64
+	cpuinfoFrequencyTransitionsTotalUint, err := util.ReadUintFromFile(filepath.Join(cpuPath, "stats", "total_trans"))
+	if err != nil {
+		if !(os.IsNotExist(err) || os.IsPermission(err)) {
+			return &SystemCPUCpufreqStats{}, err
+		}
+	} else {
+		cpuinfoFrequencyTransitionsTotal = &cpuinfoFrequencyTransitionsTotalUint
+	}
+
+	// "time_in_state" is the total time spent at each frequency.
+	var cpuinfoFrequencyDuration *map[uint64]uint64
+	cpuinfoFrequencyDurationString, err := util.ReadFileNoStat(filepath.Join(cpuPath, "stats", "time_in_state"))
+	if err != nil {
+		if !(os.IsNotExist(err) || os.IsPermission(err)) {
+			return &SystemCPUCpufreqStats{}, err
+		}
+	} else {
+		cpuinfoFrequencyDuration = &map[uint64]uint64{}
+		for _, line := range strings.Split(string(cpuinfoFrequencyDurationString), "\n") {
+			if line == "" {
+				continue
+			}
+			fields := strings.Fields(line)
+			if len(fields) != 2 {
+				return &SystemCPUCpufreqStats{}, fmt.Errorf("unexpected number of fields in time_in_state: %v", fields)
+			}
+			freq, err := strconv.ParseUint(fields[0], 10, 64)
+			if err != nil {
+				return &SystemCPUCpufreqStats{}, err
+			}
+			duration, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				return &SystemCPUCpufreqStats{}, err
+			}
+			(*cpuinfoFrequencyDuration)[freq] = duration
+		}
+	}
+
+	// "trans_table" contains information about all the CPU frequency transitions.
+	var cpuinfoTransitionTable *[][]uint64
+	cpuinfoTransitionTableString, err := util.ReadFileNoStat(filepath.Join(cpuPath, "stats", "trans_table"))
+	if err != nil {
+		if !(os.IsNotExist(err) || os.IsPermission(err)) {
+			return &SystemCPUCpufreqStats{}, err
+		}
+	} else {
+		cpuinfoTransitionTable = &[][]uint64{}
+		for i, line := range strings.Split(string(cpuinfoTransitionTableString), "\n") {
+			// Skip the "From: To" header.
+			if i == 0 || line == "" {
+				continue
+			}
+			fields := strings.Fields(line)
+			fields[0] = strings.TrimSuffix(fields[0], ":")
+			cpuinfoTransitionTableRow := make([]uint64, len(fields))
+			for i := range fields {
+				if len(fields[i]) == 0 {
+					continue
+				}
+				f, err := strconv.ParseUint(fields[i], 10, 64)
+				if err != nil {
+					return &SystemCPUCpufreqStats{}, err
+				}
+				cpuinfoTransitionTableRow[i] = f
+			}
+			*cpuinfoTransitionTable = append(*cpuinfoTransitionTable, cpuinfoTransitionTableRow)
+		}
+	}
+
 	return &SystemCPUCpufreqStats{
-		CpuinfoCurrentFrequency:  uintOut[0],
-		CpuinfoMaximumFrequency:  uintOut[1],
-		CpuinfoMinimumFrequency:  uintOut[2],
-		CpuinfoTransitionLatency: uintOut[3],
-		ScalingCurrentFrequency:  uintOut[4],
-		ScalingMaximumFrequency:  uintOut[5],
-		ScalingMinimumFrequency:  uintOut[6],
-		AvailableGovernors:       stringOut[0],
-		Driver:                   stringOut[1],
-		Governor:                 stringOut[2],
-		RelatedCpus:              stringOut[3],
-		SetSpeed:                 stringOut[4],
+		CpuinfoCurrentFrequency:          uintOut[0],
+		CpuinfoMaximumFrequency:          uintOut[1],
+		CpuinfoMinimumFrequency:          uintOut[2],
+		CpuinfoTransitionLatency:         uintOut[3],
+		ScalingCurrentFrequency:          uintOut[4],
+		ScalingMaximumFrequency:          uintOut[5],
+		ScalingMinimumFrequency:          uintOut[6],
+		AvailableGovernors:               stringOut[0],
+		Driver:                           stringOut[1],
+		Governor:                         stringOut[2],
+		RelatedCpus:                      stringOut[3],
+		SetSpeed:                         stringOut[4],
+		CpuinfoFrequencyDuration:         cpuinfoFrequencyDuration,
+		CpuinfoFrequencyTransitionsTotal: cpuinfoFrequencyTransitionsTotal,
+		CpuinfoTransitionTable:           cpuinfoTransitionTable,
 	}, nil
 }
 
@@ -321,7 +399,7 @@ func parseCPURange(data []byte) ([]uint16, error) {
 
 	var cpusInt = []uint16{}
 
-	for _, cpu := range strings.Split(strings.TrimRight(string(data), "\n"), ",") {
+	for _, cpu := range strings.Split(strings.TrimSuffix(string(data), "\n"), ",") {
 		if cpu == "" {
 			continue
 		}

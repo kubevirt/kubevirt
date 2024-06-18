@@ -28,36 +28,36 @@ import (
 const fibrechannelClassPath = "class/fc_host"
 
 type FibreChannelCounters struct {
-	DumpedFrames          uint64 // /sys/class/fc_host/<Name>/statistics/dumped_frames
-	ErrorFrames           uint64 // /sys/class/fc_host/<Name>/statistics/error_frames
-	InvalidCRCCount       uint64 // /sys/class/fc_host/<Name>/statistics/invalid_crc_count
-	RXFrames              uint64 // /sys/class/fc_host/<Name>/statistics/rx_frames
-	RXWords               uint64 // /sys/class/fc_host/<Name>/statistics/rx_words
-	TXFrames              uint64 // /sys/class/fc_host/<Name>/statistics/tx_frames
-	TXWords               uint64 // /sys/class/fc_host/<Name>/statistics/tx_words
-	SecondsSinceLastReset uint64 // /sys/class/fc_host/<Name>/statistics/seconds_since_last_reset
-	InvalidTXWordCount    uint64 // /sys/class/fc_host/<Name>/statistics/invalid_tx_word_count
-	LinkFailureCount      uint64 // /sys/class/fc_host/<Name>/statistics/link_failure_count
-	LossOfSyncCount       uint64 // /sys/class/fc_host/<Name>/statistics/loss_of_sync_count
-	LossOfSignalCount     uint64 // /sys/class/fc_host/<Name>/statistics/loss_of_signal_count
-	NosCount              uint64 // /sys/class/fc_host/<Name>/statistics/nos_count
-	FCPPacketAborts       uint64 // / sys/class/fc_host/<Name>/statistics/fcp_packet_aborts
+	DumpedFrames          *uint64 // /sys/class/fc_host/<Name>/statistics/dumped_frames
+	ErrorFrames           *uint64 // /sys/class/fc_host/<Name>/statistics/error_frames
+	InvalidCRCCount       *uint64 // /sys/class/fc_host/<Name>/statistics/invalid_crc_count
+	RXFrames              *uint64 // /sys/class/fc_host/<Name>/statistics/rx_frames
+	RXWords               *uint64 // /sys/class/fc_host/<Name>/statistics/rx_words
+	TXFrames              *uint64 // /sys/class/fc_host/<Name>/statistics/tx_frames
+	TXWords               *uint64 // /sys/class/fc_host/<Name>/statistics/tx_words
+	SecondsSinceLastReset *uint64 // /sys/class/fc_host/<Name>/statistics/seconds_since_last_reset
+	InvalidTXWordCount    *uint64 // /sys/class/fc_host/<Name>/statistics/invalid_tx_word_count
+	LinkFailureCount      *uint64 // /sys/class/fc_host/<Name>/statistics/link_failure_count
+	LossOfSyncCount       *uint64 // /sys/class/fc_host/<Name>/statistics/loss_of_sync_count
+	LossOfSignalCount     *uint64 // /sys/class/fc_host/<Name>/statistics/loss_of_signal_count
+	NosCount              *uint64 // /sys/class/fc_host/<Name>/statistics/nos_count
+	FCPPacketAborts       *uint64 // /sys/class/fc_host/<Name>/statistics/fcp_packet_aborts
 }
 
 type FibreChannelHost struct {
-	Name             string               // /sys/class/fc_host/<Name>
-	Speed            string               // /sys/class/fc_host/<Name>/speed
-	PortState        string               // /sys/class/fc_host/<Name>/port_state
-	PortType         string               // /sys/class/fc_host/<Name>/port_type
-	SymbolicName     string               // /sys/class/fc_host/<Name>/symbolic_name
-	NodeName         string               // /sys/class/fc_host/<Name>/node_name
-	PortID           string               // /sys/class/fc_host/<Name>/port_id
-	PortName         string               // /sys/class/fc_host/<Name>/port_name
-	FabricName       string               // /sys/class/fc_host/<Name>/fabric_name
-	DevLossTMO       string               // /sys/class/fc_host/<Name>/dev_loss_tmo
-	SupportedClasses string               // /sys/class/fc_host/<Name>/supported_classes
-	SupportedSpeeds  string               // /sys/class/fc_host/<Name>/supported_speeds
-	Counters         FibreChannelCounters // /sys/class/fc_host/<Name>/statistics/*
+	Name             *string               // /sys/class/fc_host/<Name>
+	Speed            *string               // /sys/class/fc_host/<Name>/speed
+	PortState        *string               // /sys/class/fc_host/<Name>/port_state
+	PortType         *string               // /sys/class/fc_host/<Name>/port_type
+	SymbolicName     *string               // /sys/class/fc_host/<Name>/symbolic_name
+	NodeName         *string               // /sys/class/fc_host/<Name>/node_name
+	PortID           *string               // /sys/class/fc_host/<Name>/port_id
+	PortName         *string               // /sys/class/fc_host/<Name>/port_name
+	FabricName       *string               // /sys/class/fc_host/<Name>/fabric_name
+	DevLossTMO       *string               // /sys/class/fc_host/<Name>/dev_loss_tmo
+	SupportedClasses *string               // /sys/class/fc_host/<Name>/supported_classes
+	SupportedSpeeds  *string               // /sys/class/fc_host/<Name>/supported_speeds
+	Counters         *FibreChannelCounters // /sys/class/fc_host/<Name>/statistics/*
 }
 
 type FibreChannelClass map[string]FibreChannelHost
@@ -78,7 +78,7 @@ func (fs FS) FibreChannelClass() (FibreChannelClass, error) {
 			return nil, err
 		}
 
-		fcc[host.Name] = *host
+		fcc[*host.Name] = *host
 	}
 
 	return fcc, nil
@@ -87,50 +87,55 @@ func (fs FS) FibreChannelClass() (FibreChannelClass, error) {
 // Parse a single FC host.
 func (fs FS) parseFibreChannelHost(name string) (*FibreChannelHost, error) {
 	path := fs.sys.Path(fibrechannelClassPath, name)
-	host := FibreChannelHost{Name: name}
+	host := FibreChannelHost{Name: &name}
 
 	for _, f := range [...]string{"speed", "port_state", "port_type", "node_name", "port_id", "port_name", "fabric_name", "dev_loss_tmo", "symbolic_name", "supported_classes", "supported_speeds"} {
 		name := filepath.Join(path, f)
 		value, err := util.SysReadFile(name)
 		if err != nil {
+			// drivers can choose not to expose some attributes to sysfs.
+			// See: https://github.com/prometheus/node_exporter/issues/2919.
+			if os.IsNotExist(err) {
+				continue
+			}
 			return nil, fmt.Errorf("failed to read file %q: %w", name, err)
 		}
 
 		switch f {
 		case "speed":
-			host.Speed = value
+			host.Speed = &value
 		case "port_state":
-			host.PortState = value
+			host.PortState = &value
 		case "port_type":
-			host.PortType = value
+			host.PortType = &value
 		case "node_name":
 			if len(value) > 2 {
 				value = value[2:]
 			}
-			host.NodeName = value
+			host.NodeName = &value
 		case "port_id":
 			if len(value) > 2 {
 				value = value[2:]
 			}
-			host.PortID = value
+			host.PortID = &value
 		case "port_name":
 			if len(value) > 2 {
 				value = value[2:]
 			}
-			host.PortName = value
+			host.PortName = &value
 		case "fabric_name":
 			if len(value) > 2 {
 				value = value[2:]
 			}
-			host.FabricName = value
+			host.FabricName = &value
 		case "dev_loss_tmo":
-			host.DevLossTMO = value
+			host.DevLossTMO = &value
 		case "supported_classes":
-			host.SupportedClasses = value
+			host.SupportedClasses = &value
 		case "supported_speeds":
-			host.SupportedSpeeds = value
+			host.SupportedSpeeds = &value
 		case "symbolic_name":
-			host.SymbolicName = value
+			host.SymbolicName = &value
 		}
 	}
 
@@ -138,7 +143,7 @@ func (fs FS) parseFibreChannelHost(name string) (*FibreChannelHost, error) {
 	if err != nil {
 		return nil, err
 	}
-	host.Counters = *counters
+	host.Counters = counters
 
 	return &host, nil
 }
@@ -173,9 +178,9 @@ func parseFibreChannelStatistics(hostPath string) (*FibreChannelCounters, error)
 		// Below switch was automatically generated. Don't need everything in there yet, so the unwanted bits are commented out.
 		switch f.Name() {
 		case "dumped_frames":
-			counters.DumpedFrames = *vp.PUInt64()
+			counters.DumpedFrames = vp.PUInt64()
 		case "error_frames":
-			counters.ErrorFrames = *vp.PUInt64()
+			counters.ErrorFrames = vp.PUInt64()
 		/*
 			case "fc_no_free_exch":
 				counters.FcNoFreeExch = *vp.PUInt64()
@@ -203,41 +208,41 @@ func parseFibreChannelStatistics(hostPath string) (*FibreChannelCounters, error)
 				counters.FcpOutputRequests = *vp.PUInt64()
 		*/
 		case "fcp_packet_aborts":
-			counters.FCPPacketAborts = *vp.PUInt64()
+			counters.FCPPacketAborts = vp.PUInt64()
 			/*
 				case "fcp_packet_alloc_failures":
 					counters.FcpPacketAllocFailures = *vp.PUInt64()
 			*/
 		case "invalid_tx_word_count":
-			counters.InvalidTXWordCount = *vp.PUInt64()
+			counters.InvalidTXWordCount = vp.PUInt64()
 		case "invalid_crc_count":
-			counters.InvalidCRCCount = *vp.PUInt64()
+			counters.InvalidCRCCount = vp.PUInt64()
 		case "link_failure_count":
-			counters.LinkFailureCount = *vp.PUInt64()
+			counters.LinkFailureCount = vp.PUInt64()
 		/*
 			case "lip_count":
 					counters.LipCount = *vp.PUInt64()
 		*/
 		case "loss_of_signal_count":
-			counters.LossOfSignalCount = *vp.PUInt64()
+			counters.LossOfSignalCount = vp.PUInt64()
 		case "loss_of_sync_count":
-			counters.LossOfSyncCount = *vp.PUInt64()
+			counters.LossOfSyncCount = vp.PUInt64()
 		case "nos_count":
-			counters.NosCount = *vp.PUInt64()
+			counters.NosCount = vp.PUInt64()
 		/*
 			case "prim_seq_protocol_err_count":
 				counters.PrimSeqProtocolErrCount = *vp.PUInt64()
 		*/
 		case "rx_frames":
-			counters.RXFrames = *vp.PUInt64()
+			counters.RXFrames = vp.PUInt64()
 		case "rx_words":
-			counters.RXWords = *vp.PUInt64()
+			counters.RXWords = vp.PUInt64()
 		case "seconds_since_last_reset":
-			counters.SecondsSinceLastReset = *vp.PUInt64()
+			counters.SecondsSinceLastReset = vp.PUInt64()
 		case "tx_frames":
-			counters.TXFrames = *vp.PUInt64()
+			counters.TXFrames = vp.PUInt64()
 		case "tx_words":
-			counters.TXWords = *vp.PUInt64()
+			counters.TXWords = vp.PUInt64()
 		}
 
 		if err := vp.Err(); err != nil {

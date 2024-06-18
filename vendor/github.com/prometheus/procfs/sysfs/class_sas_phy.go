@@ -99,9 +99,8 @@ func (fs FS) parseSASPhy(name string) (*SASPhy, error) {
 			if err != nil {
 				if os.IsPermission(err) {
 					continue
-				} else {
-					return nil, fmt.Errorf("failed to read file %q: %w", name, err)
 				}
+				return nil, fmt.Errorf("failed to read file %q: %w", name, err)
 			}
 
 			vp := util.NewValueParser(value)

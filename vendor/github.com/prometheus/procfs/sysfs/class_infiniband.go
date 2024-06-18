@@ -67,6 +67,42 @@ type InfiniBandCounters struct {
 	VL15Dropped                  *uint64 // counters/VL15_dropped
 }
 
+// InfiniBandHwCounters contains counter value from files in
+// /sys/class/infiniband/<Name>/ports/<Port>/hw_counters
+// for a single port of one InfiniBand device.
+type InfiniBandHwCounters struct {
+	DuplicateRequest        *uint64 // hw_counters/duplicate_request
+	ImpliedNakSeqErr        *uint64 // hw_counters/implied_nak_seq_err
+	Lifespan                *uint64 // hw_counters/lifespan
+	LocalAckTimeoutErr      *uint64 // hw_counters/local_ack_timeout_err
+	NpCnpSent               *uint64 // hw_counters/np_cnp_sent
+	NpEcnMarkedRocePackets  *uint64 // hw_counters/np_ecn_marked_roce_packets
+	OutOfBuffer             *uint64 // hw_counters/out_of_buffer
+	OutOfSequence           *uint64 // hw_counters/out_of_sequence
+	PacketSeqErr            *uint64 // hw_counters/packet_seq_err
+	ReqCqeError             *uint64 // hw_counters/req_cqe_error
+	ReqCqeFlushError        *uint64 // hw_counters/req_cqe_flush_error
+	ReqRemoteAccessErrors   *uint64 // hw_counters/req_remote_access_errors
+	ReqRemoteInvalidRequest *uint64 // hw_counters/req_remote_invalid_request
+	RespCqeError            *uint64 // hw_counters/resp_cqe_error
+	RespCqeFlushError       *uint64 // hw_counters/resp_cqe_flush_error
+	RespLocalLengthError    *uint64 // hw_counters/resp_local_length_error
+	RespRemoteAccessErrors  *uint64 // hw_counters/resp_remote_access_errors
+	RnrNakRetryErr          *uint64 // hw_counters/rnr_nak_retry_err
+	RoceAdpRetrans          *uint64 // hw_counters/roce_adp_retrans
+	RoceAdpRetransTo        *uint64 // hw_counters/roce_adp_retrans_to
+	RoceSlowRestart         *uint64 // hw_counters/roce_slow_restart
+	RoceSlowRestartCnps     *uint64 // hw_counters/roce_slow_restart_cnps
+	RoceSlowRestartTrans    *uint64 // hw_counters/roce_slow_restart_trans
+	RpCnpHandled            *uint64 // hw_counters/rp_cnp_handled
+	RpCnpIgnored            *uint64 // hw_counters/rp_cnp_ignored
+	RxAtomicRequests        *uint64 // hw_counters/rx_atomic_requests
+	RxDctConnect            *uint64 // hw_counters/rx_dct_connect
+	RxIcrcEncapsulated      *uint64 // hw_counters/rx_icrc_encapsulated
+	RxReadRequests          *uint64 // hw_counters/rx_read_requests
+	RxWriteRequests         *uint64 // hw_counters/rx_write_requests
+}
+
 // InfiniBandPort contains info from files in
 // /sys/class/infiniband/<Name>/ports/<Port>
 // for a single port of one InfiniBand device.
@@ -79,6 +115,7 @@ type InfiniBandPort struct {
 	PhysStateID uint   // String representation from /sys/class/infiniband/<Name>/ports/<Port>/phys_state
 	Rate        uint64 // in bytes/second from /sys/class/infiniband/<Name>/ports/<Port>/rate
 	Counters    InfiniBandCounters
+	HwCounters  InfiniBandHwCounters
 }
 
 // InfiniBandDevice contains info from files in /sys/class/infiniband for a
@@ -121,16 +158,24 @@ func (fs FS) InfiniBandClass() (InfiniBandClass, error) {
 }
 
 // Parse one InfiniBand device.
+// Refer to https://www.kernel.org/doc/Documentation/ABI/stable/sysfs-class-infiniband
 func (fs FS) parseInfiniBandDevice(name string) (*InfiniBandDevice, error) {
 	path := fs.sys.Path(infinibandClassPath, name)
 	device := InfiniBandDevice{Name: name}
 
-	for _, f := range [...]string{"board_id", "fw_ver", "hca_type"} {
+	// fw_ver is exposed by all InfiniBand drivers since kernel version 4.10.
+	value, err := util.SysReadFile(filepath.Join(path, "fw_ver"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read HCA firmware version: %w", err)
+	}
+	device.FirmwareVersion = value
+
+	// Not all InfiniBand drivers expose all of these.
+	for _, f := range [...]string{"board_id", "hca_type"} {
 		name := filepath.Join(path, f)
 		value, err := util.SysReadFile(name)
 		if err != nil {
-			// Not all InfiniBand drivers provide hca_type.
-			if os.IsNotExist(err) && (f == "hca_type") {
+			if os.IsNotExist(err) {
 				continue
 			}
 			return nil, fmt.Errorf("failed to read file %q: %w", name, err)
@@ -139,8 +184,6 @@ func (fs FS) parseInfiniBandDevice(name string) (*InfiniBandDevice, error) {
 		switch f {
 		case "board_id":
 			device.BoardID = value
-		case "fw_ver":
-			device.FirmwareVersion = value
 		case "hca_type":
 			device.HCAType = value
 		}
@@ -236,15 +279,29 @@ func (fs FS) parseInfiniBandPort(name string, port string) (*InfiniBandPort, err
 		return nil, fmt.Errorf("could not parse rate file in %q: %w", portPath, err)
 	}
 
-	counters, err := parseInfiniBandCounters(portPath)
-	if err != nil {
-		return nil, err
+	// Intel irdma module does not expose /sys/class/infiniband/<device>/ports/<port-num>/counters
+	if !strings.HasPrefix(ibp.Name, "irdma") {
+		counters, err := parseInfiniBandCounters(portPath)
+		if err != nil {
+			return nil, err
+		}
+		ibp.Counters = *counters
 	}
-	ibp.Counters = *counters
+
+	if strings.HasPrefix(ibp.Name, "irdma") || strings.HasPrefix(ibp.Name, "mlx5_") {
+		hwCounters, err := parseInfiniBandHwCounters(portPath)
+		if err != nil {
+			return nil, err
+		}
+		ibp.HwCounters = *hwCounters
+	}
 
 	return &ibp, nil
 }
 
+// parseInfiniBandCounters parses the counters exposed under
+// /sys/class/infiniband/<device>/ports/<port-num>/counters, which first appeared in kernel v2.6.12.
+// Prior to kernel v4.5, 64-bit counters were exposed separately under the "counters_ext" directory.
 func parseInfiniBandCounters(portPath string) (*InfiniBandCounters, error) {
 	var counters InfiniBandCounters
 
@@ -342,7 +399,7 @@ func parseInfiniBandCounters(portPath string) (*InfiniBandCounters, error) {
 		}
 	}
 
-	// Parse legacy counters
+	// Parse pre-kernel-v4.5 64-bit counters.
 	path = filepath.Join(portPath, "counters_ext")
 	files, err = os.ReadDir(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -404,4 +461,109 @@ func parseInfiniBandCounters(portPath string) (*InfiniBandCounters, error) {
 	}
 
 	return &counters, nil
+}
+
+// parseInfiniBandHwCounters parses the optional counters exposed under
+// /sys/class/infiniband/<device>/ports/<port-num>/hw_counters, which first appeared in kernel v4.6.
+func parseInfiniBandHwCounters(portPath string) (*InfiniBandHwCounters, error) {
+	var hwCounters InfiniBandHwCounters
+
+	path := filepath.Join(portPath, "hw_counters")
+	files, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range files {
+		if !f.Type().IsRegular() {
+			continue
+		}
+
+		name := filepath.Join(path, f.Name())
+		value, err := util.SysReadFile(name)
+		if err != nil {
+			if os.IsNotExist(err) || os.IsPermission(err) || err.Error() == "operation not supported" || errors.Is(err, os.ErrInvalid) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to read file %q: %w", name, err)
+		}
+
+		vp := util.NewValueParser(value)
+
+		switch f.Name() {
+		case "duplicate_request":
+			hwCounters.DuplicateRequest = vp.PUInt64()
+		case "implied_nak_seq_err":
+			hwCounters.ImpliedNakSeqErr = vp.PUInt64()
+		case "lifespan":
+			hwCounters.Lifespan = vp.PUInt64()
+		case "local_ack_timeout_err":
+			hwCounters.LocalAckTimeoutErr = vp.PUInt64()
+		case "np_cnp_sent":
+			hwCounters.NpCnpSent = vp.PUInt64()
+		case "np_ecn_marked_roce_packets":
+			hwCounters.NpEcnMarkedRocePackets = vp.PUInt64()
+		case "out_of_buffer":
+			hwCounters.OutOfBuffer = vp.PUInt64()
+		case "out_of_sequence":
+			hwCounters.OutOfSequence = vp.PUInt64()
+		case "packet_seq_err":
+			hwCounters.PacketSeqErr = vp.PUInt64()
+		case "req_cqe_error":
+			hwCounters.ReqCqeError = vp.PUInt64()
+		case "req_cqe_flush_error":
+			hwCounters.ReqCqeFlushError = vp.PUInt64()
+		case "req_remote_access_errors":
+			hwCounters.ReqRemoteAccessErrors = vp.PUInt64()
+		case "req_remote_invalid_request":
+			hwCounters.ReqRemoteInvalidRequest = vp.PUInt64()
+		case "resp_cqe_error":
+			hwCounters.RespCqeError = vp.PUInt64()
+		case "resp_cqe_flush_error":
+			hwCounters.RespCqeFlushError = vp.PUInt64()
+		case "resp_local_length_error":
+			hwCounters.RespLocalLengthError = vp.PUInt64()
+		case "resp_remote_access_errors":
+			hwCounters.RespRemoteAccessErrors = vp.PUInt64()
+		case "rnr_nak_retry_err":
+			hwCounters.RnrNakRetryErr = vp.PUInt64()
+		case "roce_adp_retrans":
+			hwCounters.RoceAdpRetrans = vp.PUInt64()
+		case "roce_adp_retrans_to":
+			hwCounters.RoceAdpRetransTo = vp.PUInt64()
+		case "roce_slow_restart":
+			hwCounters.RoceSlowRestart = vp.PUInt64()
+		case "roce_slow_restart_cnps":
+			hwCounters.RoceSlowRestartCnps = vp.PUInt64()
+		case "roce_slow_restart_trans":
+			hwCounters.RoceSlowRestartTrans = vp.PUInt64()
+		case "rp_cnp_handled":
+			hwCounters.RpCnpHandled = vp.PUInt64()
+		case "rp_cnp_ignored":
+			hwCounters.RpCnpIgnored = vp.PUInt64()
+		case "rx_atomic_requests":
+			hwCounters.RxAtomicRequests = vp.PUInt64()
+		case "rx_dct_connect":
+			hwCounters.RxDctConnect = vp.PUInt64()
+		case "rx_icrc_encapsulated":
+			hwCounters.RxIcrcEncapsulated = vp.PUInt64()
+		case "rx_read_requests":
+			hwCounters.RxReadRequests = vp.PUInt64()
+		case "rx_write_requests":
+			hwCounters.RxWriteRequests = vp.PUInt64()
+		}
+
+		if err := vp.Err(); err != nil {
+			// Ugly workaround for handling https://github.com/prometheus/node_exporter/issues/966
+			// when counters are `N/A (not available)`.
+			// This was already patched and submitted, see
+			// https://www.spinics.net/lists/linux-rdma/msg68596.html
+			// Remove this as soon as the fix lands in the enterprise distros.
+			if strings.Contains(value, "N/A (no PMA)") {
+				continue
+			}
+			return nil, err
+		}
+	}
+	return &hwCounters, nil
 }

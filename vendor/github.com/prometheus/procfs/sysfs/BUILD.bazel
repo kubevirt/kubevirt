@@ -18,6 +18,7 @@ go_library(
         "class_sas_port.go",
         "class_scsitape.go",
         "class_thermal.go",
+        "class_watchdog.go",
         "clocksource.go",
         "doc.go",
         "fs.go",

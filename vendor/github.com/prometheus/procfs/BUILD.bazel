@@ -35,6 +35,7 @@ go_library(
         "net_sockstat.go",
         "net_softnet.go",
         "net_tcp.go",
+        "net_tls_stat.go",
         "net_udp.go",
         "net_unix.go",
         "net_wireless.go",
