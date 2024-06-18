@@ -50,16 +50,19 @@ func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 
 // NewCirros instantiates a new CirrOS based VMI configuration
 func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
-	// Supplied with no user data, Cirros image takes 230s to allow login
-	withNonEmptyUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
-
 	cirrosOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-		withNonEmptyUserData,
 		libvmi.WithResourceMemory(cirrosMemory()),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
-	return libvmi.New(cirrosOpts...)
+	vmi := libvmi.New(cirrosOpts...)
+
+	// Supplied with no user data, Cirros image takes 230s to allow login
+	if !cloudInitNoCloudExists(vmi.Spec.Volumes) {
+		withNonEmptyUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
+		withNonEmptyUserData(vmi)
+	}
+	return vmi
 }
 
 // NewAlpine instantiates a new Alpine based VMI configuration
@@ -75,17 +78,30 @@ func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 }
 
 func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
-	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
-	withNonEmptyUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
 	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
-		withNonEmptyUserData,
 		libvmi.WithResourceMemory(alpineMemory()),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return libvmi.New(alpineOpts...)
+	vmi := libvmi.New(alpineOpts...)
+
+	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
+	if !cloudInitNoCloudExists(vmi.Spec.Volumes) {
+		withNonEmptyUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
+		withNonEmptyUserData(vmi)
+	}
+	return vmi
+}
+
+func cloudInitNoCloudExists(volumes []kvirtv1.Volume) bool {
+	for _, vol := range volumes {
+		if src := vol.CloudInitNoCloud; src != nil && (src.UserData != "" || src.UserDataBase64 != "" || src.UserDataSecretRef != nil) {
+			return true
+		}
+	}
+	return false
 }
 
 func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {

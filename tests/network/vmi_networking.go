@@ -582,8 +582,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom dns", func() {
 		It("[test_id:1779]should have custom resolv.conf", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-			userData := "#cloud-config\n"
-			dnsVMI := libvmifact.NewCirros(libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userData)))
+			dnsVMI := libvmifact.NewCirros()
 
 			dnsVMI.Spec.DNSPolicy = "None"
 
