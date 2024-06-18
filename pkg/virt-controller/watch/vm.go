@@ -3309,11 +3309,22 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 
-	if vmi.Spec.Domain.Memory.MaxGuest == nil ||
-		conditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionFalse) {
-		// memory hotplug either failed or is incompatible, let's trigger the restart required condition
-		// to make the memory bump effective
+	if conditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionFalse) {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: metav1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "memory updated in template spec. Memory-hotplug failed and is not available for this VM configuration",
+		})
+		return nil
+	}
 
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
+		return nil
+	}
+
+	if vmi.Spec.Domain.Memory.MaxGuest == nil {
 		vmConditions := controller.NewVirtualMachineConditionManager()
 		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
@@ -3321,10 +3332,6 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 			Status:             k8score.ConditionTrue,
 			Message:            "memory updated in template spec. Memory-hotplug is not available for this VM configuration",
 		})
-		return nil
-	}
-
-	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
 		return nil
 	}
 
