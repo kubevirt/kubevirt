@@ -6373,6 +6373,64 @@ var _ = Describe("VirtualMachine", func() {
 
 					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 				})
+
+				It("Sets the instance type derived CPU topology in VMI status", func() {
+					fakeInstancetypeClients := fake.NewSimpleClientset().InstancetypeV1beta1()
+					fakeInstancetypeClient := fakeInstancetypeClients.VirtualMachineInstancetypes(metav1.NamespaceDefault)
+					virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
+
+					controller.instancetypeMethods = &instancetype.InstancetypeMethods{
+						Clientset: virtClient,
+					}
+
+					vm, _ := DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Domain.CPU = nil
+					vm.Spec.Template.Spec.Domain.Memory = nil
+					vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+
+					const vCPUsProvidedByInstancetype = 2
+					instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "instancetype",
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: vCPUsProvidedByInstancetype,
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128Mi"),
+							},
+						},
+					}
+					instancetype, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.TODO(), instancetype, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetype.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.Created).To(BeFalse())
+					Expect(vm.Status.Ready).To(BeFalse())
+
+					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Status.CurrentCPUTopology).To(Not(BeNil()))
+					Expect(*vmi.Status.CurrentCPUTopology).To(Equal(v1.CPUTopology{
+						Cores:   1,
+						Sockets: vCPUsProvidedByInstancetype,
+						Threads: 1,
+					}))
+
+					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+				})
 			})
 			When("set in VMI template", func() {
 				It("copy CPU topology to VMI status", func() {

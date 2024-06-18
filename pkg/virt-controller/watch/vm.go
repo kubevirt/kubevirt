@@ -1220,6 +1220,8 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 		return vm, err
 	}
 
+	c.setupCurrentCPUTopology(vmi)
+
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {
@@ -1767,6 +1769,13 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
+	setGuestMemory(&vmi.Spec)
+	c.setupHotplug(vmi)
+
+	return vmi
+}
+
+func (c *VMController) setupCurrentCPUTopology(vmi *virtv1.VirtualMachineInstance) {
 	VMIDefaults := &virtv1.VirtualMachineInstance{}
 	VMIDefaults.Spec.Domain.Resources = vmi.Spec.Domain.Resources
 	webhooks.SetDefaultGuestCPUTopology(c.clusterConfig, &VMIDefaults.Spec)
@@ -1777,7 +1786,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		Threads: VMIDefaults.Spec.Domain.CPU.Threads,
 	}
 
-	if topology := vm.Spec.Template.Spec.Domain.CPU; topology != nil {
+	if topology := vmi.Spec.Domain.CPU; topology != nil {
 		if topology.Sockets != 0 {
 			vmi.Status.CurrentCPUTopology.Sockets = topology.Sockets
 		}
@@ -1788,11 +1797,6 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 			vmi.Status.CurrentCPUTopology.Threads = topology.Threads
 		}
 	}
-
-	setGuestMemory(&vmi.Spec)
-	c.setupHotplug(vmi, VMIDefaults)
-
-	return vmi
 }
 
 func (c *VMController) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
@@ -1873,7 +1877,7 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
 }
 
-func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, VMIDefaults *virtv1.VirtualMachineInstance, maxRatio uint32) {
+func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
 	if vmi.Spec.Domain.CPU == nil {
 		vmi.Spec.Domain.CPU = &virtv1.CPU{}
 	}
@@ -1886,8 +1890,9 @@ func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, VMIDe
 		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * maxRatio
 	}
 
+	const defaultNumberOfSockets = 1
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = VMIDefaults.Spec.Domain.CPU.Sockets * maxRatio
+		vmi.Spec.Domain.CPU.MaxSockets = defaultNumberOfSockets * maxRatio
 	}
 }
 
@@ -3460,14 +3465,13 @@ func setGuestMemory(spec *virtv1.VirtualMachineInstanceSpec) {
 
 }
 
-func (c *VMController) setupHotplug(vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
+func (c *VMController) setupHotplug(vmi *virtv1.VirtualMachineInstance) {
 	if !c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
 		return
 	}
 
 	maxRatio := c.clusterConfig.GetMaxHotplugRatio()
-
-	c.setupCPUHotplug(vmi, VMIDefaults, maxRatio)
+	c.setupCPUHotplug(vmi, maxRatio)
 	c.setupMemoryHotplug(vmi, maxRatio)
 }
 
