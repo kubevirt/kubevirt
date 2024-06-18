@@ -163,9 +163,8 @@ func (fs FS) blockSASDeviceBlockDevices(name string) ([]string, error) {
 				if err != nil {
 					if os.IsNotExist(err) {
 						continue
-					} else {
-						return nil, err
 					}
+					return nil, err
 				}
 
 				for _, blockdevice := range blocks {

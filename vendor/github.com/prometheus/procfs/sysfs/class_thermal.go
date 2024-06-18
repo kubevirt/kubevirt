@@ -24,6 +24,7 @@ import (
 	"syscall"
 
 	"github.com/prometheus/procfs/internal/util"
+	fsp "io/fs"
 )
 
 // ClassThermalZoneStats contains info from files in /sys/class/thermal/thermal_zone<zone>
@@ -49,7 +50,7 @@ func (fs FS) ClassThermalZoneStats() ([]ClassThermalZoneStats, error) {
 	for _, zone := range zones {
 		zoneStats, err := parseClassThermalZone(zone)
 		if err != nil {
-			if errors.Is(err, syscall.ENODATA) {
+			if errors.Is(err, syscall.ENODATA) || errors.As(err, new(*fsp.PathError)) {
 				continue
 			}
 			return nil, err
