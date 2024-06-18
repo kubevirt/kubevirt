@@ -21,7 +21,6 @@ package nodelabeller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -206,32 +205,21 @@ func skipNodeLabelling(node *v1.Node) bool {
 }
 
 func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
-	p := make([]patch.PatchOperation, 0)
-	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
-		p = append(p, patch.PatchOperation{
-			Op:    "test",
-			Path:  "/metadata/labels",
-			Value: originalNode.Labels,
-		}, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/metadata/labels",
-			Value: node.Labels,
-		})
+	if equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
+		return nil
 	}
 
-	// patch node only if there is change in labels
-	if len(p) > 0 {
-		payloadBytes, err := json.Marshal(p)
-		if err != nil {
-			return err
-		}
-		_, err = n.nodeClient.Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
-		if err != nil {
-			return err
-		}
+	patchBytes, err := patch.New(
+		patch.WithTest("/metadata/labels", originalNode.Labels),
+		patch.WithReplace("/metadata/labels", node.Labels),
+	).GeneratePayload()
+
+	if err != nil {
+		return err
 	}
 
-	return nil
+	_, err = n.nodeClient.Patch(context.Background(), node.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	return err
 }
 
 func (n *NodeLabeller) loadHypervFeatures() {
