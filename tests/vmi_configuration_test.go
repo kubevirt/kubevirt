@@ -2214,18 +2214,20 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		It("[test_id:5360]should set appropriate IO modes", func() {
 			libstorage.CreateHostPathPv("alpine-host-path", testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
 			libstorage.CreateHostPathPVC("alpine-host-path", testsuite.GetTestNamespace(nil), "1Gi")
-			vmi := libvmifact.NewCirros(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("128Mi"),
+				// disk[0]
+				libvmi.WithContainerDisk("ephemeral-disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				// disk[1]:  Block, no user-input, cache=none
 				libvmi.WithPersistentVolumeClaim("block-pvc", dataVolume.Name),
 				// disk[2]: File, not-sparsed, no user-input, cache=none
 				libvmi.WithPersistentVolumeClaim("hostpath-pvc", tests.DiskAlpineHostPath),
-				// disk[3]:  File, sparsed, user-input=threads, cache=none
+				// disk[3]
 				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 			)
-			// disk[0]cache=none
+			// disk[0]:  File, sparsed, no user-input, cache=none
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
+			// disk[3]:  File, sparsed, user-input=threads, cache=none
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
@@ -2242,7 +2244,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			ioNone := ""
 
 			By("checking if default io has not been set for sparsed file")
-			Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
+			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
 			Expect(string(disks[0].Driver.IO)).To(Equal(ioNone))
 
 			By("checking if default io mode has been set to 'native' for block device")
