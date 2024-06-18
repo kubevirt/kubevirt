@@ -6042,6 +6042,44 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":    Equal(v1.VirtualMachineRestartRequired),
+						"Message": ContainSubstring("memory updated in template spec. Memory-hotplug failed and is not available for this VM configuration"),
+						"Status":  Equal(k8sv1.ConditionTrue),
+					}))
+				})
+
+				It("should set a restartRequired condition if memory hotplug is incompatible with the VM configuration", func() {
+					guestMemory := resource.MustParse("64Mi")
+					newMemory := resource.MustParse("128Mi")
+					vm, _ := DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
+					vm.Spec.Template.Spec.Architecture = "risc-v"
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: nil}
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
+					vmi.Status.Memory = &v1.MemoryStatus{
+						GuestAtBoot:  &guestMemory,
+						GuestCurrent: &guestMemory,
+					}
+
+					err := controller.handleMemoryHotplugRequest(vm, vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(virtFakeClient.Actions()).To(WithTransform(func(actions []testing.Action) []testing.Action {
+						var patchActions []testing.Action
+						for _, action := range actions {
+							if action.GetVerb() == "patch" && action.GetResource().Resource == "virtualmachineinstances" {
+								patchActions = append(patchActions, action)
+							}
+						}
+						return patchActions
+					}, BeEmpty()))
+
+					vmCondManager := virtcontroller.NewVirtualMachineConditionManager()
+					cond := vmCondManager.GetCondition(vm, v1.VirtualMachineRestartRequired)
+					Expect(cond).To(Not(BeNil()))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineRestartRequired),
 						"Message": ContainSubstring("memory updated in template spec. Memory-hotplug is not available for this VM configuration"),
 						"Status":  Equal(k8sv1.ConditionTrue),
 					}))
