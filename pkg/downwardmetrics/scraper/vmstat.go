@@ -46,7 +46,8 @@ func readVMStat(path string) (*vmStat, error) {
 	s := bufio.NewScanner(f)
 	for s.Scan() {
 		fields := strings.Fields(s.Text())
-		if len(fields) != 2 {
+		const vmstatsFieldsPerLine = 2
+		if len(fields) != vmstatsFieldsPerLine {
 			return nil, fmt.Errorf("malformed line: %q", s.Text())
 		}
 
