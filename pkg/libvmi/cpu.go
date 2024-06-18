@@ -69,3 +69,9 @@ func WithNUMAGuestMappingPassthrough() Option {
 		vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
 	}
 }
+
+func WithArchitecture(arch string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Architecture = arch
+	}
+}
