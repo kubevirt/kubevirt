@@ -277,6 +277,25 @@ var _ = Describe("Defaults", func() {
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		Expect(vmi.Spec.Domain.IOThreadsPolicy).To(BeNil(), "Default IOThreadsPolicy should be nil")
 	})
+
+	It("should default probes", func() {
+		vmi := &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				ReadinessProbe: &v1.Probe{},
+				LivenessProbe:  &v1.Probe{},
+			},
+		}
+		v1.SetDefaults_VirtualMachineInstance(vmi)
+
+		validateProbe := func(probe *v1.Probe) {
+			Expect(probe.TimeoutSeconds).To(BeEquivalentTo(1))
+			Expect(probe.PeriodSeconds).To(BeEquivalentTo(10))
+			Expect(probe.SuccessThreshold).To(BeEquivalentTo(1))
+			Expect(probe.FailureThreshold).To(BeEquivalentTo(3))
+		}
+		validateProbe(vmi.Spec.ReadinessProbe)
+		validateProbe(vmi.Spec.LivenessProbe)
+	})
 })
 
 var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
@@ -325,24 +344,5 @@ var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
 		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("default"))
 		Expect(vmi.Spec.Networks[0].Name).To(Equal("default"))
 		Expect(vmi.Spec.Networks[0].Pod).ToNot(BeNil())
-	})
-
-	It("should default probes", func() {
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{
-				ReadinessProbe: &v1.Probe{},
-				LivenessProbe:  &v1.Probe{},
-			},
-		}
-		v1.SetDefaults_VirtualMachineInstance(vmi)
-
-		validateProbe := func(probe *v1.Probe) {
-			Expect(probe.TimeoutSeconds).To(BeEquivalentTo(1))
-			Expect(probe.PeriodSeconds).To(BeEquivalentTo(10))
-			Expect(probe.SuccessThreshold).To(BeEquivalentTo(1))
-			Expect(probe.FailureThreshold).To(BeEquivalentTo(3))
-		}
-		validateProbe(vmi.Spec.ReadinessProbe)
-		validateProbe(vmi.Spec.LivenessProbe)
 	})
 })
