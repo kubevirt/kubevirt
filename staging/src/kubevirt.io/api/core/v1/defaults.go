@@ -168,19 +168,6 @@ func SetDefaults_Probe(probe *Probe) {
 	}
 }
 
-func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
-	autoAttach := obj.Spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && *autoAttach == false {
-		return
-	}
-
-	// Override only when nothing is specified
-	if len(obj.Spec.Networks) == 0 {
-		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultBridgeNetworkInterface()}
-		obj.Spec.Networks = []Network{*DefaultPodNetwork()}
-	}
-}
-
 func DefaultBridgeNetworkInterface() *Interface {
 	iface := &Interface{
 		Name: "default",
