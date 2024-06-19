@@ -404,7 +404,7 @@ mediated device names. Use the `permittedHostDevices` field in order to manage t
 
 The `permittedHostDevices` field is an optional field under the HyperConverged `spec` field.
 
-The `permittedHostDevices` field contains two optional arrays: the `pciHostDevices` and the `mediatedDevices` array.
+The `permittedHostDevices` field contains three optional arrays: the `pciHostDevices`, `mediatedDevices` and `usbHostDevices` array.
 
 HCO propagates these arrays as is to the KubeVirt custom resource; i.e. no merge is done, but a replacement.
 
@@ -438,6 +438,24 @@ The `mediatedDevices` array is an array of `MediatedDevice` objects. The fields 
 
   **default**: `false`
 
+The `usbHostDevices` array is an array of `USBHostDevice` objects. The fields of this object are:
+* `selectors` array is an array of `USBSelector` objects. The fields of this object are a **`vendor`, `product`** required to identify a USB device.
+
+  The two identifiers like `06cb` and `00f9` can be found using `lsusb`; for example:
+   ```shell
+   $ lsusb | grep -i synaptics
+   Bus 003 Device 005: ID 06cb:00f9 Synaptics, Inc.
+   ```
+  Multiple `USBSelector` objects can be used to match a st of devices.
+
+* `resourceName` - name by which a device is advertised and being requested.
+* `externalResourceProvider` - indicates that this resource is being provided by an external device plugin.
+
+  KubeVirt in this case will only permit the usage of this device in the cluster but will leave the allocation and
+  monitoring to an external device plugin.
+
+  **default**: `false`
+
 ### Permitted Host Devices Example
 
 ```yaml
@@ -455,6 +473,21 @@ spec:
     mediatedDevices:
     - mdevNameSelector: "GRID T4-1Q"
       resourceName: "nvidia.com/GRID_T4-1Q"
+    usbHostDevices:
+    - resourceName: kubevirt.io/peripherals
+      selectors:
+        - vendor: "045e"
+          product: "07a5"
+        - vendor: "062a"
+          product: "4102"
+        - vendor: "072f"
+          product: "b100"
+      externalResourceProvider: false
+    - resourceName: kubevirt.io/storage
+      selectors:
+        - vendor: "46f4"
+          product: "0001"
+      externalResourceProvider: false
 ```
 
 ## Filesystem Overhead

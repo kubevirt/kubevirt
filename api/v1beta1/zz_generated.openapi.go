@@ -50,6 +50,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PciHostDevice":                        schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PciHostDevice(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PermittedHostDevices":                 schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PermittedHostDevices(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.StorageImportConfig":                  schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_StorageImportConfig(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.USBHostDevice":                        schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_USBHostDevice(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.USBSelector":                          schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_USBSelector(ref),
 	}
 }
 
@@ -1199,6 +1201,27 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PermittedHostDe
 							},
 						},
 					},
+					"usbHostDevices": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"resourceName",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.USBHostDevice"),
+									},
+								},
+							},
+						},
+					},
 					"mediatedDevices": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -1224,7 +1247,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PermittedHostDe
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.MediatedHostDevice", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PciHostDevice"},
+			"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.MediatedHostDevice", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PciHostDevice", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.USBHostDevice"},
 	}
 }
 
@@ -1256,6 +1279,90 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_StorageImportCo
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_USBHostDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "USBHostDevice represents a host USB device allowed for passthrough",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Identifies the list of USB host devices. e.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"selectors": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.USBSelector"),
+									},
+								},
+							},
+						},
+					},
+					"externalResourceProvider": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If true, KubeVirt will leave the allocation and monitoring to an external device plugin",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HCO enforces the existence of several USBHostDevice objects. Set disabled field to true instead of remove these objects.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"resourceName"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.USBSelector"},
+	}
+}
+
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_USBSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "USBSelector represents a selector for a USB device allowed for passthrough",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vendor": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"product": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"vendor", "product"},
 			},
 		},
 	}

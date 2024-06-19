@@ -1007,6 +1007,61 @@ Version: 1.2.3`)
 							Disabled:                 true,
 						},
 					},
+					USBHostDevices: []hcov1beta1.USBHostDevice{
+						{
+							ResourceName: "kubevirt.io/usbstorage",
+							Selectors: []hcov1beta1.USBSelector{
+								{
+									Vendor:  "46f4",
+									Product: "0001",
+								},
+							},
+							ExternalResourceProvider: false,
+						},
+						{
+							ResourceName: "kubevirt.io/usbstorageerp",
+							Selectors: []hcov1beta1.USBSelector{
+								{
+									Vendor:  "46f4",
+									Product: "0002",
+								},
+							},
+							ExternalResourceProvider: true,
+						},
+						{
+							ResourceName: "kubevirt.io/peripherals",
+							Selectors: []hcov1beta1.USBSelector{
+								{
+									Vendor:  "045e",
+									Product: "07a5",
+								},
+								{
+									Vendor:  "062a",
+									Product: "4102",
+								},
+								{
+									Vendor:  "072f",
+									Product: "07a5",
+								},
+								{
+									Vendor:  "045e",
+									Product: "b100",
+								},
+							},
+							ExternalResourceProvider: true,
+						},
+						{
+							ResourceName: "kubevirt.io/usbstoragedisabled",
+							Selectors: []hcov1beta1.USBSelector{
+								{
+									Vendor:  "46f4",
+									Product: "0003",
+								},
+							},
+							ExternalResourceProvider: false,
+							Disabled:                 true,
+						},
+					},
 				}
 
 				cl := commontestutils.InitClient([]client.Object{hco, existKv})
@@ -1068,6 +1123,35 @@ Version: 1.2.3`)
 						ExternalResourceProvider: false,
 					},
 				))
+
+				Expect(phd.USB).To(HaveLen(3))
+				Expect(phd.USB).To(ContainElements(
+					kubevirtcorev1.USBHostDevice{
+						ResourceName: "kubevirt.io/usbstorage",
+						Selectors: []kubevirtcorev1.USBSelector{
+							{Vendor: "46f4", Product: "0001"},
+						},
+						ExternalResourceProvider: false,
+					},
+					kubevirtcorev1.USBHostDevice{
+						ResourceName: "kubevirt.io/usbstorageerp",
+						Selectors: []kubevirtcorev1.USBSelector{
+							{Vendor: "46f4", Product: "0002"},
+						},
+						ExternalResourceProvider: true,
+					},
+					kubevirtcorev1.USBHostDevice{
+						ResourceName: "kubevirt.io/peripherals",
+						Selectors: []kubevirtcorev1.USBSelector{
+							{Vendor: "045e", Product: "07a5"},
+							{Vendor: "062a", Product: "4102"},
+							{Vendor: "072f", Product: "07a5"},
+							{Vendor: "045e", Product: "b100"},
+						},
+						ExternalResourceProvider: true,
+					},
+				))
+
 			})
 
 			It("should update the permitted host devices configuration from the HC", func() {
@@ -1112,6 +1196,42 @@ Version: 1.2.3`)
 							MDEVNameSelector:         "otherSelector3",
 							ResourceName:             "otherResource3",
 							ExternalResourceProvider: true,
+						},
+					},
+					USB: []kubevirtcorev1.USBHostDevice{
+						{
+							ResourceName: "otherUSBResource1",
+							Selectors: []kubevirtcorev1.USBSelector{
+								{
+									Vendor:  "46f4",
+									Product: "0001",
+								},
+							},
+							ExternalResourceProvider: false,
+						},
+						{
+							ResourceName: "otherUSBResource2",
+							Selectors: []kubevirtcorev1.USBSelector{
+								{
+									Vendor:  "46f4",
+									Product: "0002",
+								},
+							},
+							ExternalResourceProvider: true,
+						},
+						{
+							ResourceName: "otherUSBResource3",
+							Selectors: []kubevirtcorev1.USBSelector{
+								{
+									Vendor:  "46f4",
+									Product: "0003",
+								},
+								{
+									Vendor:  "46f4",
+									Product: "0004",
+								},
+							},
+							ExternalResourceProvider: false,
 						},
 					},
 				}
@@ -1170,6 +1290,61 @@ Version: 1.2.3`)
 							Disabled:                 true,
 						},
 					},
+					USBHostDevices: []hcov1beta1.USBHostDevice{
+						{
+							ResourceName: "kubevirt.io/usbstorage",
+							Selectors: []hcov1beta1.USBSelector{
+								{
+									Vendor:  "46f4",
+									Product: "0001",
+								},
+							},
+							ExternalResourceProvider: false,
+						},
+						{
+							ResourceName: "kubevirt.io/usbstorageerp",
+							Selectors: []hcov1beta1.USBSelector{
+								{
+									Vendor:  "46f4",
+									Product: "0002",
+								},
+							},
+							ExternalResourceProvider: true,
+						},
+						{
+							ResourceName: "kubevirt.io/peripherals",
+							Selectors: []hcov1beta1.USBSelector{
+								{
+									Vendor:  "045e",
+									Product: "07a5",
+								},
+								{
+									Vendor:  "062a",
+									Product: "4102",
+								},
+								{
+									Vendor:  "072f",
+									Product: "07a5",
+								},
+								{
+									Vendor:  "045e",
+									Product: "b100",
+								},
+							},
+							ExternalResourceProvider: true,
+						},
+						{
+							ResourceName: "kubevirt.io/usbstoragedisabled",
+							Selectors: []hcov1beta1.USBSelector{
+								{
+									Vendor:  "46f4",
+									Product: "0003",
+								},
+							},
+							ExternalResourceProvider: false,
+							Disabled:                 true,
+						},
+					},
 				}
 
 				cl := commontestutils.InitClient([]client.Object{hco, existKv})
@@ -1224,6 +1399,32 @@ Version: 1.2.3`)
 							MDEVNameSelector:         "otherSelector3",
 							ResourceName:             "otherResource3",
 							ExternalResourceProvider: true,
+						},
+					))
+
+					Expect(phd.USB).To(HaveLen(3))
+					Expect(phd.USB).To(ContainElements(
+						kubevirtcorev1.USBHostDevice{
+							ResourceName: "otherUSBResource1",
+							Selectors: []kubevirtcorev1.USBSelector{
+								{Vendor: "46f4", Product: "0001"},
+							},
+							ExternalResourceProvider: false,
+						},
+						kubevirtcorev1.USBHostDevice{
+							ResourceName: "otherUSBResource2",
+							Selectors: []kubevirtcorev1.USBSelector{
+								{Vendor: "46f4", Product: "0002"},
+							},
+							ExternalResourceProvider: true,
+						},
+						kubevirtcorev1.USBHostDevice{
+							ResourceName: "otherUSBResource3",
+							Selectors: []kubevirtcorev1.USBSelector{
+								{Vendor: "46f4", Product: "0003"},
+								{Vendor: "46f4", Product: "0004"},
+							},
+							ExternalResourceProvider: false,
 						},
 					))
 
@@ -1288,6 +1489,35 @@ Version: 1.2.3`)
 						ExternalResourceProvider: false,
 					},
 				))
+
+				Expect(phd.USB).To(HaveLen(3))
+				Expect(phd.USB).To(ContainElements(
+					kubevirtcorev1.USBHostDevice{
+						ResourceName: "kubevirt.io/usbstorage",
+						Selectors: []kubevirtcorev1.USBSelector{
+							{Vendor: "46f4", Product: "0001"},
+						},
+						ExternalResourceProvider: false,
+					},
+					kubevirtcorev1.USBHostDevice{
+						ResourceName: "kubevirt.io/usbstorageerp",
+						Selectors: []kubevirtcorev1.USBSelector{
+							{Vendor: "46f4", Product: "0002"},
+						},
+						ExternalResourceProvider: true,
+					},
+					kubevirtcorev1.USBHostDevice{
+						ResourceName: "kubevirt.io/peripherals",
+						Selectors: []kubevirtcorev1.USBSelector{
+							{Vendor: "045e", Product: "07a5"},
+							{Vendor: "062a", Product: "4102"},
+							{Vendor: "072f", Product: "07a5"},
+							{Vendor: "045e", Product: "b100"},
+						},
+						ExternalResourceProvider: true,
+					},
+				))
+
 			})
 		})
 

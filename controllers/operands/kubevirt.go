@@ -580,6 +580,7 @@ func toKvPermittedHostDevices(permittedDevices *hcov1beta1.PermittedHostDevices)
 	return &kubevirtcorev1.PermittedHostDevices{
 		PciHostDevices:  toKvPciHostDevices(permittedDevices.PciHostDevices),
 		MediatedDevices: toKvMediatedDevices(permittedDevices.MediatedDevices),
+		USB:             toKvUSBHostDevices(permittedDevices.USBHostDevices),
 	}
 }
 
@@ -597,6 +598,31 @@ func toKvPciHostDevices(hcoPciHostdevices []hcov1beta1.PciHostDevice) []kubevirt
 		}
 
 		return pciHostDevices
+	}
+	return nil
+}
+
+func toKvUSBHostDevices(hcoUSBHostdevices []hcov1beta1.USBHostDevice) []kubevirtcorev1.USBHostDevice {
+	if len(hcoUSBHostdevices) > 0 {
+		usbHostDevices := make([]kubevirtcorev1.USBHostDevice, 0, len(hcoUSBHostdevices))
+		for _, hcoUSBHostDevice := range hcoUSBHostdevices {
+			if !hcoUSBHostDevice.Disabled {
+				kvUSBHostDevice := kubevirtcorev1.USBHostDevice{
+					ResourceName:             hcoUSBHostDevice.ResourceName,
+					ExternalResourceProvider: hcoUSBHostDevice.ExternalResourceProvider,
+				}
+				kvUSBHostDevice.Selectors = make([]kubevirtcorev1.USBSelector, 0, len(hcoUSBHostDevice.Selectors))
+				for _, selector := range hcoUSBHostDevice.Selectors {
+					kvUSBHostDevice.Selectors = append(kvUSBHostDevice.Selectors, kubevirtcorev1.USBSelector{
+						Vendor:  selector.Vendor,
+						Product: selector.Product,
+					})
+				}
+				usbHostDevices = append(usbHostDevices, kvUSBHostDevice)
+			}
+		}
+
+		return usbHostDevices
 	}
 	return nil
 }

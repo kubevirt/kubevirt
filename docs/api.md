@@ -31,6 +31,8 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [PciHostDevice](#pcihostdevice)
 * [PermittedHostDevices](#permittedhostdevices)
 * [StorageImportConfig](#storageimportconfig)
+* [USBHostDevice](#usbhostdevice)
+* [USBSelector](#usbselector)
 * [Version](#version)
 * [VirtualMachineOptions](#virtualmachineoptions)
 
@@ -357,6 +359,7 @@ PermittedHostDevices holds information about devices allowed for passthrough
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
 | pciHostDevices |  | [][PciHostDevice](#pcihostdevice) |  | false |
+| usbHostDevices |  | [][USBHostDevice](#usbhostdevice) |  | false |
 | mediatedDevices |  | [][MediatedHostDevice](#mediatedhostdevice) |  | false |
 
 [Back to TOC](#table-of-contents)
@@ -368,6 +371,30 @@ StorageImportConfig contains configuration for importing containerized data
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
 | insecureRegistries | InsecureRegistries is a list of image registries URLs that are not secured. Setting an insecure registry URL in this list allows pulling images from this registry. | []string |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## USBHostDevice
+
+USBHostDevice represents a host USB device allowed for passthrough
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| resourceName | Identifies the list of USB host devices. e.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc | string |  | true |
+| selectors |  | [][USBSelector](#usbselector) |  | false |
+| externalResourceProvider | If true, KubeVirt will leave the allocation and monitoring to an external device plugin | bool |  | false |
+| disabled | HCO enforces the existence of several USBHostDevice objects. Set disabled field to true instead of remove these objects. | bool |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## USBSelector
+
+USBSelector represents a selector for a USB device allowed for passthrough
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| vendor |  | string |  | true |
+| product |  | string |  | true |
 
 [Back to TOC](#table-of-contents)
 

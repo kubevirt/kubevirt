@@ -509,6 +509,9 @@ type PermittedHostDevices struct {
 	// +listMapKey=pciDeviceSelector
 	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
 	// +listType=map
+	// +listMapKey=resourceName
+	USBHostDevices []USBHostDevice `json:"usbHostDevices,omitempty"`
+	// +listType=map
 	// +listMapKey=mdevNameSelector
 	MediatedDevices []MediatedHostDevice `json:"mediatedDevices,omitempty"`
 }
@@ -524,6 +527,30 @@ type PciHostDevice struct {
 	// +optional
 	ExternalResourceProvider bool `json:"externalResourceProvider,omitempty"`
 	// HCO enforces the existence of several PciHostDevice objects. Set disabled field to true instead of remove
+	// these objects.
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+// USBSelector represents a selector for a USB device allowed for passthrough
+// +k8s:openapi-gen=true
+type USBSelector struct {
+	Vendor  string `json:"vendor"`
+	Product string `json:"product"`
+}
+
+// USBHostDevice represents a host USB device allowed for passthrough
+// +k8s:openapi-gen=true
+type USBHostDevice struct {
+	// Identifies the list of USB host devices.
+	// e.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc
+	ResourceName string `json:"resourceName"`
+	// +listType=atomic
+	Selectors []USBSelector `json:"selectors,omitempty"`
+	// If true, KubeVirt will leave the allocation and monitoring to an
+	// external device plugin
+	ExternalResourceProvider bool `json:"externalResourceProvider,omitempty"`
+	// HCO enforces the existence of several USBHostDevice objects. Set disabled field to true instead of remove
 	// these objects.
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`

@@ -2561,6 +2561,48 @@ spec:
                     x-kubernetes-list-map-keys:
                     - pciDeviceSelector
                     x-kubernetes-list-type: map
+                  usbHostDevices:
+                    items:
+                      description: USBHostDevice represents a host USB device allowed
+                        for passthrough
+                      properties:
+                        disabled:
+                          description: |-
+                            HCO enforces the existence of several USBHostDevice objects. Set disabled field to true instead of remove
+                            these objects.
+                          type: boolean
+                        externalResourceProvider:
+                          description: |-
+                            If true, KubeVirt will leave the allocation and monitoring to an
+                            external device plugin
+                          type: boolean
+                        resourceName:
+                          description: |-
+                            Identifies the list of USB host devices.
+                            e.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc
+                          type: string
+                        selectors:
+                          items:
+                            description: USBSelector represents a selector for a USB
+                              device allowed for passthrough
+                            properties:
+                              product:
+                                type: string
+                              vendor:
+                                type: string
+                            required:
+                            - product
+                            - vendor
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      required:
+                      - resourceName
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - resourceName
+                    x-kubernetes-list-type: map
                 type: object
               resourceRequirements:
                 default:
