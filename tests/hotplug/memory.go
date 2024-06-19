@@ -54,11 +54,12 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 	Context("A VM with memory liveUpdate enabled", func() {
 
-		createHotplugVM := func(guest *resource.Quantity, sockets *uint32, maxSockets uint32) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-			vmi := libvmi.NewAlpineWithTestTooling(append(
-				libvmi.WithMasqueradeNetworking(),
-				libvmi.WithResourceMemory(guest.String()))...,
-			)
+		createHotplugVM := func(guest *resource.Quantity, sockets *uint32, maxSockets uint32, opts ...libvmi.Option) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+			vmiOpts := append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceMemory(guest.String()))
+			vmiOpts = append(vmiOpts, opts...)
+
+			vmi := libvmi.NewAlpineWithTestTooling(vmiOpts...)
+
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
 				Guest: guest,
@@ -91,10 +92,10 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			return &memory
 		}
 
-		It("should successfully hotplug memory", func() {
+		DescribeTable("[test_id:10823]should successfully hotplug memory", func(opts ...libvmi.Option) {
 			By("Creating a VM")
 			guest := resource.MustParse("128Mi")
-			vm, vmi := createHotplugVM(&guest, nil, 0)
+			vm, vmi := createHotplugVM(&guest, nil, 0, opts...)
 
 			By("Limiting the bandwidth of migrations in the test namespace")
 			migrationBandwidthLimit := resource.MustParse("1Ki")
@@ -151,7 +152,10 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqMemory = compute.Resources.Requests.Memory().Value()
 			Expect(reqMemory).To(BeNumerically(">=", newGuestMemory.Value()))
-		})
+		},
+			Entry("with a common VM"),
+			Entry("with 2Mi pagesize hugepages VM", decorators.RequiresHugepages2Mi, libvmi.WithHugepages("2Mi")),
+		)
 
 		It("after a hotplug memory and a restart the new memory value should be the base for the VM", func() {
 			By("Creating a VM")
