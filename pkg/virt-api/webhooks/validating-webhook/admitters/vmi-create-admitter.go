@@ -2037,7 +2037,7 @@ func validateCacheMode(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.Sta
 
 func validateIOMode(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if disk.IO != "" && disk.IO != v1.IONative && disk.IO != v1.IOThreads {
+	if disk.IO != "" && disk.IO != v1.DriverIONative && disk.IO != v1.DriverIOThreads {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("Disk IO mode for %s is not supported. Supported modes are: native, threads.", field),
