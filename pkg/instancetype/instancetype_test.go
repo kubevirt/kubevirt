@@ -1793,10 +1793,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmi.Spec.Domain.Devices.AutoattachMemBalloon = ptr.To(false)
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 					{
-						Cache:             v1.CacheWriteBack,
-						IO:                v1.IONative,
-						DedicatedIOThread: ptr.To(false),
-						BlockSize:         userDefinedBlockSize,
+						Cache:     v1.CacheWriteBack,
+						IO:        v1.IONative,
+						BlockSize: userDefinedBlockSize,
 						DiskDevice: v1.DiskDevice{
 							Disk: &v1.DiskTarget{
 								Bus: v1.DiskBusSCSI,
@@ -1921,7 +1920,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Devices.AutoattachInputDevice).To(BeTrue())
 				Expect(vmi.Spec.Domain.Devices.Disks[0].Cache).To(Equal(v1.CacheWriteBack))
 				Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(v1.IONative))
-				Expect(*vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread).To(BeFalse())
 				Expect(*vmi.Spec.Domain.Devices.Disks[0].BlockSize).To(Equal(*userDefinedBlockSize))
 				Expect(vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal(v1.DiskBusSCSI))
 				Expect(vmi.Spec.Domain.Devices.Disks[2].DiskDevice.CDRom.Bus).To(Equal(v1.DiskBusSATA))
@@ -1937,7 +1935,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Devices.UseVirtioTransitional).To(Equal(*preferenceSpec.Devices.PreferredUseVirtioTransitional))
 				Expect(vmi.Spec.Domain.Devices.Disks[1].Cache).To(Equal(preferenceSpec.Devices.PreferredDiskCache))
 				Expect(vmi.Spec.Domain.Devices.Disks[1].IO).To(Equal(preferenceSpec.Devices.PreferredDiskIO))
-				Expect(*vmi.Spec.Domain.Devices.Disks[1].DedicatedIOThread).To(Equal(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread))
 				Expect(*vmi.Spec.Domain.Devices.Disks[1].BlockSize).To(Equal(*preferenceSpec.Devices.PreferredDiskBlockSize))
 				Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(preferenceSpec.Devices.PreferredDiskBus))
 				Expect(vmi.Spec.Domain.Devices.Disks[3].DiskDevice.CDRom.Bus).To(Equal(preferenceSpec.Devices.PreferredCdromBus))
@@ -1969,6 +1966,43 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(diskTypeForTest))
+			})
+
+			Context("PreferredDiskDedicatedIoThread", func() {
+				DescribeTable("should be ignored when", func(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+					for _, disk := range vmi.Spec.Domain.Devices.Disks {
+						if disk.DiskDevice.Disk != nil {
+							Expect(disk.DedicatedIOThread).To(BeNil())
+						}
+					}
+				},
+					Entry("unset", &instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1beta1.DevicePreferences{},
+					}),
+					Entry("false", &instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1beta1.DevicePreferences{
+							PreferredDiskDedicatedIoThread: pointer.P(false),
+						},
+					}),
+				)
+				It("should only apply to virtio disk devices", func() {
+					preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1beta1.DevicePreferences{
+							PreferredDiskDedicatedIoThread: pointer.P(true),
+						},
+					}
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+					for _, disk := range vmi.Spec.Domain.Devices.Disks {
+						if disk.DiskDevice.Disk != nil {
+							if disk.DiskDevice.Disk.Bus == v1.DiskBusVirtio {
+								Expect(disk.DedicatedIOThread).To(HaveValue(BeTrue()))
+							} else {
+								Expect(disk.DedicatedIOThread).To(BeNil())
+							}
+						}
+					}
+				})
 			})
 		})
 
