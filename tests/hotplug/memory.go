@@ -121,18 +121,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceMemoryChange))
 
 			By("Ensuring live-migration started")
-			var migration *v1.VirtualMachineInstanceMigration
-			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, mig := range migrations.Items {
-					if mig.Spec.VMIName == vmi.Name {
-						migration = mig.DeepCopy()
-						return true
-					}
-				}
-				return false
-			}, 30*time.Second, time.Second).Should(BeTrue())
+			migration := getVMIMigration(virtClient, vmi)
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 			By("Ensuring the libvirt domain has more available guest memory")
@@ -291,18 +280,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceMemoryChange))
 
 			By("Ensuring live-migration started")
-			var migration *v1.VirtualMachineInstanceMigration
-			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, mig := range migrations.Items {
-					if mig.Spec.VMIName == vmi.Name {
-						migration = mig.DeepCopy()
-						return true
-					}
-				}
-				return false
-			}, 30*time.Second, time.Second).Should(BeTrue())
+			migration := getVMIMigration(virtClient, vmi)
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 			By("Ensuring the libvirt domain has more available guest memory")
@@ -360,18 +338,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 				Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceMemoryChange))
 
 				By("Ensuring live-migration started")
-				var migration *v1.VirtualMachineInstanceMigration
-				Eventually(func() bool {
-					migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					for _, mig := range migrations.Items {
-						if mig.Spec.VMIName == vmi.Name {
-							migration = mig.DeepCopy()
-							return true
-						}
-					}
-					return false
-				}, 30*time.Second, time.Second).Should(BeTrue())
+				migration := getVMIMigration(virtClient, vmi)
 				libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 				By("Ensuring the libvirt domain has more available guest memory")
@@ -431,20 +398,26 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			Eventually(ThisVM(vm), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineRestartRequired))
 
 			By("Checking that migration has been marked as succeeded")
-			var migration *v1.VirtualMachineInstanceMigration
-			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, mig := range migrations.Items {
-					if mig.Spec.VMIName == vmi.Name {
-						migration = mig.DeepCopy()
-						return true
-					}
-				}
-				return false
-			}, 30*time.Second, time.Second).Should(BeTrue())
+			migration := getVMIMigration(virtClient, vmi)
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 		})
 
 	})
 })
+
+func getVMIMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceMigration {
+	var migration *v1.VirtualMachineInstanceMigration
+	EventuallyWithOffset(1, func() bool {
+		listOpts := k8smetav1.ListOptions{
+			LabelSelector: fmt.Sprintf("kubevirt.io/vmi-name=%s", vmi.Name),
+		}
+		migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), listOpts)
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		if len(migrations.Items) > 0 {
+			migration = migrations.Items[0].DeepCopy()
+			return true
+		}
+		return false
+	}, 30*time.Second, time.Second).Should(BeTrue(), "A migration should be created")
+	return migration
+}
