@@ -51,6 +51,7 @@ var (
 	AutoResourceLimitsGate               = []interface{}{Label("AutoResourceLimitsGate")}
 	RequiresTwoWorkerNodesWithCPUManager = []interface{}{Label("requires-two-worker-nodes-with-cpu-manager")}
 	RequiresDualStackCluster             = []interface{}{Label("requires-dual-stack-cluster")}
+	RequiresHugepages2Mi                 = []interface{}{Label("requireHugepages2Mi")}
 
 	// Storage classes
 	RequiresSnapshotStorageClass = []interface{}{Label("RequiresSnapshotStorageClass")}
