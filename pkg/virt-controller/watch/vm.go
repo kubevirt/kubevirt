@@ -1181,46 +1181,17 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	}
 
 	// start it
-	vmi := c.setupVMIFromVM(vm)
+	vmi, err := c.setupVMIFromVM(vm)
+	if err != nil {
+		return vm, err
+	}
+
 	vmRevisionName, err := c.createVMRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
 		return vm, err
 	}
 	vmi.Status.VirtualMachineRevisionName = vmRevisionName
-
-	setGenerationAnnotationOnVmi(vm.Generation, vmi)
-
-	// add a finalizer to ensure the VM controller has a chance to see
-	// the VMI before it is deleted
-	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
-
-	// We need to apply device preferences before any new network or input devices are added. Doing so allows
-	// any autoAttach preferences we might have to be applied, either enabling or disabling the attachment of these devices.
-	preferenceSpec, err := c.applyDevicePreferences(vm, vmi)
-	if err != nil {
-		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
-		return vm, err
-	}
-
-	util.SetDefaultVolumeDisk(&vmi.Spec)
-
-	autoAttachInputDevice(vmi)
-
-	err = c.clusterConfig.SetVMISpecDefaultNetworkInterface(&vmi.Spec)
-	if err != nil {
-		return vm, err
-	}
-
-	err = c.applyInstancetypeToVmi(vm, vmi, preferenceSpec)
-	if err != nil {
-		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
-		return vm, err
-	}
-
-	c.setupCurrentCPUTopology(vmi)
 
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1743,7 +1714,7 @@ func hasCompletedMemoryDump(vm *virtv1.VirtualMachine) bool {
 }
 
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
-func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
+func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
 	vmi.ObjectMeta = *vm.Spec.Template.ObjectMeta.DeepCopy()
 	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
@@ -1769,10 +1740,42 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
+	setGenerationAnnotationOnVmi(vm.Generation, vmi)
+
+	// add a finalizer to ensure the VM controller has a chance to see
+	// the VMI before it is deleted
+	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
+
+	// We need to apply device preferences before any new network or input devices are added. Doing so allows
+	// any autoAttach preferences we might have to be applied, either enabling or disabling the attachment of these devices.
+	preferenceSpec, err := c.applyDevicePreferences(vm, vmi)
+	if err != nil {
+		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
+		return vmi, err
+	}
+
+	util.SetDefaultVolumeDisk(&vmi.Spec)
+
+	autoAttachInputDevice(vmi)
+
+	err = c.clusterConfig.SetVMISpecDefaultNetworkInterface(&vmi.Spec)
+	if err != nil {
+		return vmi, err
+	}
+
+	err = c.applyInstancetypeToVmi(vm, vmi, preferenceSpec)
+	if err != nil {
+		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
+		return vmi, err
+	}
+
 	setGuestMemory(&vmi.Spec)
 	c.setupHotplug(vmi)
+	c.setupCurrentCPUTopology(vmi)
 
-	return vmi
+	return vmi, nil
 }
 
 func (c *VMController) setupCurrentCPUTopology(vmi *virtv1.VirtualMachineInstance) {
