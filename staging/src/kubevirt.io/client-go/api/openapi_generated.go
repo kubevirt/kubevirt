@@ -30020,7 +30020,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_DevicePreferences(ref common.Ref
 					},
 					"preferredDiskDedicatedIoThread": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.",
+							Description: "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices using the virtio bus.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
