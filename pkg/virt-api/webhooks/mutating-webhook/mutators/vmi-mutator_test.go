@@ -669,6 +669,39 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
 	})
 
+	DescribeTable("should always set memory.guest", func(setupVMI func(*v1.VirtualMachineInstanceSpec)) {
+		setupVMI(&vmi.Spec)
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+		Expect(vmiSpec.Domain.Memory.Guest).ToNot(BeNil())
+		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("1Gi"))
+	},
+		Entry("when requests are set",
+			func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+				vmiSpec.Domain.Resources = v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")},
+				}
+			}),
+		Entry("when limits are set",
+			func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+				vmiSpec.Domain.Resources = v1.ResourceRequirements{
+					Limits: k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")},
+				}
+			}),
+		Entry("when both requests and limits are set",
+			func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+				vmiSpec.Domain.Resources = v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")},
+					Limits:   k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")},
+				}
+			}),
+		Entry("when only hugepages pagesize is set",
+			func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+				vmiSpec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{PageSize: "1Gi"},
+				}
+			}),
+	)
+
 	It("should set the hyperv dependencies", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{

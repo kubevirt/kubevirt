@@ -2230,6 +2230,45 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 			Expect(vmi.Status.Memory.GuestRequested).ToNot(Equal(vmi.Spec.Domain.Memory.Guest))
 		})
+
+		It("should set HotMemoryChange condition to False if memory hotplug fails", func() {
+			conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			initialMemory := resource.MustParse("512Mi")
+			requestedMemory := resource.MustParse("1Gi")
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Guest: &requestedMemory,
+			}
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = requestedMemory
+			vmi.Status.Memory = &v1.MemoryStatus{
+				GuestAtBoot:    &initialMemory,
+				GuestCurrent:   &initialMemory,
+				GuestRequested: &initialMemory,
+			}
+			vmi.Spec.Architecture = "amd64"
+
+			targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+			targetPodMemory.Add(requestedMemory)
+			vmi.Labels = map[string]string{
+				v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
+			}
+
+			condition := &v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceMemoryChange,
+				Status: k8sv1.ConditionTrue,
+			}
+			conditionManager.UpdateCondition(vmi, condition)
+
+			client.EXPECT().SyncVirtualMachineMemory(vmi, gomock.Any()).Return(fmt.Errorf("hotplug failure"))
+
+			Expect(controller.hotplugMemory(vmi, client)).ToNot(Succeed())
+
+			Expect(conditionManager.HasConditionWithStatusAndReason(vmi, v1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionFalse, "Memory Hotplug Failed")).To(BeTrue())
+			Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
+			Expect(vmi.Status.Memory.GuestRequested).ToNot(Equal(vmi.Spec.Domain.Memory.Guest))
+		})
 	})
 
 	It("should always remove the VirtualMachineInstanceVCPUChange condition even if hotplug CPU has failed", func() {

@@ -93,8 +93,9 @@ func setDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 	setDefaultArchitecture(clusterConfig, spec)
 	setDefaultMachineType(clusterConfig, spec)
 	setDefaultResourceRequests(clusterConfig, spec)
+	setGuestMemory(spec)
 	SetDefaultGuestCPUTopology(clusterConfig, spec)
-	setDefaultPullPoliciesOnContainerDisks(clusterConfig, spec)
+	setDefaultPullPoliciesOnContainerDisks(spec)
 	setDefaultEvictionStrategy(clusterConfig, spec)
 	if err := clusterConfig.SetVMISpecDefaultNetworkInterface(spec); err != nil {
 		return err
@@ -122,7 +123,7 @@ func setDefaultMachineType(clusterConfig *virtconfig.ClusterConfig, spec *v1.Vir
 
 }
 
-func setDefaultPullPoliciesOnContainerDisks(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func setDefaultPullPoliciesOnContainerDisks(spec *v1.VirtualMachineInstanceSpec) {
 	for _, volume := range spec.Volumes {
 		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullPolicy == "" {
 			if strings.HasSuffix(volume.ContainerDisk.Image, ":latest") || !strings.ContainsAny(volume.ContainerDisk.Image, ":@") {
@@ -132,6 +133,29 @@ func setDefaultPullPoliciesOnContainerDisks(clusterConfig *virtconfig.ClusterCon
 			}
 		}
 	}
+}
+
+func setGuestMemory(spec *v1.VirtualMachineInstanceSpec) {
+	if spec.Domain.Memory != nil &&
+		spec.Domain.Memory.Guest != nil {
+		return
+	}
+
+	if spec.Domain.Memory == nil {
+		spec.Domain.Memory = &v1.Memory{}
+	}
+
+	switch {
+	case !spec.Domain.Resources.Requests.Memory().IsZero():
+		spec.Domain.Memory.Guest = spec.Domain.Resources.Requests.Memory()
+	case !spec.Domain.Resources.Limits.Memory().IsZero():
+		spec.Domain.Memory.Guest = spec.Domain.Resources.Limits.Memory()
+	case spec.Domain.Memory.Hugepages != nil:
+		if hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize); err == nil {
+			spec.Domain.Memory.Guest = &hugepagesSize
+		}
+	}
+
 }
 
 func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
@@ -161,6 +185,7 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 				memory = &hugepagesSize
 			}
 		}
+
 		if memory != nil && memory.Value() > 0 {
 			if resources.Requests == nil {
 				resources.Requests = k8sv1.ResourceList{}
@@ -176,6 +201,7 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 			log.Log.V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
 		}
 	}
+
 	if cpuRequest := clusterConfig.GetCPURequest(); !cpuRequest.Equal(resource.MustParse(virtconfig.DefaultCPURequest)) {
 		if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
 			if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {

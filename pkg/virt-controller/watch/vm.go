@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
@@ -1788,6 +1789,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		}
 	}
 
+	setGuestMemory(&vmi.Spec)
 	c.setupHotplug(vmi, VMIDefaults)
 
 	return vmi
@@ -1890,17 +1892,25 @@ func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, VMIDe
 }
 
 func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vmi.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory.Guest == nil {
+	if vmi.Spec.Domain.Memory.MaxGuest != nil {
 		return
 	}
 
-	if vmi.Spec.Domain.Memory.MaxGuest == nil {
-		vmi.Spec.Domain.Memory.MaxGuest = c.clusterConfig.GetMaximumGuestMemory()
+	var maxGuest *resource.Quantity
+	switch {
+	case c.clusterConfig.GetMaximumGuestMemory() != nil:
+		maxGuest = c.clusterConfig.GetMaximumGuestMemory()
+	case vmi.Spec.Domain.Memory.Guest != nil:
+		maxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(maxRatio), resource.BinarySI)
 	}
 
-	if vmi.Spec.Domain.Memory.MaxGuest == nil {
-		vmi.Spec.Domain.Memory.MaxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(maxRatio), resource.BinarySI)
+	if err := memory.ValidateLiveUpdateMemory(&vmi.Spec, maxGuest); err != nil {
+		// memory hotplug is not compatible with this VM configuration
+		log.Log.V(2).Object(vmi).Infof("memory-hotplug disabled: %s", err)
+		return
 	}
+
+	vmi.Spec.Domain.Memory.MaxGuest = maxGuest
 }
 
 // filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state
@@ -3006,7 +3016,11 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 		if lastSeenVMSpec.Template.Spec.Domain.CPU != nil && vm.Spec.Template.Spec.Domain.CPU != nil {
 			lastSeenVMSpec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets
 		}
-		if lastSeenVMSpec.Template.Spec.Domain.Memory != nil && vm.Spec.Template.Spec.Domain.Memory != nil {
+
+		if vm.Spec.Template.Spec.Domain.Memory != nil && vm.Spec.Template.Spec.Domain.Memory.Guest != nil {
+			if lastSeenVMSpec.Template.Spec.Domain.Memory == nil {
+				lastSeenVMSpec.Template.Spec.Domain.Memory = &virtv1.Memory{}
+			}
 			lastSeenVMSpec.Template.Spec.Domain.Memory.Guest = vm.Spec.Template.Spec.Domain.Memory.Guest
 		}
 		lastSeenVMSpec.Template.Spec.NodeSelector = vm.Spec.Template.Spec.NodeSelector
@@ -3263,17 +3277,40 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 	if vm.Spec.Template.Spec.Domain.Memory == nil ||
 		vm.Spec.Template.Spec.Domain.Memory.Guest == nil ||
 		vmi.Spec.Domain.Memory == nil ||
-		vmi.Spec.Domain.Memory.Guest == nil {
-		return nil
-	}
-
-	if vmi.Status.Memory == nil ||
-		vmi.Status.Memory.GuestCurrent == nil ||
-		vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
+		vmi.Spec.Domain.Memory.Guest == nil ||
+		vmi.Status.Memory == nil ||
+		vmi.Status.Memory.GuestCurrent == nil {
 		return nil
 	}
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+
+	if conditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionFalse) {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: metav1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "memory updated in template spec. Memory-hotplug failed and is not available for this VM configuration",
+		})
+		return nil
+	}
+
+	if vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
+		return nil
+	}
+
+	if vmi.Spec.Domain.Memory.MaxGuest == nil {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: metav1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "memory updated in template spec. Memory-hotplug is not available for this VM configuration",
+		})
+		return nil
+	}
+
 	if conditionManager.HasConditionWithStatus(vmi,
 		virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionTrue) {
 		return fmt.Errorf("another memory hotplug is in progress")
@@ -3281,6 +3318,17 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 
 	if migrations.IsMigrating(vmi) {
 		return fmt.Errorf("memory hotplug is not allowed while VMI is migrating")
+	}
+
+	if err := memory.ValidateLiveUpdateMemory(&vm.Spec.Template.Spec, vmi.Spec.Domain.Memory.MaxGuest); err != nil {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: metav1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            fmt.Sprintf("memory hotplug not supported, %s", err.Error()),
+		})
+		return nil
 	}
 
 	if vm.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Status.Memory.GuestAtBoot != nil &&
@@ -3387,6 +3435,29 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
 
 	return err
+}
+
+func setGuestMemory(spec *virtv1.VirtualMachineInstanceSpec) {
+	if spec.Domain.Memory != nil &&
+		spec.Domain.Memory.Guest != nil {
+		return
+	}
+
+	switch {
+	case !spec.Domain.Resources.Requests.Memory().IsZero():
+		spec.Domain.Memory = &virtv1.Memory{
+			Guest: spec.Domain.Resources.Requests.Memory(),
+		}
+	case !spec.Domain.Resources.Limits.Memory().IsZero():
+		spec.Domain.Memory = &virtv1.Memory{
+			Guest: spec.Domain.Resources.Limits.Memory(),
+		}
+	case spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil:
+		if hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize); err == nil {
+			spec.Domain.Memory.Guest = &hugepagesSize
+		}
+	}
+
 }
 
 func (c *VMController) setupHotplug(vmi, VMIDefaults *virtv1.VirtualMachineInstance) {

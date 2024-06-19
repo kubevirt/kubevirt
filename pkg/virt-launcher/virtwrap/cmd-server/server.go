@@ -727,6 +727,12 @@ func (l *Launcher) SyncVirtualMachineMemory(_ context.Context, request *cmdv1.VM
 		return response, nil
 	}
 
+	if _, exists := vmi.Annotations[v1.FuncTestMemoryHotplugFailAnnotation]; exists {
+		response.Success = false
+		response.Message = v1.FuncTestMemoryHotplugFailAnnotation
+		return response, nil
+	}
+
 	if err := l.domainManager.UpdateGuestMemory(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed update VMI guest memory")
 		response.Success = false

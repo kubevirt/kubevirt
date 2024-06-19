@@ -43,6 +43,7 @@ import (
 
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 
@@ -269,29 +270,42 @@ func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance)
 	}
 	defer dom.Free()
 
-	requestedHotPlugMemory := vmi.Spec.Domain.Memory.Guest.DeepCopy()
-	requestedHotPlugMemory.Sub(*vmi.Status.Memory.GuestAtBoot)
-	pluggableMemoryRequested, err := vcpu.QuantityToByte(requestedHotPlugMemory)
+	memoryDevice, err := memory.BuildMemoryDevice(vmi)
 	if err != nil {
 		return err
 	}
 
 	spec, err := getDomainSpec(dom)
 	if err != nil {
-		return fmt.Errorf("%s: %v", errMsgPrefix, "Parsing domain XML failed.")
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
-	spec.Devices.Memory.Target.Requested = pluggableMemoryRequested
-	memoryDevice, err := xml.Marshal(spec.Devices.Memory)
-	if err != nil {
-		log.Log.Reason(err).Error("marshalling target virtio-mem failed")
-		return err
-	}
+	if spec.Devices.Memory != nil {
+		spec.Devices.Memory.Target.Requested = memoryDevice.Target.Requested
 
-	err = dom.UpdateDeviceFlags(strings.ToLower(string(memoryDevice)), libvirt.DOMAIN_DEVICE_MODIFY_LIVE)
-	if err != nil {
-		log.Log.Reason(err).Error("updating device")
-		return err
+		memoryDeviceXML, err := xml.Marshal(spec.Devices.Memory)
+		if err != nil {
+			log.Log.Reason(err).Error("marshalling target virtio-mem failed")
+			return err
+		}
+
+		err = dom.UpdateDeviceFlags(strings.ToLower(string(memoryDeviceXML)), libvirt.DOMAIN_DEVICE_MODIFY_LIVE)
+		if err != nil {
+			log.Log.Reason(err).Error("updating virtio-mem device")
+			return err
+		}
+	} else {
+		memoryDeviceXML, err := xml.Marshal(memoryDevice)
+		if err != nil {
+			log.Log.Reason(err).Error("marshalling target virtio-mem failed")
+			return err
+		}
+
+		err = dom.AttachDeviceFlags(strings.ToLower(string(memoryDeviceXML)), affectDeviceLiveAndConfigLibvirtFlags)
+		if err != nil {
+			log.Log.Reason(err).Error("attaching virtio-mem device")
+			return err
+		}
 	}
 
 	log.Log.V(2).Infof("hotplugging guest memory to %v", vmi.Spec.Domain.Memory.Guest.Value())

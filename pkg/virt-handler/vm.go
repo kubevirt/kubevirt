@@ -157,6 +157,9 @@ const (
 	VMIGracefulShutdown = "Signaled Graceful Shutdown"
 	//VMISignalDeletion is the reason set when the VMI has signal deletion
 	VMISignalDeletion = "Signaled Deletion"
+
+	// MemoryHotplugFailedReason is the reason set when the VM cannot hotplug memory
+	memoryHotplugFailedReason = "Memory Hotplug Failed"
 )
 
 var RequiredGuestAgentCommands = []string{
@@ -3565,12 +3568,11 @@ func (d *VirtualMachineController) hotplugCPU(vmi *v1.VirtualMachineInstance, cl
 func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 
-	removeVMIMemoryChangeConditionAndLabel := func() {
+	removeVMIMemoryChangeLabel := func() {
 		delete(vmi.Labels, v1.VirtualMachinePodMemoryRequestsLabel)
 		delete(vmi.Labels, v1.MemoryHotplugOverheadRatioLabel)
-		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
 	}
-	defer removeVMIMemoryChangeConditionAndLabel()
+	defer removeVMIMemoryChangeLabel()
 
 	if !vmiConditions.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange) {
 		return nil
@@ -3579,6 +3581,7 @@ func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 	podMemReqStr := vmi.Labels[v1.VirtualMachinePodMemoryRequestsLabel]
 	podMemReq, err := resource.ParseQuantity(podMemReqStr)
 	if err != nil {
+		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
 		return fmt.Errorf("cannot parse Memory requests from VMI label: %v", err)
 	}
 
@@ -3587,15 +3590,24 @@ func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 
 	if podMemReq.Cmp(requiredMemory) < 0 {
+		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
 		return fmt.Errorf("amount of requested guest memory (%s) exceeds the launcher memory request (%s)", vmi.Spec.Domain.Memory.Guest.String(), podMemReqStr)
 	}
 
 	options := virtualMachineOptions(nil, 0, nil, d.capabilities, nil, d.clusterConfig)
 
 	if err := client.SyncVirtualMachineMemory(vmi, options); err != nil {
+		// mark hotplug as failed
+		vmiConditions.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceMemoryChange,
+			Status:  k8sv1.ConditionFalse,
+			Reason:  memoryHotplugFailedReason,
+			Message: "memory hotplug failed, the VM configuration is not supported",
+		})
 		return err
 	}
 
+	vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
 	vmi.Status.Memory.GuestRequested = vmi.Spec.Domain.Memory.Guest
 	return nil
 }

@@ -32,7 +32,9 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -64,6 +66,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -1350,13 +1353,12 @@ var _ = Describe("Manager", func() {
 			var vmi *v1.VirtualMachineInstance
 			var manager *LibvirtDomainManager
 			var domainSpec *api.DomainSpec
-			var pluggableMemorySize api.Memory
 
 			BeforeEach(func() {
 				vmi = newVMI(testNamespace, testVmName)
 
-				guestMemory := resource.MustParse("32Mi")
-				maxGuestMemory := resource.MustParse("128Mi")
+				guestMemory := resource.MustParse("128Mi")
+				maxGuestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest:    &maxGuestMemory,
 					MaxGuest: &maxGuestMemory,
@@ -1372,40 +1374,81 @@ var _ = Describe("Manager", func() {
 					virtShareDir:  testVirtShareDir,
 					metadataCache: metadataCache,
 				}
+			})
 
-				pluggableMemorySize = api.Memory{
-					Unit:  "b",
-					Value: uint64(maxGuestMemory.Value() - guestMemory.Value()),
-				}
+			It("should attach a virtio-mem device when memory hotplug has been requested", func() {
+				mockConn.EXPECT().LookupDomainByName(api.VMINamespaceKeyFunc(vmi)).Return(mockDomain, nil)
+
+				domainSpec = &api.DomainSpec{Devices: api.Devices{}}
+				domainSpecXML, err := xml.Marshal(domainSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(domainSpecXML), nil)
+
+				memoryDevice, err := memory.BuildMemoryDevice(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				memoryDeviceXML, err := xml.Marshal(memoryDevice)
+				Expect(err).ToNot(HaveOccurred())
+
+				attachFlags := libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
+				mockDomain.EXPECT().AttachDeviceFlags(strings.ToLower(string(memoryDeviceXML)), attachFlags).Return(nil)
+
+				mockDomain.EXPECT().Free()
+
+				err = manager.UpdateGuestMemory(vmi)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should update the virtio-mem device if it already exists", func() {
+				mockConn.EXPECT().LookupDomainByName(api.VMINamespaceKeyFunc(vmi)).Return(mockDomain, nil)
+
+				size, err := vcpu.QuantityToByte(resource.MustParse("128Mi"))
+				Expect(err).ToNot(HaveOccurred())
+				requested, err := vcpu.QuantityToByte(resource.MustParse("64Mi"))
+				Expect(err).ToNot(HaveOccurred())
+				block, err := vcpu.QuantityToByte(resource.MustParse("2Mi"))
+				Expect(err).ToNot(HaveOccurred())
 
 				domainSpec = &api.DomainSpec{
 					Devices: api.Devices{
 						Memory: &api.MemoryDevice{
 							Model: "virtio-mem",
+							Alias: api.NewUserDefinedAlias("virtio-mem"),
+							Address: &api.Address{
+								Type:     "pci",
+								Domain:   "0x0000",
+								Bus:      "0x02",
+								Slot:     "0x00",
+								Function: "0x0",
+							},
 							Target: &api.MemoryTarget{
-								Size: pluggableMemorySize,
-								Node: "0",
-								Block: api.Memory{
-									Unit:  "b",
-									Value: 2048,
-								},
+								Node:      "0",
+								Address:   &api.MemoryAddress{Base: "0x100000000"},
+								Size:      size,
+								Requested: requested,
+								Block:     block,
 							},
 						},
 					},
 				}
-			})
-
-			It("should hotplug memory when requested", func() {
-				mockConn.EXPECT().LookupDomainByName(api.VMINamespaceKeyFunc(vmi)).Return(mockDomain, nil)
-
 				domainSpecXML, err := xml.Marshal(domainSpec)
 				Expect(err).ToNot(HaveOccurred())
+
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(domainSpecXML), nil)
 
-				domainSpec.Devices.Memory.Target.Requested = pluggableMemorySize
-				updateXML, err := xml.Marshal(domainSpec.Devices.Memory)
+				// hotplug to MaxGuest
+				vmi.Spec.Domain.Memory.Guest = virtpointer.P(resource.MustParse("256Mi"))
+
+				memoryDevice, err := memory.BuildMemoryDevice(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				mockDomain.EXPECT().UpdateDeviceFlags(strings.ToLower(string(updateXML)), libvirt.DOMAIN_DEVICE_MODIFY_LIVE).Return(nil)
+
+				domainSpec.Devices.Memory.Target.Requested = memoryDevice.Target.Requested
+
+				memoryDeviceXML, err := xml.Marshal(domainSpec.Devices.Memory)
+				Expect(err).ToNot(HaveOccurred())
+
+				attachFlags := libvirt.DOMAIN_DEVICE_MODIFY_LIVE
+				mockDomain.EXPECT().UpdateDeviceFlags(strings.ToLower(string(memoryDeviceXML)), attachFlags).Return(nil)
 
 				mockDomain.EXPECT().Free()
 
