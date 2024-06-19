@@ -30,35 +30,35 @@ def _impl(ctx):
     tool_paths = [
         tool_path(
             name = "ar",
-            path = "/usr/bin/aarch64-linux-gnu-ar",
+            path = "/usr/bin/s390x-linux-gnu-ar",
         ),
         tool_path(
             name = "cpp",
-            path = "/usr/bin/aarch64-linux-gnu-cpp",
+            path = "/usr/bin/s390x-linux-gnu-cpp",
         ),
         tool_path(
             name = "gcc",
-            path = "/usr/bin/aarch64-linux-gnu-gcc",
+            path = "/usr/bin/s390x-linux-gnu-gcc",
         ),
         tool_path(
             name = "gcov",
-            path = "/usr/bin/aarch64-linux-gnu-gcov",
+            path = "/usr/bin/s390x-linux-gnu-gcov",
         ),
         tool_path(
             name = "ld",
-            path = "/usr/bin/aarch64-linux-gnu-ld",
+            path = "/usr/bin/s390x-linux-gnu-ld",
         ),
         tool_path(
             name = "nm",
-            path = "/usr/bin/aarch64-linux-gnu-nm",
+            path = "/usr/bin/s390x-linux-gnu-nm",
         ),
         tool_path(
             name = "objdump",
-            path = "/usr/bin/aarch64-linux-gnu-objdump",
+            path = "/usr/bin/s390x-linux-gnu-objdump",
         ),
         tool_path(
             name = "strip",
-            path = "/usr/bin/aarch64-linux-gnu-strip",
+            path = "/usr/bin/s390x-linux-gnu-strip",
         ),
     ]
 
@@ -86,9 +86,9 @@ def _impl(ctx):
                             "-D__TIME__=\"redacted\"",
                             "-D__TOOLCHAIN_SYSROOT__=\"centos-stream-9\"",
                             "-nostdinc",
-                            "-I/usr/aarch64-linux-gnu/sys-root/usr/include",
-                            "-I/usr/lib/gcc/aarch64-linux-gnu/12/include",
-                            "-I/usr/lib/gcc/aarch64-linux-gnu/12/include-fixed",
+                            "-I/usr/s390x-linux-gnu/sys-root/usr/include",
+                            "-I/usr/lib/gcc/s390x-linux-gnu/12/include",
+                            "-I/usr/lib/gcc/s390x-linux-gnu/12/include-fixed",
                         ],
                     ),
                 ],
@@ -121,12 +121,12 @@ def _impl(ctx):
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
         cxx_builtin_include_directories = [
-            "/usr/aarch64-linux-gnu/sys-root/usr/include",
-            "/usr/lib/gcc/aarch64-linux-gnu/12/include",
-            "/usr/lib/gcc/aarch64-linux-gnu/12/include-fixed",
+            "/usr/s390x-linux-gnu/sys-root/usr/include",
+            "/usr/lib/gcc/s390x-linux-gnu/12/include",
+            "/usr/lib/gcc/s390x-linux-gnu/12/include-fixed",
         ],
         features = features,
-        toolchain_identifier = "aarch64-toolchain",
+        toolchain_identifier = "s390x-toolchain",
         host_system_name = "local",
         target_system_name = "unknown",
         target_cpu = "unknown",

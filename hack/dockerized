@@ -12,7 +12,24 @@ fi
 
 fail_if_cri_bin_missing
 
-KUBEVIRT_BUILDER_IMAGE=${KUBEVIRT_BUILDER_IMAGE:-"quay.io/kubevirt/builder:2405211226-1c571a3c4"}
+kubevirt_builder_version="2406170946-2735000ca"
+default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
+kubevirt_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_builder_version}"
+
+KUBEVIRT_BUILDER_IMAGE=${KUBEVIRT_BUILDER_IMAGE:-"${default_kubevirt_builder_image}"}
+
+# As long as KUBEVIRT_BUILDER_IMAGE is using the default builder, check if cross-compilation is needed and
+# switch to bigger cross-compile image instead.
+# Should KUBEVIRT_BUILDER_IMAGE be modified by the user, do not change it. It is assumed that the user knows
+# what they are doing.
+if [ "${KUBEVIRT_BUILDER_IMAGE}" == "${default_kubevirt_builder_image}" ] && [ -n "${BUILD_ARCH}" ]; then
+    for arch in ${BUILD_ARCH//,/ }; do
+        arch=$(format_archname "${arch}")
+        if [[ ${arch} =~ ^cross-* ]]; then
+            KUBEVIRT_BUILDER_IMAGE="${kubevirt_cross_compile_image}"
+        fi
+    done
+fi
 
 SYNC_OUT=${SYNC_OUT:-true}
 
