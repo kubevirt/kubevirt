@@ -107,8 +107,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, readinessProbe, 1500)
 			} else {
 				By(specifyingVMReadinessProbe)
-				vmi = libvmifact.NewFedora(
-					withMasqueradeNetworkingAndFurtherUserConfig(withReadinessProbe(readinessProbe))...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(readinessProbe))
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
@@ -130,10 +129,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			)
 
 			BeforeEach(func() {
-				vmi = libvmifact.NewFedora(
-					withMasqueradeNetworkingAndFurtherUserConfig(
-						withReadinessProbe(
-							createGuestAgentPingProbe(period, initialSeconds)))...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -208,9 +204,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, livenessProbe, 1500)
 			} else {
 				By(specifyingVMLivenessProbe)
-				vmi = libvmifact.NewFedora(
-					withMasqueradeNetworkingAndFurtherUserConfig(
-						withLivelinessProbe(livenessProbe))...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(livenessProbe))
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
@@ -233,9 +227,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		Context("guest agent ping", func() {
 			BeforeEach(func() {
-				vmi = libvmifact.NewFedora(withMasqueradeNetworkingAndFurtherUserConfig(
-					withLivelinessProbe(createGuestAgentPingProbe(period, initialSeconds)),
-				)...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
@@ -295,15 +287,12 @@ func guestAgentOperation(vmi *v1.VirtualMachineInstance, startStopOperation stri
 }
 
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmifact.NewAlpineWithTestTooling(
-		withMasqueradeNetworkingAndFurtherUserConfig(withReadinessProbe(probe))...)
-
+	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), withReadinessProbe(probe))
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
 func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmifact.NewAlpineWithTestTooling(
-		withMasqueradeNetworkingAndFurtherUserConfig(withLivelinessProbe(probe))...)
+	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), withLivelinessProbe(probe))
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
@@ -373,10 +362,6 @@ func pointIpv6ProbeToSupportPod(pod *corev1.Pod, probe *v1.Probe) (*v1.Probe, er
 	}
 
 	return patchProbeWithIPAddr(probe, supportPodIP), nil
-}
-
-func withMasqueradeNetworkingAndFurtherUserConfig(opts ...libvmi.Option) []libvmi.Option {
-	return append([]libvmi.Option{libnet.WithMasqueradeNetworking()}, opts...)
 }
 
 func withReadinessProbe(probe *v1.Probe) libvmi.Option {
