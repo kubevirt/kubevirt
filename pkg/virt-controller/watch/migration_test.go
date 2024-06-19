@@ -552,11 +552,12 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		Context("Memory", func() {
-			It("should label VMI with target pod memory requests", func() {
-				guestMemory := resource.MustParse("128Mi")
+			DescribeTable("should label VMI with target pod memory requests", func(hugepages *virtv1.Hugepages, expectedRequests string) {
+				guestMemory := resource.MustParse("1Gi")
 				vmi.Spec.Domain = virtv1.DomainSpec{
 					Memory: &virtv1.Memory{
-						Guest: &guestMemory,
+						Guest:     &guestMemory,
+						Hugepages: hugepages,
 					},
 				}
 
@@ -578,6 +579,11 @@ var _ = Describe("Migration watcher", func() {
 					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
 				}}
 
+				if hugepages != nil {
+					resourceName := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepages.PageSize)
+					targetPod.Spec.Containers[0].Resources.Requests[resourceName] = guestMemory
+				}
+
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
 				addPod(sourcePod)
@@ -593,8 +599,15 @@ var _ = Describe("Migration watcher", func() {
 					"MigrationUID": Equal(types.UID("testmigration")),
 				})))
 				expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig())
-				expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"), HaveKeyWithValue(virtv1.VirtualMachinePodMemoryRequestsLabel, "150Mi"))
-			})
+				expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name,
+					HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"),
+					HaveKeyWithValue(virtv1.VirtualMachinePodMemoryRequestsLabel, expectedRequests),
+				)
+			},
+				Entry("when using a common VM", nil, "150Mi"),
+				Entry("when using 2Mi Hugepages", &virtv1.Hugepages{PageSize: "2Mi"}, "1174Mi"),
+				Entry("when using 1Gi Hugepages", &virtv1.Hugepages{PageSize: "1Gi"}, "1174Mi"),
+			)
 
 			It("should mark migration as succeeded if memory hotplug failed", func() {
 				vmi.Status.Conditions = append(vmi.Status.Conditions,
