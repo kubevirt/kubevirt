@@ -82,12 +82,23 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"machine":                       "Machine shows the final resulting qemu machine type. This can be different\nthan the machine type selected in the spec, due to qemus machine type alias mechanism.\n+optional",
 		"currentCPUTopology":            "CurrentCPUTopology specifies the current CPU topology used by the VM workload.\nCurrent topology may differ from the desired topology in the spec while CPU hotplug\ntakes place.",
 		"memory":                        "Memory shows various informations about the VirtualMachine memory.\n+optional",
+		"migratedVolumes":               "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
+	}
+}
+
+func (StorageMigratedVolumeInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                   "StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration",
+		"volumeName":         "VolumeName is the name of the volume that is being migrated",
+		"sourcePVCInfo":      "SourcePVCInfo contains the information about the source PVC",
+		"destinationPVCInfo": "DestinationPVCInfo contains the information about the destination PVC",
 	}
 }
 
 func (PersistentVolumeClaimInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
+		"claimName":          "ClaimName is the name of the PVC",
 		"accessModes":        "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+listType=atomic\n+optional",
 		"volumeMode":         "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
 		"capacity":           "Capacity represents the capacity set on the corresponding PVC status\n+optional",
