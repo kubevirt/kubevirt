@@ -735,6 +735,18 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		return nil
 	}
 
+	networkInterfaceMultiQueue := vmCopyWithInstancetype.Spec.Template.Spec.Domain.Devices.NetworkInterfaceMultiQueue
+	if networkInterfaceMultiQueue != nil && *networkInterfaceMultiQueue {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: metav1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "Changes to CPU sockets require a restart when NetworkInterfaceMultiQueue is enabled",
+		})
+		return nil
+	}
+
 	if err := c.VMICPUsPatch(vmCopyWithInstancetype, vmi); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi to add cpu topology status: %v", err)
 		return err
