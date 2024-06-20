@@ -442,6 +442,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachineinstances", "sev/injectlaunchsecret",
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("default")),
+			Entry("on vmi usbredir",
+				"virtualmachineinstances", "usbredir",
+				allowGetFor("admin", "edit"),
+				denyAllFor("view", "default")),
 		)
 	})
 })
