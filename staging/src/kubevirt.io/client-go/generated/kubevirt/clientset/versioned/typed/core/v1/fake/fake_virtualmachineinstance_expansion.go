@@ -27,7 +27,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
-	fake2 "kubevirt.io/client-go/kubecli/fake"
+	fake2 "kubevirt.io/client-go/testing"
 )
 
 func (c *FakeVirtualMachineInstances) SerialConsole(name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {

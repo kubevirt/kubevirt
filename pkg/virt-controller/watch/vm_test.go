@@ -36,8 +36,8 @@ import (
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	instancetypeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
-	kubeclifake "kubevirt.io/client-go/kubecli/fake"
 	"kubevirt.io/client-go/log"
+	kvtesting "kubevirt.io/client-go/testing"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -402,7 +402,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVolumeReactor := func(virtFakeClient *fake.Clientset) {
 				virtFakeClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 					switch action := action.(type) {
-					case kubeclifake.PutAction[*v1.AddVolumeOptions]:
+					case kvtesting.PutAction[*v1.AddVolumeOptions]:
 						obj, err := virtFakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), action.GetName())
 						Expect(err).NotTo(HaveOccurred())
 						vmi := obj.(*v1.VirtualMachineInstance)
@@ -424,7 +424,7 @@ var _ = Describe("VirtualMachine", func() {
 			removeVolumeReactor := func(virtFakeClient *fake.Clientset) {
 				virtFakeClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 					switch action := action.(type) {
-					case kubeclifake.PutAction[*v1.RemoveVolumeOptions]:
+					case kvtesting.PutAction[*v1.RemoveVolumeOptions]:
 						obj, err := virtFakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), action.GetName())
 						Expect(err).NotTo(HaveOccurred())
 						vmi := obj.(*v1.VirtualMachineInstance)
@@ -446,7 +446,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVolumeFailureReactor := func(virtFakeClient *fake.Clientset) {
 				virtFakeClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 					switch action := action.(type) {
-					case kubeclifake.PutAction[*v1.AddVolumeOptions]:
+					case kvtesting.PutAction[*v1.AddVolumeOptions]:
 						_, err := virtFakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), action.GetName())
 						Expect(err).NotTo(HaveOccurred())
 						return true, nil, fmt.Errorf("conflict")
@@ -460,7 +460,7 @@ var _ = Describe("VirtualMachine", func() {
 			removeVolumeFailureReactor := func(virtFakeClient *fake.Clientset) {
 				virtFakeClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 					switch action := action.(type) {
-					case kubeclifake.PutAction[*v1.RemoveVolumeOptions]:
+					case kvtesting.PutAction[*v1.RemoveVolumeOptions]:
 						_, err := virtFakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), action.GetName())
 						Expect(err).NotTo(HaveOccurred())
 						return true, nil, fmt.Errorf("conflict")

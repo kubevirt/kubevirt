@@ -28,7 +28,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	kubevirtv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
-	fake2 "kubevirt.io/client-go/kubecli/fake"
+	fake2 "kubevirt.io/client-go/testing"
 )
 
 func (c *FakeVirtualMachines) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error) {

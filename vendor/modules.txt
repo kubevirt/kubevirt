@@ -1284,11 +1284,11 @@ kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/scheme
 kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1
 kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1/fake
 kubevirt.io/client-go/kubecli
-kubevirt.io/client-go/kubecli/fake
 kubevirt.io/client-go/log
 kubevirt.io/client-go/precond
 kubevirt.io/client-go/reporter
 kubevirt.io/client-go/subresources
+kubevirt.io/client-go/testing
 kubevirt.io/client-go/testutils
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
