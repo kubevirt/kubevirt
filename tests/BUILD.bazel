@@ -165,7 +165,6 @@ go_test(
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virtctl/pause:go_default_library",
         "//pkg/virtctl/softreboot:go_default_library",
-        "//pkg/virtctl/usbredir:go_default_library",
         "//pkg/virtctl/vm:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
@@ -272,5 +271,43 @@ go_test(
         "//vendor/k8s.io/utils/ptr:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
         "//vendor/kubevirt.io/qe-tools/pkg/ginkgo-reporters:go_default_library",
-    ],
+    ] + select({
+        "@io_bazel_rules_go//go/platform:386": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:amd64": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:arm": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:arm64": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mips": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mips64": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mips64le": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mipsle": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ppc64": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ppc64le": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:riscv64": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:wasm": [
+            "//pkg/virtctl/usbredir:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
 )
