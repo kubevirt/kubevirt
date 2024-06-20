@@ -22,7 +22,6 @@ package accesscredentials
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,16 +29,12 @@ import (
 	"sync"
 	"time"
 
-	"libvirt.org/go/libvirt"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
-
 	"github.com/fsnotify/fsnotify"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -320,12 +315,24 @@ func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName string, user st
 		// Zero flags argument means that the authorized_keys file is overwritten with the authorizedKeys
 		return domain.AuthorizedSSHKeysSet(user, authorizedKeys, 0)
 	}()
-	if errors.Is(err, libvirt.ERR_NO_SUPPORT) {
-		// If AuthorizedSSHKeysSet method is not supported, use the old method
-		desiredAuthorizedKeys := strings.Join(authorizedKeys, "\n")
-		return l.agentWriteAuthorizedKeysFile(domName, user, desiredAuthorizedKeys)
+	if err == nil {
+		return nil
 	}
-	return err
+
+	log.Log.V(4).Infof("Could not set SSH key using guest-ssh-add-authorized-keys: %v", err)
+
+	// If AuthorizedSSHKeysSet method failed, use the old method
+	desiredAuthorizedKeys := strings.Join(authorizedKeys, "\n")
+	secondErr := l.agentWriteAuthorizedKeysFile(domName, user, desiredAuthorizedKeys)
+	if secondErr == nil {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"failed to set SSH keys: error from guest-ssh-add-authorized-keys: %v; error from using guest-file-write: %v",
+		err,
+		secondErr,
+	)
 }
 
 func (l *AccessCredentialManager) agentWriteAuthorizedKeysFile(domName string, user string, desiredAuthorizedKeys string) (err error) {
