@@ -1555,6 +1555,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
 	}
 
+	setIOThreadSCSIController := false
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
@@ -1605,7 +1606,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 			// We can find a workaround by adding IOThreads to the SCSI controller
 			case v1.DiskBusSCSI:
-				newDisk.Driver.IO = v1.IOThreads
+				setIOThreadSCSIController = true
 
 			default:
 				// TODO: if possible, find a workaround for SATA and USB buses.
@@ -1679,7 +1680,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if needsSCSIController(vmi) {
 		scsiController := newArchConverter(c.Architecture).scsiController(c, controllerDriver)
-		if useIOThreads {
+		if setIOThreadSCSIController {
 			if scsiController.Driver == nil {
 				scsiController.Driver = &api.ControllerDriver{}
 			}

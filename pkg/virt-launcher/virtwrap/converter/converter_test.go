@@ -1093,6 +1093,28 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB), "Expect usb bus")
 		})
 
+		It("should not overwrite the IO policy when when IO threads are enabled", func() {
+			ioPolicy := v1.IONative
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Volumes[0] = v1.Volume{
+				Name: "disk",
+				VolumeSource: v1.VolumeSource{
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Disks[0] = v1.Disk{
+				Name:              "disk",
+				DedicatedIOThread: kubevirtpointer.P(true),
+				IO:                ioPolicy,
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Disks[0].Driver.IO).To(Equal(ioPolicy))
+		})
+
 		It("should not enable sound cards emulation by default", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Sound = nil
