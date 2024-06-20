@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 )
@@ -910,7 +911,7 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vmi deletion", vm.Namespace, vm.Name)
 				c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
 			case proactiveUpdateTypePatchRevisionLabel:
-				var patchOps []string
+				patchSet := patch.New()
 				vmiCopy := vmi.DeepCopy()
 				if vmiCopy.Labels == nil {
 					vmiCopy.Labels = make(map[string]string)
@@ -922,25 +923,20 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 				}
 				vmiCopy.Labels[virtv1.VirtualMachinePoolRevisionName] = revisionName
 
-				newLabelBytes, err := json.Marshal(vmiCopy.Labels)
-				if err != nil {
-					errChan <- err
-					return
-				}
-				oldLabelBytes, err := json.Marshal(vmi.Labels)
-				if err != nil {
-					errChan <- err
-					return
-				}
-
 				if vmi.Labels == nil {
-					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
+					patchSet.AddOption(patch.WithAdd("/metadata/labels", vmi.Labels))
 				} else {
-					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s }`, string(oldLabelBytes)))
-					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
+					patchSet.AddOption(
+						patch.WithTest("/metadata/labels", vmiCopy.Labels),
+						patch.WithReplace("/metadata/labels", vmi.Labels),
+					)
 				}
 
-				patchBytes := controller.GeneratePatchBytes(patchOps)
+				patchBytes, err := patchSet.GeneratePayload()
+				if err != nil {
+					errChan <- err
+					return
+				}
 
 				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 				if err != nil {

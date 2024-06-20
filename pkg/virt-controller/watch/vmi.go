@@ -20,7 +20,6 @@ package watch
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -346,7 +345,7 @@ func (c *VMIController) execute(key string) error {
 
 // These "dynamic" labels are Pod labels which may diverge from the VMI over time that we want to keep in sync.
 func (c *VMIController) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	var patchOps []string
+	patchSet := patch.New()
 
 	dynamicLabels := []string{
 		virtv1.NodeNameLabel,
@@ -378,25 +377,22 @@ func (c *VMIController) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstanc
 		return nil
 	}
 
-	newLabelBytes, err := json.Marshal(podMeta.Labels)
+	if pod.ObjectMeta.Labels == nil {
+		patchSet.AddOption(patch.WithAdd("/metadata/labels", podMeta.Labels))
+	} else {
+		patchSet.AddOption(
+			patch.WithTest("/metadata/labels", pod.ObjectMeta.Labels),
+			patch.WithReplace("/metadata/labels", podMeta.Labels),
+		)
+	}
+
+	if patchSet.IsEmpty() {
+		return nil
+	}
+
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
 		return err
-	}
-	if pod.ObjectMeta.Labels == nil {
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
-	} else {
-		oldLabelBytes, err := json.Marshal(pod.ObjectMeta.Labels)
-		if err != nil {
-			return err
-		}
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s }`, string(oldLabelBytes)))
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
-	}
-
-	patchBytes := controller.GeneratePatchBytes(patchOps)
-
-	if len(patchBytes) == 0 {
-		return nil
 	}
 
 	if _, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
@@ -698,18 +694,20 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	// VMI is owned by virt-handler, so patch instead of update
 	if vmi.IsRunning() || vmi.IsScheduled() {
-		patchBytes, err := prepareVMIPatch(vmi, vmiCopy)
+		patchSet := prepareVMIPatch(vmi, vmiCopy)
+		if patchSet.IsEmpty() {
+			return nil
+		}
+		patchBytes, err := patchSet.GeneratePayload()
 		if err != nil {
 			return fmt.Errorf("error preparing VMI patch: %v", err)
 		}
 
-		if len(patchBytes) > 0 {
-			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
-			// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
-			// So just retry like with any other errors
-			if err != nil {
-				return fmt.Errorf("patching of vmi conditions and activePods failed: %v", err)
-			}
+		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+		// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
+		// So just retry like with any other errors
+		if err != nil {
+			return fmt.Errorf("patching of vmi conditions and activePods failed: %v", err)
 		}
 
 		return nil
@@ -739,140 +737,90 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	return nil
 }
 
-func preparePodPatch(oldPod, newPod *k8sv1.Pod) ([]byte, error) {
-	var patchOps []string
-
+func preparePodPatch(oldPod, newPod *k8sv1.Pod) *patch.PatchSet {
 	podConditions := controller.NewPodConditionManager()
-	if !podConditions.ConditionsEqual(oldPod, newPod) {
-
-		newConditions, err := json.Marshal(newPod.Status.Conditions)
-		if err != nil {
-			return nil, err
-		}
-		oldConditions, err := json.Marshal(oldPod.Status.Conditions)
-		if err != nil {
-			return nil, err
-		}
-
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/conditions", "value": %s }`, string(oldConditions)))
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/conditions", "value": %s }`, string(newConditions)))
+	if podConditions.ConditionsEqual(oldPod, newPod) {
+		return patch.New()
 	}
 
-	if len(patchOps) == 0 {
-		return nil, nil
-	}
-	return controller.GeneratePatchBytes(patchOps), nil
+	return patch.New(
+		patch.WithTest("/status/conditions", oldPod.Status.Conditions),
+		patch.WithReplace("/status/conditions", newPod.Status.Conditions),
+	)
 }
 
-func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error) {
-	var patchOps []string
+func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.PatchSet {
+	patchSet := patch.New()
 
 	if !equality.Semantic.DeepEqual(newVMI.Status.VolumeStatus, oldVMI.Status.VolumeStatus) {
 		// VolumeStatus changed which means either removed or added volumes.
-		newVolumeStatus, err := json.Marshal(newVMI.Status.VolumeStatus)
-		if err != nil {
-			return nil, err
-		}
-		oldVolumeStatus, err := json.Marshal(oldVMI.Status.VolumeStatus)
-		if err != nil {
-			return nil, err
-		}
-		if string(oldVolumeStatus) == "null" {
-			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/status/volumeStatus", "value": %s }`, string(newVolumeStatus)))
+		if oldVMI.Status.VolumeStatus == nil {
+			patchSet.AddOption(patch.WithAdd("/status/volumeStatus", newVMI.Status.VolumeStatus))
 		} else {
-			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/volumeStatus", "value": %s }`, string(oldVolumeStatus)))
-			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/volumeStatus", "value": %s }`, string(newVolumeStatus)))
+			patchSet.AddOption(
+				patch.WithTest("/status/volumeStatus", oldVMI.Status.VolumeStatus),
+				patch.WithReplace("/status/volumeStatus", newVMI.Status.VolumeStatus),
+			)
 		}
 		log.Log.V(3).Object(oldVMI).Infof("Patching Volume Status")
 	}
 	// We don't own the object anymore, so patch instead of update
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	if !vmiConditions.ConditionsEqual(oldVMI, newVMI) {
-
-		newConditions, err := json.Marshal(newVMI.Status.Conditions)
-		if err != nil {
-			return nil, err
-		}
-		oldConditions, err := json.Marshal(oldVMI.Status.Conditions)
-		if err != nil {
-			return nil, err
-		}
-
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/conditions", "value": %s }`, string(oldConditions)))
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/conditions", "value": %s }`, string(newConditions)))
-
+		patchSet.AddOption(
+			patch.WithTest("/status/conditions", oldVMI.Status.Conditions),
+			patch.WithReplace("/status/conditions", newVMI.Status.Conditions),
+		)
 		log.Log.V(3).Object(oldVMI).Infof("Patching VMI conditions")
 	}
 
 	if !equality.Semantic.DeepEqual(newVMI.Status.ActivePods, oldVMI.Status.ActivePods) {
-		newPods, err := json.Marshal(newVMI.Status.ActivePods)
-		if err != nil {
-			return nil, err
-		}
-		oldPods, err := json.Marshal(oldVMI.Status.ActivePods)
-		if err != nil {
-			return nil, err
-		}
-
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/activePods", "value": %s }`, string(oldPods)))
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/activePods", "value": %s }`, string(newPods)))
-
+		patchSet.AddOption(
+			patch.WithTest("/status/activePods", oldVMI.Status.ActivePods),
+			patch.WithReplace("/status/activePods", newVMI.Status.ActivePods),
+		)
 		log.Log.V(3).Object(oldVMI).Infof("Patching VMI activePods")
 	}
 
 	if newVMI.Status.Phase != oldVMI.Status.Phase {
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/phase", "value": "%s" }`, oldVMI.Status.Phase))
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/phase", "value": "%s" }`, newVMI.Status.Phase))
-
+		patchSet.AddOption(
+			patch.WithTest("/status/phase", oldVMI.Status.Phase),
+			patch.WithReplace("/status/phase", newVMI.Status.Phase),
+		)
 		log.Log.V(3).Object(oldVMI).Infof("Patching VMI phase")
 	}
 
 	if newVMI.Status.LauncherContainerImageVersion != oldVMI.Status.LauncherContainerImageVersion {
 		if oldVMI.Status.LauncherContainerImageVersion == "" {
-			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "%s" }`, newVMI.Status.LauncherContainerImageVersion))
+			patchSet.AddOption(patch.WithAdd("/status/launcherContainerImageVersion", newVMI.Status.LauncherContainerImageVersion))
 		} else {
-			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/launcherContainerImageVersion", "value": "%s" }`, oldVMI.Status.LauncherContainerImageVersion))
-			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/launcherContainerImageVersion", "value": "%s" }`, newVMI.Status.LauncherContainerImageVersion))
+			patchSet.AddOption(
+				patch.WithTest("/status/launcherContainerImageVersion", oldVMI.Status.LauncherContainerImageVersion),
+				patch.WithReplace("/status/launcherContainerImageVersion", newVMI.Status.LauncherContainerImageVersion),
+			)
 		}
 	}
 
 	if !equality.Semantic.DeepEqual(oldVMI.Labels, newVMI.Labels) {
-		newLabelBytes, err := json.Marshal(newVMI.Labels)
-		if err != nil {
-			return nil, err
-		}
-		oldLabelBytes, err := json.Marshal(oldVMI.Labels)
-		if err != nil {
-			return nil, err
-		}
-
 		if oldVMI.Labels == nil {
-			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
+			patchSet.AddOption(patch.WithAdd("/metadata/labels", newVMI.Labels))
 		} else {
-			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s }`, string(oldLabelBytes)))
-			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
-
+			patchSet.AddOption(
+				patch.WithTest("/metadata/labels", oldVMI.Labels),
+				patch.WithReplace("/metadata/labels", newVMI.Labels),
+			)
 		}
 	}
 
 	if !equality.Semantic.DeepEqual(newVMI.Status.Interfaces, oldVMI.Status.Interfaces) {
-		newInterfaceStatus, err := json.Marshal(newVMI.Status.Interfaces)
-		if err != nil {
-			return nil, err
-		}
-		oldInterfaceStatus, err := json.Marshal(oldVMI.Status.Interfaces)
-		if err != nil {
-			return nil, err
-		}
-		patchOps = append(patchOps, generateInterfaceStatusPatchRequest(oldInterfaceStatus, newInterfaceStatus)...)
+		patchSet.AddOption(
+			patch.WithTest("/status/interfaces", oldVMI.Status.Interfaces),
+			patch.WithAdd("/status/interfaces", newVMI.Status.Interfaces),
+		)
 		log.Log.V(3).Object(oldVMI).Infof("Patching Interface Status")
 	}
 
-	if len(patchOps) == 0 {
-		return nil, nil
-	}
-
-	return controller.GeneratePatchBytes(patchOps), nil
+	return patchSet
 }
 
 func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
@@ -963,22 +911,24 @@ func (c *VMIController) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInsta
 	}
 
 	// Patch pod
-	patchBytes, err := preparePodPatch(pod, podCopy)
+	patchSet := preparePodPatch(pod, podCopy)
+	if patchSet.IsEmpty() {
+		return nil
+	}
+
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
 		return fmt.Errorf("error preparing pod patch: %v", err)
 	}
+	log.Log.V(3).Object(pod).Infof("Patching pod conditions")
 
-	if len(patchBytes) > 0 {
-		log.Log.V(3).Object(pod).Infof("Patching pod conditions")
-
-		_, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.JSONPatchType, []byte(patchBytes), v1.PatchOptions{}, "status")
-		// We could not retry if the "test" fails but we have no sane way to detect that right now:
-		// https://github.com/kubernetes/kubernetes/issues/68202 for details
-		// So just retry like with any other errors
-		if err != nil {
-			log.Log.Object(pod).Errorf("Patching of pod conditions failed: %v", err)
-			return fmt.Errorf("patching of pod conditions failed: %v", err)
-		}
+	_, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}, "status")
+	// We could not retry if the "test" fails but we have no sane way to detect that right now:
+	// https://github.com/kubernetes/kubernetes/issues/68202 for details
+	// So just retry like with any other errors
+	if err != nil {
+		log.Log.Object(pod).Errorf("Patching of pod conditions failed: %v", err)
+		return fmt.Errorf("patching of pod conditions failed: %v", err)
 	}
 
 	return nil
@@ -2275,13 +2225,6 @@ func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance
 	}
 
 	return nil
-}
-
-func generateInterfaceStatusPatchRequest(oldInterfaceStatus []byte, newInterfaceStatus []byte) []string {
-	return []string{
-		fmt.Sprintf(`{ "op": "test", "path": "/status/interfaces", "value": %s }`, string(oldInterfaceStatus)),
-		fmt.Sprintf(`{ "op": "add", "path": "/status/interfaces", "value": %s }`, string(newInterfaceStatus)),
-	}
 }
 
 func (c *VMIController) syncHotplugCondition(vmi *virtv1.VirtualMachineInstance, conditionType virtv1.VirtualMachineInstanceConditionType) {
