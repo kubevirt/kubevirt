@@ -21,6 +21,8 @@ package containerdisk
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -276,7 +278,223 @@ var _ = Describe("ContainerDisk", func() {
 			}),
 		)
 	})
+
+	Context("CreateEphemeralImages", func() {
+		const volName = "disk0"
+		var (
+			cdManager      ContainerDiskManager
+			fakeEdc        *fakeEphemeralDiskCreator
+			backendImgPath string
+		)
+		BeforeEach(func() {
+			const pid = "1234"
+			fakeEdc = &fakeEphemeralDiskCreator{}
+			tmpDir := GinkgoT().TempDir()
+			tmpProcDir := GinkgoT().TempDir()
+			cdManager = ContainerDiskManager{
+				pidFileDir: tmpDir,
+				procfs:     tmpProcDir,
+				getImageInfo: func(img string) (*ImgInfo, error) {
+					return &ImgInfo{Format: "qcow2"}, nil
+				},
+			}
+			dir := filepath.Join(tmpDir, volName)
+			Expect(os.Mkdir(dir, 0755)).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(dir, Pidfile), []byte(pid), 0755)).NotTo(HaveOccurred())
+			imageFileDir := filepath.Join(tmpProcDir, pid, "root", "disk")
+			Expect(os.MkdirAll(imageFileDir, 0755)).NotTo(HaveOccurred())
+			backendImgPath = filepath.Join(imageFileDir, "disk.img")
+			_, err := os.Create(backendImgPath)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should successfully create the emphemeral image", func() {
+			vmi := api.NewMinimalVMI("myvmi")
+			appendContainerDisk(vmi, volName)
+			Expect(cdManager.CreateEphemeralImages(vmi, fakeEdc)).NotTo(HaveOccurred())
+		})
+
+		It("should successfully create the emphemeral image when the symlink already exists", func() {
+			cdManager.mountBaseDir = GinkgoT().TempDir()
+			Expect(os.Symlink(backendImgPath, cdManager.GetDiskTargetPathFromLauncherView(0))).NotTo(HaveOccurred())
+			vmi := api.NewMinimalVMI("myvmi")
+			appendContainerDisk(vmi, volName)
+			Expect(cdManager.CreateEphemeralImages(vmi, fakeEdc)).NotTo(HaveOccurred())
+		})
+		It("should fail to create the emphemeral image when the symlink points to another file", func() {
+			cdManager.mountBaseDir = GinkgoT().TempDir()
+			Expect(os.Symlink("something-wrong", cdManager.GetDiskTargetPathFromLauncherView(0))).NotTo(HaveOccurred())
+			vmi := api.NewMinimalVMI("myvmi")
+			appendContainerDisk(vmi, volName)
+			Expect(cdManager.CreateEphemeralImages(vmi, fakeEdc)).To(MatchError(
+				fmt.Sprintf("failed checking the symlink for something-wrong, doesn't match with %s", backendImgPath),
+			))
+		})
+	})
+
+	Context("WaitContainerDisksToBecomeReady", func() {
+		var (
+			cdManager ContainerDiskManager
+		)
+		It("should succeed if all disks are ready", func() {
+			const volName = "disk1"
+			tmpDir := GinkgoT().TempDir()
+			cdManager = ContainerDiskManager{pidFileDir: tmpDir}
+			dir := filepath.Join(tmpDir, volName)
+			writePidfile(dir)
+			vmi := api.NewMinimalVMI("myvmi")
+			appendContainerDisk(vmi, volName)
+			Expect(cdManager.WaitContainerDisksToBecomeReady(vmi, 5)).NotTo(HaveOccurred())
+		})
+		It("should timeout if the pidfile doesn't exist", func() {
+			vmi := api.NewMinimalVMI("myvmi")
+			appendContainerDisk(vmi, "noexist")
+			Expect(cdManager.WaitContainerDisksToBecomeReady(vmi, 5)).To(MatchError("timeout waiting for container disks to become ready"))
+		})
+		It("should succeed if VMI doesn't have any container disks", func() {
+			vmi := api.NewMinimalVMI("myvmi")
+			Expect(cdManager.WaitContainerDisksToBecomeReady(vmi, 5)).NotTo(HaveOccurred())
+		})
+		It("should succeed with a VM with kernel boot", func() {
+			tmpDir := GinkgoT().TempDir()
+			cdManager = ContainerDiskManager{pidFileDir: tmpDir}
+			dir := filepath.Join(tmpDir, KernelBootVolumeName)
+			writePidfile(dir)
+			vmi := api.NewMinimalVMI("myvmi")
+			vmi.Spec.Domain.Firmware = &v1.Firmware{KernelBoot: &v1.KernelBoot{Container: &v1.KernelBootContainer{Image: "someimage:v1.2.3.4"}}}
+			Expect(cdManager.WaitContainerDisksToBecomeReady(vmi, 5)).NotTo(HaveOccurred())
+
+		})
+	})
+
+	Context("StopContainerDiskContainers", func() {
+		var (
+			cdManager ContainerDiskManager
+			fpf       *fakeProcessFinder
+		)
+		BeforeEach(func() {
+			tmpDir := GinkgoT().TempDir()
+			fpf = &fakeProcessFinder{}
+			cdManager = ContainerDiskManager{
+				pidFileDir:  tmpDir,
+				findProcess: fpf.fakeFindProcess,
+			}
+		})
+		DescribeTable("should successfull stop container disks", func(cds []string) {
+			vmi := api.NewMinimalVMI("myvmi")
+			cdManager.cdVolumes = cds
+			for _, volName := range cds {
+				dir := filepath.Join(cdManager.pidFileDir, volName)
+				writePidfile(dir)
+				appendContainerDisk(vmi, volName)
+			}
+			Expect(cdManager.StopContainerDiskContainers()).ToNot(HaveOccurred())
+		},
+			Entry("with no container disks", []string{}),
+			Entry("with a single container disk", []string{"vol0"}),
+			Entry("with multiple container disks", []string{"vol0", "vol1", "vol2"}),
+		)
+
+		DescribeTable("should fail if it cannot kill the container disk process", func(cds []string) {
+			err := fmt.Errorf("some error")
+			fpf.setError(err)
+			vmi := api.NewMinimalVMI("myvmi")
+			cdManager.cdVolumes = cds
+			for _, volName := range cds {
+				dir := filepath.Join(cdManager.pidFileDir, volName)
+				writePidfile(dir)
+				appendContainerDisk(vmi, volName)
+			}
+			errRes := fmt.Errorf("failed to stop container disks: %w", err)
+			for i := 0; i < len(cds)-1; i++ {
+				errRes = fmt.Errorf("%w, %w", errRes, err)
+			}
+			Expect(cdManager.StopContainerDiskContainers()).To(MatchError(errRes))
+		},
+			Entry("with a single container disk", []string{"vol0"}),
+			Entry("with a single container disk", []string{"vol0", "vol1"}),
+		)
+	})
+
+	Context("AccessKernelBoot", func() {
+		const (
+			bootDir = "/boot"
+			kernel  = "vmlinuz-virt"
+			initrd  = "initramfs-virt"
+		)
+
+		var (
+			cdManager         ContainerDiskManager
+			backendKernelPath string
+			backendInitrdPath string
+			vmi               *v1.VirtualMachineInstance
+		)
+		backendPathPerArtifact := func(artifact string) string {
+			switch artifact {
+			case kernel:
+				return backendKernelPath
+			case initrd:
+				return backendInitrdPath
+			default:
+				Fail(fmt.Sprintf("wrong artifact %s", artifact))
+			}
+			return ""
+		}
+		BeforeEach(func() {
+			const pid = "1234"
+			cdManager = ContainerDiskManager{
+				pidFileDir:   GinkgoT().TempDir(),
+				procfs:       GinkgoT().TempDir(),
+				mountBaseDir: GinkgoT().TempDir(),
+			}
+			dir := filepath.Join(cdManager.pidFileDir, KernelBootVolumeName)
+			writePidfile(dir)
+			artifactsDir := filepath.Join(cdManager.procfs, pid, "root", bootDir)
+			Expect(os.MkdirAll(artifactsDir, 0755)).NotTo(HaveOccurred())
+			backendKernelPath = filepath.Join(artifactsDir, kernel)
+			_, err := os.Create(backendKernelPath)
+			Expect(err).NotTo(HaveOccurred())
+			backendInitrdPath = filepath.Join(artifactsDir, initrd)
+			_, err = os.Create(backendInitrdPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.MkdirAll(filepath.Join(cdManager.mountBaseDir, KernelBootVolumeName), 0755)).NotTo(HaveOccurred())
+			vmi = api.NewMinimalVMI("myvmi")
+			vmi.Spec.Domain.Firmware = &v1.Firmware{KernelBoot: &v1.KernelBoot{
+				Container: &v1.KernelBootContainer{
+					Image:      "someimage:v1.2.3.4",
+					KernelPath: filepath.Join(bootDir, kernel),
+					InitrdPath: filepath.Join(bootDir, initrd),
+				}}}
+		})
+
+		It("should successfully create the emphemeral image", func() {
+			Expect(cdManager.AccessKernelBoot(vmi)).NotTo(HaveOccurred())
+		})
+		DescribeTable("should successfully create a bootalbe container when the symlink already exists", func(artifact string) {
+			backendPath := backendPathPerArtifact(artifact)
+			Expect(os.Symlink(backendPath, cdManager.GetKernelBootArtifactPathFromLauncherView(artifact))).NotTo(HaveOccurred())
+			Expect(cdManager.AccessKernelBoot(vmi)).NotTo(HaveOccurred())
+		},
+			Entry("for the kernel", kernel),
+			Entry("for the initrd", initrd),
+		)
+		DescribeTable("should fail to create the emphemeral image when the symlink points to another file", func(artifact string) {
+			backendPath := backendPathPerArtifact(artifact)
+			Expect(os.Symlink("something-wrong", cdManager.GetKernelBootArtifactPathFromLauncherView(artifact))).NotTo(HaveOccurred())
+			Expect(cdManager.AccessKernelBoot(vmi)).To(MatchError(
+				fmt.Sprintf("failed checking the symlink for something-wrong, doesn't match with %s", backendPath),
+			))
+		},
+			Entry("for the kernel", kernel),
+			Entry("for the initrd", initrd),
+		)
+	})
 })
+
+func writePidfile(dir string) {
+	Expect(os.Mkdir(dir, 0755)).NotTo(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(dir, Pidfile), []byte("1234"), 0755)).NotTo(HaveOccurred())
+}
 
 type fakeEphemeralDiskCreator struct{}
 
@@ -294,6 +512,26 @@ func (f *fakeEphemeralDiskCreator) GetFilePath(volumeName string) string {
 
 func (f *fakeEphemeralDiskCreator) Init() error {
 	return nil
+}
+
+type fakeProcessFinder struct {
+	err error
+}
+
+func (f *fakeProcessFinder) setError(err error) {
+	f.err = err
+}
+
+func (f *fakeProcessFinder) fakeFindProcess(pid int) (process, error) {
+	return &fakeProcess{err: f.err}, nil
+}
+
+type fakeProcess struct {
+	err error
+}
+
+func (f *fakeProcess) Signal(os.Signal) error {
+	return f.err
 }
 
 func appendContainerDisk(vmi *v1.VirtualMachineInstance, diskName string) {
