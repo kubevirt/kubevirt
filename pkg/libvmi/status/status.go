@@ -52,6 +52,18 @@ func New(opts ...Option) v1.VirtualMachineInstanceStatus {
 	return *vmiStatus
 }
 
+// Update updates the given VMI status configuration,
+// adding the properties based on the specified With* options.
+// This will directly manipulate the given VMI status.
+// It is up to the caller to pass a copy (using DeepCopy()) if data protection is needed.
+func Update(status *v1.VirtualMachineInstanceStatus, opts ...Option) *v1.VirtualMachineInstanceStatus {
+	for _, f := range opts {
+		f(status)
+	}
+
+	return status
+}
+
 // WithPhase sets the vmi phase
 func WithPhase(phase v1.VirtualMachineInstancePhase) Option {
 	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
@@ -105,5 +117,12 @@ func WithMigratedVolume(volumeInfo v1.StorageMigratedVolumeInfo) Option {
 func WithVolumeStatus(volumeStatus v1.VolumeStatus) Option {
 	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
 		vmiStatus.VolumeStatus = append(vmiStatus.VolumeStatus, volumeStatus)
+	}
+}
+
+// WithMigrationState sets the migration state
+func WithMigrationState(migrationState v1.VirtualMachineInstanceMigrationState) Option {
+	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
+		vmiStatus.MigrationState = &migrationState
 	}
 }

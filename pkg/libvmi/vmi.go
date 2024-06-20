@@ -78,6 +78,12 @@ func WithAnnotation(key, value string) Option {
 	}
 }
 
+func WithName(name string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Name = name
+	}
+}
+
 func WithNamespace(namespace string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Namespace = namespace
