@@ -64,20 +64,9 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const (
-	checkingEth0MACAddr = "checking eth0 MAC address"
-	catResolvConf       = "cat /etc/resolv.conf\n"
-)
-
 var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", decorators.Networking, func() {
 
 	var virtClient kubecli.KubevirtClient
-
-	const (
-		testPort                   = 1500
-		LibvirtDirectMigrationPort = 49152
-		LibvirtBlockMigrationPort  = 49153
-	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -200,6 +189,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				inboundVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
+				const testPort = 1500
 				vmnetserver.StartTCPServer(inboundVMI, testPort, console.LoginToCirros)
 
 				ip := inboundVMI.Status.Interfaces[0].IP
@@ -291,7 +281,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with custom MAC address", func() {
 		It("[test_id:1771]should configure custom MAC address", func() {
-			By(checkingEth0MACAddr)
+			By("checking eth0 MAC address")
 			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 			masqIface.MacAddress = "de:ad:00:00:be:af"
 			deadbeafVMI := libvmifact.NewAlpineWithTestTooling(
@@ -475,6 +465,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			dnsVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dnsVMI)).Create(context.Background(), dnsVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			dnsVMI = libwait.WaitUntilVMIReady(dnsVMI, console.LoginToCirros)
+			const catResolvConf = "cat /etc/resolv.conf\n"
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
@@ -500,6 +491,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	})
 
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
+		const LibvirtDirectMigrationPort = 49152
+
 		masqueradeVMI := func(ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
 			net := v1.DefaultPodNetwork()
 			if ipv4NetworkCIDR != "" {
@@ -538,6 +531,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		}
 
 		portsUsedByLiveMigration := func() []v1.Port {
+			const LibvirtBlockMigrationPort = 49153
 			return []v1.Port{
 				{Port: LibvirtDirectMigrationPort},
 				{Port: LibvirtBlockMigrationPort},
