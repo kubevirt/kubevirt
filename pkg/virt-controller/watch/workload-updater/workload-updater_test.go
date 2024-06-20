@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,20 +18,15 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/client-go/api"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Workload Updater", func() {
@@ -73,7 +71,6 @@ var _ = Describe("Workload Updater", func() {
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
 		kubeVirtInterface = kubecli.NewMockKubeVirtInterface(ctrl)
-		vmiInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
 		vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
 			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
@@ -93,7 +90,6 @@ var _ = Describe("Workload Updater", func() {
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(migrationInterface).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		virtClient.EXPECT().KubeVirt(k8sv1.NamespaceDefault).Return(kubeVirtInterface).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
