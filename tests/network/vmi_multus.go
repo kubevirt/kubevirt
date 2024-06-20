@@ -775,24 +775,6 @@ func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName str
 	return nil
 }
 
-func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress string) error {
-	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: macAddress},
-		&expect.BSnd{S: console.EchoLastReturnValue},
-		&expect.BExp{R: console.RetValue("0")},
-	}, 15)
-
-	if err != nil {
-		return fmt.Errorf("could not check mac address of interface %s: MAC %s was not found in the VMI %s: %w", interfaceName, macAddress, vmi.Name, err)
-	}
-
-	return nil
-}
-
 // If staticIP is empty the interface would get a dynamic IP
 func configureAlpineInterfaceIP(vmi *v1.VirtualMachineInstance, ifaceName, staticIP string) error {
 	if staticIP == "" {

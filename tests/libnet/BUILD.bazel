@@ -30,6 +30,7 @@ go_library(
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libnet/cloudinit:go_default_library",
         "//tests/libnet/cluster:go_default_library",
+        "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

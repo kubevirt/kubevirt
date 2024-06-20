@@ -83,16 +83,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string) {
-		err := console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "cat /sys/class/net/eth0/address\n"},
-			&expect.BExp{R: expectedMacAddress},
-		}, 15)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
 	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string) {
 		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
@@ -314,7 +304,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
-			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
+			libnet.CheckMacAddress(deadbeafVMI, "eth0", deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
 		})
 	})
 
