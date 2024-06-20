@@ -452,6 +452,10 @@ if [ -z "$KUBEVIRT_QUARANTINE" ]; then
   add_to_label_filter '(!QUARANTINE)' '&&'
 fi
 
+if [ -z "$KUBEVIRT_HUGEPAGES_2M" ]; then
+  add_to_label_filter '(!requireHugepages2Mi)' '&&'
+fi
+
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
   ginko_params="$ginko_params|Networkpolicy"
