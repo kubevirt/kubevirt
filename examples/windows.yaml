@@ -16,7 +16,7 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredDiskBus: sata
     preferredInterfaceModel: e1000

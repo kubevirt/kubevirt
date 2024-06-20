@@ -599,7 +599,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				preferredCPUTopology := instancetypev1beta1.PreferSockets
+				preferredCPUTopology := instancetypev1beta1.Sockets
 				preference = &instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-preference-",

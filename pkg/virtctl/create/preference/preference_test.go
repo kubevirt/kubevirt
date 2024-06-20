@@ -114,7 +114,8 @@ var _ = Describe("create", func() {
 			)()
 
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError("failed to parse \"--cpu-topology\" flag: CPU topology must have a value of preferCores, preferSockets or preferThreads"))
+			Expect(err.Error()).To(ContainSubstring(CPUTopologyFlag))
+			Expect(err.Error()).To(ContainSubstring(CPUTopologyErr))
 		},
 			Entry("VirtualMachinePreference", namespaced, "invalidCPU", true),
 			Entry("VirtualMachineClusterPreference", "", "clusterInvalidCPU", false),

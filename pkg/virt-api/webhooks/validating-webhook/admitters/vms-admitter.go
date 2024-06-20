@@ -255,7 +255,7 @@ const (
 )
 
 func checkSpreadCPUTopology(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
-	if topology := instancetype.GetPreferredTopology(preferenceSpec); instancetypeSpec == nil || topology != instancetypev1beta1.PreferSpread {
+	if topology := instancetype.GetPreferredTopology(preferenceSpec); instancetypeSpec == nil || topology != instancetypev1beta1.Spread {
 		return nil
 	}
 

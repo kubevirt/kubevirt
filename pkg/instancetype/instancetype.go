@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"slices"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -94,11 +95,27 @@ func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
 
 func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) instancetypev1beta1.PreferredCPUTopology {
 	// Default to PreferSockets when a PreferredCPUTopology isn't provided
-	preferredTopology := instancetypev1beta1.PreferSockets
+	preferredTopology := instancetypev1beta1.Sockets
 	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != nil {
 		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
 	}
 	return preferredTopology
+}
+
+func IsPreferredTopologySupported(topology instancetypev1beta1.PreferredCPUTopology) bool {
+	supportedTopologies := []instancetypev1beta1.PreferredCPUTopology{
+		instancetypev1beta1.DeprecatedPreferSockets,
+		instancetypev1beta1.DeprecatedPreferCores,
+		instancetypev1beta1.DeprecatedPreferThreads,
+		instancetypev1beta1.DeprecatedPreferSpread,
+		instancetypev1beta1.DeprecatedPreferAny,
+		instancetypev1beta1.Sockets,
+		instancetypev1beta1.Cores,
+		instancetypev1beta1.Threads,
+		instancetypev1beta1.Spread,
+		instancetypev1beta1.Any,
+	}
+	return slices.Contains(supportedTopologies, topology)
 }
 
 const defaultSpreadRatio uint32 = 2
@@ -399,19 +416,19 @@ func checkCPUPreferenceRequirements(instancetypeSpec *instancetypev1beta1.Virtua
 	}
 
 	switch GetPreferredTopology(preferenceSpec) {
-	case instancetypev1beta1.PreferThreads:
+	case instancetypev1beta1.DeprecatedPreferThreads, instancetypev1beta1.Threads:
 		if vmiSpec.Domain.CPU.Threads < preferenceSpec.Requirements.CPU.Guest {
 			return Conflicts{cpuField.Child("threads")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Threads, preferenceSpec.Requirements.CPU.Guest, "threads")
 		}
-	case instancetypev1beta1.PreferCores:
+	case instancetypev1beta1.DeprecatedPreferCores, instancetypev1beta1.Cores:
 		if vmiSpec.Domain.CPU.Cores < preferenceSpec.Requirements.CPU.Guest {
 			return Conflicts{cpuField.Child("cores")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Cores, preferenceSpec.Requirements.CPU.Guest, "cores")
 		}
-	case instancetypev1beta1.PreferSockets:
+	case instancetypev1beta1.DeprecatedPreferSockets, instancetypev1beta1.Sockets:
 		if vmiSpec.Domain.CPU.Sockets < preferenceSpec.Requirements.CPU.Guest {
 			return Conflicts{cpuField.Child("sockets")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
 		}
-	case instancetypev1beta1.PreferSpread:
+	case instancetypev1beta1.DeprecatedPreferSpread, instancetypev1beta1.Spread:
 		var (
 			vCPUs     uint32
 			conflicts Conflicts
@@ -431,7 +448,7 @@ func checkCPUPreferenceRequirements(instancetypeSpec *instancetypev1beta1.Virtua
 		if vCPUs < preferenceSpec.Requirements.CPU.Guest {
 			return conflicts, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vCPUs, preferenceSpec.Requirements.CPU.Guest, across)
 		}
-	case instancetypev1beta1.PreferAny:
+	case instancetypev1beta1.DeprecatedPreferAny, instancetypev1beta1.Any:
 		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Threads
 		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
 			return Conflicts{cpuField.Child("cores"), cpuField.Child("sockets"), cpuField.Child("threads")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, cpuResources, preferenceSpec.Requirements.CPU.Guest, "cores, sockets and threads")
@@ -1027,13 +1044,13 @@ func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *instancetypev1beta1.Vir
 	}
 
 	switch GetPreferredTopology(preferenceSpec) {
-	case instancetypev1beta1.PreferCores:
+	case instancetypev1beta1.DeprecatedPreferCores, instancetypev1beta1.Cores:
 		vmiSpec.Domain.CPU.Cores = vCPUs
-	case instancetypev1beta1.PreferSockets, instancetypev1beta1.PreferAny:
+	case instancetypev1beta1.DeprecatedPreferSockets, instancetypev1beta1.DeprecatedPreferAny, instancetypev1beta1.Sockets, instancetypev1beta1.Any:
 		vmiSpec.Domain.CPU.Sockets = vCPUs
-	case instancetypev1beta1.PreferThreads:
+	case instancetypev1beta1.DeprecatedPreferThreads, instancetypev1beta1.Threads:
 		vmiSpec.Domain.CPU.Threads = vCPUs
-	case instancetypev1beta1.PreferSpread:
+	case instancetypev1beta1.DeprecatedPreferSpread, instancetypev1beta1.Spread:
 		ratio, across := GetSpreadOptions(preferenceSpec)
 		switch across {
 		case instancetypev1beta1.SpreadAcrossSocketsCores:

@@ -36,8 +36,26 @@ func (f *ClusterPreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 func validatePreferenceSpec(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
+	causes = append(causes, validatePreferredCPUTopology(field, spec)...)
 	causes = append(causes, validateSpreadOptions(field, spec)...)
 	return causes
+}
+
+const preferredCPUTopologyUnknownErrFmt = "unknown preferredCPUTopology %s"
+
+func validatePreferredCPUTopology(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
+	if spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
+		return nil
+	}
+	topology := *spec.CPU.PreferredCPUTopology
+	if !instancetype.IsPreferredTopologySupported(topology) {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf(preferredCPUTopologyUnknownErrFmt, topology),
+			Field:   field.Child("cpu", "preferredCPUTopology").String(),
+		}}
+	}
+	return nil
 }
 
 const (
@@ -46,7 +64,7 @@ const (
 )
 
 func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
-	if spec.CPU == nil || spec.CPU.SpreadOptions == nil || spec.CPU.PreferredCPUTopology == nil || *spec.CPU.PreferredCPUTopology != instancetypeapiv1beta1.PreferSpread {
+	if spec.CPU == nil || spec.CPU.SpreadOptions == nil || spec.CPU.PreferredCPUTopology == nil || *spec.CPU.PreferredCPUTopology != instancetypeapiv1beta1.Spread {
 		return nil
 	}
 	ratio, across := instancetype.GetSpreadOptions(spec)
@@ -72,6 +90,27 @@ func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.Vi
 		}}
 	}
 	return nil
+}
+
+const deprecatedPreferredCPUTopologyErrFmt = "PreferredCPUTopology %s is deprecated for removal in a future release, please use %s instead"
+
+var deprecatedTopologies = map[instancetypeapiv1beta1.PreferredCPUTopology]instancetypeapiv1beta1.PreferredCPUTopology{
+	instancetypeapiv1beta1.DeprecatedPreferSockets: instancetypeapiv1beta1.Sockets,
+	instancetypeapiv1beta1.DeprecatedPreferCores:   instancetypeapiv1beta1.Cores,
+	instancetypeapiv1beta1.DeprecatedPreferThreads: instancetypeapiv1beta1.Threads,
+	instancetypeapiv1beta1.DeprecatedPreferSpread:  instancetypeapiv1beta1.Spread,
+	instancetypeapiv1beta1.DeprecatedPreferAny:     instancetypeapiv1beta1.Any,
+}
+
+func checkForDeprecatedPreferredCPUTopology(spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []string {
+	if spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
+		return nil
+	}
+	topology := *spec.CPU.PreferredCPUTopology
+	if _, ok := deprecatedTopologies[topology]; !ok {
+		return nil
+	}
+	return []string{fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, topology, deprecatedTopologies[topology])}
 }
 
 func admitPreference(request *admissionv1.AdmissionRequest, resource string) *admissionv1.AdmissionResponse {
@@ -103,8 +142,8 @@ func admitPreference(request *admissionv1.AdmissionRequest, resource string) *ad
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
-
 	return &admissionv1.AdmissionResponse{
-		Allowed: true,
+		Allowed:  true,
+		Warnings: checkForDeprecatedPreferredCPUTopology(preferenceSpec),
 	}
 }
