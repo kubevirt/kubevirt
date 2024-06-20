@@ -52,7 +52,7 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, decorators.Requires
 	Context("[rfe_id:5168][crit:high][vendor:cnv-qe@redhat.com][level:component] with TPM VMI option enabled", func() {
 		It("[test_id:8607] should expose a functional emulated TPM which persists across migrations", func() {
 			By("Creating a VMI with TPM enabled")
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{}
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 

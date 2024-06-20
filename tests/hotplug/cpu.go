@@ -90,9 +90,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				maxSockets uint32 = 2
 			)
 
-			vmi := libvmifact.NewAlpineWithTestTooling(
-				libnet.WithMasqueradeNetworking()...,
-			)
+			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Sockets:    1,
@@ -191,9 +189,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			const maxSockets uint32 = 3
 
 			By("Creating a running VM with 1 socket and 2 max sockets")
-			vmi := libvmifact.NewAlpineWithTestTooling(
-				libnet.WithMasqueradeNetworking()...,
-			)
+			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores:                 2,
@@ -270,9 +266,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 	Context("Abort CPU change", func() {
 		It("should cancel the automated workload update", func() {
-			vmi := libvmifact.NewAlpineWithTestTooling(
-				libnet.WithMasqueradeNetworking()...,
-			)
+			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Sockets:    1,

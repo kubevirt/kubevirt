@@ -220,7 +220,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				}
 
 				By("Running the VMI")
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("VMI has the guest agent connected condition")

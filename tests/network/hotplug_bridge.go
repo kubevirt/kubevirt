@@ -251,14 +251,11 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 				testsuite.GetTestNamespace(nil), nadName, linuxBridgeName)).To(Succeed())
 
 			By("running a VM")
-			opts := append(
-				libnet.WithMasqueradeNetworking(),
+			vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, nadName)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)),
-			)
-			vmi = libvmifact.NewAlpineWithTestTooling(opts...)
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)))
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
 			var err error
@@ -313,14 +310,11 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 
 		BeforeEach(func() {
 			By("create stopped VM")
-			opts := append(
-				libnet.WithMasqueradeNetworking(),
+			vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, nadName)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)),
-			)
-			vmi = libvmifact.NewAlpineWithTestTooling(opts...)
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)))
 			vm = libvmi.NewVirtualMachine(vmi)
 
 			var err error

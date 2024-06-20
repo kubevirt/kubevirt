@@ -27,11 +27,11 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 )
 
-func WithMasqueradeNetworking(ports ...v1.Port) []libvmi.Option {
+func WithMasqueradeNetworking(ports ...v1.Port) libvmi.Option {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
-	return []libvmi.Option{
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData),
+	return func(vmi *v1.VirtualMachineInstance) {
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...))(vmi)
+		libvmi.WithNetwork(v1.DefaultPodNetwork())(vmi)
+		libvmi.WithCloudInitNoCloudNetworkData(networkData)(vmi)
 	}
 }
