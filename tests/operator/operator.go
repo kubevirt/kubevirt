@@ -68,6 +68,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -131,14 +132,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		patchKvNodePlacement                   func(string, string, string, *v1.ComponentConfig)
-		patchKvNodePlacementExpectError        func(string, string, string, *v1.ComponentConfig, string)
-		patchKvInfra                           func(*v1.ComponentConfig, bool, string)
-		patchKvWorkloads                       func(*v1.ComponentConfig, bool, string)
-		patchKvCertConfigExpectError           func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
-		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
-		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
-		patchOperator                          func(*string, *string) bool
 		installTestingManifests                func(string)
 		deleteOperator                         func(string)
 		deleteTestingManifests                 func(string)
@@ -162,145 +155,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		patchKvNodePlacement = func(name string, path string, verb string, componentConfig *v1.ComponentConfig) {
-			var data []byte
-
-			componentConfigData, _ := json.Marshal(componentConfig)
-
-			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-		}
-
-		patchKvNodePlacementExpectError = func(name string, path string, verb string, componentConfig *v1.ComponentConfig, errMsg string) {
-			var data []byte
-
-			componentConfigData, _ := json.Marshal(componentConfig)
-
-			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(errMsg))
-
-		}
-
-		patchKvInfra = func(infra *v1.ComponentConfig, expectError bool, errMsg string) {
-			kv := copyOriginalKv(originalKv)
-			verb := "add"
-
-			if kv.Spec.Infra != nil {
-				verb = "replace"
-			}
-			if infra == nil {
-				verb = "remove"
-			}
-
-			if !expectError {
-				patchKvNodePlacement(kv.Name, "infra", verb, infra)
-			} else {
-				patchKvNodePlacementExpectError(kv.Name, "infra", verb, infra, errMsg)
-			}
-		}
-
-		patchKvWorkloads = func(workloads *v1.ComponentConfig, expectError bool, errMsg string) {
-			kv := copyOriginalKv(originalKv)
-			verb := "add"
-
-			if kv.Spec.Workloads != nil {
-				verb = "replace"
-			}
-			if workloads == nil {
-				verb = "remove"
-			}
-			if !expectError {
-				patchKvNodePlacement(kv.Name, "workloads", verb, workloads)
-			} else {
-				patchKvNodePlacementExpectError(kv.Name, "workloads", verb, workloads, errMsg)
-			}
-		}
-
-		patchKvCertConfigExpectError = func(name string, certConfig *v1.KubeVirtSelfSignConfiguration) {
-			var data []byte
-
-			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
-			certRotationStrategy.SelfSigned = certConfig
-			certConfigData, _ := json.Marshal(certRotationStrategy)
-
-			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).Should(HaveOccurred())
-
-		}
-
-		parseDeployment = func(name string) (deployment *v12.Deployment, image, registry, imageName, version string) {
-			var err error
-			deployment, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			image = deployment.Spec.Template.Spec.Containers[0].Image
-			registry, imageName, version = parseImage(image)
-			return
-		}
-
-		parseOperatorImage = func() (operator *v12.Deployment, image, registry, imageName, version string) {
-			return parseDeployment("virt-operator")
-		}
-
-		patchOperator = func(newImageName, version *string) bool {
-
-			modified := true
-
-			Eventually(func() error {
-
-				operator, oldImage, registry, oldImageName, oldVersion := parseOperatorImage()
-				if newImageName == nil {
-					// keep old prefix
-					newImageName = &oldImageName
-				}
-				if version == nil {
-					// keep old version
-					version = &oldVersion
-				} else {
-					newVersion := components.AddVersionSeparatorPrefix(*version)
-					version = &newVersion
-				}
-				newImage := fmt.Sprintf("%s/%s%s", registry, *newImageName, *version)
-
-				if oldImage == newImage {
-					modified = false
-					return nil
-				}
-
-				operator.Spec.Template.Spec.Containers[0].Image = newImage
-				for idx, env := range operator.Spec.Template.Spec.Containers[0].Env {
-					if env.Name == util.VirtOperatorImageEnvName {
-						env.Value = newImage
-						operator.Spec.Template.Spec.Containers[0].Env[idx] = env
-						break
-					}
-				}
-
-				newTemplate, _ := json.Marshal(operator.Spec.Template)
-
-				op := fmt.Sprintf(`[{ "op": "replace", "path": "/spec/template", "value": %s }]`, string(newTemplate))
-
-				_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), "virt-operator", types.JSONPatchType, []byte(op), metav1.PatchOptions{})
-
-				return err
-			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-			return modified
-		}
 
 		installTestingManifests = func(manifestPath string) {
 			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
@@ -1453,8 +1307,12 @@ spec:
 				installTestingManifests(flags.TestingManifestPath)
 			} else {
 				By("Updating KubeVirt object With current tag")
-				data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, curVersion, curRegistry))
-				patchKV(kv.Name, data)
+				patches := patch.New(
+					patch.WithReplace("/spec/imageTag", curVersion),
+					patch.WithReplace("/spec/imageRegistry", curRegistry),
+				)
+
+				patchKV(kv.Name, patches)
 			}
 
 			By("Wait for Updating Condition")
@@ -1538,12 +1396,10 @@ spec:
 
 					// by making a change to the VM, we ensure that writing the object is possible.
 					// This ensures VMs created previously before the update are still compatible with our validation webhooks
-					vm.Annotations["some-annotation"] = "some-val"
-					annotationBytes, err := json.Marshal(vm.Annotations)
+					ops, err := patch.New(patch.WithAdd("/metadata/annotations/some-annotation", "some-val")).GeneratePayload()
 					Expect(err).ToNot(HaveOccurred())
 
-					ops := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations", "value": %s }]`, string(annotationBytes))
-					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
+					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 					return err
 				}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -1836,8 +1692,8 @@ spec:
 			vmisNonMigratable = startAllVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
-			data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, flags.KubeVirtVersionTagAlt))
-			patchKV(kv.Name, data)
+			patches := patch.New(patch.WithAdd("/spec/imageTag", flags.KubeVirtVersionTagAlt))
+			patchKV(kv.Name, patches)
 
 			By("Wait for Updating Condition")
 			waitForUpdateCondition(kv)
@@ -1963,22 +1819,25 @@ spec:
 		})
 
 		It("[test_id:5010]should be able to update product related labels of kubevirt install", func() {
-			productName := "kubevirt-test"
-			productVersion := "0.0.0"
-			productComponent := "kubevirt-component"
+			const (
+				productName      = "kubevirt-test"
+				productVersion   = "0.0.0"
+				productComponent = "kubevirt-component"
+			)
+
 			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			kv := copyOriginalKv(originalKv)
 
 			By("Patching kubevirt resource with productName , productVersion  and productComponent")
-			const format = `{ "op": "replace", "path": "%s", "value": "%s"}`
-			data := []byte("[" + fmt.Sprintf(format, "/spec/productName", productName) + "," +
-				fmt.Sprintf(format, "/spec/productVersion", productVersion) + "," +
-				fmt.Sprintf(format, "/spec/productComponent", productComponent) +
-				"]")
+			patches := patch.New(
+				patch.WithReplace("/spec/productName", productName),
+				patch.WithReplace("/spec/productVersion", productVersion),
+				patch.WithReplace("/spec/productComponent", productComponent),
+			)
 
-			patchKV(kv.Name, data)
+			patchKV(kv.Name, patches)
 
 			for _, deployment := range []string{"virt-api", "virt-controller"} {
 				By(fmt.Sprintf("Ensuring that the %s deployment is updated", deployment))
@@ -2191,7 +2050,9 @@ spec:
 
 	It("[test_id:4617]should adopt previously unmanaged entities by updating its metadata", func() {
 		By("removing registration metadata")
-		patchData := []byte(fmt.Sprint(`[{ "op": "replace", "path": "/metadata/labels", "value": {} }]`))
+		patchData, err := patch.New(patch.WithReplace("/metadata/labels", struct{}{})).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+
 		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), components.VirtApiCertSecretName, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		_, err = aggregatorClient.ApiregistrationV1().APIServices().Patch(context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), types.JSONPatchType, patchData, metav1.PatchOptions{})
@@ -2231,13 +2092,14 @@ spec:
 			// new ones are stood up (and the new ones will get stuck in scheduling)
 			fakeLabelKey := "kubevirt-test"
 			fakeLabelValue := "test-label"
-			infra := v1.ComponentConfig{
+			infra := &v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
 					NodeSelector: map[string]string{fakeLabelKey: fakeLabelValue},
 				},
 			}
 			By("Adding fake label to Virt components")
-			patchKvInfra(&infra, false, "")
+			Expect(patchKVInfra(originalKv, infra)).To(Succeed())
+
 			for _, deploymentName := range []string{"virt-controller", "virt-api"} {
 				errMsg := "NodeSelector should be propegated to the deployment eventually"
 				Eventually(func() bool {
@@ -2252,18 +2114,18 @@ spec:
 					return atLeastOnePendingPodExistInDeployment(virtClient, deploymentName)
 				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
 			}
-			patchKvInfra(nil, false, "")
+			Expect(patchKVInfra(originalKv, nil)).To(Succeed())
 		})
 
 		It("[test_id:4928]should dynamically update workloads config", func() {
 			labelKey := "kubevirt-test"
 			labelValue := "test-label"
-			workloads := v1.ComponentConfig{
+			workloads := &v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
 					NodeSelector: map[string]string{labelKey: labelValue},
 				},
 			}
-			patchKvWorkloads(&workloads, false, "")
+			Expect(patchKVWorkloads(originalKv, workloads)).To(Succeed())
 
 			Eventually(func() bool {
 				daemonset, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
@@ -2274,12 +2136,12 @@ spec:
 				return true
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
-			patchKvWorkloads(nil, false, "")
+			Expect(patchKVWorkloads(originalKv, nil)).To(Succeed())
 		})
 
 		It("should reject infra placement configuration with incorrect toleration operator", func() {
-			incorrectOperator := "foo"
-			incorrectWorkload := v1.ComponentConfig{
+			const incorrectOperator = "foo"
+			incorrectInfra := &v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
 					Tolerations: []k8sv1.Toleration{{
 						Key:      "someKey",
@@ -2288,13 +2150,13 @@ spec:
 					}},
 				},
 			}
-			errMsg := "spec.infra.nodePlacement.tolerations.operator in body should be one of"
-			patchKvInfra(&incorrectWorkload, true, errMsg)
+			const errMsg = "spec.infra.nodePlacement.tolerations.operator in body should be one of"
+			Expect(patchKVInfra(originalKv, incorrectInfra)).To(MatchError(ContainSubstring(errMsg)))
 		})
 
 		It("should reject workload placement configuration with incorrect toleraion operator", func() {
-			incorrectOperator := "foo"
-			incorrectWorkload := v1.ComponentConfig{
+			const incorrectOperator = "foo"
+			incorrectWorkload := &v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
 					Tolerations: []k8sv1.Toleration{{
 						Key:      "someKey",
@@ -2303,8 +2165,8 @@ spec:
 					}},
 				},
 			}
-			errMsg := "spec.workloads.nodePlacement.tolerations.operator in body should be one of"
-			patchKvWorkloads(&incorrectWorkload, true, errMsg)
+			const errMsg = "spec.workloads.nodePlacement.tolerations.operator in body should be one of"
+			Expect(patchKVWorkloads(originalKv, incorrectWorkload)).To(MatchError(ContainSubstring(errMsg)))
 		})
 
 		It("[test_id:8235]should check if kubevirt components have linux node selector", func() {
@@ -2345,16 +2207,17 @@ spec:
 			infra := &v1.ComponentConfig{
 				Replicas: &replicas,
 			}
-			patchKvInfra(infra, true, "infra replica count can't be 0")
+
+			Expect(patchKVInfra(originalKv, infra)).To(MatchError(ContainSubstring("infra replica count can't be 0")))
 		})
 		It("should dynamically adjust virt- pod count and PDBs", func() {
 			for _, replicas := range []uint8{3, 1, 2} {
 				By(fmt.Sprintf("Setting the replica count in kvInfra to %d", replicas))
-				var infra *v1.ComponentConfig
-				infra = &v1.ComponentConfig{
+				var infra = &v1.ComponentConfig{
 					Replicas: &replicas,
 				}
-				patchKvInfra(infra, false, "")
+
+				Expect(patchKVInfra(originalKv, infra)).To(Succeed())
 
 				By(fmt.Sprintf("Expecting %d replicas of virt-api and virt-controller", replicas))
 				Eventually(func() []k8sv1.Pod {
@@ -2392,8 +2255,8 @@ spec:
 		})
 		It("should update new single-replica CRs with a finalizer and be stable", func() {
 			By("copying the original kv CR")
-			kvOrig := copyOriginalKv(originalKv)
 			kv := copyOriginalKv(originalKv)
+			kvOrigInfra := kv.Spec.Infra.DeepCopy()
 
 			By("storing the actual replica counts for the cluster")
 			originalReplicaCounts := make(map[string]int)
@@ -2450,7 +2313,7 @@ spec:
 			}, 30*time.Second, 2*time.Second).Should(Equal(kv.GetGeneration()))
 
 			By("restoring the original replica count")
-			patchKvInfra(kvOrig.Spec.Infra, false, "")
+			Expect(patchKVInfra(originalKv, kvOrigInfra)).To(Succeed())
 
 			By("waiting for virt-api and virt-controller replicas to respawn")
 			Eventually(func() error {
@@ -2483,39 +2346,38 @@ spec:
 
 		It("[test_id:6257]should accept valid cert rotation parameters", func() {
 			kv := copyOriginalKv(originalKv)
-			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
-			certRotationStrategy.SelfSigned = certConfig
-			certConfigData, err := json.Marshal(certRotationStrategy)
-			Expect(err).ToNot(HaveOccurred())
+			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{
+				SelfSigned: certConfig,
+			}
 
-			data := []byte(fmt.Sprintf(`[{"op": "replace", "path": "/spec/certificateRotateStrategy", "value": %s}]`, string(certConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			patchKV(kv.Name, data)
+			By(fmt.Sprintf("update certificateRotateStrategy"))
+			patches := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy))
+			patchKV(kv.Name, patches)
 		})
 
 		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
 			kv := copyOriginalKv(originalKv)
 			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
-			patchKvCertConfigExpectError(kv.Name, certConfig)
+			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
 		})
 
 		It("[test_id:6259]should reject CA expires before rotation", func() {
 			kv := copyOriginalKv(originalKv)
 			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
-			patchKvCertConfigExpectError(kv.Name, certConfig)
+			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
 		})
 
 		It("[test_id:6260]should reject Cert expires before rotation", func() {
 			kv := copyOriginalKv(originalKv)
 			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
-			patchKvCertConfigExpectError(kv.Name, certConfig)
+			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
 		})
 
 		It("[test_id:6261]should reject Cert rotates after CA expires", func() {
 			kv := copyOriginalKv(originalKv)
 			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
 			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}
-			patchKvCertConfigExpectError(kv.Name, certConfig)
+			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
 		})
 	})
 
@@ -3333,7 +3195,10 @@ func waitForKv(newKv *v1.KubeVirt) {
 	waitForKvWithTimeout(newKv, 300)
 }
 
-func patchKV(name string, data []byte) {
+func patchKV(name string, patches *patch.PatchSet) {
+	data, err := patches.GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
 	Eventually(func() error {
 		_, err := kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 
@@ -3393,4 +3258,113 @@ func getDaemonsetImage(name string) string {
 	Expect(matches[0]).To(HaveLen(4))
 
 	return matches[0][2]
+}
+
+func getComponentConfigPatchOption(toChange *v1.ComponentConfig, orig *v1.ComponentConfig, path string) patch.PatchOption {
+	var opt patch.PatchOption
+	if toChange == nil {
+		opt = patch.WithRemove(path)
+	} else {
+		if orig != nil {
+			opt = patch.WithReplace(path, toChange)
+		} else {
+			opt = patch.WithAdd(path, toChange)
+		}
+	}
+	return opt
+}
+
+func patchKVInfra(origKV *v1.KubeVirt, toChange *v1.ComponentConfig) error {
+	return patchKVComponentConfig(origKV.Name, toChange, origKV.Spec.Infra, "/spec/infra")
+}
+
+func patchKVWorkloads(origKV *v1.KubeVirt, toChange *v1.ComponentConfig) error {
+	return patchKVComponentConfig(origKV.Name, toChange, origKV.Spec.Workloads, "/spec/workloads")
+}
+
+func patchKVComponentConfig(kvName string, toChange, origField *v1.ComponentConfig, path string) error {
+	opt := getComponentConfigPatchOption(toChange, origField, path)
+	patches := patch.New(opt)
+	data, err := patches.GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, metav1.PatchOptions{})
+
+	return err
+}
+
+func patchKvCertConfig(name string, certConfig *v1.KubeVirtSelfSignConfiguration) error {
+	certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{
+		SelfSigned: certConfig,
+	}
+
+	data, err := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy)).GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
+	return err
+}
+
+func patchOperator(newImageName, version *string) bool {
+	operator, oldImage, registry, oldImageName, oldVersion := parseOperatorImage()
+	if newImageName == nil {
+		// keep old prefix
+		newImageName = &oldImageName
+	}
+	if version == nil {
+		// keep old version
+		version = &oldVersion
+	} else {
+		newVersion := components.AddVersionSeparatorPrefix(*version)
+		version = &newVersion
+	}
+	newImage := fmt.Sprintf("%s/%s%s", registry, *newImageName, *version)
+
+	if oldImage == newImage {
+		return false
+	}
+
+	operator.Spec.Template.Spec.Containers[0].Image = newImage
+	idx := -1
+	var env k8sv1.EnvVar
+	for idx, env = range operator.Spec.Template.Spec.Containers[0].Env {
+		if env.Name == util.VirtOperatorImageEnvName {
+			break
+		}
+	}
+	Expect(idx).To(BeNumerically(">=", 0), "virt-operator image name environment variable is not found")
+
+	path := fmt.Sprintf("/spec/template/spec/containers/0/env/%d/value", idx)
+	op, err := patch.New(
+		patch.WithReplace("/spec/template/spec/containers/0/image", newImage),
+		patch.WithReplace(path, newImage),
+	).GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() error {
+		_, err = kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), "virt-operator", types.JSONPatchType, op, metav1.PatchOptions{})
+
+		return err
+	}).WithTimeout(15 * time.Second).WithPolling(time.Second).Should(Succeed())
+
+	return true
+}
+
+func parseOperatorImage() (*v12.Deployment, string, string, string, string) {
+	return parseDeployment("virt-operator")
+}
+
+func parseDeployment(name string) (*v12.Deployment, string, string, string, string) {
+	var (
+		err        error
+		deployment *v12.Deployment
+	)
+
+	deployment, err = kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	image := deployment.Spec.Template.Spec.Containers[0].Image
+	registry, imageName, version := parseImage(image)
+
+	return deployment, image, registry, imageName, version
 }

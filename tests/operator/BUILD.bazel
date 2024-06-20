@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/operator",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/virt-config:go_default_library",
