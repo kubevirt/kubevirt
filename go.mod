@@ -64,7 +64,6 @@ require (
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.20.0
 	google.golang.org/grpc v1.58.3
-	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	k8s.io/api v0.30.0
 	k8s.io/apiextensions-apiserver v0.30.0
 	k8s.io/apimachinery v0.30.0
