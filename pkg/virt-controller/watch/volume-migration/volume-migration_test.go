@@ -32,12 +32,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	volumemigration "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
@@ -270,78 +271,72 @@ var _ = Describe("Volume Migration", func() {
 		},
 			Entry("with nil VMI", nil, false),
 			Entry("without migrated volumes", libvmi.New(), false),
-			Entry("with valid migrated volumes", libvmi.New(libvmi.WithStatus(
-				&v1.VirtualMachineInstanceStatus{
-					MigratedVolumes: []v1.StorageMigratedVolumeInfo{
-						{
-							VolumeName:         "disk0",
-							SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
-							DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
+			Entry("with valid migrated volumes", libvmi.New(libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
+						VolumeName:         "disk0",
+						SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
+						DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
+					}),
+					libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionFalse,
+						Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
+					}),
+				),
+			)), true),
+			Entry("with valid migrated volumes but unmigratable VMI", libvmi.New(libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
+						VolumeName:         "disk0",
+						SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
+						DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
+					}),
+					libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionFalse,
+						Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
+					}),
+					libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionFalse,
+						Reason: v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
+					}),
+				),
+			)), false),
+			Entry("with valid migrated volumes but with an additional RWO volume", libvmi.New(libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
+						VolumeName:         "disk0",
+						SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
+						DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
+					}),
+					libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionFalse,
+						Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
+					}),
+					libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionFalse,
+						Reason: v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
+					}),
+					libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+						Name: "disk0",
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+							ClaimName:   "src",
+							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 						},
-					},
-					Conditions: []v1.VirtualMachineInstanceCondition{
-						v1.VirtualMachineInstanceCondition{
-							Type:   v1.VirtualMachineInstanceIsMigratable,
-							Status: k8sv1.ConditionFalse,
-							Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
+					}),
+					libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+						Name: "disk1",
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+							ClaimName:   "src",
+							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 						},
-					},
-				})), true),
-			Entry("with valid migrated volumes but unmigratable VMI", libvmi.New(libvmi.WithStatus(
-				&v1.VirtualMachineInstanceStatus{
-					MigratedVolumes: []v1.StorageMigratedVolumeInfo{
-						{
-							VolumeName:         "disk0",
-							SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
-							DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
-						},
-					},
-					Conditions: []v1.VirtualMachineInstanceCondition{
-						v1.VirtualMachineInstanceCondition{
-							Type:   v1.VirtualMachineInstanceIsMigratable,
-							Status: k8sv1.ConditionFalse,
-							Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
-						},
-						v1.VirtualMachineInstanceCondition{
-							Type:   v1.VirtualMachineInstanceIsMigratable,
-							Status: k8sv1.ConditionFalse,
-							Reason: v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
-						},
-					},
-				})), false),
-			Entry("with valid migrated volumes but with an additional RWO volume", libvmi.New(libvmi.WithStatus(
-				&v1.VirtualMachineInstanceStatus{
-					MigratedVolumes: []v1.StorageMigratedVolumeInfo{
-						{
-							VolumeName:         "disk0",
-							SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
-							DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
-						},
-					},
-					Conditions: []v1.VirtualMachineInstanceCondition{
-						v1.VirtualMachineInstanceCondition{
-							Type:   v1.VirtualMachineInstanceIsMigratable,
-							Status: k8sv1.ConditionFalse,
-							Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
-						},
-					},
-					VolumeStatus: []v1.VolumeStatus{
-						{
-							Name: "disk0",
-							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
-								ClaimName:   "src",
-								AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-							},
-						},
-						{
-							Name: "disk1",
-							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
-								ClaimName:   "src",
-								AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-							},
-						},
-					},
-				})), false),
+					}),
+				),
+			)), false),
 		)
 	})
 
@@ -361,7 +356,7 @@ var _ = Describe("Volume Migration", func() {
 		It("should patch the VMI volumes", func() {
 			volName := "disk0"
 			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim(volName, "vol0"),
-				libvmi.WithStatus(&v1.VirtualMachineInstanceStatus{MigratedVolumes: []v1.StorageMigratedVolumeInfo{{VolumeName: volName}}}))
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{VolumeName: volName}))))
 			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim(volName, "vol1")))
 			_, err := fakeClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceNone).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -397,14 +392,14 @@ var _ = Describe("Volume Migration", func() {
 			Entry("without the migrated volumes set", libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0")),
 				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0")))),
 			Entry("without any updates with a VM using a PVC", libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"),
-				libvmi.WithStatus(&v1.VirtualMachineInstanceStatus{MigratedVolumes: []v1.StorageMigratedVolumeInfo{{VolumeName: "vol0"}}})),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{VolumeName: "vol0"})))),
 				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"))),
 			),
 			// The image pull policy for the container disks is set by the mutating webhook on the VMI spec but not on the VM.
 			// This entry test simulates the scenario when the pull policy isn't set on the VM and the default is applied only
 			// on the VMI spec.
 			Entry("without any updates with a VM using a PVC and a containerdisk", libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"),
-				libvmi.WithStatus(&v1.VirtualMachineInstanceStatus{MigratedVolumes: []v1.StorageMigratedVolumeInfo{{VolumeName: "vol0"}}}),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{VolumeName: "vol0"}))),
 				withContainerDisk("vol1", virtpointer.P(k8sv1.PullIfNotPresent))),
 				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"),
 					withContainerDisk("vol1", nil))),
