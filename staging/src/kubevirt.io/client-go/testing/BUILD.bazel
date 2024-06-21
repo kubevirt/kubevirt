@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["actions.go"],
+    srcs = [
+        "actions.go",
+        "fake.go",
+    ],
     importpath = "kubevirt.io/client-go/testing",
     visibility = ["//visibility:public"],
     deps = [
