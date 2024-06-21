@@ -5836,6 +5836,11 @@ var _ = Describe("VirtualMachine", func() {
 						GuestCurrent:   &guestMemory,
 						GuestRequested: &guestMemory,
 					}
+					vmiCondManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
 
 					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
@@ -5886,11 +5891,16 @@ var _ = Describe("VirtualMachine", func() {
 						GuestRequested: &guestMemory,
 					}
 
-					condition := v1.VirtualMachineInstanceCondition{
+					vmiCondManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
+
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
 						Type:   v1.VirtualMachineInstanceMemoryChange,
 						Status: k8sv1.ConditionTrue,
-					}
-					virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &condition)
+					})
 
 					err := controller.handleMemoryHotplugRequest(vm, vmi)
 					Expect(err).To(HaveOccurred())
@@ -5911,6 +5921,11 @@ var _ = Describe("VirtualMachine", func() {
 						GuestCurrent: &guestMemory,
 					}
 					vmi.Spec.Architecture = "amd64"
+					vmiCondManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
 
 					migrationStart := metav1.Now()
 					vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -5935,6 +5950,11 @@ var _ = Describe("VirtualMachine", func() {
 						GuestCurrent: &guestMemory,
 					}
 					vmi.Spec.Architecture = "amd64"
+					vmiCondManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
 
 					err := controller.handleMemoryHotplugRequest(vm, vmi)
 					Expect(err).ToNot(HaveOccurred())
@@ -5955,6 +5975,11 @@ var _ = Describe("VirtualMachine", func() {
 						GuestCurrent: &guestMemory,
 					}
 					vmi.Spec.Architecture = "amd64"
+					vmiCondManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
 
 					err := controller.handleMemoryHotplugRequest(vm, vmi)
 					Expect(err).ToNot(HaveOccurred())
@@ -5978,6 +6003,11 @@ var _ = Describe("VirtualMachine", func() {
 						GuestCurrent: &guestMemory,
 					}
 					vmi.Spec.Architecture = "amd64"
+					vmiCondManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
 
 					err := controller.handleMemoryHotplugRequest(vm, vmi)
 					Expect(err).ToNot(HaveOccurred())
@@ -6017,8 +6047,11 @@ var _ = Describe("VirtualMachine", func() {
 						GuestCurrent: &guestMemory,
 					}
 					vmi.Spec.Architecture = "amd64"
-
 					vmiCondManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
 					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
 						Type:   v1.VirtualMachineInstanceMemoryChange,
 						Status: k8sv1.ConditionFalse,
@@ -6061,6 +6094,11 @@ var _ = Describe("VirtualMachine", func() {
 						GuestAtBoot:  &guestMemory,
 						GuestCurrent: &guestMemory,
 					}
+					vmiCondManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
 
 					err := controller.handleMemoryHotplugRequest(vm, vmi)
 					Expect(err).ToNot(HaveOccurred())
@@ -6081,6 +6119,50 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":    Equal(v1.VirtualMachineRestartRequired),
 						"Message": ContainSubstring("memory updated in template spec. Memory-hotplug is not available for this VM configuration"),
+						"Status":  Equal(k8sv1.ConditionTrue),
+					}))
+				})
+
+				It("should set a restartRequired condition if VM is not migratable", func() {
+					guestMemory := resource.MustParse("64Mi")
+					newMemory := resource.MustParse("128Mi")
+					vm, _ := DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
+					vm.Spec.Template.Spec.Architecture = "amd64"
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: nil}
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
+					vmi.Status.Memory = &v1.MemoryStatus{
+						GuestAtBoot:  &guestMemory,
+						GuestCurrent: &guestMemory,
+					}
+
+					vmiCondManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+					vmiCondManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionFalse,
+					})
+
+					err := controller.handleMemoryHotplugRequest(vm, vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(virtFakeClient.Actions()).To(WithTransform(func(actions []testing.Action) []testing.Action {
+						var patchActions []testing.Action
+						for _, action := range actions {
+							if action.GetVerb() == "patch" && action.GetResource().Resource == "virtualmachineinstances" {
+								patchActions = append(patchActions, action)
+							}
+						}
+						return patchActions
+					}, BeEmpty()))
+
+					vmCondManager := virtcontroller.NewVirtualMachineConditionManager()
+					cond := vmCondManager.GetCondition(vm, v1.VirtualMachineRestartRequired)
+					Expect(cond).To(Not(BeNil()))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineRestartRequired),
+						"Message": ContainSubstring("memory updated in template spec. Memory-hotplug is only available for migratable VMs"),
 						"Status":  Equal(k8sv1.ConditionTrue),
 					}))
 				})
