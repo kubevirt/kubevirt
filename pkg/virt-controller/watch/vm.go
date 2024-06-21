@@ -3294,6 +3294,11 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
+	if !vmi.IsMigratable() {
+		setRestartRequired(vm, "memory updated in template spec. Memory-hotplug is only available for migratable VMs")
+		return nil
+	}
+
 	if vmi.Spec.Domain.Memory.MaxGuest == nil {
 		setRestartRequired(vm, "memory updated in template spec. Memory-hotplug is not available for this VM configuration")
 		return nil
