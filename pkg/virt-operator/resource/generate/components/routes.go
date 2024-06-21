@@ -46,7 +46,8 @@ func NewExportProxyRoute(namespace string) *routev1.Route {
 	route.Spec.To.Kind = "Service"
 	route.Spec.To.Name = VirtExportProxyName
 	route.Spec.TLS = &routev1.TLSConfig{
-		Termination: routev1.TLSTerminationReencrypt,
+		Termination:                   routev1.TLSTerminationReencrypt,
+		InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
 	}
 
 	return route
