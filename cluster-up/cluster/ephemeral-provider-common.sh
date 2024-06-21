@@ -169,6 +169,10 @@ function _add_common_params() {
         params=" --hugepages-2m $KUBEVIRT_HUGEPAGES_2M $params"
     fi
 
+    if [ -n "$KUBEVIRT_HUGEPAGES_1G" ]; then
+        params=" --hugepages-1g $KUBEVIRT_HUGEPAGES_1G $params"
+    fi
+
     if [ -n "$KUBEVIRT_REALTIME_SCHEDULER" ]; then
         params=" --enable-realtime-scheduler $params"
     fi
