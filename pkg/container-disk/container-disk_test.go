@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
@@ -36,22 +37,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("ContainerDisk", func() {
 	var tmpDir string
+	const someImage = "someimage:v1.2.3.4"
 	owner, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
 
 	VerifyDiskType := func(diskExtension string) {
-		vmi := api.NewMinimalVMI("fake-vmi")
+		vmi := libvmi.New(libvmi.WithContainerDisk("r0", someImage))
 		vmi.UID = "1234"
-		appendContainerDisk(vmi, "r0")
 
 		expectedVolumeMountDir := fmt.Sprintf("%s/%s", tmpDir, string(vmi.UID))
 
@@ -92,24 +91,30 @@ var _ = Describe("ContainerDisk", func() {
 				Entry("raw disk", "raw"),
 			)
 			It("by verifying error when no disk is present", func() {
+				vmi := libvmi.New()
 
-				vmi := api.NewMinimalVMI("fake-vmi")
-				appendContainerDisk(vmi, "r0")
+				By("Trying to get the volume mount directory on guest and expecting an error")
+				volumeMountDir := GetVolumeMountDirOnGuest(vmi)
+				_, err := os.Stat(filepath.Join(volumeMountDir, "disk_0.img"))
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(os.IsNotExist, "IsNotExist"))
 			})
 
 			It("by verifying host directory locations", func() {
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New()
 				vmi.UID = "6789"
 				vmi.Status.ActivePods = map[types.UID]string{
 					"1234": "myhost",
 				}
 
 				// should not be found if dir doesn't exist
+				By("Checking if the directory does not exist")
 				path, err := GetVolumeMountDirOnHost(vmi)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
 
 				// should be found if dir does exist
+				By("Creating the expected path and verifying it exists")
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
 				Expect(os.MkdirAll(expectedPath, 0755)).To(Succeed())
 				path, err = GetVolumeMountDirOnHost(vmi)
@@ -117,19 +122,20 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(expectedPath))
 
 				// should be able to generate legacy socket path dir
+				By("Generating and verifying the legacy socket path")
 				legacySocket := GetLegacyVolumeMountDirOnHost(vmi)
 				Expect(legacySocket).To(Equal(filepath.Join(tmpDir, "6789")))
 
 				// should return error if disk target dir doesn't exist
+				By("Verifying disk target directory")
 				targetPath, err := GetDiskTargetDirFromHostView(vmi)
 				expectedPath = fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(unsafepath.UnsafeAbsolute(targetPath.Raw())).To(Equal(expectedPath))
-
 			})
 
 			It("by verifying error occurs if multiple host directory locations exist somehow", func() {
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New()
 				vmi.UID = "6789"
 				vmi.Status.ActivePods = map[types.UID]string{
 					"1234": "myhost",
@@ -137,6 +143,7 @@ var _ = Describe("ContainerDisk", func() {
 				}
 
 				// should not return error if only one dir exists
+				By("Creating the first directory and verifying it exists")
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
 				Expect(os.MkdirAll(expectedPath, 0755)).To(Succeed())
 				path, err := GetVolumeMountDirOnHost(vmi)
@@ -144,6 +151,7 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(expectedPath))
 
 				// return error if two dirs exist
+				By("Creating the second directory and verifying an error occurs")
 				secondPath := fmt.Sprintf("%s/5678/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
 				Expect(os.MkdirAll(secondPath, 0755)).To(Succeed())
 				path, err = GetVolumeMountDirOnHost(vmi)
@@ -151,19 +159,20 @@ var _ = Describe("ContainerDisk", func() {
 			})
 
 			It("by verifying launcher directory locations", func() {
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New()
 				vmi.UID = "6789"
 
-				// This should fail if no file exists
+				By("Verifying that an error occurs if the file does not exist")
 				path, err := GetDiskTargetPartFromLauncherView(1)
 				Expect(err).To(HaveOccurred())
 				Expect(path).To(Equal(""))
 
+				By("Creating a file and verifying the path")
 				expectedPath := fmt.Sprintf("%s/disk_1.img", tmpDir)
 				_, err = os.Create(expectedPath)
 				Expect(err).ToNot(HaveOccurred())
 
-				// this should pass once file exists
+				By("Verifying the path once the file exists")
 				path, err = GetDiskTargetPartFromLauncherView(1)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(path).To(Equal(expectedPath))
@@ -182,24 +191,20 @@ var _ = Describe("ContainerDisk", func() {
 					},
 				})
 
-				vmi := api.NewMinimalVMI("fake-vmi")
-				appendContainerDisk(vmi, "r0")
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						k8sv1.ResourceCPU:    resource.MustParse("1"),
-						k8sv1.ResourceMemory: resource.MustParse("64M"),
-					},
-					Limits: k8sv1.ResourceList{
-						k8sv1.ResourceCPU:    resource.MustParse("1"),
-						k8sv1.ResourceMemory: resource.MustParse("64M"),
-					},
-				}
+				vmi := libvmi.New(
+					libvmi.WithContainerDisk("r0", someImage),
+					libvmi.WithResourceCPU("1"),
+					libvmi.WithResourceMemory("64M"),
+					libvmi.WithLimitCPU("1"),
+					libvmi.WithLimitMemory("64M"),
+				)
+
 				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "/var/run/libvirt")
 
 				Expect(containers[0].Resources.Requests).To(ContainElements(*expectedReq.Cpu(), *expectedReq.Memory(), *expectedReq.StorageEphemeral()))
 				Expect(containers[0].Resources.Limits).To(BeEquivalentTo(expectedLimit))
 			},
-				Entry("defaults not overriden", k8sv1.ResourceList{}, k8sv1.ResourceList{}, k8sv1.ResourceList{
+				Entry("defaults not overridden", k8sv1.ResourceList{}, k8sv1.ResourceList{}, k8sv1.ResourceList{
 					k8sv1.ResourceCPU:              resource.MustParse("10m"),
 					k8sv1.ResourceMemory:           resource.MustParse("40M"),
 					k8sv1.ResourceEphemeralStorage: resource.MustParse("50M"),
@@ -207,7 +212,7 @@ var _ = Describe("ContainerDisk", func() {
 					k8sv1.ResourceCPU:    resource.MustParse("10m"),
 					k8sv1.ResourceMemory: resource.MustParse("40M"),
 				}),
-				Entry("defaults overriden", k8sv1.ResourceList{
+				Entry("defaults overridden", k8sv1.ResourceList{
 					k8sv1.ResourceCPU:    resource.MustParse("1m"),
 					k8sv1.ResourceMemory: resource.MustParse("25M"),
 				}, k8sv1.ResourceList{
@@ -236,14 +241,18 @@ var _ = Describe("ContainerDisk", func() {
 					},
 				})
 
-				vmi := api.NewMinimalVMI("fake-vmi")
-				appendContainerDisk(vmi, "r0")
+				vmi := libvmi.New(
+					libvmi.WithContainerDisk("r0", someImage),
+				)
+
+				By("Generating containers with the given VMI and cluster configuration")
 				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "/var/run/libvirt")
 
+				By("Verifying the resources of the first container")
 				Expect(containers[0].Resources.Requests).To(ContainElements(*expectedReq.Cpu(), *expectedReq.Memory(), *expectedReq.StorageEphemeral()))
 				Expect(containers[0].Resources.Limits).To(BeEquivalentTo(expectedLimit))
 			},
-				Entry("defaults not overriden", k8sv1.ResourceList{}, k8sv1.ResourceList{}, k8sv1.ResourceList{
+				Entry("defaults not overridden", k8sv1.ResourceList{}, k8sv1.ResourceList{}, k8sv1.ResourceList{
 					k8sv1.ResourceCPU:              resource.MustParse("1m"),
 					k8sv1.ResourceMemory:           resource.MustParse("1M"),
 					k8sv1.ResourceEphemeralStorage: resource.MustParse("50M"),
@@ -251,7 +260,7 @@ var _ = Describe("ContainerDisk", func() {
 					k8sv1.ResourceCPU:    resource.MustParse("10m"),
 					k8sv1.ResourceMemory: resource.MustParse("40M"),
 				}),
-				Entry("defaults overriden", k8sv1.ResourceList{
+				Entry("defaults overridden", k8sv1.ResourceList{
 					k8sv1.ResourceCPU:    resource.MustParse("2m"),
 					k8sv1.ResourceMemory: resource.MustParse("25M"),
 				}, k8sv1.ResourceList{
@@ -272,10 +281,15 @@ var _ = Describe("ContainerDisk", func() {
 					SupportContainerResources: []v1.SupportContainerResources{},
 				})
 
-				vmi := api.NewMinimalVMI("fake-vmi")
-				appendContainerDisk(vmi, "r0")
+				By("Creating a new VMI with a container disk")
+				vmi := libvmi.New(
+					libvmi.WithContainerDisk("r0", someImage),
+				)
+
+				By("Generating containers with the given VMI and cluster configuration")
 				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "/var/run/libvirt")
 
+				By("Setting the expected ephemeral storage request")
 				expectedEphemeralStorageRequest := resource.MustParse(ephemeralStorageOverheadSize)
 
 				containerResourceSpecs := make([]k8sv1.ResourceList, 0)
@@ -283,25 +297,30 @@ var _ = Describe("ContainerDisk", func() {
 					containerResourceSpecs = append(containerResourceSpecs, container.Resources.Requests)
 				}
 
+				By("Verifying that each container's resource spec includes the expected ephemeral storage request")
 				for _, containerResourceSpec := range containerResourceSpecs {
 					Expect(containerResourceSpec).To(HaveKeyWithValue(k8sv1.ResourceEphemeralStorage, expectedEphemeralStorageRequest))
 				}
 			})
+
 			It("by verifying container generation", func() {
 				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					SupportContainerResources: []v1.SupportContainerResources{},
 				})
-				vmi := api.NewMinimalVMI("fake-vmi")
-				appendContainerDisk(vmi, "r1")
-				appendContainerDisk(vmi, "r0")
-				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "bin-volume")
-				Expect(err).ToNot(HaveOccurred())
 
+				By("Creating a new VMI with multiple container disks")
+				vmi := libvmi.New(
+					libvmi.WithContainerDiskAndPullPolicy("r1", someImage, "Always"),
+					libvmi.WithContainerDiskAndPullPolicy("r0", someImage, "Always"),
+				)
+
+				By("Generating containers with the given VMI and cluster configuration")
+				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "bin-volume")
 				Expect(containers).To(HaveLen(2))
+				By("Verifying that both containers have ImagePullPolicy set to Always")
 				Expect(containers[0].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
 				Expect(containers[1].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
 			})
-
 			Context("which checks socket paths", func() {
 
 				var vmi *v1.VirtualMachineInstance
@@ -318,11 +337,14 @@ var _ = Describe("ContainerDisk", func() {
 					f, err = os.Create(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock", tmpDir, "poduid"))
 					Expect(err).ToNot(HaveOccurred())
 					Expect(f.Close()).To(Succeed())
-					vmi = api.NewMinimalVMI("fake-vmi")
+
+					By("Creating a new VMI with multiple container disks")
+					vmi = libvmi.New(
+						libvmi.WithContainerDisk("r0", someImage),
+						libvmi.WithContainerDisk("r1", someImage),
+						libvmi.WithContainerDisk("r2", someImage),
+					)
 					vmi.Status.ActivePods = map[types.UID]string{"poduid": ""}
-					appendContainerDisk(vmi, "r0")
-					appendContainerDisk(vmi, "r1")
-					appendContainerDisk(vmi, "r2")
 				})
 
 				AfterEach(func() {
@@ -334,7 +356,7 @@ var _ = Describe("ContainerDisk", func() {
 					Expect(err).To(HaveOccurred())
 				})
 
-				It("shoud succeed if the socket is there", func() {
+				It("should succeed if the socket is there", func() {
 					path1, err := NewSocketPathGetter(tmpDir)(vmi, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(path1).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid")))
@@ -350,18 +372,23 @@ var _ = Describe("ContainerDisk", func() {
 				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					SupportContainerResources: []v1.SupportContainerResources{},
 				})
-				vmi := api.NewMinimalVMI("myvmi")
-				appendContainerDisk(vmi, "disk1")
-				appendNonContainerDisk(vmi, "disk3")
-				appendContainerDisk(vmi, "disk2")
+
+				By("Creating a new VMI with container and non-container disks")
+				vmi := libvmi.New(
+					libvmi.WithContainerDisk("disk1", someImage),
+					libvmi.WithDataVolume("disk3", "some-data-volume"),
+					libvmi.WithContainerDisk("disk2", someImage),
+				)
 
 				pod := createMigrationSourcePod(vmi)
 
+				By("Extracting image IDs from the source pod")
 				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
 				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
 				Expect(imageIDs).To(HaveKeyWithValue("disk2", "someimage@sha256:1"))
 				Expect(imageIDs).To(HaveLen(2))
 
+				By("Generating new containers based on the extracted image IDs")
 				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
 				Expect(newContainers[0].Image).To(Equal("someimage@sha256:0"))
 				Expect(newContainers[1].Image).To(Equal("someimage@sha256:1"))
@@ -370,32 +397,44 @@ var _ = Describe("ContainerDisk", func() {
 				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					SupportContainerResources: []v1.SupportContainerResources{},
 				})
-				vmi := api.NewMinimalVMI("myvmi")
-				appendContainerDisk(vmi, "disk1")
-				appendNonContainerDisk(vmi, "disk3")
 
-				vmi.Spec.Domain.Firmware = &v1.Firmware{KernelBoot: &v1.KernelBoot{Container: &v1.KernelBootContainer{Image: "someimage:v1.2.3.4"}}}
+				By("Creating a new VMI with a container disk and a kernel boot image")
+				vmi := libvmi.New(
+					libvmi.WithKernelBootContainer(someImage),
+					libvmi.WithContainerDisk("disk1", someImage),
+					libvmi.WithDataVolume("disk3", "some-data-volume"),
+				)
 
+				By("Creating a migration source pod")
 				pod := createMigrationSourcePod(vmi)
 
+				By("Extracting image IDs from the source pod")
 				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
 				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
 				Expect(imageIDs).To(HaveKeyWithValue("kernel-boot-volume", "someimage@sha256:bootcontainer"))
 				Expect(imageIDs).To(HaveLen(2))
 
+				By("Generating new containers based on the extracted image IDs")
 				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
 				newBootContainer := GenerateKernelBootContainer(vmi, clusterConfig, imageIDs, "a-name", "something")
 				newContainers = append(newContainers, *newBootContainer)
 				Expect(newContainers[0].Image).To(Equal("someimage@sha256:0"))
 				Expect(newContainers[1].Image).To(Equal("someimage@sha256:bootcontainer"))
 			})
-
 			It("should return the source image tag if it can't detect a reproducible imageID", func() {
-				vmi := api.NewMinimalVMI("myvmi")
-				appendContainerDisk(vmi, "disk1")
+				By("Creating a new VMI with a container disk")
+				vmi := libvmi.New(
+					libvmi.WithContainerDisk("disk1", someImage),
+				)
+
+				By("Creating a migration source pod")
 				pod := createMigrationSourcePod(vmi)
 				pod.Status.ContainerStatuses[0].ImageID = "rubbish"
+
+				By("Extracting image IDs from the source pod")
 				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
+
+				By("Verifying that the source image tag is returned when a reproducible imageID can't be detected")
 				Expect(imageIDs["disk1"]).To(Equal(vmi.Spec.Volumes[0].ContainerDisk.Image))
 			})
 
@@ -432,13 +471,20 @@ var _ = Describe("ContainerDisk", func() {
 				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					SupportContainerResources: []v1.SupportContainerResources{},
 				})
-				vmi := api.NewMinimalVMI("myvmi")
-				appendContainerDisk(vmi, "disk1")
+				By("Creating a new VMI with a container disk")
+				vmi := libvmi.New(
+					libvmi.WithContainerDisk("disk1", someImage),
+				)
 
+				By("Creating a migration source pod")
 				pod := createMigrationSourcePod(vmi)
+				By("Extracting image IDs from the source pod")
 				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
 
+				By("Generating containers with the given VMI and cluster configuration")
 				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
+
+				By("Running the test function on the generated container")
 				testFunc(&newContainers[0])
 			},
 				Entry("AllowPrivilegeEscalation should be false", func(c *k8sv1.Container) {
@@ -451,38 +497,6 @@ var _ = Describe("ContainerDisk", func() {
 		})
 	})
 })
-
-func appendContainerDisk(vmi *v1.VirtualMachineInstance, diskName string) {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: diskName,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: diskName,
-		VolumeSource: v1.VolumeSource{
-			ContainerDisk: &v1.ContainerDiskSource{
-				Image:           "someimage:v1.2.3.4",
-				ImagePullPolicy: k8sv1.PullAlways,
-			},
-		},
-	})
-}
-func appendNonContainerDisk(vmi *v1.VirtualMachineInstance, diskName string) {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: diskName,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: diskName,
-		VolumeSource: v1.VolumeSource{
-			DataVolume: &v1.DataVolumeSource{},
-		},
-	})
-}
 
 func createMigrationSourcePod(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
