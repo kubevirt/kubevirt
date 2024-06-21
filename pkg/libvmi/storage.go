@@ -34,9 +34,14 @@ const (
 
 // WithContainerDisk specifies the disk name and the name of the container image to be used.
 func WithContainerDisk(diskName, imageName string) Option {
+	return WithContainerDiskAndPullPolicy(diskName, imageName, "")
+}
+
+// WithContainerDiskAndPullPolicy specifies the disk name, the name of the container image and Pull Policy to be used.
+func WithContainerDiskAndPullPolicy(diskName, imageName string, imagePullPolicy k8sv1.PullPolicy) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
-		addVolume(vmi, newContainerVolume(diskName, imageName))
+		addVolume(vmi, newContainerVolume(diskName, imageName, imagePullPolicy))
 	}
 }
 
@@ -44,7 +49,7 @@ func WithContainerDisk(diskName, imageName string) Option {
 func WithContainerSATADisk(diskName, imageName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusSATA))
-		addVolume(vmi, newContainerVolume(diskName, imageName))
+		addVolume(vmi, newContainerVolume(diskName, imageName, ""))
 	}
 }
 
@@ -92,7 +97,7 @@ func WithCDRom(cdRomName string, bus v1.DiskBus, claimName string) Option {
 func WithEphemeralCDRom(cdRomName string, bus v1.DiskBus, claimName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newCDRom(cdRomName, bus))
-		addVolume(vmi, newContainerVolume(cdRomName, claimName))
+		addVolume(vmi, newContainerVolume(cdRomName, claimName, ""))
 	}
 }
 
@@ -120,9 +125,17 @@ func WithPersistentVolumeClaimLun(diskName, pvcName string, reservation bool) Op
 }
 
 func WithHostDisk(diskName, path string, diskType v1.HostDiskType) Option {
+	var capacity string
+	if diskType == v1.HostDiskExistsOrCreate {
+		capacity = defaultDiskSize
+	}
+	return WithHostDiskAndCapacity(diskName, path, diskType, capacity)
+}
+
+func WithHostDiskAndCapacity(diskName, path string, diskType v1.HostDiskType, capacity string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
-		addVolume(vmi, newHostDisk(diskName, path, diskType))
+		addVolume(vmi, newHostDisk(diskName, path, diskType, capacity))
 	}
 }
 
@@ -234,8 +247,8 @@ func newVolume(name string) v1.Volume {
 	return v1.Volume{Name: name}
 }
 
-func newContainerVolume(name, image string) v1.Volume {
-	return v1.Volume{
+func newContainerVolume(name, image string, imagePullPolicy k8sv1.PullPolicy) v1.Volume {
+	container := v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			ContainerDisk: &v1.ContainerDiskSource{
@@ -243,6 +256,10 @@ func newContainerVolume(name, image string) v1.Volume {
 			},
 		},
 	}
+	if imagePullPolicy != "" {
+		container.ContainerDisk.ImagePullPolicy = imagePullPolicy
+	}
+	return container
 }
 
 func newPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
@@ -293,13 +310,15 @@ func newEmptyDisk(name string, capacity resource.Quantity) v1.Volume {
 	}
 }
 
-func newHostDisk(name, path string, diskType v1.HostDiskType) v1.Volume {
+func newHostDisk(name, path string, diskType v1.HostDiskType, capacity string) v1.Volume {
 	hostDisk := v1.HostDisk{
 		Path: path,
 		Type: diskType,
 	}
-	if diskType == v1.HostDiskExistsOrCreate {
-		hostDisk.Capacity = resource.MustParse(defaultDiskSize)
+
+	// Set capacity if provided
+	if capacity != "" {
+		hostDisk.Capacity = resource.MustParse(capacity)
 	}
 
 	return v1.Volume{
