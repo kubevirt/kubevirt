@@ -102,19 +102,18 @@ var _ = Describe("Domain informer", func() {
 		DeleteGhostRecord("test", "test")
 	})
 
-	verifyObj := func(key string, domain *api.Domain) {
+	verifyObj := func(key string, domain *api.Domain, g Gomega) {
 		obj, exists, err := informer.GetStore().GetByKey(key)
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
 
 		if domain != nil {
-			Expect(exists).To(BeTrue())
+			g.Expect(exists).To(BeTrue())
 
 			eventDomain := obj.(*api.Domain)
 			eventDomain.Spec.XMLName = xml.Name{}
-			Expect(equality.Semantic.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
+			g.Expect(equality.Semantic.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
 		} else {
-
-			Expect(exists).To(BeFalse())
+			g.Expect(exists).To(BeFalse())
 		}
 	}
 
@@ -281,7 +280,7 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			verifyObj("default/test", domain)
+			verifyObj("default/test", domain, Default)
 		})
 
 		It("should resync active domains after resync period.", func() {
@@ -309,7 +308,7 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			verifyObj("default/test", domain)
+			verifyObj("default/test", domain, Default)
 
 			time.Sleep(time.Duration(resyncPeriod+1) * time.Second)
 
@@ -461,7 +460,7 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			verifyObj("default/test", domain)
+			verifyObj("default/test", domain, Default)
 		})
 		It("should watch for domain events.", func() {
 			domain := api.NewMinimalDomain("test")
@@ -474,21 +473,18 @@ var _ = Describe("Domain informer", func() {
 			// verify add
 			err = client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
-			cache.WaitForCacheSync(stopChan, informer.HasSynced)
-			verifyObj("default/test", domain)
+			Eventually(func(g Gomega) { verifyObj("default/test", domain, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 
 			// verify modify
 			domain.Spec.UUID = "fakeuuid"
 			err = client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
-			cache.WaitForCacheSync(stopChan, informer.HasSynced)
-			verifyObj("default/test", domain)
+			Eventually(func(g Gomega) { verifyObj("default/test", domain, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 
 			// verify modify
 			err = client.SendDomainEvent(watch.Event{Type: watch.Deleted, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
-			cache.WaitForCacheSync(stopChan, informer.HasSynced)
-			verifyObj("default/test", nil)
+			Eventually(func(g Gomega) { verifyObj("default/test", nil, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 		})
 	})
 })
