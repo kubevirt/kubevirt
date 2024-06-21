@@ -3113,6 +3113,20 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		return vm, &syncErrorImpl{fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}, nil
 	}
 
+	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
+	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {
+		dataVolumesReady, err := c.handleDataVolumes(vm)
+		if err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}, nil
+		}
+
+		// not sure why we allow to proceed when halted but preserving legacy behavior
+		if !dataVolumesReady && runStrategy != virtv1.RunStrategyHalted {
+			log.Log.Object(vm).V(3).Info("Waiting on DataVolumes to be ready.")
+			return vm, nil, nil
+		}
+	}
+
 	vm, syncErr = c.syncRunStrategy(vm, vmi, runStrategy)
 	if syncErr != nil {
 		return vm, syncErr, nil

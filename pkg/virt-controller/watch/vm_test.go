@@ -339,7 +339,7 @@ var _ = Describe("VirtualMachine", func() {
 				"Type":   Equal(v1.VirtualMachineFailure),
 				"Reason": Equal("FailedCreate"),
 				"Message": And(
-					ContainSubstring("Failure while starting VMI: failed to create DataVolume"),
+					ContainSubstring("Error encountered while creating DataVolumes: failed to create DataVolume"),
 					ContainSubstring("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)"),
 				),
 			}))
@@ -1298,8 +1298,14 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(MatchError(ContainSubstring("not found")))
 		})
 
-		DescribeTable("should create multiple DataVolumes for VirtualMachineInstance when running", func(running bool) {
+		DescribeTable("should create multiple DataVolumes for VirtualMachineInstance when running", func(running bool, anno string, shouldCreate bool) {
 			vm, _ := DefaultVirtualMachine(running)
+			if anno != "" {
+				if vm.Annotations == nil {
+					vm.Annotations = make(map[string]string)
+				}
+				vm.Annotations[v1.ImmediateDataVolumeCreation] = anno
+			}
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1337,15 +1343,19 @@ var _ = Describe("VirtualMachine", func() {
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 
 			sanityExecute(vm)
-			if running {
+			if shouldCreate {
 				Expect(createCount).To(Equal(2))
 				testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 			} else {
 				Expect(createCount).To(Equal(0))
 			}
 		},
-			Entry("when VM is running", true),
-			Entry("when VM stopped", false),
+			Entry("when VM is running no annotation", true, "", true),
+			Entry("when VM stopped no annotation", false, "", true),
+			Entry("when VM is running annotation true", true, "true", true),
+			Entry("when VM stopped annotation true", false, "true", true),
+			Entry("when VM is running annotation false", true, "false", true),
+			Entry("when VM stopped annotation false", false, "false", false),
 		)
 
 		DescribeTable("should properly handle PVC existing before DV created", func(annotations map[string]string, expectedCreations int, initFunc func()) {
