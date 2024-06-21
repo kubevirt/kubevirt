@@ -1114,7 +1114,7 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 		}
 
 		// when coming here from a different RunStrategy we have to start the VM
-		if !hasStartRequest(vm) && vm.Status.RunStrategy == *vm.Spec.RunStrategy {
+		if !hasStartRequest(vm) && vm.Status.RunStrategy == runStrategy {
 			return vm, nil
 		}
 
@@ -2443,7 +2443,11 @@ func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virt
 	vm.Status.Ready = ready
 
 	runStrategy, _ := vmOrig.RunStrategy()
-	vm.Status.RunStrategy = runStrategy
+	// sync for the first time only when the VMI gets created
+	// so that we can tell if the VM got started at least once
+	if vm.Status.RunStrategy != "" || vm.Status.Created {
+		vm.Status.RunStrategy = runStrategy
+	}
 
 	c.trimDoneVolumeRequests(vm)
 	c.updateMemoryDumpRequest(vm, vmi)
