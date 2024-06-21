@@ -41,9 +41,10 @@ import (
 )
 
 const (
-	PromptExpression = `(\$ |\# )`
-	CRLF             = "\r\n"
-	UTFPosEscape     = "\u001b\\[[0-9]+;[0-9]+H"
+	EchoLastReturnValue = "echo $?\n"
+	PromptExpression    = `(\$ |\# )`
+	CRLF                = "\r\n"
+	UTFPosEscape        = "\u001b\\[[0-9]+;[0-9]+H"
 
 	consoleConnectionTimeout = 30 * time.Second
 )

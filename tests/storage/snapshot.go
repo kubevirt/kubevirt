@@ -377,22 +377,22 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
 							&expect.BExp{R: fmt.Sprintf(qemuGa, expectedFreezeOutput)},
-							&expect.BSnd{S: tests.EchoLastReturnValue},
+							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedThawOutput)},
 							&expect.BExp{R: fmt.Sprintf(qemuGa, expectedThawOutput)},
-							&expect.BSnd{S: tests.EchoLastReturnValue},
+							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: fmt.Sprintf(grepCmdWithCount, journalctlCheck, expectedThawOutput)},
 							&expect.BExp{R: console.RetValue("1")},
-							&expect.BSnd{S: tests.EchoLastReturnValue},
+							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 						}, 30)).To(Succeed())
 					} else {
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
 							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: tests.EchoLastReturnValue},
+							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("1")},
 						}, 30)).To(Succeed())
 					}
@@ -837,7 +837,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
 					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedFreezeOutput)},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 30)).To(Succeed())
 				Eventually(func() string {
@@ -855,7 +855,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedThawOutput)},
 					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedThawOutput)},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 30)).To(Succeed())
 				Eventually(func() string {

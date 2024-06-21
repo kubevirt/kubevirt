@@ -218,7 +218,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: fmt.Sprintf("%s\n", runClient)},
 						&expect.BExp{R: console.RetValue("Hello Client")},
-						&expect.BSnd{S: tests.EchoLastReturnValue},
+						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.ShellSuccess},
 					}, 60*time.Second)
 				}

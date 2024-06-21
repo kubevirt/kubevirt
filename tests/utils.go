@@ -80,11 +80,11 @@ import (
 const (
 	BinBash                = "/bin/bash"
 	waitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
-	EchoLastReturnValue    = "echo $?\n"
-	CustomHostPath         = "custom-host-path"
-	DiskAlpineHostPath     = "disk-alpine-host-path"
-	DiskWindowsSysprep     = "disk-windows-sysprep"
-	DiskCustomHostPath     = "disk-custom-host-path"
+
+	CustomHostPath     = "custom-host-path"
+	DiskAlpineHostPath = "disk-alpine-host-path"
+	DiskWindowsSysprep = "disk-windows-sysprep"
+	DiskCustomHostPath = "disk-custom-host-path"
 )
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
@@ -743,7 +743,7 @@ func MountCloudInitFunc(devName string) func(*v1.VirtualMachineInstance) {
 			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: cmdCheck},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: EchoLastReturnValue},
+			&expect.BSnd{S: console.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
