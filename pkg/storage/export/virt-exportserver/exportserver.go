@@ -29,6 +29,7 @@ import (
 	goflag "flag"
 	"fmt"
 	"io"
+	golog "log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -50,6 +51,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/service"
+	"kubevirt.io/kubevirt/pkg/storage/export/export"
 )
 
 const (
@@ -129,6 +131,9 @@ func (er *execReader) Close() error {
 func (s *exportServer) initHandler() {
 	mux := http.NewServeMux()
 	for i, vi := range s.Volumes {
+		if hasPermissions := checkVolumePermissions(vi.Path); !hasPermissions {
+			golog.Fatalf("unable to manipulate %s's contents, exiting", vi.Path)
+		}
 		for path, handler := range s.getHandlerMap(vi) {
 			log.Log.Infof("Handling path %s\n", path)
 			mux.Handle(path, tokenChecker(s.TokenGetter, handler))
@@ -146,7 +151,8 @@ func (s *exportServer) initHandler() {
 			}
 		}
 	}
-
+	// Readiness probe
+	mux.HandleFunc(export.ReadinessPath, s.readyHandler)
 	s.handler = mux
 }
 
@@ -475,6 +481,11 @@ func archiveHandler(mountPoint string) http.Handler {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		if hasPermissions := checkDirectoryPermissions(mountPoint); !hasPermissions {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		tarReader, err := newTarReader(mountPoint)
 		if err != nil {
 			log.Log.Reason(err).Error("error creating tar reader")
@@ -490,6 +501,52 @@ func archiveHandler(mountPoint string) http.Handler {
 		}
 		log.Log.Infof("Wrote %d bytes\n", n)
 	})
+}
+
+func checkDirectoryPermissions(filePath string) bool {
+	dir, err := os.Open(filePath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error opening %s", filePath)
+		return false
+	}
+	defer dir.Close()
+
+	// Read all filenames
+	contents, err := dir.Readdirnames(-1)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to read directory contents: %v", err)
+		return false
+	}
+
+	for _, item := range contents {
+		itemPath := filepath.Join(filePath, item)
+		// Check if export server has permissions to manipulate the file
+		file, err := os.Open(itemPath)
+		if err != nil {
+			log.Log.Reason(err).Errorf("%s may lack read permissions", itemPath)
+			return false
+		}
+		file.Close()
+	}
+	return true
+}
+
+func checkVolumePermissions(path string) bool {
+	fi, err := os.Stat(path)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error statting %s", path)
+		return false
+	}
+	if fi.IsDir() {
+		return checkDirectoryPermissions(path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error opening %s", path)
+		return false
+	}
+	f.Close()
+	return true
 }
 
 func gzipHandler(filePath string) http.Handler {
@@ -715,4 +772,8 @@ func secretHandler(tokenGetter TokenGetterFunc) http.Handler {
 		}
 		log.Log.Infof("Wrote %d bytes\n", n)
 	})
+}
+
+func (s *exportServer) readyHandler(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "OK")
 }

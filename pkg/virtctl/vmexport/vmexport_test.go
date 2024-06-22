@@ -56,6 +56,10 @@ var _ = Describe("vmexport", func() {
 
 	})
 
+	defaultHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}
+
 	setflag := func(flag, parameter string) string {
 		return fmt.Sprintf("%s=%s", flag, parameter)
 	}
@@ -79,16 +83,14 @@ var _ = Describe("vmexport", func() {
 		})
 	}
 
-	testInit := func(statusCode int) {
+	testInit := func(handlerFunc func(w http.ResponseWriter, r *http.Request)) {
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(kubeClient.StorageV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
 
 		addDefaultReactors()
 
-		server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(statusCode)
-		}))
+		server = httptest.NewTLSServer(http.HandlerFunc(handlerFunc))
 
 		virtctlvmexport.ExportProcessingComplete = utils.WaitExportCompleteDefault
 		virtctlvmexport.SetHTTPClientCreator(func(*http.Transport, bool) *http.Client {
@@ -109,7 +111,7 @@ var _ = Describe("vmexport", func() {
 
 	Context("VMExport fails", func() {
 		It("VirtualMachineExport already exists when using 'create'", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			utils.HandleVMExportGet(vmExportClient, vmexport, vmexportName)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"))
@@ -119,7 +121,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport doesn't exist when using 'download' without source type", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "output.img"))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
@@ -127,7 +129,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport processing fails when using 'download'", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			virtctlvmexport.ExportProcessingComplete = utils.WaitExportCompleteError
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
@@ -136,7 +138,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download fails when there's no volume available", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus(nil, secretName)
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
@@ -149,7 +151,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download fails when the volumes have a different name than expected", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -171,7 +173,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download fails when there are multiple volumes and no volume name has been specified", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -193,7 +195,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download fails when no format is available", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{{Name: volumeName}}, secretName)
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
@@ -206,7 +208,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download fails when the only available format is incompatible with download", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -224,7 +226,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download fails when the secret token is not attainable", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -243,8 +245,10 @@ var _ = Describe("vmexport", func() {
 			Expect(err.Error()).Should(ContainSubstring(expectedError))
 		})
 
-		It("VirtualMachineExport download fails if the server returns a bad status", func() {
-			testInit(http.StatusInternalServerError)
+		It("VirtualMachineExport retries until failure if the server returns a bad status", func() {
+			testInit(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+			})
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -255,14 +259,39 @@ var _ = Describe("vmexport", func() {
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 			utils.HandleSecretGet(kubeClient, secretName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.RETRY_FLAG, "2"))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(Equal("bad status: 500 Internal Server Error"))
+			Expect(err.Error()).Should(Equal("retry count reached, exiting unsuccesfully"))
+		})
+
+		It("VirtualMachineExport succeeds after retrying due to bad status", func() {
+			count := 0
+			testInit(func(w http.ResponseWriter, r *http.Request) {
+				if count == 0 {
+					w.WriteHeader(http.StatusInternalServerError)
+				} else {
+					w.WriteHeader(http.StatusOK)
+				}
+				count++
+			})
+			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
+			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    volumeName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
+				},
+			}, secretName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
+			utils.HandleSecretGet(kubeClient, secretName)
+
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.RETRY_FLAG, "2"))
+			err := cmd()
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Bad flag combination", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			args := []string{virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test"), setflag(virtctlvmexport.VM_FLAG, "test2"), setflag(virtctlvmexport.SNAPSHOT_FLAG, "test3")}
 			args = append([]string{commandName}, args...)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
@@ -272,7 +301,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		DescribeTable("Invalid arguments/flags", func(errString string, args ...string) {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			args = append([]string{commandName}, args...)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
 			err := cmd()
@@ -302,7 +331,7 @@ var _ = Describe("vmexport", func() {
 
 	Context("VMExport succeeds", func() {
 		BeforeEach(func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 		})
 
 		// Create tests
@@ -322,7 +351,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport doesn't exist when using 'delete'", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DELETE, vmexportName)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
@@ -430,7 +459,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download succeeds when the volume has a different name than expected but there's only one volume", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -447,7 +476,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download succeeds when there's only one volume and no --volume has been specified", func() {
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -570,7 +599,7 @@ var _ = Describe("vmexport", func() {
 
 		BeforeEach(func() {
 			orgHttpFunc = virtctlvmexport.HandleHTTPRequest
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 		})
 
 		AfterEach(func() {
@@ -718,7 +747,7 @@ var _ = Describe("vmexport", func() {
 
 		BeforeEach(func() {
 			orgHttpFunc = virtctlvmexport.HandleHTTPRequest
-			testInit(http.StatusOK)
+			testInit(defaultHandler)
 			vme = utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
