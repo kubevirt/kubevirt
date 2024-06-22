@@ -1275,29 +1275,26 @@ func (d *VirtualMachineController) updateFSFreezeStatus(vmi *v1.VirtualMachineIn
 
 }
 
-func IsoGuestVolumePath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (string, bool) {
-	var volPath string
-
-	basepath := "/var/run"
-	if volume.CloudInitNoCloud != nil {
-		volPath = filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
-	} else if volume.CloudInitConfigDrive != nil {
-		volPath = filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
-	} else if volume.ConfigMap != nil {
-		volPath = config.GetConfigMapDiskPath(volume.Name)
-	} else if volume.DownwardAPI != nil {
-		volPath = config.GetDownwardAPIDiskPath(volume.Name)
-	} else if volume.Secret != nil {
-		volPath = config.GetSecretDiskPath(volume.Name)
-	} else if volume.ServiceAccount != nil {
-		volPath = config.GetServiceAccountDiskPath()
-	} else if volume.Sysprep != nil {
-		volPath = config.GetSysprepDiskPath(volume.Name)
-	} else {
-		return "", false
+func IsoGuestVolumePath(namespace, name string, volume *v1.Volume) string {
+	const basepath = "/var/run"
+	switch {
+	case volume.CloudInitNoCloud != nil:
+		return filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", namespace, name, "noCloud.iso")
+	case volume.CloudInitConfigDrive != nil:
+		return filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", namespace, name, "configdrive.iso")
+	case volume.ConfigMap != nil:
+		return config.GetConfigMapDiskPath(volume.Name)
+	case volume.DownwardAPI != nil:
+		return config.GetDownwardAPIDiskPath(volume.Name)
+	case volume.Secret != nil:
+		return config.GetSecretDiskPath(volume.Name)
+	case volume.ServiceAccount != nil:
+		return config.GetServiceAccountDiskPath()
+	case volume.Sysprep != nil:
+		return config.GetSysprepDiskPath(volume.Name)
+	default:
+		return ""
 	}
-
-	return volPath, true
 }
 
 func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineInstance) {
@@ -1329,8 +1326,8 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 			continue
 		}
 
-		volPath, found := IsoGuestVolumePath(vmi, &volume)
-		if !found {
+		volPath := IsoGuestVolumePath(vmi.Namespace, vmi.Name, &volume)
+		if volPath == "" {
 			continue
 		}
 

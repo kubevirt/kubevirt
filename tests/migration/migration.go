@@ -1924,8 +1924,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 							for _, volStatus := range vmi.Status.VolumeStatus {
 								if volStatus.Name == volume.Name {
 									Expect(volStatus.Size).To(BeNumerically(">", 0), "Size of volume %s is 0", volume.Name)
-									volPath, found := virthandler.IsoGuestVolumePath(vmi, &volume)
-									if !found {
+									volPath := virthandler.IsoGuestVolumePath(vmi.Namespace, vmi.Name, &volume)
+									if volPath == "" {
 										continue
 									}
 									// Wait for the iso to be created
