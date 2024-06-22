@@ -57,12 +57,12 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	var admitter *VirtualMachineCloneAdmitter
 	var vmClone *clonev1lpha1.VirtualMachineClone
 	var config *virtconfig.ClusterConfig
-	var kvInformer cache.SharedIndexInformer
+	var kvStore cache.Store
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var vm *v1.VirtualMachine
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -74,7 +74,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	}
 
 	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -139,7 +139,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		kubevirtClient = fake.NewSimpleClientset()
 		virtClient.

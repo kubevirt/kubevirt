@@ -96,7 +96,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var storageClassInformer cache.SharedIndexInformer
 	var rqInformer cache.SharedIndexInformer
 	var nsInformer cache.SharedIndexInformer
-	var kvInformer cache.SharedIndexInformer
+	var kvStore cache.Store
 
 	var dataVolumeInformer cache.SharedIndexInformer
 	var cdiInformer cache.SharedIndexInformer
@@ -270,7 +270,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			},
 		}
 
-		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
+		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
@@ -2123,10 +2123,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Guest:    &requestedGuestMemory,
 					MaxGuest: &requestedGuestMemory,
 				}
-				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 				overheadRatio := "2"
 				kvCR.Spec.Configuration.AdditionalGuestMemoryOverheadRatio = &overheadRatio
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
 
 				controller.syncMemoryHotplug(vmi)
 

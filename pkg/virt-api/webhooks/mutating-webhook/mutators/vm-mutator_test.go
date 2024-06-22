@@ -56,7 +56,7 @@ import (
 
 var _ = Describe("VirtualMachine Mutator", func() {
 	var vm *v1.VirtualMachine
-	var kvInformer cache.SharedIndexInformer
+	var kvStore cache.Store
 	var mutator *VMsMutator
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
@@ -137,7 +137,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
 
 		mutator = &VMsMutator{}
-		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		mutator.ClusterConfig, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -179,7 +179,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	})
 
 	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppc64leMachineType string, s390xMachineType string, result string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{
@@ -202,7 +202,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	)
 
 	It("should not override default architecture with defaults on VM create", func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Status: v1.KubeVirtStatus{
 				DefaultArchitecture: "arm64",
 			},
@@ -214,7 +214,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	})
 
 	It("should not override specified properties with defaults on VM create", func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					MachineType: machineTypeFromConfig,
@@ -252,7 +252,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Kind: apiinstancetype.SingularPreferenceResourceName,
 		}
 
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					MachineType: machineTypeFromConfig,
@@ -287,7 +287,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Kind: apiinstancetype.SingularPreferenceResourceName,
 		}
 
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					MachineType: machineTypeFromConfig,
@@ -305,7 +305,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Kind: apiinstancetype.SingularPreferenceResourceName,
 		}
 
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{

@@ -71,7 +71,7 @@ var _ = Describe("TLS", func() {
 	var caManager kvtls.ClientCAManager
 	var certmanagers map[string]certificate.Manager
 	var clusterConfig *virtconfig.ClusterConfig
-	var kubeVirtInformer cache.SharedIndexInformer
+	var kubeVirtStore cache.Store
 
 	BeforeEach(func() {
 		// Bootstrap TLS for kubevirt
@@ -108,7 +108,7 @@ var _ = Describe("TLS", func() {
 				},
 			},
 		}
-		clusterConfig, _, kubeVirtInformer = testutils.NewFakeClusterConfigUsingKV(kv)
+		clusterConfig, _, kubeVirtStore = testutils.NewFakeClusterConfigUsingKV(kv)
 	})
 
 	DescribeTable("on virt-handler with self-signed CA should", func(serverSecret, clientSecret string, errStr string) {
@@ -216,7 +216,7 @@ var _ = Describe("TLS", func() {
 			return kvtls.SetupPromTLS(certmanagers[components.VirtHandlerServerCertSecretName], clusterConfig)
 		}),
 		Entry("to exportproxy endpoints", func() *tls.Config {
-			return kvtls.SetupExportProxyTLS(certmanagers[components.VirtHandlerServerCertSecretName], kubeVirtInformer)
+			return kvtls.SetupExportProxyTLS(certmanagers[components.VirtHandlerServerCertSecretName], kubeVirtStore)
 		}),
 	)
 
@@ -331,7 +331,7 @@ var _ = Describe("TLS", func() {
 		kvConfig.Spec.Configuration.TLSConfiguration = &v12.TLSConfiguration{
 			MinTLSVersion: "VersionTLS13",
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer.GetStore(), kvConfig)
+		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtStore, kvConfig)
 		client = &http.Client{Transport: &http.Transport{TLSClientConfig: clientTLSConfig}}
 		resp, err = client.Get(srv.URL)
 		Expect(err).To(HaveOccurred())
@@ -356,7 +356,7 @@ var _ = Describe("TLS", func() {
 		),
 		Entry("on exportproxy endpoint",
 			func() *tls.Config {
-				return kvtls.SetupExportProxyTLS(certmanagers[components.VirtHandlerServerCertSecretName], kubeVirtInformer)
+				return kvtls.SetupExportProxyTLS(certmanagers[components.VirtHandlerServerCertSecretName], kubeVirtStore)
 			},
 			func() *tls.Config {
 				return &tls.Config{InsecureSkipVerify: true}

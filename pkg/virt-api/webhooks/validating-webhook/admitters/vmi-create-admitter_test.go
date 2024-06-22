@@ -72,17 +72,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			DefaultArchitecture: "amd64",
 		},
 	}
-	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config}
 
 	dnsConfigTestOption := "test"
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
 	updateDefaultArchitecture := func(defaultArchitecture string) {
@@ -90,7 +90,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.MultiArchitecture}
 		kvConfig.Status.DefaultArchitecture = defaultArchitecture
 
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
 	AfterEach(func() {
@@ -860,7 +860,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.VMLiveUpdateFeaturesGate}
 			kvConfig.Spec.Configuration.VMRolloutStrategy = ptr.To(v1.VMRolloutStrategyLiveUpdate)
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 			vmi := api.NewMinimalVMI("testvmi")
 			guestMemory := resource.MustParse("128Mi")
@@ -1216,7 +1216,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should accept legacy GPU devices if PermittedHostDevices aren't set", func() {
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
@@ -1239,7 +1239,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
@@ -1275,7 +1275,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 				{
@@ -1297,7 +1297,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 				{

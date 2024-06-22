@@ -56,12 +56,12 @@ const (
 
 type exportProxyApp struct {
 	service.ServiceListen
-	tlsCertFilePath  string
-	tlsKeyFilePath   string
-	certManager      certificate2.Manager
-	caManager        kvtls.ClientCAManager
-	exportInformer   cache.SharedIndexInformer
-	kubeVirtInformer cache.SharedIndexInformer
+	tlsCertFilePath string
+	tlsKeyFilePath  string
+	certManager     certificate2.Manager
+	caManager       kvtls.ClientCAManager
+	exportStore     cache.Store
+	kubeVirtStore   cache.Store
 }
 
 func NewExportProxyApp() service.Service {
@@ -86,7 +86,7 @@ func (app *exportProxyApp) Run() {
 	app.prepareCertManager()
 	go app.certManager.Start()
 
-	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtInformer)
+	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtStore)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", app.proxyHandler)
 	mux.HandleFunc("/healthz", app.healthzHandler)
@@ -120,7 +120,7 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	key := fmt.Sprintf("%s/%s", match[2], match[3])
-	obj, exists, err := app.exportInformer.GetStore().GetByKey(key)
+	obj, exists, err := app.exportStore.GetByKey(key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -185,8 +185,8 @@ func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
 
 	kubeInformerFactory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli, aggregatorClient, namespace)
 	caInformer := kubeInformerFactory.KubeVirtExportCAConfigMap()
-	app.exportInformer = kubeInformerFactory.VirtualMachineExport()
-	app.kubeVirtInformer = kubeInformerFactory.KubeVirt()
+	app.exportStore = kubeInformerFactory.VirtualMachineExport().GetStore()
+	app.kubeVirtStore = kubeInformerFactory.KubeVirt().GetStore()
 	kubeInformerFactory.Start(stopChan)
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 

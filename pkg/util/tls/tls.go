@@ -58,7 +58,7 @@ func SetupPromTLS(certManager certificate.Manager, clusterConfig *virtconfig.Clu
 	return tlsConfig
 }
 
-func SetupExportProxyTLS(certManager certificate.Manager, kubeVirtInformer cache.SharedIndexInformer) *tls.Config {
+func SetupExportProxyTLS(certManager certificate.Manager, kubeVirtStore cache.Store) *tls.Config {
 	tlsConfig := &tls.Config{
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
@@ -74,7 +74,7 @@ func SetupExportProxyTLS(certManager certificate.Manager, kubeVirtInformer cache
 				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 
-			kv := getKubevirt(kubeVirtInformer)
+			kv := getKubevirt(kubeVirtStore)
 			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
 			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
@@ -328,8 +328,8 @@ func createIntermediatePool(externallyManaged bool, rawIntermediates [][]byte) *
 	return intermediatePool
 }
 
-func getKubevirt(kubeVirtInformer cache.SharedIndexInformer) *v1.KubeVirt {
-	objects := kubeVirtInformer.GetStore().List()
+func getKubevirt(kubeVirtStore cache.Store) *v1.KubeVirt {
+	objects := kubeVirtStore.List()
 	for _, obj := range objects {
 		if kv, ok := obj.(*v1.KubeVirt); ok && kv.DeletionTimestamp == nil {
 			if kv.Status.Phase != "" {
