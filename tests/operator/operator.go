@@ -132,7 +132,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		installTestingManifests                func(string)
 		deleteOperator                         func(string)
 		deleteTestingManifests                 func(string)
 		deleteAllKvAndWait                     func(bool)
@@ -155,11 +154,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		installTestingManifests = func(manifestPath string) {
-			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
-			Expect(err).ToNot(HaveOccurred())
-		}
 
 		deleteOperator = func(manifestPath string) {
 			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
@@ -1304,7 +1298,9 @@ spec:
 				installOperator(flags.OperatorManifestPath)
 
 				By("Re-installing testing manifests")
-				installTestingManifests(flags.TestingManifestPath)
+				_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", flags.TestingManifestPath)
+				Expect(err).ToNot(HaveOccurred(), "failed to re-install the testing manifests")
+
 			} else {
 				By("Updating KubeVirt object With current tag")
 				patches := patch.New(
