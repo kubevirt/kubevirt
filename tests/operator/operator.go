@@ -138,7 +138,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
-		startAllVMIs                           func([]*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance
 		deleteAllVMIs                          func([]*v1.VirtualMachineInstance)
 		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance)
 		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
@@ -289,21 +288,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			)
 
 			return vmis
-		}
-
-		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance {
-			newVMIs := make([]*v1.VirtualMachineInstance, len(vmis))
-			for i, vmi := range vmis {
-				var err error
-				newVMIs[i], err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
-			}
-
-			for i, vmi := range newVMIs {
-				newVMIs[i] = libwait.WaitForSuccessfulVMIStart(vmi)
-			}
-
-			return newVMIs
 		}
 
 		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
@@ -1280,7 +1264,7 @@ spec:
 			}
 
 			By("Starting multiple migratable VMIs before performing update")
-			migratableVMIs = startAllVMIs(migratableVMIs)
+			migratableVMIs = createRunningVMIs(migratableVMIs)
 
 			// Update KubeVirt from the previous release to the testing target release.
 			if updateOperator {
@@ -1461,7 +1445,7 @@ spec:
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
 				vmis = generateMigratableVMIs(2)
-				vmis = startAllVMIs(vmis)
+				vmis = createRunningVMIs(vmis)
 			}
 
 			By("Deleting KubeVirt object")
@@ -1674,8 +1658,8 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Starting multiple migratable VMIs before performing update")
-			vmis = startAllVMIs(vmis)
-			vmisNonMigratable = startAllVMIs(vmisNonMigratable)
+			vmis = createRunningVMIs(vmis)
+			vmisNonMigratable = createRunningVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
 			patches := patch.New(patch.WithAdd("/spec/imageTag", flags.KubeVirtVersionTagAlt))
@@ -3353,4 +3337,19 @@ func parseDeployment(name string) (*v12.Deployment, string, string, string, stri
 	registry, imageName, version := parseImage(image)
 
 	return deployment, image, registry, imageName, version
+}
+
+func createRunningVMIs(vmis []*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance {
+	newVMIs := make([]*v1.VirtualMachineInstance, len(vmis))
+	for i, vmi := range vmis {
+		var err error
+		newVMIs[i], err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
+	}
+
+	for i, vmi := range newVMIs {
+		newVMIs[i] = libwait.WaitForSuccessfulVMIStart(vmi)
+	}
+
+	return newVMIs
 }
