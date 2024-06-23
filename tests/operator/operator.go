@@ -134,7 +134,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var (
 		deleteAllKvAndWait                     func(bool)
 		ensureShasums                          func()
-		getVirtLauncherSha                     func() string
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
@@ -370,15 +369,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 				}
 				return nil
 			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
-		}
-
-		getVirtLauncherSha = func() string {
-			str := originalKv.Status.ObservedDeploymentConfig
-			config := &util.KubeVirtDeploymentConfig{}
-			err := json.Unmarshal([]byte(str), config)
-			Expect(err).ToNot(HaveOccurred())
-
-			return config.VirtLauncherSha
 		}
 
 		generatePreviousVersionVmsnapshotYamls = func() {
@@ -1120,8 +1110,9 @@ spec:
 			if createVMs {
 				migratableVMIs = generateMigratableVMIs(2)
 			}
-			launcherSha := getVirtLauncherSha()
 			if !flags.SkipShasumCheck {
+				launcherSha, err := getVirtLauncherSha(originalKv.Status.ObservedDeploymentConfig)
+				Expect(err).ToNot(HaveOccurred(), "failed to get the launcher digest from the the ObservedDeploymentConfig field")
 				Expect(launcherSha).ToNot(Equal(""))
 			}
 
@@ -3351,4 +3342,14 @@ func deleteVMIs(vmis []*v1.VirtualMachineInstance) {
 		err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
 	}
+}
+
+func getVirtLauncherSha(deploymentConfigStr string) (string, error) {
+	config := &util.KubeVirtDeploymentConfig{}
+	err := json.Unmarshal([]byte(deploymentConfigStr), config)
+	if err != nil {
+		return "", err
+	}
+
+	return config.VirtLauncherSha, nil
 }
