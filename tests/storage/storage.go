@@ -871,7 +871,7 @@ var _ = SIGDescribe("Storage", func() {
 						libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 					}
 					Expect(virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})).To(Succeed())
-					waitForPodToDisappearWithTimeout(pod.Name, 120)
+					Eventually(ThisPod(pod), 120*time.Second, 1*time.Second).Should(BeGone())
 				})
 
 				configureToleration := func(toleration int) {
@@ -1429,14 +1429,6 @@ var _ = SIGDescribe("Storage", func() {
 		})
 	})
 })
-
-func waitForPodToDisappearWithTimeout(podName string, seconds int) {
-	virtClient := kubevirt.Client()
-	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Get(context.Background(), podName, metav1.GetOptions{})
-		return err
-	}, seconds, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-}
 
 func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
 	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)

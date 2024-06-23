@@ -701,10 +701,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				_, err = kubevirt.Client().KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
 
-				Eventually(func() error {
-					_, err := kubevirt.Client().CoreV1().Pods(virtHandler.Namespace).Get(context.Background(), virtHandler.Name, metav1.GetOptions{})
-					return err
-				}, 120*time.Second, 1*time.Second).Should(MatchError(k8serrors.IsNotFound, "k8serrors.IsNotFound"), "The virt-handler pod should be gone")
+				Eventually(matcher.ThisPod(virtHandler), 120*time.Second, 1*time.Second).Should(matcher.BeGone(), "The virt-handler pod should be gone")
 			})
 
 			It("[test_id:1634]the node controller should mark the node as unschedulable when the virt-handler heartbeat has timedout", func() {

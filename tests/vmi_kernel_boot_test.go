@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -36,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -90,10 +90,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VMI Should be successfully deleted")
 
 			By("Ensuring virt-launcher is deleted")
-			Eventually(func() error {
-				_, err = virtClient.CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
-				return err
-			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
+			Eventually(ThisPod(virtLauncherPod), 60*time.Second, 3*time.Second).Should(BeGone(), "virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name)
 		})
 	})
 
@@ -166,10 +163,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VMI Should be successfully deleted")
 
 			By("Ensuring virt-launcher is deleted")
-			Eventually(func() error {
-				_, err = virtClient.CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
-				return err
-			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
+			Eventually(ThisPod(virtLauncherPod), 60*time.Second, 3*time.Second).Should(BeGone(), "virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name)
 		})
 	})
 })
