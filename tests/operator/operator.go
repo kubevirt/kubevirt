@@ -132,8 +132,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		deleteOperator                         func(string)
-		deleteTestingManifests                 func(string)
 		deleteAllKvAndWait                     func(bool)
 		ensureShasums                          func()
 		getVirtLauncherSha                     func() string
@@ -154,16 +152,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		deleteOperator = func(manifestPath string) {
-			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		deleteTestingManifests = func(manifestPath string) {
-			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
-			Expect(err).ToNot(HaveOccurred())
-		}
 
 		deleteAllKvAndWait = func(ignoreOriginal bool) {
 			Eventually(func() error {
@@ -1199,10 +1187,12 @@ spec:
 
 			if updateOperator {
 				By("Deleting testing manifests")
-				deleteTestingManifests(flags.TestingManifestPath)
+				_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", flags.TestingManifestPath)
+				Expect(err).ToNot(HaveOccurred(), "failed to delete testing manifests")
 
 				By("Deleting virt-operator installation")
-				deleteOperator(flags.OperatorManifestPath)
+				_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", flags.OperatorManifestPath)
+				Expect(err).ToNot(HaveOccurred(), "failed to delete virt-operator installation")
 
 				By("Installing previous release of virt-operator")
 				manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
