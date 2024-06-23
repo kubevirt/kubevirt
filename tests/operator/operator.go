@@ -118,6 +118,8 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	const (
 		virtApiDepName        = "virt-api"
 		virtControllerDepName = "virt-controller"
+
+		imageDigestShaPrefix = "@sha256:"
 	)
 
 	var originalKv *v1.KubeVirt
@@ -189,12 +191,12 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
 				deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(usesSha(deployment.Spec.Template.Spec.Containers[0].Image)).To(BeTrue(), fmt.Sprintf("%s should use sha", name))
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), fmt.Sprintf("%s should use sha", name))
 			}
 
 			handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(usesSha(handler.Spec.Template.Spec.Containers[0].Image)).To(BeTrue(), "virt-handler should use sha")
+			Expect(handler.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), "virt-handler should use sha")
 		}
 
 		// make sure virt deployments use shasums before we start
@@ -856,8 +858,7 @@ spec:
 			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
 			Expect(pods.Items).To(HaveLen(1))
-			Expect(usesSha(pods.Items[0].Spec.Containers[0].Image)).To(BeTrue(), "launcher pod should use shasum")
-
+			Expect(pods.Items[0].Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), "launcher pod should use shasum")
 		})
 	})
 
@@ -2970,10 +2971,6 @@ func deprecatedBeforeAll(fn func()) {
 			first = false
 		}
 	})
-}
-
-func usesSha(image string) bool {
-	return strings.Contains(image, "@sha256:")
 }
 
 func copyOriginalKv(originalKv *v1.KubeVirt) *v1.KubeVirt {
