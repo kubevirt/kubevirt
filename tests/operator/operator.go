@@ -138,7 +138,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
-		deleteAllVMIs                          func([]*v1.VirtualMachineInstance)
 		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance)
 		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
 		fetchVirtHandlerCommand                func() string
@@ -288,13 +287,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			)
 
 			return vmis
-		}
-
-		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
-			for _, vmi := range vmis {
-				err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
-			}
 		}
 
 		verifyVMIsEvicted = func(vmis []*v1.VirtualMachineInstance) {
@@ -1425,7 +1417,7 @@ spec:
 			}
 
 			By("Deleting migratable VMIs")
-			deleteAllVMIs(migratableVMIs)
+			deleteVMIs(migratableVMIs)
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
@@ -1681,8 +1673,8 @@ spec:
 			verifyVMIsUpdated(vmis)
 
 			By("Deleting VMIs")
-			deleteAllVMIs(vmis)
-			deleteAllVMIs(vmisNonMigratable)
+			deleteVMIs(vmis)
+			deleteVMIs(vmisNonMigratable)
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
@@ -3352,4 +3344,11 @@ func createRunningVMIs(vmis []*v1.VirtualMachineInstance) []*v1.VirtualMachineIn
 	}
 
 	return newVMIs
+}
+
+func deleteVMIs(vmis []*v1.VirtualMachineInstance) {
+	for _, vmi := range vmis {
+		err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
+	}
 }
