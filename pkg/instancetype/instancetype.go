@@ -1361,7 +1361,7 @@ func applyDiskPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 				vmiDisk.IO = preferenceSpec.Devices.PreferredDiskIO
 			}
 
-			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil && vmiDisk.DedicatedIOThread == nil {
+			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil && vmiDisk.DedicatedIOThread == nil && vmiDisk.DiskDevice.Disk.Bus == virtv1.DiskBusVirtio {
 				vmiDisk.DedicatedIOThread = ptr.To(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
 			}
 		} else if vmiDisk.DiskDevice.CDRom != nil {

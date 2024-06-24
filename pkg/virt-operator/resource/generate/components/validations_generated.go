@@ -9069,7 +9069,7 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             preferredDiskDedicatedIoThread:
               description: PreferredDedicatedIoThread optionally enables dedicated
-                IO threads for Disk devices.
+                IO threads for Disk devices using the virtio bus.
               type: boolean
             preferredDiskIO:
               description: PreferredIo optionally defines the QEMU disk IO mode to
@@ -23406,7 +23406,7 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             preferredDiskDedicatedIoThread:
               description: PreferredDedicatedIoThread optionally enables dedicated
-                IO threads for Disk devices.
+                IO threads for Disk devices using the virtio bus.
               type: boolean
             preferredDiskIO:
               description: PreferredIo optionally defines the QEMU disk IO mode to
