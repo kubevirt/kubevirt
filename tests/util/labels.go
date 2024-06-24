@@ -19,7 +19,4 @@
 
 package util
 
-const (
-	KubevirtIoTest = "kubevirt.io/test"
-	SecretLabel    = "kubevirt.io/secret"
-)
+const KubevirtIoTest = "kubevirt.io/test"
