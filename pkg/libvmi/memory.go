@@ -42,3 +42,13 @@ func WithGuestMemory(memory string) Option {
 		vmi.Spec.Domain.Memory.Guest = &quantity
 	}
 }
+
+func WithMaxGuest(memory string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Memory == nil {
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+		}
+		quantity := resource.MustParse(memory)
+		vmi.Spec.Domain.Memory.MaxGuest = &quantity
+	}
+}

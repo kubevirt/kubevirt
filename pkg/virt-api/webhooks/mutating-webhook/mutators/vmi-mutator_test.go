@@ -43,6 +43,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -681,6 +682,26 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
 	})
+
+	DescribeTable("should always set memory.guest", func(options ...libvmi.Option) {
+		for _, option := range options {
+			option(vmi)
+		}
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+		Expect(vmiSpec.Domain.Memory.Guest).ToNot(BeNil())
+		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("1Gi"))
+	},
+		Entry("when requests are set",
+			libvmi.WithResourceMemory("1Gi")),
+		Entry("when limits are set",
+			libvmi.WithLimitMemory("1Gi")),
+		Entry("when both requests and limits are set",
+			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithLimitMemory("1Gi"),
+		),
+		Entry("when only hugepages pagesize is set",
+			libvmi.WithHugepages("1Gi")),
+	)
 
 	It("should set the hyperv dependencies", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
@@ -1393,6 +1414,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Guest:    &guest,
 					MaxGuest: &maxGuest,
 				}
+
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.Memory.Guest.Value()).To(Equal(guest.Value()))
 				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
@@ -1408,6 +1430,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guest,
 				}
+
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
 			})
@@ -1423,6 +1446,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guest,
 				}
+
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.Memory.Guest.Value()).To(Equal(guest.Value()))
 				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
@@ -1433,6 +1457,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guest,
 				}
+
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
 			})
@@ -1447,9 +1472,71 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guest,
 				}
+
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
 			})
+
+			DescribeTable("should leave MaxGuest empty when memory hotplug is incompatible", func(vmiSetup func(*v1.VirtualMachineInstanceSpec)) {
+				vmi := api.NewMinimalVMI("testvm")
+				vmi.Spec.Domain.Memory = &v1.Memory{Guest: kvpointer.P(resource.MustParse("128Mi"))}
+				vmiSetup(&vmi.Spec)
+
+				_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(vmiSpec.Domain.Memory.MaxGuest).To(BeNil())
+			},
+				Entry("realtime is configured", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					vmiSpec.Domain.CPU = &v1.CPU{
+						DedicatedCPUPlacement: true,
+						Realtime:              &v1.Realtime{},
+						NUMA: &v1.NUMA{
+							GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
+						},
+					}
+					vmiSpec.Domain.Memory.Hugepages = &v1.Hugepages{
+						PageSize: "2Mi",
+					}
+				}),
+				Entry("launchSecurity is configured", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					vmiSpec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+				}),
+				Entry("guest mapping passthrough is configured", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					vmiSpec.Domain.CPU = &v1.CPU{
+						DedicatedCPUPlacement: true,
+						NUMA: &v1.NUMA{
+							GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
+						},
+					}
+					vmiSpec.Domain.Memory.Hugepages = &v1.Hugepages{
+						PageSize: "2Mi",
+					}
+				}),
+				Entry("guest memory is not set", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					vmiSpec.Domain.Memory.Guest = nil
+				}),
+				Entry("guest memory is greater than maxGuest", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					moreThanMax := vmiSpec.Domain.Memory.Guest.DeepCopy()
+					moreThanMax.Mul(8)
+
+					vmiSpec.Domain.Memory.Guest = &moreThanMax
+				}),
+				Entry("maxGuest is not properly aligned", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					unAlignedMemory := resource.MustParse("333Mi")
+					vmiSpec.Domain.Memory.MaxGuest = &unAlignedMemory
+				}),
+				Entry("guest memory is not properly aligned", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					unAlignedMemory := resource.MustParse("123")
+					vmiSpec.Domain.Memory.Guest = &unAlignedMemory
+				}),
+				Entry("guest memory with hugepages is not properly aligned", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					vmiSpec.Domain.Memory.Guest = kvpointer.P(resource.MustParse("2G"))
+					vmiSpec.Domain.Memory.MaxGuest = kvpointer.P(resource.MustParse("16Gi"))
+					vmiSpec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: "1Gi"}
+				}),
+				Entry("architecture is not amd64 or arm64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					vmiSpec.Architecture = "risc-v"
+				}),
+			)
 		})
 	})
 })

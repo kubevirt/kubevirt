@@ -52,6 +52,7 @@ go_test(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/instancetype:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",

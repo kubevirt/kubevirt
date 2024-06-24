@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
@@ -3033,9 +3034,14 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 		if lastSeenVMSpec.Template.Spec.Domain.CPU != nil && currentVM.Spec.Template.Spec.Domain.CPU != nil {
 			lastSeenVMSpec.Template.Spec.Domain.CPU.Sockets = currentVM.Spec.Template.Spec.Domain.CPU.Sockets
 		}
-		if lastSeenVM.Spec.Template.Spec.Domain.Memory != nil && currentVM.Spec.Template.Spec.Domain.Memory != nil {
+
+		if currentVM.Spec.Template.Spec.Domain.Memory != nil && currentVM.Spec.Template.Spec.Domain.Memory.Guest != nil {
+			if lastSeenVM.Spec.Template.Spec.Domain.Memory == nil {
+				lastSeenVM.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{}
+			}
 			lastSeenVM.Spec.Template.Spec.Domain.Memory.Guest = currentVM.Spec.Template.Spec.Domain.Memory.Guest
 		}
+
 		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
 		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
 	}
@@ -3301,11 +3307,27 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+
+	if vmi.Spec.Domain.Memory.MaxGuest == nil ||
+		conditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionFalse) {
+		// memory hotplug either failed or is incompatible, let's trigger the restart required condition
+		// to make the memory bump effective
+
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: metav1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "memory updated in template spec. Memory-hotplug is not available for this VM configuration",
+		})
+		return nil
+	}
+
 	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.Guest) {
 		return nil
 	}
 
-	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	if conditionManager.HasConditionWithStatus(vmi,
 		virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionTrue) {
 		return fmt.Errorf("another memory hotplug is in progress")
@@ -3313,6 +3335,17 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 
 	if migrations.IsMigrating(vmi) {
 		return fmt.Errorf("memory hotplug is not allowed while VMI is migrating")
+	}
+
+	if err := memory.ValidateLiveUpdateMemory(&vmCopyWithInstancetype.Spec.Template.Spec, vmi.Spec.Domain.Memory.MaxGuest); err != nil {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: metav1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            fmt.Sprintf("memory hotplug not supported, %s", err.Error()),
+		})
+		return nil
 	}
 
 	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Status.Memory.GuestAtBoot != nil &&
