@@ -1158,7 +1158,7 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
 		})
 
-		It("should start VMI once DataVolumes are complete", func() {
+		DescribeTable("should start VMI once DataVolumes are complete", func(runStrategy v1.VirtualMachineRunStrategy) {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
@@ -1173,29 +1173,55 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv1",
 				},
 			})
-
-			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
-
-			existingDataVolume.Namespace = "default"
-			existingDataVolume.Status.Phase = cdiv1.Succeeded
+			vm.Spec.Running = nil
+			vm.Spec.RunStrategy = &runStrategy
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
-			addVirtualMachine(vm)
 
-			dataVolumeFeeder.Add(existingDataVolume)
+			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, nil, kvpointer.P(0))
+
+			addVirtualMachine(vm)
 			sanityExecute(vm)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+
+			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(ContainSubstring("not found")))
+
+			dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
+			dv.Namespace = "default"
+			dv.Status.Phase = cdiv1.Succeeded
+
+			dataVolumeFeeder.Add(dv)
+			sanityExecute(vm)
+
+			Expect(virtFakeClient.Actions()).To(WithTransform(func(actions []testing.Action) []testing.Action {
+				var patchActions []testing.Action
+				for _, action := range actions {
+					if action.GetVerb() == "update" &&
+						action.GetResource().Resource == "virtualmachines" &&
+						action.GetSubresource() == "status" {
+						patchActions = append(patchActions, action)
+					}
+				}
+				return patchActions
+			}, Not(BeEmpty())))
 
 			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
-			// TODO // expect update status is called
+			Expect(err).ToNot(HaveOccurred())
+
 			Expect(vm.Status.Created).To(BeFalse())
 			Expect(vm.Status.Ready).To(BeFalse())
 
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-		})
+
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		},
+			Entry("with runStrategy set to Always", v1.RunStrategyAlways),
+			Entry("with runStrategy set to Once", v1.RunStrategyOnce),
+			Entry("with runStrategy set to RerunOnFailure", v1.RunStrategyRerunOnFailure),
+		)
 
 		It("should start VMI once DataVolumes (not templates) are complete", func() {
 
