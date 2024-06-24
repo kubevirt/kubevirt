@@ -89,7 +89,7 @@ const (
 	DefaultVirtWebhookClientBurst         = 400
 
 	DefaultMaxHotplugRatio   = 4
-	DefaultVMRolloutStrategy = v1.VMRolloutStrategyStage
+	DefaultVMRolloutStrategy = v1.VMRolloutStrategyLiveUpdate
 )
 
 func IsAMD64(arch string) bool {
