@@ -83,6 +83,7 @@ const (
 	apiVMInstancesSEVQueryLaunchMeasurement = "virtualmachineinstances/sev/querylaunchmeasurement"
 	apiVMInstancesSEVSetupSession           = "virtualmachineinstances/sev/setupsession"
 	apiVMInstancesSEVInjectLaunchSecret     = "virtualmachineinstances/sev/injectlaunchsecret"
+	apiVMInstancesSShKey                    = "virtualmachineinstances/sshkey"
 )
 
 func GetAllCluster() []runtime.Object {
@@ -218,6 +219,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesSoftReboot,
 					apiVMInstancesSEVSetupSession,
 					apiVMInstancesSEVInjectLaunchSecret,
+					apiVMInstancesSShKey,
 				},
 				Verbs: []string{
 					"update",

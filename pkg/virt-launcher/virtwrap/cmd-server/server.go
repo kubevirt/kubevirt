@@ -739,3 +739,38 @@ func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit
 }
+
+func (l *Launcher) SSHKeyVirtualMachine(_ context.Context, request *cmdv1.SSHKeyRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	var options v1.SSHKeyOptions
+	options.Key = make([]string, len(request.Key))
+	for i, key := range request.Key {
+		if err := json.Unmarshal(key, &options.Key[i]); err != nil {
+			response.Success = false
+			errMsg := fmt.Errorf("No valid ssh-key options object present in command server request: %v", err)
+			response.Message = errMsg.Error()
+			return response, nil
+		}
+	}
+
+	if err := json.Unmarshal(request.User, &options.User); err != nil {
+		response.Success = false
+		errMsg := fmt.Errorf("No valid ssh-key options object present in command server request: %v", err)
+		response.Message = errMsg.Error()
+		return response, nil
+	}
+
+	if err := l.domainManager.SetSSHKeyVMI(vmi, &options); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to add ssh-key")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("Successfully to add ssh-key.")
+	return response, nil
+}

@@ -34,6 +34,7 @@ const (
 	sevFetchCertChainTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/fetchcertchain"
 	sevQueryLaunchMeasurementTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/querylaunchmeasurement"
 	sevInjectLaunchSecretTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/injectlaunchsecret"
+	sshKeyTemplateURI                    = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sshkey"
 )
 
 func NewVirtHandlerClient(virtCli KubevirtClient, httpCli *http.Client) VirtHandlerClient {
@@ -71,6 +72,7 @@ type VirtHandlerConn interface {
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	SSHKeyURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
@@ -298,4 +300,8 @@ func (v *virtHandlerConn) SEVQueryLaunchMeasurementURI(vmi *virtv1.VirtualMachin
 
 func (v *virtHandlerConn) SEVInjectLaunchSecretURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(sevInjectLaunchSecretTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) SSHKeyURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(sshKeyTemplateURI, vmi)
 }

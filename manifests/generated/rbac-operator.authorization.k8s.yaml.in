@@ -827,6 +827,7 @@ rules:
   - virtualmachineinstances/softreboot
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
+  - virtualmachineinstances/sshkey
   verbs:
   - update
 - apiGroups:

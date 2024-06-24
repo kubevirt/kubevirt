@@ -355,3 +355,15 @@ func (v *vmis) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecret
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/injectlaunchsecret")
 	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
+
+func (v *vmis) SSHKey(ctx context.Context, name string, sshkeyOptions *v1.SSHKeyOptions) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sshkey")
+
+	JSON, err := json.Marshal(sshkeyOptions)
+
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
+}

@@ -19,9 +19,12 @@
 package rest
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/emicklei/go-restful/v3"
 
@@ -311,5 +314,43 @@ func (lh *LifecycleHandler) SEVInjectLaunchSecretHandler(request *restful.Reques
 		return
 	}
 
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) SSHKeySetHandler(request *restful.Request, response *restful.Response) {
+	log.Log.Info("Set ssh-key VirtHandler")
+	vmi, code, err := getVMI(request, lh.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return
+	}
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+	opts := &v1.SSHKeyOptions{}
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+		err := json.NewDecoder(request.Request.Body).Decode(opts)
+		//err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			response.WriteError(http.StatusInternalServerError, errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct", err)))
+			return
+		}
+	} else {
+		response.WriteError(http.StatusInternalServerError, errors.NewBadRequest("Request with no body, a new name is expected as the request body"))
+		return
+	}
+	err = client.SSHKeyVirtualMachine(vmi, opts)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to add she-key")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "SSHKey", "VirtualMachineInstance Set SSH-Key")
 	response.WriteHeader(http.StatusAccepted)
 }

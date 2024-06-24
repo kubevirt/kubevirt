@@ -1034,3 +1034,9 @@ func (SEVSecretOptions) SwaggerDoc() map[string]string {
 		"secret": "Base64 encoded encrypted launch secret.",
 	}
 }
+
+func (SSHKeyOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "SSHKeyOptions holds information about the ssh-key request",
+	}
+}

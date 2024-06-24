@@ -142,6 +142,7 @@ type DomainManager interface {
 	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
+	SetSSHKeyVMI(*v1.VirtualMachineInstance, *v1.SSHKeyOptions) error
 }
 
 type LibvirtDomainManager struct {
@@ -2299,4 +2300,15 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	return flags
+}
+
+// SetSSHKeyVMI add the ssh-key to the guest machine
+func (l *LibvirtDomainManager) SetSSHKeyVMI(vmi *v1.VirtualMachineInstance, options *v1.SSHKeyOptions) error {
+	domainName := api.VMINamespaceKeyFunc(vmi)
+
+	//keys := make([]string,len(options.Key))
+	for _, key := range options.Key {
+		l.credManager.HandleSSHKey(domainName, options.User, key)
+	}
+	return nil
 }

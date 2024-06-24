@@ -348,3 +348,13 @@ func (_m *MockDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance) e
 func (_mr *_MockDomainManagerRecorder) UpdateGuestMemory(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateGuestMemory", arg0)
 }
+
+func (_m *MockDomainManager) SetSSHKeyVMI(_param0 *v1.VirtualMachineInstance, _param1 *v1.SSHKeyOptions) error {
+	ret := _m.ctrl.Call(_m, "SetSSHKeyVMI", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) SetSSHKeyVMI(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetSSHKeyVMI", arg0, arg1)
+}

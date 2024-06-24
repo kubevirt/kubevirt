@@ -1735,3 +1735,28 @@ func validateVMIForSEVAttestation(vmi *v1.VirtualMachineInstance) *errors.Status
 	}
 	return nil
 }
+
+// VMISSHKeyRequestHandler handles the ssh-key.
+func (app *SubresourceAPIApp) VMISSHKeyRequestHandler(request *restful.Request, response *restful.Response) {
+	log.Log.V(4).Infof("VMISSHKeyRequestHandler called")
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if condManager.HasConditionWithStatus(vmi, v1.VirtualMachineInstancePaused, v12.ConditionTrue) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is paused"))
+		}
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
+			if features := vmi.Spec.Domain.Features; features != nil && features.ACPI.Enabled != nil && !(*features.ACPI.Enabled) {
+				return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI neither have the agent connected nor the ACPI feature enabled"))
+			}
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.SSHKeyURI(vmi)
+	}
+	app.putRequestHandler(request, response, validate, getURL, false)
+}

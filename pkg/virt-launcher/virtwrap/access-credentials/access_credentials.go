@@ -653,3 +653,33 @@ func newAccessCredentialsInfo() *accessCredentialsInfo {
 		userPasswordMap: make(map[string]string),
 	}
 }
+
+func (l *AccessCredentialManager) HandleSSHKey(domName, user, sshkey string) error {
+	curAuthorizedKeys := ""
+	fileExists := true
+	// Step 1. Get home directory for user.
+	homeDir, uid, gid, err := l.agentGetUserInfo(domName, user)
+	if err != nil {
+		return err
+	}
+
+	// Step 2. Read file on guest to determine if change is required
+	filePath := fmt.Sprintf("%s/.ssh/authorized_keys", homeDir)
+	curAuthorizedKeys, err = l.readGuestFile(domName, filePath)
+	if err != nil && strings.Contains(err.Error(), "No such file or directory") {
+		fileExists = false
+	} else if err != nil {
+		return err
+	}
+
+	// Step 3. Write authorized_keys file
+
+	if curAuthorizedKeys != sshkey {
+		err = l.writeGuestFile(sshkey, domName, filePath, fmt.Sprintf("%s:%s", uid, gid), fileExists)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

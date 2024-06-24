@@ -113,6 +113,7 @@ type LauncherClient interface {
 	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
+	SSHKeyVirtualMachine(vmi *v1.VirtualMachineInstance, options *v1.SSHKeyOptions) error
 }
 
 type VirtLauncherClient struct {
@@ -858,4 +859,37 @@ func (c *VirtLauncherClient) InjectLaunchSecret(vmi *v1.VirtualMachineInstance, 
 
 func (c *VirtLauncherClient) SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
 	return c.genericSendVMICmd("SyncVirtualMachineMemory", c.v1client.SyncVirtualMachineMemory, vmi, options)
+}
+
+func (c *VirtLauncherClient) SSHKeyVirtualMachine(vmi *v1.VirtualMachineInstance, options *v1.SSHKeyOptions) error {
+	log.Log.Info("Set ssh-key VirtualMachine")
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+	user, err := json.Marshal(options.User)
+	if err != nil {
+		return err
+	}
+	keys := make([][]byte, len(options.Key))
+	for i, user := range options.Key {
+		keys[i], err = json.Marshal(user)
+		if err != nil {
+			return err
+		}
+	}
+	request := &cmdv1.SSHKeyRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		User: user,
+		Key:  keys,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.SSHKeyVirtualMachine(ctx, request)
+
+	err = handleError(err, "SSHKey", response)
+	return err
 }

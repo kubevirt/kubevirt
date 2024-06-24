@@ -3021,3 +3021,9 @@ type SEVSecretOptions struct {
 	// Base64 encoded encrypted launch secret.
 	Secret string `json:"secret,omitempty"`
 }
+
+// SSHKeyOptions holds information about the ssh-key request
+type SSHKeyOptions struct {
+	User string   `json:"user"`
+	Key  []string `json:"key,omitempty"`
+}

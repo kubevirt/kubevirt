@@ -352,3 +352,13 @@ func (_m *MockLauncherClient) SyncVirtualMachineMemory(vmi *v1.VirtualMachineIns
 func (_mr *_MockLauncherClientRecorder) SyncVirtualMachineMemory(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineMemory", arg0, arg1)
 }
+
+func (_m *MockLauncherClient) SSHKeyVirtualMachine(vmi *v1.VirtualMachineInstance, options *v1.SSHKeyOptions) error {
+	ret := _m.ctrl.Call(_m, "SSHKeyVirtualMachine", vmi, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) SSHKeyVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SSHKeyVirtualMachine", arg0, arg1)
+}
