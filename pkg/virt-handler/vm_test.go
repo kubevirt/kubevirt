@@ -31,6 +31,20 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+
+	api2 "kubevirt.io/client-go/api"
+
+	netcache "kubevirt.io/kubevirt/pkg/network/cache"
+	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
