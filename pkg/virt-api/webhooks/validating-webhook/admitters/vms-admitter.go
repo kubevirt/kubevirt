@@ -475,7 +475,9 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		return causes
 	}
 
-	causes = append(causes, validateLiveUpdateCPU(field, &spec.Template.Spec.Domain)...)
+	if spec.Template.Spec.Domain.CPU != nil {
+		causes = append(causes, validateLiveUpdateCPU(field, &spec.Template.Spec.Domain)...)
+	}
 
 	if spec.Template.Spec.Domain.Memory != nil && spec.Template.Spec.Domain.Memory.MaxGuest != nil {
 		if err := memory.ValidateLiveUpdateMemory(&spec.Template.Spec, spec.Template.Spec.Domain.Memory.MaxGuest); err != nil {
