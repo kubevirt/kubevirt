@@ -421,7 +421,7 @@ func (app *virtHandlerApp) Run() {
 
 	consoleHandler := rest.NewConsoleHandler(
 		podIsolationDetector,
-		vmiSourceInformer,
+		vmiSourceInformer.GetStore(),
 		app.clientcertmanager,
 	)
 
