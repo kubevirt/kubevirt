@@ -41,12 +41,12 @@ import (
 
 var _ = Describe("Virt remote commands", func() {
 
-	var err error
-	var shareDir string
-	var socketsDir string
-	var podsDir string
-	var vmi *v1.VirtualMachineInstance
-	var podSocketFile string
+	var (
+		shareDir      string
+		podsDir       string
+		vmi           *v1.VirtualMachineInstance
+		podSocketFile string
+	)
 
 	host := "myhost"
 	podUID := "poduid123"
@@ -60,20 +60,19 @@ var _ = Describe("Virt remote commands", func() {
 			},
 		}
 
+		var err error
 		shareDir, err = os.MkdirTemp("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
 		podsDir, err = os.MkdirTemp("", "pods")
 		Expect(err).ToNot(HaveOccurred())
 
-		socketsDir = filepath.Join(shareDir, "sockets")
-		os.Mkdir(socketsDir, 0755)
-
-		SetLegacyBaseDir(shareDir)
+		SetBaseDir(shareDir)
 		SetPodsBaseDir(podsDir)
 
 		podSocketFile = SocketFilePathOnHost(podUID)
 
+		// Create a new socket
 		os.MkdirAll(filepath.Dir(podSocketFile), 0755)
 		f, err := os.Create(podSocketFile)
 		Expect(err).ToNot(HaveOccurred())
@@ -94,78 +93,50 @@ var _ = Describe("Virt remote commands", func() {
 
 			sock = SocketOnGuest()
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", StandardLauncherSocketFileName)))
-
-			// falls back to returning a legacy socket name if it exists
-			// This is for backwards compatibility
-			f, err := os.Create(filepath.Join(socketsDir, "1234_sock"))
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-			sock, err = FindSocketOnHost(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", "1234_sock")))
 		})
 
 		It("Listing all sockets", func() {
-			// the new socket is already created in the Before function
-
-			// create a legacy socket to ensure we find both new and legacy sockets
-			f, err := os.Create(filepath.Join(socketsDir, "1234_sock"))
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-
-			// listing all sockets should detect both the new and legacy sockets
 			sockets, err := ListAllSockets()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(sockets).To(HaveLen(2))
+			Expect(sockets).To(HaveLen(1))
+			By("Expecting to only find cmd socket in launcher's context")
+			Expect(sockets[0]).To(And(
+				HaveSuffix("launcher-sock"),
+				ContainSubstring(podUID),
+			))
 		})
 
 		It("Detect unresponsive socket", func() {
 			sock, err := FindSocketOnHost(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
+			Expect(IsSocketUnresponsive(sock)).To(BeFalse())
+
 			os.RemoveAll(sock)
 
 			// unresponsive is true when no socket file exists
-			unresponsive := IsSocketUnresponsive(sock)
-			Expect(unresponsive).To(BeTrue())
+			Expect(IsSocketUnresponsive(sock)).To(BeTrue())
 
 			// unresponsive is false when socket file exists
 			os.Mkdir(filepath.Dir(sock), 0755)
 			f, err := os.Create(sock)
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
-			unresponsive = IsSocketUnresponsive(sock)
-			Expect(unresponsive).To(BeFalse())
+			Expect(IsSocketUnresponsive(sock)).To(BeFalse())
 
 			// unresponsive is true when marked as unresponsive
 			MarkSocketUnresponsive(sock)
-			unresponsive = IsSocketUnresponsive(sock)
-			Expect(unresponsive).To(BeTrue())
-		})
-
-		It("Determine legacy sockets vs new socket paths", func() {
-			legacy := IsLegacySocket("/some/path/something_sock")
-			Expect(legacy).To(BeTrue())
-
-			legacy = IsLegacySocket(filepath.Join("/some/path", StandardLauncherSocketFileName))
-			Expect(legacy).To(BeFalse())
-
-			monEnabled := SocketMonitoringEnabled("/some/path/something_sock")
-			Expect(monEnabled).To(BeFalse())
-
-			monEnabled = SocketMonitoringEnabled(filepath.Join("/some/path", StandardLauncherSocketFileName))
-			Expect(monEnabled).To(BeTrue())
+			Expect(IsSocketUnresponsive(sock)).To(BeTrue())
 		})
 
 		Context("exec", func() {
 			var (
-				ctrl          *gomock.Controller
 				mockCmdClient *cmdv1.MockCmdClient
 				client        LauncherClient
 			)
 
 			BeforeEach(func() {
-				ctrl = gomock.NewController(GinkgoT())
+				ctrl := gomock.NewController(GinkgoT())
 				mockCmdClient = cmdv1.NewMockCmdClient(ctrl)
 				client = newV1Client(mockCmdClient, nil)
 			})
