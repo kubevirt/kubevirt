@@ -82,7 +82,11 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 		statusUpdater: status.NewVMIRSStatusUpdater(clientset),
 	}
 
-	_, err := c.vmiRSInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return vmiInformer.HasSynced() && vmiRSInformer.HasSynced()
+	}
+
+	_, err := vmiRSInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addReplicaSet,
 		DeleteFunc: c.deleteReplicaSet,
 		UpdateFunc: c.updateReplicaSet,
@@ -92,7 +96,7 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 		return nil, err
 	}
 
-	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: c.deleteVirtualMachine,
 		UpdateFunc: c.updateVirtualMachine,
@@ -114,6 +118,7 @@ type VMIReplicaSet struct {
 	expectations  *controller.UIDTrackingControllerExpectations
 	burstReplicas uint
 	statusUpdater *status.VMIRSStatusUpdater
+	hasSynced     func() bool
 }
 
 func (c *VMIReplicaSet) Run(threadiness int, stopCh <-chan struct{}) {
@@ -122,7 +127,7 @@ func (c *VMIReplicaSet) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting VirtualMachineInstanceReplicaSet controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmiRSInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
