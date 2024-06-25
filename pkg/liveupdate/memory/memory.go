@@ -38,6 +38,16 @@ const (
 
 	// 1GiB, the size of 1Gi HugePages
 	Hotplug1GHugePagesBlockAlignmentBytes int64 = 0x40000000
+
+	// requiredMinGuestMemory is the minimum required memory
+	// for a VM to have memory hotplug enabled.
+	//
+	// The 1GiB mark is chosen as a tradeoff, it is enough
+	// memory for the guest kernel to allocate its internal data
+	// structures and to allocate the swiotlb, which is usually
+	// 64MB. It also means we can memory map all PCI devices
+	// as they're memory mapped in the first 1Gi (PCI hole).
+	requiredMinGuestMemory = 0x40000000
 )
 
 func ValidateLiveUpdateMemory(vmSpec *v1.VirtualMachineInstanceSpec, maxGuest *resource.Quantity) error {
@@ -88,6 +98,10 @@ func ValidateLiveUpdateMemory(vmSpec *v1.VirtualMachineInstanceSpec, maxGuest *r
 	if vmSpec.Architecture != "amd64" &&
 		vmSpec.Architecture != "arm64" {
 		return fmt.Errorf("Memory hotplug is only available for x86_64 and arm64 VMs")
+	}
+
+	if domain.Memory.Guest.Value() < requiredMinGuestMemory {
+		return fmt.Errorf("Memory hotplug is only available for VMs with at least 1Gi of guest memory")
 	}
 
 	return nil
