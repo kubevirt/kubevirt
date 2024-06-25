@@ -743,6 +743,41 @@ tests:
         alertname: KubeVirtVMIExcessiveMigrations
         exp_alerts: []
 
+  - interval: 1h
+    input_series:
+    # the same migration is being reported by different virt-controllers
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1"}'
+        # time:  0 1 2 3 4 5  6
+        values: "_ 1 2 3 8 10 10" # total: 10
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1", vmim="same-migration", pod="virt-controller-1"}'
+        # time:  0 1 2 3 4 5 6
+        values: "_ _ _ 1 1 1 2"
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1", vmim="same-migration", pod="virt-controller-2"}'
+        # time:  0 1 2 3 4 5 6
+        values: "_ _ _ 1 1 1 2"
+    alert_rule_test:
+      # at 5h, there are total of 11 different migrations made on a single VMI, so the alert should not be fired.
+      # the two reports by virt-controller-1 and virt-controller-2 for the same migration are being considered as one.
+      - eval_time: 5h
+        alertname: KubeVirtVMIExcessiveMigrations
+        exp_alerts: []
+      # at 6h, there are total of 13 different migrations made on a single VMI, so the alert is expected to be fired.
+      - eval_time: 6h
+        alertname: KubeVirtVMIExcessiveMigrations
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachineInstance vmi-example-1 in namespace namespace-example-1 has been migrated more than 12 times during the last 24 hours"
+              summary: "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMIExcessiveMigrations"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              vmi: vmi-example-1
+              namespace: namespace-example-1
+
+
   # No nodes are available to host VMs
   - interval: 1m
     input_series:
