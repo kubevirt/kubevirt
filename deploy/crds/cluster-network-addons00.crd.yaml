@@ -59,6 +59,10 @@ spec:
                     description: NameServerIp defines the name server IP
                     type: string
                 type: object
+              kubevirtIpamController:
+                description: KubevirtIpamController plugin allows to support IPAM
+                  for secondary networks
+                type: object
               linuxBridge:
                 description: LinuxBridge plugin allows users to create a bridge and
                   add the host and the container to it
@@ -1691,6 +1695,10 @@ spec:
                   nameServerIP:
                     description: NameServerIp defines the name server IP
                     type: string
+                type: object
+              kubevirtIpamController:
+                description: KubevirtIpamController plugin allows to support IPAM
+                  for secondary networks
                 type: object
               linuxBridge:
                 description: LinuxBridge plugin allows users to create a bridge and

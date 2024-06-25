@@ -18,6 +18,7 @@ type NetworkAddonsConfigSpec struct {
 	NMState                *NMState                  `json:"nmstate,omitempty"`
 	KubeSecondaryDNS       *KubeSecondaryDNS         `json:"kubeSecondaryDNS,omitempty"`
 	MacvtapCni             *MacvtapCni               `json:"macvtap,omitempty"`
+	KubevirtIpamController *KubevirtIpamController   `json:"kubevirtIpamController,omitempty"`
 	SelfSignConfiguration  *SelfSignConfiguration    `json:"selfSignConfiguration,omitempty"`
 	PlacementConfiguration *PlacementConfiguration   `json:"placementConfiguration,omitempty"`
 	TLSSecurityProfile     *ocpv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
@@ -86,6 +87,9 @@ type MacvtapCni struct {
 	// `ConfigMap` where the device plugin configuration is held.
 	DevicePluginConfig string `json:"devicePluginConfig,omitempty"`
 }
+
+// KubevirtIpamController plugin allows to support IPAM for secondary networks
+type KubevirtIpamController struct{}
 
 // NetworkAddonsConfigStatus defines the observed state of NetworkAddonsConfig
 type NetworkAddonsConfigStatus struct {

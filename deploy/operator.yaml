@@ -61,7 +61,7 @@ spec:
         - name: CDI_VERSION
           value: v1.59.0
         - name: NETWORK_ADDONS_VERSION
-          value: v0.93.0
+          value: v0.94.0
         - name: SSP_VERSION
           value: v0.20.0
         - name: HPPO_VERSION
@@ -293,12 +293,14 @@ spec:
           value: ghcr.io/kubevirt/kubesecondarydns@sha256:6268d84154e2483fbce8c1adacbdaf6f0839117b2d48d9fa4687cc8f76bd5130
         - name: CORE_DNS_IMAGE
           value: registry.k8s.io/coredns/coredns@sha256:a0ead06651cf580044aeb0a0feba63591858fb2e43ade8c9dea45a6a89ae7e5e
+        - name: KUBEVIRT_IPAM_CONTROLLER_IMAGE
+          value: ghcr.io/maiqueb/kubevirt-ipam-claims@sha256:4667b37655dc87b79a63ca0b127517d0f9b971808b8fda8f5ea01398e8833294
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:3c70cb833819d8346e5531b10ac516283bab7098e782708768a6fe00ae0ddfac
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:80a1331c565ff02f8be845b3a194b33795e3194de046dd9ef6da124fc087afbf
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.93.0
+          value: v0.94.0
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -318,7 +320,7 @@ spec:
           value: prometheus-k8s
         - name: RUNBOOK_URL_TEMPLATE
           value: https://kubevirt.io/monitoring/runbooks/%s
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:3c70cb833819d8346e5531b10ac516283bab7098e782708768a6fe00ae0ddfac
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:80a1331c565ff02f8be845b3a194b33795e3194de046dd9ef6da124fc087afbf
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources:
