@@ -57,9 +57,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		createHotplugVM := func(sockets *uint32, maxSockets uint32, opts ...libvmi.Option) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 			vmiOpts := append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceMemory("1Gi"))
 			vmiOpts = append(vmiOpts, opts...)
-
-			vmi := libvmi.NewAlpineWithTestTooling(vmiOpts...)
-
+			vmi := libvmi.NewAlpine(vmiOpts...)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
 				Guest: pointer.P(resource.MustParse("1Gi")),
@@ -254,7 +252,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		It("should successfully hotplug memory when adding guest.memory to a VM", func() {
 			By("Creating a VM")
 			guest := resource.MustParse("1Gi")
-			vmi := libvmi.NewAlpineWithTestTooling(append(
+			vmi := libvmi.NewAlpine(append(
 				libvmi.WithMasqueradeNetworking(),
 				libvmi.WithResourceMemory(guest.String()))...,
 			)
@@ -401,7 +399,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		It("should detect a failed memory hotplug", func() {
 			By("Creating a VM")
 			guest := resource.MustParse("1Gi")
-			vmi := libvmi.NewAlpineWithTestTooling(append(
+			vmi := libvmi.NewAlpine(append(
 				libvmi.WithMasqueradeNetworking(),
 				libvmi.WithAnnotation(v1.FuncTestMemoryHotplugFailAnnotation, ""),
 				libvmi.WithResourceMemory(guest.String()))...,
