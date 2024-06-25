@@ -230,9 +230,9 @@ func NewController(
 		host:                        host,
 		migrationIpAddress:          migrationIpAddress,
 		virtShareDir:                virtShareDir,
-		vmiSourceInformer:           vmiSourceInformer,
-		vmiTargetInformer:           vmiTargetInformer,
-		domainInformer:              domainInformer,
+		vmiSourceStore:              vmiSourceInformer.GetStore(),
+		vmiTargetStore:              vmiTargetInformer.GetStore(),
+		domainStore:                 domainInformer.GetStore(),
 		heartBeatInterval:           1 * time.Minute,
 		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
 		migrationProxy:              migrationProxy,
@@ -320,9 +320,9 @@ type VirtualMachineController struct {
 	virtShareDir             string
 	virtPrivateDir           string
 	queue                    workqueue.RateLimitingInterface
-	vmiSourceInformer        cache.SharedIndexInformer
-	vmiTargetInformer        cache.SharedIndexInformer
-	domainInformer           cache.SharedInformer
+	vmiSourceStore           cache.Store
+	vmiTargetStore           cache.Store
+	domainStore              cache.Store
 	launcherClients          virtcache.LauncherClientInfoByVMI
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
@@ -1666,7 +1666,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	// queue keys for previous Domains on the host that no longer exist
 	// in the cache. This ensures we perform local cleanup of deleted VMs.
-	for _, domain := range c.domainInformer.GetStore().List() {
+	for _, domain := range c.domainStore.List() {
 		d := domain.(*api.Domain)
 		vmiRef := v1.NewVMIReferenceWithUUID(
 			d.ObjectMeta.Namespace,
@@ -1675,7 +1675,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 		key := controller.VirtualMachineInstanceKey(vmiRef)
 
-		_, exists, _ := c.vmiSourceInformer.GetStore().GetByKey(key)
+		_, exists, _ := c.vmiSourceStore.GetByKey(key)
 		if !exists {
 			c.queue.Add(key)
 		}
@@ -1723,13 +1723,13 @@ func (c *VirtualMachineController) Execute() bool {
 func (d *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInstance, exists bool, err error) {
 
 	// Fetch the latest Vm state from cache
-	obj, exists, err := d.vmiSourceInformer.GetStore().GetByKey(key)
+	obj, exists, err := d.vmiSourceStore.GetByKey(key)
 	if err != nil {
 		return nil, false, err
 	}
 
 	if !exists {
-		obj, exists, err = d.vmiTargetInformer.GetStore().GetByKey(key)
+		obj, exists, err = d.vmiTargetStore.GetByKey(key)
 		if err != nil {
 			return nil, false, err
 		}
@@ -1751,7 +1751,7 @@ func (d *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualM
 
 func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, exists bool, cachedUID types.UID, err error) {
 
-	obj, exists, err := d.domainInformer.GetStore().GetByKey(key)
+	obj, exists, err := d.domainStore.GetByKey(key)
 
 	if err != nil {
 		return nil, false, "", err
@@ -2201,7 +2201,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	// "DELETE"
 	domain := api.NewDomainReferenceFromName(vmi.Namespace, vmi.Name)
 	log.Log.Object(domain).Infof("Removing domain from cache during final cleanup")
-	return d.domainInformer.GetStore().Delete(domain)
+	return d.domainStore.Delete(domain)
 }
 
 func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) error {
