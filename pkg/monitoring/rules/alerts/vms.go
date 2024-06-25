@@ -69,7 +69,7 @@ var (
 		},
 		{
 			Alert: "KubeVirtVMIExcessiveMigrations",
-			Expr:  intstr.FromString("sum by (vmi, namespace) (max_over_time(kubevirt_vmi_migration_succeeded[1d])) >= 12"),
+			Expr:  intstr.FromString("sum by (vmi, namespace) (topk by (vmi, namespace, vmim) (1, max_over_time(kubevirt_vmi_migration_succeeded[1d]))) >= 12"),
 			Annotations: map[string]string{
 				"description": "VirtualMachineInstance {{ $labels.vmi }} in namespace {{ $labels.namespace }} has been migrated more than 12 times during the last 24 hours",
 				"summary":     "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours.",
