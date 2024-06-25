@@ -9,7 +9,7 @@ filters:
     emeritus_approvers:
       - emeritus_approvers
 
-  "cluster-up/.*|BUILD.bazel|WORKSPACE|.bazel.*|.fossa.yml|cluster-up-sha.txt":
+  "cluster-up/.*|WORKSPACE|.bazel.*|.fossa.yml|cluster-up-sha.txt":
     reviewers:
       - sig-buildsystem-reviewers
     approvers:
