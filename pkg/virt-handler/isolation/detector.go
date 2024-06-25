@@ -24,6 +24,7 @@ package isolation
 import (
 	"fmt"
 	"net"
+	"os"
 	"runtime"
 	"syscall"
 	"time"
@@ -183,7 +184,7 @@ func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error
 		}
 	}
 
-	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
+	return nil, fmt.Errorf("%w: no QEMU process found under process %d child processes", os.ErrNotExist, pid)
 }
 
 // setProcessMemoryLockRLimit Adjusts process MEMLOCK

@@ -3167,7 +3167,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	}
 	if vmi.IsCPUDedicated() && !vmi.IsRunning() && !vmi.IsFinal() {
 		log.Log.V(3).Object(vmi).Info("Affining PIT thread")
-		if err := d.affinePitThread(vmi); err != nil {
+		if err := d.affinePitThread(vmi); err != nil && !goerror.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
