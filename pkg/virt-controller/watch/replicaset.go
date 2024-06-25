@@ -73,8 +73,8 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 
 	c := &VMIReplicaSet{
 		Queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-replicaset"),
-		vmiInformer:   vmiInformer,
-		vmiRSInformer: vmiRSInformer,
+		vmiIndexer:    vmiInformer.GetIndexer(),
+		vmiRSIndexer:  vmiRSInformer.GetIndexer(),
 		recorder:      recorder,
 		clientset:     clientset,
 		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -112,8 +112,8 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 type VMIReplicaSet struct {
 	clientset     kubecli.KubevirtClient
 	Queue         workqueue.RateLimitingInterface
-	vmiInformer   cache.SharedIndexInformer
-	vmiRSInformer cache.SharedIndexInformer
+	vmiIndexer    cache.Indexer
+	vmiRSIndexer  cache.Indexer
 	recorder      record.EventRecorder
 	expectations  *controller.UIDTrackingControllerExpectations
 	burstReplicas uint
@@ -161,7 +161,7 @@ func (c *VMIReplicaSet) Execute() bool {
 
 func (c *VMIReplicaSet) execute(key string) error {
 
-	obj, exists, err := c.vmiRSInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.vmiRSIndexer.GetByKey(key)
 	if err != nil {
 		return nil
 	}
@@ -379,7 +379,7 @@ func filter(vmis []*virtv1.VirtualMachineInstance, f func(vmi *virtv1.VirtualMac
 
 // listVMIsFromNamespace takes a namespace and returns all VMIs from the VirtualMachineInstance cache which run in this namespace
 func (c *VMIReplicaSet) listVMIsFromNamespace(namespace string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.vmiIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +392,7 @@ func (c *VMIReplicaSet) listVMIsFromNamespace(namespace string) ([]*virtv1.Virtu
 
 // listControllerFromNamespace takes a namespace and returns all VMIReplicaSets from the ReplicaSet cache which run in this namespace
 func (c *VMIReplicaSet) listControllerFromNamespace(namespace string) ([]*virtv1.VirtualMachineInstanceReplicaSet, error) {
-	objs, err := c.vmiRSInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.vmiRSIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -781,7 +781,7 @@ func (c *VMIReplicaSet) resolveControllerRef(namespace string, controllerRef *me
 	if controllerRef.Kind != virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind {
 		return nil
 	}
-	rs, exists, err := c.vmiRSInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	rs, exists, err := c.vmiRSIndexer.GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
