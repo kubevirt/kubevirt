@@ -5641,8 +5641,8 @@ var _ = Describe("VirtualMachine", func() {
 		Context("Live update features", func() {
 			const maxSocketsFromSpec uint32 = 24
 			const maxSocketsFromConfig uint32 = 48
-			maxGuestFromSpec := resource.MustParse("128Mi")
-			maxGuestFromConfig := resource.MustParse("256Mi")
+			maxGuestFromSpec := resource.MustParse("4Gi")
+			maxGuestFromConfig := resource.MustParse("8Gi")
 
 			Context("CPU", func() {
 				It("should honour the maximum CPU sockets from VM spec", func() {
@@ -5920,7 +5920,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should use maxGuest configured in cluster config when its not set in VM spec", func() {
 					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("64Mi")
+					guestMemory := resource.MustParse("1Gi")
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
@@ -5945,7 +5945,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should calculate maxGuest to be `MaxHotplugRatio` times the configured guest memory when no maxGuest is defined", func() {
 					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("64Mi")
+					guestMemory := resource.MustParse("1Gi")
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
@@ -5967,13 +5967,13 @@ var _ = Describe("VirtualMachine", func() {
 
 				DescribeTable("should patch VMI when memory hotplug is requested", func(resources v1.ResourceRequirements) {
 					vm, _ := DefaultVirtualMachine(true)
-					newMemory := resource.MustParse("128Mi")
+					newMemory := resource.MustParse("2Gi")
 					vm.Spec.Template.Spec.Domain.Resources = resources
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
 					vmi := api.NewMinimalVMI(vm.Name)
-					guestMemory := resource.MustParse("64Mi")
+					guestMemory := resource.MustParse("1Gi")
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources = resources
 
@@ -6003,15 +6003,15 @@ var _ = Describe("VirtualMachine", func() {
 				},
 					Entry("with memory request set", v1.ResourceRequirements{
 						Requests: k8sv1.ResourceList{
-							k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+							k8sv1.ResourceMemory: resource.MustParse("1Gi"),
 						},
 					}),
 					Entry("with memory request and limits set", v1.ResourceRequirements{
 						Requests: k8sv1.ResourceList{
-							k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+							k8sv1.ResourceMemory: resource.MustParse("1Gi"),
 						},
 						Limits: k8sv1.ResourceList{
-							k8sv1.ResourceMemory: resource.MustParse("512Mi"),
+							k8sv1.ResourceMemory: resource.MustParse("4Gi"),
 						},
 					}),
 				)
@@ -6023,7 +6023,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
 					vmi := api.NewMinimalVMI(vm.Name)
-					guestMemory := resource.MustParse("64Mi")
+					guestMemory := resource.MustParse("1Gi")
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
 					vmi.Status.Memory = &v1.MemoryStatus{
@@ -6049,7 +6049,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
 					vmi := api.NewMinimalVMI(vm.Name)
-					guestMemory := resource.MustParse("64Mi")
+					guestMemory := resource.MustParse("1Gi")
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
 					vmi.Status.Memory = &v1.MemoryStatus{
@@ -6068,7 +6068,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should not patch VMI if guest memory did not change", func() {
-					guestMemory := resource.MustParse("64Mi")
+					guestMemory := resource.MustParse("1Gi")
 					vm, _ := DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
@@ -6087,8 +6087,8 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should set a restartRequired condition if the memory decreased from start", func() {
-					guestMemory := resource.MustParse("64Mi")
-					newMemory := resource.MustParse("32Mi")
+					guestMemory := resource.MustParse("2Gi")
+					newMemory := resource.MustParse("1Gi")
 					vm, _ := DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
@@ -6149,11 +6149,11 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				It("should set a restartRequired condition if VM does not support memory hotplug", func() {
-					guestMemory := resource.MustParse("64Mi")
-					newMemory := resource.MustParse("128M")
+					guestMemory := resource.MustParse("2Gi")
+					newMemory := resource.MustParse("4Gi")
 					vm, _ := DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
-					vm.Spec.Template.Spec.Architecture = "amd64"
+					vm.Spec.Template.Spec.Architecture = "risc-v"
 
 					vmi := api.NewMinimalVMI(vm.Name)
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
@@ -6189,7 +6189,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				DescribeTable("should leave MaxGuest empty when memory hotplug is incompatible", func(vmSetup func(*v1.VirtualMachineInstanceSpec)) {
 					vm, _ := DefaultVirtualMachine(false)
-					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: kvpointer.P(resource.MustParse("128Mi"))}
+					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: kvpointer.P(resource.MustParse("1Gi"))}
 
 					vmSetup(&vm.Spec.Template.Spec)
 
@@ -6241,11 +6241,14 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("architecture is not amd64 or arm64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
 						vmiSpec.Architecture = "risc-v"
 					}),
+					Entry("guest memory is less than 1Gi", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+						vmiSpec.Domain.Memory.Guest = kvpointer.P(resource.MustParse("512Mi"))
+					}),
 				)
 
 				It("should set a restartRequired condition if memory hotplug failed", func() {
-					guestMemory := resource.MustParse("64Mi")
-					newMemory := resource.MustParse("128Mi")
+					guestMemory := resource.MustParse("1Gi")
+					newMemory := resource.MustParse("2Gi")
 					vm, _ := DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
@@ -6427,7 +6430,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = nil
 					vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
 
-					instancetypeMemoryGuest := resource.MustParse("128Mi")
+					instancetypeMemoryGuest := resource.MustParse("1Gi")
 					instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "instancetype",

@@ -54,15 +54,15 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 	Context("A VM with memory liveUpdate enabled", func() {
 
-		createHotplugVM := func(guest *resource.Quantity, sockets *uint32, maxSockets uint32, opts ...libvmi.Option) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-			vmiOpts := append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceMemory(guest.String()))
+		createHotplugVM := func(sockets *uint32, maxSockets uint32, opts ...libvmi.Option) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+			vmiOpts := append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceMemory("1Gi"))
 			vmiOpts = append(vmiOpts, opts...)
 
 			vmi := libvmi.NewAlpineWithTestTooling(vmiOpts...)
 
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
-				Guest: guest,
+				Guest: pointer.P(resource.MustParse("1Gi")),
 			}
 
 			if sockets != nil {
@@ -94,8 +94,8 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 		DescribeTable("[test_id:10823]should successfully hotplug memory", func(opts ...libvmi.Option) {
 			By("Creating a VM")
-			guest := resource.MustParse("128Mi")
-			vm, vmi := createHotplugVM(&guest, nil, 0, opts...)
+			guest := resource.MustParse("1Gi")
+			vm, vmi := createHotplugVM(nil, 0, opts...)
 
 			By("Limiting the bandwidth of migrations in the test namespace")
 			migrationBandwidthLimit := resource.MustParse("1Ki")
@@ -109,8 +109,8 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			Expect(reqMemory).To(BeNumerically(">=", guest.Value()))
 
 			By("Hotplug additional memory")
-			newGuestMemory := resource.MustParse("256Mi")
-			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", "128Mi", newGuestMemory.String())
+			newGuestMemory := resource.MustParse("1042Mi")
+			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", guest.String(), newGuestMemory.String())
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -159,11 +159,11 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 		It("after a hotplug memory and a restart the new memory value should be the base for the VM", func() {
 			By("Creating a VM")
-			guest := resource.MustParse("128Mi")
-			vm, vmi := createHotplugVM(&guest, nil, 0)
+			guest := resource.MustParse("1Gi")
+			vm, vmi := createHotplugVM(nil, 0)
 
-			By("Hotplug 128Mi of memory")
-			newGuestMemory := resource.MustParse("256Mi")
+			By("Hotplug additional memory")
+			newGuestMemory := resource.MustParse("1042Mi")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", guest.String(), newGuestMemory.String())
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
@@ -199,12 +199,12 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 		It("should successfully hotplug Memory and CPU in parallel", func() {
 			By("Creating a VM")
-			guest := resource.MustParse("128Mi")
+			guest := resource.MustParse("1Gi")
 			newSockets := uint32(2)
-			vm, vmi := createHotplugVM(&guest, pointer.P(uint32(1)), newSockets)
+			vm, vmi := createHotplugVM(pointer.P(uint32(1)), newSockets)
 
 			By("Hotplug Memory and CPU")
-			newGuestMemory := resource.MustParse("256Mi")
+			newGuestMemory := resource.MustParse("1042Mi")
 			patchData, err := patch.GeneratePatchPayload(
 				patch.PatchOperation{
 					Op:    patch.PatchTestOp,
@@ -253,7 +253,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 		It("should successfully hotplug memory when adding guest.memory to a VM", func() {
 			By("Creating a VM")
-			guest := resource.MustParse("128Mi")
+			guest := resource.MustParse("1Gi")
 			vmi := libvmi.NewAlpineWithTestTooling(append(
 				libvmi.WithMasqueradeNetworking(),
 				libvmi.WithResourceMemory(guest.String()))...,
@@ -276,7 +276,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			Expect(reqMemory).To(BeNumerically(">=", guest.Value()))
 
 			By("Hotplug additional memory")
-			newMemory := resource.MustParse("256Mi")
+			newMemory := resource.MustParse("1042Mi")
 			patchBytes, err := patch.GeneratePatchPayload(
 				patch.PatchOperation{
 					Op:    patch.PatchAddOp,
@@ -333,10 +333,9 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		// both cases
 		It("should successfully hotplug memory twice", func() {
 			By("Creating a VM")
-			guest := resource.MustParse("128Mi")
-			vm, vmi := createHotplugVM(&guest, nil, 0)
+			vm, vmi := createHotplugVM(nil, 0)
 
-			for _, newMemory := range []*resource.Quantity{pointer.P(resource.MustParse("256Mi")), pointer.P(resource.MustParse("512Mi"))} {
+			for _, newMemory := range []*resource.Quantity{pointer.P(resource.MustParse("1028Mi")), pointer.P(resource.MustParse("1042Mi"))} {
 				oldGuestMemory := vm.Spec.Template.Spec.Domain.Memory.Guest
 
 				By("Ensuring the compute container has the expected memory")
@@ -401,7 +400,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 		It("should detect a failed memory hotplug", func() {
 			By("Creating a VM")
-			guest := resource.MustParse("128Mi")
+			guest := resource.MustParse("1Gi")
 			vmi := libvmi.NewAlpineWithTestTooling(append(
 				libvmi.WithMasqueradeNetworking(),
 				libvmi.WithAnnotation(v1.FuncTestMemoryHotplugFailAnnotation, ""),
@@ -418,7 +417,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Hotplug additional memory")
-			newMemory := resource.MustParse("256Mi")
+			newMemory := resource.MustParse("1042Mi")
 			patchBytes, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", guest.String(), newMemory.String())
 			Expect(err).NotTo(HaveOccurred())
 

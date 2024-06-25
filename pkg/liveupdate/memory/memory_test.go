@@ -36,7 +36,7 @@ var _ = Describe("LiveUpdate Memory", func() {
 
 	Context("Memory", func() {
 		Context("Validation", func() {
-			maxGuest := resource.MustParse("128Mi")
+			maxGuest := resource.MustParse("4Gi")
 
 			DescribeTable("should reject VM creation if", func(vmSetup func(*v1.VirtualMachine)) {
 
@@ -47,7 +47,7 @@ var _ = Describe("LiveUpdate Memory", func() {
 								Architecture: "amd64",
 								Domain: v1.DomainSpec{
 									Memory: &v1.Memory{
-										Guest: pointer.P(resource.MustParse("64Mi")),
+										Guest: pointer.P(resource.MustParse("1Gi")),
 									},
 								},
 							},
@@ -108,6 +108,9 @@ var _ = Describe("LiveUpdate Memory", func() {
 				}),
 				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
 					vm.Spec.Template.Spec.Architecture = "risc-v"
+				}),
+				Entry("guest memory is less than 1Gi", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1022Mi"))
 				}),
 			)
 		})
