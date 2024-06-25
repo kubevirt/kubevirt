@@ -60,7 +60,12 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 	Context("A VM with memory liveUpdate enabled", func() {
 
 		createHotplugVM := func(guest *resource.Quantity, sockets *uint32, maxSockets uint32, opts ...libvmi.Option) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(guest.String()))
+			vmiOpts := append([]libvmi.Option{},
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithResourceMemory(guest.String()),
+			)
+			vmiOpts = append(vmiOpts, opts...)
+			vmi := libvmifact.NewAlpineWithTestTooling(vmiOpts...)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
 				Guest: guest,
