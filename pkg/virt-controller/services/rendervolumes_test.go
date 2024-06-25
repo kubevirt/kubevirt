@@ -368,13 +368,11 @@ func defaultVolumes() []k8sv1.Volume {
 }
 
 func defaultVolumeMounts() []k8sv1.VolumeMount {
-	hostToContainerPropagation := k8sv1.MountPropagationHostToContainer
-
 	return []k8sv1.VolumeMount{
 		{Name: "private", MountPath: "/var/run/kubevirt-private"},
 		{Name: "public", MountPath: "/var/run/kubevirt"},
 		{Name: "ephemeral-disks", MountPath: "disk1"},
-		{Name: "container-disks", MountPath: "cdisk1", MountPropagation: &hostToContainerPropagation},
+		{Name: "container-disks", MountPath: "/var/run/kubevirt/container-disks"},
 		{Name: "libvirt-runtime", MountPath: "/var/run/libvirt"},
 		{Name: "sockets", MountPath: "dir1/sockets"},
 	}
