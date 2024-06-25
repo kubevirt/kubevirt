@@ -22,6 +22,9 @@ function main() {
 
   PR_BODY=$(get_pr_body "${TAGGED_VERSION}")
 
+  echo "Switch to stable channel"
+  sed -r -i "s/(.*channel.*: ).+/\1\stable/g" hco_bundle/metadata/annotations.yaml
+
   echo "Add annotation for community-operators index image"
   IFS='.' read -r -a SPLITTED_BASE_VERSION <<< "${TAGGED_VERSION%.*}"
   SPLITTED_BASE_VERSION[0]=$((SPLITTED_BASE_VERSION[0]+3))
