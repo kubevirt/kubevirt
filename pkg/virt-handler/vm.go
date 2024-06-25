@@ -248,6 +248,10 @@ func NewController(
 		ioErrorRetryManager:         NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
 	}
 
+	c.hasSynced = func() bool {
+		return domainInformer.HasSynced() && vmiSourceInformer.HasSynced() && vmiTargetInformer.HasSynced()
+	}
+
 	_, err := vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addFunc,
 		DeleteFunc: c.deleteFunc,
@@ -341,6 +345,7 @@ type VirtualMachineController struct {
 	hostCpuModel                string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
 	ioErrorRetryManager         *FailRetryManager
+	hasSynced                   func() bool
 }
 
 type virtLauncherCriticalSecurebootError struct {
@@ -1657,7 +1662,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	go c.downwardMetricsManager.Run(stopCh)
 
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// queue keys for previous Domains on the host that no longer exist
 	// in the cache. This ensures we perform local cleanup of deleted VMs.
