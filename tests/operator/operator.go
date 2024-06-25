@@ -118,6 +118,8 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	const (
 		virtApiDepName        = "virt-api"
 		virtControllerDepName = "virt-controller"
+
+		imageDigestShaPrefix = "@sha256:"
 	)
 
 	var originalKv *v1.KubeVirt
@@ -132,17 +134,11 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		installTestingManifests                func(string)
-		deleteOperator                         func(string)
-		deleteTestingManifests                 func(string)
 		deleteAllKvAndWait                     func(bool)
 		ensureShasums                          func()
-		getVirtLauncherSha                     func() string
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
-		startAllVMIs                           func([]*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance
-		deleteAllVMIs                          func([]*v1.VirtualMachineInstance)
 		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance)
 		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
 		fetchVirtHandlerCommand                func() string
@@ -155,21 +151,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		installTestingManifests = func(manifestPath string) {
-			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		deleteOperator = func(manifestPath string) {
-			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		deleteTestingManifests = func(manifestPath string) {
-			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
-			Expect(err).ToNot(HaveOccurred())
-		}
 
 		deleteAllKvAndWait = func(ignoreOriginal bool) {
 			Eventually(func() error {
@@ -210,12 +191,12 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
 				deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(usesSha(deployment.Spec.Template.Spec.Containers[0].Image)).To(BeTrue(), fmt.Sprintf("%s should use sha", name))
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), fmt.Sprintf("%s should use sha", name))
 			}
 
 			handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(usesSha(handler.Spec.Template.Spec.Containers[0].Image)).To(BeTrue(), "virt-handler should use sha")
+			Expect(handler.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), "virt-handler should use sha")
 		}
 
 		// make sure virt deployments use shasums before we start
@@ -309,28 +290,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			return vmis
 		}
 
-		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance {
-			newVMIs := make([]*v1.VirtualMachineInstance, len(vmis))
-			for i, vmi := range vmis {
-				var err error
-				newVMIs[i], err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
-			}
-
-			for i, vmi := range newVMIs {
-				newVMIs[i] = libwait.WaitForSuccessfulVMIStart(vmi)
-			}
-
-			return newVMIs
-		}
-
-		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
-			for _, vmi := range vmis {
-				err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
-			}
-		}
-
 		verifyVMIsEvicted = func(vmis []*v1.VirtualMachineInstance) {
 
 			Eventually(func() error {
@@ -412,15 +371,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 				}
 				return nil
 			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
-		}
-
-		getVirtLauncherSha = func() string {
-			str := originalKv.Status.ObservedDeploymentConfig
-			config := &util.KubeVirtDeploymentConfig{}
-			err := json.Unmarshal([]byte(str), config)
-			Expect(err).ToNot(HaveOccurred())
-
-			return config.VirtLauncherSha
 		}
 
 		generatePreviousVersionVmsnapshotYamls = func() {
@@ -908,8 +858,7 @@ spec:
 			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
 			Expect(pods.Items).To(HaveLen(1))
-			Expect(usesSha(pods.Items[0].Spec.Containers[0].Image)).To(BeTrue(), "launcher pod should use shasum")
-
+			Expect(pods.Items[0].Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), "launcher pod should use shasum")
 		})
 	})
 
@@ -1162,8 +1111,9 @@ spec:
 			if createVMs {
 				migratableVMIs = generateMigratableVMIs(2)
 			}
-			launcherSha := getVirtLauncherSha()
 			if !flags.SkipShasumCheck {
+				launcherSha, err := getVirtLauncherSha(originalKv.Status.ObservedDeploymentConfig)
+				Expect(err).ToNot(HaveOccurred(), "failed to get the launcher digest from the the ObservedDeploymentConfig field")
 				Expect(launcherSha).ToNot(Equal(""))
 			}
 
@@ -1205,10 +1155,12 @@ spec:
 
 			if updateOperator {
 				By("Deleting testing manifests")
-				deleteTestingManifests(flags.TestingManifestPath)
+				_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", flags.TestingManifestPath)
+				Expect(err).ToNot(HaveOccurred(), "failed to delete testing manifests")
 
 				By("Deleting virt-operator installation")
-				deleteOperator(flags.OperatorManifestPath)
+				_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", flags.OperatorManifestPath)
+				Expect(err).ToNot(HaveOccurred(), "failed to delete virt-operator installation")
 
 				By("Installing previous release of virt-operator")
 				manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
@@ -1296,7 +1248,7 @@ spec:
 			}
 
 			By("Starting multiple migratable VMIs before performing update")
-			migratableVMIs = startAllVMIs(migratableVMIs)
+			migratableVMIs = createRunningVMIs(migratableVMIs)
 
 			// Update KubeVirt from the previous release to the testing target release.
 			if updateOperator {
@@ -1304,7 +1256,9 @@ spec:
 				installOperator(flags.OperatorManifestPath)
 
 				By("Re-installing testing manifests")
-				installTestingManifests(flags.TestingManifestPath)
+				_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", flags.TestingManifestPath)
+				Expect(err).ToNot(HaveOccurred(), "failed to re-install the testing manifests")
+
 			} else {
 				By("Updating KubeVirt object With current tag")
 				patches := patch.New(
@@ -1455,7 +1409,7 @@ spec:
 			}
 
 			By("Deleting migratable VMIs")
-			deleteAllVMIs(migratableVMIs)
+			deleteVMIs(migratableVMIs)
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
@@ -1475,7 +1429,7 @@ spec:
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
 				vmis = generateMigratableVMIs(2)
-				vmis = startAllVMIs(vmis)
+				vmis = createRunningVMIs(vmis)
 			}
 
 			By("Deleting KubeVirt object")
@@ -1688,8 +1642,8 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Starting multiple migratable VMIs before performing update")
-			vmis = startAllVMIs(vmis)
-			vmisNonMigratable = startAllVMIs(vmisNonMigratable)
+			vmis = createRunningVMIs(vmis)
+			vmisNonMigratable = createRunningVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
 			patches := patch.New(patch.WithAdd("/spec/imageTag", flags.KubeVirtVersionTagAlt))
@@ -1711,8 +1665,8 @@ spec:
 			verifyVMIsUpdated(vmis)
 
 			By("Deleting VMIs")
-			deleteAllVMIs(vmis)
-			deleteAllVMIs(vmisNonMigratable)
+			deleteVMIs(vmis)
+			deleteVMIs(vmisNonMigratable)
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
@@ -3019,10 +2973,6 @@ func deprecatedBeforeAll(fn func()) {
 	})
 }
 
-func usesSha(image string) bool {
-	return strings.Contains(image, "@sha256:")
-}
-
 func copyOriginalKv(originalKv *v1.KubeVirt) *v1.KubeVirt {
 	newKv := &v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
@@ -3367,4 +3317,36 @@ func parseDeployment(name string) (*v12.Deployment, string, string, string, stri
 	registry, imageName, version := parseImage(image)
 
 	return deployment, image, registry, imageName, version
+}
+
+func createRunningVMIs(vmis []*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance {
+	newVMIs := make([]*v1.VirtualMachineInstance, len(vmis))
+	for i, vmi := range vmis {
+		var err error
+		newVMIs[i], err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
+	}
+
+	for i, vmi := range newVMIs {
+		newVMIs[i] = libwait.WaitForSuccessfulVMIStart(vmi)
+	}
+
+	return newVMIs
+}
+
+func deleteVMIs(vmis []*v1.VirtualMachineInstance) {
+	for _, vmi := range vmis {
+		err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
+	}
+}
+
+func getVirtLauncherSha(deploymentConfigStr string) (string, error) {
+	config := &util.KubeVirtDeploymentConfig{}
+	err := json.Unmarshal([]byte(deploymentConfigStr), config)
+	if err != nil {
+		return "", err
+	}
+
+	return config.VirtLauncherSha, nil
 }
