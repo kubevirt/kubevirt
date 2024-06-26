@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],  # Apache 2.0
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["functions.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/interpreter/functions",
+    importpath = "github.com/google/cel-go/interpreter/functions",
+    deps = [
+        "//vendor/github.com/google/cel-go/common/functions:go_default_library",
+    ],
+)
