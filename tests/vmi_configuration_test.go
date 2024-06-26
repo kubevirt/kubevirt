@@ -77,7 +77,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -2142,11 +2141,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 			}
 
-			dataVolume, err = createBlockDataVolume(virtClient)
+			dataVolume, err = libstorage.CreateBlockDataVolume(virtClient, testsuite.GetTestNamespace(nil))
 			Expect(err).ToNot(HaveOccurred())
-			if dataVolume == nil {
-				Skip("Skip test when Block storage is not present")
-			}
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 		})
@@ -2281,13 +2277,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, func() {
+		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, decorators.StorageReq, func() {
 			By("creating a block volume")
-			dataVolume, err := createBlockDataVolume(virtClient)
+			dataVolume, err := libstorage.CreateBlockDataVolume(virtClient, testsuite.GetTestNamespace(nil))
 			Expect(err).ToNot(HaveOccurred())
-			if dataVolume == nil {
-				Skip("Skip test when Block storage is not present")
-			}
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
@@ -2324,13 +2317,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, func() {
+		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, decorators.StorageReq, func() {
 			By("creating a block volume")
-			dataVolume, err := createBlockDataVolume(virtClient)
+			dataVolume, err := libstorage.CreateBlockDataVolume(virtClient, testsuite.GetTestNamespace(nil))
 			Expect(err).ToNot(HaveOccurred())
-			if dataVolume == nil {
-				Skip("Skip test when Block storage is not present")
-			}
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
@@ -3402,20 +3392,6 @@ func withSerialBIOS() libvmi.Option {
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(true)
 	}
-}
-
-func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
-	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-	if !foundSC {
-		return nil, nil
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
-	)
-
-	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 }
 
 func getKvmPitMask(qemupid, nodeName string) (output string, err error) {

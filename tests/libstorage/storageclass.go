@@ -31,6 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libdv"
 
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -347,4 +350,16 @@ func isLocalPV(pv k8sv1.PersistentVolume) bool {
 
 func isPVAvailable(pv k8sv1.PersistentVolume) bool {
 	return pv.Spec.ClaimRef == nil
+}
+
+func CreateBlockDataVolume(virtClient kubecli.KubevirtClient, namespace string) (*cdiv1.DataVolume, error) {
+	sc, foundSC := GetBlockStorageClass(k8sv1.ReadWriteOnce)
+	Expect(foundSC).To(BeTrue(), "Block storage is not present")
+
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
+	)
+
+	return virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 }

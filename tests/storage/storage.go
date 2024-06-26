@@ -950,11 +950,8 @@ var _ = SIGDescribe("Storage", func() {
 
 			BeforeEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
-				dataVolume, err = createBlockDataVolume(virtClient)
+				dataVolume, err = libstorage.CreateBlockDataVolume(virtClient, testsuite.GetTestNamespace(nil))
 				Expect(err).ToNot(HaveOccurred())
-				if dataVolume == nil {
-					Skip("Skip test when Block storage is not present")
-				}
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 			})
@@ -1108,11 +1105,8 @@ var _ = SIGDescribe("Storage", func() {
 			var dataVolume *cdiv1.DataVolume
 
 			BeforeEach(func() {
-				dataVolume, err = createBlockDataVolume(virtClient)
+				dataVolume, err = libstorage.CreateBlockDataVolume(virtClient, testsuite.GetTestNamespace(nil))
 				Expect(err).ToNot(HaveOccurred())
-				if dataVolume == nil {
-					Skip("Skip test when Block storage is not present")
-				}
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 				vmi = nil
@@ -1439,20 +1433,6 @@ func waitForPodToDisappearWithTimeout(podName string, seconds int) {
 		_, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Get(context.Background(), podName, metav1.GetOptions{})
 		return err
 	}, seconds, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-}
-
-func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
-	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-	if !foundSC {
-		return nil, nil
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
-	)
-
-	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 }
 
 func checkResultShellCommandOnVmi(vmi *v1.VirtualMachineInstance, cmd, output string, timeout int) {
