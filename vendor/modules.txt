@@ -836,6 +836,9 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
+# k8s.io/apiserver v0.30.0 => k8s.io/apiserver v0.30.0
+## explicit; go 1.22.0
+k8s.io/apiserver/pkg/storage/names
 # k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.30.0
 ## explicit; go 1.22.0
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
@@ -1284,11 +1287,11 @@ kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/scheme
 kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1
 kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1/fake
 kubevirt.io/client-go/kubecli
-kubevirt.io/client-go/kubecli/fake
 kubevirt.io/client-go/log
 kubevirt.io/client-go/precond
 kubevirt.io/client-go/reporter
 kubevirt.io/client-go/subresources
+kubevirt.io/client-go/testing
 kubevirt.io/client-go/testutils
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
