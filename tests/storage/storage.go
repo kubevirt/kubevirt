@@ -348,7 +348,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				By("Checking that /dev/vdc has a capacity of 1G, aligned to 4k")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdc\n"},
+					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdb\n"},
 					&expect.BExp{R: "999292928"}, // 1G in bytes rounded down to nearest 1MiB boundary
 				}, 10)).To(Succeed())
 
