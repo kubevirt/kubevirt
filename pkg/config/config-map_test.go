@@ -23,15 +23,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
-
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 var _ = Describe("ConfigMap", func() {
@@ -66,7 +64,8 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should not create a new config map iso disk without a Disk device", func() {
-		vmi := api.NewMinimalVMI("fake-vmi")
+		vmi := libvmi.New()
+
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "configmap-volume",
 			VolumeSource: v1.VolumeSource{

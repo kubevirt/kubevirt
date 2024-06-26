@@ -28,6 +28,16 @@ func WithSecretDisk(secretName, volumeName string) Option {
 	return WithLabelledSecretDisk(secretName, volumeName, "")
 }
 
+func WithSysprepSecret(volumeName, secretName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newSysprepVolume(volumeName, &v1.SysprepSource{
+			Secret: &k8sv1.LocalObjectReference{
+				Name: secretName,
+			},
+		}))
+	}
+}
+
 func WithLabelledSecretDisk(secretName, volumeName, label string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newSecretVolume(secretName, volumeName, label))
@@ -39,6 +49,16 @@ func WithLabelledSecretDisk(secretName, volumeName, label string) Option {
 
 func WithConfigMapDisk(configMapName, volumeName string) Option {
 	return WithLabelledConfigMapDisk(configMapName, volumeName, "")
+}
+
+func WithSysprepConfigMap(volumeName, configMapName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newSysprepVolume(volumeName, &v1.SysprepSource{
+			ConfigMap: &k8sv1.LocalObjectReference{
+				Name: configMapName,
+			},
+		}))
+	}
 }
 
 func WithLabelledConfigMapDisk(configMapName, volumeName, label string) Option {
@@ -105,6 +125,15 @@ func newSecretVolume(secretName, volumeName, label string) v1.Volume {
 				SecretName:  secretName,
 				VolumeLabel: label,
 			},
+		},
+	}
+}
+
+func newSysprepVolume(volumeName string, source *v1.SysprepSource) v1.Volume {
+	return v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			Sysprep: source,
 		},
 	}
 }
