@@ -1432,7 +1432,11 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				}
 
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
+				if rt.GOARCH != "s390x" {
+					Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
+				} else {
+					Expect(spec.Domain.Memory.MaxGuest).To(BeNil())
+				}
 			})
 			It("to prefer maxGuest from KV over MaxHotplugRatio", func() {
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
@@ -1448,8 +1452,12 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				}
 
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-				Expect(spec.Domain.Memory.Guest.Value()).To(Equal(guest.Value()))
-				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
+				if rt.GOARCH != "s390x" {
+					Expect(spec.Domain.Memory.Guest.Value()).To(Equal(guest.Value()))
+					Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
+				} else {
+					Expect(spec.Domain.Memory.MaxGuest).To(BeNil())
+				}
 			})
 			It("to calculate maxGuest to be `MaxHotplugRatio` times the configured guest memory when no maxGuest is defined", func() {
 				guest := resource.MustParse("1Gi")
@@ -1459,7 +1467,11 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				}
 
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
+				if rt.GOARCH != "s390x" {
+					Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
+				} else {
+					Expect(spec.Domain.Memory.MaxGuest).To(BeNil())
+				}
 			})
 			It("to use hot plug ratio configured in cluster config when max guest isn't provided in the VMI", func() {
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
@@ -1474,7 +1486,11 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				}
 
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
+				if rt.GOARCH != "s390x" {
+					Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
+				} else {
+					Expect(spec.Domain.Memory.MaxGuest).To(BeNil())
+				}
 			})
 
 			DescribeTable("should leave MaxGuest empty when memory hotplug is incompatible", func(vmiSetup func(*v1.VirtualMachineInstanceSpec)) {
