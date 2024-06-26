@@ -53,6 +53,7 @@ type VMCloneController struct {
 	vmCloneQueue       workqueue.RateLimitingInterface
 	vmStatusUpdater    *status.VMStatusUpdater
 	cloneStatusUpdater *status.CloneStatusUpdater
+	hasSynced          func() bool
 }
 
 func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer, snapshotContentInformer, pvcInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*VMCloneController, error) {
@@ -70,7 +71,11 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		cloneStatusUpdater:      status.NewCloneStatusUpdater(client),
 	}
 
-	_, err := ctrl.vmCloneInformer.AddEventHandler(
+	ctrl.hasSynced = func() bool {
+		return vmCloneInformer.HasSynced() && snapshotInformer.HasSynced() && restoreInformer.HasSynced() && vmInformer.HasSynced()
+	}
+
+	_, err := vmCloneInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMClone,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMClone(newObj) },
@@ -82,7 +87,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		return nil, err
 	}
 
-	_, err = ctrl.snapshotInformer.AddEventHandler(
+	_, err = snapshotInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleSnapshot(newObj) },
@@ -94,7 +99,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		return nil, err
 	}
 
-	_, err = ctrl.restoreInformer.AddEventHandler(
+	_, err = restoreInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleRestore,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleRestore(newObj) },
@@ -106,7 +111,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		return nil, err
 	}
 
-	_, err = ctrl.pvcInformer.AddEventHandler(
+	_, err = pvcInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
@@ -118,7 +123,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		return nil, err
 	}
 
-	_, err = ctrl.vmInformer.AddEventHandler(
+	_, err = vmInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			DeleteFunc: ctrl.handleDeleteVM,
 		},
@@ -303,10 +308,7 @@ func (ctrl *VMCloneController) Run(threadiness int, stopCh <-chan struct{}) erro
 
 	if !cache.WaitForCacheSync(
 		stopCh,
-		ctrl.vmCloneInformer.HasSynced,
-		ctrl.snapshotInformer.HasSynced,
-		ctrl.restoreInformer.HasSynced,
-		ctrl.vmInformer.HasSynced,
+		ctrl.hasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
