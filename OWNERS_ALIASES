@@ -157,3 +157,17 @@ aliases:
   #
   sig-architecture-approvers: []
   sig-architecture-reviewers: []
+
+  #
+  # Dependency Approvers
+  # Responsibility of this group is to keep KubeVirt's dependencies
+  # small.
+  #
+  dep-approvers:
+    - afrosi
+    - fossedihelm
+    - xpivarc
+  dep-reviewers:
+    - afrosi
+    - fossedihelm
+    - xpivarc
