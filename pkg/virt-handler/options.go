@@ -5,7 +5,6 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 )
@@ -15,14 +14,12 @@ func virtualMachineOptions(
 	period uint32,
 	preallocatedVolumes []string,
 	capabilities *api.Capabilities,
-	disksInfo map[string]*containerdisk.DiskInfo,
 	clusterConfig *virtconfig.ClusterConfig,
 ) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
 		Topology:              capabilitiesToTopology(capabilities),
-		DisksInfo:             disksInfoToDisksInfo(disksInfo),
 	}
 	if smbios != nil {
 		options.VirtualMachineSMBios = &cmdv1.SMBios{
@@ -103,19 +100,4 @@ func cpuToCPU(cpu api.CPU) *cmdv1.CPU {
 		Id:       cpu.ID,
 		Siblings: cpu.Siblings,
 	}
-}
-
-func disksInfoToDisksInfo(disksInfo map[string]*containerdisk.DiskInfo) map[string]*cmdv1.DiskInfo {
-	info := map[string]*cmdv1.DiskInfo{}
-	for k, v := range disksInfo {
-		if v != nil {
-			info[k] = &cmdv1.DiskInfo{
-				Format:      v.Format,
-				BackingFile: v.BackingFile,
-				ActualSize:  uint64(v.ActualSize),
-				VirtualSize: uint64(v.VirtualSize),
-			}
-		}
-	}
-	return info
 }

@@ -1,0 +1,8 @@
+cc_binary(
+    name = "container-disk",
+    srcs = ["main.c"],
+    linkopts = [
+        "-static",
+    ],
+    visibility = ["//visibility:public"],
+)
