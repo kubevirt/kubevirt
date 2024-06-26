@@ -105,6 +105,18 @@ const (
 	ResultTypeVMIDeletionToFailedP99    ResultType = "vmiDeletionToFailedSecondsP99"
 	ResultTypeVMIDeletionToFailedP95    ResultType = "vmiDeletionToFailedSecondsP95"
 	ResultTypeVMIDeletionToFailedP50    ResultType = "vmiDeletionToFailedSecondsP50"
+
+	// container_memory_rss
+	ResultTypeAvgVirtAPIMemoryUsageInMB        ResultType = "avgVirtAPIMemoryUsageInMB"
+	ResultTypeAvgVirtControllerMemoryUsageInMB ResultType = "avgVirtControllerMemoryUsageInMB"
+	ResultTypeMinVirtAPIMemoryUsageInMB        ResultType = "minVirtAPIMemoryUsageInMB"
+	ResultTypeMaxVirtAPIMemoryUsageInMB        ResultType = "maxVirtAPIMemoryUsageInMB"
+	ResultTypeMinVirtControllerMemoryUsageInMB ResultType = "minVirtControllerMemoryUsageInMB"
+	ResultTypeMaxVirtControllerMemoryUsageInMB ResultType = "maxVirtControllerMemoryUsageInMB"
+
+	// container_cpu_usage_seconds_total
+	ResultTypeAvgVirtAPICPUUsage        ResultType = "avgVirtAPICPUUsage"
+	ResultTypeAvgVirtControllerCPUUsage ResultType = "avgVirtControllerCPUUsage"
 )
 
 const (
