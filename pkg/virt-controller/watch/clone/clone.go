@@ -410,7 +410,13 @@ func (ctrl *VMCloneController) getSnapshot(snapshotName string, sourceNamespace 
 }
 
 func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clonev1alpha1.VirtualMachineClone, vm *k6tv1.VirtualMachine, snapshotName string, syncInfo syncInfoType) syncInfoType {
-	patches := generatePatches(vm, &vmClone.Spec)
+	patches, err := generatePatches(vm, &vmClone.Spec)
+	if err != nil {
+		retErr := fmt.Errorf("error generating patches for clone %s: %v", vmClone.Name, err)
+		ctrl.recorder.Event(vmClone, corev1.EventTypeWarning, string(RestoreCreationFailed), retErr.Error())
+		syncInfo.setError(retErr)
+		return syncInfo
+	}
 	restore := generateRestore(vmClone.Spec.Target, vm.Name, vmClone.Namespace, vmClone.Name, snapshotName, vmClone.UID, patches)
 	log.Log.Object(vmClone).Infof("creating restore %s for clone %s", restore.Name, vmClone.Name)
 	createdRestore, err := ctrl.client.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})

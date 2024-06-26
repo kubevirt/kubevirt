@@ -44,6 +44,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -885,7 +886,8 @@ var _ = Describe("Clone", func() {
 				restore, err := client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
-				expectedPatches := []string{`{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": ""}`}
+				expectedPatches, err := generateStringPatchOperations(patch.New(patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "")))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(restore.Spec.Patches).To(Equal(expectedPatches))
 				patchedVM, err := offlinePatchVM(sourceVMCpy, restore.Spec.Patches)
 				Expect(err).ToNot(HaveOccurred())
@@ -906,7 +908,9 @@ var _ = Describe("Clone", func() {
 				restore, err := client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
-				Expect(restore.Spec.Patches).ToNot(ContainElement(`{"op": "remove", "path": "/metadata/annotations/new_annotation_matching_filter"}`))
+				partialExpectedPatches, err := generateStringPatchOperations(patch.New(patch.WithRemove("/metadata/annotations/new_annotation_matching_filter")))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restore.Spec.Patches).ToNot(ContainElement(partialExpectedPatches[0]))
 			})
 		})
 
