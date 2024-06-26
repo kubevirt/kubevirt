@@ -279,6 +279,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 							Format:      "",
 						},
 					},
+					"deployKubevirtIpamController": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deploy KubevirtIpamController by CNAO. Allows having persistent IPs for Kubevirt user defined networks.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"nonRoot": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Enables rootless virt-launcher.\n\nDeprecated: please use the root FG.",

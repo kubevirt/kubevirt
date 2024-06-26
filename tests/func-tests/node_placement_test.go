@@ -146,6 +146,10 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 				delete(expectedWorkloadsPods, "secondary-dns")
 			}
 
+			if cnaoCR.Spec.KubevirtIpamController != nil {
+				expectedWorkloadsPods["kubevirt-ipam-claims-controller-manager"] = false
+			}
+
 			Eventually(func(g Gomega, ctx context.Context) {
 				By("Listing pods in infra node")
 				pods := listPodsInNode(ctx, g, cliSet, workloadsNode.Name)

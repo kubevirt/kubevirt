@@ -283,6 +283,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DeployKubevirtIpamController != nil {
+		in, out := &in.DeployKubevirtIpamController, &out.DeployKubevirtIpamController
+		*out = new(bool)
+		**out = **in
+	}
 	if in.NonRoot != nil {
 		in, out := &in.NonRoot, &out.NonRoot
 		*out = new(bool)

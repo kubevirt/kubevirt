@@ -66,7 +66,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false,"autoResourceLimits": false, "enableApplicationAwareQuota": false}
+	// +kubebuilder:default={"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false,"autoResourceLimits": false, "enableApplicationAwareQuota": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -438,6 +438,13 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	// +default=false
 	DeployKubeSecondaryDNS *bool `json:"deployKubeSecondaryDNS,omitempty"`
+
+	// Deploy KubevirtIpamController by CNAO.
+	// Allows having persistent IPs for Kubevirt user defined networks.
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	DeployKubevirtIpamController *bool `json:"deployKubevirtIpamController,omitempty"`
 
 	// TODO: remove NonRoot in the next release
 
@@ -856,7 +863,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": true}}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": true}}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

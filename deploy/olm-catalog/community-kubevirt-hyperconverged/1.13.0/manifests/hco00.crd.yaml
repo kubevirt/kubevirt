@@ -59,6 +59,7 @@ spec:
               featureGates:
                 autoResourceLimits: false
                 deployKubeSecondaryDNS: false
+                deployKubevirtIpamController: false
                 deployTektonTaskResources: false
                 deployVmConsoleProxy: false
                 disableMDevConfiguration: false
@@ -1070,6 +1071,7 @@ spec:
                 default:
                   autoResourceLimits: false
                   deployKubeSecondaryDNS: false
+                  deployKubevirtIpamController: false
                   deployTektonTaskResources: false
                   deployVmConsoleProxy: false
                   disableMDevConfiguration: false
@@ -1104,6 +1106,12 @@ spec:
                   deployKubeSecondaryDNS:
                     default: false
                     description: Deploy KubeSecondaryDNS by CNAO
+                    type: boolean
+                  deployKubevirtIpamController:
+                    default: false
+                    description: |-
+                      Deploy KubevirtIpamController by CNAO.
+                      Allows having persistent IPs for Kubevirt user defined networks.
                     type: boolean
                   deployTektonTaskResources:
                     default: false

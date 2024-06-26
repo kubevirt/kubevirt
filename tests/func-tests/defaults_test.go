@@ -66,19 +66,20 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 	Context("feature gate defaults", func() {
 		defaultFeatureGates := v1beta1.HyperConvergedFeatureGates{
-			DownwardMetrics:             ptr.To(false),
-			DeployKubeSecondaryDNS:      ptr.To(false),
-			DeployTektonTaskResources:   ptr.To(false),
-			DeployVMConsoleProxy:        ptr.To(false),
-			DisableMDevConfiguration:    ptr.To(false),
-			EnableCommonBootImageImport: ptr.To(true),
-			PersistentReservation:       ptr.To(false),
-			NonRoot:                     ptr.To(true), //nolint SA1019
-			WithHostPassthroughCPU:      ptr.To(false),
-			EnableManagedTenantQuota:    ptr.To(false),
-			AutoResourceLimits:          ptr.To(false),
-			AlignCPUs:                   ptr.To(false),
-			EnableApplicationAwareQuota: ptr.To(false),
+			DownwardMetrics:              ptr.To(false),
+			DeployKubeSecondaryDNS:       ptr.To(false),
+			DeployKubevirtIpamController: ptr.To(false),
+			DeployTektonTaskResources:    ptr.To(false),
+			DeployVMConsoleProxy:         ptr.To(false),
+			DisableMDevConfiguration:     ptr.To(false),
+			EnableCommonBootImageImport:  ptr.To(true),
+			PersistentReservation:        ptr.To(false),
+			NonRoot:                      ptr.To(true), //nolint SA1019
+			WithHostPassthroughCPU:       ptr.To(false),
+			EnableManagedTenantQuota:     ptr.To(false),
+			AutoResourceLimits:           ptr.To(false),
+			AlignCPUs:                    ptr.To(false),
+			EnableApplicationAwareQuota:  ptr.To(false),
 		}
 
 		DescribeTable("Check that featureGates defaults are behaving as expected", func(ctx context.Context, path string) {
@@ -94,6 +95,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		},
 			Entry("when removing /spec/featureGates/downwardMetrics", "/spec/featureGates/downwardMetrics"),
 			Entry("when removing /spec/featureGates/deployKubeSecondaryDNS", "/spec/featureGates/deployKubeSecondaryDNS"),
+			Entry("when removing /spec/featureGates/deployKubevirtIpamController", "/spec/featureGates/deployKubevirtIpamController"),
 			Entry("when removing /spec/featureGates/deployTektonTaskResources", "/spec/featureGates/deployTektonTaskResources"),
 			Entry("when removing /spec/featureGates/deployVmConsoleProxy", "/spec/featureGates/deployVmConsoleProxy"),
 			Entry("when removing /spec/featureGates/disableMDevConfiguration", "/spec/featureGates/disableMDevConfiguration"),

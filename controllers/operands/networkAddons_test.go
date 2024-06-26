@@ -595,6 +595,13 @@ var _ = Describe("CNA Operand", func() {
 			expectedBaseDomain string
 		}
 
+		type ipamAnnotationParams struct {
+			ipamExists         bool
+			setFeatureGate     bool
+			featureGateValue   bool
+			ipamDeployExpected bool
+		}
+
 		ksdTester := func(o ksdAnnotationParams) {
 			existingCNAO, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
@@ -692,6 +699,58 @@ var _ = Describe("CNA Operand", func() {
 					featureGateValue:   false,
 					ksdDeployExpected:  false,
 					expectedBaseDomain: "",
+				}),
+			)
+		})
+
+		Context("kubevirt-ipam-controller", func() {
+			DescribeTable("when reconciling", func(ctx context.Context, o ipamAnnotationParams) {
+				existingCNAO, err := NewNetworkAddons(hco)
+				Expect(err).ToNot(HaveOccurred())
+				if o.ipamExists {
+					existingCNAO.Spec.KubevirtIpamController = &networkaddonsshared.KubevirtIpamController{}
+				}
+
+				if o.setFeatureGate {
+					hco.Spec.FeatureGates.DeployKubevirtIpamController = ptr.To(o.featureGateValue)
+				}
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingCNAO})
+				handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundCNAO := &networkaddonsv1.NetworkAddonsConfig{}
+				Expect(
+					cl.Get(ctx,
+						types.NamespacedName{Name: existingCNAO.Name, Namespace: existingCNAO.Namespace},
+						foundCNAO),
+				).To(Succeed())
+
+				if o.ipamDeployExpected {
+					Expect(foundCNAO.Spec.KubevirtIpamController).ToNot(BeNil(), "Kubevirt IPAM controller spec should be added")
+				} else {
+					Expect(foundCNAO.Spec.KubevirtIpamController).To(BeNil(), "Kubevirt IPAM controller spec should not be added")
+				}
+			},
+				Entry("should have KIC if feature gate is set to true", context.TODO(), ipamAnnotationParams{
+					ipamExists:         false,
+					setFeatureGate:     true,
+					featureGateValue:   true,
+					ipamDeployExpected: true,
+				}),
+				Entry("should not have KIC if feature gate is set to false", context.TODO(), ipamAnnotationParams{
+					ipamExists:         true,
+					setFeatureGate:     true,
+					featureGateValue:   false,
+					ipamDeployExpected: false,
+				}),
+				Entry("should not have KIC if feature gate does not exist", context.TODO(), ipamAnnotationParams{
+					ipamExists:         true,
+					setFeatureGate:     false,
+					featureGateValue:   false,
+					ipamDeployExpected: false,
 				}),
 			)
 		})

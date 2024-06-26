@@ -158,6 +158,10 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 		}
 	}
 
+	if hc.Spec.FeatureGates.DeployKubevirtIpamController != nil && *hc.Spec.FeatureGates.DeployKubevirtIpamController {
+		cnaoSpec.KubevirtIpamController = &networkaddonsshared.KubevirtIpamController{}
+	}
+
 	cnaoSpec.Ovs = hcoAnnotation2CnaoSpec(hc.ObjectMeta.Annotations)
 	cnaoInfra := hcoConfig2CnaoPlacement(hc.Spec.Infra.NodePlacement)
 	cnaoWorkloads := hcoConfig2CnaoPlacement(hc.Spec.Workloads.NodePlacement)

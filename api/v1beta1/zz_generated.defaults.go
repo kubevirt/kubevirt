@@ -64,6 +64,10 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.DeployKubeSecondaryDNS = &ptrVar1
 	}
+	if in.Spec.FeatureGates.DeployKubevirtIpamController == nil {
+		var ptrVar1 bool = false
+		in.Spec.FeatureGates.DeployKubevirtIpamController = &ptrVar1
+	}
 	if in.Spec.FeatureGates.NonRoot == nil {
 		var ptrVar1 bool = true
 		in.Spec.FeatureGates.NonRoot = &ptrVar1

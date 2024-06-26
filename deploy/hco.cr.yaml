@@ -15,6 +15,7 @@ spec:
     alignCPUs: false
     autoResourceLimits: false
     deployKubeSecondaryDNS: false
+    deployKubevirtIpamController: false
     deployTektonTaskResources: false
     deployVmConsoleProxy: false
     disableMDevConfiguration: false
