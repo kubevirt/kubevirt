@@ -8,6 +8,7 @@ go_library(
         "image.go",
         "pvc.go",
         "storageclass.go",
+        "vmi.go",
         "volumesnapshot.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/libstorage",
