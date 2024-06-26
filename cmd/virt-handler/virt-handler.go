@@ -354,7 +354,7 @@ func (app *virtHandlerApp) Run() {
 
 	lifecycleHandler := rest.NewLifecycleHandler(
 		recorder,
-		vmiSourceInformer,
+		vmiSourceInformer.GetStore(),
 		app.VirtShareDir,
 	)
 
@@ -408,7 +408,7 @@ func (app *virtHandlerApp) Run() {
 
 	consoleHandler := rest.NewConsoleHandler(
 		podIsolationDetector,
-		vmiSourceInformer,
+		vmiSourceInformer.GetStore(),
 		app.clientcertmanager,
 	)
 

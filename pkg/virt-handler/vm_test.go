@@ -245,8 +245,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
 
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		controller.Queue = mockQueue
+		mockQueue = testutils.NewMockWorkQueue(controller.queue)
+		controller.queue = mockQueue
 
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 		domainFeeder = testutils.NewDomainFeeder(mockQueue, domainSource)

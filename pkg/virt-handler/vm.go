@@ -221,15 +221,15 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-vm")
 
 	c := &VirtualMachineController{
-		Queue:                       queue,
+		queue:                       queue,
 		recorder:                    recorder,
 		clientset:                   clientset,
 		host:                        host,
 		migrationIpAddress:          migrationIpAddress,
 		virtShareDir:                virtShareDir,
-		vmiSourceInformer:           vmiSourceInformer,
-		vmiTargetInformer:           vmiTargetInformer,
-		domainInformer:              domainInformer,
+		vmiSourceStore:              vmiSourceInformer.GetStore(),
+		vmiTargetStore:              vmiTargetInformer.GetStore(),
+		domainStore:                 domainInformer.GetStore(),
 		heartBeatInterval:           1 * time.Minute,
 		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
@@ -242,6 +242,10 @@ func NewController(
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 		ioErrorRetryManager:         NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
+	}
+
+	c.hasSynced = func() bool {
+		return domainInformer.HasSynced() && vmiSourceInformer.HasSynced() && vmiTargetInformer.HasSynced()
 	}
 
 	_, err := vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -311,10 +315,10 @@ type VirtualMachineController struct {
 	migrationIpAddress       string
 	virtShareDir             string
 	virtPrivateDir           string
-	Queue                    workqueue.RateLimitingInterface
-	vmiSourceInformer        cache.SharedIndexInformer
-	vmiTargetInformer        cache.SharedIndexInformer
-	domainInformer           cache.SharedInformer
+	queue                    workqueue.RateLimitingInterface
+	vmiSourceStore           cache.Store
+	vmiTargetStore           cache.Store
+	domainStore              cache.Store
 	launcherClients          virtcache.LauncherClientInfoByVMI
 	heartBeatInterval        time.Duration
 	deviceManagerController  *device_manager.DeviceController
@@ -336,6 +340,7 @@ type VirtualMachineController struct {
 	hostCpuModel                string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
 	ioErrorRetryManager         *FailRetryManager
+	hasSynced                   func() bool
 }
 
 type virtLauncherCriticalSecurebootError struct {
@@ -553,7 +558,7 @@ func (d *VirtualMachineController) hasTargetDetectedReadyDomain(vmi *v1.VirtualM
 	}
 
 	// re-enqueue the key to ensure it gets processed again within the right time.
-	d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(enqueueTime)*time.Second)
+	d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(enqueueTime)*time.Second)
 
 	return false, timeLeft
 }
@@ -1035,7 +1040,7 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 			return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
 		})
 		if needsRefresh {
-			d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
+			d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
 		}
 		d.generateEventsForVolumeStatusChange(vmi, newStatusMap)
 		vmi.Status.VolumeStatus = newStatuses
@@ -1645,18 +1650,18 @@ func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
-	defer c.Queue.ShutDown()
+	defer c.queue.ShutDown()
 	log.Log.Info("Starting virt-handler controller.")
 
 	go c.deviceManagerController.Run(stopCh)
 
 	go c.downwardMetricsManager.Run(stopCh)
 
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
-	// Queue keys for previous Domains on the host that no longer exist
+	// queue keys for previous Domains on the host that no longer exist
 	// in the cache. This ensures we perform local cleanup of deleted VMs.
-	for _, domain := range c.domainInformer.GetStore().List() {
+	for _, domain := range c.domainStore.List() {
 		d := domain.(*api.Domain)
 		vmiRef := v1.NewVMIReferenceWithUUID(
 			d.ObjectMeta.Namespace,
@@ -1665,9 +1670,9 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 		key := controller.VirtualMachineInstanceKey(vmiRef)
 
-		_, exists, _ := c.vmiSourceInformer.GetStore().GetByKey(key)
+		_, exists, _ := c.vmiSourceStore.GetByKey(key)
 		if !exists {
-			c.Queue.Add(key)
+			c.queue.Add(key)
 		}
 	}
 
@@ -1695,17 +1700,17 @@ func (c *VirtualMachineController) runWorker() {
 }
 
 func (c *VirtualMachineController) Execute() bool {
-	key, quit := c.Queue.Get()
+	key, quit := c.queue.Get()
 	if quit {
 		return false
 	}
-	defer c.Queue.Done(key)
+	defer c.queue.Done(key)
 	if err := c.execute(key.(string)); err != nil {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
-		c.Queue.AddRateLimited(key)
+		c.queue.AddRateLimited(key)
 	} else {
 		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
-		c.Queue.Forget(key)
+		c.queue.Forget(key)
 	}
 	return true
 }
@@ -1713,13 +1718,13 @@ func (c *VirtualMachineController) Execute() bool {
 func (d *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInstance, exists bool, err error) {
 
 	// Fetch the latest Vm state from cache
-	obj, exists, err := d.vmiSourceInformer.GetStore().GetByKey(key)
+	obj, exists, err := d.vmiSourceStore.GetByKey(key)
 	if err != nil {
 		return nil, false, err
 	}
 
 	if !exists {
-		obj, exists, err = d.vmiTargetInformer.GetStore().GetByKey(key)
+		obj, exists, err = d.vmiTargetStore.GetByKey(key)
 		if err != nil {
 			return nil, false, err
 		}
@@ -1741,7 +1746,7 @@ func (d *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualM
 
 func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, exists bool, cachedUID types.UID, err error) {
 
-	obj, exists, err := d.domainInformer.GetStore().GetByKey(key)
+	obj, exists, err := d.domainStore.GetByKey(key)
 
 	if err != nil {
 		return nil, false, "", err
@@ -1832,7 +1837,7 @@ func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 
 		// if we're still the migration target, we need to keep trying until the migration fails.
 		// it's possible we're simply waiting for another target pod to come online.
-		d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 
 	} else if shouldUpdate {
 		log.Log.Object(vmi).Info("Processing vmi migration target update")
@@ -1977,7 +1982,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		}); shouldDelay {
 			shouldUpdate = false
 			log.Log.Object(vmi).Infof("Delay vm update for %f seconds", delay.Seconds())
-			d.Queue.AddAfter(key, delay)
+			d.queue.AddAfter(key, delay)
 		}
 	}
 
@@ -2103,7 +2108,7 @@ func (d *VirtualMachineController) execute(key string) error {
 		}
 		// If we found an outdated domain which is also not alive anymore, clean up
 		if !initialized {
-			d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+			d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 			return nil
 		} else if expired {
 			log.Log.Object(oldVMI).Infof("Detected stale vmi %s that still needs cleanup before new vmi %s with identical name/namespace can be processed", oldVMI.UID, vmi.UID)
@@ -2113,7 +2118,7 @@ func (d *VirtualMachineController) execute(key string) error {
 			}
 			// Make sure we re-enqueue the key to ensure this new VMI is processed
 			// after the stale domain is removed
-			d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
+			d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
 		}
 
 		return nil
@@ -2184,7 +2189,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	// "DELETE"
 	domain := api.NewDomainReferenceFromName(vmi.Namespace, vmi.Name)
 	log.Log.Object(domain).Infof("Removing domain from cache during final cleanup")
-	return d.domainInformer.GetStore().Delete(domain)
+	return d.domainStore.Delete(domain)
 }
 
 func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) error {
@@ -2382,7 +2387,7 @@ func (d *VirtualMachineController) shutdownVMI(vmi *v1.VirtualMachineInstance, c
 	}
 
 	// pending graceful shutdown.
-	d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(timeLeft)*time.Second)
+	d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(timeLeft)*time.Second)
 	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
 	return nil
 }
@@ -2760,7 +2765,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		if err != nil {
 			return err
 		}
-		d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return nil
 	}
 
@@ -2998,7 +3003,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			if err != nil {
 				return err
 			}
-			d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+			d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 			return nil
 		}
 
@@ -3259,7 +3264,7 @@ func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 	if !isInitialized {
-		d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return nil
 	} else if isUnresponsive {
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
@@ -3295,7 +3300,7 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				return vmi.Status.Phase, err
 			}
 			if !isInitialized {
-				d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+				d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 				return vmi.Status.Phase, err
 			} else if isUnresponsive {
 				// virt-launcher is gone and VirtualMachineInstance never transitioned
@@ -3342,21 +3347,21 @@ func (d *VirtualMachineController) addFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		d.vmiExpectations.LowerExpectations(key, 1, 0)
-		d.Queue.Add(key)
+		d.queue.Add(key)
 	}
 }
 func (d *VirtualMachineController) deleteFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		d.vmiExpectations.LowerExpectations(key, 1, 0)
-		d.Queue.Add(key)
+		d.queue.Add(key)
 	}
 }
 func (d *VirtualMachineController) updateFunc(_, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.vmiExpectations.LowerExpectations(key, 1, 0)
-		d.Queue.Add(key)
+		d.queue.Add(key)
 	}
 }
 
@@ -3365,7 +3370,7 @@ func (d *VirtualMachineController) addDomainFunc(obj interface{}) {
 	log.Log.Object(domain).Infof("Domain is in state %s reason %s", domain.Status.Status, domain.Status.Reason)
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
-		d.Queue.Add(key)
+		d.queue.Add(key)
 	}
 }
 func (d *VirtualMachineController) deleteDomainFunc(obj interface{}) {
@@ -3385,7 +3390,7 @@ func (d *VirtualMachineController) deleteDomainFunc(obj interface{}) {
 	log.Log.Object(domain).Info("Domain deleted")
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
-		d.Queue.Add(key)
+		d.queue.Add(key)
 	}
 }
 func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
@@ -3401,7 +3406,7 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 
 	key, err := controller.KeyFunc(new)
 	if err == nil {
-		d.Queue.Add(key)
+		d.queue.Add(key)
 	}
 }
 

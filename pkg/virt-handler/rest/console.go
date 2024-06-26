@@ -45,15 +45,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
-//const failedRetrieveVMI = "Failed to retrieve VMI"
-
 type ConsoleHandler struct {
 	podIsolationDetector isolation.PodIsolationDetector
 	serialStopChans      map[types.UID](chan struct{})
 	vncStopChans         map[types.UID](chan struct{})
 	serialLock           *sync.Mutex
 	vncLock              *sync.Mutex
-	vmiInformer          cache.SharedIndexInformer
+	vmiStore             cache.Store
 	usbredir             map[types.UID]UsbredirHandlerVMI
 	usbredirLock         *sync.Mutex
 	certManager          certificate.Manager
@@ -63,7 +61,7 @@ type UsbredirHandlerVMI struct {
 	stopChans map[int](chan struct{})
 }
 
-func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiInformer cache.SharedIndexInformer, certManager certificate.Manager) *ConsoleHandler {
+func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, certManager certificate.Manager) *ConsoleHandler {
 	return &ConsoleHandler{
 		podIsolationDetector: podIsolationDetector,
 		serialStopChans:      make(map[types.UID](chan struct{})),
@@ -71,14 +69,14 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 		serialLock:           &sync.Mutex{},
 		vncLock:              &sync.Mutex{},
 		usbredirLock:         &sync.Mutex{},
-		vmiInformer:          vmiInformer,
+		vmiStore:             vmiStore,
 		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
 		certManager:          certManager,
 	}
 }
 
 func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, t.vmiInformer)
+	vmi, code, err := getVMI(request, t.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
@@ -141,7 +139,7 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 }
 
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, t.vmiInformer)
+	vmi, code, err := getVMI(request, t.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
@@ -160,7 +158,7 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, t.vmiInformer)
+	vmi, code, err := getVMI(request, t.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
@@ -179,7 +177,7 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 }
 
 func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, t.vmiInformer)
+	vmi, code, err := getVMI(request, t.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
