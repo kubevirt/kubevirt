@@ -353,6 +353,7 @@ type CPUPreferences struct {
 	// PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.
 	//
 	//+optional
+	//+kubebuilder:validation:Enum=preferCores;preferSockets;preferThreads;preferSpread;preferAny;cores;sockets;threads;spread;any
 	PreferredCPUTopology *PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
 
 	//
@@ -383,6 +384,7 @@ type SpreadOptions struct {
 	// Default: SocketsCores
 	//
 	//+optional
+	//+kubebuilder:validation:Enum=SocketsCoresThreads;SocketsCores;CoresThreads
 	Across *SpreadAcross `json:"across,omitempty"`
 
 	// Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
