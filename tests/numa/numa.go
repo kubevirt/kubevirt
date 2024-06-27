@@ -20,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -43,7 +41,6 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 	})
 
 	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
-		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		var err error
 		cpuVMI := libvmifact.NewCirros()
