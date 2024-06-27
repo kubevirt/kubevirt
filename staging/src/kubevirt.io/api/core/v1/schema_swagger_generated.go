@@ -121,9 +121,10 @@ func (BIOS) SwaggerDoc() map[string]string {
 
 func (EFI) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "If set, EFI will be used instead of BIOS.",
-		"secureBoot": "If set, SecureBoot will be enabled and the OVMF roms will be swapped for\nSecureBoot-enabled ones.\nRequires SMM to be enabled.\nDefaults to true\n+optional",
-		"persistent": "If set to true, Persistent will persist the EFI NVRAM across reboots.\nDefaults to false\n+optional",
+		"":             "If set, EFI will be used instead of BIOS.",
+		"secureBoot":   "If set, SecureBoot will be enabled and the OVMF roms will be swapped for\nSecureBoot-enabled ones.\nRequires SMM to be enabled.\nDefaults to true\n+optional",
+		"enrolledKeys": "If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys.\nThis is only valid if SecureBoot is enabled.\nDefaults to true\n+optional",
+		"persistent":   "If set to true, Persistent will persist the EFI NVRAM across reboots.\nDefaults to false\n+optional",
 	}
 }
 

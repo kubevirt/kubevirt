@@ -124,7 +124,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
-				libvmi.WithUefi(false),
+				libvmi.WithUefi(false, false),
 				libvmi.WithResourceMemory("1Gi"),
 			)
 			if withTPM {

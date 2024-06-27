@@ -30,8 +30,9 @@ import (
 
 var _ = Describe("EFI environment detection", func() {
 	const (
-		secureBootEnabled = true
-		sevEnabled        = true
+		secureBootEnabled   = true
+		enrolledKeysEnabled = true
+		sevEnabled          = true
 	)
 
 	createEFIRoms := func(efiRoms ...string) string {
@@ -63,16 +64,18 @@ var _ = Describe("EFI environment detection", func() {
 			if SBBootable {
 				Expect(efiEnv.EFICode(secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, codeSB)))
 				Expect(efiEnv.EFICode(secureBootEnabled, sevEnabled)).To(Equal(filepath.Join(ovmfPath, codeSB)))
-				Expect(efiEnv.EFIVars(secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, varsSB)))
+				Expect(efiEnv.EFIVars(secureBootEnabled, enrolledKeysEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, varsSB)))
+				Expect(efiEnv.EFIVars(secureBootEnabled, !enrolledKeysEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, vars)))
 			}
 			if NoSBBootable {
 				Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, code)))
-				Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, vars)))
+				Expect(efiEnv.EFIVars(!secureBootEnabled, enrolledKeysEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, vars)))
+				Expect(efiEnv.EFIVars(!secureBootEnabled, !enrolledKeysEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, vars)))
 			}
 
 		},
 		Entry("SB and NoSB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICode, EFIVars, true, true),
-		Entry("Only SB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, "", true, false),
+		Entry("Only SB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, EFIVars, true, false),
 		Entry("Only NoSB available", "x86_64", "", "", EFICode, EFIVars, false, true),
 		Entry("Arm64 EFI", "arm64", "", "", EFICodeAARCH64, EFIVarsAARCH64, false, true),
 		Entry("SB and NoSB available when OVMF_CODE.fd does not exist", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, EFIVars, true, true),
@@ -100,9 +103,14 @@ var _ = Describe("EFI environment detection", func() {
 		Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled)).ToNot(Equal(codeSEV))
 
 		varsSEV := filepath.Join(ovmfPath, EFIVarsSEV)
-		Expect(efiEnv.EFIVars(secureBootEnabled, sevEnabled)).ToNot(Equal(varsSEV))
-		Expect(efiEnv.EFIVars(secureBootEnabled, !sevEnabled)).ToNot(Equal(varsSEV))
-		Expect(efiEnv.EFIVars(!secureBootEnabled, sevEnabled)).To(Equal(varsSEV))
-		Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled)).To(Equal(varsSEV)) // same as EFIVars
+		Expect(efiEnv.EFIVars(secureBootEnabled, enrolledKeysEnabled, sevEnabled)).ToNot(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(secureBootEnabled, !enrolledKeysEnabled, sevEnabled)).To(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(secureBootEnabled, enrolledKeysEnabled, !sevEnabled)).ToNot(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(secureBootEnabled, !enrolledKeysEnabled, !sevEnabled)).ToNot(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, enrolledKeysEnabled, sevEnabled)).To(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, !enrolledKeysEnabled, sevEnabled)).To(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, enrolledKeysEnabled, !sevEnabled)).To(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, !enrolledKeysEnabled, !sevEnabled)).To(Equal(varsSEV)) // same as EFIVars
+
 	})
 })

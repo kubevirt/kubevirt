@@ -179,7 +179,7 @@ func WithDownwardMetricsChannel() Option {
 }
 
 // WithUefi configures EFI bootloader and SecureBoot.
-func WithUefi(secureBoot bool) Option {
+func WithUefi(secureBoot, enrolledKeys bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Firmware == nil {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{}
@@ -191,6 +191,7 @@ func WithUefi(secureBoot bool) Option {
 			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(secureBoot)
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.EnrolledKeys = pointer.P(enrolledKeys)
 		// secureBoot Requires SMM to be enabled
 		if secureBoot {
 			if vmi.Spec.Domain.Features == nil {
