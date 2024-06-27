@@ -48,6 +48,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/trace"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -65,6 +66,12 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
+)
+
+const (
+
+	//VMIProvisioning is the reason set when a VMI is provisioning
+        VMIProvisioning = "VirtualMachineInstance provisioning."
 )
 
 const (
@@ -534,6 +541,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 				if !conditionManager.HasCondition(vmiCopy, condition.Type) {
 					vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
+                                        c.recorder.Event(vmi, k8sv1.EventTypeNormal, string(condition.Type), VMIProvisioning)
 				}
 				if tempPodExists {
 					// Add PodScheduled False condition to the VM
@@ -561,6 +569,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					cm.RemoveCondition(vmiCopy, condition.Type)
 				}
 				vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
+			        c.recorder.Event(vmi, k8sv1.EventTypeWarning, condition.Reason, condition.Message)
 			}
 		}
 	case vmi.IsScheduling():
@@ -2396,8 +2405,18 @@ func (c *VMIController) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMa
 		dvsReadyCondition.Message = "Not all of the VMI's DVs are ready"
 	}
 
+
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
-	vmiConditions.UpdateCondition(vmiCopy, &dvsReadyCondition)
+	cond := vmiConditions.GetCondition(vmiCopy, v1.VirtualMachineInstanceDataVolumesReady)
+	if !equality.Semantic.DeepEqual(cond, dvsReadyCondition) {
+	        vmiConditions.UpdateCondition(vmiCopy, &dvsReadyCondition)
+
+                if dvsReadyCondition.Status == k8sv1.ConditionTrue {
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, dvsReadyCondition.Reason, dvsReadyCondition.Message)
+                } else {
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, dvsReadyCondition.Reason, dvsReadyCondition.Message)
+                }
+        }
 }
 
 func statusOfReadyCondition(conditions []cdiv1.DataVolumeCondition) k8sv1.ConditionStatus {
