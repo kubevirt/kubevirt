@@ -28,7 +28,6 @@ import "kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 const (
 	ExpandDisksGate       = "ExpandDisks"
 	CPUManager            = "CPUManager"
-	NUMAFeatureGate       = "NUMA"
 	IgnitionGate          = "ExperimentalIgnitionSupport"
 	HypervStrictCheckGate = "HypervStrictCheck"
 	SidecarGate           = "Sidecar"
@@ -118,7 +117,7 @@ func (config *ClusterConfig) CPUManagerEnabled() bool {
 }
 
 func (config *ClusterConfig) NUMAEnabled() bool {
-	return config.isFeatureGateEnabled(NUMAFeatureGate)
+	return config.isFeatureGateEnabled(deprecation.NUMAFeatureGate)
 }
 
 func (config *ClusterConfig) DownwardMetricsEnabled() bool {
