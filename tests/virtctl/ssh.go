@@ -19,6 +19,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -85,7 +86,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 	DescribeTable("should succeed to execute a command on the VM", func(cmdFn func(string)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub)))
+			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 

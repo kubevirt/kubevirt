@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
@@ -1708,7 +1709,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("with AccessCredentials", func() {
 		It("should accept a valid ssh access credential with configdrive propagation", func() {
-			vmi := newBaseVmi(libvmi.WithCloudInitConfigDriveUserData(" "))
+			vmi := newBaseVmi(libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(" ")))
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{

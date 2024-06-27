@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -366,7 +367,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			deadbeafVMI := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(masqIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithCloudInitNoCloudNetworkData(networkData),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 			)
 			deadbeafVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), deadbeafVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -581,8 +582,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom dns", func() {
 		It("[test_id:1779]should have custom resolv.conf", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-			userData := "#cloud-config\n"
-			dnsVMI := libvmifact.NewCirros(libvmi.WithCloudInitNoCloudUserData(userData))
+			dnsVMI := libvmifact.NewCirros()
 
 			dnsVMI.Spec.DNSPolicy = "None"
 
@@ -653,7 +653,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 				libvmi.WithNetwork(net),
-				libvmi.WithCloudInitNoCloudNetworkData(networkData),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 			)
 
 			return vmi, nil
@@ -967,7 +967,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi = libvmifact.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudNetworkData(networkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})

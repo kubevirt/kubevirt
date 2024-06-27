@@ -56,6 +56,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 
 	"kubevirt.io/kubevirt/tests"
@@ -191,7 +192,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				libvmi.WithDataVolume("disk0", dataVolume.Name),
 				libvmi.WithResourceMemory("256Mi"),
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n")),
 				libvmi.WithTerminationGracePeriod(30),
 			), dataVolume
 		}

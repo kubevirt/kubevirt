@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -260,7 +261,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			),
 		)
 		return libvmi.NewVirtualMachine(
-			libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript)),
+			libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript))),
 			libvmi.WithDataVolumeTemplate(dv),
 		)
 	}
@@ -1207,7 +1208,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					memory = "256Mi"
 				}
 				vmi = libstorage.RenderVMIWithDataVolume(originalPVCName, testsuite.GetTestNamespace(nil),
-					libvmi.WithResourceMemory(memory), libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript))
+					libvmi.WithResourceMemory(memory), libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript)))
 				vm, vmi = createAndStartVM(libvmi.NewVirtualMachine(vmi))
 
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
@@ -1763,7 +1764,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					)
 
 					return libvmi.NewVirtualMachine(
-						libstorage.RenderVMIWithDataVolume(dataVolume.Name, sourceDV.Namespace, libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript)),
+						libstorage.RenderVMIWithDataVolume(dataVolume.Name, sourceDV.Namespace, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript))),
 						libvmi.WithDataVolumeTemplate(dataVolume),
 					)
 				}

@@ -20,82 +20,36 @@
 package libvmi
 
 import (
-	"encoding/base64"
-
-	k8scorev1 "k8s.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	v1 "kubevirt.io/api/core/v1"
 )
 
 const cloudInitDiskName = "disk1"
 
-// WithCloudInitNoCloudUserData adds cloud-init no-cloud user data.
-func WithCloudInitNoCloudUserData(data string) Option {
+// WithCloudInitNoCloud adds cloud-init no-cloud sources.
+func WithCloudInitNoCloud(opts ...cloudinit.NoCloudOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.UserData = data
-		volume.CloudInitNoCloud.UserDataBase64 = ""
+
+		for _, f := range opts {
+			f(volume.CloudInitNoCloud)
+		}
 	}
 }
 
-// WithCloudInitNoCloudEncodedUserData adds cloud-init no-cloud base64-encoded user data
-func WithCloudInitNoCloudEncodedUserData(data string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		encodedData := base64.StdEncoding.EncodeToString([]byte(data))
-		volume.CloudInitNoCloud.UserData = ""
-		volume.CloudInitNoCloud.UserDataBase64 = encodedData
-	}
-}
-
-// WithCloudInitNoCloudNetworkData adds cloud-init no-cloud network data.
-func WithCloudInitNoCloudNetworkData(data string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.NetworkData = data
-		volume.CloudInitNoCloud.NetworkDataBase64 = ""
-		volume.CloudInitNoCloud.NetworkDataSecretRef = nil
-	}
-}
-
-// WithCloudInitNoCloudEncodedNetworkData adds cloud-init no-cloud base64 encoded network data.
-func WithCloudInitNoCloudEncodedNetworkData(networkData string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
-		volume.CloudInitNoCloud.NetworkData = ""
-		volume.CloudInitNoCloud.NetworkDataSecretRef = nil
-	}
-}
-
-// WithCloudInitNoCloudNetworkDataSecretName adds cloud-init no-cloud network data from secret.
-func WithCloudInitNoCloudNetworkDataSecretName(secretName string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
-		volume.CloudInitNoCloud.NetworkData = ""
-		volume.CloudInitNoCloud.NetworkDataBase64 = ""
-	}
-}
-
-// WithCloudInitConfigDriveUserData adds cloud-init config-drive user data.
-func WithCloudInitConfigDriveUserData(data string) Option {
+// WithCloudInitConfigDrive adds cloud-init config-drive sources.
+func WithCloudInitConfigDrive(opts ...cloudinit.ConfigDriveOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitConfigDrive.UserData = data
-		volume.CloudInitConfigDrive.UserDataBase64 = ""
+
+		for _, f := range opts {
+			f(volume.CloudInitConfigDrive)
+		}
 	}
 }
 

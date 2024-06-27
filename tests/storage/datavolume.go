@@ -54,6 +54,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
@@ -140,7 +141,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace, libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
+			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n")))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
 
 			By("Expecting the VirtualMachineInstance console")
@@ -1151,7 +1152,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolume = dvChange(dataVolume)
 			preallocated := dataVolume.Spec.Preallocation != nil && *dataVolume.Spec.Preallocation
 
-			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil), libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\n echo hello\n"))
+			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil), libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\n echo hello\n")))
 			vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = "scsi"
 
 			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})

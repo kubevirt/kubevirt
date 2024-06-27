@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -140,7 +141,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:1615]should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := libvmifact.NewCirros(
-					libvmi.WithCloudInitNoCloudEncodedUserData(userData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(userData)),
 				)
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
@@ -158,7 +159,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						fedoraPassword,
 						sshAuthorizedKey,
 					)
-					vmi := libvmifact.NewFedora(libvmi.WithCloudInitNoCloudUserData(userData))
+					vmi := libvmifact.NewFedora(libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userData)))
 
 					vmi = LaunchVMI(vmi)
 					CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
@@ -198,7 +199,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						sshAuthorizedKey,
 					)
 					vmi := libvmifact.NewFedora(
-						libvmi.WithCloudInitConfigDriveUserData(userData),
+						libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData)),
 					)
 
 					vmi = LaunchVMI(vmi)
@@ -228,7 +229,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					"#cloud-config\npassword: %s\nchpasswd: { expire: False }",
 					fedoraPassword,
 				)
-				vmi := libvmifact.NewFedora(libvmi.WithCloudInitConfigDriveUserData(userData))
+				vmi := libvmifact.NewFedora(libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData)))
 				// runStrategy := v1.RunStrategyManual
 				vm := &v1.VirtualMachine{
 					ObjectMeta: vmi.ObjectMeta,
@@ -294,7 +295,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			It("[test_id:1617] with cloudInitNoCloud userData source", func() {
 				vmi := libvmifact.NewCirros(
-					libvmi.WithCloudInitNoCloudUserData(userData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userData)),
 				)
 
 				runTest(vmi, cloudinit.DataSourceNoCloud)
@@ -350,7 +351,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudNetworkData(testNetworkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(testNetworkData)),
 				)
 				vmi = LaunchVMI(vmi)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -368,7 +369,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudEncodedNetworkData(testNetworkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedNetworkData(testNetworkData)),
 				)
 				vmi = LaunchVMI(vmi)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -388,7 +389,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudNetworkDataSecretName(secretID),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkDataSecretName(secretID)),
 				)
 
 				By("Creating a secret with network data")

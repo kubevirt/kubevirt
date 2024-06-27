@@ -29,6 +29,7 @@ import (
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 
@@ -319,7 +320,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 		libvmi.WithPersistentVolumeClaim("disk0", pvName),
 		libvmi.WithResourceMemory(memoryRequestSize),
 		libvmi.WithRng(),
-		libvmi.WithCloudInitNoCloudEncodedUserData(mountSvcAccCommands),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountSvcAccCommands)),
 		libvmi.WithServiceAccountDisk("default"),
 	)
 

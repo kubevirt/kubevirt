@@ -31,6 +31,7 @@ go_library(
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/cloud-init:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/network/setup:go_default_library",
         "//pkg/network/vmispec:go_default_library",

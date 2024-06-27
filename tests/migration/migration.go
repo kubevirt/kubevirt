@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
@@ -167,7 +168,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			libvmi.WithSecretDisk(secret.Name, secret.Name),
 			libvmi.WithConfigMapDisk(configMapName, configMapName),
 			libvmi.WithEmptyDisk("usb-disk", v1.DiskBusUSB, resource.MustParse("64Mi")),
-			libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n"),
+			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")),
 		)
 	}
 
@@ -1172,7 +1173,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
 					libvmi.WithResourceMemory(fedoraVMSize),
 					libvmi.WithRng(),
-					libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\n echo hello\n"),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\n echo hello\n")),
 				)
 
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
@@ -2015,7 +2016,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
 					libvmi.WithResourceMemory("1Gi"),
-					libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\n echo hello\n"),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\n echo hello\n")),
 				)
 				return vmi
 			}

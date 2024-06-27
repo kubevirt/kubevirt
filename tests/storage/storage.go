@@ -54,6 +54,7 @@ import (
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -347,7 +348,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				By("Checking that /dev/vdc has a capacity of 1G, aligned to 4k")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdc\n"},
+					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdb\n"},
 					&expect.BExp{R: "999292928"}, // 1G in bytes rounded down to nearest 1MiB boundary
 				}, 10)).To(Succeed())
 
@@ -962,7 +963,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithResourceMemory("256Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-					libvmi.WithCloudInitNoCloudEncodedUserData(cirrosUserData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(cirrosUserData)),
 				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
