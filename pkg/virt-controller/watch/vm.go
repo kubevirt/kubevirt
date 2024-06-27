@@ -1291,7 +1291,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 
 	autoAttachInputDevice(vmi)
 
-	err = c.clusterConfig.SetVMISpecDefaultNetworkInterface(&vmi.Spec)
+	err = vmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
 	if err != nil {
 		return vm, err
 	}
