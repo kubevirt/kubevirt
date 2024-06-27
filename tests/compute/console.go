@@ -107,10 +107,10 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 				Eventually(firstConsoleErrChan, 1*time.Minute, 1*time.Second).Should(Receive(MatchError(ContainSubstring("EOF"))))
 			})
 
-			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
+			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func(ctx context.Context) {
 				vmi := libvmifact.NewAlpine()
 				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(ctx, vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("and connecting to it very quickly. Hopefully the VM is not yet up")
@@ -118,13 +118,13 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:1593]should not be connected if scheduled to non-existing host", func() {
+			It("[test_id:1593]should not be connected if scheduled to non-existing host", func(ctx context.Context) {
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithNodeAffinityFor("nonexistent"),
 				)
 
 				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(ctx, vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
