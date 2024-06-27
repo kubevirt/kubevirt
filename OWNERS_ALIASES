@@ -164,10 +164,10 @@ aliases:
   # small.
   #
   dep-approvers:
-    - afrosi
+    - alicefr
     - fossedihelm
     - xpivarc
   dep-reviewers:
-    - afrosi
+    - alicefr
     - fossedihelm
     - xpivarc
