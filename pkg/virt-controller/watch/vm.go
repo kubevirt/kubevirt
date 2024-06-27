@@ -729,7 +729,6 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
                 return nil
         }
 
-
 	if err := c.VMICPUsPatch(vmCopyWithInstancetype, vmi); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi to add cpu topology status: %v", err)
 		return err
@@ -970,7 +969,7 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 		// Validate if the update volumes can be migrated
 		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
                         setRestartRequired(vm, err.Error())
-			return nil
+		        return nil
 		}
 
 		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, c.pvcStore, vmi, vm); err != nil {
