@@ -1,7 +1,6 @@
 package hotplug_volume
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"sync"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	"golang.org/x/sys/unix"
@@ -127,7 +127,7 @@ var (
 )
 
 type volumeMounter struct {
-	mountStateDir      string
+	checkpointManager  checkpoint.CheckpointManager
 	mountRecords       map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock   sync.Mutex
 	skipSafetyCheck    bool
@@ -162,7 +162,7 @@ type vmiMountTargetRecord struct {
 func NewVolumeMounter(mountStateDir string, kubeletPodsDir string) VolumeMounter {
 	return &volumeMounter{
 		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-		mountStateDir:      mountStateDir,
+		checkpointManager:  checkpoint.NewSimpleCheckpointManager(mountStateDir),
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		ownershipManager:   diskutils.DefaultOwnershipManager,
 		kubeletPodsDir:     kubeletPodsDir,
@@ -174,23 +174,20 @@ func (m *volumeMounter) deleteMountTargetRecord(vmi *v1.VirtualMachineInstance) 
 		return fmt.Errorf(unableFindHotplugMountedDir)
 	}
 
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
-	exists, err := diskutils.FileExists(recordFile)
-	if err != nil {
-		return err
+	record := vmiMountTargetRecord{}
+	err := m.checkpointManager.Get(string(vmi.UID), &record)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to get checkpoint %s, %w", vmi.UID, err)
 	}
 
-	if exists {
-		record, err := m.getMountTargetRecord(vmi)
-		if err != nil {
-			return err
-		}
-
+	if err == nil {
 		for _, target := range record.MountTargetEntries {
 			os.Remove(target.TargetFile)
 		}
 
-		os.Remove(recordFile)
+		if err := m.checkpointManager.Delete(string(vmi.UID)); err != nil {
+			return fmt.Errorf("failed to delete checkpoint %s, %w", vmi.UID, err)
+		}
 	}
 
 	m.mountRecordsLock.Lock()
@@ -218,24 +215,13 @@ func (m *volumeMounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*v
 	}
 
 	// if not there, see if record is on disk, this can happen if virt-handler restarts
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
-
-	exists, err := diskutils.FileExists(recordFile)
-	if err != nil {
-		return nil, err
+	record := vmiMountTargetRecord{}
+	err := m.checkpointManager.Get(string(vmi.UID), &record)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("failed to get checkpoint %s, %w", vmi.UID, err)
 	}
 
-	if exists {
-		record := vmiMountTargetRecord{}
-		bytes, err := os.ReadFile(recordFile)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(bytes, &record)
-		if err != nil {
-			return nil, err
-		}
-
+	if err == nil {
 		// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
 		// After a one-time convert and persist, old records are safe too.
 		if !record.UsesSafePaths {
@@ -266,24 +252,11 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 	// After a one-time convert and persist, old records are safe too.
 	record.UsesSafePaths = true
 
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
-
 	m.mountRecordsLock.Lock()
 	defer m.mountRecordsLock.Unlock()
 
-	bytes, err := json.Marshal(record)
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(filepath.Dir(recordFile), 0750)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(recordFile, bytes, 0600)
-	if err != nil {
-		return err
+	if err := m.checkpointManager.Store(string(vmi.UID), record); err != nil {
+		return fmt.Errorf("failed to checkpoint %s, %w", vmi.UID, err)
 	}
 	m.mountRecords[vmi.UID] = record
 	return nil
