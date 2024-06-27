@@ -2066,5 +2066,14 @@ func getTargetPodMemoryRequests(pod *k8sv1.Pod) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("Could not find memory request in VMI compute container")
 	}
+
+	if hugePagesReq, ok := cc.Resources.Requests[k8sv1.ResourceHugePagesPrefix+"2Mi"]; ok {
+		memReq.Add(hugePagesReq)
+	}
+
+	if hugePagesReq, ok := cc.Resources.Requests[k8sv1.ResourceHugePagesPrefix+"1Gi"]; ok {
+		memReq.Add(hugePagesReq)
+	}
+
 	return memReq.String(), nil
 }
