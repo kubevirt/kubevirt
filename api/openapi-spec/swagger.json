@@ -22843,7 +22843,7 @@
       "type": "string"
      },
      "preferredDiskDedicatedIoThread": {
-      "description": "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.",
+      "description": "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices using the virtio bus.",
       "type": "boolean"
      },
      "preferredDiskIO": {
