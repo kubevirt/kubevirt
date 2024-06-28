@@ -130,3 +130,12 @@ func WithPreferredCPUTopology(topology instancetypev1beta1.PreferredCPUTopology)
 		spec.CPU.PreferredCPUTopology = pointer.P(topology)
 	}
 }
+
+func WithPreferredDiskBus(bus v1.DiskBus) PreferenceSpecOption {
+	return func(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
+		if spec.Devices == nil {
+			spec.Devices = &instancetypev1beta1.DevicePreferences{}
+		}
+		spec.Devices.PreferredDiskBus = bus
+	}
+}
