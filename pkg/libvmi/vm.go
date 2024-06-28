@@ -62,6 +62,7 @@ func NewVirtualMachine(vmi *v1.VirtualMachineInstance, opts ...VMOption) *v1.Vir
 func WithRunning() VMOption {
 	return func(vm *v1.VirtualMachine) {
 		vm.Spec.Running = pointer.P(true)
+		vm.Spec.RunStrategy = nil
 	}
 }
 
@@ -167,5 +168,12 @@ func WithPreferenceRevision(revisionName string) VMOption {
 			Name:         "unused",
 			RevisionName: revisionName,
 		}
+	}
+}
+
+func WithRunStrategy(strategy v1.VirtualMachineRunStrategy) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.RunStrategy = &strategy
+		vm.Spec.Running = nil
 	}
 }
