@@ -860,7 +860,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%v.v%v", params.Name, params.Version.String()),
-			Namespace: "placeholder",
+			Namespace: params.Namespace,
 			Annotations: map[string]string{
 				"alm-examples":                   string(almExamples),
 				"capabilities":                   "Deep Insights",

@@ -33,7 +33,7 @@ metadata:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/os.linux: supported
   name: kubevirt-hyperconverged-operator.v1.13.0
-  namespace: placeholder
+  namespace: kubevirt-hyperconverged
 spec:
   apiservicedefinitions: {}
   cleanup:
