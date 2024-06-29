@@ -24,10 +24,10 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 
@@ -917,7 +917,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		)
 
 		BeforeEach(func() {
-			vmi = api.NewMinimalVMI("testvmi")
+			vmi = libvmi.New()
 
 			vmi.Spec = v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{},
