@@ -46,7 +46,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -726,8 +725,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Creating a VM with a DataVolume cloned from an invalid source")
 			// Registry URL scheme validated in CDI
 			vmi, _ := newVirtualMachineInstanceWithDV("docker://no.such/image", storageClassName, corev1.PersistentVolumeFilesystem)
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Running = pointer.BoolPtr(true)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
