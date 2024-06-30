@@ -650,7 +650,7 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string
 	}
 
 	if len(matches) == 0 {
-		log.Log.Warningf("No VolumeSnapshotClass for %s", storageClassName)
+		log.Log.V(3).Infof("No VolumeSnapshotClass for %s", storageClassName)
 		return "", nil
 	}
 
