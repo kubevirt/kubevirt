@@ -613,7 +613,7 @@ func (t *vmRestoreTarget) reconcileDataVolumes() (bool, error) {
 }
 
 func (t *vmRestoreTarget) getControllerRevision(namespace, name string) (*appsv1.ControllerRevision, error) {
-	revisionKey := cacheKeyFunc(namespace, name)
+	revisionKey := controller.NamespacedKey(namespace, name)
 	obj, exists, err := t.controller.CRInformer.GetStore().GetByKey(revisionKey)
 	if err != nil {
 		return nil, err
@@ -785,7 +785,7 @@ func (t *vmRestoreTarget) Own(obj metav1.Object) {
 
 func (t *vmRestoreTarget) Cleanup() error {
 	for _, dvName := range t.vmRestore.Status.DeletedDataVolumes {
-		objKey := cacheKeyFunc(t.vmRestore.Namespace, dvName)
+		objKey := controller.NamespacedKey(t.vmRestore.Namespace, dvName)
 		_, exists, err := t.controller.DataVolumeInformer.GetStore().GetByKey(objKey)
 		if err != nil {
 			return err
@@ -808,7 +808,7 @@ func (t *vmRestoreTarget) doesTargetVMExist() bool {
 }
 
 func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.VirtualMachineRestore) (*snapshotv1.VirtualMachineSnapshotContent, error) {
-	objKey := cacheKeyFunc(vmRestore.Namespace, vmRestore.Spec.VirtualMachineSnapshotName)
+	objKey := controller.NamespacedKey(vmRestore.Namespace, vmRestore.Spec.VirtualMachineSnapshotName)
 	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(objKey)
 	if err != nil {
 		return nil, err
@@ -827,7 +827,7 @@ func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.Virtua
 		return nil, fmt.Errorf("no snapshot content name in %s", objKey)
 	}
 
-	objKey = cacheKeyFunc(vmRestore.Namespace, *vms.Status.VirtualMachineSnapshotContentName)
+	objKey = controller.NamespacedKey(vmRestore.Namespace, *vms.Status.VirtualMachineSnapshotContentName)
 	obj, exists, err = ctrl.VMSnapshotContentInformer.GetStore().GetByKey(objKey)
 	if err != nil {
 		return nil, err
@@ -846,7 +846,7 @@ func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.Virtua
 }
 
 func (ctrl *VMRestoreController) getVM(namespace, name string) (vm *kubevirtv1.VirtualMachine, err error) {
-	objKey := cacheKeyFunc(namespace, name)
+	objKey := controller.NamespacedKey(namespace, name)
 	obj, exists, err := ctrl.VMInformer.GetStore().GetByKey(objKey)
 	if err != nil || !exists {
 		return nil, err
@@ -891,7 +891,7 @@ func patchVM(vm *kubevirtv1.VirtualMachine, patches []string) (*kubevirtv1.Virtu
 }
 
 func (ctrl *VMRestoreController) getDV(namespace, name string) (*v1beta1.DataVolume, error) {
-	objKey := cacheKeyFunc(namespace, name)
+	objKey := controller.NamespacedKey(namespace, name)
 	obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(objKey)
 	if err != nil {
 		return nil, err
@@ -905,7 +905,7 @@ func (ctrl *VMRestoreController) getDV(namespace, name string) (*v1beta1.DataVol
 }
 
 func (ctrl *VMRestoreController) getPVC(namespace, name string) (*corev1.PersistentVolumeClaim, error) {
-	objKey := cacheKeyFunc(namespace, name)
+	objKey := controller.NamespacedKey(namespace, name)
 	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(objKey)
 	if err != nil {
 		return nil, err

@@ -163,7 +163,7 @@ func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {
 	}
 
 	crName := vmi.Status.VirtualMachineRevisionName
-	storeObj, exists, err := s.controller.CRInformer.GetStore().GetByKey(cacheKeyFunc(vmi.Namespace, crName))
+	storeObj, exists, err := s.controller.CRInformer.GetStore().GetByKey(controller.NamespacedKey(vmi.Namespace, crName))
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {
 }
 
 func (s *vmSnapshotSource) getControllerRevision(namespace, name string) (*appsv1.ControllerRevision, error) {
-	crKey := cacheKeyFunc(namespace, name)
+	crKey := controller.NamespacedKey(namespace, name)
 	obj, exists, err := s.controller.CRInformer.GetStore().GetByKey(crKey)
 	if err != nil {
 		return nil, err

@@ -219,7 +219,7 @@ func (p *authProxy) GetNamespace(name string) (*k8score.Namespace, error) {
 }
 
 func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, error) {
-	key := fmt.Sprintf("%s/%s", namespace, name)
+	key := controller.NamespacedKey(namespace, name)
 	obj, exists, err := p.dataSourceStore.GetByKey(key)
 	if err != nil {
 		return nil, err

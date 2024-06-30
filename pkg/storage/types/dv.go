@@ -282,7 +282,7 @@ func DataVolumeByNameFunc(dataVolumeStore cache.Store, dataVolumes []*cdiv1.Data
 				return dataVolume, nil
 			}
 		}
-		dv, exists, _ := dataVolumeStore.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+		dv, exists, _ := dataVolumeStore.GetByKey(controller.NamespacedKey(namespace, name))
 		if !exists {
 			return nil, fmt.Errorf("unable to find datavolume %s/%s", namespace, name)
 		}

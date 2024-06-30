@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/status"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
@@ -194,7 +195,7 @@ func (ctrl *VMRestoreController) handleDataVolume(obj interface{}) {
 			return
 		}
 
-		objName := cacheKeyFunc(dv.Namespace, restoreName)
+		objName := controller.NamespacedKey(dv.Namespace, restoreName)
 
 		log.Log.V(3).Infof("Handling DV %s/%s, Restore %s", dv.Namespace, dv.Name, objName)
 		ctrl.vmRestoreQueue.Add(objName)
@@ -212,7 +213,7 @@ func (ctrl *VMRestoreController) handlePVC(obj interface{}) {
 			return
 		}
 
-		objName := cacheKeyFunc(pvc.Namespace, restoreName)
+		objName := controller.NamespacedKey(pvc.Namespace, restoreName)
 
 		log.Log.V(3).Infof("Handling PVC %s/%s, Restore %s", pvc.Namespace, pvc.Name, objName)
 		ctrl.vmRestoreQueue.Add(objName)

@@ -18,6 +18,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
@@ -245,7 +246,7 @@ func (ctrl *VMCloneController) handlePVC(obj interface{}) {
 		return
 	}
 
-	restoreKey := getKey(restoreName, pvc.Namespace)
+	restoreKey := controller.NamespacedKey(pvc.Namespace, restoreName)
 
 	succeededWaitingKeys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys(string(clonev1alpha1.Succeeded), restoreKey)
 	if err != nil {

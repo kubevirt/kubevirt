@@ -600,7 +600,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 }
 
 func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (*corev1.PersistentVolumeClaim, error) {
-	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(cacheKeyFunc(namespace, volumeName))
+	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(controller.NamespacedKey(namespace, volumeName))
 	if err != nil {
 		return nil, err
 	}
@@ -898,7 +898,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForPVC(pvcKey string) (stri
 func (ctrl *VMSnapshotController) getVolumeStorageClass(namespace string, volume *kubevirtv1.Volume) (string, error) {
 	// TODO Add Ephemeral (add "|| volume.VolumeSource.Ephemeral != nil" to the `if` below)
 	if volume.VolumeSource.PersistentVolumeClaim != nil {
-		pvcKey := cacheKeyFunc(namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
+		pvcKey := controller.NamespacedKey(namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
 		storageClassName, err := ctrl.getStorageClassNameForPVC(pvcKey)
 		if err != nil {
 			return "", err
@@ -907,7 +907,7 @@ func (ctrl *VMSnapshotController) getVolumeStorageClass(namespace string, volume
 	}
 
 	if volume.VolumeSource.MemoryDump != nil {
-		pvcKey := cacheKeyFunc(namespace, volume.VolumeSource.MemoryDump.ClaimName)
+		pvcKey := controller.NamespacedKey(namespace, volume.VolumeSource.MemoryDump.ClaimName)
 		storageClassName, err := ctrl.getStorageClassNameForPVC(pvcKey)
 		if err != nil {
 			return "", err
@@ -928,7 +928,7 @@ func (ctrl *VMSnapshotController) getVolumeStorageClass(namespace string, volume
 
 func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvName string) (string, error) {
 	// First, look up DV's StorageClass
-	key := cacheKeyFunc(namespace, dvName)
+	key := controller.NamespacedKey(namespace, dvName)
 
 	obj, exists, err := ctrl.DVInformer.GetStore().GetByKey(key)
 	if err != nil {
@@ -949,7 +949,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvN
 	for _, or := range dv.OwnerReferences {
 		if or.Kind == "VirtualMachine" {
 
-			vmKey := cacheKeyFunc(namespace, or.Name)
+			vmKey := controller.NamespacedKey(namespace, or.Name)
 			storeObj, exists, err := ctrl.VMInformer.GetStore().GetByKey(vmKey)
 			if err != nil || !exists {
 				continue
@@ -977,7 +977,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvN
 func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*kubevirtv1.VirtualMachine, error) {
 	vmName := vmSnapshot.Spec.Source.Name
 
-	obj, exists, err := ctrl.VMInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, vmName))
+	obj, exists, err := ctrl.VMInformer.GetStore().GetByKey(controller.NamespacedKey(vmSnapshot.Namespace, vmName))
 	if err != nil {
 		return nil, err
 	}
@@ -991,7 +991,7 @@ func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSna
 
 func (ctrl *VMSnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshotContent, error) {
 	contentName := GetVMSnapshotContentName(vmSnapshot)
-	obj, exists, err := ctrl.VMSnapshotContentInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, contentName))
+	obj, exists, err := ctrl.VMSnapshotContentInformer.GetStore().GetByKey(controller.NamespacedKey(vmSnapshot.Namespace, contentName))
 	if err != nil {
 		return nil, err
 	}
@@ -1009,7 +1009,7 @@ func (ctrl *VMSnapshotController) getVMSnapshot(vmSnapshotContent *snapshotv1.Vi
 		return nil, fmt.Errorf("VirtualMachineSnapshotName is not initialized in vm snapshot content")
 	}
 
-	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshotContent.Namespace, *vmSnapshotName))
+	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(controller.NamespacedKey(vmSnapshotContent.Namespace, *vmSnapshotName))
 	if err != nil || !exists {
 		return nil, err
 	}
