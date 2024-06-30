@@ -43,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -584,15 +583,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		k8sClient := clientcmd.GetK8sCmdClient()
 
 		BeforeEach(func() {
-			running := true
-
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-			vm.Spec.Running = &running
+			vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
 			pvcName = dataVolumeName
@@ -1425,7 +1422,7 @@ func renderVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, s
 	return libstorage.RenderVMWithDataVolumeTemplate(dv)
 }
 
-func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *virtv1.VirtualMachine {
+func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *v1.VirtualMachine {
 	importUrl := cd.DataVolumeImportUrlForContainerDisk(containerDisk)
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(importUrl),
