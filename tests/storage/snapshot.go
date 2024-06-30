@@ -780,18 +780,13 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).SoftReboot(context.Background(), vmi.Name)).ToNot(HaveOccurred())
 				Eventually(matcher.ThisVMI(vmi), 3*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				blankDisk := "/dev/"
-				Eventually(func() bool {
+				var blankDisk string
+				Eventually(func() string {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					for _, volStatus := range vmi.Status.VolumeStatus {
-						if volStatus.Name == "blank" {
-							blankDisk += volStatus.Target
-							return true
-						}
-					}
-					return false
-				}, 30*time.Second, time.Second).Should(BeTrue())
+					blankDisk = libstorage.LookupVolumeTargetPath(vmi, "blank")
+					return blankDisk
+				}, 30*time.Second, time.Second).ShouldNot(BeEmpty())
 
 				// Recreating one specific SELinux error.
 				// Better described in https://bugzilla.redhat.com/show_bug.cgi?id=2237678

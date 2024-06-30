@@ -927,25 +927,15 @@ var _ = SIGDescribe("Hotplug", func() {
 				Eventually(func() string {
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					for _, volumeStatus := range vmi.Status.VolumeStatus {
-						if volumeStatus.Name == testVolumes[4] {
-							return volumeStatus.Target
-						}
-					}
-					return ""
-				}, 40*time.Second, 2*time.Second).Should(Equal("sdc"))
+					return libstorage.LookupVolumeTargetPath(vmi, testVolumes[4])
+				}, 40*time.Second, 2*time.Second).Should(Equal("/dev/sdc"))
 				By("Adding intermediate volume, it should end up at the end")
 				addVolumeFunc(vm.Name, vm.Namespace, testVolumes[2], dvNames[2], v1.DiskBusSCSI, false, "")
 				Eventually(func() string {
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					for _, volumeStatus := range vmi.Status.VolumeStatus {
-						if volumeStatus.Name == testVolumes[2] {
-							return volumeStatus.Target
-						}
-					}
-					return ""
-				}, 40*time.Second, 2*time.Second).Should(Equal("sde"))
+					return libstorage.LookupVolumeTargetPath(vmi, testVolumes[2])
+				}, 40*time.Second, 2*time.Second).Should(Equal("/dev/sde"))
 				verifySingleAttachmentPod(vmi)
 				for _, volumeName := range testVolumes {
 					By(removingVolumeFromVM)

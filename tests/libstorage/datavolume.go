@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
-	v13 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -45,8 +44,8 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolume) {
-	dvt := &v13.DataVolumeTemplateSpec{}
+func AddDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *v1beta1.DataVolume) {
+	dvt := &v1.DataVolumeTemplateSpec{}
 
 	dvt.Spec = *dataVolume.Spec.DeepCopy()
 	dvt.ObjectMeta = *dataVolume.ObjectMeta.DeepCopy()
@@ -54,19 +53,19 @@ func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolum
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 }
 
-func AddDataVolume(vm *v13.VirtualMachine, diskName string, dataVolume *v1beta1.DataVolume) {
-	vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v13.Disk{
+func AddDataVolume(vm *v1.VirtualMachine, diskName string, dataVolume *v1beta1.DataVolume) {
+	vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: diskName,
-		DiskDevice: v13.DiskDevice{
-			Disk: &v13.DiskTarget{
-				Bus: v13.DiskBusVirtio,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: v1.DiskBusVirtio,
 			},
 		},
 	})
-	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v13.Volume{
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 		Name: diskName,
-		VolumeSource: v13.VolumeSource{
-			DataVolume: &v13.DataVolumeSource{
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
 				Name: dataVolume.Name,
 			},
 		},
