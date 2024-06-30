@@ -66,3 +66,21 @@ func WithConfigDriveUserData(data string) ConfigDriveOption {
 		source.UserData = data
 	}
 }
+
+func WithConfigDriveEncodedUserData(data string) ConfigDriveOption {
+	return func(source *v1.CloudInitConfigDriveSource) {
+		source.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(data))
+	}
+}
+
+func WithConfigDriveNetworkData(data string) ConfigDriveOption {
+	return func(source *v1.CloudInitConfigDriveSource) {
+		source.NetworkData = data
+	}
+}
+
+func WithConfigDriveEncodedNetworkData(data string) ConfigDriveOption {
+	return func(source *v1.CloudInitConfigDriveSource) {
+		source.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(data))
+	}
+}
