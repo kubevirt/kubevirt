@@ -1468,7 +1468,6 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm.Spec.Template.Spec.Domain.Resources.Limits = corev1.ResourceList{}
 			vm.Spec.Template.Spec.Domain.Resources.Limits[corev1.ResourceMemory] = *memLimitQuantity
 			vm.Spec.Template.Spec.Domain.Resources.Limits[corev1.ResourceCPU] = *cpuLimitQuantity
-			vm.Spec.Running = pointer.Bool(true)
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
