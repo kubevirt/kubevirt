@@ -70,7 +70,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 	It("[test_id:4099] should be rotated when a new CA is created", func() {
 		By("checking that the config-map gets the new CA bundle attached")
 		Eventually(func() int {
-			_, crts := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+			_, crts := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
 			return len(crts)
 		}, 10*time.Second, 1*time.Second).Should(BeNumerically(">", 0))
 
@@ -98,7 +98,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		By("checking that one of the CAs in the config-map is the new one")
 		var caBundle []byte
 		Eventually(func() bool {
-			caBundle, _ = tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+			caBundle, _ = libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
 			return libinfra.ContainsCrt(caBundle, newCA)
 		}, 10*time.Second, 1*time.Second).Should(BeTrue(), "the new CA should be added to the config-map")
 
@@ -135,8 +135,8 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 	})
 
 	It("[sig-compute][test_id:4100] should be valid during the whole rotation process", func() {
-		oldAPICert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
-		oldHandlerCert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
+		oldAPICert := libinfra.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
+		oldHandlerCert := libinfra.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 		Expect(err).ToNot(HaveOccurred())
 
 		By("destroying the CA certificate")

@@ -31,7 +31,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -55,9 +54,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
-
-	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -679,42 +675,6 @@ func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
-}
-
-// EnsurePodsCertIsSynced waits until new certificates are rolled out  to all pods which are matching the specified labelselector.
-// Once all certificates are in sync, the final secret is returned
-func EnsurePodsCertIsSynced(labelSelector string, namespace string, port string) []byte {
-	var certs [][]byte
-	EventuallyWithOffset(1, func() bool {
-		var err error
-		certs, err = libpod.GetCertsForPods(labelSelector, namespace, port)
-		Expect(err).ToNot(HaveOccurred())
-		if len(certs) == 0 {
-			return true
-		}
-		for _, crt := range certs {
-			if !reflect.DeepEqual(certs[0], crt) {
-				return false
-			}
-		}
-		return true
-	}, 90*time.Second, 1*time.Second).Should(BeTrue(), "certificates across '%s' pods are not in sync", labelSelector)
-	if len(certs) > 0 {
-		return certs[0]
-	}
-	return nil
-}
-
-func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) {
-	virtClient := kubevirt.Client()
-	configMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), configMapName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	if rawBundle, ok := configMap.Data[components.CABundleKey]; ok {
-		crts, err := cert.ParseCertsPEM([]byte(rawBundle))
-		Expect(err).ToNot(HaveOccurred())
-		return []byte(rawBundle), crts
-	}
-	return nil, nil
 }
 
 func RandTmpDir() string {
