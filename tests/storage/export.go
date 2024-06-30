@@ -65,6 +65,7 @@ import (
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	"kubevirt.io/kubevirt/tests"
@@ -1149,7 +1150,7 @@ var _ = SIGDescribe("Export", func() {
 			if err != nil {
 				return err
 			}
-			vm.Spec.Running = pointer.Bool(false)
+			vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyHalted)
 			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 			return err
 		}, 15*time.Second, time.Second).Should(BeNil())
@@ -1167,7 +1168,7 @@ var _ = SIGDescribe("Export", func() {
 		Eventually(func() error {
 			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 			return err
 		}, 15*time.Second, time.Second).Should(Succeed())
@@ -1282,7 +1283,7 @@ var _ = SIGDescribe("Export", func() {
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 		}
 		vm = createVM(vm)
 		stopVM(vm)
@@ -1359,7 +1360,7 @@ var _ = SIGDescribe("Export", func() {
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 		}
 		vm = createVM(vm)
 		stopVM(vm)
@@ -1422,7 +1423,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 		vm = createVM(vm)
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1670,8 +1671,7 @@ var _ = SIGDescribe("Export", func() {
 		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
-		Expect(resVM.Spec.Running).ToNot(BeNil())
-		*resVM.Spec.Running = true
+		resVM.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
@@ -1734,8 +1734,7 @@ var _ = SIGDescribe("Export", func() {
 		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
-		Expect(resVM.Spec.Running).ToNot(BeNil())
-		*resVM.Spec.Running = true
+		resVM.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
@@ -1748,7 +1747,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
 		vm = stopVM(vm)
@@ -1783,7 +1782,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
 		vm = stopVM(vm)
@@ -1953,8 +1952,7 @@ var _ = SIGDescribe("Export", func() {
 		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
-		Expect(resVM.Spec.Running).ToNot(BeNil())
-		*resVM.Spec.Running = true
+		resVM.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
@@ -2143,7 +2141,7 @@ var _ = SIGDescribe("Export", func() {
 			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 				// In WFFC need to start the VM in order for the
 				// dv to get populated
-				vm.Spec.Running = pointer.Bool(true)
+				vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 			}
 			vm = createVM(vm)
 			vm = stopVM(vm)
@@ -2162,7 +2160,7 @@ var _ = SIGDescribe("Export", func() {
 		It("Create succeeds using VM source", func() {
 			// Create a populated VM
 			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 			vm = createVM(vm)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -2291,7 +2289,7 @@ var _ = SIGDescribe("Export", func() {
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 					// In WFFC need to start the VM in order for the
 					// dv to get populated
-					vm.Spec.Running = pointer.Bool(true)
+					vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 				}
 				vm = createVM(vm)
 				vm = stopVM(vm)
@@ -2335,7 +2333,7 @@ var _ = SIGDescribe("Export", func() {
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
 				// Create a populated VM
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
-				vm.Spec.Running = pointer.Bool(true)
+				vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -2512,7 +2510,7 @@ var _ = SIGDescribe("Export", func() {
 			DescribeTable("manifest should be successfully retrieved on running VM export", func(expectedObjects int, extraArgs ...string) {
 				// Create a populated VM
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
-				vm.Spec.Running = pointer.Bool(true)
+				vm.Spec.RunStrategy = virtpointer.P(virtv1.RunStrategyAlways)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
