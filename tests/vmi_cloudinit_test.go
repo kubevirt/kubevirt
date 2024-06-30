@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	libcloudinit "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -181,7 +182,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with cloudInitConfigDrive userDataBase64 source", func() {
 			It("[test_id:3178]should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
+				vmi := libvmifact.NewCirros(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveUserData(userData)))
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -301,9 +302,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				runTest(vmi, cloudinit.DataSourceNoCloud)
 			})
 			It("[test_id:3180] with cloudInitConfigDrive userData source", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-					userData)
+				vmi := libvmifact.NewCirros(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveUserData(userData)))
 				runTest(vmi, cloudinit.DataSourceConfigDrive)
 			})
 		})
