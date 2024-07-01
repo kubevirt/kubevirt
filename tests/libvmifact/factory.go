@@ -58,7 +58,7 @@ func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	vmi := libvmi.New(cirrosOpts...)
 
 	// Supplied with no user data, Cirros image takes 230s to allow login
-	if !cloudInitNoCloudExists(vmi.Spec.Volumes) {
+	if libvmi.GetCloudInitVolume(vmi) == nil {
 		withNonEmptyUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
 		withNonEmptyUserData(vmi)
 	}
@@ -88,20 +88,11 @@ func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInst
 	vmi := libvmi.New(alpineOpts...)
 
 	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
-	if !cloudInitNoCloudExists(vmi.Spec.Volumes) {
+	if libvmi.GetCloudInitVolume(vmi) == nil {
 		withNonEmptyUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
 		withNonEmptyUserData(vmi)
 	}
 	return vmi
-}
-
-func cloudInitNoCloudExists(volumes []kvirtv1.Volume) bool {
-	for _, vol := range volumes {
-		if src := vol.CloudInitNoCloud; src != nil && (src.UserData != "" || src.UserDataBase64 != "" || src.UserDataSecretRef != nil) {
-			return true
-		}
-	}
-	return false
 }
 
 func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {

@@ -70,3 +70,7 @@ func addDiskVolumeWithCloudInitNoCloud(vmi *v1.VirtualMachineInstance, diskName 
 func setCloudInitNoCloud(volume *v1.Volume, source *v1.CloudInitNoCloudSource) {
 	volume.VolumeSource = v1.VolumeSource{CloudInitNoCloud: source}
 }
+
+func GetCloudInitVolume(vmi *v1.VirtualMachineInstance) *v1.Volume {
+	return getVolume(vmi, cloudInitDiskName)
+}
