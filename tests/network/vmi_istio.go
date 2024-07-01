@@ -190,7 +190,7 @@ var istioTests = func(vmType VmType) {
 				checks.SkipIfMigrationIsNotPossible()
 			})
 			JustBeforeEach(func() {
-				sourcePodName, err = libpod.GetVmPodName(virtClient, vmi)
+				sourcePodName, err = libpod.GetVmPodName(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				migration := libmigration.New(vmi.Name, vmi.Namespace)

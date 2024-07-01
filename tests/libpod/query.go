@@ -25,8 +25,6 @@ import (
 	"sort"
 	"strings"
 
-	"kubevirt.io/client-go/kubecli"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -92,12 +90,12 @@ func vmiFieldSelector(vmi *v1.VirtualMachineInstance) string {
 	return strings.Join(fieldSelectors, ",")
 }
 
-func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
+func GetVmPodName(vmi *v1.VirtualMachineInstance) (string, error) {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
 	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
 
-	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+	pods, err := kubevirt.Client().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return "", err
 	}
