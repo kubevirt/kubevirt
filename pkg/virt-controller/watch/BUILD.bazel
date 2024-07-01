@@ -24,6 +24,7 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/liveupdate/memory:go_default_library",
+        "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
         "//pkg/network/admitter:go_default_library",
