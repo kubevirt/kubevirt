@@ -1186,7 +1186,7 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations[ISTIO_KUBEVIRT_ANNOTATION]
+				value, ok := pod.Annotations[istio.ISTIO_KUBEVIRT_ANNOTATION]
 				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("k6t-eth0"))
 			})

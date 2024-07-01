@@ -96,9 +96,6 @@ const LibvirtStartupDelay = 10
 
 const IntelVendorName = "Intel"
 
-// Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
-const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
-
 const VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION = "pre.hook.backup.velero.io/container"
 const VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION = "pre.hook.backup.velero.io/command"
 const VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION = "post.hook.backup.velero.io/container"
@@ -1350,7 +1347,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	}
 
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
-		annotationsSet[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
+		annotationsSet[istio.ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
 	annotationsSet[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
 	annotationsSet[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
