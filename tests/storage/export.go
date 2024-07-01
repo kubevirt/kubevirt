@@ -1849,7 +1849,7 @@ var _ = SIGDescribe("Export", func() {
 
 		vm := libvmi.NewVirtualMachine(
 			libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript)),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(BashHelloScript)),
 				libvmi.WithDataVolume("blankdisk", blankDv.Name),
 			),
 			libvmi.WithRunning(),

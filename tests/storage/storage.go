@@ -81,9 +81,9 @@ const (
 	hostDiskName                 = "host-disk"
 	diskImgName                  = "disk.img"
 
-	// Without cloud init user data Cirros takes long time to boot,
+	// Without cloud init user data VM takes long time to boot,
 	// so provide this dummy data to make it boot faster
-	cirrosUserData = "#!/bin/bash\necho 'hello'\n"
+	BashHelloScript = "#!/bin/bash\necho 'hello'\n"
 )
 
 const (
@@ -970,7 +970,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithResourceMemory("256Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(cirrosUserData)),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(BashHelloScript)),
 				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
