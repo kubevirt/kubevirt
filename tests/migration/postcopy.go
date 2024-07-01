@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -249,7 +250,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 							libnet.WithMasqueradeNetworking(),
 							libvmi.WithResourceMemory("3Gi"),
 							libvmi.WithRng(),
-							libvmi.WithNamespace(testsuite.NamespacePrivileged),
+							libvmi.WithNamespace(util.NamespaceTestDefault),
 						)
 						vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure))
 
