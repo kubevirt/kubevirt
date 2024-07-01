@@ -666,19 +666,6 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		})
 	})
 
-	When("the vmi requests interfaces with Passt binding", func() {
-		BeforeEach(func() {
-			vmi.Spec.Domain.Devices = v1.Devices{
-				Interfaces: []v1.Interface{
-					{Name: "passt1", InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}},
-					{Name: "passt2", InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}},
-					{Name: "passt3", InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}},
-					{Name: "nonpasst", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-				},
-			}
-		})
-	})
-
 	When("the additionalOverheadRatio is provided", func() {
 		DescribeTable("should adjust the overhead using the given ratio", func(additionalOverheadRatio string, expectParseError bool) {
 			base := resource.NewScaledQuantity(0, resource.Kilo)
