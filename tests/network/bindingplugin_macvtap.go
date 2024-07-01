@@ -171,7 +171,8 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
-				serverVMIPodName = libpod.GetVmPodName(kubevirt.Client(), serverVMI)
+				serverVMIPodName, err = libpod.GetVmPodName(kubevirt.Client(), serverVMI)
+				Expect(err).ToNot(HaveOccurred())
 
 				serverIP, err = waitVMMacvtapIfaceIPReport(serverVMI, serverMAC, macvtapIfaceIPReportTimeout)
 				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")

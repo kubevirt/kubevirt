@@ -25,8 +25,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/onsi/gomega"
-
 	"kubevirt.io/client-go/kubecli"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -94,13 +92,15 @@ func vmiFieldSelector(vmi *v1.VirtualMachineInstance) string {
 	return strings.Join(fieldSelectors, ",")
 }
 
-func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
 	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
 
 	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	if err != nil {
+		return "", err
+	}
 
 	podName := ""
 	for _, pod := range pods.Items {
@@ -109,7 +109,9 @@ func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance
 			break
 		}
 	}
-	gomega.Expect(podName).ToNot(gomega.BeEmpty())
+	if podName == "" {
+		return "", fmt.Errorf("failed to get VM pod name [%s], the pod may got deleted", labelSelector)
+	}
 
-	return podName
+	return podName, nil
 }

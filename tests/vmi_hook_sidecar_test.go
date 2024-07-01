@@ -330,7 +330,8 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
-	podName := libpod.GetVmPodName(virtCli, vmi)
+	podName, err := libpod.GetVmPodName(virtCli, vmi)
+	Expect(err).ToNot(HaveOccurred())
 
 	var tailLines int64 = 100
 	logsRaw, err := virtCli.CoreV1().
