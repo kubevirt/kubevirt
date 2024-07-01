@@ -25,6 +25,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/onsi/gomega"
+
+	"kubevirt.io/client-go/kubecli"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -88,4 +92,24 @@ func vmiFieldSelector(vmi *v1.VirtualMachineInstance) string {
 		fieldSelectors = append(fieldSelectors, fmt.Sprintf("spec.nodeName==%s", node))
 	}
 	return strings.Join(fieldSelectors, ",")
+}
+
+func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+	namespace := vmi.GetObjectMeta().GetNamespace()
+	uid := vmi.GetObjectMeta().GetUID()
+	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+
+	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	podName := ""
+	for _, pod := range pods.Items {
+		if pod.ObjectMeta.DeletionTimestamp == nil {
+			podName = pod.ObjectMeta.Name
+			break
+		}
+	}
+	gomega.Expect(podName).ToNot(gomega.BeEmpty())
+
+	return podName
 }

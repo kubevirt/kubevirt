@@ -461,26 +461,6 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
 
-func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
-	namespace := vmi.GetObjectMeta().GetNamespace()
-	uid := vmi.GetObjectMeta().GetUID()
-	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-
-	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-	Expect(err).ToNot(HaveOccurred())
-
-	podName := ""
-	for _, pod := range pods.Items {
-		if pod.ObjectMeta.DeletionTimestamp == nil {
-			podName = pod.ObjectMeta.Name
-			break
-		}
-	}
-	Expect(podName).ToNot(BeEmpty())
-
-	return podName
-}
-
 func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
 	runningVMISpec := launcherApi.DomainSpec{}
 	cli := kubevirt.Client()
