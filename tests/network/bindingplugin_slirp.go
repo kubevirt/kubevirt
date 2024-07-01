@@ -23,9 +23,6 @@ import (
 	"context"
 	"strings"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests/libkvconfig"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -36,12 +33,13 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -62,7 +60,7 @@ var _ = SIGDescribe("Slirp", decorators.Networking, decorators.NetCustomBindingP
 	BeforeEach(func() {
 		const slirpSidecarImage = "registry:5000/kubevirt/network-slirp-binding:devel"
 
-		Expect(libkvconfig.WithNetBindingPlugin(slirpBindingName, v1.InterfaceBindingPlugin{
+		Expect(config.WithNetBindingPlugin(slirpBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage: slirpSidecarImage,
 		})).To(Succeed())
 	})

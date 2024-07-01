@@ -6,7 +6,7 @@ go_library(
         "kvconfig.go",
         "netbinding.go",
     ],
-    importpath = "kubevirt.io/kubevirt/tests/libkvconfig",
+    importpath = "kubevirt.io/kubevirt/tests/libkubevirt/config",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",

@@ -17,7 +17,7 @@
  *
  */
 
-package libkvconfig
+package config
 
 import (
 	"context"
