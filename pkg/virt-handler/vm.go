@@ -147,8 +147,8 @@ const (
 	VMIShutdown = "The VirtualMachineInstance was shut down."
 	//VMIPaused is the reason set when a VMI is paused
 	VMIPaused = "VirtualMachineInstance paused."
-        //VMIResumed is  the reason set when a VMI is resumed
-        VMIResumed = "VirtualMachineInstance resumed."
+	//VMIResumed is  the reason set when a VMI is resumed
+	VMIResumed = "VirtualMachineInstance resumed."
 	//VMICrashed is the reason set when a VMI crashed
 	VMICrashed = "The VirtualMachineInstance crashed."
 	//VMIAbortingMigration is the reason set when migration is being aborted
@@ -1109,18 +1109,18 @@ func (d *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) {
 	// Calculate whether the VM is migratable
 	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi)
-        status := liveMigrationCondition.Status 
-        reason := liveMigrationCondition.Reason
-        message := liveMigrationCondition.Message
+	status := liveMigrationCondition.Status
+	reason := liveMigrationCondition.Reason
+	message := liveMigrationCondition.Message
 
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 
-                if status == k8sv1.ConditionTrue {
+		if status == k8sv1.ConditionTrue {
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, reason, message)
-                } else {
-                        d.recorder.Event(vmi, k8sv1.EventTypeWarning, reason, message)
-                }
+		} else {
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, reason, message)
+		}
 
 		// Set VMI Migration Method
 		if isBlockMigration {
@@ -1134,11 +1134,11 @@ func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
 			vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 
-                        if status == k8sv1.ConditionTrue {
-        			d.recorder.Event(vmi, k8sv1.EventTypeNormal, reason, message)
-                        } else {
-                                d.recorder.Event(vmi, k8sv1.EventTypeWarning, reason, message)
-                        }
+			if status == k8sv1.ConditionTrue {
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, reason, message)
+			} else {
+				d.recorder.Event(vmi, k8sv1.EventTypeWarning, reason, message)
+			}
 		}
 	}
 
@@ -1149,6 +1149,7 @@ func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 }
 
 func (d *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
+
 
 	// Update the condition when GA is connected
 	channelConnected := false
@@ -1174,7 +1175,7 @@ func (d *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 			Status:        k8sv1.ConditionTrue,
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
-        	d.recorder.Event(vmi, k8sv1.EventTypeNormal, string(v1.VirtualMachineInstanceAgentConnected), "guest agent successfully connected")
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, string(v1.VirtualMachineInstanceAgentConnected), "guest agent successfully connected")
 	case !channelConnected:
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceAgentConnected)
 	}
@@ -1218,7 +1219,7 @@ func (d *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 					Reason:        reason,
 				}
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
-        	                d.recorder.Event(vmi, k8sv1.EventTypeNormal, string(v1.VirtualMachineInstanceUnsupportedAgent), reason)
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, string(v1.VirtualMachineInstanceUnsupportedAgent), reason)
 			}
 		} else {
 			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent)
@@ -1238,7 +1239,7 @@ func (d *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 		log.Log.Object(vmi).V(3).Info("Removing paused condition")
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstancePaused)
-                d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Resumed.String(), VMIResumed)
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Resumed.String(), VMIResumed)
 	}
 }
 
@@ -1593,7 +1594,7 @@ func (d *VirtualMachineController) calculatePausedCondition(vmi *v1.VirtualMachi
 	case api.ReasonPausedUser:
 		log.Log.Object(vmi).V(3).Info("Adding paused condition")
 		now := metav1.NewTime(time.Now())
-                condition := v1.VirtualMachineInstanceCondition{
+		condition := v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstancePaused,
 			Status:             k8sv1.ConditionTrue,
 			LastProbeTime:      now,
@@ -1602,11 +1603,11 @@ func (d *VirtualMachineController) calculatePausedCondition(vmi *v1.VirtualMachi
 			Message:            "VMI was paused by user",
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, condition)
-                d.recorder.Event(vmi, k8sv1.EventTypeNormal, condition.Reason, VMIPaused)
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, condition.Reason, VMIPaused)
 	case api.ReasonPausedIOError:
 		log.Log.Object(vmi).V(3).Info("Adding paused condition")
 		now := metav1.NewTime(time.Now())
-                condition := v1.VirtualMachineInstanceCondition{
+		condition := v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstancePaused,
 			Status:             k8sv1.ConditionTrue,
 			LastProbeTime:      now,
@@ -1614,8 +1615,8 @@ func (d *VirtualMachineController) calculatePausedCondition(vmi *v1.VirtualMachi
 			Reason:             "PausedIOError",
 			Message:            "VMI was paused, low-level IO error detected",
 		}
-                vmi.Status.Conditions = append(vmi.Status.Conditions, condition)
-                d.recorder.Event(vmi, k8sv1.EventTypeWarning, condition.Reason, VMIPaused)
+		vmi.Status.Conditions = append(vmi.Status.Conditions, condition)
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, condition.Reason, VMIPaused)
 	default:
 		log.Log.Object(vmi).V(3).Infof("Domain is paused for unknown reason, %s", reason)
 	}
@@ -2912,7 +2913,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
 	}
-	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), VMIMigrationTargetPrepared) 
+	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), VMIMigrationTargetPrepared)
 
 	err = d.handleTargetMigrationProxy(vmi)
 	if err != nil {
