@@ -3154,6 +3154,10 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 		updatedVmiSpec := network.ApplyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
 		vmiCopy.Spec = *updatedVmiSpec
+		// If a new interface is now present apply any device preferences we might have
+		if err := c.applyInferfacePreferences(vmCopy, vmiCopy); err != nil {
+			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to apply device preferences to hot plug interface: %v", err), FailedUpdateErrorReason}
+		}
 
 		if err := c.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
 			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to patch vmi: %v", err), FailedUpdateErrorReason}, nil
@@ -3252,6 +3256,18 @@ func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *vi
 		return preferenceSpec, nil
 	}
 	return nil, nil
+}
+
+func (c *VMController) applyInferfacePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	preferenceSpec, err := c.instancetypeMethods.FindPreferenceSpec(vm)
+	if err != nil {
+		return err
+	}
+	if preferenceSpec == nil {
+		return nil
+	}
+	instancetype.ApplyInterfacePreferences(preferenceSpec, &vmi.Spec)
+	return nil
 }
 
 func (c *VMController) hasOrdinalNetworkInterfaces(vmi *virtv1.VirtualMachineInstance) (bool, error) {

@@ -87,6 +87,9 @@ var _ = Describe("VirtualMachine", func() {
 			virtFakeClient.PrependReactor("patch", "virtualmachines",
 				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
 
+			virtFakeClient.PrependReactor("patch", "virtualmachineinstances",
+				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVMI))
+
 			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
@@ -5444,7 +5447,7 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
@@ -5458,9 +5461,71 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(*vmi.Spec.Domain.Devices.AutoattachInputDevice).To(BeFalse())
 					Expect(vmi.Spec.Domain.Devices.Inputs).To(BeEmpty())
 
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+				})
+
+				It("should apply preferences to hot plugged interface in VMI", func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{
+										virtconfig.HotplugNetworkIfacesGate,
+									},
+								},
+							},
+						},
+					})
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: preference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
+					vm.Spec.Template.Spec.Networks = append(
+						vm.Spec.Template.Spec.Networks,
+						v1.Network{
+							Name: "old",
+						},
+					)
+					const originalInterfaceModel = "e1000"
+					vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
+						vm.Spec.Template.Spec.Domain.Devices.Interfaces,
+						v1.Interface{
+							Name: "old",
+							InterfaceBindingMethod: v1.InterfaceBindingMethod{
+								Bridge: &v1.InterfaceBridge{},
+							},
+							Model: originalInterfaceModel,
+						},
+					)
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+
+					By("Adding a second network and interface to trigger a hot plug")
+					vm.Spec.Template.Spec.Networks = append(
+						vm.Spec.Template.Spec.Networks,
+						v1.Network{
+							Name: "new",
+						},
+					)
+					vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
+						vm.Spec.Template.Spec.Domain.Devices.Interfaces,
+						v1.Interface{
+							Name: "new",
+							InterfaceBindingMethod: v1.InterfaceBindingMethod{
+								Bridge: &v1.InterfaceBridge{},
+							},
+						},
+					)
+					addVirtualMachine(vm)
+					sanityExecute(vm)
+
+					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(2))
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Model).To(Equal(originalInterfaceModel))
+					Expect(vmi.Spec.Domain.Devices.Interfaces[1].Model).To(Equal(preference.Spec.Devices.PreferredInterfaceModel))
 				})
 			})
 		})
