@@ -365,7 +365,7 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 			return nil
 		}
 
-		volumeName := vmi.Name + "-state"
+		volumeName := "vm-state"
 		pvcName := backendstorage.PVCForVMI(vmi)
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: volumeName,
