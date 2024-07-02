@@ -2340,7 +2340,16 @@ func (c *VMIController) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMa
 	}
 
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
-	vmiConditions.UpdateCondition(vmiCopy, &dvsReadyCondition)
+	cond := vmiConditions.GetCondition(vmiCopy, virtv1.VirtualMachineInstanceDataVolumesReady)
+	if !equality.Semantic.DeepEqual(cond, dvsReadyCondition) {
+	        vmiConditions.UpdateCondition(vmiCopy, &dvsReadyCondition)
+
+                if dvsReadyCondition.Status == k8sv1.ConditionTrue {
+			c.recorder.Event(vmiCopy, k8sv1.EventTypeNormal, dvsReadyCondition.Reason, dvsReadyCondition.Message)
+                } else {
+			c.recorder.Event(vmiCopy, k8sv1.EventTypeWarning, dvsReadyCondition.Reason, dvsReadyCondition.Message)
+                }
+        }
 }
 
 func statusOfReadyCondition(conditions []cdiv1.DataVolumeCondition) k8sv1.ConditionStatus {
