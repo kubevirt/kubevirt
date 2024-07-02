@@ -25,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -46,7 +44,9 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -201,7 +201,7 @@ func CleanNamespaces() {
 		}
 
 		// Remove all VirtualMachineInstance Secrets
-		labelSelector := util.SecretLabel
+		labelSelector := libsecret.TestsSecretLabel
 		util.PanicOnError(
 			virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
 				metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
