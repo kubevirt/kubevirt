@@ -36,7 +36,6 @@ go_library(
         "//tests/libstorage:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/testsuite:go_default_library",
-        "//tests/util:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",

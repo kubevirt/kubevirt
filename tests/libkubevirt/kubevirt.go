@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func GetCurrentKv(virtClient kubecli.KubevirtClient) *v1.KubeVirt {
@@ -56,7 +56,7 @@ func GetKvList(virtClient kubecli.KubevirtClient) []v1.KubeVirt {
 
 	gomega.Eventually(func() error {
 
-		kvListDefaultNS, err = virtClient.KubeVirt(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+		kvListDefaultNS, err = virtClient.KubeVirt(testsuite.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(gomega.HaveOccurred())

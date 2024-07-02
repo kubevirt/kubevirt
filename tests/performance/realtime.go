@@ -6,13 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -25,9 +22,11 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const tuneAdminRealtimeCloudInitData = `#cloud-config
@@ -40,7 +39,7 @@ bootcmd:
 func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) {
 	By("Starting a VirtualMachineInstance")
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	libwait.WaitForSuccessfulVMIStart(vmi)
 }
@@ -80,7 +79,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 		)
 		byStartingTheVMI(vmi, virtClient)
 		By("validating VMI is up and running")
-		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 		Expect(console.LoginToFedora(vmi)).To(Succeed())

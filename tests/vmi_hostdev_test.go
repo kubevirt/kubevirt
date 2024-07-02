@@ -24,7 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -80,7 +80,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 			By("Creating a Fedora VMI with the sound card as a host device")
 			randomVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVMI, metav1.CreateOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), randomVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -93,7 +93,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 				}, 15)).To(Succeed(), "Device not found")
 			}
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
-			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 		},

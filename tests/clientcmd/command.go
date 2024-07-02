@@ -35,7 +35,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -156,7 +155,7 @@ func CreateCommandWithNS(namespace string, cmdName string, args ...string) (stri
 }
 
 func RunCommandPipe(commands ...[]string) (string, string, error) {
-	return RunCommandPipeWithNS(util.NamespaceTestDefault, commands...)
+	return RunCommandPipeWithNS(testsuite.NamespaceTestDefault, commands...)
 }
 
 func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, string, error) {

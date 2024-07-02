@@ -14,8 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests/util"
-
 	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -52,7 +50,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			var err error
-			serverVMI, err = createServerVmi(virtClient, util.NamespaceTestDefault, serverVMILabels)
+			serverVMI, err = createServerVmi(virtClient, testsuite.NamespaceTestDefault, serverVMILabels)
 			Expect(err).ToNot(HaveOccurred())
 			assertIPsNotEmptyForVMI(serverVMI)
 		})
@@ -64,7 +62,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 				var err error
 				// deny-by-default networkpolicy will deny all the traffic to the vms in the namespace
 				policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-default", metav1.LabelSelector{}, []networkv1.NetworkPolicyIngressRule{})
-				clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+				clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
 				Expect(err).ToNot(HaveOccurred())
 				assertIPsNotEmptyForVMI(clientVMI)
 			})
@@ -116,7 +114,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 
 				BeforeEach(func() {
 					var err error
-					clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+					clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
 					Expect(err).ToNot(HaveOccurred())
 					assertIPsNotEmptyForVMI(clientVMI)
 				})
@@ -186,7 +184,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 			When("client vmi is on default namespace", func() {
 				BeforeEach(func() {
 					var err error
-					clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+					clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
 					Expect(err).ToNot(HaveOccurred())
 					assertIPsNotEmptyForVMI(clientVMI)
 				})
@@ -233,7 +231,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 				)
 
 				var err error
-				clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+				clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
 				Expect(err).ToNot(HaveOccurred())
 				assertIPsNotEmptyForVMI(clientVMI)
 			})
@@ -262,7 +260,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 				)
 
 				var err error
-				clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+				clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
 				Expect(err).ToNot(HaveOccurred())
 				assertIPsNotEmptyForVMI(clientVMI)
 			})

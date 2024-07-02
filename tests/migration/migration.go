@@ -91,7 +91,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tests/watcher"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
@@ -185,7 +184,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		const subdomain = "mysub"
 
 		AfterEach(func() {
-			err := virtClient.CoreV1().Services(util.NamespaceTestDefault).Delete(context.Background(), subdomain, metav1.DeleteOptions{})
+			err := virtClient.CoreV1().Services(testsuite.NamespaceTestDefault).Delete(context.Background(), subdomain, metav1.DeleteOptions{})
 			if !errors.IsNotFound(err) {
 				Expect(err).NotTo(HaveOccurred())
 			}
@@ -3300,7 +3299,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Checking that no backoff event occurred")
 				events.ExpectNoEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
-				events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				events, err := virtClient.CoreV1().Events(testsuite.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, ev := range events.Items {
 					Expect(ev.Reason).ToNot(Equal(controller.MigrationBackoffReason))

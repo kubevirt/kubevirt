@@ -56,7 +56,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -149,7 +148,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 		},
 			Entry("(privileged virtiofsd)", testsuite.NamespacePrivileged),
-			Entry("(unprivileged virtiofsd)", util.NamespaceTestDefault),
+			Entry("(unprivileged virtiofsd)", testsuite.NamespaceTestDefault),
 		)
 	})
 
@@ -263,7 +262,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			}
 			Expect(foundContainer).To(BeTrue())
 		},
-			Entry("unprivileged virtiofsd", util.NamespaceTestDefault),
+			Entry("unprivileged virtiofsd", testsuite.NamespaceTestDefault),
 			Entry("privileged virtiofsd", testsuite.NamespacePrivileged),
 		)
 	})
@@ -355,7 +354,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 		},
-			Entry("unprivileged virtiofsd", util.NamespaceTestDefault),
+			Entry("unprivileged virtiofsd", testsuite.NamespaceTestDefault),
 			Entry("privileged virtiofsd", testsuite.NamespacePrivileged),
 		)
 	})

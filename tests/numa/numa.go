@@ -9,29 +9,28 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libnode"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, func() {
@@ -58,7 +57,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 		}
 
 		By("Starting a VirtualMachineInstance")
-		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), cpuVMI, metav1.CreateOptions{})
+		cpuVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), cpuVMI, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		cpuVMI = libwait.WaitForSuccessfulVMIStart(cpuVMI)
 		By("Fetching the numa memory mapping")
