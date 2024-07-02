@@ -34,8 +34,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -63,7 +61,6 @@ import (
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -131,15 +128,6 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 }
 
-func cirrosMemory() string {
-	// Cirros image need 256M to boot on ARM64,
-	// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
-	if checks.IsARM64(testsuite.Arch) {
-		return "256Mi"
-	}
-	return "128Mi"
-}
-
 // AddEphemeralDisk
 //
 // Deprecated: Use libvmi
@@ -162,26 +150,6 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 	})
 
 	return vmi
-}
-
-// NewRandomVMIWithEphemeralDiskAndUserdata
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
-	opts := []libvmi.Option{
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-		libvmi.WithResourceMemory(cirrosMemory()),
-		libvmi.WithContainerDisk("disk0", containerImage),
-		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(userData)),
-	}
-	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
-		opts = append(
-			[]libvmi.Option{libvmi.WithRng()},
-			opts...)
-	}
-	return libvmi.New(opts...)
 }
 
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
