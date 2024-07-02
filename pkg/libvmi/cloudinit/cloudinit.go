@@ -41,6 +41,12 @@ func WithNoCloudEncodedUserData(data string) NoCloudOption {
 	}
 }
 
+func WithNoCloudUserDataSecretName(secretName string) NoCloudOption {
+	return func(source *v1.CloudInitNoCloudSource) {
+		source.UserDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
+	}
+}
+
 func WithNoCloudNetworkData(data string) NoCloudOption {
 	return func(source *v1.CloudInitNoCloudSource) {
 		source.NetworkData = data
