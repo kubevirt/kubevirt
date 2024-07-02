@@ -802,22 +802,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				launcherPod, err := libpod.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, vm.Namespace, "")
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(launcherPod).To(Not(BeNil()))
+
 				By("Invoking virtctl --force restart")
 				forceRestart := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", vm.Namespace, "--force", vm.Name, "--grace-period=0")
 				Expect(forceRestart()).To(Succeed())
 
-				zeroGracePeriod := int64(0)
 				// Checks if the old VMI Pod still exists after force-restart command
-				Eventually(func() string {
-					pod, err := libpod.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, vm.Namespace, "")
-					if err != nil {
-						return err.Error()
-					}
-					if pod.GetDeletionGracePeriodSeconds() == &zeroGracePeriod && pod.GetDeletionTimestamp() != nil {
-						return "old VMI Pod still not deleted"
-					}
-					return ""
-				}, 120*time.Second, 1*time.Second).Should(ContainSubstring("failed to find pod"))
+				Eventually(ThisPod(launcherPod)).WithPolling(time.Second).WithTimeout(time.Minute).Should((BeGone()))
 
 				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
 
