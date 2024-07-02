@@ -1342,7 +1342,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 		annotationsSet[networkv1.NetworkAttachmentAnnot] = multusAnnotation
 	}
 
-	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
+	if multusDefaultNetwork := vmispec.LookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
 		annotationsSet[network.MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION] = multusDefaultNetwork
 	}
 
@@ -1366,15 +1366,6 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	annotationsSet[descheduler.EvictOnlyAnnotation] = ""
 
 	return annotationsSet, nil
-}
-
-func lookupMultusDefaultNetworkName(networks []v1.Network) string {
-	for _, network := range networks {
-		if network.Multus != nil && network.Multus.Default {
-			return network.Multus.NetworkName
-		}
-	}
-	return ""
 }
 
 func filterVMIAnnotationsForPod(vmiAnnotations map[string]string) map[string]string {

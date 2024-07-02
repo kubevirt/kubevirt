@@ -85,3 +85,12 @@ func FilterNetworksByInterfaces(networks []v1.Network, interfaces []v1.Interface
 	}
 	return nets
 }
+
+func LookupMultusDefaultNetworkName(networks []v1.Network) string {
+	for _, network := range networks {
+		if network.Multus != nil && network.Multus.Default {
+			return network.Multus.NetworkName
+		}
+	}
+	return ""
+}

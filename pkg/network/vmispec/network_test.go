@@ -84,6 +84,18 @@ var _ = Describe("Network", func() {
 			&multusDefaultNetwork,
 		),
 	)
+
+	DescribeTable("should return an empty string", func(networks []v1.Network) {
+		Expect(vmispec.LookupMultusDefaultNetworkName(networks)).To(Equal(""))
+	},
+		Entry("when networks slice is nil", nil),
+		Entry("when networks slice is empty", []v1.Network{}),
+		Entry("when networks does not contain a default Multus network", []v1.Network{multusSecondaryNetwork1, multusSecondaryNetwork2}),
+	)
+
+	It("should return default Multus network name", func() {
+		Expect(vmispec.LookupMultusDefaultNetworkName([]v1.Network{multusDefaultNetwork, multusSecondaryNetwork1})).To(Equal(multusDefaultNetwork.Multus.NetworkName))
+	})
 })
 
 func createMultusSecondaryNetwork(name, networkName string) v1.Network {
