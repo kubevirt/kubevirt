@@ -1745,16 +1745,6 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Restart(arg0, arg1, arg2 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Restart", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInterface) ForceRestart(ctx context.Context, name string, restartOptions *v121.RestartOptions) error {
-	ret := _m.ctrl.Call(_m, "ForceRestart", ctx, name, restartOptions)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirtualMachineInterfaceRecorder) ForceRestart(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForceRestart", arg0, arg1, arg2)
-}
-
 func (_m *MockVirtualMachineInterface) Start(ctx context.Context, name string, startOptions *v121.StartOptions) error {
 	ret := _m.ctrl.Call(_m, "Start", ctx, name, startOptions)
 	ret0, _ := ret[0].(error)
@@ -1773,16 +1763,6 @@ func (_m *MockVirtualMachineInterface) Stop(ctx context.Context, name string, st
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) Stop(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stop", arg0, arg1, arg2)
-}
-
-func (_m *MockVirtualMachineInterface) ForceStop(ctx context.Context, name string, stopOptions *v121.StopOptions) error {
-	ret := _m.ctrl.Call(_m, "ForceStop", ctx, name, stopOptions)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirtualMachineInterfaceRecorder) ForceStop(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForceStop", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInterface) Migrate(ctx context.Context, name string, migrateOptions *v121.MigrateOptions) error {
