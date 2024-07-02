@@ -73,7 +73,6 @@ import (
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
 
@@ -482,7 +481,7 @@ func (d *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan
 		return err
 	}
 
-	if util.IsNonRootVMI(vmi) {
+	if virtutil.IsNonRootVMI(vmi) {
 		err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
 		if err != nil {
 			log.Log.Reason(err).Error("unable to change ownership for domain notify")
@@ -941,7 +940,7 @@ func needToComputeChecksums(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 
-	if util.HasKernelBootContainerImage(vmi) {
+	if virtutil.HasKernelBootContainerImage(vmi) {
 		if vmi.Status.KernelBootStatus == nil {
 			return true
 		}
@@ -995,7 +994,7 @@ func (d *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInst
 	}
 
 	// kernelboot
-	if util.HasKernelBootContainerImage(vmi) {
+	if virtutil.HasKernelBootContainerImage(vmi) {
 		vmi.Status.KernelBootStatus = &v1.KernelBootStatus{}
 
 		if diskChecksums.KernelBootChecksum.Kernel != nil {
@@ -1642,7 +1641,7 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
 	}
 
-	if util.IsVMIVirtiofsEnabled(vmi) {
+	if virtutil.IsVMIVirtiofsEnabled(vmi) {
 		return newNonMigratableCondition("VMI uses virtiofs", v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable), isBlockMigration
 	}
 
@@ -1650,7 +1649,7 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
 
-	if util.IsSEVVMI(vmi) {
+	if virtutil.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
 	}
 
@@ -3113,7 +3112,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return fmt.Errorf("failed to adjust resources: %v", err)
 		}
 
-		if util.IsSEVAttestationRequested(vmi) {
+		if virtutil.IsSEVAttestationRequested(vmi) {
 			sev := vmi.Spec.Domain.LaunchSecurity.SEV
 			if sev.Session == "" || sev.DHCert == "" {
 				// Wait for the session parameters to be provided
