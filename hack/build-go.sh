@@ -65,7 +65,8 @@ if [ $# -eq 0 ]; then
             go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" --ignore=container-disk-v2alpha ./cmd/...
         )
         (
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race ./pkg/...
+            # Skip fuzz tests, as they are not part of regular unit testing
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race -skip FuzzAdmitter ./pkg/...
         )
     else
         (
@@ -106,7 +107,8 @@ fi
 for arg in $args; do
     if [ "${target}" = "test" ]; then
         (
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race ./$arg/...
+            # Skip fuzz tests, as they are not part of regular unit testing
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race -skip FuzzAdmitter ./$arg/...
         )
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
