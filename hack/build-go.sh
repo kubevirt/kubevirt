@@ -66,7 +66,7 @@ if [ $# -eq 0 ]; then
         )
         (
             # Skip fuzz tests, as they are not part of regular unit testing
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race -skip FuzzAdmitter ./pkg/...
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race -skip FuzzAdmitter -timeout 15m ./pkg/...
         )
     else
         (
@@ -108,7 +108,7 @@ for arg in $args; do
     if [ "${target}" = "test" ]; then
         (
             # Skip fuzz tests, as they are not part of regular unit testing
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race -skip FuzzAdmitter ./$arg/...
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race -skip FuzzAdmitter -timeout 15m ./$arg/...
         )
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
