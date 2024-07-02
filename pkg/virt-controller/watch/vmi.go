@@ -68,12 +68,6 @@ import (
 )
 
 const (
-
-	//VMIProvisioning is the reason set when a VMI is provisioning
-        VMIProvisioning = "VirtualMachineInstance provisioning."
-)
-
-const (
 	deleteNotifFailed        = "Failed to process delete notification"
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 )
@@ -540,7 +534,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 				if !conditionManager.HasCondition(vmiCopy, condition.Type) {
 					vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
-                                        c.recorder.Event(vmi, k8sv1.EventTypeNormal, string(condition.Type), VMIProvisioning)
 				}
 				if tempPodExists {
 					// Add PodScheduled False condition to the VM
@@ -568,7 +561,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					cm.RemoveCondition(vmiCopy, condition.Type)
 				}
 				vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
-			        c.recorder.Event(vmi, k8sv1.EventTypeWarning, condition.Reason, condition.Message)
 			}
 		}
 	case vmi.IsScheduling():
