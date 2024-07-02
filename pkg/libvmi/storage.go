@@ -40,6 +40,14 @@ func WithContainerDisk(diskName, imageName string) Option {
 	}
 }
 
+// WithContainerSATADisk specifies the disk name and the name of the container image to be used.
+func WithContainerSATADisk(diskName, imageName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, v1.DiskBusSATA))
+		addVolume(vmi, newContainerVolume(diskName, imageName))
+	}
+}
+
 // WithPersistentVolumeClaim specifies the name of the PersistentVolumeClaim to be used.
 func WithPersistentVolumeClaim(diskName, pvcName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
