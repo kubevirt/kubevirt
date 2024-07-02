@@ -813,6 +813,7 @@ spec:
           - virtualmachineinstances/userlist
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
+          - virtualmachineinstances/usbredir
           verbs:
           - get
         - apiGroups:
@@ -961,6 +962,7 @@ spec:
           - virtualmachineinstances/userlist
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
+          - virtualmachineinstances/usbredir
           verbs:
           - get
         - apiGroups:
