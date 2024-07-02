@@ -193,16 +193,6 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 	return vmi
 }
 
-// NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	cloudInitConfigDriveData := libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData))
-	cloudInitConfigDriveData(vmi)
-	return vmi
-}
-
 // NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData
 //
 // Deprecated: Use libvmi directly
