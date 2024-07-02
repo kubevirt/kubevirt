@@ -10,15 +10,13 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 )
 
 var _ = Describe("Soft rebooting", func() {
-
-	const vmiName = "testvmi"
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var ctrl *gomock.Controller
 
@@ -38,12 +36,12 @@ var _ = Describe("Soft rebooting", func() {
 	})
 
 	It("should soft reboot VMI", func() {
-		vmi := api.NewMinimalVMI(vmiName)
+		vmi := libvmi.New()
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().SoftReboot(context.Background(), vmi.Name).Return(nil).Times(1)
 
-		cmd := clientcmd.NewVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT, vmiName)
+		cmd := clientcmd.NewVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT, vmi.Name)
 		Expect(cmd.Execute()).To(Succeed())
 	})
 })
