@@ -270,6 +270,20 @@ var _ = Describe("VMI network spec", func() {
 			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeTrue())
 		})
 	})
+
+	Context("HaveMasqueradeInterface", func() {
+		DescribeTable("It should return false", func(interfaces []v1.Interface) {
+			Expect(netvmispec.HaveMasqueradeInterface(interfaces)).To(BeFalse())
+		},
+			Entry("when interfaces slice is nil", nil),
+			Entry("when interfaces slice is empty", []v1.Interface{}),
+			Entry("When there is no interface with masquerade binding", []v1.Interface{interfaceWithBridgeBinding(iface1)}),
+		)
+
+		It("Should return true when there is an interface with masquerade binding", func() {
+			Expect(netvmispec.HaveMasqueradeInterface([]v1.Interface{interfaceWithBridgeBinding(iface1), interfaceWithMasqueradeBinding(iface2)})).To(BeTrue())
+		})
+	})
 })
 
 func podNetwork(name string) v1.Network {

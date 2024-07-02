@@ -188,3 +188,13 @@ func HasBindingPluginDeviceInfo(iface v1.Interface, bindingPlugins map[string]v1
 	}
 	return false
 }
+
+func HaveMasqueradeInterface(interfaces []v1.Interface) bool {
+	for _, iface := range interfaces {
+		if iface.Masquerade != nil {
+			return true
+		}
+	}
+
+	return false
+}
