@@ -2427,10 +2427,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			// ordering:
 			// use a small disk for the other ones
 			containerImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			// virtio - added by NewRandomVMIWithEphemeralDisk
-			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
-			// sata
-			tests.AddEphemeralDisk(vmi, "disk2", v1.DiskBusSATA, containerImage)
+			// virtio - added by NewCirros
+			vmi = libvmifact.NewCirros(
+				// add sata disk
+				libvmi.WithContainerSATADisk("disk2", containerImage),
+			)
 			// NOTE: we have one disk per bus, so we expect vda, sda
 		})
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string) {
