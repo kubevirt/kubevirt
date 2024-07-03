@@ -31,56 +31,49 @@ import (
 	"sync"
 	"time"
 
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
-
-	"k8s.io/utils/pointer"
-
-	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/testing"
-
-	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
-
-	api2 "kubevirt.io/client-go/api"
-
-	netcache "kubevirt.io/kubevirt/pkg/network/cache"
-	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
-	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
-	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
-
-	"kubevirt.io/kubevirt/pkg/certificates"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
-	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/certificates"
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	netcache "kubevirt.io/kubevirt/pkg/network/cache"
+	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
