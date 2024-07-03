@@ -224,6 +224,12 @@ func SkipIfARM64(arch string, message string) {
 	}
 }
 
+func SkipIfS390X(arch string, message string) {
+	if IsS390X(arch) {
+		ginkgo.Skip("Skip test on s390x: " + message)
+	}
+}
+
 func SkipIfRunningOnKindInfra(message string) {
 	if IsRunningOnKindInfra() {
 		ginkgo.Skip("Skip test on kind infra: " + message)
