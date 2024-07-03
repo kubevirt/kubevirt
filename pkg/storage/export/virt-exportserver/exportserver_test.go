@@ -72,6 +72,9 @@ func newTestServer(token string) *exportServer {
 		TokenGetter: func() (string, error) {
 			return token, nil
 		},
+		PermissionChecker: func(string) bool {
+			return true
+		},
 	}
 	s := NewExportServer(config)
 	return s.(*exportServer)
