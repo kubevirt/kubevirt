@@ -209,7 +209,7 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
-func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
+func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
 	// we spawn libvirt from virt-launcher in order to ensure the virtqemud+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
 	// to perform special shutdown logic. These processes need to live in the same
@@ -330,7 +330,7 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 			log.Log.Errorf("virtlogd exited, restarting")
 		}
 
-		// this sleep is to avoid consumming all resources in the
+		// this sleep is to avoid consuming all resources in the
 		// event of a virtlogd crash loop.
 		time.Sleep(time.Second)
 	}
