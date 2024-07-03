@@ -38,14 +38,11 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -84,11 +81,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var ctrl *gomock.Controller
 	var controller *VirtualMachineController
-	var vmiSource *framework.FakeControllerSource
-	var vmiSourceInformer cache.SharedIndexInformer
-	var vmiTargetInformer cache.SharedIndexInformer
-	var domainSource *framework.FakeControllerSource
-	var domainInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
 	var mockIsolationDetector *isolation.MockPodIsolationDetector
 	var mockIsolationResult *isolation.MockIsolationResult
@@ -101,7 +93,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var recorder *record.FakeRecorder
 
-	var err error
 	var shareDir string
 	var privateDir string
 	var vmiShareDir string
@@ -114,17 +105,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var wg *sync.WaitGroup
 	var eventChan chan watch.Event
 
-	var host string
-
 	var certDir string
 
 	const migratableNetworkBindingPlugin = "mig_plug"
+	const host = "master"
 
 	getCgroupManager = func(_ *v1.VirtualMachineInstance) (cgroup.Manager, error) {
 		return mockCgroupManager, nil
 	}
 
 	BeforeEach(func() {
+		var err error
 		diskutils.MockDefaultOwnershipManager()
 
 		wg = &sync.WaitGroup{}
@@ -160,14 +151,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}
 		Expect(err).ToNot(HaveOccurred())
 
-		host = "master"
 		podIpAddress := "10.10.10.10"
 
 		Expect(err).ToNot(HaveOccurred())
 
-		vmiSourceInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
-		vmiTargetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
-		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
+		vmiSourceInformer, vmiSource := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		vmiTargetInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		domainInformer, domainSource := testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
@@ -3246,7 +3236,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 var _ = Describe("DomainNotifyServerRestarts", func() {
 	Context("should establish a notify server pipe", func() {
 		var shareDir string
-		var err error
 		var serverStopChan chan struct{}
 		var serverIsStoppedChan chan struct{}
 		var stoppedServer bool
@@ -3258,6 +3247,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 		var vmiStore cache.Store
 
 		BeforeEach(func() {
+			var err error
 			serverStopChan = make(chan struct{})
 			domainPipeStopChan = make(chan struct{})
 			serverIsStoppedChan = make(chan struct{})
@@ -3506,12 +3496,6 @@ func NewScheduledVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.Vi
 
 	vmi = addActivePods(vmi, podUID, hostname)
 	return vmi
-}
-
-func addNode(client *fake.Clientset, node *k8sv1.Node) {
-	client.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-		return true, node, nil
-	})
 }
 
 type netConfStub struct {
