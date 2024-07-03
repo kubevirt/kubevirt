@@ -2135,19 +2135,24 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", decorators.SigStorage, decorators.StorageReq, func() {
 		var dataVolume *cdiv1.DataVolume
+		var err error
 
 		BeforeEach(func() {
-			var err error
 			if !checks.HasFeature(virtconfig.HostDiskGate) {
 				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 			}
 
-			dataVolume, err = createBlockDataVolume(virtClient)
-			Expect(err).ToNot(HaveOccurred())
-			if dataVolume == nil {
+			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+			if !foundSC {
 				Skip("Skip test when Block storage is not present")
 			}
 
+			dataVolume = libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
+			)
+			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 		})
 
@@ -2282,13 +2287,21 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Context("Block size configuration set", func() {
 
 		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, func() {
+			var dataVolume *cdiv1.DataVolume
+			var err error
+
 			By("creating a block volume")
-			dataVolume, err := createBlockDataVolume(virtClient)
-			Expect(err).ToNot(HaveOccurred())
-			if dataVolume == nil {
+			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+			if !foundSC {
 				Skip("Skip test when Block storage is not present")
 			}
 
+			dataVolume = libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
+			)
+			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
 			vmi := libvmi.New(
@@ -2325,13 +2338,21 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, func() {
+			var dataVolume *cdiv1.DataVolume
+			var err error
+
 			By("creating a block volume")
-			dataVolume, err := createBlockDataVolume(virtClient)
-			Expect(err).ToNot(HaveOccurred())
-			if dataVolume == nil {
+			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+			if !foundSC {
 				Skip("Skip test when Block storage is not present")
 			}
 
+			dataVolume = libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
+			)
+			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
 			vmi := libvmi.New(
@@ -3402,20 +3423,6 @@ func withSerialBIOS() libvmi.Option {
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(true)
 	}
-}
-
-func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
-	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-	if !foundSC {
-		return nil, nil
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
-	)
-
-	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 }
 
 func getKvmPitMask(qemupid, nodeName string) (output string, err error) {
