@@ -47,7 +47,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
@@ -59,7 +58,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -68,8 +67,8 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
-	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
+	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
@@ -93,8 +92,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockQueue *testutils.MockWorkQueue
 	var mockIsolationDetector *isolation.MockPodIsolationDetector
 	var mockIsolationResult *isolation.MockIsolationResult
-	var mockContainerDiskMounter *container_disk.MockMounter
-	var mockHotplugVolumeMounter *hotplug_volume.MockVolumeMounter
+	var mockContainerDiskMounter *containerdisk.MockMounter
+	var mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
 	var mockCgroupManager *cgroup.MockManager
 
 	var vmiFeeder *testutils.VirtualMachineFeeder
@@ -199,8 +198,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
 		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-		mockContainerDiskMounter = container_disk.NewMockMounter(ctrl)
-		mockHotplugVolumeMounter = hotplug_volume.NewMockVolumeMounter(ctrl)
+		mockContainerDiskMounter = containerdisk.NewMockMounter(ctrl)
+		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
 		mockCgroupManager = cgroup.NewMockManager(ctrl)
 
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
@@ -1131,13 +1130,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				vmiFeeder.Add(vmi)
 
-				fakeDiskChecksums := &container_disk.DiskChecksums{
+				fakeDiskChecksums := &containerdisk.DiskChecksums{
 					ContainerDiskChecksums: map[string]uint32{
 						vmi.Spec.Volumes[0].Name: uint32(1234),
 					},
-					KernelBootChecksum: container_disk.KernelBootChecksum{
-						Kernel: pointer.Uint32(33),
-						Initrd: pointer.Uint32(35),
+					KernelBootChecksum: containerdisk.KernelBootChecksum{
+						Kernel: pointer.P(uint32(33)),
+						Initrd: pointer.P(uint32(35)),
 					},
 				}
 
@@ -2775,14 +2774,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 				}
 			},
 				Entry("CDROM", getCDRomDisk(nil), getContainerDiskVolume(), v1.LiveMigration),
-				Entry("CDROM with read-only=true", getCDRomDisk(pointer.BoolPtr(true)), getContainerDiskVolume(), v1.LiveMigration),
-				Entry("CDROM with read-only=false", getCDRomDisk(pointer.BoolPtr(false)), getContainerDiskVolume(), v1.BlockMigration),
+				Entry("CDROM with read-only=true", getCDRomDisk(pointer.P(true)), getContainerDiskVolume(), v1.LiveMigration),
+				Entry("CDROM with read-only=false", getCDRomDisk(pointer.P(false)), getContainerDiskVolume(), v1.BlockMigration),
 			)
 		})
 
 		It("HyperV reenlightenment shouldn't be migratable when tsc frequency is missing", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)}}}
+			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)}}}
 			vmi.Status.TopologyHints = nil
 
 			cond, _ := controller.calculateLiveMigrationCondition(vmi)
@@ -2793,7 +2792,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("HyperV passthrough shouldn't be migratable", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: virtpointer.P(true)}}
+			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: pointer.P(true)}}
 
 			cond, _ := controller.calculateLiveMigrationCondition(vmi)
 			Expect(cond).ToNot(BeNil())
