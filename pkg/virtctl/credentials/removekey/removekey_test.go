@@ -23,16 +23,15 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 var _ = Describe("Credentials", func() {
 	const (
-		vmName     = "test-vm"
 		secretName = "test-secret"
 		userName   = "test-user"
 	)
@@ -40,8 +39,9 @@ var _ = Describe("Credentials", func() {
 	var (
 		kubeClient *fake.Clientset
 
-		vmi *v1.VirtualMachineInstance
-		vm  *v1.VirtualMachine
+		vmi    *v1.VirtualMachineInstance
+		vm     *v1.VirtualMachine
+		vmName string
 	)
 
 	const testKey = "test-key"
@@ -61,27 +61,13 @@ var _ = Describe("Credentials", func() {
 			return false, secret, nil
 		})
 
-		vmi = api.NewMinimalVMI(vmName)
-		vmi.Spec.AccessCredentials = []v1.AccessCredential{{
-			SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
-				Source: v1.SSHPublicKeyAccessCredentialSource{
-					Secret: &v1.AccessCredentialSecretSource{
-						SecretName: secretName,
-					},
-				},
-				PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-					QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
-						Users: []string{userName},
-					},
-				},
-			},
-		}}
+		vmi = libvmi.New(
+			libvmi.WithNamespace(metav1.NamespaceDefault),
+			libvmi.WithSSHPublicKeyAccessCredential(secretName, []string{userName}),
+		)
+		vmName = vmi.Name
 
-		vm = kubecli.NewMinimalVM(vmName)
-		vm.Namespace = metav1.NamespaceDefault
-		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
-			Spec: vmi.Spec,
-		}
+		vm = libvmi.NewVirtualMachine(vmi)
 
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
