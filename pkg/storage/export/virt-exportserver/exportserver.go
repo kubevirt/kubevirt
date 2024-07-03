@@ -88,6 +88,8 @@ type ExportServerConfig struct {
 	VmHandler          func([]export.VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
 	TokenSecretHandler func(TokenGetterFunc) http.Handler
 
+	PermissionChecker func(string) bool
+
 	TokenGetter TokenGetterFunc
 }
 
@@ -121,7 +123,7 @@ func (er *execReader) Close() error {
 func (s *exportServer) initHandler() {
 	mux := http.NewServeMux()
 	for _, vi := range s.Paths.Volumes {
-		if hasPermissions := checkVolumePermissions(vi.Path); !hasPermissions {
+		if hasPermissions := s.PermissionChecker(vi.Path); !hasPermissions {
 			golog.Fatalf("unable to manipulate %s's contents, exiting", vi.Path)
 		}
 		for path, handler := range s.getHandlerMap(vi) {
@@ -252,6 +254,10 @@ func NewExportServer(config ExportServerConfig) service.Service {
 		es.TokenGetter = func() (string, error) {
 			return getToken(es.TokenFile)
 		}
+	}
+
+	if es.PermissionChecker == nil {
+		es.PermissionChecker = checkVolumePermissions
 	}
 
 	return es
