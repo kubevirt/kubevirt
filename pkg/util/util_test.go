@@ -96,22 +96,4 @@ var _ = Describe("Test general utilities", func() {
 			Expect(cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)).ToNot(Succeed())
 		})
 	})
-
-	Context("test ContainsString", func() {
-		It("should return false if the list is empty", func() {
-			Expect(ContainsString([]string{}, "a word")).To(BeFalse())
-		})
-
-		It("should return false if the list is nil", func() {
-			Expect(ContainsString(nil, "a word")).To(BeFalse())
-		})
-
-		It("should return false if the list does not contain the string", func() {
-			Expect(ContainsString([]string{"aaa", "bbb", "ccc", "ddd"}, "eee")).To(BeFalse())
-		})
-
-		It("should return true if the list contains the string", func() {
-			Expect(ContainsString([]string{"aaa", "bbb", "ccc", "ddd"}, "bbb")).To(BeTrue())
-		})
-	})
 })

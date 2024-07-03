@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 
 	"github.com/blang/semver/v4"
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -715,7 +716,7 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reco
 
 	// Remove the finalizers
 	finDropped := false
-	if hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
+	if slices.Contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
 		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, FinalizerName)
 		req.Dirty = true
 		requeue = requeue || finDropped
@@ -1341,7 +1342,7 @@ func removeOldQuickStartGuides(req *common.HcoRequest, cl client.Client, require
 		}
 
 		for name, existQs := range existingQSNames {
-			if !hcoutil.ContainsString(requiredQSList, name) {
+			if !slices.Contains(requiredQSList, name) {
 				req.Logger.Info("deleting ConsoleQuickStart", "name", name)
 				if _, err = hcoutil.EnsureDeleted(req.Ctx, cl, &existQs, req.Instance.Name, req.Logger, false, false, true); err != nil {
 					req.Logger.Error(err, "failed to delete ConsoleQuickStart", "name", name)
@@ -1361,7 +1362,7 @@ func removeRelatedQSObjects(req *common.HcoRequest, requiredNames []string) {
 	foundOldQs := false
 
 	for _, obj := range req.Instance.Status.RelatedObjects {
-		if obj.Kind == "ConsoleQuickStart" && !hcoutil.ContainsString(requiredNames, obj.Name) {
+		if obj.Kind == "ConsoleQuickStart" && !slices.Contains(requiredNames, obj.Name) {
 			foundOldQs = true
 			continue
 		}
@@ -1472,7 +1473,7 @@ func init() {
 func checkFinalizers(req *common.HcoRequest) bool {
 	if req.Instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Add the finalizer if it's not there
-		if !hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
+		if !slices.Contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
 			req.Logger.Info("setting a finalizer (with fully qualified name)")
 			req.Instance.ObjectMeta.Finalizers = append(req.Instance.ObjectMeta.Finalizers, FinalizerName)
 			req.Dirty = true

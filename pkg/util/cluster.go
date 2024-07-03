@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"slices"
 
 	"github.com/go-logr/logr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -364,21 +365,7 @@ func (c *ClusterInfoImp) validateAPIServerTLSSecurityProfile(apiServerTLSSecurit
 }
 
 func isValidCipherName(str string) bool {
-	for _, v := range openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileOldType].Ciphers {
-		if v == str {
-			return true
-		}
-	}
-	for _, v := range openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].Ciphers {
-		if v == str {
-			return true
-		}
-	}
-	for _, v := range openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileModernType].Ciphers {
-		if v == str {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileOldType].Ciphers, str) ||
+		slices.Contains(openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].Ciphers, str) ||
+		slices.Contains(openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileModernType].Ciphers, str)
 }

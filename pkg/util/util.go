@@ -226,15 +226,6 @@ func EnsureDeleted(ctx context.Context, c client.Client, obj client.Object, hcoN
 	return ComponentResourceRemoval(ctx, c, obj, hcoName, logger, dryRun, wait, protectNonHCOObjects)
 }
 
-func ContainsString(s []string, word string) bool {
-	for _, w := range s {
-		if w == word {
-			return true
-		}
-	}
-	return false
-}
-
 var hcoKvIoVersion string
 
 func GetHcoKvIoVersion() string {

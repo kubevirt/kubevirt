@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -147,15 +148,6 @@ func IOReadDir(root string) ([]string, error) {
 	return files, nil
 }
 
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
-
 func validateNoAPIOverlap(crdDir string) error {
 	crdFiles, err := IOReadDir(crdDir)
 	if err != nil {
@@ -207,7 +199,7 @@ func compareMapWithEntry(crdMap map[string][]string, operator string, apigroup s
 			continue
 		}
 
-		if stringInSlice(apigroup, crdMap[comparedOperator]) {
+		if slices.Contains(crdMap[comparedOperator], apigroup) {
 			overlapsMap[apigroup].Insert(operator)
 			overlapsMap[apigroup].Insert(comparedOperator)
 		}
@@ -235,7 +227,7 @@ func getCrdMap(crdFiles []string) map[string][]string {
 		err = yaml.Unmarshal(content, &crd)
 		panicOnError(err)
 
-		if !stringInSlice(crd.Spec.Group, crdMap[operator]) {
+		if !slices.Contains(crdMap[operator], crd.Spec.Group) {
 			crdMap[operator] = append(crdMap[operator], crd.Spec.Group)
 		}
 	}
@@ -347,7 +339,7 @@ func getHiddenCrds(csvBase csvv1alpha1.ClusterServiceVersion) (string, error) {
 	hiddenCrds := make([]string, 0)
 	visibleCrds := strings.Split(*visibleCRDList, ",")
 	for _, owned := range csvBase.Spec.CustomResourceDefinitions.Owned {
-		if !stringInSlice(owned.Name, visibleCrds) {
+		if !slices.Contains(visibleCrds, owned.Name) {
 			hiddenCrds = append(
 				hiddenCrds,
 				owned.Name,
