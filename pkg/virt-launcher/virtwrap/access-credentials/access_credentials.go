@@ -418,7 +418,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 	logger := log.Log.Object(vmi)
 
 	reload := true
-	fileChangeDetected := true
+	fileChangeDetected := false
 
 	domName := util.VMINamespaceKeyFunc(vmi)
 
@@ -456,7 +456,6 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 			continue
 		}
 
-		fileChangeDetected = false
 		reload = false
 		reportedErr := false
 
@@ -517,6 +516,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 		if !reportedErr {
 			l.reportAccessCredentialResult(true, "")
 		}
+		fileChangeDetected = false
 	}
 }
 
