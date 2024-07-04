@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.13.0-unstable
-    createdAt: "2024-06-27 05:04:38"
+    createdAt: "2024-07-04 05:05:44"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -3275,7 +3275,7 @@ spec:
                 - name: CDI_VERSION
                   value: v1.59.0
                 - name: NETWORK_ADDONS_VERSION
-                  value: v0.94.0
+                  value: v0.94.1
                 - name: SSP_VERSION
                   value: v0.20.0
                 - name: HPPO_VERSION
@@ -3491,13 +3491,13 @@ spec:
                 - name: CORE_DNS_IMAGE
                   value: registry.k8s.io/coredns/coredns@sha256:a0ead06651cf580044aeb0a0feba63591858fb2e43ade8c9dea45a6a89ae7e5e
                 - name: KUBEVIRT_IPAM_CONTROLLER_IMAGE
-                  value: ghcr.io/maiqueb/kubevirt-ipam-claims@sha256:4667b37655dc87b79a63ca0b127517d0f9b971808b8fda8f5ea01398e8833294
+                  value: ghcr.io/kubevirt/ipam-controller@sha256:f272eaf82c9e4fcd7fdee5d9031afba8019cff2dc842ca3e36be49de28083fee
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:80a1331c565ff02f8be845b3a194b33795e3194de046dd9ef6da124fc087afbf
+                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:6709c036bbdcc8d2179e42f49c7062fda54e873da98b67b8afb70ef8f0d771c1
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: v0.94.0
+                  value: v0.94.1
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -3517,7 +3517,7 @@ spec:
                   value: prometheus-k8s
                 - name: RUNBOOK_URL_TEMPLATE
                   value: https://kubevirt.io/monitoring/runbooks/%s
-                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:80a1331c565ff02f8be845b3a194b33795e3194de046dd9ef6da124fc087afbf
+                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:6709c036bbdcc8d2179e42f49c7062fda54e873da98b67b8afb70ef8f0d771c1
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources:
@@ -4904,7 +4904,7 @@ spec:
     name: cdi-uploadproxy
   - image: quay.io/kubevirt/cdi-uploadserver@sha256:d7fb653bb33dade84583fff6048092346639532d6675aaf9f88070171cb0fe7c
     name: cdi-uploadserver
-  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:80a1331c565ff02f8be845b3a194b33795e3194de046dd9ef6da124fc087afbf
+  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:6709c036bbdcc8d2179e42f49c7062fda54e873da98b67b8afb70ef8f0d771c1
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:0c354fa9d695b8cab97b459e8afea2f7662407a987e83f6f6f1a8af4b45726be
     name: cni-default-plugins
@@ -4926,14 +4926,14 @@ spec:
     name: hyperconverged-cluster-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-webhook:1.13.0-unstable
     name: hyperconverged-cluster-webhook
+  - image: ghcr.io/kubevirt/ipam-controller@sha256:f272eaf82c9e4fcd7fdee5d9031afba8019cff2dc842ca3e36be49de28083fee
+    name: ipam-controller
   - image: quay.io/kubevirt/kubemacpool@sha256:20e156be33e6d3692c456081acbb91a4349f94de448f7d1f1cddd0228931b31f
     name: kubemacpool
   - image: ghcr.io/kubevirt/kubesecondarydns@sha256:6268d84154e2483fbce8c1adacbdaf6f0839117b2d48d9fa4687cc8f76bd5130
     name: kubesecondarydns
   - image: quay.io/kubevirt-ui/kubevirt-apiserver-proxy@sha256:935475c2850466aa5ac57e4de627fb177515cb2c402a95842ead095d82b6df5f
     name: kubevirt-apiserver-proxy
-  - image: ghcr.io/maiqueb/kubevirt-ipam-claims@sha256:4667b37655dc87b79a63ca0b127517d0f9b971808b8fda8f5ea01398e8833294
-    name: kubevirt-ipam-claims
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:413a6c229ebb608868e8b2c7c06b251c6b1d43c07af12a76b893292cbed8bef9
     name: kubevirt-plugin
   - image: quay.io/kubevirt/kubevirt-template-validator@sha256:8f7c389a7cd7ef34f2edc84245bc1d0ebcf13e86da5e0b8893f56733c482b10d
