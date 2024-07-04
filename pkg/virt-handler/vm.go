@@ -71,6 +71,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -3656,6 +3657,8 @@ func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 
 	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
 	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
+	requiredMemory.Add(netbinding.CalculateMemoryOverhead(vmi, d.clusterConfig.GetNetworkBindings()))
+
 	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 
 	if podMemReq.Cmp(requiredMemory) < 0 {
