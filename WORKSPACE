@@ -6090,163 +6090,109 @@ rpm(
 rpm(
     name = "qemu-img-17__8.2.0-11.el9.aarch64",
     sha256 = "1524eca552f738a1c90a410c1fb1fc93dd892916619c7e7617d69598bd4f1faf",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-img-8.2.0-11.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/1524eca552f738a1c90a410c1fb1fc93dd892916619c7e7617d69598bd4f1faf",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/1524eca552f738a1c90a410c1fb1fc93dd892916619c7e7617d69598bd4f1faf"],
 )
 
 rpm(
     name = "qemu-img-17__8.2.0-11.el9.s390x",
     sha256 = "64b0eba3638b09bce02291a34b30095408af10b560107df8abfc16e078a7690a",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-img-8.2.0-11.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/64b0eba3638b09bce02291a34b30095408af10b560107df8abfc16e078a7690a",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/64b0eba3638b09bce02291a34b30095408af10b560107df8abfc16e078a7690a"],
 )
 
 rpm(
     name = "qemu-img-17__8.2.0-11.el9.x86_64",
     sha256 = "0f6353565bd7ad18e6a26130b940ed6cc397f5a6b022f25ca5766b7fb412b9ba",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-img-8.2.0-11.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/0f6353565bd7ad18e6a26130b940ed6cc397f5a6b022f25ca5766b7fb412b9ba",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/0f6353565bd7ad18e6a26130b940ed6cc397f5a6b022f25ca5766b7fb412b9ba"],
 )
 
 rpm(
     name = "qemu-kvm-common-17__8.2.0-11.el9.aarch64",
     sha256 = "f3dff9b5df26de74953d0fab08c58c93c8619795d46eba93586acf84c6bd8039",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-common-8.2.0-11.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/f3dff9b5df26de74953d0fab08c58c93c8619795d46eba93586acf84c6bd8039",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/f3dff9b5df26de74953d0fab08c58c93c8619795d46eba93586acf84c6bd8039"],
 )
 
 rpm(
     name = "qemu-kvm-common-17__8.2.0-11.el9.s390x",
     sha256 = "d3633036c1622e62ba1ccb26546fca1652c1299c1f6d09259e5781f74351fecb",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-common-8.2.0-11.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/d3633036c1622e62ba1ccb26546fca1652c1299c1f6d09259e5781f74351fecb",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/d3633036c1622e62ba1ccb26546fca1652c1299c1f6d09259e5781f74351fecb"],
 )
 
 rpm(
     name = "qemu-kvm-common-17__8.2.0-11.el9.x86_64",
     sha256 = "c12bc9f1c56fa8667ef2f39b3fdc3930c2874b449ca98d229107044a42ae4239",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-common-8.2.0-11.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/c12bc9f1c56fa8667ef2f39b3fdc3930c2874b449ca98d229107044a42ae4239",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/c12bc9f1c56fa8667ef2f39b3fdc3930c2874b449ca98d229107044a42ae4239"],
 )
 
 rpm(
     name = "qemu-kvm-core-17__8.2.0-11.el9.aarch64",
     sha256 = "7d612942debf569c757ed8adda60365195b9130848b9730b1d646c5b766fd1f4",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-core-8.2.0-11.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/7d612942debf569c757ed8adda60365195b9130848b9730b1d646c5b766fd1f4",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/7d612942debf569c757ed8adda60365195b9130848b9730b1d646c5b766fd1f4"],
 )
 
 rpm(
     name = "qemu-kvm-core-17__8.2.0-11.el9.s390x",
     sha256 = "756ddb8c4e910194357a8a5413faf9ea7bb1febe1a0a63c1798d32e652c40220",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-core-8.2.0-11.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/756ddb8c4e910194357a8a5413faf9ea7bb1febe1a0a63c1798d32e652c40220",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/756ddb8c4e910194357a8a5413faf9ea7bb1febe1a0a63c1798d32e652c40220"],
 )
 
 rpm(
     name = "qemu-kvm-core-17__8.2.0-11.el9.x86_64",
     sha256 = "4ecc58865c06728717a0b7c4d13b757eac0be05c6e20c3c05a50a411691dec63",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-core-8.2.0-11.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/4ecc58865c06728717a0b7c4d13b757eac0be05c6e20c3c05a50a411691dec63",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/4ecc58865c06728717a0b7c4d13b757eac0be05c6e20c3c05a50a411691dec63"],
 )
 
 rpm(
     name = "qemu-kvm-device-display-virtio-gpu-17__8.2.0-11.el9.aarch64",
     sha256 = "c8fe5bc44160e3de6216268b15e3804d5ce98c3378987ce8a37fe2688aa7fc24",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-8.2.0-11.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/c8fe5bc44160e3de6216268b15e3804d5ce98c3378987ce8a37fe2688aa7fc24",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/c8fe5bc44160e3de6216268b15e3804d5ce98c3378987ce8a37fe2688aa7fc24"],
 )
 
 rpm(
     name = "qemu-kvm-device-display-virtio-gpu-17__8.2.0-11.el9.s390x",
     sha256 = "29ed2f75cb0d1c9813e9b605c256c2a5b54374b31dc3ec01a496fe704cf01871",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-device-display-virtio-gpu-8.2.0-11.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/29ed2f75cb0d1c9813e9b605c256c2a5b54374b31dc3ec01a496fe704cf01871",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/29ed2f75cb0d1c9813e9b605c256c2a5b54374b31dc3ec01a496fe704cf01871"],
 )
 
 rpm(
     name = "qemu-kvm-device-display-virtio-gpu-ccw-17__8.2.0-11.el9.s390x",
     sha256 = "e36616cb1c963fb09bc58687b66db4a47769c5bbbddbbd33fb26e7e95a223f76",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-device-display-virtio-gpu-ccw-8.2.0-11.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/e36616cb1c963fb09bc58687b66db4a47769c5bbbddbbd33fb26e7e95a223f76",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/e36616cb1c963fb09bc58687b66db4a47769c5bbbddbbd33fb26e7e95a223f76"],
 )
 
 rpm(
     name = "qemu-kvm-device-display-virtio-gpu-pci-17__8.2.0-11.el9.aarch64",
     sha256 = "76b2101c08d901a14d868c0d22aa9b198a58ad65cecdbfc03df56245859b456f",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-8.2.0-11.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/76b2101c08d901a14d868c0d22aa9b198a58ad65cecdbfc03df56245859b456f",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/76b2101c08d901a14d868c0d22aa9b198a58ad65cecdbfc03df56245859b456f"],
 )
 
 rpm(
     name = "qemu-kvm-device-usb-host-17__8.2.0-11.el9.aarch64",
     sha256 = "9f775f9c4ec7a5251cc4d3c3af6a694f7e977b2ff089a5930793f557ff4b84f0",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-host-8.2.0-11.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/9f775f9c4ec7a5251cc4d3c3af6a694f7e977b2ff089a5930793f557ff4b84f0",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/9f775f9c4ec7a5251cc4d3c3af6a694f7e977b2ff089a5930793f557ff4b84f0"],
 )
 
 rpm(
     name = "qemu-kvm-device-usb-host-17__8.2.0-11.el9.s390x",
     sha256 = "eb1f6adb1a70f6bd74c01c0d347b161b3cac760b0b9fdf90f395e86ec4373511",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-device-usb-host-8.2.0-11.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/eb1f6adb1a70f6bd74c01c0d347b161b3cac760b0b9fdf90f395e86ec4373511",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/eb1f6adb1a70f6bd74c01c0d347b161b3cac760b0b9fdf90f395e86ec4373511"],
 )
 
 rpm(
     name = "qemu-kvm-device-usb-host-17__8.2.0-11.el9.x86_64",
     sha256 = "820f0085504707fa5b7bcacc6e8fad587f427d759a0d041c45fe38bf0533beb7",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-host-8.2.0-11.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/820f0085504707fa5b7bcacc6e8fad587f427d759a0d041c45fe38bf0533beb7",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/820f0085504707fa5b7bcacc6e8fad587f427d759a0d041c45fe38bf0533beb7"],
 )
 
 rpm(
     name = "qemu-kvm-device-usb-redirect-17__8.2.0-11.el9.aarch64",
     sha256 = "a7f7224ea096e1b5ddb18409725f210946005078b86d2f007347b03ee488f2af",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-redirect-8.2.0-11.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/a7f7224ea096e1b5ddb18409725f210946005078b86d2f007347b03ee488f2af",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/a7f7224ea096e1b5ddb18409725f210946005078b86d2f007347b03ee488f2af"],
 )
 
 rpm(
     name = "qemu-kvm-device-usb-redirect-17__8.2.0-11.el9.x86_64",
     sha256 = "498adf3f4c9bd72dea7146a55dadf06075111caa57ee5528d2a72ceb8cda7a0a",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-redirect-8.2.0-11.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/498adf3f4c9bd72dea7146a55dadf06075111caa57ee5528d2a72ceb8cda7a0a",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/498adf3f4c9bd72dea7146a55dadf06075111caa57ee5528d2a72ceb8cda7a0a"],
 )
 
 rpm(
