@@ -600,7 +600,7 @@ var _ = SIGDescribe("Storage", func() {
 				var nodeName string
 
 				BeforeEach(func() {
-					hostDiskDir = tests.RandTmpDir()
+					hostDiskDir = RandTmpDir()
 					nodeName = ""
 				})
 
@@ -613,7 +613,7 @@ var _ = SIGDescribe("Storage", func() {
 						Eventually(ThisVMI(vmi), 30).Should(Or(BeGone(), BeInPhase(v1.Failed), BeInPhase(v1.Succeeded)))
 					}
 					if nodeName != "" {
-						tests.RemoveHostDiskImage(hostDiskDir, nodeName)
+						RemoveHostDiskImage(hostDiskDir, nodeName)
 					}
 				})
 
@@ -837,7 +837,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				BeforeEach(func() {
 					By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
-					tmpDir := tests.RandTmpDir()
+					tmpDir := RandTmpDir()
 					mountDir = filepath.Join(tmpDir, "mount")
 					diskPath = filepath.Join(mountDir, diskImgName)
 					srcDir := filepath.Join(tmpDir, "src")

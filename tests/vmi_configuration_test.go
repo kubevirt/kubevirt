@@ -2158,7 +2158,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			tmpHostDiskDir := tests.RandTmpDir()
+			tmpHostDiskDir := storage.RandTmpDir()
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -2186,7 +2186,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).NotTo(HaveOccurred())
-			defer tests.RemoveHostDiskImage(tmpHostDiskDir, vmiPod.Spec.NodeName)
+			defer storage.RemoveHostDiskImage(tmpHostDiskDir, vmiPod.Spec.NodeName)
 
 			disks := runningVMISpec.Devices.Disks
 			By("checking if number of attached disks is equal to real disks number")
@@ -2373,7 +2373,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("creating a disk image")
 			var nodeName string
-			tmpHostDiskDir := tests.RandTmpDir()
+			tmpHostDiskDir := storage.RandTmpDir()
 			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewString()))
 
 			pod := storage.CreateDiskOnHost(tmpHostDiskPath)
@@ -2383,7 +2383,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			pod, err = ThisPod(pod)()
 			Expect(err).NotTo(HaveOccurred())
 			nodeName = pod.Spec.NodeName
-			defer tests.RemoveHostDiskImage(tmpHostDiskDir, nodeName)
+			defer storage.RemoveHostDiskImage(tmpHostDiskDir, nodeName)
 
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

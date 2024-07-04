@@ -63,7 +63,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -202,15 +201,6 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 		panic(err)
 	}
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
-}
-
-func RemoveHostDiskImage(diskPath string, nodeName string) {
-	virtClient := kubevirt.Client()
-	procPath := filepath.Join("/proc/1/root", diskPath)
-	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
-	Expect(err).ToNot(HaveOccurred())
-	_, _, err = exec.ExecuteCommandOnPodWithResults(virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
-	Expect(err).ToNot(HaveOccurred())
 }
 
 // RunCommandOnVmiPod runs specified command on the virt-launcher pod
@@ -503,11 +493,6 @@ func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
-}
-
-func RandTmpDir() string {
-	const tmpPath = "/var/provision/kubevirt.io/tests"
-	return filepath.Join(tmpPath, rand.String(10))
 }
 
 func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
