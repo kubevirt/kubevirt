@@ -116,18 +116,6 @@ func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, 
 	)
 }
 
-func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
-	virtCli := kubevirt.Client()
-
-	var err error
-	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
-}
-
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
@@ -150,15 +138,15 @@ func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) 
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-	if err != nil {
-		return "", err
-	}
-
 	// get current vmi
 	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get vmi, %s", err)
+	}
+
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(freshVMI, testsuite.GetTestNamespace(freshVMI))
+	if err != nil {
+		return "", err
 	}
 
 	command := []string{"virsh"}

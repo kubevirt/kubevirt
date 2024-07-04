@@ -279,7 +279,8 @@ var _ = SIGDescribe("Storage", func() {
 						if !imageOwnedByQEMU {
 							targetImagePath, nodeName = copyAlpineWithNonQEMUPermissions()
 						}
-						nfsPod = storageframework.InitNFS(targetImagePath, nodeName)
+						nfsPod, err = storageframework.InitNFS(targetImagePath, nodeName)
+						Expect(err).ToNot(HaveOccurred())
 						pvName = createNFSPvAndPvc(family, nfsPod)
 					} else {
 						pvName = tests.DiskAlpineHostPath
@@ -440,7 +441,8 @@ var _ = SIGDescribe("Storage", func() {
 
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
-						nfsPod = storageframework.InitNFS(testsuite.HostPathAlpine, "")
+						nfsPod, err = storageframework.InitNFS(testsuite.HostPathAlpine, "")
+						Expect(err).ToNot(HaveOccurred())
 						pvName = createNFSPvAndPvc(family, nfsPod)
 					} else {
 						pvName = tests.DiskAlpineHostPath

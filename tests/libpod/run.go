@@ -29,22 +29,17 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
+func Run(pod *k8sv1.Pod, namespace string) (*k8sv1.Pod, error) {
+	var err error
 	virtClient := kubevirt.Client()
 
-	var err error
 	pod, err = virtClient.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(matcher.ThisPod(pod), 180).Should(matcher.BeInPhase(k8sv1.PodRunning))
+	if err != nil {
+		return nil, err
+	}
 
-	pod, err = matcher.ThisPod(pod)()
-	Expect(err).ToNot(HaveOccurred())
-	return pod
-}
-
-func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
-	return RunPodInNamespace(pod, testsuite.GetTestNamespace(pod))
+	EventuallyWithOffset(1, matcher.ThisPod(pod), 180).Should(matcher.BeInPhase(k8sv1.PodRunning))
+	return matcher.ThisPod(pod)()
 }

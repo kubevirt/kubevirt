@@ -3022,12 +3022,17 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))
 
 			By("reserving the cores used by the VMI on the second node with a paused pod")
-			var pods []*k8sv1.Pod
-			var pausedPod *k8sv1.Pod
 			libnode.AddLabelToNode(nodes[1].Name, testLabel2, "true")
-			for pausedPod = libpod.RunPod(pausePod); !hasCommonCores(vmi, pausedPod); pausedPod = libpod.RunPod(pausePod) {
-				pods = append(pods, pausedPod)
+
+			var pods []*k8sv1.Pod
+			ns := testsuite.GetTestNamespace(pausePod)
+			pausedPod, err := libpod.Run(pausePod, ns)
+			Expect(err).ToNot(HaveOccurred())
+			for !hasCommonCores(vmi, pausedPod) {
 				By("creating another paused pod since last didn't have common cores with the VMI")
+				pods = append(pods, pausedPod)
+				pausedPod, err = libpod.Run(pausePod, ns)
+				Expect(err).ToNot(HaveOccurred())
 			}
 
 			By("deleting the paused pods that don't have cores in common with the VMI")
