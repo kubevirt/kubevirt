@@ -203,24 +203,6 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }
 
-// RunCommandOnVmiPod runs specified command on the virt-launcher pod
-func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string {
-	virtClient := kubevirt.Client()
-	pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), UnfinishedVMIPodSelector(vmi))
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
-	vmiPod := pods.Items[0]
-
-	output, err := exec.ExecuteCommandOnPod(
-		&vmiPod,
-		"compute",
-		command,
-	)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	return output
-}
-
 func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
 	By("Stopping the VirtualMachineInstance")
 	virtClient := kubevirt.Client()

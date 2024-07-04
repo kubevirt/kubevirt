@@ -337,7 +337,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			}, 30*time.Second, 10*time.Second).ShouldNot(BeEmpty(), "VMI SELinux context status never got set")
 
 			By("Ensuring the VMI SELinux context status matches the virt-launcher pod files")
-			stdout := tests.RunCommandOnVmiPod(vmi, []string{"ls", "-lZd", "/"})
+			stdout := libpod.RunCommandOnVmiPod(vmi, []string{"ls", "-lZd", "/"})
 			Expect(stdout).To(ContainSubstring(seContext))
 
 			By("Migrating the VMI")
@@ -361,7 +361,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			Expect(pod.Spec.SecurityContext.SELinuxOptions.Level).To(Equal(strings.Join(ctx[3:], ":")))
 
 			By("Ensuring the target virt-launcher has the same SELinux context as the source")
-			stdout = tests.RunCommandOnVmiPod(vmi, []string{"ls", "-lZd", "/"})
+			stdout = libpod.RunCommandOnVmiPod(vmi, []string{"ls", "-lZd", "/"})
 			Expect(stdout).To(ContainSubstring(seContext))
 		})
 	})

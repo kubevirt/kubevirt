@@ -359,7 +359,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Eventually(ThisVMI(vmi), 60).Should(BeInPhase(v1.Scheduled))
 
 			By("Querying virsh nodesevinfo")
-			nodeSevInfo := tests.RunCommandOnVmiPod(vmi, []string{"virsh", "nodesevinfo"})
+			nodeSevInfo := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "nodesevinfo"})
 			Expect(nodeSevInfo).ToNot(BeEmpty())
 			entries := parseVirshInfo(nodeSevInfo, []string{"pdh", "cert-chain"})
 			expectedSEVPlatformInfo.PDH = entries["pdh"]
@@ -379,7 +379,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Eventually(ThisVMI(vmi), 60).Should(And(BeRunning(), HaveConditionTrue(v1.VirtualMachineInstancePaused)))
 
 			By("Querying virsh domlaunchsecinfo 1")
-			domLaunchSecInfo := tests.RunCommandOnVmiPod(vmi, []string{"virsh", "domlaunchsecinfo", "1"})
+			domLaunchSecInfo := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "domlaunchsecinfo", "1"})
 			Expect(domLaunchSecInfo).ToNot(BeEmpty())
 			entries = parseVirshInfo(domLaunchSecInfo, []string{
 				"sev-measurement", "sev-api-major", "sev-api-minor", "sev-build-id", "sev-policy",
@@ -397,7 +397,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(domainSpec.OS.BootLoader.Path).ToNot(BeEmpty())
 
 			By(fmt.Sprintf("Computing sha256sum %s", domainSpec.OS.BootLoader.Path))
-			sha256sum := tests.RunCommandOnVmiPod(vmi, []string{"sha256sum", domainSpec.OS.BootLoader.Path})
+			sha256sum := libpod.RunCommandOnVmiPod(vmi, []string{"sha256sum", domainSpec.OS.BootLoader.Path})
 			Expect(sha256sum).ToNot(BeEmpty())
 			expectedSEVMeasurementInfo.LoaderSHA = strings.TrimSpace(strings.Split(sha256sum, " ")[0])
 			Expect(expectedSEVMeasurementInfo.LoaderSHA).To(HaveLen(64))

@@ -25,6 +25,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -230,7 +231,7 @@ func GenerateMigrationCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.N
 }
 
 func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
-	domXML := tests.RunCommandOnVmiPod(vmi, []string{"virsh", "dumpxml", "1"})
+	domXML := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "dumpxml", "1"})
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(domXML)))
 
 	var location = make([]string, 0)

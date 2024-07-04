@@ -62,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -694,7 +695,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			By("Verifying the block devices are still accessible")
 			for _, dev := range blockDevices {
 				By(fmt.Sprintf("Verifying %s", dev))
-				output := tests.RunCommandOnVmiPod(vmi, []string{
+				output := libpod.RunCommandOnVmiPod(vmi, []string{
 					"dd", fmt.Sprintf("if=%s", dev), "of=/dev/null", "bs=1", "count=1", "status=none",
 				})
 				Expect(output).To(BeEmpty())

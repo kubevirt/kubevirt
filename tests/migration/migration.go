@@ -936,7 +936,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Waiting for the agent to set the right time")
 				Eventually(func() error {
 					// get current time on the node
-					output := tests.RunCommandOnVmiPod(vmi, []string{"date", "+%H:%M"})
+					output := libpod.RunCommandOnVmiPod(vmi, []string{"date", "+%H:%M"})
 					expectedTime := strings.TrimSpace(output)
 					log.DefaultLogger().Infof("expoected time: %v", expectedTime)
 

@@ -27,6 +27,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
@@ -42,4 +45,15 @@ func Run(pod *k8sv1.Pod, namespace string) (*k8sv1.Pod, error) {
 
 	EventuallyWithOffset(1, matcher.ThisPod(pod), 180).Should(matcher.BeInPhase(k8sv1.PodRunning))
 	return matcher.ThisPod(pod)()
+}
+
+// RunCommandOnVmiPod runs specified command on the virt-launcher pod
+func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string {
+	pod, err := GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, pod).NotTo(BeNil())
+
+	output, err := exec.ExecuteCommandOnPod(pod, "compute", command)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return output
 }

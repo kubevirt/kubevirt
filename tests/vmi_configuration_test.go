@@ -1810,7 +1810,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libwait.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Checking the CPU model under the guest OS")
-				output := tests.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
+				output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
 
 				niceName := parseCPUNiceName(output)
 
@@ -1832,7 +1832,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(cpuVmi)
 
-				output := tests.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
+				output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
 
 				niceName := parseCPUNiceName(output)
 
