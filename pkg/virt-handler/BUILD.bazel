@@ -27,6 +27,7 @@ go_library(
         "//pkg/network/domainspec:go_default_library",
         "//pkg/network/errors:go_default_library",
         "//pkg/network/namescheme:go_default_library",
+        "//pkg/network/netbinding:go_default_library",
         "//pkg/network/setup:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",
