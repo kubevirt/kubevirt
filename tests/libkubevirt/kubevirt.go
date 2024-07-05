@@ -29,9 +29,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func GetCurrentKv(virtClient kubecli.KubevirtClient) *v1.KubeVirt {
@@ -41,28 +38,15 @@ func GetCurrentKv(virtClient kubecli.KubevirtClient) *v1.KubeVirt {
 }
 
 func GetKvList(virtClient kubecli.KubevirtClient) []v1.KubeVirt {
-	var kvListInstallNS *v1.KubeVirtList
-	var kvListDefaultNS *v1.KubeVirtList
-	var items []v1.KubeVirt
-
+	var kvList *v1.KubeVirtList
 	var err error
 
 	gomega.Eventually(func() error {
 
-		kvListInstallNS, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+		kvList, err = virtClient.KubeVirt(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(gomega.HaveOccurred())
 
-	gomega.Eventually(func() error {
-
-		kvListDefaultNS, err = virtClient.KubeVirt(testsuite.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
-
-		return err
-	}, 10*time.Second, 1*time.Second).ShouldNot(gomega.HaveOccurred())
-
-	items = append(items, kvListInstallNS.Items...)
-	items = append(items, kvListDefaultNS.Items...)
-
-	return items
+	return kvList.Items
 }
