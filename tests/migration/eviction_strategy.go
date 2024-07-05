@@ -266,11 +266,11 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vmiSelector := v1.AppLabel + "=virt-launcher"
 					k8sClient := clientcmd.GetK8sCmdClient()
 					if k8sClient == "oc" {
-						_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+						_, _, err := clientcmd.RunCommand("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 							"--ignore-daemonsets=true", "--force", "--timeout=180s")
 						Expect(err).ToNot(HaveOccurred())
 					} else {
-						_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+						_, _, err := clientcmd.RunCommand("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 							"--ignore-daemonsets=true", "--force", "--timeout=180s")
 						Expect(err).ToNot(HaveOccurred())
 					}
