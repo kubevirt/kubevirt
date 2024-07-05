@@ -44,6 +44,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
@@ -118,6 +119,27 @@ func GetNodeDrainKey() string {
 	}
 
 	return virtconfig.NodeDrainTaintDefaultKey
+}
+
+// TemporaryNodeDrain also sets the `NoSchedule` taint on the node.
+// nodes with this taint will be reset to their original state on each
+// test teardown by the test framework. Check `libnode.CleanNodes`.
+func TemporaryNodeDrain(nodeName string) {
+	Taint(nodeName, GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
+
+	// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
+	// time that we call it.
+	vmiSelector := v1.AppLabel + "=virt-launcher"
+	k8sClient := clientcmd.GetK8sCmdClient()
+	if k8sClient == "oc" {
+		_, _, err := clientcmd.RunCommand("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			"--ignore-daemonsets=true", "--force", "--timeout=180s")
+		Expect(err).ToNot(HaveOccurred())
+	} else {
+		_, _, err := clientcmd.RunCommand("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			"--ignore-daemonsets=true", "--force", "--timeout=180s")
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
 type mapType string
