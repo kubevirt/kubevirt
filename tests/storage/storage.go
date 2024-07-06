@@ -704,12 +704,12 @@ var _ = SIGDescribe("Storage", func() {
 						diskName = fmt.Sprintf("disk-%s.img", uuid.NewString())
 						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
-						job := CreateDiskOnHost(diskPath)
-						job, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), job, metav1.CreateOptions{})
+						pod := CreateDiskOnHost(diskPath)
+						pod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						Eventually(ThisPod(job), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
-						pod, err := ThisPod(job)()
+						Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+						pod, err = ThisPod(pod)()
 						Expect(err).NotTo(HaveOccurred())
 						nodeName = pod.Spec.NodeName
 					})
