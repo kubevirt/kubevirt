@@ -461,7 +461,6 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		downwardmetricsOverhead *resource.Quantity
 		sevOverhead             *resource.Quantity
 		tpmOverhead             *resource.Quantity
-		passtOverhead           *resource.Quantity
 	)
 
 	BeforeEach(func() {
@@ -488,7 +487,6 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		downwardmetricsOverhead = pointer.P(resource.MustParse("1Mi"))
 		sevOverhead = pointer.P(resource.MustParse("256Mi"))
 		tpmOverhead = pointer.P(resource.MustParse("53Mi"))
-		passtOverhead = pointer.P(resource.MustParse("800Mi"))
 	})
 
 	When("the vmi is not requesting any specific device or cpu or whatever", func() {
@@ -663,31 +661,6 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*videoRAMOverhead)
 			expected.Add(*coresOverhead)
 			expected.Add(*tpmOverhead)
-			overhead := GetMemoryOverhead(vmi, "amd64", nil)
-			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
-		})
-	})
-
-	When("the vmi requests interfaces with Passt binding", func() {
-		BeforeEach(func() {
-			vmi.Spec.Domain.Devices = v1.Devices{
-				Interfaces: []v1.Interface{
-					{Name: "passt1", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}},
-					{Name: "passt2", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}},
-					{Name: "passt3", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}},
-					{Name: "nonpasst", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-				},
-			}
-		})
-
-		It("should add passt overhead for each interface", func() {
-			expected := resource.NewScaledQuantity(0, resource.Kilo)
-			expected.Add(*baseOverhead)
-			expected.Add(*staticOverhead)
-			expected.Add(*videoRAMOverhead)
-			expected.Add(*coresOverhead)
-			value := passtOverhead.Value() * 3
-			expected.Add(*resource.NewQuantity(value, passtOverhead.Format))
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		})

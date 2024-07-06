@@ -33,10 +33,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 var _ = Describe("[sig-compute]Health Monitoring", decorators.SigCompute, func() {
@@ -50,7 +52,7 @@ var _ = Describe("[sig-compute]Health Monitoring", decorators.SigCompute, func()
 	Describe("A VirtualMachineInstance with a watchdog device", func() {
 		It("[test_id:4641]should be shut down when the watchdog expires", func() {
 			vmi := tests.RunVMIAndExpectLaunch(
-				libvmi.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff)), 360)
+				libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff)), 360)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -68,7 +70,7 @@ var _ = Describe("[sig-compute]Health Monitoring", decorators.SigCompute, func()
 
 			By("Checking that the VirtualMachineInstance has Failed status")
 			Eventually(func() v1.VirtualMachineInstancePhase {
-				startedVMI, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+				startedVMI, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 
 				Expect(err).ToNot(HaveOccurred())
 				return startedVMI.Status.Phase

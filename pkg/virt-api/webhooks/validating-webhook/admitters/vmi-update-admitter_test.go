@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/types"
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authentication/v1"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/api"
 
@@ -59,20 +61,175 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			Phase: v1.KubeVirtPhaseDeploying,
 		},
 	}
-	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiUpdateAdmitter := &VMIUpdateAdmitter{config}
 
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
 	AfterEach(func() {
 		disableFeatureGates()
+	})
+
+	Context("Node restriction", func() {
+		mustMarshal := func(vmi *v1.VirtualMachineInstance) []byte {
+			b, err := json.Marshal(vmi)
+			Expect(err).To(Not(HaveOccurred()))
+			return b
+		}
+
+		admissionWithCustomUpdate := func(vmi, updatedVMI *v1.VirtualMachineInstance, handlernode string) *admissionv1.AdmissionReview {
+			newVMIBytes := mustMarshal(updatedVMI)
+			oldVMIBytes := mustMarshal(vmi)
+			return &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					UserInfo: authv1.UserInfo{
+						Username: "system:serviceaccount:kubevirt:kubevirt-handler",
+						Extra: map[string]authv1.ExtraValue{
+							"authentication.kubernetes.io/node-name": {handlernode},
+						},
+					},
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: newVMIBytes,
+					},
+					OldObject: runtime.RawExtension{
+						Raw: oldVMIBytes,
+					},
+					Operation: admissionv1.Update,
+				},
+			}
+		}
+
+		admission := func(vmi *v1.VirtualMachineInstance, handlernode string) *admissionv1.AdmissionReview {
+			updatedVMI := vmi.DeepCopy()
+			if updatedVMI.Labels == nil {
+				updatedVMI.Labels = map[string]string{}
+			}
+			updatedVMI.Labels["allowed.io"] = "value"
+			return admissionWithCustomUpdate(vmi, updatedVMI, handlernode)
+		}
+
+		Context("with Node Restriction feature gate enabled", func() {
+			BeforeEach(func() { enableFeatureGate(virtconfig.NodeRestrictionGate) })
+
+			shouldNotAllowCrossNodeRequest := And(
+				WithTransform(func(resp *admissionv1.AdmissionResponse) bool { return resp.Allowed },
+					BeFalse(),
+				),
+				WithTransform(func(resp *admissionv1.AdmissionResponse) []metav1.StatusCause { return resp.Result.Details.Causes },
+					ContainElement(
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Message": Equal("Node restriction, virt-handler is only allowed to modify VMIs it owns"),
+						}),
+					),
+				),
+			)
+
+			shouldBeAllowed := WithTransform(func(resp *admissionv1.AdmissionResponse) bool { return resp.Allowed },
+				BeTrue(),
+			)
+
+			DescribeTable("and NodeName set", func(handlernode string, matcher types.GomegaMatcher) {
+				vmi := api.NewMinimalVMI("testvmi")
+				vmi.Status.NodeName = "got"
+
+				resp := vmiUpdateAdmitter.Admit(admission(vmi, handlernode))
+				Expect(resp).To(matcher)
+			},
+				Entry("should deny request if handler is on different node", "diff",
+					shouldNotAllowCrossNodeRequest,
+				),
+				Entry("should allow request if handler is on same node", "got",
+					shouldBeAllowed,
+				),
+			)
+
+			DescribeTable("and TargetNode set", func(handlernode string, matcher types.GomegaMatcher) {
+				vmi := api.NewMinimalVMI("testvmi")
+				vmi.Status.NodeName = "got"
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					TargetNode: "git",
+				}
+
+				resp := vmiUpdateAdmitter.Admit(admission(vmi, handlernode))
+				Expect(resp).To(matcher)
+			},
+				Entry("should deny request if handler is on different node", "diff",
+					shouldNotAllowCrossNodeRequest,
+				),
+				Entry("should allow request if handler is on same node", "git",
+					shouldBeAllowed,
+				),
+			)
+
+			DescribeTable("and both NodeName and TargetNode set", func(handlernode string, matcher types.GomegaMatcher) {
+				vmi := api.NewMinimalVMI("testvmi")
+				vmi.Status.NodeName = "got"
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					TargetNode: "target",
+				}
+
+				resp := vmiUpdateAdmitter.Admit(admission(vmi, handlernode))
+				Expect(resp).To(matcher)
+			},
+				Entry("should deny request if handler is on different node", "diff",
+					shouldNotAllowCrossNodeRequest,
+				),
+				Entry("should allow request if handler is on source node", "got",
+					shouldBeAllowed,
+				),
+
+				Entry("should allow request if handler is on target node", "target",
+					shouldBeAllowed,
+				),
+			)
+
+			It("should allow finalize migration", func() {
+				vmi := api.NewMinimalVMI("testvmi")
+				vmi.Status.NodeName = "got"
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					TargetNode: "target",
+				}
+
+				updatedVMI := vmi.DeepCopy()
+				updatedVMI.Status.NodeName = "target"
+
+				resp := vmiUpdateAdmitter.Admit(admissionWithCustomUpdate(vmi, updatedVMI, "got"))
+				Expect(resp.Allowed).To(BeTrue())
+			})
+
+			It("should not allow to set targetNode to source handler", func() {
+				vmi := api.NewMinimalVMI("testvmi")
+				vmi.Status.NodeName = "got"
+
+				updatedVMI := vmi.DeepCopy()
+				updatedVMI.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					TargetNode: "target",
+				}
+				resp := vmiUpdateAdmitter.Admit(admissionWithCustomUpdate(vmi, updatedVMI, "got"))
+				Expect(resp.Allowed).To(BeFalse())
+			})
+		})
+
+		DescribeTable("with Node Restriction feature gate disabled should allow different handler", func(migrationState *v1.VirtualMachineInstanceMigrationState) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Status.NodeName = "got"
+			vmi.Status.MigrationState = migrationState
+
+			resp := vmiUpdateAdmitter.Admit(admission(vmi, "diff"))
+			Expect(resp.Allowed).To(BeTrue())
+		},
+			Entry("when TargetNode is not set", nil),
+			Entry("when TargetNode is set", &v1.VirtualMachineInstanceMigrationState{TargetNode: "git"}),
+		)
+
 	})
 
 	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
@@ -427,6 +584,16 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		return res
 	}
 
+	makeDisksWithIOThreads := func(indexes ...int) []v1.Disk {
+		res := makeDisks(indexes...)
+		for i, index := range indexes {
+			if i == len(indexes)-1 {
+				res[index].DedicatedIOThread = pointer.BoolPtr(true)
+			}
+		}
+		return res
+	}
+
 	makeDisksInvalidBootOrder := func(indexes ...int) []v1.Disk {
 		res := makeDisks(indexes...)
 		bootOrder := uint(0)
@@ -583,6 +750,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeFilesystems(),
 			makeStatus(2, 1),
 			nil),
+		Entry("Should reject if we hotplug a volume with dedicated IOThreads",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeDisksWithIOThreads(0, 1),
+			makeDisks(0),
+			makeFilesystems(),
+			makeStatus(1, 0),
+			makeExpected("hotplugged Disk volume-name-1 can't use dedicated IOThread: scsi bus is unsupported.", "")),
 		Entry("Should accept if we add LUN disk with valid SCSI bus",
 			makeVolumes(0, 1),
 			makeVolumes(0, 1),

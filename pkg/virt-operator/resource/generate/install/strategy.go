@@ -56,7 +56,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
@@ -84,20 +83,22 @@ type Strategy struct {
 
 	crds []*extv1.CustomResourceDefinition
 
-	services                        []*corev1.Service
-	deployments                     []*appsv1.Deployment
-	daemonSets                      []*appsv1.DaemonSet
-	validatingWebhookConfigurations []*admissionregistrationv1.ValidatingWebhookConfiguration
-	mutatingWebhookConfigurations   []*admissionregistrationv1.MutatingWebhookConfiguration
-	apiServices                     []*apiregv1.APIService
-	certificateSecrets              []*corev1.Secret
-	sccs                            []*secv1.SecurityContextConstraints
-	serviceMonitors                 []*promv1.ServiceMonitor
-	prometheusRules                 []*promv1.PrometheusRule
-	configMaps                      []*corev1.ConfigMap
-	routes                          []*routev1.Route
-	instancetypes                   []*instancetypev1beta1.VirtualMachineClusterInstancetype
-	preferences                     []*instancetypev1beta1.VirtualMachineClusterPreference
+	services                          []*corev1.Service
+	deployments                       []*appsv1.Deployment
+	daemonSets                        []*appsv1.DaemonSet
+	validatingWebhookConfigurations   []*admissionregistrationv1.ValidatingWebhookConfiguration
+	mutatingWebhookConfigurations     []*admissionregistrationv1.MutatingWebhookConfiguration
+	apiServices                       []*apiregv1.APIService
+	certificateSecrets                []*corev1.Secret
+	sccs                              []*secv1.SecurityContextConstraints
+	serviceMonitors                   []*promv1.ServiceMonitor
+	prometheusRules                   []*promv1.PrometheusRule
+	configMaps                        []*corev1.ConfigMap
+	routes                            []*routev1.Route
+	instancetypes                     []*instancetypev1beta1.VirtualMachineClusterInstancetype
+	preferences                       []*instancetypev1beta1.VirtualMachineClusterPreference
+	validatingAdmissionPolicyBindings []*admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	validatingAdmissionPolicies       []*admissionregistrationv1.ValidatingAdmissionPolicy
 }
 
 func (ins *Strategy) ServiceAccounts() []*corev1.ServiceAccount {
@@ -221,6 +222,14 @@ func (ins *Strategy) Preferences() []*instancetypev1beta1.VirtualMachineClusterP
 	return ins.preferences
 }
 
+func (ins *Strategy) ValidatingAdmissionPolicyBindings() []*admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+	return ins.validatingAdmissionPolicyBindings
+}
+
+func (ins *Strategy) ValidatingAdmissionPolicies() []*admissionregistrationv1.ValidatingAdmissionPolicy {
+	return ins.validatingAdmissionPolicies
+}
+
 func encodeManifests(manifests []byte) (string, error) {
 	var buf bytes.Buffer
 
@@ -306,7 +315,7 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
 
-	config, err := util.GetConfigFromEnv()
+	config, err := operatorutil.GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
@@ -372,6 +381,12 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.mutatingWebhookConfigurations {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.validatingAdmissionPolicyBindings {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.validatingAdmissionPolicies {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.apiServices {
@@ -526,7 +541,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), productName, productVersion, productComponent, config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
 	}
@@ -540,7 +555,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 	strategy.deployments = append(strategy.deployments, exportProxyDeployment)
 
-	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
+	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
@@ -552,6 +567,10 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecrets(operatorNamespace)...)
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
 	strategy.routes = append(strategy.routes, components.GetAllRoutes(operatorNamespace)...)
+
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, components.NewHandlerV1ValidatingAdmissionPolicyBinding())
+	virtHandlerServiceAccount := getVirtHandlerServiceAccount(config.GetNamespace())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, components.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
 
 	instancetypes, err := components.NewClusterInstancetypes()
 	if err != nil {
@@ -566,6 +585,11 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.preferences = preferences
 
 	return strategy, nil
+}
+
+func getVirtHandlerServiceAccount(namespace string) string {
+	prefix := fmt.Sprintf("system:serviceaccount:%s", namespace)
+	return fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName)
 }
 
 func mostRecentConfigMap(configMaps []*corev1.ConfigMap) *corev1.ConfigMap {
@@ -603,7 +627,7 @@ func getManifests(configMap *corev1.ConfigMap) (string, error) {
 	return manifests, nil
 }
 
-func LoadInstallStrategyFromCache(stores util.Stores, config *operatorutil.KubeVirtDeploymentConfig) (*Strategy, error) {
+func LoadInstallStrategyFromCache(stores operatorutil.Stores, config *operatorutil.KubeVirtDeploymentConfig) (*Strategy, error) {
 	var matchingConfigMaps []*corev1.ConfigMap
 
 	for _, obj := range stores.InstallStrategyConfigMapCache.List() {
@@ -675,6 +699,20 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 			}
 			webhook.TypeMeta = obj
 			strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, webhook)
+		case "ValidatingAdmissionPolicyBinding":
+			validatingAdmissionPolicyBinding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{}
+			if err := yaml.Unmarshal([]byte(entry), &validatingAdmissionPolicyBinding); err != nil {
+				return nil, err
+			}
+			validatingAdmissionPolicyBinding.TypeMeta = obj
+			strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, validatingAdmissionPolicyBinding)
+		case "ValidatingAdmissionPolicy":
+			validatingAdmissionPolicy := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+			if err := yaml.Unmarshal([]byte(entry), &validatingAdmissionPolicy); err != nil {
+				return nil, err
+			}
+			validatingAdmissionPolicy.TypeMeta = obj
+			strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, validatingAdmissionPolicy)
 		case "APIService":
 			apiService := &apiregv1.APIService{}
 			if err := yaml.Unmarshal([]byte(entry), &apiService); err != nil {

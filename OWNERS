@@ -9,7 +9,7 @@ filters:
     emeritus_approvers:
       - emeritus_approvers
 
-  "BUILD.bazel|WORKSPACE|.bazel.*|.fossa.yml|cluster-up-sha.txt":
+  "cluster-up/.*|WORKSPACE|.bazel.*|.fossa.yml|cluster-up-sha.txt":
     reviewers:
       - sig-buildsystem-reviewers
     approvers:
@@ -23,3 +23,16 @@ filters:
        - sig-test-approvers
     labels:
       - sig/test
+  ".golangci.yml":
+    approvers:
+      - sig-test-approvers
+      - sig-compute-approvers
+      - sig-network-approvers
+
+  "docs/metrics.md":
+    reviewers:
+      - sig-observability-reviewers
+    approvers:
+      - sig-observability-approvers
+    labels:
+      - sig/observability

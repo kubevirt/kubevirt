@@ -13,7 +13,7 @@ go_library(
         "//pkg/downwardmetrics/vhostmd:go_default_library",
         "//pkg/downwardmetrics/vhostmd/api:go_default_library",
         "//pkg/downwardmetrics/vhostmd/metrics:go_default_library",
-        "//pkg/monitoring/domainstats:go_default_library",
+        "//pkg/monitoring/metrics/virt-handler/domainstats/collector:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",

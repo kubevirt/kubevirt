@@ -31,8 +31,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
-	exportv1 "kubevirt.io/api/export/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -158,7 +158,10 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 	}
 
 	// leaving source name and namespace blank because we don't care in this context
-	pvc := snapshot.CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	pvc, err := snapshot.CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	if err != nil {
+		return nil, err
+	}
 	if volumeBackupIsKubeVirtContent(volumeBackup, sourceVm) {
 		if len(pvc.GetAnnotations()) == 0 {
 			pvc.SetAnnotations(make(map[string]string))

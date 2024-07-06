@@ -22,6 +22,8 @@ package libpod
 import (
 	"fmt"
 
+	virtv1 "kubevirt.io/api/core/v1"
+
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -40,4 +42,17 @@ func LookupContainer(pod *v1.Pod, containerName string) *v1.Container {
 		}
 	}
 	panic(fmt.Errorf("could not find the %s container", containerName))
+}
+
+func LookupComputeContainerFromVmi(vmi *virtv1.VirtualMachineInstance) (*v1.Container, error) {
+	if vmi.Namespace == "" {
+		return nil, fmt.Errorf("vmi namespace is empty")
+	}
+
+	pod, err := GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return LookupComputeContainer(pod), nil
 }

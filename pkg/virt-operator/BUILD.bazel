@@ -14,6 +14,7 @@ go_library(
     deps = [
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/virt-operator:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
         "//pkg/service:go_default_library",
@@ -84,7 +85,6 @@ go_test(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",
-        "//tests:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

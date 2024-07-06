@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -91,6 +90,15 @@ func IsReadOnlyAccessMode(accessModes []k8sv1.PersistentVolumeAccessMode) bool {
 		}
 	}
 	return false
+}
+
+func IsReadWriteOnceAccessMode(accessModes []k8sv1.PersistentVolumeAccessMode) bool {
+	for _, accessMode := range accessModes {
+		if accessMode == k8sv1.ReadOnlyMany || accessMode == k8sv1.ReadWriteMany {
+			return false
+		}
+	}
+	return true
 }
 
 func IsPreallocated(annotations map[string]string) bool {
@@ -195,14 +203,14 @@ func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcStore cache.Sto
 	return false
 }
 
-func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume, dataVolumeInformer, pvcInformer cache.SharedInformer) (bool, bool, error) {
+func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume, dataVolumeStore, pvcStore cache.Store) (bool, bool, error) {
 	name := PVCNameFromVirtVolume(&volume)
 
-	dataVolumeFunc := DataVolumeByNameFunc(dataVolumeInformer, dataVolumes)
+	dataVolumeFunc := DataVolumeByNameFunc(dataVolumeStore, dataVolumes)
 	wffc := false
 	ready := false
 	// err is always nil
-	pvcInterface, pvcExists, _ := pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+	pvcInterface, pvcExists, _ := pvcStore.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 	if pvcExists {
 		var err error
 		pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
@@ -232,7 +240,7 @@ func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, acce
 			Namespace: namespace,
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
-			Resources: k8sv1.ResourceRequirements{
+			Resources: k8sv1.VolumeResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceStorage: *size,
 				},
@@ -251,9 +259,118 @@ func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, acce
 	}
 
 	if blockVolume {
-		volMode := v1.PersistentVolumeBlock
+		volMode := k8sv1.PersistentVolumeBlock
 		pvc.Spec.VolumeMode = &volMode
 	}
 
 	return pvc
+}
+
+func IsHotplugVolume(vol *virtv1.Volume) bool {
+	if vol == nil {
+		return false
+	}
+	volSrc := vol.VolumeSource
+	if volSrc.PersistentVolumeClaim != nil && volSrc.PersistentVolumeClaim.Hotpluggable {
+		return true
+	}
+	if volSrc.DataVolume != nil && volSrc.DataVolume.Hotpluggable {
+		return true
+	}
+	if volSrc.MemoryDump != nil && volSrc.MemoryDump.PersistentVolumeClaimVolumeSource.Hotpluggable {
+		return true
+	}
+
+	return false
+}
+
+func GetVolumesByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Volume {
+	volumes := map[string]*virtv1.Volume{}
+	for _, vol := range vmiSpec.Volumes {
+		volumes[vol.Name] = vol.DeepCopy()
+	}
+	return volumes
+}
+
+func GetDisksByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Disk {
+	disks := map[string]*virtv1.Disk{}
+	for _, disk := range vmiSpec.Domain.Devices.Disks {
+		disks[disk.Name] = disk.DeepCopy()
+	}
+	return disks
+}
+
+func Min(one, two int64) int64 {
+	if one < two {
+		return one
+	}
+	return two
+}
+
+// Get expected disk capacity - a minimum between the request and the PVC capacity.
+// Returns nil when we have insufficient data to calculate this minimum.
+func GetDiskCapacity(pvcInfo *virtv1.PersistentVolumeClaimInfo) *int64 {
+	logger := log.DefaultLogger()
+	storageCapacityResource, ok := pvcInfo.Capacity[k8sv1.ResourceStorage]
+	if !ok {
+		return nil
+	}
+	storageCapacity, ok := storageCapacityResource.AsInt64()
+	if !ok {
+		logger.Infof("Failed to convert storage capacity %+v to int64", storageCapacityResource)
+		return nil
+	}
+	storageRequestResource, ok := pvcInfo.Requests[k8sv1.ResourceStorage]
+	if !ok {
+		return nil
+	}
+	storageRequest, ok := storageRequestResource.AsInt64()
+	if !ok {
+		logger.Infof("Failed to convert storage request %+v to int64", storageRequestResource)
+		return nil
+	}
+	preferredSize := Min(storageRequest, storageCapacity)
+	return &preferredSize
+}
+
+func GetFilesystemsFromVolumes(vmi *virtv1.VirtualMachineInstance) map[string]*virtv1.Filesystem {
+	fs := map[string]*virtv1.Filesystem{}
+
+	for _, f := range vmi.Spec.Domain.Devices.Filesystems {
+		fs[f.Name] = f.DeepCopy()
+	}
+
+	return fs
+}
+
+func IsMigratedVolume(name string, vmi *virtv1.VirtualMachineInstance) bool {
+	for _, v := range vmi.Status.MigratedVolumes {
+		if v.VolumeName == name {
+			return true
+		}
+	}
+	return false
+}
+
+func GetTotalSizeMigratedVolumes(vmi *virtv1.VirtualMachineInstance) *resource.Quantity {
+	size := int64(0)
+	srcVols := make(map[string]bool)
+	for _, v := range vmi.Status.MigratedVolumes {
+		if v.SourcePVCInfo == nil {
+			continue
+		}
+		srcVols[v.SourcePVCInfo.ClaimName] = true
+	}
+	for _, vstatus := range vmi.Status.VolumeStatus {
+		if vstatus.PersistentVolumeClaimInfo == nil {
+			continue
+		}
+		if _, ok := srcVols[vstatus.PersistentVolumeClaimInfo.ClaimName]; ok {
+			if s := GetDiskCapacity(vstatus.PersistentVolumeClaimInfo); s != nil {
+				size += *s
+			}
+		}
+	}
+
+	return resource.NewScaledQuantity(size, resource.Giga)
 }

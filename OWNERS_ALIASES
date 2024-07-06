@@ -6,7 +6,6 @@ aliases:
     - stu-gott
     - fabiand
     - AlonaKaplan
-    - dhiller
     - jean-edouard
     - mhenriks
     - enp0s3
@@ -25,10 +24,10 @@ aliases:
     - codificat
     - ashleyschuett
     - zcahana
+    - dhiller # 2024-03-15
   code-reviewers:
     - stu-gott
     - vladikr
-    - dhiller
     - enp0s3
     - jean-edouard
     - AlonaKaplan
@@ -69,6 +68,7 @@ aliases:
     - ormergi
   sig-network-approvers:
     - AlonaKaplan
+    - EdDev
 
   #
   # SIG Scale
@@ -89,6 +89,7 @@ aliases:
   sig-storage-reviewers:
     - awels
     - akalenyu
+    - ShellyKa13
 
   #
   # SIG API
@@ -99,29 +100,15 @@ aliases:
   sig-api-reviewers: []
 
   #
-  # SIG Controllers
-  # Owns the knowledge about excellent controllers in kubevirt.
-  #
-  sig-controllers-approvers: []
-  sig-controllers-reviewers: []
-
-  #
-  # SIG Live Migration
-  # Owns the orchestration of live migrations, besides this keeping
-  # other teams honest to make sure that their features work well
-  # with Live Migration.
-  #
-  sig-live-migration-approvers: []
-  sig-live-migration-reviewers: []
-
-  #
-  # SIG Node
+  # SIG Compute
   # Owns everything which is taking place on a node, for example
   # (but not limited to) groups, SELinux, node labels, …
+  # And everything on the cluster level such as RBAC, controller, …
   #
-  sig-node-approvers:
+  sig-compute-approvers:
     - jean-edouard
-  sig-node-reviewers:
+    - iholder101
+  sig-compute-reviewers:
     - victortoso
 
   #
@@ -129,22 +116,35 @@ aliases:
   # Owns the responsibility to keep kubevirt observable by i.e.
   # having mertics, alters, and runbooks.
   #
-  sig-observability-approvers: []
-  sig-observability-reviewers: []
+  sig-observability-approvers:
+    - sradco
+    - machadovilaca
+  sig-observability-reviewers:
+    - machadovilaca
+    - avlitman
+    - assafad
 
   #
   # SIG Release
   # Owns the release process, including the schedule, and tools.
   #
-  sig-release-approvers: []
-  sig-release-reviewers: []
+  sig-release-approvers:
+    - acardace
+    - fossedihelm
+    - xpivarc
+  sig-release-reviewers:
+    - acardace
+    - fossedihelm
+    - xpivarc
 
   #
   # SIG Buildsystem
   # Owns bazel, and ensures that kubevirt can be build.
   #
   sig-buildsystem-approvers:
+    - brianmcarey
     - dhiller
+    - xpivarc
   sig-buildsystem-reviewers:
     - brianmcarey
     - enp0s3

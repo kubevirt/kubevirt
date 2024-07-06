@@ -83,7 +83,7 @@ fi`,
 // NewHelloWorldJob takes a DNS entry or an IP and a port which it will use to create a job
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
-func NewHelloWorldJobTCP(host string, port string) *batchv1.Job {
+func NewHelloWorldJobTCP(host, port string) *batchv1.Job {
 	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; \
 	  if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)
 	return NewHelloWorldJob(check)
@@ -92,7 +92,7 @@ func NewHelloWorldJobTCP(host string, port string) *batchv1.Job {
 // NewHelloWorldJobHTTP gets an IP address and a port, which it uses to create a pod.
 // This pod tries to contact the host on the provided port, over HTTP.
 // On success - it expects to receive "Hello World!".
-func NewHelloWorldJobHTTP(host string, port string) *batchv1.Job {
+func NewHelloWorldJobHTTP(host, port string) *batchv1.Job {
 	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl --silent %s:%s))"; echo "$x" ; \
 	  if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, libnet.FormatIPForURL(host), port)
 	return NewHelloWorldJob(check)
@@ -119,8 +119,7 @@ func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 	}
 
 	const finish = true
-	err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
-		var err error
+	poller := func(context.Context) (done bool, err error) {
 		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
 		if err != nil {
 			return finish, err
@@ -135,15 +134,14 @@ func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 				if c.Status == k8sv1.ConditionTrue {
 					return finish, jobFailedError(job)
 				}
-			case batchv1.JobSuspended:
-				break
-			case batchv1.JobFailureTarget:
+			case batchv1.JobSuspended, batchv1.JobFailureTarget, batchv1.JobSuccessCriteriaMet:
 				break
 			}
 		}
 		return !finish, nil
-	})
+	}
 
+	err := wait.PollUntilContextTimeout(context.Background(), time.Second, timeout, true, poller)
 	if err != nil {
 		return fmt.Errorf("job %s timeout reached, status: %+v, err: %v", job.Name, job.Status, err)
 	}

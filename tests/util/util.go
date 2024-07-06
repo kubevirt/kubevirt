@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"time"
 
 	"github.com/onsi/gomega"
@@ -36,14 +37,14 @@ func GetKvList(virtClient kubecli.KubevirtClient) []k6sv1.KubeVirt {
 
 	gomega.Eventually(func() error {
 
-		kvListInstallNS, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).List(&k8smetav1.ListOptions{})
+		kvListInstallNS, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).List(context.Background(), k8smetav1.ListOptions{})
 
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(gomega.HaveOccurred())
 
 	gomega.Eventually(func() error {
 
-		kvListDefaultNS, err = virtClient.KubeVirt(NamespaceTestDefault).List(&k8smetav1.ListOptions{})
+		kvListDefaultNS, err = virtClient.KubeVirt(NamespaceTestDefault).List(context.Background(), k8smetav1.ListOptions{})
 
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(gomega.HaveOccurred())

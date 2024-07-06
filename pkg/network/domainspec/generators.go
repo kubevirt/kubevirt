@@ -21,9 +21,7 @@ package domainspec
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/vishvananda/netlink"
 
@@ -31,7 +29,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
-	"kubevirt.io/kubevirt/pkg/network/istio"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -53,20 +50,6 @@ func NewTapLibvirtSpecGenerator(
 		domain:           domain,
 		podInterfaceName: podInterfaceName,
 		handler:          handler,
-	}
-}
-
-func NewPasstLibvirtSpecGenerator(
-	iface *v1.Interface,
-	domain *api.Domain,
-	podIfaceName string,
-	vmi *v1.VirtualMachineInstance,
-) *PasstLibvirtSpecGenerator {
-	return &PasstLibvirtSpecGenerator{
-		vmiSpecIface:     iface,
-		domain:           domain,
-		podInterfaceName: podIfaceName,
-		vmi:              vmi,
 	}
 }
 
@@ -134,87 +117,4 @@ func (b *TapLibvirtSpecGenerator) getTargetName() (string, error) {
 		return "", err
 	}
 	return tapName, nil
-}
-
-type PasstLibvirtSpecGenerator struct {
-	vmiSpecIface     *v1.Interface
-	domain           *api.Domain
-	podInterfaceName string
-	vmi              *v1.VirtualMachineInstance
-}
-
-const (
-	PasstLogFile      = "/var/run/kubevirt/passt.log" // #nosec G101
-	ifaceTypeUser     = "user"
-	ifaceBackendPasst = "passt"
-)
-
-func (b *PasstLibvirtSpecGenerator) Generate() error {
-	domainIface := LookupIfaceByAliasName(b.domain.Spec.Devices.Interfaces, b.vmiSpecIface.Name)
-	if domainIface == nil {
-		return fmt.Errorf("failed to find interface %s in domain spec", b.vmiSpecIface.Name)
-	}
-
-	generatedIface := b.generateInterface(domainIface)
-	*domainIface = *generatedIface
-
-	return nil
-}
-
-const (
-	protoTCP = "tcp"
-	protoUDP = "udp"
-)
-
-func (b *PasstLibvirtSpecGenerator) generateInterface(iface *api.Interface) *api.Interface {
-	ifaceCopy := iface.DeepCopy()
-
-	var mac *api.MAC
-	if b.vmiSpecIface.MacAddress != "" {
-		mac = &api.MAC{MAC: b.vmiSpecIface.MacAddress}
-	}
-
-	ifaceCopy.Type = ifaceTypeUser
-	ifaceCopy.Source = api.InterfaceSource{Device: b.podInterfaceName}
-	ifaceCopy.Backend = &api.InterfaceBackend{Type: ifaceBackendPasst, LogFile: PasstLogFile}
-	ifaceCopy.PortForward = b.generatePortForward()
-	ifaceCopy.MAC = mac
-
-	return ifaceCopy
-}
-
-func (b *PasstLibvirtSpecGenerator) generatePortForward() []api.InterfacePortForward {
-	var tcpPortsRange, udpPortsRange []api.InterfacePortForwardRange
-
-	if istio.ProxyInjectionEnabled(b.vmi) {
-		for _, port := range istio.ReservedPorts() {
-			tcpPortsRange = append(tcpPortsRange, api.InterfacePortForwardRange{Start: uint(port), Exclude: "yes"})
-		}
-	}
-
-	for _, port := range b.vmiSpecIface.Ports {
-		if strings.EqualFold(port.Protocol, protoTCP) || port.Protocol == "" {
-			tcpPortsRange = append(tcpPortsRange, api.InterfacePortForwardRange{Start: uint(port.Port)})
-		} else if strings.EqualFold(port.Protocol, protoUDP) {
-			udpPortsRange = append(udpPortsRange, api.InterfacePortForwardRange{Start: uint(port.Port)})
-		} else {
-			log.Log.Errorf("protocol %s is not supported by passt", port.Protocol)
-		}
-	}
-
-	var portsFwd []api.InterfacePortForward
-	if len(udpPortsRange) == 0 && len(tcpPortsRange) == 0 {
-		portsFwd = append(portsFwd,
-			api.InterfacePortForward{Proto: protoTCP},
-			api.InterfacePortForward{Proto: protoUDP},
-		)
-	}
-	if len(tcpPortsRange) > 0 {
-		portsFwd = append(portsFwd, api.InterfacePortForward{Proto: protoTCP, Ranges: tcpPortsRange})
-	}
-	if len(udpPortsRange) > 0 {
-		portsFwd = append(portsFwd, api.InterfacePortForward{Proto: protoUDP, Ranges: udpPortsRange})
-	}
-
-	return portsFwd
 }

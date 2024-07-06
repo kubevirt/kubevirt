@@ -41,14 +41,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+func clearGhostRecordCache() {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+	ghostRecordGlobalCache = make(map[string]ghostRecord)
+}
+
 var _ = Describe("Domain informer", func() {
-	var err error
 	var shareDir string
 	var podsDir string
-	var socketsDir string
 	var ghostCacheDir string
 	var informer cache.SharedInformer
 	var stopChan chan struct{}
@@ -65,6 +68,7 @@ var _ = Describe("Domain informer", func() {
 		stopChan = make(chan struct{})
 		wg = &sync.WaitGroup{}
 
+		var err error
 		shareDir, err = os.MkdirTemp("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
@@ -76,12 +80,7 @@ var _ = Describe("Domain informer", func() {
 
 		InitializeGhostRecordCache(ghostCacheDir)
 
-		cmdclient.SetLegacyBaseDir(shareDir)
 		cmdclient.SetPodsBaseDir(podsDir)
-
-		socketsDir = filepath.Join(shareDir, "sockets")
-		os.Mkdir(socketsDir, 0755)
-		os.Mkdir(filepath.Join(socketsDir, "1234"), 0755)
 
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
 		os.MkdirAll(filepath.Dir(socketPath), 0755)
@@ -102,19 +101,18 @@ var _ = Describe("Domain informer", func() {
 		DeleteGhostRecord("test", "test")
 	})
 
-	verifyObj := func(key string, domain *api.Domain) {
+	verifyObj := func(key string, domain *api.Domain, g Gomega) {
 		obj, exists, err := informer.GetStore().GetByKey(key)
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
 
 		if domain != nil {
-			Expect(exists).To(BeTrue())
+			g.Expect(exists).To(BeTrue())
 
 			eventDomain := obj.(*api.Domain)
 			eventDomain.Spec.XMLName = xml.Name{}
-			Expect(equality.Semantic.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
+			g.Expect(equality.Semantic.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
 		} else {
-
-			Expect(exists).To(BeFalse())
+			g.Expect(exists).To(BeFalse())
 		}
 	}
 
@@ -172,7 +170,7 @@ var _ = Describe("Domain informer", func() {
 			_, exists := ghostRecordGlobalCache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
 
-			exists, err = diskutils.FileExists(filepath.Join(ghostRecordDir, "1234-1"))
+			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 
@@ -182,7 +180,7 @@ var _ = Describe("Domain informer", func() {
 			_, exists = ghostRecordGlobalCache["test1-namespace/test1"]
 			Expect(exists).To(BeFalse())
 
-			exists, err = diskutils.FileExists(filepath.Join(ghostRecordDir, "1234-1"))
+			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeFalse())
 
@@ -281,7 +279,7 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			verifyObj("default/test", domain)
+			verifyObj("default/test", domain, Default)
 		})
 
 		It("should resync active domains after resync period.", func() {
@@ -309,7 +307,7 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			verifyObj("default/test", domain)
+			verifyObj("default/test", domain, Default)
 
 			time.Sleep(time.Duration(resyncPeriod+1) * time.Second)
 
@@ -322,41 +320,6 @@ var _ = Describe("Domain informer", func() {
 
 			Expect(ok).To(BeTrue())
 			Expect(val).To(Equal("some-value"))
-		})
-
-		It("should detect expired legacy watchdog file.", func() {
-			f, err := os.Create(socketPath)
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-
-			d := &DomainWatcher{
-				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
-				watchdogTimeout:          1,
-				unresponsiveSockets:      make(map[string]int64),
-				resyncPeriod:             time.Duration(1) * time.Hour,
-			}
-
-			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "test")
-			os.MkdirAll(filepath.Dir(watchdogFile), 0755)
-			watchdog.WatchdogFileUpdate(watchdogFile, "somestring")
-
-			err = d.startBackground()
-			Expect(err).ToNot(HaveOccurred())
-			defer d.Stop()
-
-			timedOut := false
-			timeout := time.After(3 * time.Second)
-			select {
-			case event := <-d.eventChan:
-				Expect(event.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
-				Expect(event.Type).To(Equal(watch.Modified))
-			case <-timeout:
-				timedOut = true
-			}
-
-			Expect(timedOut).To(BeFalse())
-
 		})
 
 		It("should detect unresponsive sockets.", func() {
@@ -447,11 +410,6 @@ var _ = Describe("Domain informer", func() {
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
 			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
 
-			// This file doesn't have a unix sock server behind it
-			// verify list still completes regardless
-			f, err := os.Create(filepath.Join(socketsDir, "default_fakevm_sock"))
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 			// ensure we can connect to the server first.
 			client, err := cmdclient.NewClient(socketPath)
@@ -461,7 +419,7 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			verifyObj("default/test", domain)
+			verifyObj("default/test", domain, Default)
 		})
 		It("should watch for domain events.", func() {
 			domain := api.NewMinimalDomain("test")
@@ -472,24 +430,33 @@ var _ = Describe("Domain informer", func() {
 			client := notifyclient.NewNotifier(shareDir)
 
 			// verify add
-			err = client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
+			err := client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
-			cache.WaitForCacheSync(stopChan, informer.HasSynced)
-			verifyObj("default/test", domain)
+			Eventually(func(g Gomega) { verifyObj("default/test", domain, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 
 			// verify modify
 			domain.Spec.UUID = "fakeuuid"
 			err = client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
-			cache.WaitForCacheSync(stopChan, informer.HasSynced)
-			verifyObj("default/test", domain)
+			Eventually(func(g Gomega) { verifyObj("default/test", domain, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 
 			// verify modify
 			err = client.SendDomainEvent(watch.Event{Type: watch.Deleted, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
-			cache.WaitForCacheSync(stopChan, informer.HasSynced)
-			verifyObj("default/test", nil)
+			Eventually(func(g Gomega) { verifyObj("default/test", nil, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 		})
+	})
+})
+
+var _ = Describe("Iterable checkpoint manager", func() {
+	It("should list all keys", func() {
+		icp := newIterableCheckpointManager(GinkgoT().TempDir())
+
+		Expect(icp.Store("one", "hi")).To(Succeed())
+		Expect(icp.Store("two", "hey")).To(Succeed())
+
+		keys := icp.ListKeys()
+		Expect(keys).To(ContainElements("two", "one"))
 	})
 })
 

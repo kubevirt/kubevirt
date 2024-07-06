@@ -32,7 +32,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -48,7 +50,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 
 	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
 
-		vmi := libvmi.NewFedora(via)
+		vmi := libvmifact.NewFedora(via)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -56,7 +58,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 		Expect(err).ToNot(HaveOccurred())
 		timestamp := libinfra.GetTimeFromMetrics(metrics)
 
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() int {
 			metrics, err = metricsGetter(vmi)
@@ -71,7 +73,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 	)
 
 	It("metric ResourceProcessorLimit should be present", func() {
-		vmi := libvmi.NewFedora(libvmi.WithCPUCount(1, 1, 1), libvmi.WithDownwardMetricsVolume("vhostmd"))
+		vmi := libvmifact.NewFedora(libvmi.WithCPUCount(1, 1, 1), libvmi.WithDownwardMetricsVolume("vhostmd"))
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 

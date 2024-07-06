@@ -30,7 +30,7 @@ import (
 var _false bool = false
 
 const (
-	defaultCPUModel = v1.CPUModeHostPassthrough
+	defaultCPUModelArm64 = v1.CPUModeHostPassthrough
 )
 
 // ValidateVirtualMachineInstanceArm64Setting is a validation function for validating-webhook to filter unsupported setting on Arm64
@@ -134,18 +134,18 @@ func validateSoundDevice(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 	}
 }
 
-// setDefaultCPUModel set default cpu model to host-passthrough
+// setDefaultArm64CPUModel set default cpu model to host-passthrough
 func setDefaultArm64CPUModel(spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Domain.CPU == nil {
 		spec.Domain.CPU = &v1.CPU{}
 	}
 
 	if spec.Domain.CPU.Model == "" {
-		spec.Domain.CPU.Model = defaultCPUModel
+		spec.Domain.CPU.Model = defaultCPUModelArm64
 	}
 }
 
-// setDefaultBootloader set default bootloader to uefi boot
+// setDefaultArm64Bootloader set default bootloader to uefi boot
 func setDefaultArm64Bootloader(spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Domain.Firmware == nil || spec.Domain.Firmware.Bootloader == nil {
 		if spec.Domain.Firmware == nil {
@@ -159,7 +159,7 @@ func setDefaultArm64Bootloader(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-// setDefaultDisksBus set default Disks Bus, because sata is not supported by qemu-kvm of Arm64
+// setDefaultArm64DisksBus set default Disks Bus, because sata is not supported by qemu-kvm of Arm64
 func setDefaultArm64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
 	bus := v1.DiskBusVirtio
 

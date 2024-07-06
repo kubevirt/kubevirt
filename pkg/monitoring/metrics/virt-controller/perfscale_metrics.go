@@ -48,7 +48,7 @@ var (
 			Help: "Histogram of VM phase transitions duration between different phases in seconds.",
 		},
 		prometheus.HistogramOpts{
-			Buckets: phaseTransitionTimeBuckets(),
+			Buckets: PhaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi
@@ -64,7 +64,7 @@ var (
 			Help: "Histogram of VM phase transitions duration from creation time in seconds.",
 		},
 		prometheus.HistogramOpts{
-			Buckets: phaseTransitionTimeBuckets(),
+			Buckets: PhaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi
@@ -78,7 +78,7 @@ var (
 			Help: "Histogram of VM phase transitions duration from deletion time in seconds.",
 		},
 		prometheus.HistogramOpts{
-			Buckets: phaseTransitionTimeBuckets(),
+			Buckets: PhaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi

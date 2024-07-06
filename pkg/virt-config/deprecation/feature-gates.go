@@ -28,18 +28,22 @@ import (
 type State string
 
 const (
-	GA           = "General Availability" // By default, GAed feature gates are considered enabled and no-op.
-	Deprecated   = "Deprecated"           // The feature is going to be discontinued next release
-	Discontinued = "Discontinued"
+	// By default, GAed feature gates are considered enabled and no-op.
+	GA = "General Availability"
+	// The feature is going to be discontinued next release
+	Deprecated     = "Deprecated"
+	Discontinued   = "Discontinued"
+	WarningPattern = "feature gate %s is deprecated (feature state is %q), therefore it can be safely removed and is redundant. " +
+		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
 )
 
 const (
-	LiveMigrationGate      = "LiveMigration"      // Deprecated
-	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // Deprecated
-	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // Deprecated
+	LiveMigrationGate      = "LiveMigration"      // GA
+	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // GA
+	NonRoot                = "NonRoot"            // GA
+	PSA                    = "PSA"                // GA
+	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
 	PasstGate              = "Passt"              // Deprecated
-	NonRoot                = "NonRoot"            // Deprecated
-	PSA                    = "PSA"                // Deprecated
 	MacvtapGate            = "Macvtap"            // Deprecated
 )
 
@@ -50,32 +54,37 @@ type FeatureGate struct {
 	Message     string
 }
 
-var featureGates = [...]FeatureGate{
-	{Name: LiveMigrationGate, State: GA},
-	{Name: SRIOVLiveMigrationGate, State: GA},
-	{Name: NonRoot, State: GA},
-	{Name: PSA, State: GA},
-	{Name: CPUNodeDiscoveryGate, State: GA},
-	{Name: PasstGate, State: Deprecated, Message: passtDeprecationMessage, VmiSpecUsed: passtApiUsed},
-	{Name: MacvtapGate, State: Deprecated, Message: macvtapDeprecationMessage, VmiSpecUsed: macvtapApiUsed},
-}
+var featureGates = map[string]FeatureGate{}
 
 func init() {
-	for i, fg := range featureGates {
-		if fg.Message == "" {
-			const warningPattern = "feature gate %s is deprecated, therefore it can be safely removed and is redundant. " +
-				"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
-			featureGates[i].Message = fmt.Sprintf(warningPattern, fg.Name)
-		}
+	RegisterFeatureGate(FeatureGate{Name: LiveMigrationGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: SRIOVLiveMigrationGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
+
+	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
+	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
+}
+
+// RegisterFeatureGate adds a given feature-gate to the FG list
+// In case the FG already exists (based on its name), it overrides the
+// existing FG.
+// If the feature-gate is missing a message, a default one is set.
+func RegisterFeatureGate(fg FeatureGate) {
+	if fg.Message == "" {
+		fg.Message = fmt.Sprintf(WarningPattern, fg.Name, fg.State)
 	}
+	featureGates[fg.Name] = fg
+}
+
+func UnregisterFeatureGate(fgName string) {
+	delete(featureGates, fgName)
 }
 
 func FeatureGateInfo(featureGate string) *FeatureGate {
-	for _, deprecatedFeature := range featureGates {
-		if featureGate == deprecatedFeature.Name {
-			deprecatedFeature := deprecatedFeature
-			return &deprecatedFeature
-		}
+	if fg, exist := featureGates[featureGate]; exist {
+		return &fg
 	}
 	return nil
 }

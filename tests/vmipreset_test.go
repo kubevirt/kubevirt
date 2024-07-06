@@ -26,53 +26,53 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 
-	"kubevirt.io/api/core"
-
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
+	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIPreset", decorators.SigCompute, func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
+	const (
+		flavorKey    = core.GroupName + "/flavor"
+		memoryFlavor = "memory-test"
+		memoryPrefix = "test-memory-"
+		cpuPrefix    = "test-cpu"
+		cpuFlavor    = "cpu-test"
+		cores        = 7
+	)
 
-	var vmi *v1.VirtualMachineInstance
-	var memoryPreset *v1.VirtualMachineInstancePreset
-	var cpuPreset *v1.VirtualMachineInstancePreset
-
-	flavorKey := fmt.Sprintf("%s/flavor", core.GroupName)
-	memoryFlavor := "memory-test"
-	memoryPrefix := "test-memory-"
-	memory, _ := resource.ParseQuantity("128M")
-
-	cpuPrefix := "test-cpu"
-	cpuFlavor := "cpu-test"
-	cores := 7
+	var (
+		err          error
+		virtClient   kubecli.KubevirtClient
+		vmi          *v1.VirtualMachineInstance
+		memoryPreset *v1.VirtualMachineInstancePreset
+		cpuPreset    *v1.VirtualMachineInstancePreset
+		memory       resource.Quantity
+	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		vmi.Labels = map[string]string{flavorKey: memoryFlavor}
+		vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, memoryFlavor))
 
 		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: memoryFlavor}}
+		memory = resource.MustParse("128M")
 		memoryPreset = &v1.VirtualMachineInstancePreset{
 			ObjectMeta: k8smetav1.ObjectMeta{GenerateName: memoryPrefix},
 			Spec: v1.VirtualMachineInstancePresetSpec{
@@ -180,17 +180,16 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			newPreset, err := getPreset(virtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newPreset)).Create(context.Background(), vmi)
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newPreset)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(newVMI)
 
-			Expect(newVMI.Labels[flavorKey]).To(Equal(memoryFlavor))
-			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(memoryFlavor))
+			Expect(newVMI.Labels).To(HaveKeyWithValue(flavorKey, memoryFlavor))
+			Expect(newPreset.Spec.Selector.MatchLabels).To(HaveKeyWithValue(flavorKey, memoryFlavor))
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			_, found := newVMI.Annotations[annotationKey]
-			Expect(found).To(BeFalse())
+			Expect(newVMI.Annotations).ToNot(HaveKey(annotationKey))
 		})
 
 		It("[test_id:1601]Should accept presets that don't conflict with VirtualMachineInstance settings", func() {
@@ -203,19 +202,18 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			newPreset, err := getPreset(virtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
+			vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, cpuFlavor))
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(newVMI)
 
-			Expect(newVMI.Labels[flavorKey]).To(Equal(cpuFlavor))
-			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(cpuFlavor))
+			Expect(newVMI.Labels).To(HaveKeyWithValue(flavorKey, cpuFlavor))
+			Expect(newPreset.Spec.Selector.MatchLabels).To(HaveKeyWithValue(flavorKey, cpuFlavor))
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			Expect(newVMI.Annotations[annotationKey]).To(Equal(fmt.Sprintf("kubevirt.io/%s", v1.ApiLatestVersion)))
+			Expect(newVMI.Annotations).To(HaveKeyWithValue(annotationKey, fmt.Sprintf("kubevirt.io/%s", v1.ApiLatestVersion)))
 
 			// check a setting from the preset itself to show it was applied
 			Expect(int(newVMI.Spec.Domain.CPU.Cores)).To(Equal(cores))
@@ -232,25 +230,23 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			// reset the label so it will not match
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi = libvmifact.NewAlpine()
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(newVMI)
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			_, found := newVMI.Annotations[annotationKey]
-			Expect(found).To(BeFalse())
-
+			Expect(newVMI.Annotations).ToNot(HaveKey(annotationKey))
 			Expect(newVMI.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 
 		It("[test_id:1603]Should not be applied to existing VMIs", func() {
 			// create the VirtualMachineInstance first
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(newVMI)
 
 			err = virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(testsuite.GetTestNamespace(newVMI)).Body(memoryPreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
@@ -263,8 +259,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			_, found := newVMI.Annotations[annotationKey]
-			Expect(found).To(BeFalse())
+			Expect(newVMI.Annotations).ToNot(HaveKey(annotationKey))
 			Expect(newVMI.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 	})
@@ -280,19 +275,16 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			newPreset, err := getPreset(virtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
 			exclusionMarking := "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
-			vmi.Annotations = map[string]string{exclusionMarking: "true"}
+			vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, cpuFlavor), libvmi.WithAnnotation(exclusionMarking, "true"))
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			libwait.WaitForSuccessfulVMIStart(newVMI)
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			_, ok := newVMI.Annotations[annotationKey]
-			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
+			Expect(newVMI.Annotations).ToNot(HaveKey(annotationKey), "Preset should not have been applied due to exclusion")
 
 			// check a setting from the preset itself to show it was applied
 			Expect(newVMI.Spec.Domain.CPU.Cores).NotTo(Equal(newPreset.Spec.Domain.CPU.Cores),
@@ -301,15 +293,21 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("Conflict", func() {
-		var conflictPreset *v1.VirtualMachineInstancePreset
+		const (
+			conflictFlavor = "conflict-test"
+			conflictPrefix = "test-conflict-"
+			conflictKey    = core.GroupName + "/conflict"
+		)
 
-		conflictKey := fmt.Sprintf("%s/conflict", core.GroupName)
-		conflictFlavor := "conflict-test"
-		conflictMemory, _ := resource.ParseQuantity("256M")
-		conflictPrefix := "test-conflict-"
+		var (
+			conflictPreset *v1.VirtualMachineInstancePreset
+			conflictMemory resource.Quantity
+		)
 
 		BeforeEach(func() {
+			conflictMemory = resource.MustParse("256M")
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{conflictKey: conflictFlavor}}
+
 			conflictPreset = &v1.VirtualMachineInstancePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: conflictPrefix},
 				Spec: v1.VirtualMachineInstancePresetSpec{
@@ -334,20 +332,21 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			vmi.Labels = map[string]string{flavorKey: memoryFlavor, conflictKey: conflictFlavor}
 			By("creating the VirtualMachineInstance")
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	Context("Override", func() {
-		var overridePreset *v1.VirtualMachineInstancePreset
+		var (
+			overridePreset *v1.VirtualMachineInstancePreset
+		)
 
-		overrideKey := fmt.Sprintf("kubevirt.io/vmPreset")
-		overrideFlavor := "vmi-preset-small"
-		overrideMemory, _ := resource.ParseQuantity("64M")
-		overridePrefix := "test-override-"
-
-		vmiMemory, _ := resource.ParseQuantity("128M")
+		const (
+			overrideKey    = "kubevirt.io/vmPreset"
+			overrideFlavor = "vmi-preset-small"
+			overridePrefix = "test-override-"
+		)
 
 		BeforeEach(func() {
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{overrideKey: overrideFlavor}}
@@ -357,7 +356,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Selector: selector,
 					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
-							"memory": overrideMemory}},
+							"memory": resource.MustParse("64M")}},
 					},
 				},
 			}
@@ -372,19 +371,19 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			time.Sleep(3 * time.Second)
 
 			By("Creating VMI with 128M")
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi.Labels = map[string]string{overrideKey: overrideFlavor}
-			vmi.Spec.Domain.Resources.Requests["memory"] = vmiMemory
+			vmi = libvmi.New(
+				libvmi.WithLabel(overrideKey, overrideFlavor),
+				libvmi.WithResourceMemory("128M"),
+			)
 
-			newVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			newVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
-			Expect(newVmi.Annotations).To(BeNil())
+			Expect(newVmi.Annotations).To(Equal(vmi.Annotations))
+			Expect(vmi.Labels).To(HaveKeyWithValue(overrideKey, overrideFlavor))
 
-			label, ok := vmi.Labels[overrideKey]
-			Expect(ok).To(BeTrue())
-			Expect(label).To(Equal(overrideFlavor))
+			vmiMemory := resource.MustParse("128M")
 			Expect(newVmi.Spec.Domain.Resources.Requests["memory"]).To(Equal(vmiMemory))
 		})
 	})
@@ -429,13 +428,17 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("Match Expressions", func() {
-		var preset *v1.VirtualMachineInstancePreset
-		labelKey := "kubevirt.io/os"
+		var (
+			preset   *v1.VirtualMachineInstancePreset
+			vmiWin7  *v1.VirtualMachineInstance
+			vmiWin10 *v1.VirtualMachineInstance
+		)
 
-		var vmiWin7 *v1.VirtualMachineInstance
-		var vmiWin10 *v1.VirtualMachineInstance
-		win7Label := "win7"
-		win10Label := "win10"
+		const (
+			labelKey   = "kubevirt.io/os"
+			win7Label  = "win7"
+			win10Label = "win10"
+		)
 
 		BeforeEach(func() {
 			selector := k8smetav1.LabelSelector{
@@ -459,30 +462,24 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				},
 			}
 
-			// The actual type of machine is unimportant here. This test is about the label
-			vmiWin7 = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			// this helper function explicitly sets a memory req, but we don't want one for this test
-			vmiWin7.Spec.Domain.Resources = v1.ResourceRequirements{}
-			vmiWin7.Labels = map[string]string{labelKey: win7Label}
-			vmiWin10 = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmiWin10.Spec.Domain.Resources = v1.ResourceRequirements{}
-			vmiWin10.Labels = map[string]string{labelKey: win10Label}
+			vmiWin7 = libvmi.New(libvmi.WithLabel(labelKey, win7Label))
+			vmiWin10 = libvmi.New(libvmi.WithLabel(labelKey, win10Label))
 		})
 
 		It("[test_id:726] Should match multiple VMs via MatchExpression", func() {
 			By("Creating preset with MatchExpression")
-			_, err := virtClient.VirtualMachineInstancePreset(testsuite.GetTestNamespace(nil)).Create(preset)
+			_, err := virtClient.VirtualMachineInstancePreset(testsuite.GetTestNamespace(nil)).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
 			By("Creating first VirtualMachineInstance")
-			newVmi7, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin7)
+			newVmi7, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin7, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating second VirtualMachineInstance")
-			newVmi10, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin10)
+			newVmi10, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin10, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that preset matched bot VMs")
@@ -492,17 +489,21 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("[rfe_id:613]MatchLabels", func() {
-		var preset *v1.VirtualMachineInstancePreset
-		labelKey := "kubevirt.io/cpu"
-		labelValue := "dodecacore"
-		numCores := uint32(12)
-		presetName := "twelve-cores"
+		var (
+			preset   *v1.VirtualMachineInstancePreset
+			vmiWin7  *v1.VirtualMachineInstance
+			vmiWin10 *v1.VirtualMachineInstance
+		)
 
-		var annotationLabel string
+		const (
+			labelKey        = "kubevirt.io/cpu"
+			labelValue      = "dodecacore"
+			numCores        = uint32(12)
+			presetName      = "twelve-cores"
+			annotationLabel = "virtualmachinepreset.kubevirt.io/" + presetName
+		)
+
 		var annotationVal string
-
-		var vmiWin7 *v1.VirtualMachineInstance
-		var vmiWin10 *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			selector := k8smetav1.LabelSelector{
@@ -522,40 +523,32 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 
 			// The actual type of machine is unimportant here. This test is about the label
-			vmiWin7 = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmiWin7.Labels = map[string]string{labelKey: labelValue}
-			vmiWin10 = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmiWin10.Labels = map[string]string{labelKey: labelValue}
+			vmiWin7 = libvmi.New(libvmi.WithLabel(labelKey, labelValue), libvmi.WithResourceMemory("1Mi"))
+			vmiWin10 = libvmi.New(libvmi.WithLabel(labelKey, labelValue), libvmi.WithResourceMemory("1Mi"))
 
-			annotationLabel = fmt.Sprintf("virtualmachinepreset.kubevirt.io/%s", presetName)
 			annotationVal = v1.GroupVersion.String()
 		})
 
 		It("[test_id:672] Should match multiple VMs via MatchLabel", func() {
 			By("Creating preset with MatchExpression")
-			_, err := virtClient.VirtualMachineInstancePreset(testsuite.GetTestNamespace(nil)).Create(preset)
+			_, err := virtClient.VirtualMachineInstancePreset(testsuite.GetTestNamespace(nil)).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
 			By("Creating first VirtualMachineInstance")
-			newVmi7, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin7)
+			newVmi7, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin7, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating second VirtualMachineInstance")
-			newVmi10, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin10)
+			newVmi10, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin10, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that preset matched the first VMI")
-			thisAnnotation, ok := newVmi7.Annotations[annotationLabel]
-			Expect(ok).To(BeTrue(), fmt.Sprintf("VMI is missing expected annotation: %s", annotationLabel))
-			Expect(thisAnnotation).To(Equal(annotationVal))
-
+			Expect(newVmi7.Annotations).To(HaveKeyWithValue(annotationLabel, annotationVal))
 			By("Checking that preset matched the second VMI")
-			thisAnnotation, ok = newVmi10.Annotations[annotationLabel]
-			Expect(ok).To(BeTrue(), fmt.Sprintf("VMI is missing expected annotation: %s", annotationLabel))
-			Expect(thisAnnotation).To(Equal(annotationVal))
+			Expect(newVmi10.Annotations).To(HaveKeyWithValue(annotationLabel, annotationVal))
 
 			By("Checking that both VMs have 12 cores")
 			Expect(newVmi7.Spec.Domain.CPU.Cores).To(Equal(numCores))
@@ -580,5 +573,5 @@ func waitForPresetDeletion(virtClient kubecli.KubevirtClient, presetName string)
 	Eventually(func() error {
 		_, err := virtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(testsuite.GetTestNamespace(nil)).Name(presetName).Do(context.Background()).Get()
 		return err
-	}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "timed out waiting for VMI preset to be deleted")
+	}).WithTimeout(60*time.Second).WithPolling(1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "timed out waiting for VMI preset to be deleted")
 }

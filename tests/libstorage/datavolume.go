@@ -35,37 +35,17 @@ import (
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	v13 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-func AddDataVolumeDisk(vmi *v13.VirtualMachineInstance, diskName, dataVolumeName string) *v13.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v13.Disk{
-		Name: diskName,
-		DiskDevice: v13.DiskDevice{
-			Disk: &v13.DiskTarget{
-				Bus: v13.DiskBusVirtio,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v13.Volume{
-		Name: diskName,
-		VolumeSource: v13.VolumeSource{
-			DataVolume: &v13.DataVolumeSource{
-				Name: dataVolumeName,
-			},
-		},
-	})
-
-	return vmi
-}
-
-func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolume) {
-	dvt := &v13.DataVolumeTemplateSpec{}
+func AddDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *v1beta1.DataVolume) {
+	dvt := &v1.DataVolumeTemplateSpec{}
 
 	dvt.Spec = *dataVolume.Spec.DeepCopy()
 	dvt.ObjectMeta = *dataVolume.ObjectMeta.DeepCopy()
@@ -73,19 +53,19 @@ func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolum
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 }
 
-func AddDataVolume(vm *v13.VirtualMachine, diskName string, dataVolume *v1beta1.DataVolume) {
-	vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v13.Disk{
+func AddDataVolume(vm *v1.VirtualMachine, diskName string, dataVolume *v1beta1.DataVolume) {
+	vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: diskName,
-		DiskDevice: v13.DiskDevice{
-			Disk: &v13.DiskTarget{
-				Bus: v13.DiskBusVirtio,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: v1.DiskBusVirtio,
 			},
 		},
 	})
-	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v13.Volume{
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 		Name: diskName,
-		VolumeSource: v13.VolumeSource{
-			DataVolume: &v13.DataVolumeSource{
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
 				Name: dataVolume.Name,
 			},
 		},
@@ -244,4 +224,23 @@ func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
 		},
 	}
 	return role, roleBinding
+}
+
+func RenderVMIWithDataVolume(dvName, ns string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	defaultOptions := []libvmi.Option{
+		libvmi.WithDataVolume("disk0", dvName),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithNamespace(ns),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	}
+	return libvmi.New(append(defaultOptions, opts...)...)
+}
+
+func RenderVMWithDataVolumeTemplate(dv *v1beta1.DataVolume, opts ...libvmi.VMOption) *v1.VirtualMachine {
+	defaultOptions := []libvmi.VMOption{libvmi.WithDataVolumeTemplate(dv)}
+	return libvmi.NewVirtualMachine(
+		RenderVMIWithDataVolume(dv.Name, dv.Namespace),
+		append(defaultOptions, opts...)...,
+	)
 }

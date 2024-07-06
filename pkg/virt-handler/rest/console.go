@@ -38,14 +38,12 @@ import (
 	"k8s.io/client-go/util/certificate"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
-
-//const failedRetrieveVMI = "Failed to retrieve VMI"
 
 type ConsoleHandler struct {
 	podIsolationDetector isolation.PodIsolationDetector
@@ -53,7 +51,7 @@ type ConsoleHandler struct {
 	vncStopChans         map[types.UID](chan struct{})
 	serialLock           *sync.Mutex
 	vncLock              *sync.Mutex
-	vmiInformer          cache.SharedIndexInformer
+	vmiStore             cache.Store
 	usbredir             map[types.UID]UsbredirHandlerVMI
 	usbredirLock         *sync.Mutex
 	certManager          certificate.Manager
@@ -63,7 +61,7 @@ type UsbredirHandlerVMI struct {
 	stopChans map[int](chan struct{})
 }
 
-func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiInformer cache.SharedIndexInformer, certManager certificate.Manager) *ConsoleHandler {
+func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, certManager certificate.Manager) *ConsoleHandler {
 	return &ConsoleHandler{
 		podIsolationDetector: podIsolationDetector,
 		serialStopChans:      make(map[types.UID](chan struct{})),
@@ -71,14 +69,14 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 		serialLock:           &sync.Mutex{},
 		vncLock:              &sync.Mutex{},
 		usbredirLock:         &sync.Mutex{},
-		vmiInformer:          vmiInformer,
+		vmiStore:             vmiStore,
 		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
 		certManager:          certManager,
 	}
 }
 
 func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, t.vmiInformer)
+	vmi, code, err := getVMI(request, t.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
@@ -141,7 +139,7 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 }
 
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, t.vmiInformer)
+	vmi, code, err := getVMI(request, t.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
@@ -160,7 +158,7 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, t.vmiInformer)
+	vmi, code, err := getVMI(request, t.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
@@ -179,7 +177,7 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 }
 
 func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, t.vmiInformer)
+	vmi, code, err := getVMI(request, t.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
@@ -293,7 +291,7 @@ func unixSocketDialer(vmi *v1.VirtualMachineInstance, unixSocketPath string) fun
 }
 
 func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, dial func() (net.Conn, error), stopCh chan struct{}) {
-	var upgrader = kubecli.NewUpgrader()
+	var upgrader = kvcorev1.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")
@@ -313,13 +311,13 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 
 	errCh := make(chan error, 2)
 	go func() {
-		_, err := kubecli.CopyTo(clientSocket, conn)
+		_, err := kvcorev1.CopyTo(clientSocket, conn)
 		log.Log.Object(vmi).Reason(err).Error("error encountered reading from unix socket")
 		errCh <- err
 	}()
 
 	go func() {
-		_, err := kubecli.CopyFrom(conn, clientSocket)
+		_, err := kvcorev1.CopyFrom(conn, clientSocket)
 		log.Log.Object(vmi).Reason(err).Error("error encountered reading from client (virt-api) websocket")
 		errCh <- err
 	}()

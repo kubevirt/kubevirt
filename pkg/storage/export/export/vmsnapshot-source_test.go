@@ -46,9 +46,9 @@ import (
 	"k8s.io/utils/pointer"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -145,7 +145,7 @@ var _ = Describe("VMSnapshot source", func() {
 
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
-			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
+			Return(vmExportClient.ExportV1beta1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
 			Client:                      virtClient,
@@ -176,7 +176,7 @@ var _ = Describe("VMSnapshot source", func() {
 			ClusterPreferenceInformer:   clusterPreferenceInformer,
 			ControllerRevisionInformer:  controllerRevisionInformer,
 		}
-		initCert = func(ctrl *VMExportController) {
+		initCert = func(_ *VMExportController) {
 			go controller.caCertManager.Start()
 			// Give the thread time to read the certs.
 			Eventually(func() *tls.Certificate {
@@ -261,7 +261,7 @@ var _ = Describe("VMSnapshot source", func() {
 								Name: "test-snapshot",
 							},
 							Spec: k8sv1.PersistentVolumeClaimSpec{
-								Resources: k8sv1.ResourceRequirements{
+								Resources: k8sv1.VolumeResourceRequirements{
 									Requests: k8sv1.ResourceList{},
 								},
 							},
@@ -353,7 +353,7 @@ var _ = Describe("VMSnapshot source", func() {
 				Namespace: testNamespace,
 			},
 			Spec: k8sv1.PersistentVolumeClaimSpec{
-				Resources: k8sv1.ResourceRequirements{
+				Resources: k8sv1.VolumeResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceStorage: resource.MustParse("1Gi"),
 					},

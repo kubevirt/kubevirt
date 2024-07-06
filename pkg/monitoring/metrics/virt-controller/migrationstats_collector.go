@@ -62,7 +62,7 @@ var (
 			Name: "kubevirt_vmi_migration_succeeded",
 			Help: "Indicates if the VMI migration succeeded.",
 		},
-		[]string{"vmi", "vmim"},
+		[]string{"vmi", "vmim", "namespace"},
 	)
 
 	failedMigration = operatormetrics.NewGaugeVec(
@@ -70,7 +70,7 @@ var (
 			Name: "kubevirt_vmi_migration_failed",
 			Help: "Indicates if the VMI migration failed.",
 		},
-		[]string{"vmi", "vmim"},
+		[]string{"vmi", "vmim", "namespace"},
 	)
 )
 
@@ -100,9 +100,9 @@ func reportMigrationStats(vmims []*k6tv1.VirtualMachineInstanceMigration) []oper
 		case k6tv1.MigrationRunning, k6tv1.MigrationScheduled, k6tv1.MigrationPreparingTarget, k6tv1.MigrationTargetReady:
 			runningCount++
 		case k6tv1.MigrationSucceeded:
-			cr = append(cr, operatormetrics.CollectorResult{Metric: succeededMigration, Value: 1, Labels: []string{vmim.Spec.VMIName, vmim.Name}})
+			cr = append(cr, operatormetrics.CollectorResult{Metric: succeededMigration, Value: 1, Labels: []string{vmim.Spec.VMIName, vmim.Name, vmim.Namespace}})
 		default:
-			cr = append(cr, operatormetrics.CollectorResult{Metric: failedMigration, Value: 1, Labels: []string{vmim.Spec.VMIName, vmim.Name}})
+			cr = append(cr, operatormetrics.CollectorResult{Metric: failedMigration, Value: 1, Labels: []string{vmim.Spec.VMIName, vmim.Name, vmim.Namespace}})
 		}
 	}
 

@@ -92,16 +92,6 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-// Check if the VMI includes passt network interface(s)
-func IsPasstVMI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range vmiSpec.Domain.Devices.Interfaces {
-		if net.Passt != nil {
-			return true
-		}
-	}
-	return false
-}
-
 // Check if a VMI spec requests AMD SEV
 func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
@@ -112,7 +102,7 @@ func IsSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) &&
 		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
 		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState != nil &&
-		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState == true
+		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
 }
 
 // Check if a VMI spec requests SEV with attestation
@@ -165,7 +155,7 @@ func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bo
 func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
 	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
-		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true)
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface)
 }
 
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
@@ -215,7 +205,7 @@ func HasHugePages(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func IsReadOnlyDisk(disk *v1.Disk) bool {
-	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly == true)
+	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly)
 
 	return isReadOnlyCDRom
 }
@@ -276,7 +266,7 @@ func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quanti
 	return expectedPvcSize
 }
 
-// GenerateRandomString creates a securely generated random string using crypto/rand
+// GenerateSecureRandomString creates a securely generated random string using crypto/rand
 func GenerateSecureRandomString(n int) (string, error) {
 	ret := make([]byte, n)
 	for i := range ret {

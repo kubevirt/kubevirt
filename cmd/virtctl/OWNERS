@@ -3,3 +3,6 @@ reviewers:
   - oshoval
 approvers:
   - 0xFelix
+labels:
+  - area/virtctl
+  - sig/cluster

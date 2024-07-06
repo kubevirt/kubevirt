@@ -20,6 +20,7 @@
 package webhooks
 
 import (
+	"context"
 	"fmt"
 
 	"kubevirt.io/client-go/log"
@@ -58,7 +59,7 @@ func (k *kubeVirtCreateAdmitter) Admit(review *admissionv1.AdmissionReview) *adm
 	//TODO: Do we want semantic validation
 
 	// Best effort
-	list, err := k.client.KubeVirt(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
+	list, err := k.client.KubeVirt(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}

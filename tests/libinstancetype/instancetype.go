@@ -16,7 +16,7 @@
  * Copyright 2022 Red Hat, Inc.
  *
  */
-
+//nolint:lll
 package libinstancetype
 
 import (
@@ -36,7 +36,7 @@ import (
 
 func CheckForVMInstancetypeRevisionNames(vmName string, virtClient kubecli.KubevirtClient) func() error {
 	return func() error {
-		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmName, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

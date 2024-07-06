@@ -5,7 +5,7 @@ go 1.12
 replace k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
 
 require (
-	github.com/emicklei/go-restful v2.6.1+incompatible // indirect
+	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/go-logr/logr v0.2.1 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
@@ -18,7 +18,7 @@ require (
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	k8s.io/apimachinery v0.20.15
 	k8s.io/klog v0.3.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect

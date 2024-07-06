@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"context"
 	"net/http"
 	"path"
 
@@ -53,7 +54,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
 		))
-		fetchedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Get("testrs", k8smetav1.GetOptions{})
+		fetchedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Get(context.Background(), "testrs", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -71,7 +72,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testrs")),
 		))
-		_, err = client.ReplicaSet(k8sv1.NamespaceDefault).Get("testrs", k8smetav1.GetOptions{})
+		_, err = client.ReplicaSet(k8sv1.NamespaceDefault).Get(context.Background(), "testrs", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
@@ -90,7 +91,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVirtualMachineInstanceReplicaSetList(*rs)),
 		))
-		fetchedVMIReplicaSetList, err := client.ReplicaSet(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
+		fetchedVMIReplicaSetList, err := client.ReplicaSet(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
 		apiVersion, kind := virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(err).ToNot(HaveOccurred())
@@ -113,7 +114,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, rs),
 		))
-		createdVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Create(rs)
+		createdVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Create(context.Background(), rs, k8smetav1.CreateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -132,7 +133,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
 		))
-		updatedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Update(rs)
+		updatedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Update(context.Background(), rs, k8smetav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -152,7 +153,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, rsPath, "scale")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, scale),
 		))
-		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).UpdateScale(rs.Name, scale)
+		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).UpdateScale(context.Background(), rs.Name, scale)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -172,7 +173,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, rsPath, "scale")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, scale),
 		))
-		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).GetScale(rs.Name, k8smetav1.GetOptions{})
+		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).GetScale(context.Background(), rs.Name, k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -190,7 +191,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.ReplicaSet(k8sv1.NamespaceDefault).Delete("testrs", &k8smetav1.DeleteOptions{})
+		err = client.ReplicaSet(k8sv1.NamespaceDefault).Delete(context.Background(), "testrs", k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

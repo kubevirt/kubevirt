@@ -459,6 +459,7 @@ var _ = Describe("create vm", func() {
 			}
 		},
 			Entry("with blank source", "type:blank,size:256Mi", "256Mi", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, ""),
+			Entry("with GCS source", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials", "256Mi", &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, ""),
 			Entry("with http source", "type:http,size:256Mi,url:http://url.com", "256Mi", &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, ""),
 			Entry("with imageio source", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, ""),
 			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, "imported-volume"),
@@ -917,6 +918,8 @@ var _ = Describe("create vm", func() {
 			Entry("Missing size with blank volume source", "size must be specified", setFlag(VolumeImportFlag, "type:blank")),
 			Entry("Missing type value", "type must be specified", setFlag(VolumeImportFlag, "size:256Mi")),
 			Entry("Unknown param for blank volume source", "failed to parse \"--volume-import\" flag: unknown param(s): testparam:", setFlag(VolumeImportFlag, "type:blank,size:256Mi,testparam:")),
+			Entry("Missing size with GCS volume source", "size must be specified", setFlag(VolumeImportFlag, "type:gcs,url:http://url.com")),
+			Entry("Missing url with GCS volume source", "failed to parse \"--volume-import\" flag: URL is required with GCS volume source", setFlag(VolumeImportFlag, "type:gcs,size:256Mi")),
 			Entry("Missing size with http volume source", "size must be specified", setFlag(VolumeImportFlag, "type:http,url:http://url.com")),
 			Entry("Missing url with http volume source", "failed to parse \"--volume-import\" flag: URL is required with http volume source", setFlag(VolumeImportFlag, "type:http,size:256Mi")),
 			Entry("Missing size with imageIO volume source", "size must be specified", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,diskid:0")),

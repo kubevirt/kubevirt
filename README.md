@@ -76,6 +76,14 @@ and learn more about the major components by taking a look at
  * [Components](docs/components.md) - Detailed look at all components
  * [API Reference](https://kubevirt.io/api-reference/)
 
+## Useful links
+
+The KubeVirt SIG-release repo is responsible for information regarding upcoming and previous releases. 
+
+ * [KubeVirt to Kubernetes version support matrix](https://github.com/kubevirt/sig-release/blob/main/releases/k8s-support-matrix.md) - Verify the versions of KubeVirt that are built and supported for your version of Kubernetes
+ * [Noteworthy changes for the next KubeVirt release](https://github.com/kubevirt/sig-release/blob/main/upcoming-changes.md) - Pre-release notes for the upcoming release
+ * [Release schedule](https://github.com/kubevirt/sig-release/blob/main/releases/) - For our current and previous releases
+
 ## Community
 
 If you got enough of code and want to speak to people, then you got a couple

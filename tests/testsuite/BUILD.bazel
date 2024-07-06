@@ -14,6 +14,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
@@ -27,8 +28,9 @@ go_library(
         "//tests/framework/matcher:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
+        "//tests/libsecret:go_default_library",
         "//tests/libstorage:go_default_library",
-        "//tests/libvmi:go_default_library",
+        "//tests/libvmifact:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

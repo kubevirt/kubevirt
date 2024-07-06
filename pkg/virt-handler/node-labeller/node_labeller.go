@@ -21,7 +21,6 @@ package nodelabeller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -71,7 +70,6 @@ type NodeLabeller struct {
 	hostCapabilities        supportedFeatures
 	queue                   workqueue.RateLimitingInterface
 	supportedFeatures       []string
-	cpuInfo                 cpuInfo
 	cpuModelVendor          string
 	volumePath              string
 	domCapabilitiesFileName string
@@ -147,23 +145,17 @@ func (n *NodeLabeller) execute() bool {
 }
 
 func (n *NodeLabeller) loadAll() error {
-	err := n.loadCPUInfo()
-	if err != nil {
-		n.logger.Errorf("node-labeller could not load cpu info: " + err.Error())
-		return err
-	}
-
 	// host supported features is only available on AMD64 nodes.
 	// This is because hypervisor-cpu-baseline virsh command doesnt work for ARM64 architecture.
 	if virtconfig.IsAMD64(runtime.GOARCH) {
-		err = n.loadHostSupportedFeatures()
+		err := n.loadHostSupportedFeatures()
 		if err != nil {
 			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
 			return err
 		}
 	}
 
-	err = n.loadDomCapabilities()
+	err := n.loadDomCapabilities()
 	if err != nil {
 		n.logger.Errorf("node-labeller could not load host dom capabilities: " + err.Error())
 		return err
@@ -213,32 +205,21 @@ func skipNodeLabelling(node *v1.Node) bool {
 }
 
 func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
-	p := make([]patch.PatchOperation, 0)
-	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
-		p = append(p, patch.PatchOperation{
-			Op:    "test",
-			Path:  "/metadata/labels",
-			Value: originalNode.Labels,
-		}, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/metadata/labels",
-			Value: node.Labels,
-		})
+	if equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
+		return nil
 	}
 
-	// patch node only if there is change in labels
-	if len(p) > 0 {
-		payloadBytes, err := json.Marshal(p)
-		if err != nil {
-			return err
-		}
-		_, err = n.nodeClient.Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
-		if err != nil {
-			return err
-		}
+	patchBytes, err := patch.New(
+		patch.WithTest("/metadata/labels", originalNode.Labels),
+		patch.WithReplace("/metadata/labels", node.Labels),
+	).GeneratePayload()
+
+	if err != nil {
+		return err
 	}
 
-	return nil
+	_, err = n.nodeClient.Patch(context.Background(), node.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	return err
 }
 
 func (n *NodeLabeller) loadHypervFeatures() {
@@ -254,10 +235,6 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 	}
 
 	for _, value := range cpuModels {
-		if !n.shouldAddCPUModelLabel(value, &hostCpuModel, newLabels) {
-			continue
-		}
-
 		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
 		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
 	}
@@ -360,36 +337,4 @@ func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostMod
 	warningMsg := fmt.Sprintf("This node has %v host-model cpu that is included in ObsoleteCPUModels: %v", hostModel, ObsoleteCPUModels)
 	n.recorder.Eventf(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
 	return nil
-}
-
-func (n *NodeLabeller) shouldAddCPUModelLabel(
-	cpuModelName string,
-	hostCpuModel *hostCPUModel,
-	featureLabels map[string]string,
-) bool {
-	if cpuModelName == hostCpuModel.Name {
-		return true
-	}
-	// The logic below is necessary to handle the scenarios when libvirt's definition of a
-	// particular CPU model differs from hypervisor's definition.
-	// E.g. currently Opteron_G2 requires svm by libvirt:
-	//     /usr/share/libvirt/cpu_map/x86_Opteron_G2.xml
-	// But libvirt marks it as Usable:yes even without svm because it is usable by qemu:
-	//     /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
-	// For more information refer to https://wiki.qemu.org/Features/CPUModels, "Getting
-	// information about CPU models" section.
-	// Another similar issue:
-	//     https://gitlab.com/libvirt/libvirt/-/issues/304
-	requiredFeatures, ok := n.cpuInfo.usableModels[cpuModelName]
-	if !ok {
-		n.logger.Warningf("The list of required features for CPU model %s is not defined", cpuModelName)
-		return false
-	}
-	missingFeatures := make([]string, 0)
-	for f := range requiredFeatures {
-		if _, isFeatureSupported := featureLabels[kubevirtv1.CPUFeatureLabel+f]; !isFeatureSupported {
-			missingFeatures = append(missingFeatures, f)
-		}
-	}
-	return len(missingFeatures) == 0
 }

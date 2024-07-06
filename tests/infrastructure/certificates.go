@@ -26,7 +26,8 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libinfra"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -69,7 +70,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 	It("[test_id:4099] should be rotated when a new CA is created", func() {
 		By("checking that the config-map gets the new CA bundle attached")
 		Eventually(func() int {
-			_, crts := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+			_, crts := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
 			return len(crts)
 		}, 10*time.Second, 1*time.Second).Should(BeNumerically(">", 0))
 
@@ -97,7 +98,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		By("checking that one of the CAs in the config-map is the new one")
 		var caBundle []byte
 		Eventually(func() bool {
-			caBundle, _ = tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+			caBundle, _ = libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
 			return libinfra.ContainsCrt(caBundle, newCA)
 		}, 10*time.Second, 1*time.Second).Should(BeTrue(), "the new CA should be added to the config-map")
 
@@ -128,14 +129,14 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		}, 10*time.Second, 1*time.Second).Should(BeTrue())
 
 		By("checking that we can still start virtual machines and connect to the VMI")
-		vmi := libvmi.NewAlpine()
+		vmi := libvmifact.NewAlpine()
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 	})
 
 	It("[sig-compute][test_id:4100] should be valid during the whole rotation process", func() {
-		oldAPICert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
-		oldHandlerCert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
+		oldAPICert := libinfra.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
+		oldHandlerCert := libinfra.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 		Expect(err).ToNot(HaveOccurred())
 
 		By("destroying the CA certificate")
@@ -144,15 +145,26 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 		Eventually(func() (rotated bool) {
-			vmi := libvmi.NewAlpine()
+			vmi := libvmifact.NewAlpine()
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
+
+			apiCerts, err := libpod.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
 			Expect(err).ToNot(HaveOccurred())
-			newHandlerCert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
+			if !hasIdenticalCerts(apiCerts) {
+				return false
+			}
+			newAPICert := apiCerts[0]
+
+			handlerCerts, err := libpod.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 			Expect(err).ToNot(HaveOccurred())
+			if !hasIdenticalCerts(handlerCerts) {
+				return false
+			}
+			newHandlerCert := handlerCerts[0]
+
 			return !reflect.DeepEqual(oldHandlerCert, newHandlerCert) && !reflect.DeepEqual(oldAPICert, newAPICert)
 		}, 120*time.Second).Should(BeTrue())
 	})
@@ -195,4 +207,17 @@ func getCertFromSecret(secretName string) []byte {
 		return rawBundle
 	}
 	return nil
+}
+
+func hasIdenticalCerts(certs [][]byte) bool {
+	if len(certs) == 0 {
+		return false
+	}
+	for _, crt := range certs {
+		if !reflect.DeepEqual(certs[0], crt) {
+			return false
+		}
+	}
+
+	return true
 }

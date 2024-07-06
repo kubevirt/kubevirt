@@ -27,8 +27,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type NetworkDataOption func(*CloudInitNetworkData) error
-type NetworkDataInterfaceOption func(*CloudInitInterface) error
+type (
+	NetworkDataOption          func(*CloudInitNetworkData) error
+	NetworkDataInterfaceOption func(*CloudInitInterface) error
+)
 
 func NewNetworkData(options ...NetworkDataOption) (string, error) {
 	networkData := CloudInitNetworkData{
@@ -198,4 +200,10 @@ func CreateDefaultCloudInitNetworkData() string {
 		panic(err)
 	}
 	return data
+}
+
+func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
+	return fmt.Sprintf(`#!/bin/bash
+            echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
+`, commands)
 }

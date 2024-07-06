@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -46,14 +47,13 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -72,7 +72,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	waitForVMIs := func(namespace string, expectedCount int) {
 		Eventually(func() error {
-			vmis, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &v12.ListOptions{})
+			vmis, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(vmis.Items) != expectedCount {
 				return fmt.Errorf("Only %d vmis exist, expected %d", len(vmis.Items), expectedCount)
@@ -106,9 +106,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			return pool.Status.Replicas
 		}, 90*time.Second, time.Second).Should(Equal(int32(scale)))
 
-		vms, err := virtClient.VirtualMachine(util.NamespaceTestDefault).List(context.Background(), &v12.ListOptions{})
+		vms, err := virtClient.VirtualMachine(util.NamespaceTestDefault).List(context.Background(), v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(notDeletedVMs(pool.Name, vms)).To(HaveLen(int(scale)))
+		Expect(filterNotDeletedVMsOwnedByPool(pool.Name, vms)).To(HaveLen(int(scale)))
 	}
 	createVirtualMachinePool := func(pool *poolv1.VirtualMachinePool) *poolv1.VirtualMachinePool {
 		pool, err = virtClient.VirtualMachinePool(util.NamespaceTestDefault).Create(context.Background(), pool, metav1.CreateOptions{})
@@ -160,7 +160,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	newOfflineVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		return createVirtualMachinePool(newPoolFromVMI(libvmi.NewCirros()))
+		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewCirros()))
 	}
 
 	DescribeTable("[Serial]pool should scale", Serial, func(startScale int, stopScale int) {
@@ -204,7 +204,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err.Error()).To(ContainSubstring("admission webhook \"virtualmachinepool-validator.kubevirt.io\" denied the request: spec.virtualMachineTemplate.spec.template.spec.domain.devices.disks[2].Name 'testdisk' not found"))
 	})
 
-	It("[QUARANTINE] should remove VMs once they are marked for deletion", decorators.Quarantine, func() {
+	It("should remove VMs once they are marked for deletion", func() {
 		newPool := newVirtualMachinePool()
 		// Create a pool with two replicas
 		doScale(newPool.ObjectMeta.Name, 2)
@@ -214,7 +214,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		// Wait until VMs are gone
 		By("Waiting until all VMs are gone")
 		Eventually(func() int {
-			vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vms.Items)
 		}, 120*time.Second, 1*time.Second).Should(BeZero())
@@ -234,7 +234,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Waiting until all VMs are created")
 		Eventually(func() int {
-			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vms.Items)
 		}, 60*time.Second, 1*time.Second).Should(Equal(2))
@@ -280,11 +280,11 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("deleting a VM")
 		foreGround := metav1.DeletePropagationForeground
-		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, &k8smetav1.DeleteOptions{PropagationPolicy: &foreGround})).To(Succeed())
+		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{PropagationPolicy: &foreGround})).To(Succeed())
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {
-			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -345,7 +345,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Waiting until all VMs are created")
 		Eventually(func() int {
-			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vms.Items)
 		}, 120*time.Second, 1*time.Second).Should(Equal(3))
@@ -354,11 +354,11 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		name := vms.Items[1].Name
 
 		By("deleting a VM")
-		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, &k8smetav1.DeleteOptions{})).To(Succeed())
+		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {
-			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -388,13 +388,13 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		doScale(newPool.ObjectMeta.Name, 1)
 		waitForVMIs(newPool.Namespace, 1)
 
-		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vms.Items).To(HaveLen(1))
 
 		name := vms.Items[0].Name
-		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmiUID := vmi.UID
@@ -415,7 +415,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		By("Ensuring VM picks up label")
 		Eventually(func() error {
 
-			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -430,7 +430,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Ensuring VMI remains consistent and isn't restarted")
 		Consistently(func() error {
-			vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			if err != nil {
 				return nil
 			}
@@ -441,18 +441,18 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 5*time.Second, 1*time.Second).Should(BeNil())
 	})
 
-	It("[QUARANTINE] should roll out VMI template changes and proactively roll out new VMIs", decorators.Quarantine, func() {
+	It("should roll out VMI template changes and proactively roll out new VMIs", func() {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, 1)
 		waitForVMIs(newPool.Namespace, 1)
 
-		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vms.Items).To(HaveLen(1))
 
 		name := vms.Items[0].Name
-		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmiUID := vmi.UID
@@ -474,7 +474,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		By("Ensuring VM picks up label")
 		Eventually(func() error {
 
-			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -489,7 +489,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Ensuring VMI is re-created to pick up new label")
 		Eventually(func() error {
-			vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			if err != nil {
 				return nil
 			}
@@ -510,7 +510,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		doScale(newPool.ObjectMeta.Name, 2)
 
 		// Check for owner reference
-		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 		Expect(vms.Items).To(HaveLen(2))
 		Expect(err).ToNot(HaveOccurred())
 		for _, vm := range vms.Items {
@@ -529,7 +529,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 		By("Checking if two VMs are orphaned and still exist")
-		vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+		vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 		Expect(vms.Items).To(HaveLen(2))
 
 		By("Checking a VirtualMachine owner references")
@@ -622,14 +622,17 @@ func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
 	return pool
 }
 
-func notDeletedVMs(poolName string, vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
-	nonDeletedVms := tests.NotDeletedVMs(vms)
-	for _, vm := range nonDeletedVms {
+func filterNotDeletedVMsOwnedByPool(poolName string, vms *v1.VirtualMachineList) []v1.VirtualMachine {
+	var result []v1.VirtualMachine
+	for _, vm := range vms.Items {
+		if vm.DeletionTimestamp != nil {
+			continue
+		}
 		for _, ref := range vm.OwnerReferences {
 			if ref.Name == poolName {
-				notDeleted = append(notDeleted, vm)
+				result = append(result, vm)
 			}
 		}
 	}
-	return
+	return result
 }

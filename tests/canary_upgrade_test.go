@@ -81,7 +81,7 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, de
 		close(stopCh)
 
 		retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			_, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Update(originalKV)
+			_, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Update(context.Background(), originalKV, metav1.UpdateOptions{})
 			return err
 		})
 
@@ -114,7 +114,7 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, de
 			},
 		}
 		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			_, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
+			_, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 			return err
 		})
 	}

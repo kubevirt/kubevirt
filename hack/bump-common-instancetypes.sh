@@ -2,15 +2,14 @@
 
 set -ex
 
-source $(dirname "$0")/common.sh
-source $(dirname "$0")/config.sh
+source "$(dirname "$0")/common.sh"
+source "$(dirname "$0")/config.sh"
+
+TARGET_BRANCH=${1:-"main"}
 
 function latest_version() {
-    local org="$1"
-    local repo="$2"
-
-    curl --fail -s "https://api.github.com/repos/${org}/${repo}/releases/latest" |
-        jq -r '.tag_name'
+    curl --fail -s "https://api.github.com/repos/kubevirt/common-instancetypes/releases?per_page=100" |
+        jq -r '.[] | select(.target_commitish == '\""${TARGET_BRANCH}"\"') | .tag_name' | head -n1
 }
 
 function checksum() {
@@ -21,7 +20,7 @@ function checksum() {
         grep "${file}" | cut -d " " -f 1
 }
 
-version=$(latest_version "kubevirt" "common-instancetypes")
+version=$(latest_version)
 instancetypes_checksum=$(checksum "${version}" "common-clusterinstancetypes-bundle-${version}.yaml")
 preferences_checksum=$(checksum "${version}" "common-clusterpreferences-bundle-${version}.yaml")
 

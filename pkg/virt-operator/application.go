@@ -55,6 +55,7 @@ import (
 	clientutil "kubevirt.io/client-go/util"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -119,6 +120,10 @@ func Execute() {
 
 	log.InitializeLogging(VirtOperator)
 
+	if err := metrics.SetupMetrics(); err != nil {
+		golog.Fatalf("Error setting up metrics: %v", err)
+	}
+
 	host, err := os.Hostname()
 	if err != nil {
 		golog.Fatalf("unable to get hostname: %v", err)
@@ -135,6 +140,7 @@ func Execute() {
 		os.Setenv(k, v)
 	}
 
+	clientmetrics.RegisterRestConfigHooks()
 	config, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		panic(err)
@@ -266,6 +272,36 @@ func Execute() {
 		app.stores.PrometheusRuleCache = app.informerFactory.DummyOperatorPrometheusRule().GetStore()
 	}
 
+	validatingAdmissionPolicyBindingEnabled, err := util.IsValidatingAdmissionPolicyBindingEnabled(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error checking for ValidatingAdmissionPolicyBinding: %v", err)
+	}
+	if validatingAdmissionPolicyBindingEnabled {
+		log.Log.Info("validatingAdmissionPolicyBindingEnabled is defined")
+		app.informers.ValidatingAdmissionPolicyBinding = app.informerFactory.OperatorValidatingAdmissionPolicyBinding()
+		app.stores.ValidatingAdmissionPolicyBindingCache = app.informerFactory.OperatorValidatingAdmissionPolicyBinding().GetStore()
+		app.stores.ValidatingAdmissionPolicyBindingEnabled = true
+	} else {
+		log.Log.Info("validatingAdmissionPolicyBindingEnabled is not defined")
+		app.informers.ValidatingAdmissionPolicyBinding = app.informerFactory.DummyOperatorValidatingAdmissionPolicyBinding()
+		app.stores.ValidatingAdmissionPolicyBindingCache = app.informerFactory.DummyOperatorValidatingAdmissionPolicyBinding().GetStore()
+	}
+
+	validatingAdmissionPolicyEnabled, err := util.IsValidatingAdmissionPolicyEnabled(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error checking for ValidatingAdmissionPolicy: %v", err)
+	}
+	if validatingAdmissionPolicyEnabled {
+		log.Log.Info("validatingAdmissionPolicyEnabled is defined")
+		app.informers.ValidatingAdmissionPolicy = app.informerFactory.OperatorValidatingAdmissionPolicy()
+		app.stores.ValidatingAdmissionPolicyCache = app.informerFactory.OperatorValidatingAdmissionPolicy().GetStore()
+		app.stores.ValidatingAdmissionPolicyEnabled = true
+	} else {
+		log.Log.Info("validatingAdmissionPolicyEnabled is not defined")
+		app.informers.ValidatingAdmissionPolicy = app.informerFactory.DummyOperatorValidatingAdmissionPolicy()
+		app.stores.ValidatingAdmissionPolicyCache = app.informerFactory.DummyOperatorValidatingAdmissionPolicy().GetStore()
+	}
+
 	app.prepareCertManagers()
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)
@@ -297,11 +333,6 @@ func Execute() {
 	app.reInitChan = make(chan string, 0)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldUpdateConfigurationMetrics)
-
-	// Setup monitoring
-	if err := metrics.SetupMetrics(); err != nil {
-		golog.Fatalf("Error setting up metrics: %v", err)
-	}
 
 	go app.Run()
 	<-app.reInitChan
@@ -340,9 +371,9 @@ func (app *VirtOperatorApp) Run() {
 		}
 	}()
 
-	endpointName := VirtOperator
+	leaseName := VirtOperator
 
-	recorder := app.getNewRecorder(k8sv1.NamespaceAll, endpointName)
+	recorder := app.getNewRecorder(k8sv1.NamespaceAll, leaseName)
 
 	id, err := os.Hostname()
 	if err != nil {
@@ -351,7 +382,7 @@ func (app *VirtOperatorApp) Run() {
 
 	rl, err := resourcelock.New(app.LeaderElection.ResourceLock,
 		app.operatorNamespace,
-		endpointName,
+		leaseName,
 		app.clientSet.CoreV1(),
 		app.clientSet.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
