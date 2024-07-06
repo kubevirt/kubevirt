@@ -56,13 +56,13 @@ import (
 
 	"kubevirt.io/api/core"
 	kubev1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/api/migrations"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -189,6 +189,12 @@ type KubeInformerFactory interface {
 	// Fake CDI DataSource informer used when feature gate is disabled
 	DummyDataSource() cache.SharedIndexInformer
 
+	// Watches for CDI StorageProfile objects
+	StorageProfile() cache.SharedIndexInformer
+
+	// Fake CDI StorageProfile informer used when feature gate is disabled
+	DummyStorageProfile() cache.SharedIndexInformer
+
 	// Watches for CDI objects
 	CDI() cache.SharedIndexInformer
 
@@ -281,6 +287,18 @@ type KubeInformerFactory interface {
 
 	// Fake ServiceMonitor informer used when Prometheus is not installed
 	DummyOperatorServiceMonitor() cache.SharedIndexInformer
+
+	// ValidatingAdmissionPolicyBinding created/managed by virt operator
+	OperatorValidatingAdmissionPolicyBinding() cache.SharedIndexInformer
+
+	// Fake OperatorValidatingAdmissionPolicyBinding informer used when ValidatingAdmissionPolicyBinding is not installed
+	DummyOperatorValidatingAdmissionPolicyBinding() cache.SharedIndexInformer
+
+	// ValidatingAdmissionPolicies created/managed by virt operator
+	OperatorValidatingAdmissionPolicy() cache.SharedIndexInformer
+
+	// Fake OperatorValidatingAdmissionPolicy informer used when ValidatingAdmissionPolicy is not installed
+	DummyOperatorValidatingAdmissionPolicy() cache.SharedIndexInformer
 
 	// The namespace where kubevirt is deployed in
 	Namespace() cache.SharedIndexInformer
@@ -607,7 +625,7 @@ func GetVirtualMachineExportInformerIndexers() cache.Indexers {
 
 func (f *kubeInformerFactory) VirtualMachineExport() cache.SharedIndexInformer {
 	return f.getInformer("vmExportInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().ExportV1alpha1().RESTClient(), "virtualmachineexports", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().ExportV1beta1().RESTClient(), "virtualmachineexports", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &exportv1.VirtualMachineExport{}, f.defaultResync, GetVirtualMachineExportInformerIndexers())
 	})
 }
@@ -633,7 +651,7 @@ func GetVirtualMachineSnapshotInformerIndexers() cache.Indexers {
 
 func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer {
 	return f.getInformer("vmSnapshotInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinesnapshots", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1beta1().RESTClient(), "virtualmachinesnapshots", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineSnapshot{}, f.defaultResync, GetVirtualMachineSnapshotInformerIndexers())
 	})
 }
@@ -659,7 +677,7 @@ func GetVirtualMachineSnapshotContentInformerIndexers() cache.Indexers {
 
 func (f *kubeInformerFactory) VirtualMachineSnapshotContent() cache.SharedIndexInformer {
 	return f.getInformer("vmSnapshotContentInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinesnapshotcontents", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1beta1().RESTClient(), "virtualmachinesnapshotcontents", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineSnapshotContent{}, f.defaultResync, GetVirtualMachineSnapshotContentInformerIndexers())
 	})
 }
@@ -686,7 +704,7 @@ func GetVirtualMachineRestoreInformerIndexers() cache.Indexers {
 
 func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer {
 	return f.getInformer("vmRestoreInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinerestores", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1beta1().RESTClient(), "virtualmachinerestores", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineRestore{}, f.defaultResync, GetVirtualMachineRestoreInformerIndexers())
 	})
 }
@@ -820,6 +838,20 @@ func (f *kubeInformerFactory) DataSource() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) DummyDataSource() cache.SharedIndexInformer {
 	return f.getInformer("fakeDataSourceInformer", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) StorageProfile() cache.SharedIndexInformer {
+	return f.getInformer("storageProfileInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.CdiClient().CdiV1beta1().RESTClient(), "storageprofiles", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &cdiv1.StorageProfile{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyStorageProfile() cache.SharedIndexInformer {
+	return f.getInformer("fakeStorageProfileInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		return informer
 	})
 }
@@ -1259,6 +1291,44 @@ func (f *kubeInformerFactory) OperatorServiceMonitor() cache.SharedIndexInformer
 func (f *kubeInformerFactory) DummyOperatorServiceMonitor() cache.SharedIndexInformer {
 	return f.getInformer("FakeOperatorServiceMonitor", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&promv1.ServiceMonitor{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) OperatorValidatingAdmissionPolicyBinding() cache.SharedIndexInformer {
+	return f.getInformer("operatorValidatingAdmissionPolicyBindingInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1().RESTClient(), "validatingadmissionpolicybindings", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1.ValidatingAdmissionPolicyBinding{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) DummyOperatorValidatingAdmissionPolicyBinding() cache.SharedIndexInformer {
+	return f.getInformer("FakeOperatorValidatingAdmissionPolicyBindingInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) OperatorValidatingAdmissionPolicy() cache.SharedIndexInformer {
+	return f.getInformer("operatorValidatingAdmissionPolicyInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1().RESTClient(), "validatingadmissionpolicies", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1.ValidatingAdmissionPolicy{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) DummyOperatorValidatingAdmissionPolicy() cache.SharedIndexInformer {
+	return f.getInformer("FakeOperatorValidatingAdmissionPolicyInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
 		return informer
 	})
 }

@@ -26,15 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -46,10 +37,19 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
+	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -226,6 +226,7 @@ func addExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 }
 
+// Deprecated: Use libvmi
 func getWindowsSysprepVMISpec() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
@@ -315,9 +316,12 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
-		windowsVMI = tests.NewRandomVMI()
+		windowsVMI = libvmi.New()
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
-		tests.CreateConfigMap("sysprepautounattend", windowsVMI.Namespace, map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
+		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
+		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
+		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		addExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
@@ -381,7 +385,7 @@ func winRMCliPod() *k8sv1.Pod {
 			Containers: []k8sv1.Container{
 				{
 					Name:    winrmCli,
-					Image:   fmt.Sprintf("%s/%s:%s", flags.KubeVirtUtilityRepoPrefix, winrmCli, flags.KubeVirtUtilityVersionTag),
+					Image:   libregistry.GetUtilityImageFromRegistry(winrmCli),
 					Command: []string{"sleep"},
 					Args:    []string{"3600"},
 					SecurityContext: &k8sv1.SecurityContext{

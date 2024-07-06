@@ -5,8 +5,8 @@ go_library(
     srcs = [
         "address.go",
         "discovery.go",
+        "mac.go",
         "names.go",
-        "reserved_macs.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/link",
     visibility = ["//visibility:public"],

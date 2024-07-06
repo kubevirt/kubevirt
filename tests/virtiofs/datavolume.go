@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
@@ -110,7 +111,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				virtiofsMountPath(pvc2), pvc2, virtiofsMountPath(pvc2), virtiofsTestFile(virtiofsMountPath(pvc2)))
 
 			vmi = libvmifact.NewFedora(
-				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommands)),
 				libvmi.WithFilesystemPVC(pvc1),
 				libvmi.WithFilesystemPVC(pvc2),
 				libvmi.WithNamespace(namespace),
@@ -173,11 +174,13 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 
 			// We change the owner to qemu regardless of virtiofsd's privileges,
 			// because the root user will be able to access the directory anyway
-			nodeSelector := map[string]string{"kubernetes.io/hostname": node}
+			nodeSelector := map[string]string{k8sv1.LabelHostname: node}
 			args := []string{fmt.Sprintf(`chown 107 %s`, pvhostpath)}
 			pod := libpod.RenderHostPathPod("tmp-change-owner-job", pvhostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 			pod.Spec.NodeSelector = nodeSelector
-			tests.RunPodAndExpectCompletion(pod)
+			pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 		}
 
 		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
@@ -222,7 +225,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                            `, virtiofsMountPath, pvcName, virtiofsMountPath, virtiofsTestFile)
 
 			vmi = libvmifact.NewFedora(
-				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommands)),
 				libvmi.WithFilesystemPVC(pvcName),
 				libvmi.WithNamespace(namespace),
 			)
@@ -246,23 +249,8 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 			By("Finding virt-launcher pod")
-			var virtlauncherPod *k8sv1.Pod
-			Eventually(func() *k8sv1.Pod {
-				podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-				if err != nil {
-					return nil
-				}
-				for _, pod := range podList.Items {
-					for _, ownerRef := range pod.GetOwnerReferences() {
-						if ownerRef.UID == vmi.GetUID() {
-							virtlauncherPod = &pod
-							break
-						}
-					}
-				}
-				return virtlauncherPod
-			}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
-			Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
+			virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 			foundContainer := false
 			virtiofsContainerName := fmt.Sprintf("virtiofs-%s", pvcName)
 			for _, container := range virtlauncherPod.Spec.Containers {
@@ -326,14 +314,20 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                                `, virtiofsMountPath, dataVolume.Name, virtiofsMountPath, virtiofsTestFile)
 
 			vmi = libvmifact.NewFedora(
-				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommands)),
 				libvmi.WithFilesystemDV(dataVolume.Name),
 				libvmi.WithNamespace(namespace),
 			)
+
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 			// import and start
-			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
-
+			By("Waiting until the DataVolume is ready")
+			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+			By("Waiting until the VirtualMachineInstance starts")
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
 			// Wait for cloud init to finish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 

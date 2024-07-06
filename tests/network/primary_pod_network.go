@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -200,7 +201,7 @@ func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.Virtual
 	vmi := libvmifact.NewFedora(
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 	)
 	return vmi, nil
 }

@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "networkinfo.go",
+        "types.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/network/downwardapi",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "downwardapi_suite_test.go",
+        "networkinfo_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

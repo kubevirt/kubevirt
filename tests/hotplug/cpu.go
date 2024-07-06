@@ -8,9 +8,10 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libnet"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -38,6 +39,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libwait"
+	testsmig "kubevirt.io/kubevirt/tests/migration"
 )
 
 var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateFeaturesGate, Serial, func() {
@@ -88,9 +90,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				maxSockets uint32 = 2
 			)
 
-			vmi := libvmifact.NewAlpineWithTestTooling(
-				libnet.WithMasqueradeNetworking()...,
-			)
+			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Sockets:    1,
@@ -100,13 +100,14 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 200m CPU")
-			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err := libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu := compute.Resources.Requests.Cpu().Value()
@@ -122,7 +123,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			By("Enabling the second socket")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for hot change CPU condition to appear")
@@ -132,7 +133,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			By("Ensuring live-migration started")
 			var migration *v1.VirtualMachineInstanceMigration
 			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(&k8smetav1.ListOptions{})
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, mig := range migrations.Items {
 					if mig.Spec.VMIName == vmi.Name {
@@ -155,21 +156,23 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}))
 
 			By("Ensuring the virt-launcher pod now has 400m CPU")
-			compute = libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err = libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu = compute.Resources.Requests.Cpu().Value()
 			expCpu = resource.MustParse("400m")
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 
 			By("Ensuring the vm doesn't have a RestartRequired condition")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 
 			By("Changing the number of CPU cores")
 			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/cores", 2, 4)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the vm has a RestartRequired condition")
@@ -186,9 +189,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			const maxSockets uint32 = 3
 
 			By("Creating a running VM with 1 socket and 2 max sockets")
-			vmi := libvmifact.NewAlpineWithTestTooling(
-				libnet.WithMasqueradeNetworking()...,
-			)
+			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores:                 2,
@@ -199,13 +200,14 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 2 CPU")
-			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err := libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu := compute.Resources.Requests.Cpu().Value()
@@ -220,7 +222,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			By("starting the migration")
 			migration := libmigration.New(vm.Name, vm.Namespace)
-			migration, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Create(migration, &metav1.CreateOptions{})
+			migration, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
@@ -228,7 +230,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			By("Enabling the second socket")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for hot change CPU condition to appear")
@@ -252,12 +254,89 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}))
 
 			By("Ensuring the virt-launcher pod now has 4 CPU")
-			compute = libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err = libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu = compute.Resources.Requests.Cpu().Value()
 			expCpu = resource.MustParse("4")
 			Expect(reqCpu).To(Equal(expCpu.Value()))
+		})
+	})
+
+	Context("Abort CPU change", func() {
+		It("should cancel the automated workload update", func() {
+			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
+			vmi.Namespace = testsuite.GetTestNamespace(vmi)
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Sockets:    1,
+				Cores:      2,
+				Threads:    1,
+				MaxSockets: 2,
+			}
+			By("Limiting the bandwidth of migrations in the test namespace")
+			policy := testsmig.PreparePolicyAndVMIWithBandwidthLimitation(vmi, resource.MustParse("1Ki"))
+			testsmig.CreateMigrationPolicy(virtClient, policy)
+			Eventually(func() *migrationsv1.MigrationPolicy {
+				policy, err := virtClient.MigrationPolicy().Get(context.Background(), policy.Name, metav1.GetOptions{})
+				if err != nil {
+					return nil
+				}
+				return policy
+			}, 30*time.Second, time.Second).ShouldNot(BeNil())
+
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+
+			// Update the CPU number and trigger the workload update
+			// and migration
+			By("Enabling the second socket to trigger the migration update")
+			p, err := patch.New(patch.WithReplace("/spec/template/spec/domain/cpu/sockets", 2)).GeneratePayload()
+			Expect(err).NotTo(HaveOccurred())
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, k8smetav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, mig := range migrations.Items {
+					if mig.Spec.VMIName == vmi.Name {
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, time.Second).Should(BeTrue())
+
+			// Add annotation to cancel the workload update
+			By("Patching the workload migration abortion annotation")
+			vmi.ObjectMeta.Annotations[v1.WorkloadUpdateMigrationAbortionAnnotation] = ""
+			p, err = patch.New(patch.WithAdd("/metadata/annotations", vmi.ObjectMeta.Annotations)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return metav1.HasAnnotation(vmi.ObjectMeta, v1.WorkloadUpdateMigrationAbortionAnnotation)
+			}, 30*time.Second, time.Second).Should(BeTrue())
+
+			// Wait until the migration is cancelled by the workload
+			// updater
+			Eventually(func() bool {
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, mig := range migrations.Items {
+					if mig.Spec.VMIName == vmi.Name {
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, time.Second).Should(BeFalse())
+
 		})
 	})
 })
@@ -273,7 +352,7 @@ func patchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubec
 	data := []byte(fmt.Sprintf(`[%s, %s]`, data1, data2))
 
 	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(kvName, types.JSONPatchType, data, &k8smetav1.PatchOptions{})
+		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, k8smetav1.PatchOptions{})
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }

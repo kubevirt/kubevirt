@@ -49,12 +49,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Pausing", decorators.SigCompute, func() {
@@ -130,7 +130,10 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			When("paused via virtctl", func() {
 				It("[test_id:3224]should not be paused", func() {
 					By("Launching a VMI with LivenessProbe")
-					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					vmi = libvmifact.NewCirros(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)
 					// a random probe which will not fail immediately
 					vmi.Spec.LivenessProbe = &v1.Probe{
 						Handler: v1.Handler{
@@ -145,7 +148,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						SuccessThreshold:    1,
 						FailureThreshold:    1,
 					}
-					tests.RunVMIAndExpectLaunch(vmi, 90)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 					By("Pausing it")
 					command := clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
@@ -206,7 +209,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			)
 			vmi.Namespace = util.NamespaceTestDefault
 			vm = libvmi.NewVirtualMachine(vmi)
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v12.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm = tests.StartVirtualMachine(vm)
 		})
@@ -294,7 +297,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				By("Checking status of VM")
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &v12.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.Ready
 				}, 300*time.Second, 1*time.Second).Should(BeFalse())
@@ -364,7 +367,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 				By("Trying to console into the VM")
-				_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).ToNot(HaveOccurred())
 			})
 

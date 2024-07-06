@@ -4,11 +4,11 @@ ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION=5.4.1
-ENV GIMME_GO_VERSION=1.21.8
+ENV GIMME_GO_VERSION=1.22.2
 ENV GRADLE_VERSION=6.6
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
-ENV GOLANGCI_LINT_VERSION=v1.55.2
+ENV GOLANGCI_LINT_VERSION=v1.57.2
 
 ENV KUBEVIRT_CREATE_BAZELRCS=false
 
@@ -86,7 +86,8 @@ RUN set -x && \
     go install -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
     go install -v k8s.io/code-generator/cmd/client-gen@v0.20.2 && \
     go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
-    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 && \
+    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 && \
+    go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@e2be790 && \
     go clean -cache -modcache
 
 RUN set -x && \
@@ -113,6 +114,7 @@ RUN set -x && \
 
 RUN set -x && \
     source /etc/profile.d/gimme.sh && \
+    go install -v mvdan.cc/gofumpt@v0.6.0 && \
     curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOROOT)"/bin $GOLANGCI_LINT_VERSION
 
 RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}

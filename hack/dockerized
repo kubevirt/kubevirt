@@ -12,7 +12,24 @@ fi
 
 fail_if_cri_bin_missing
 
-KUBEVIRT_BUILDER_IMAGE=${KUBEVIRT_BUILDER_IMAGE:-"quay.io/kubevirt/builder:2403080945-556ae2ce2"}
+kubevirt_builder_version="2406170946-2735000ca"
+default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
+kubevirt_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_builder_version}"
+
+KUBEVIRT_BUILDER_IMAGE=${KUBEVIRT_BUILDER_IMAGE:-"${default_kubevirt_builder_image}"}
+
+# As long as KUBEVIRT_BUILDER_IMAGE is using the default builder, check if cross-compilation is needed and
+# switch to bigger cross-compile image instead.
+# Should KUBEVIRT_BUILDER_IMAGE be modified by the user, do not change it. It is assumed that the user knows
+# what they are doing.
+if [ "${KUBEVIRT_BUILDER_IMAGE}" == "${default_kubevirt_builder_image}" ] && [ -n "${BUILD_ARCH}" ]; then
+    for arch in ${BUILD_ARCH//,/ }; do
+        arch=$(format_archname "${arch}")
+        if [[ ${arch} =~ ^cross-* ]]; then
+            KUBEVIRT_BUILDER_IMAGE="${kubevirt_cross_compile_image}"
+        fi
+    done
+fi
 
 SYNC_OUT=${SYNC_OUT:-true}
 
@@ -23,18 +40,6 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 TEMPFILE=".rsynctemp"
 
 CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY}"
-
-# Be less verbose with bazel
-# For ppc64le the bazel server seems to be running out of memory in the Travis CI, so forcing no concurrent jobs to be run
-if [ -n "${TRAVIS_JOB_ID}" ]; then
-    cat >ci.bazelrc <<EOF
-common --noshow_progress --noshow_loading_progress
-build:ppc64le --jobs=1
-build:aarch64 --jobs=1
-run:ppc64le --jobs=1
-run:aarch64 --jobs=1
-EOF
-fi
 
 # Create the persistent container volume
 if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then

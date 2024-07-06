@@ -97,7 +97,7 @@ var _ = Describe("Pausing", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 
-		vmInterface.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
+		vmInterface.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
 		vmiInterface.EXPECT().Pause(context.Background(), vm.Name, pauseOptions).Return(nil).Times(1)
 
 		var command *cobra.Command
@@ -123,7 +123,7 @@ var _ = Describe("Pausing", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 
-		vmInterface.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
+		vmInterface.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
 		vmiInterface.EXPECT().Unpause(context.Background(), vm.Name, unpauseOptions).Return(nil).Times(1)
 		var command *cobra.Command
 		if len(unpauseOptions.DryRun) == 0 {

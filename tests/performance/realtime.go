@@ -20,6 +20,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -65,7 +66,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 		vmi = libvmi.New(
 			libvmi.WithRng(),
 			libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime)),
-			libvmi.WithCloudInitNoCloudEncodedUserData(tuneAdminRealtimeCloudInitData),
+			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(tuneAdminRealtimeCloudInitData)),
 			libvmi.WithResourceCPU("2"),
 			libvmi.WithLimitCPU("2"),
 			libvmi.WithResourceMemory(memory),

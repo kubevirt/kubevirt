@@ -34,7 +34,6 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -61,7 +60,7 @@ var (
 	// add older version when supported
 	// don't use the variable in pkg/handler-launcher-com/cmd/v1/version.go in order to detect version mismatches early
 	supportedCmdVersions = []uint32{1}
-	legacyBaseDir        = "/var/run/kubevirt"
+	baseDir              = "/var/run/kubevirt"
 	podsBaseDir          = "/pods"
 )
 
@@ -125,8 +124,8 @@ const (
 	longTimeout  time.Duration = 20 * time.Second
 )
 
-func SetLegacyBaseDir(baseDir string) {
-	legacyBaseDir = baseDir
+func SetBaseDir(dir string) {
+	baseDir = dir
 }
 
 func SetPodsBaseDir(baseDir string) {
@@ -136,34 +135,7 @@ func SetPodsBaseDir(baseDir string) {
 func ListAllSockets() ([]string, error) {
 	var socketFiles []string
 
-	socketsDir := filepath.Join(legacyBaseDir, "sockets")
-	exists, err := diskutils.FileExists(socketsDir)
-	if err != nil {
-		return nil, err
-	}
-
-	if exists == false {
-		return socketFiles, nil
-	}
-
-	files, err := os.ReadDir(socketsDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		if file.IsDir() || !strings.Contains(file.Name(), "_sock") {
-			continue
-		}
-		// legacy support.
-		// The old way of handling launcher sockets was to
-		// dump them all in the same directory. So if we encounter
-		// a legacy socket, still process it. This is necessary
-		// for update support.
-		socketFiles = append(socketFiles, filepath.Join(socketsDir, file.Name()))
-	}
-
-	podsDir := podsBaseDir
-	dirs, err := os.ReadDir(podsDir)
+	dirs, err := os.ReadDir(podsBaseDir)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +145,7 @@ func ListAllSockets() ([]string, error) {
 		}
 
 		socketPath := SocketFilePathOnHost(dir.Name())
-		exists, err = diskutils.FileExists(socketPath)
+		exists, err := diskutils.FileExists(socketPath)
 		if err != nil {
 			return socketFiles, err
 		}
@@ -186,23 +158,8 @@ func ListAllSockets() ([]string, error) {
 	return socketFiles, nil
 }
 
-func LegacySocketsDirectory() string {
-	return filepath.Join(legacyBaseDir, "sockets")
-}
-
-func IsLegacySocket(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return false
-	}
-
-	return true
-}
-
-func SocketMonitoringEnabled(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return true
-	}
-	return false
+func SocketsDirectory() string {
+	return filepath.Join(baseDir, "sockets")
 }
 
 func IsSocketUnresponsive(socket string) bool {
@@ -216,11 +173,7 @@ func IsSocketUnresponsive(socket string) bool {
 
 	exists, _ = diskutils.FileExists(socket)
 	// if the socket file doesn't exist, it's definitely unresponsive as well
-	if !exists {
-		return true
-	}
-
-	return false
+	return !exists
 }
 
 func MarkSocketUnresponsive(socket string) error {
@@ -262,15 +215,6 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 
 // gets the cmd socket for a VMI
 func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
-	if string(vmi.UID) != "" {
-		legacySockFile := string(vmi.UID) + "_sock"
-		legacySock := filepath.Join(LegacySocketsDirectory(), legacySockFile)
-		exists, _ := diskutils.FileExists(legacySock)
-		if exists {
-			return legacySock, nil
-		}
-	}
-
 	socketsFound := 0
 	foundSocket := ""
 	// It is possible for multiple pods to be active on a single VMI
@@ -298,12 +242,12 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 
 func SocketOnGuest() string {
 	sockFile := StandardLauncherSocketFileName
-	return filepath.Join(LegacySocketsDirectory(), sockFile)
+	return filepath.Join(SocketsDirectory(), sockFile)
 }
 
 func UninitializedSocketOnGuest() string {
 	sockFile := StandardInitLauncherSocketFileName
-	return filepath.Join(LegacySocketsDirectory(), sockFile)
+	return filepath.Join(SocketsDirectory(), sockFile)
 }
 
 func NewClient(socketPath string) (LauncherClient, error) {
@@ -391,7 +335,7 @@ func handleError(err error, cmdName string, response *cmdv1.Response) error {
 	} else if err != nil {
 		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
 		return fmt.Errorf(msg)
-	} else if response != nil && response.Success != true {
+	} else if response != nil && !response.Success {
 		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
 	}
 	return nil

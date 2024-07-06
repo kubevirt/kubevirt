@@ -30,12 +30,12 @@ func WithNodeSelectorFor(node *k8sv1.Node) Option {
 		if vmi.Spec.NodeSelector == nil {
 			vmi.Spec.NodeSelector = map[string]string{}
 		}
-		vmi.Spec.NodeSelector["kubernetes.io/hostname"] = node.Name
+		vmi.Spec.NodeSelector[k8sv1.LabelHostname] = node.Name
 	}
 }
 
 func WithNodeAffinityFor(nodeName string) Option {
-	return WithNodeAffinityForLabel("kubernetes.io/hostname", nodeName)
+	return WithNodeAffinityForLabel(k8sv1.LabelHostname, nodeName)
 }
 
 func WithNodeAffinityForLabel(nodeLabelKey, nodeLabelValue string) Option {
@@ -62,8 +62,10 @@ func WithNodeAffinityForLabel(nodeLabelKey, nodeLabelValue string) Option {
 			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []k8sv1.NodeSelectorTerm{}
 		}
 
-		vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms =
-			append(vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, nodeSelectorTerm)
+		vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+			nodeSelectorTerm,
+		)
 	}
 }
 

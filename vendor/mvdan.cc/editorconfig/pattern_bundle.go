@@ -18,29 +18,39 @@ import (
 	"strings"
 )
 
-// TODO: support Mode in the other APIs too
-
+// Mode can be used to supply a number of options to the package's functions.
+// Not all functions change their behavior with all of the options below.
 type patternMode uint
 
+type patternSyntaxError struct {
+	msg string
+	err error
+}
+
+func (e patternSyntaxError) Error() string { return e.msg }
+
+func (e patternSyntaxError) Unwrap() error { return e.err }
+
 const (
-	patternShortest  patternMode = 1 << iota // prefer the shortest match.
-	patternFilenames                         // "*" and "?" don't match slashes; only "**" does
-	patternBraces                            // support "{a,b}" and "{1..4}"
+	patternShortest     patternMode = 1 << iota // prefer the shortest match.
+	patternFilenames                            // "*" and "?" don't match slashes; only "**" does
+	patternBraces                               // support "{a,b}" and "{1..4}"
+	patternEntireString                         // match the entire string using ^$ delimiters
 )
 
 var patternnumRange = regexp.MustCompile(`^([+-]?\d+)\.\.([+-]?\d+)}`)
 
 // Regexp turns a shell pattern into a regular expression that can be used with
-// regexp.Compile. It will return an error if the input pattern was incorrect.
-// Otherwise, the returned expression can be passed to regexp.MustCompile.
+// [regexp.Compile]. It will return an error if the input pattern was incorrect.
+// Otherwise, the returned expression can be passed to [regexp.MustCompile].
 //
 // For example, Regexp(`foo*bar?`, true) returns `foo.*bar.`.
 //
-// Note that this function (and QuoteMeta) should not be directly used with file
+// Note that this function (and [QuoteMeta]) should not be directly used with file
 // paths if Windows is supported, as the path separator on that platform is the
 // same character as the escaping character for shell patterns.
 func patternRegexp(pat string, mode patternMode) (string, error) {
-	any := false
+	needsEscaping := false
 noopLoop:
 	for _, r := range pat {
 		switch r {
@@ -48,15 +58,21 @@ noopLoop:
 		// regular expression metacharacters
 		case '*', '?', '[', '\\', '.', '+', '(', ')', '|',
 			']', '{', '}', '^', '$':
-			any = true
+			needsEscaping = true
 			break noopLoop
 		}
 	}
-	if !any { // short-cut without a string copy
+	if !needsEscaping && mode&patternEntireString == 0 { // short-cut without a string copy
 		return pat, nil
 	}
 	closingBraces := []int{}
 	var buf bytes.Buffer
+	// Enable matching `\n` with the `.` metacharacter as globs match `\n`
+	buf.WriteString("(?s)")
+	dotMeta := false
+	if mode&patternEntireString != 0 {
+		buf.WriteString("^")
+	}
 writeLoop:
 	for i := 0; i < len(pat); i++ {
 		switch c := pat[i]; c {
@@ -65,8 +81,10 @@ writeLoop:
 				if i++; i < len(pat) && pat[i] == '*' {
 					if i++; i < len(pat) && pat[i] == '/' {
 						buf.WriteString("(.*/|)")
+						dotMeta = true
 					} else {
 						buf.WriteString(".*")
+						dotMeta = true
 						i--
 					}
 				} else {
@@ -75,6 +93,7 @@ writeLoop:
 				}
 			} else {
 				buf.WriteString(".*")
+				dotMeta = true
 			}
 			if mode&patternShortest != 0 {
 				buf.WriteByte('?')
@@ -84,16 +103,17 @@ writeLoop:
 				buf.WriteString("[^/]")
 			} else {
 				buf.WriteByte('.')
+				dotMeta = true
 			}
 		case '\\':
 			if i++; i >= len(pat) {
-				return "", fmt.Errorf(`\ at end of pattern`)
+				return "", &patternSyntaxError{msg: `\ at end of pattern`}
 			}
 			buf.WriteString(regexp.QuoteMeta(string(pat[i])))
 		case '[':
 			name, err := patterncharClass(pat[i:])
 			if err != nil {
-				return "", err
+				return "", &patternSyntaxError{msg: "charClass invalid", err: err}
 			}
 			if name != "" {
 				buf.WriteString(name)
@@ -112,22 +132,20 @@ writeLoop:
 			}
 			buf.WriteByte(c)
 			if i++; i >= len(pat) {
-				return "", fmt.Errorf("[ was not matched with a closing ]")
+				return "", &patternSyntaxError{msg: "[ was not matched with a closing ]"}
 			}
 			switch c = pat[i]; c {
 			case '!', '^':
 				buf.WriteByte('^')
 				if i++; i >= len(pat) {
-					return "", fmt.Errorf("[ was not matched with a closing ]")
+					return "", &patternSyntaxError{msg: "[ was not matched with a closing ]"}
 				}
-				c = pat[i]
 			}
-			if c == ']' {
+			if c = pat[i]; c == ']' {
 				buf.WriteByte(']')
 				if i++; i >= len(pat) {
-					return "", fmt.Errorf("[ was not matched with a closing ]")
+					return "", &patternSyntaxError{msg: "[ was not matched with a closing ]"}
 				}
-				c = pat[i]
 			}
 			rangeStart := byte(0)
 		loopBracket:
@@ -144,7 +162,7 @@ writeLoop:
 					break loopBracket
 				}
 				if rangeStart != 0 && rangeStart > c {
-					return "", fmt.Errorf("invalid range: %c-%c", rangeStart, c)
+					return "", &patternSyntaxError{msg: fmt.Sprintf("invalid range: %c-%c", rangeStart, c)}
 				}
 				if c == '-' {
 					rangeStart = pat[i-1]
@@ -153,7 +171,7 @@ writeLoop:
 				}
 			}
 			if i >= len(pat) {
-				return "", fmt.Errorf("[ was not matched with a closing ]")
+				return "", &patternSyntaxError{msg: "[ was not matched with a closing ]"}
 			}
 		case '{':
 			if mode&patternBraces == 0 {
@@ -187,7 +205,7 @@ writeLoop:
 				start, err1 := strconv.Atoi(match[1])
 				end, err2 := strconv.Atoi(match[2])
 				if err1 != nil || err2 != nil || start > end {
-					return "", fmt.Errorf("invalid range: %q", match[0])
+					return "", &patternSyntaxError{msg: fmt.Sprintf("invalid range: %q", match[0])}
 				}
 				// TODO: can we do better here?
 				buf.WriteString("(?:")
@@ -222,6 +240,13 @@ writeLoop:
 				buf.WriteString(regexp.QuoteMeta(string(c)))
 			}
 		}
+	}
+	if mode&patternEntireString != 0 {
+		buf.WriteString("$")
+	}
+	// No `.` metacharacters were used, so don't return the flag.
+	if !dotMeta {
+		return string(buf.Bytes()[4:]), nil
 	}
 	return buf.String(), nil
 }
@@ -258,13 +283,17 @@ func patterncharClass(s string) (string, error) {
 // This can be useful to avoid extra work, like TranslatePattern. Note that this
 // function cannot be used to avoid QuotePattern, as backslashes are quoted by
 // that function but ignored here.
-func patternHasMeta(pat string) bool {
+func patternHasMeta(pat string, mode patternMode) bool {
 	for i := 0; i < len(pat); i++ {
 		switch pat[i] {
 		case '\\':
 			i++
 		case '*', '?', '[':
 			return true
+		case '{':
+			if mode&patternBraces != 0 {
+				return true
+			}
 		}
 	}
 	return false
@@ -274,17 +303,22 @@ func patternHasMeta(pat string) bool {
 // given text. The returned string is a pattern that matches the literal text.
 //
 // For example, QuoteMeta(`foo*bar?`) returns `foo\*bar\?`.
-func patternQuoteMeta(pat string) string {
-	any := false
+func patternQuoteMeta(pat string, mode patternMode) string {
+	needsEscaping := false
 loop:
 	for _, r := range pat {
 		switch r {
+		case '{':
+			if mode&patternBraces == 0 {
+				continue
+			}
+			fallthrough
 		case '*', '?', '[', '\\':
-			any = true
+			needsEscaping = true
 			break loop
 		}
 	}
-	if !any { // short-cut without a string copy
+	if !needsEscaping { // short-cut without a string copy
 		return pat
 	}
 	var buf bytes.Buffer
@@ -292,6 +326,10 @@ loop:
 		switch r {
 		case '*', '?', '[', '\\':
 			buf.WriteByte('\\')
+		case '{':
+			if mode&patternBraces != 0 {
+				buf.WriteByte('\\')
+			}
 		}
 		buf.WriteRune(r)
 	}

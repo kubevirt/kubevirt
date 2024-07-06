@@ -158,6 +158,10 @@ type CPUInstancetype struct {
 	// Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads
 	// +optional
 	Realtime *v1.Realtime `json:"realtime,omitempty"`
+
+	// MaxSockets specifies the maximum amount of sockets that can be hotplugged
+	// +optional
+	MaxSockets *uint32 `json:"maxSockets,omitempty"`
 }
 
 // MemoryInstancetype contains the Memory related configuration of a given VirtualMachineInstancetypeSpec.
@@ -180,6 +184,11 @@ type MemoryInstancetype struct {
 	// +kubebuilder:validation:Maximum=100
 	// +kubebuilder:validation:Minimum=0
 	OvercommitPercent int `json:"overcommitPercent,omitempty"`
+
+	// MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.
+	// The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
+	// +optional
+	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
 }
 
 // VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.
@@ -303,23 +312,39 @@ type VolumePreferences struct {
 type PreferredCPUTopology string
 
 const (
-
 	// Prefer vCPUs to be exposed as cores to the guest
-	PreferCores PreferredCPUTopology = "preferCores"
+	DeprecatedPreferCores PreferredCPUTopology = "preferCores"
 
 	// Prefer vCPUs to be exposed as sockets to the guest, this is the default for the PreferredCPUTopology attribute of CPUPreferences.
-	PreferSockets PreferredCPUTopology = "preferSockets"
+	DeprecatedPreferSockets PreferredCPUTopology = "preferSockets"
 
 	// Prefer vCPUs to be exposed as threads to the guest
-	PreferThreads PreferredCPUTopology = "preferThreads"
+	DeprecatedPreferThreads PreferredCPUTopology = "preferThreads"
 
 	// Prefer vCPUs to be spread evenly between cores and sockets with any remaining vCPUs being presented as cores
-	PreferSpread PreferredCPUTopology = "preferSpread"
+	DeprecatedPreferSpread PreferredCPUTopology = "preferSpread"
 
 	// Prefer vCPUs to be spread according to VirtualMachineInstanceTemplateSpec
 	//
 	// If used with VirtualMachineInstanceType it will use sockets as default
-	PreferAny PreferredCPUTopology = "preferAny"
+	DeprecatedPreferAny PreferredCPUTopology = "preferAny"
+
+	// Prefer vCPUs to be exposed as cores to the guest
+	Cores PreferredCPUTopology = "cores"
+
+	// Prefer vCPUs to be exposed as sockets to the guest, this is the default for the PreferredCPUTopology attribute of CPUPreferences.
+	Sockets PreferredCPUTopology = "sockets"
+
+	// Prefer vCPUs to be exposed as threads to the guest
+	Threads PreferredCPUTopology = "threads"
+
+	// Prefer vCPUs to be spread evenly between cores and sockets with any remaining vCPUs being presented as cores
+	Spread PreferredCPUTopology = "spread"
+
+	// Prefer vCPUs to be spread according to VirtualMachineInstanceTemplateSpec
+	//
+	// If used with VirtualMachineInstanceType it will use sockets as default
+	Any PreferredCPUTopology = "any"
 )
 
 // CPUPreferences contains various optional CPU preferences.
@@ -330,10 +355,46 @@ type CPUPreferences struct {
 	//+optional
 	PreferredCPUTopology *PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
 
+	//
+	//+optional
+	SpreadOptions *SpreadOptions `json:"spreadOptions,omitempty"`
+
 	// PreferredCPUFeatures optionally defines a slice of preferred CPU features.
 	//
 	//+optional
 	PreferredCPUFeatures []v1.CPUFeature `json:"preferredCPUFeatures,omitempty"`
+}
+
+type SpreadAcross string
+
+const (
+	// Spread vCPUs across sockets, cores and threads
+	SpreadAcrossSocketsCoresThreads SpreadAcross = "SocketsCoresThreads"
+
+	// Spread vCPUs across sockets and cores
+	SpreadAcrossSocketsCores SpreadAcross = "SocketsCores"
+
+	// Spread vCPUs across cores and threads
+	SpreadAcrossCoresThreads SpreadAcross = "CoresThreads"
+)
+
+type SpreadOptions struct {
+	// Across optionally defines how to spread vCPUs across the guest visible topology.
+	// Default: SocketsCores
+	//
+	//+optional
+	Across *SpreadAcross `json:"across,omitempty"`
+
+	// Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
+	//
+	// CoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.
+	// SocketsCores        - 1:N   - Controls the ratio of socket to cores.
+	// SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.
+	//
+	// Default: 2
+	//
+	//+optional
+	Ratio *uint32 `json:"ratio,omitempty"`
 }
 
 // DevicePreferences contains various optional Device preferences.
@@ -409,7 +470,7 @@ type DevicePreferences struct {
 	// +optional
 	PreferredCdromBus v1.DiskBus `json:"preferredCdromBus,omitempty"`
 
-	// PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.
+	// PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices using the virtio bus.
 	//
 	// +optional
 	PreferredDiskDedicatedIoThread *bool `json:"preferredDiskDedicatedIoThread,omitempty"`

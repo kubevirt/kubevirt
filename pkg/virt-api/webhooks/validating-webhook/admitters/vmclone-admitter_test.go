@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/testing"
-	"kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 
 	"github.com/golang/mock/gomock"
@@ -57,12 +57,12 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	var admitter *VirtualMachineCloneAdmitter
 	var vmClone *clonev1lpha1.VirtualMachineClone
 	var config *virtconfig.ClusterConfig
-	var kvInformer cache.SharedIndexInformer
+	var kvStore cache.Store
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var vm *v1.VirtualMachine
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -74,7 +74,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	}
 
 	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -139,7 +139,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		kubevirtClient = fake.NewSimpleClientset()
 		virtClient.
@@ -150,12 +150,12 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		virtClient.
 			EXPECT().
 			VirtualMachineSnapshot(util.NamespaceTestDefault).
-			Return(kubevirtClient.SnapshotV1alpha1().VirtualMachineSnapshots(util.NamespaceTestDefault)).
+			Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshots(util.NamespaceTestDefault)).
 			AnyTimes()
 		virtClient.
 			EXPECT().
 			VirtualMachineSnapshotContent(util.NamespaceTestDefault).
-			Return(kubevirtClient.SnapshotV1alpha1().VirtualMachineSnapshotContents(util.NamespaceTestDefault)).
+			Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshotContents(util.NamespaceTestDefault)).
 			AnyTimes()
 
 		admitter = &VirtualMachineCloneAdmitter{Config: config, Client: virtClient}
@@ -169,30 +169,30 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			return true, nil, nil
 		})
 		kubevirtClient.Fake.PrependReactor("get", "virtualmachinesnapshots", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			snapshot := &v1alpha1.VirtualMachineSnapshot{
+			snapshot := &snapshotv1.VirtualMachineSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-snapshot",
 					Namespace: util.NamespaceTestDefault,
 				},
-				Status: &v1alpha1.VirtualMachineSnapshotStatus{
+				Status: &snapshotv1.VirtualMachineSnapshotStatus{
 					VirtualMachineSnapshotContentName: pointer.String("snapshot-contents"),
 				},
 			}
 			return true, snapshot, nil
 		})
 		kubevirtClient.Fake.PrependReactor("get", "virtualmachinesnapshotcontents", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			var volumeBackups []v1alpha1.VolumeBackup
+			var volumeBackups []snapshotv1.VolumeBackup
 			for _, volume := range vm.Spec.Template.Spec.Volumes {
-				volumeBackups = append(volumeBackups, v1alpha1.VolumeBackup{
+				volumeBackups = append(volumeBackups, snapshotv1.VolumeBackup{
 					VolumeName: volume.Name,
 				})
 			}
 
-			contents := &v1alpha1.VirtualMachineSnapshotContent{
-				Spec: v1alpha1.VirtualMachineSnapshotContentSpec{
+			contents := &snapshotv1.VirtualMachineSnapshotContent{
+				Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
 					VirtualMachineSnapshotName: pointer.String("test-vm"),
-					Source: v1alpha1.SourceSpec{
-						VirtualMachine: &v1alpha1.VirtualMachine{
+					Source: snapshotv1.SourceSpec{
+						VirtualMachine: &snapshotv1.VirtualMachine{
 							Spec: vm.Spec,
 						},
 					},
@@ -333,11 +333,11 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
 
 			kubevirtClient.Fake.PrependReactor("get", "virtualmachinesnapshotcontents", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				contents := &v1alpha1.VirtualMachineSnapshotContent{
-					Spec: v1alpha1.VirtualMachineSnapshotContentSpec{
+				contents := &snapshotv1.VirtualMachineSnapshotContent{
+					Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
 						VirtualMachineSnapshotName: pointer.String("test-vm"),
-						Source: v1alpha1.SourceSpec{
-							VirtualMachine: &v1alpha1.VirtualMachine{
+						Source: snapshotv1.SourceSpec{
+							VirtualMachine: &snapshotv1.VirtualMachine{
 								Spec: vm.Spec,
 							},
 						},

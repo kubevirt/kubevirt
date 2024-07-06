@@ -38,8 +38,9 @@ import (
 	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
 
 	kvv1 "kubevirt.io/api/core/v1"
-	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	instancetypeBuilder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -203,17 +204,12 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 
 func createBatchRunningVMWithInstancetypeWithRateControl(virtClient kubecli.KubevirtClient, vmCount int, instancetypeName, preferenceName string) {
 	createBatchRunningVMWithRateControl(virtClient, vmCount, func() *kvv1.VirtualMachine {
-		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunning())
-		vm.Spec.Template.Spec.Domain.Resources = kvv1.ResourceRequirements{}
-		vm.Spec.Instancetype = &kvv1.InstancetypeMatcher{
-			Name: instancetypeName,
-			Kind: instancetypeapi.SingularResourceName,
-		}
-		vm.Spec.Preference = &kvv1.PreferenceMatcher{
-			Name: preferenceName,
-			Kind: instancetypeapi.SingularPreferenceResourceName,
-		}
-		return vm
+		return libvmi.NewVirtualMachine(
+			libvmifact.NewCirros(),
+			libvmi.WithRunning(),
+			libvmi.WithInstancetype(instancetypeName),
+			libvmi.WithPreference(preferenceName),
+		)
 	})
 }
 
@@ -227,7 +223,7 @@ func createBatchRunningVMWithRateControl(virtClient kubecli.KubevirtClient, vmCo
 	for i := 1; i <= vmCount; i++ {
 		vm := vmCreateFunc()
 		By(fmt.Sprintf("Creating VM %s", vm.ObjectMeta.Name))
-		_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+		_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// interval for throughput control
@@ -236,36 +232,19 @@ func createBatchRunningVMWithRateControl(virtClient kubecli.KubevirtClient, vmCo
 }
 
 func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.VirtualMachineInstancetype {
-	instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "instancetype",
-		},
-		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-			// FIXME - We don't have a way of expressing resources via instancetypes yet, replace this when we do.
-			CPU: instancetypev1beta1.CPUInstancetype{
-				Guest: 1,
-			},
-			Memory: instancetypev1beta1.MemoryInstancetype{
-				Guest: resource.MustParse("90Mi"),
-			},
-		},
-	}
+	instancetype := instancetypeBuilder.NewInstancetype(
+		instancetypeBuilder.WithCPUs(1),
+		instancetypeBuilder.WithMemory(resource.MustParse("90Mi")),
+	)
 	instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return instancetype
 }
 
 func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1beta1.VirtualMachinePreference {
-	preference := &instancetypev1beta1.VirtualMachinePreference{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "preference",
-		},
-		Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-			Devices: &instancetypev1beta1.DevicePreferences{
-				PreferredDiskBus: kvv1.DiskBusVirtio,
-			},
-		},
-	}
+	preference := instancetypeBuilder.NewPreference(
+		instancetypeBuilder.WithPreferredDiskBus(kvv1.DiskBusVirtio),
+	)
 	preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return preference

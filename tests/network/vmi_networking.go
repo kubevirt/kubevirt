@@ -57,12 +57,11 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -194,7 +193,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: addrShow},
 					&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)).To(Succeed())
 
@@ -211,7 +210,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: cmdCheck},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)
 				Expect(err).ToNot(HaveOccurred())
@@ -253,7 +252,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
 								{
 									MatchExpressions: []k8sv1.NodeSelectorRequirement{
-										{Key: "kubernetes.io/hostname", Operator: op, Values: []string{inboundVMI.Status.NodeName}},
+										{Key: k8sv1.LabelHostname, Operator: op, Values: []string{inboundVMI.Status.NodeName}},
 									},
 								},
 							},
@@ -330,7 +329,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: tests.EchoLastReturnValue},
+				&expect.BSnd{S: console.EchoLastReturnValue},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
@@ -368,7 +367,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			deadbeafVMI := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(masqIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithCloudInitNoCloudNetworkData(networkData),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 			)
 			deadbeafVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), deadbeafVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -409,28 +408,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Expect(err).To(HaveOccurred())
 			testErr := err.(*errors.StatusError)
 			Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
-		})
-	})
-
-	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
-		It("[test_id:1773]should configure custom MAC address", func() {
-			By(checkingEth0MACAddr)
-			slirpIface := libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name)
-			slirpIface.MacAddress = "de:ad:00:00:be:af"
-			deadbeafVMI := libvmifact.NewAlpine(
-				libvmi.WithInterface(slirpIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-			deadbeafVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), deadbeafVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			const unregisterSlipImageWarning = "no Slirp network binding plugin image is set in Kubevirt config, using " +
-				"'quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8' sidecar image for Slirp network binding configuration"
-			warnings := append(testsuite.TestRunConfiguration.WarningToIgnoreList, unregisterSlipImageWarning)
-			libwait.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine, libwait.WithWarningsIgnoreList(warnings))
-			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
-
-			events.ExpectEvent(deadbeafVMI, k8sv1.EventTypeWarning, netbinding.UnregisteredNetworkBindingPluginReason)
 		})
 	})
 
@@ -513,7 +490,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		It("[test_id:1776]should configure custom Pci address", func() {
 			By("checking eth0 Pci address")
-			testVMI := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking()...)
+			testVMI := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
 			testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:01:00.0"
 			testVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -563,8 +540,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with dhcp options", func() {
 		It("[test_id:1778]should offer extra dhcp options to pod iface", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-			dhcpVMI := libvmifact.NewFedora(append(libnet.WithMasqueradeNetworking(),
-				libvmi.WithResourceMemory("1024M"))...)
+			dhcpVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("1024M"))
 
 			// This IPv4 address tests backwards compatibility of the "DHCPOptions.NTPServers" field.
 			// The leading zero is intentional.
@@ -606,8 +582,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom dns", func() {
 		It("[test_id:1779]should have custom resolv.conf", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-			userData := "#cloud-config\n"
-			dnsVMI := libvmifact.NewCirros(libvmi.WithCloudInitNoCloudUserData(userData))
+			dnsVMI := libvmifact.NewCirros()
 
 			dnsVMI.Spec.DNSPolicy = "None"
 
@@ -678,7 +653,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 				libvmi.WithNetwork(net),
-				libvmi.WithCloudInitNoCloudNetworkData(networkData),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 			)
 
 			return vmi, nil
@@ -992,16 +967,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi = libvmifact.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudNetworkData(networkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create another VMI")
-				anotherVmi = libvmifact.NewAlpineWithTestTooling(
-					libnet.WithMasqueradeNetworking()...,
-				)
+				anotherVmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 				anotherVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1088,7 +1061,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmi := libvmifact.NewCirros()
 
 			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err.Error()).To(ContainSubstring("Bridge interface is not enabled in kubevirt-config"))
+			Expect(err.Error()).To(ContainSubstring("bridge interface is not enabled in kubevirt-config"))
 		})
 	})
 })
@@ -1119,7 +1092,7 @@ func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess boo
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: clientCommand},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: tests.EchoLastReturnValue},
+		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: expectResult},
 	}
 }

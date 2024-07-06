@@ -59,7 +59,7 @@ func EnsureNoMigrationConflict(virtClient kubecli.KubevirtClient, vmiName string
 	if err != nil {
 		return err
 	}
-	list, err := virtClient.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{
+	list, err := virtClient.VirtualMachineInstanceMigration(namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 	if err != nil {

@@ -79,7 +79,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Creating a Fedora VMI with the sound card as a host device")
-			randomVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+			randomVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

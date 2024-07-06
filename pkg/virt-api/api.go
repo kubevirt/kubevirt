@@ -31,6 +31,7 @@ import (
 	"syscall"
 	"time"
 
+	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
@@ -45,7 +46,6 @@ import (
 	certificate2 "k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
+	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	mime "kubevirt.io/kubevirt/pkg/rest"
@@ -137,6 +138,8 @@ type virtAPIApp struct {
 	hasCDIDataSource bool
 	// the channel used to trigger re-initialization.
 	reInitChan chan string
+
+	kubeVirtServiceAccounts map[string]struct{}
 }
 
 var (
@@ -154,9 +157,14 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
+	if err := metrics.SetupMetrics(); err != nil {
+		panic(err)
+	}
+
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtAPIQPS, virtconfig.DefaultVirtAPIBurst))
 	app.reloadableWebhookRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtWebhookClientQPS, virtconfig.DefaultVirtWebhookClientBurst))
 
+	clientmetrics.RegisterRestConfigHooks()
 	clientConfig, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		panic(err)
@@ -185,14 +193,10 @@ func (app *virtAPIApp) Execute() {
 		panic(err)
 	}
 
+	app.kubeVirtServiceAccounts = webhooks.KubeVirtServiceAccounts(app.namespace)
+
 	app.ConfigureOpenAPIService()
 	app.reInitChan = make(chan string, 10)
-
-	// setup monitoring
-	err = metrics.SetupMetrics()
-	if err != nil {
-		panic(err)
-	}
 
 	app.Run()
 }
@@ -782,7 +786,7 @@ func (app *virtAPIApp) Compose() {
 }
 
 func (app *virtAPIApp) ConfigureOpenAPIService() {
-	config := openapi.CreateConfig()
+	config := openapi.CreateV3Config()
 	config.GetDefinitions = v12.GetOpenAPIDefinitions
 	spec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
 	if err != nil {
@@ -929,7 +933,7 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 		mutating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMIMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers)
+		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.MigrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)

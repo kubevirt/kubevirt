@@ -37,10 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -70,7 +71,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 		},
 	}
 
-	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	Context("Without feature gate enabled", func() {
 		It("should reject anything", func() {
@@ -91,7 +92,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 	Context("With feature gate enabled", func() {
 		enableFeatureGate := func(featureGate string) {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -102,7 +103,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			})
 		}
 		disableFeatureGates := func() {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -563,8 +564,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					}
 				})
 
-				DescribeTable("should reject patching elements not under /spec/:", func(patch string) {
-					restore.Spec.Patches = []string{patch}
+				DescribeTable("should reject patching elements not under /spec/:", func(patchSet *patch.PatchSet) {
+					patchBytes, err := patchSet.GeneratePayload()
+					Expect(err).To(Not(HaveOccurred()))
+					restore.Spec.Patches = []string{string(patchBytes)}
 
 					ar := createRestoreAdmissionReview(restore)
 					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
@@ -572,26 +575,28 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					Expect(resp.Result.Details.Causes).To(HaveLen(1))
 					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.patches"))
 				},
-					Entry("patch to replace metadata", `{"op": "replace", "path": "/metadata", "value": "some-value"}`),
-					Entry("patch to replace name", `{"op": "replace", "path": "/metadata/name", "value": "some-value"}`),
-					Entry("patch to replace kind", `{"op": "replace", "path": "/kind", "value": "some-value"}`),
-					Entry("patch to remove api version", `{"op": "remove", "path": "/apiVersion"`),
-					Entry("patch to replace status", `{"op": "replace", "path": "/status", "value": "some-value"}`),
-					Entry("patch to add ready status", `{"op": "add", "path": "/status/ready", "value": "some-value"}`),
+					Entry("patch to replace metadata", patch.New(patch.WithReplace("/metadata", "some-value"))),
+					Entry("patch to replace name", patch.New(patch.WithReplace("/metadata/name", "some-value"))),
+					Entry("patch to replace kind", patch.New(patch.WithReplace("/kind", "some-value"))),
+					Entry("patch to remove api version", patch.New(patch.WithRemove("/apiVersion"))),
+					Entry("patch to replace status", patch.New(patch.WithReplace("/status", "some-value"))),
+					Entry("patch to add ready status", patch.New(patch.WithAdd("/status/ready", "some-value"))),
 				)
 
-				DescribeTable("should allow patching elements under /spec/:", func(patch string) {
-					restore.Spec.Patches = []string{patch}
+				DescribeTable("should allow patching elements under /spec/:", func(patchSet *patch.PatchSet) {
+					patchBytes, err := patchSet.GeneratePayload()
+					Expect(err).To(Not(HaveOccurred()))
+					restore.Spec.Patches = []string{string(patchBytes)}
 
 					ar := createRestoreAdmissionReview(restore)
 					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
 					Expect(resp.Allowed).To(BeTrue())
 				},
-					Entry("patch to replace MAC", `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "some-value"}`),
-					Entry("patch to add running", `{"op": "add", "path": "/spec/running", "value": "some-value"}`),
-					Entry("patch to remove instancetype", `{"op": "remove", "path": "/spec/instancetype"`),
-					Entry("patch to replace a label", `{"op": "replace", "path": "/metadata/labels/key", "value": "some-value"`),
-					Entry("patch to remove an annotation", `{"op": "remove", "path": "/metadata/annotations/key"`),
+					Entry("patch to replace MAC", patch.New(patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "some-value"))),
+					Entry("patch to add running", patch.New(patch.WithAdd("/spec/running", "some-value"))),
+					Entry("patch to remove instancetype", patch.New(patch.WithRemove("/spec/instancetype"))),
+					Entry("patch to replace a label", patch.New(patch.WithReplace("/metadata/labels/key", "some-value"))),
+					Entry("patch to remove an annotation", patch.New(patch.WithRemove("/metadata/annotations/key"))),
 				)
 
 				It("should reject an invalid patch", func() {
@@ -665,7 +670,7 @@ func createTestVMRestoreAdmitter(
 	kubevirtClient := kubevirtfake.NewSimpleClientset(objs...)
 
 	virtClient.EXPECT().VirtualMachineSnapshot("default").
-		Return(kubevirtClient.SnapshotV1alpha1().VirtualMachineSnapshots("default")).AnyTimes()
+		Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshots("default")).AnyTimes()
 	virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 
 	restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
@@ -676,7 +681,7 @@ func createTestVMRestoreAdmitter(
 		}
 	}
 
-	vmInterface.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, name string, getOptions *metav1.GetOptions) (*v1.VirtualMachine, error) {
+	vmInterface.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, name string, getOptions metav1.GetOptions) (*v1.VirtualMachine, error) {
 		if vm != nil && name == vm.Name {
 			return vm, nil
 		}

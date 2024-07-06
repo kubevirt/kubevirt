@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -20,6 +19,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -81,32 +81,24 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			},
 		}}
 
-		vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+		vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			err := cli.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+			err := cli.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 			Expect(err).To(Or(
 				Not(HaveOccurred()),
 				Satisfy(errors.IsNotFound),
 			))
 		})
 
-		keySecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: sshKeySecretName,
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion: kubevirtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-					Kind:       kubevirtv1.VirtualMachineGroupVersionKind.Kind,
-					Name:       vm.Name,
-					UID:        vm.UID,
-					Controller: pointer.Bool(true),
-				}},
-			},
-			Data: map[string][]byte{
-				"key-file.pub": []byte(testKey1),
-			},
-		}
-
+		keySecret := libsecret.New(sshKeySecretName, libsecret.DataString{"key-file.pub": testKey1})
+		keySecret.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: kubevirtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+			Kind:       kubevirtv1.VirtualMachineGroupVersionKind.Kind,
+			Name:       vm.Name,
+			UID:        vm.UID,
+			Controller: pointer.Bool(true),
+		}}
 		keySecret, err = cli.CoreV1().Secrets(util.NamespaceTestDefault).Create(context.Background(), keySecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
@@ -117,22 +109,14 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			))
 		})
 
-		passwordSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: passwordSecretName,
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion: kubevirtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-					Kind:       kubevirtv1.VirtualMachineGroupVersionKind.Kind,
-					Name:       vm.Name,
-					UID:        vm.UID,
-					Controller: pointer.Bool(true),
-				}},
-			},
-			Data: map[string][]byte{
-				userName: []byte("test-password"),
-			},
-		}
-
+		passwordSecret := libsecret.New(passwordSecretName, libsecret.DataString{userName: "test-password"})
+		passwordSecret.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: kubevirtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+			Kind:       kubevirtv1.VirtualMachineGroupVersionKind.Kind,
+			Name:       vm.Name,
+			UID:        vm.UID,
+			Controller: pointer.Bool(true),
+		}}
 		passwordSecret, err = cli.CoreV1().Secrets(util.NamespaceTestDefault).Create(context.Background(), passwordSecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
@@ -195,7 +179,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			var newSecretName string

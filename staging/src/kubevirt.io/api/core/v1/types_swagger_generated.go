@@ -82,12 +82,23 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"machine":                       "Machine shows the final resulting qemu machine type. This can be different\nthan the machine type selected in the spec, due to qemus machine type alias mechanism.\n+optional",
 		"currentCPUTopology":            "CurrentCPUTopology specifies the current CPU topology used by the VM workload.\nCurrent topology may differ from the desired topology in the spec while CPU hotplug\ntakes place.",
 		"memory":                        "Memory shows various informations about the VirtualMachine memory.\n+optional",
+		"migratedVolumes":               "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
+	}
+}
+
+func (StorageMigratedVolumeInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                   "StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration",
+		"volumeName":         "VolumeName is the name of the volume that is being migrated",
+		"sourcePVCInfo":      "SourcePVCInfo contains the information about the source PVC",
+		"destinationPVCInfo": "DestinationPVCInfo contains the information about the destination PVC",
 	}
 }
 
 func (PersistentVolumeClaimInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
+		"claimName":          "ClaimName is the name of the PVC",
 		"accessModes":        "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+listType=atomic\n+optional",
 		"volumeMode":         "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
 		"capacity":           "Capacity represents the capacity set on the corresponding PVC status\n+optional",
@@ -358,13 +369,14 @@ func (VirtualMachineList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                    "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
-		"running":             "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
-		"runStrategy":         "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
-		"instancetype":        "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
-		"preference":          "PreferenceMatcher references a set of preference that is used to fill fields in Template",
-		"template":            "Template is the direct specification of VirtualMachineInstance",
-		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
+		"":                      "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
+		"running":               "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
+		"runStrategy":           "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
+		"instancetype":          "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
+		"preference":            "PreferenceMatcher references a set of preference that is used to fill fields in Template",
+		"template":              "Template is the direct specification of VirtualMachineInstance",
+		"dataVolumeTemplates":   "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
+		"updateVolumesStrategy": "UpdateVolumesStrategy is the strategy to apply on volumes updates",
 	}
 }
 
@@ -390,6 +402,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
 		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
 		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
+		"runStrategy":            "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
 	}
 }
 
@@ -913,7 +926,8 @@ func (KSMConfiguration) SwaggerDoc() map[string]string {
 
 func (NetworkConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "NetworkConfiguration holds network options",
+		"":                     "NetworkConfiguration holds network options",
+		"permitSlirpInterface": "DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface.\nDeprecated: Removed in v1.3.",
 	}
 }
 
@@ -923,6 +937,7 @@ func (InterfaceBindingPlugin) SwaggerDoc() map[string]string {
 		"networkAttachmentDefinition": "NetworkAttachmentDefinition references to a NetworkAttachmentDefinition CR object.\nFormat: <name>, <namespace>/<name>.\nIf namespace is not specified, VMI namespace is assumed.\nversion: 1alphav1",
 		"domainAttachmentType":        "DomainAttachmentType is a standard domain network attachment method kubevirt supports.\nSupported values: \"tap\".\nThe standard domain attachment can be used instead or in addition to the sidecarImage.\nversion: 1alphav1",
 		"migration":                   "Migration means the VM using the plugin can be safely migrated\nversion: 1alphav1",
+		"downwardAPI":                 "DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar.\nSupported values: \"device-info\"\nversion: v1alphav1\n+optional",
 	}
 }
 

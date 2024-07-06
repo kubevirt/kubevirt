@@ -203,15 +203,23 @@ var _ = DescribeInfra("Node-labeller", func() {
 		})
 
 		It("[test_id:6247] should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config", func() {
+			kvConfig := util.GetCurrentKv(virtClient)
+			kvConfig.Spec.Configuration.ObsoleteCPUModels = nil
+			tests.UpdateKubeVirtConfigValueAndWait(kvConfig.Spec.Configuration)
 			node := nodesWithKVM[0]
-
-			for key := range node.Labels {
-				if strings.Contains(key, v1.CPUModelLabel) {
-					model := strings.TrimPrefix(key, v1.CPUModelLabel)
-					Expect(nodelabellerutil.DefaultObsoleteCPUModels).ToNot(HaveKey(model),
-						"Node can't contain label with cpu model, which is in default obsolete filter")
+			Eventually(func() error {
+				node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for key := range node.Labels {
+					if strings.Contains(key, v1.CPUModelLabel) {
+						model := strings.TrimPrefix(key, v1.CPUModelLabel)
+						if _, ok := nodelabellerutil.DefaultObsoleteCPUModels[model]; ok {
+							return fmt.Errorf("node can't contain label with cpu model, which is in default obsolete filter")
+						}
+					}
 				}
-			}
+				return nil
+			}).WithTimeout(30 * time.Second).WithPolling(1 * time.Second).ShouldNot(HaveOccurred())
 		})
 
 		It("[test_id:6995]should expose tsc frequency and tsc scalability", func() {
@@ -319,7 +327,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 
 		BeforeEach(func() {
 			node = &(libnode.GetAllSchedulableNodes(virtClient).Items[0])
-			obsoleteModel = tests.GetNodeHostModel(node)
+			obsoleteModel = libnode.GetNodeHostModel(node)
 
 			By("Updating Kubevirt CR , this should wake node-labeller ")
 			kvConfig = util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
@@ -382,7 +390,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
-			vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
+			vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node.Name}
 
 			By("Starting the VirtualMachineInstance")
 			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})

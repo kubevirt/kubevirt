@@ -9,7 +9,6 @@ go_library(
         "int.go",
         "int32.go",
         "int64.go",
-        "ordered.go",
         "set.go",
         "string.go",
     ],

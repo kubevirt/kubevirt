@@ -63,9 +63,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
@@ -74,6 +74,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
+	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
@@ -81,6 +82,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
+	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
@@ -165,10 +167,11 @@ type VirtControllerApp struct {
 
 	controllerRevisionInformer cache.SharedIndexInformer
 
-	dataVolumeInformer cache.SharedIndexInformer
-	dataSourceInformer cache.SharedIndexInformer
-	cdiInformer        cache.SharedIndexInformer
-	cdiConfigInformer  cache.SharedIndexInformer
+	dataVolumeInformer     cache.SharedIndexInformer
+	dataSourceInformer     cache.SharedIndexInformer
+	storageProfileInformer cache.SharedIndexInformer
+	cdiInformer            cache.SharedIndexInformer
+	cdiConfigInformer      cache.SharedIndexInformer
 
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
@@ -278,6 +281,7 @@ func Execute() {
 	log.InitializeLogging("virt-controller")
 
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtControllerQPS, virtconfig.DefaultVirtControllerBurst))
+	clientmetrics.RegisterRestConfigHooks()
 	clientConfig, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		panic(err)
@@ -382,6 +386,7 @@ func Execute() {
 		app.cdiInformer = app.informerFactory.CDI()
 		app.cdiConfigInformer = app.informerFactory.CDIConfig()
 		app.dataSourceInformer = app.informerFactory.DataSource()
+		app.storageProfileInformer = app.informerFactory.StorageProfile()
 		log.Log.Infof("CDI detected, DataVolume integration enabled")
 	} else {
 		// Add a dummy DataVolume informer in the event datavolume support
@@ -391,6 +396,7 @@ func Execute() {
 		app.cdiInformer = app.informerFactory.DummyCDI()
 		app.cdiConfigInformer = app.informerFactory.DummyCDIConfig()
 		app.dataSourceInformer = app.informerFactory.DummyDataSource()
+		app.storageProfileInformer = app.informerFactory.DummyStorageProfile()
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
 
@@ -610,10 +616,7 @@ func (vca *VirtControllerApp) initCommon() {
 			func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 				return hooks.UnmarshalHookSidecarList(vmi)
 			}),
-		services.WithSidecarCreator(
-			func(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
-				return netbinding.NetBindingPluginSidecarList(vmi, kvc, vca.vmiRecorder)
-			}),
+		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
@@ -623,9 +626,11 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmInformer,
 		vca.kvPodInformer,
 		vca.persistentVolumeClaimInformer,
+		vca.storageClassInformer,
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.dataVolumeInformer,
+		vca.storageProfileInformer,
 		vca.cdiInformer,
 		vca.cdiConfigInformer,
 		vca.clusterConfig,
@@ -715,7 +720,13 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		instancetypeMethods,
 		recorder,
 		vca.clientSet,
-		vca.clusterConfig)
+		vca.clusterConfig,
+		network.NewVMNetController(
+			vca.clientSet.GeneratedKubeVirtClient(),
+			vca.clusterConfig,
+			controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
+		),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -989,12 +1000,12 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 
 	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
 		vca.kubevirtNamespace,
-		leaderelectionconfig.DefaultEndpointName,
+		leaderelectionconfig.DefaultLeaseName,
 		clientSet.CoreV1(),
 		clientSet.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      vca.host,
-			EventRecorder: vca.newRecorder(k8sv1.NamespaceAll, leaderelectionconfig.DefaultEndpointName),
+			EventRecorder: vca.newRecorder(k8sv1.NamespaceAll, leaderelectionconfig.DefaultLeaseName),
 		})
 
 	if err != nil {

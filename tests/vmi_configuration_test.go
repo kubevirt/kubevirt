@@ -31,9 +31,11 @@ import (
 	"unicode"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -79,6 +81,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -211,7 +214,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Requests: kubev1.ResourceList{},
 				Limits: kubev1.ResourceList{
 					kubev1.ResourceCPU:    resource.MustParse("1"),
-					kubev1.ResourceMemory: resource.MustParse("64M"),
+					kubev1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 			}
 
@@ -309,7 +312,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("100M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 
@@ -328,7 +331,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 15)).To(Succeed(), "should report number of cores")
 
 				By("Checking the requested amount of memory allocated for a guest")
-				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("100M"))
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("128Mi"))
 
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -343,17 +346,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				if computeContainer == nil {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(371)))
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(406)))
 
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("[test_id:4624]should set a correct memory units", func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64Mi"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
-				expectedMemoryInKiB := 64 * 1024
+				expectedMemoryInKiB := 128 * 1024
 				expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
 
 				By("Starting a VirtualMachineInstance")
@@ -373,7 +376,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("120M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 
@@ -397,7 +400,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("1200m"),
-						kubev1.ResourceMemory: resource.MustParse("100M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 
@@ -420,7 +423,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("100M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 					Limits: kubev1.ResourceList{
 						kubev1.ResourceCPU: resource.MustParse("1200m"),
@@ -473,7 +476,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 						kubev1.ResourceCPU:    resource.MustParse("3"),
 					},
 				}
@@ -498,7 +501,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 						kubev1.ResourceCPU:    resource.MustParse("3"),
 					},
 				}
@@ -522,7 +525,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 				vmi.Spec.Domain.Devices.BlockMultiQueue = &_false
@@ -644,19 +647,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi := libvmifact.NewAlpine()
 
 				By("Creating a secret with the binary ACPI SLIC table")
-				secret, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(
-					context.Background(),
-					&k8sv1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      secretWithSlicName,
-							Namespace: testsuite.GetTestNamespace(vmi),
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							"slic.bin": slicTable,
-						},
-					},
-					metav1.CreateOptions{})
+				secret := libsecret.New(secretWithSlicName, libsecret.DataBytes{"slic.bin": slicTable})
+				secret, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(secret).ToNot(BeNil())
 
@@ -1044,7 +1036,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi.Namespace = testsuite.NamespaceTestAlternative
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 					Limits: kubev1.ResourceList{
 						kubev1.ResourceCPU: resource.MustParse("1000m"),
@@ -1141,7 +1133,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 							NodeSelectorTerms: []kubev1.NodeSelectorTerm{
 								{
 									MatchExpressions: []kubev1.NodeSelectorRequirement{
-										{Key: "kubernetes.io/hostname", Operator: kubev1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
+										{Key: k8sv1.LabelHostname, Operator: kubev1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
 									},
 								},
 							},
@@ -1259,7 +1251,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
 				// TODO: actually review this once the VM image is present
-				agentVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+				agentVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
@@ -1345,8 +1337,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				})
 
 				It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
-					opts := append(libnet.WithMasqueradeNetworking(), libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-shutdown")))
-					agentVMI := libvmifact.NewFedora(opts...)
+					agentVMI := libvmifact.NewFedora(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithCloudInitNoCloud(
+							libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-shutdown")),
+						),
+					)
 					By("Starting a VirtualMachineInstance")
 					agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -1356,8 +1352,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				})
 
 				It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
-					opts := append(libnet.WithMasqueradeNetworking(), libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-set-password")))
-					agentVMI := libvmifact.NewFedora(opts...)
+					agentVMI := libvmifact.NewFedora(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithCloudInitNoCloud(
+							libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-set-password")),
+						),
+					)
 					By("Starting a VirtualMachineInstance")
 					agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -1519,7 +1519,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			featureSupportedInAtLeastOneNode := func(nodes *k8sv1.NodeList, feature string) bool {
 				for _, node := range nodes.Items {
 					for label := range node.Labels {
-						if strings.Contains(label, services.NFD_CPU_FEATURE_PREFIX) && strings.Contains(label, feature) {
+						if strings.Contains(label, v1.CPUFeatureLabel) && strings.Contains(label, feature) {
 							return true
 						}
 					}
@@ -1614,7 +1614,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = tests.NewRandomVMI()
+				vmi = libvmifact.NewGuestless()
 			})
 
 			It("[test_id:6960]should reject disk with missing volume", func() {
@@ -1653,7 +1653,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
 				By("Creating a new VMI")
-				vmi := tests.NewRandomVMI()
+				vmi := libvmifact.NewGuestless()
 				// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
 				wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
 				vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
@@ -1670,7 +1670,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config := util.GetCurrentKv(virtClient).Spec.Configuration
 			Expect(config.DefaultRuntimeClass).To(BeEmpty())
 			By("Creating a VMI")
-			vmi := tests.RunVMIAndExpectLaunch(tests.NewRandomVMI(), 60)
+			vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), 60)
 
 			By("Checking for absence of runtimeClassName")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1696,8 +1696,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			It("should add guest-to-memory headroom", func() {
 				const guestMemoryStr = "1024M"
-				origVmiWithoutHeadroom := libvmi.New(libvmi.WithResourceMemory(guestMemoryStr))
-				origVmiWithHeadroom := libvmi.New(libvmi.WithResourceMemory(guestMemoryStr))
+				origVmiWithoutHeadroom := libvmi.New(
+					libvmi.WithResourceMemory(guestMemoryStr),
+					libvmi.WithGuestMemory(guestMemoryStr),
+				)
+				origVmiWithHeadroom := libvmi.New(
+					libvmi.WithResourceMemory(guestMemoryStr),
+					libvmi.WithGuestMemory(guestMemoryStr),
+				)
 
 				By("Running a vmi without additional headroom")
 				vmiWithoutHeadroom := tests.RunVMIAndExpectScheduling(origVmiWithoutHeadroom, 60)
@@ -1896,7 +1902,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 			vmi.Spec.Domain.Machine = nil
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -1934,8 +1940,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = testEmulatedMachines
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine = nil
+			vmi := libvmifact.NewGuestless()
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
@@ -1974,7 +1979,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:3128]should set CPU request when it is not provided", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
@@ -1992,7 +1997,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config.CPURequest = &configureCPURequest
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
@@ -2015,7 +2020,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 		It("should not set a CPU limit if the namespace doesn't match the selector", func() {
 			By("Creating a running VMI")
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			By("Ensuring no CPU limit is set")
@@ -2027,10 +2032,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 		It("should set a CPU limit if the namespace matches the selector", func() {
 			By("Creating a VMI object")
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 
 			By("Adding the right label to VMI namespace")
-			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
+			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.GetTestNamespace(vmi), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			namespace.Labels["autocpulimit"] = "true"
 			namespace, err = virtClient.CoreV1().Namespaces().Update(context.Background(), namespace, metav1.UpdateOptions{})
@@ -2052,7 +2057,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Context("with automatic resource limits FG enabled", decorators.AutoResourceLimitsGate, func() {
 
 		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
-			It("should not automatically set memory limits in the virt-launcher pod", func() {
+			It("[test_id:11215]should not automatically set memory limits in the virt-launcher pod", func() {
 				vmi := libvmifact.NewCirros()
 				By("Creating a running VMI")
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -2110,7 +2115,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should set a memory limit in the virt-launcher pod", func() {
+			It("[test_id:11214]should set cpu and memory limit in the virt-launcher pod", func() {
 				By("Starting the VMI")
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
@@ -2128,7 +2133,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", Serial, decorators.StorageReq, func() {
+	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", decorators.SigStorage, decorators.StorageReq, func() {
 		var dataVolume *cdiv1.DataVolume
 
 		BeforeEach(func() {
@@ -2160,7 +2165,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk5", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk3", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-				libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n"),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData("#!/bin/bash\necho 'hello'\n")),
 				libvmi.WithHostDisk("hostdisk", filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate),
 				// hostdisk needs a privileged namespace
 				libvmi.WithNamespace(testsuite.NamespacePrivileged),
@@ -2216,18 +2221,22 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
-			vmi := libvmifact.NewCirros(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libstorage.CreateHostPathPv("alpine-host-path", testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
+			libstorage.CreateHostPathPVC("alpine-host-path", testsuite.GetTestNamespace(nil), "1Gi")
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("128Mi"),
+				// disk[0]
+				libvmi.WithContainerDisk("ephemeral-disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				// disk[1]:  Block, no user-input, cache=none
 				libvmi.WithPersistentVolumeClaim("block-pvc", dataVolume.Name),
 				// disk[2]: File, not-sparsed, no user-input, cache=none
 				libvmi.WithPersistentVolumeClaim("hostpath-pvc", tests.DiskAlpineHostPath),
-				// disk[3]:  File, sparsed, user-input=threads, cache=none
+				// disk[3]
 				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 			)
-			// disk[0]cache=none
+			// disk[0]:  File, sparsed, no user-input, cache=none
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
+			// disk[3]:  File, sparsed, user-input=threads, cache=none
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
@@ -2244,7 +2253,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			ioNone := ""
 
 			By("checking if default io has not been set for sparsed file")
-			Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
+			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
 			Expect(string(disks[0].Driver.IO)).To(Equal(ioNone))
 
 			By("checking if default io mode has been set to 'native' for block device")
@@ -2272,7 +2281,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", decorators.StorageReq, func() {
+		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, func() {
 			By("creating a block volume")
 			dataVolume, err := createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())
@@ -2315,7 +2324,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966][storage-req]Should set BlockIO when set to match volume block sizes on block devices", decorators.StorageReq, func() {
+		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, func() {
 			By("creating a block volume")
 			dataVolume, err := createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())
@@ -2590,7 +2599,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.GetPodCPUSet(readyPod)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -2712,7 +2721,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.GetPodCPUSet(readyPod)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -2905,7 +2914,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						kubev1.ResourceMemory: resource.MustParse("512M"),
 					},
 				}
-				cpuvmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+				cpuvmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
 
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 2,
@@ -2915,7 +2924,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						kubev1.ResourceMemory: resource.MustParse("512M"),
 					},
 				}
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
 			})
 
 			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
@@ -3156,7 +3165,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		BeforeEach(func() {
 			var bootOrder uint = 1
-			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1024M")
 			vmi.Spec.Domain.Devices.Disks[0].BootOrder = &bootOrder
 		})
@@ -3248,7 +3257,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		}
 		It("should be lower than allocated size", func() {
 			By("Starting a VirtualMachineInstance")
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -3468,4 +3477,29 @@ func getVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error
 	Expect(err).ToNot(HaveOccurred())
 
 	return strings.TrimSpace(output), err
+}
+
+func getPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
+	const (
+		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+		cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+	)
+
+	output, err = exec.ExecuteCommandOnPod(
+		pod,
+		"compute",
+		[]string{"cat", cgroupV2cpusetPath},
+	)
+
+	if err == nil {
+		return
+	}
+
+	output, err = exec.ExecuteCommandOnPod(
+		pod,
+		"compute",
+		[]string{"cat", cgroupV1cpusetPath},
+	)
+
+	return
 }

@@ -2,14 +2,79 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["usbredir.go"],
+    srcs = [
+        "client.go",
+        "usbredir.go",
+        "usbredir_default.go",
+        "usbredir_s390x.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/usbredir",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virtctl/templates:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
-    ],
+    ] + select({
+        "@io_bazel_rules_go//go/platform:386": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:amd64": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:arm": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:arm64": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mips": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mips64": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mips64le": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mipsle": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ppc64": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ppc64le": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:riscv64": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:wasm": [
+            "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
+            "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+            "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
 )

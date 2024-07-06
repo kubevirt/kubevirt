@@ -7,7 +7,7 @@ go_library(
     importpath = "k8s.io/client-go/informers/flowcontrol",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/k8s.io/client-go/informers/flowcontrol/v1alpha1:go_default_library",
+        "//vendor/k8s.io/client-go/informers/flowcontrol/v1:go_default_library",
         "//vendor/k8s.io/client-go/informers/flowcontrol/v1beta1:go_default_library",
         "//vendor/k8s.io/client-go/informers/flowcontrol/v1beta2:go_default_library",
         "//vendor/k8s.io/client-go/informers/flowcontrol/v1beta3:go_default_library",

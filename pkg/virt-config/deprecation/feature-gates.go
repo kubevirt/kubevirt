@@ -54,31 +54,37 @@ type FeatureGate struct {
 	Message     string
 }
 
-var featureGates = [...]FeatureGate{
-	{Name: LiveMigrationGate, State: GA},
-	{Name: SRIOVLiveMigrationGate, State: GA},
-	{Name: NonRoot, State: GA},
-	{Name: PSA, State: GA},
-	{Name: CPUNodeDiscoveryGate, State: GA},
-	{Name: PasstGate, State: Deprecated, Message: PasstDeprecationMessage, VmiSpecUsed: passtApiUsed},
-	{Name: MacvtapGate, State: Deprecated, Message: MacvtapDeprecationMessage, VmiSpecUsed: macvtapApiUsed},
-}
+var featureGates = map[string]FeatureGate{}
 
 func init() {
-	for i, fg := range featureGates {
-		if fg.Message == "" {
+	RegisterFeatureGate(FeatureGate{Name: LiveMigrationGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: SRIOVLiveMigrationGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
 
-			featureGates[i].Message = fmt.Sprintf(WarningPattern, fg.Name, fg.State)
-		}
+	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
+	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
+}
+
+// RegisterFeatureGate adds a given feature-gate to the FG list
+// In case the FG already exists (based on its name), it overrides the
+// existing FG.
+// If the feature-gate is missing a message, a default one is set.
+func RegisterFeatureGate(fg FeatureGate) {
+	if fg.Message == "" {
+		fg.Message = fmt.Sprintf(WarningPattern, fg.Name, fg.State)
 	}
+	featureGates[fg.Name] = fg
+}
+
+func UnregisterFeatureGate(fgName string) {
+	delete(featureGates, fgName)
 }
 
 func FeatureGateInfo(featureGate string) *FeatureGate {
-	for _, deprecatedFeature := range featureGates {
-		if featureGate == deprecatedFeature.Name {
-			deprecatedFeature := deprecatedFeature
-			return &deprecatedFeature
-		}
+	if fg, exist := featureGates[featureGate]; exist {
+		return &fg
 	}
 	return nil
 }

@@ -41,8 +41,11 @@ import (
 	"sync"
 	"time"
 
+	virtcache "kubevirt.io/kubevirt/tools/cache"
+
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 
@@ -73,9 +76,10 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
-	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -122,7 +126,7 @@ type DomainManager interface {
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
-	GetDomainStats() ([]*stats.DomainStats, error)
+	GetDomainStats() (*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
 	GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo
 	GetUsers() []v1.VirtualMachineInstanceGuestOSUser
@@ -169,7 +173,8 @@ type LibvirtDomainManager struct {
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
 
-	metadataCache *metadata.Cache
+	metadataCache    *metadata.Cache
+	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
 }
 
 type pausedVMIs struct {
@@ -222,6 +227,25 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 	manager.memoryDumpInProgress = make(chan struct{}, maxConcurrentMemoryDumps)
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache)
 
+	reCalcDomainStats := func() (*stats.DomainStats, error) {
+		list, err := manager.getDomainStats()
+		if err != nil {
+			return nil, err
+		}
+
+		if len(list) == 0 {
+			return nil, nil
+		}
+
+		return list[0], nil
+	}
+
+	var err error
+	manager.domainStatsCache, err = virtcache.NewTimeDefinedCache(5*time.Second, true, reCalcDomainStats)
+	if err != nil {
+		return nil, err
+	}
+
 	return &manager, nil
 }
 
@@ -269,29 +293,42 @@ func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance)
 	}
 	defer dom.Free()
 
-	requestedHotPlugMemory := vmi.Spec.Domain.Memory.Guest.DeepCopy()
-	requestedHotPlugMemory.Sub(*vmi.Status.Memory.GuestAtBoot)
-	pluggableMemoryRequested, err := vcpu.QuantityToByte(requestedHotPlugMemory)
+	memoryDevice, err := memory.BuildMemoryDevice(vmi)
 	if err != nil {
 		return err
 	}
 
 	spec, err := getDomainSpec(dom)
 	if err != nil {
-		return fmt.Errorf("%s: %v", errMsgPrefix, "Parsing domain XML failed.")
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
-	spec.Devices.Memory.Target.Requested = pluggableMemoryRequested
-	memoryDevice, err := xml.Marshal(spec.Devices.Memory)
-	if err != nil {
-		log.Log.Reason(err).Error("marshalling target virtio-mem failed")
-		return err
-	}
+	if spec.Devices.Memory != nil {
+		spec.Devices.Memory.Target.Requested = memoryDevice.Target.Requested
 
-	err = dom.UpdateDeviceFlags(strings.ToLower(string(memoryDevice)), libvirt.DOMAIN_DEVICE_MODIFY_LIVE)
-	if err != nil {
-		log.Log.Reason(err).Error("updating device")
-		return err
+		memoryDeviceXML, err := xml.Marshal(spec.Devices.Memory)
+		if err != nil {
+			log.Log.Reason(err).Error("marshalling target virtio-mem failed")
+			return err
+		}
+
+		err = dom.UpdateDeviceFlags(strings.ToLower(string(memoryDeviceXML)), libvirt.DOMAIN_DEVICE_MODIFY_LIVE)
+		if err != nil {
+			log.Log.Reason(err).Error("updating virtio-mem device")
+			return err
+		}
+	} else {
+		memoryDeviceXML, err := xml.Marshal(memoryDevice)
+		if err != nil {
+			log.Log.Reason(err).Error("marshalling target virtio-mem failed")
+			return err
+		}
+
+		err = dom.AttachDeviceFlags(strings.ToLower(string(memoryDeviceXML)), affectDeviceLiveAndConfigLibvirtFlags)
+		if err != nil {
+			log.Log.Reason(err).Error("attaching virtio-mem device")
+			return err
+		}
 	}
 
 	log.Log.V(2).Infof("hotplugging guest memory to %v", vmi.Spec.Domain.Memory.Guest.Value())
@@ -600,6 +637,7 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance, ephemeralDiskDir st
 		disksSize := getVMIEphemeralDisksTotalSize(ephemeralDiskDir)
 		memory.Add(*disksSize)
 	}
+	memory.Add(*(storagetypes.GetTotalSizeMigratedVolumes(vmi)))
 	return memory.ScaledValue(resource.Giga)
 }
 
@@ -855,6 +893,11 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
 		return 0, false
 	}
+	if filesystemOverhead < 0 || filesystemOverhead > 1 {
+		log.DefaultLogger().Errorf("Invalid filesystem overhead %f (must be between 0 and 1)", filesystemOverhead)
+		return 0, false
+	}
+
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
 	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
 	if size == 0 {
@@ -1893,7 +1936,11 @@ func (l *LibvirtDomainManager) GetQemuVersion() (string, error) {
 	return l.virConn.GetQemuVersion()
 }
 
-func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
+func (l *LibvirtDomainManager) GetDomainStats() (*stats.DomainStats, error) {
+	return l.domainStatsCache.Get()
+}
+
+func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
@@ -1995,7 +2042,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 
 	hostDevices := devices.HostDevices
 	for _, dev := range hostDevices {
-		devAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), netsriov.AliasPrefix)
+		devAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), netsriov.SRIOVAliasPrefix)
 		hostDevAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), generic.AliasPrefix)
 		gpuDevAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), gpu.AliasPrefix)
 		if data, exist := taggedInterfaces[devAliasNoPrefix]; exist {

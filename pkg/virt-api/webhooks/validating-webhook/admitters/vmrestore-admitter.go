@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/api/core"
 
 	v1 "kubevirt.io/api/core/v1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -189,7 +189,7 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, vmRest
 
 	causes = admitter.validatePatches(vmRestore.Spec.Patches, field.Child("patches"))
 
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+	vm, err := admitter.Client.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// If the target VM does not exist it would be automatically created by the restore controller
 		return nil, nil, false, nil

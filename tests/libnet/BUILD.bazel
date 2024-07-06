@@ -4,8 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "expose_util.go",
+        "hotplug.go",
         "interface.go",
         "ipaddress.go",
+        "mac.go",
         "namespace.go",
         "network_attachment_definition.go",
         "ping.go",
@@ -17,7 +19,10 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/libnet",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/cloudinit:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
         "//pkg/virtctl/expose:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",

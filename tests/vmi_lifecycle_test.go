@@ -28,13 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,8 +57,14 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -430,20 +429,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 					// Creat nonexistent secret, so that the VirtualMachineInstance can recover
 					By("Creating a user-data secret")
-					secret := k8sv1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "nonexistent",
-							Namespace: createdVMI.Namespace,
-							Labels: map[string]string{
-								util.SecretLabel: "nonexistent",
-							},
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							"userdata": []byte(userData64),
-						},
-					}
-					_, err = kubevirt.Client().CoreV1().Secrets(createdVMI.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+					secret := libsecret.New("nonexistent", libsecret.DataString{"userdata": userData64})
+					_, err = kubevirt.Client().CoreV1().Secrets(createdVMI.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create secret successfully")
 
 					// Wait for the VirtualMachineInstance to be started, allow warning events to occur
@@ -571,7 +558,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				By("checking that it can still start VMIs")
 				newVMI := libvmifact.NewCirros()
-				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				newVMI.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: nodeName}
 				newVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), newVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -658,7 +645,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				By("starting another VMI on the same node, to verify devices still work")
 				newVMI := libvmifact.NewCirros()
-				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				newVMI.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: nodeName}
 				newVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), newVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -703,7 +690,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 								RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
 										{MatchExpressions: []k8sv1.NodeSelectorRequirement{
-											{Key: "kubernetes.io/hostname", Operator: "NotIn", Values: []string{nodeName}},
+											{Key: k8sv1.LabelHostname, Operator: "NotIn", Values: []string{nodeName}},
 										}},
 									},
 								},
@@ -711,7 +698,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 						},
 					},
 				}
-				_, err = kubevirt.Client().KubeVirt(kv.Namespace).Update(kv)
+				_, err = kubevirt.Client().KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
 
 				Eventually(func() error {
@@ -860,7 +847,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 									{Key: v1.CreatedByLabel, Operator: metav1.LabelSelectorOpIn, Values: []string{string(curVMI.GetUID())}},
 								},
 							},
-							TopologyKey: "kubernetes.io/hostname",
+							TopologyKey: k8sv1.LabelHostname,
 						},
 					},
 				}
@@ -1016,11 +1003,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(len(supportedFeatures)).To(BeNumerically(">=", 2), "There should be at least 2 supported cpu features")
 
 				for key := range node.Labels {
-					if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
+					if strings.Contains(key, v1.HypervLabel) &&
 						!strings.Contains(key, "tlbflush") &&
 						!strings.Contains(key, "ipi") &&
 						!strings.Contains(key, "synictimer") {
-						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, services.NFD_KVM_INFO_PREFIX))
+						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
 					}
 
 				}
@@ -1052,7 +1039,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				}
 
 				//Make sure the vmi should try to be scheduled only on master node
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
+				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node.Name}
 
 				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -1104,8 +1091,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					"svm": {},
 				}
 				appendFeatureFromFeatureLabel := func(supportedFeatures []string, label string) []string {
-					if strings.Contains(label, services.NFD_CPU_FEATURE_PREFIX) {
-						feature := strings.TrimPrefix(label, services.NFD_CPU_FEATURE_PREFIX)
+					if strings.Contains(label, v1.CPUFeatureLabel) {
+						feature := strings.TrimPrefix(label, v1.CPUFeatureLabel)
 						if _, exist := featureDenyList[feature]; !exist {
 							return append(supportedFeatures, feature)
 						}
@@ -1248,7 +1235,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				logsQuery := kubevirt.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
 
 				// Make sure we schedule the VirtualMachineInstance to master
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
 
 				// Start the VirtualMachineInstance and wait for the confirmation of the start
 				vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1602,7 +1589,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				// Give the VirtualMachineInstance a custom grace period
 				vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
 				// Make sure we schedule the VirtualMachineInstance to master
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
 
 				By("Creating the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, startupTimeout)
@@ -1705,7 +1692,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
-					TopologyKey:       "kubernetes.io/hostname",
+					TopologyKey:       k8sv1.LabelHostname,
 					WhenUnsatisfiable: "DoNotSchedule",
 					LabelSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -1737,12 +1724,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				},
 			}
-			createdRs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Create(rs)
+			createdRs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Create(context.Background(), rs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should create replicaset")
 
 			By("Ensuring that all VMIs are ready")
 			Eventually(func() int32 {
-				rs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Get(createdRs.ObjectMeta.Name, metav1.GetOptions{})
+				rs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Get(context.Background(), createdRs.ObjectMeta.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return rs.Status.ReadyReplicas
 			}, 120*time.Second, 1*time.Second).Should(Equal(replicas))

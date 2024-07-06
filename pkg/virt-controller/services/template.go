@@ -38,13 +38,15 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -54,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -84,7 +87,6 @@ const qemuTimeoutJitterRange = 120
 
 const (
 	CAP_NET_BIND_SERVICE = "NET_BIND_SERVICE"
-	CAP_NET_RAW          = "NET_RAW"
 	CAP_SYS_NICE         = "SYS_NICE"
 )
 
@@ -92,11 +94,6 @@ const (
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
 
-// These perfixes for node feature discovery, are used in a NodeSelector on the pod
-// to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
-const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
-const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
-const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
 const IntelVendorName = "Intel"
 
 // Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
@@ -128,18 +125,17 @@ const (
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
 )
 
-const customSELinuxType = "virt_launcher.process"
-
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate(volume []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod
 	GetLauncherImage() string
 	IsPPC64() bool
 	IsARM64() bool
+	IsS390X() bool
 }
 
 type templateService struct {
@@ -184,7 +180,7 @@ func setNodeAffinityForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *
 
 	for _, feature := range vmi.Spec.Domain.CPU.Features {
 		if feature.Policy == "forbid" {
-			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, NFD_CPU_FEATURE_PREFIX+feature.Name)
+			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.CPUFeatureLabel+feature.Name)
 		}
 	}
 }
@@ -288,6 +284,10 @@ func (t *templateService) IsPPC64() bool {
 
 func (t *templateService) IsARM64() bool {
 	return t.clusterConfig.GetClusterCPUArch() == "arm64"
+}
+
+func (t *templateService) IsS390X() bool {
+	return t.clusterConfig.GetClusterCPUArch() == "s390x"
 }
 
 func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
@@ -679,6 +679,9 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 
 	var mounts []k8sv1.VolumeMount
 	mounts = append(mounts, sidecarVolumeMount())
+	if requestedHookSidecar.DownwardAPI == v1.DeviceInfo {
+		mounts = append(mounts, mountPath(downwardapi.NetworkInfoVolumeName, downwardapi.MountPath))
+	}
 	if requestedHookSidecar.ConfigMap != nil {
 		mounts = append(mounts, configMapVolumeMount(*requestedHookSidecar.ConfigMap))
 	}
@@ -768,8 +771,13 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 		volumeOpts = append(volumeOpts, withHotplugSupport(t.hotplugDiskDir))
 	}
 
-	if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
-		volumeOpts = append(volumeOpts, withSRIOVPciMapAnnotation())
+	if vmispec.BindingPluginNetworkWithDeviceInfoExist(vmi.Spec.Domain.Devices.Interfaces, t.clusterConfig.GetNetworkBindings()) ||
+		vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
+		volumeOpts = append(volumeOpts, func(renderer *VolumeRenderer) error {
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(downwardapi.NetworkInfoVolumeName, downwardapi.MountPath))
+			return nil
+		})
+		volumeOpts = append(volumeOpts, withNetworkDeviceInfoMapAnnotation())
 	}
 
 	if util.IsVMIVirtiofsEnabled(vmi) {
@@ -837,7 +845,7 @@ func sidecarContainerName(i int) string {
 	return fmt.Sprintf("hook-sidecar-%d", i)
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	runUser := int64(util.NonRootUID)
 	sharedMount := k8sv1.MountPropagationHostToContainer
@@ -900,7 +908,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 							{
 								MatchExpressions: []k8sv1.NodeSelectorRequirement{
 									{
-										Key:      "kubernetes.io/hostname",
+										Key:      k8sv1.LabelHostname,
 										Operator: k8sv1.NodeSelectorOpIn,
 										Values:   []string{ownerPod.Spec.NodeName},
 									},
@@ -1040,7 +1048,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: ownerPod.GetLabels(),
 							},
-							TopologyKey: "kubernetes.io/hostname",
+							TopologyKey: k8sv1.LabelHostname,
 						},
 					},
 				},
@@ -1358,6 +1366,8 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	// Set this annotation now to indicate that the newly created virt-launchers will use
 	// unix sockets as a transport for migration
 	annotationsSet[v1.MigrationTransportUnixAnnotation] = "true"
+	annotationsSet[descheduler.EvictOnlyAnnotation] = ""
+
 	return annotationsSet, nil
 }
 
@@ -1446,6 +1456,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 		vmiCPUArch = t.clusterConfig.GetClusterCPUArch()
 	}
 	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	metrics.SetVmiLaucherMemoryOverhead(vmi, memoryOverhead)
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
 	return VMIResourcePredicates{
 		vmi: vmi,

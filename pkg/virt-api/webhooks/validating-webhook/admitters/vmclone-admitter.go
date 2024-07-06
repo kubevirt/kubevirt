@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 
@@ -54,7 +54,7 @@ type VirtualMachineCloneAdmitter struct {
 	Client kubecli.KubevirtClient
 }
 
-// NewMigrationPolicyAdmitter creates a MigrationPolicyAdmitter
+// NewVMCloneAdmitter creates a VM Clone Admitter
 func NewVMCloneAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VirtualMachineCloneAdmitter {
 	return &VirtualMachineCloneAdmitter{
 		Config: config,
@@ -290,7 +290,7 @@ func validateCloneSourceExists(clientGetErr error, sourceField *k8sfield.Path, k
 }
 
 func validateCloneSourceVM(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
-	vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+	vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	causes := validateCloneSourceExists(err, sourceField, virtualMachineKind, name, namespace)
 
 	if causes != nil {
@@ -363,7 +363,7 @@ func validateCloneVolumeSnapshotSupportVM(vm *v1.VirtualMachine, sourceField *k8
 	return result
 }
 
-func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *v1alpha1.VirtualMachineSnapshotContent, sourceField *k8sfield.Path) []metav1.StatusCause {
+func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *snapshotv1.VirtualMachineSnapshotContent, sourceField *k8sfield.Path) []metav1.StatusCause {
 	var result []metav1.StatusCause
 
 	if snapshotContents.Spec.VirtualMachineSnapshotName == nil {

@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
@@ -48,13 +49,13 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 	})
 
 	It("should successfully open connection to guest", func() {
-		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 		vmi.Namespace = util.NamespaceTestDefault
 		tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 		By("Opening PortForward Tunnel to SSH port")
 		var (
-			tunnel kubecli.StreamInterface
+			tunnel kvcorev1.StreamInterface
 			err    error
 		)
 		Eventually(func() error {
@@ -71,7 +72,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 
 		By("Sending data on tunnel")
 		go func() {
-			err := tunnel.Stream(kubecli.StreamOptions{
+			err := tunnel.Stream(kvcorev1.StreamOptions{
 				In:  inReader,
 				Out: &out,
 			})

@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) ([]api.Interface, error) {
+func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext) ([]api.Interface, error) {
 	var domainInterfaces []api.Interface
 
 	nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
@@ -52,14 +52,14 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if (iface.Binding != nil && c.DomainAttachmentByInterfaceName[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil || iface.Slirp != nil {
+		if (iface.Binding != nil && c.DomainAttachmentByInterfaceName[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
 			continue
 		}
 
 		ifaceType := GetInterfaceType(&nonAbsentIfaces[i])
 		domainIface := api.Interface{
 			Model: &api.Model{
-				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType),
+				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType, vmi.Spec.Architecture),
 			},
 			Alias: api.NewUserDefinedAlias(iface.Name),
 		}
@@ -87,7 +87,8 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			domainIface.Type = "ethernet"
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-			} else {
+			} else if !isS390X(vmi.Spec.Architecture) {
+				// s390x does not support setting ROM tuning, as it is for PCI Devices only
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
 		}
@@ -174,9 +175,9 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	return nameservers, searchDomains, err
 }
 
-func translateModel(useVirtioTransitional *bool, bus string) string {
+func translateModel(useVirtioTransitional *bool, bus string, archString string) string {
 	if bus == v1.VirtIO {
-		return InterpretTransitionalModelType(useVirtioTransitional)
+		return InterpretTransitionalModelType(useVirtioTransitional, archString)
 	}
 	return bus
 }

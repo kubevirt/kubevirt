@@ -397,7 +397,7 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
-	clientVMI := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking()...)
+	clientVMI := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 	var err error
 	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 	if err != nil {
@@ -421,7 +421,7 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 				Port:     81,
 				Protocol: "TCP",
 			},
-		)...,
+		),
 	)
 	serverVMI.Labels = serverVMILabels
 	serverVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), serverVMI, metav1.CreateOptions{})

@@ -83,8 +83,8 @@ var _ = Describe("Expose", func() {
 		vmiInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
 		vmInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vm, nil).AnyTimes()
 		vmInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
-		vmrsInterface.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmrs, nil).AnyTimes()
-		vmrsInterface.EXPECT().Get(unknownVM, gomock.Any()).Return(nil, errors.New("unknonw VMRS")).AnyTimes()
+		vmrsInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmrs, nil).AnyTimes()
+		vmrsInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknonw VMRS")).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		// this should be called first

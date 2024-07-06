@@ -21,7 +21,6 @@ package watch
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -63,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 )
 
 const (
@@ -89,25 +89,26 @@ const defaultFinalizedMigrationGarbageCollectionBuffer = 5
 // cause the migration to fail when it could have reasonably succeeded.
 const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 
-var migrationBackoffError = errors.New(MigrationBackoffReason)
+var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
 type MigrationController struct {
-	templateService         services.TemplateService
-	clientset               kubecli.KubevirtClient
-	Queue                   workqueue.RateLimitingInterface
-	vmiInformer             cache.SharedIndexInformer
-	podInformer             cache.SharedIndexInformer
-	migrationInformer       cache.SharedIndexInformer
-	nodeInformer            cache.SharedIndexInformer
-	pvcInformer             cache.SharedIndexInformer
-	pdbInformer             cache.SharedIndexInformer
-	migrationPolicyInformer cache.SharedIndexInformer
-	resourceQuotaInformer   cache.SharedIndexInformer
-	recorder                record.EventRecorder
-	podExpectations         *controller.UIDTrackingControllerExpectations
-	migrationStartLock      *sync.Mutex
-	clusterConfig           *virtconfig.ClusterConfig
-	statusUpdater           *status.MigrationStatusUpdater
+	templateService      services.TemplateService
+	clientset            kubecli.KubevirtClient
+	Queue                workqueue.RateLimitingInterface
+	vmiStore             cache.Store
+	podIndexer           cache.Indexer
+	migrationIndexer     cache.Indexer
+	nodeStore            cache.Store
+	pvcStore             cache.Store
+	pdbIndexer           cache.Indexer
+	migrationPolicyStore cache.Store
+	resourceQuotaIndexer cache.Indexer
+	recorder             record.EventRecorder
+	podExpectations      *controller.UIDTrackingControllerExpectations
+	migrationStartLock   *sync.Mutex
+	clusterConfig        *virtconfig.ClusterConfig
+	statusUpdater        *status.MigrationStatusUpdater
+	hasSynced            func() bool
 
 	// the set of cancelled migrations before being handed off to virt-handler.
 	// the map keys are migration keys
@@ -133,29 +134,33 @@ func NewMigrationController(templateService services.TemplateService,
 ) (*MigrationController, error) {
 
 	c := &MigrationController{
-		templateService:         templateService,
-		Queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
-		vmiInformer:             vmiInformer,
-		podInformer:             podInformer,
-		migrationInformer:       migrationInformer,
-		nodeInformer:            nodeInformer,
-		pvcInformer:             pvcInformer,
-		pdbInformer:             pdbInformer,
-		resourceQuotaInformer:   resourceQuotaInformer,
-		migrationPolicyInformer: migrationPolicyInformer,
-		recorder:                recorder,
-		clientset:               clientset,
-		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		migrationStartLock:      &sync.Mutex{},
-		clusterConfig:           clusterConfig,
-		statusUpdater:           status.NewMigrationStatusUpdater(clientset),
-		handOffMap:              make(map[string]struct{}),
+		templateService:      templateService,
+		Queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
+		vmiStore:             vmiInformer.GetStore(),
+		podIndexer:           podInformer.GetIndexer(),
+		migrationIndexer:     migrationInformer.GetIndexer(),
+		nodeStore:            nodeInformer.GetStore(),
+		pvcStore:             pvcInformer.GetStore(),
+		pdbIndexer:           pdbInformer.GetIndexer(),
+		resourceQuotaIndexer: resourceQuotaInformer.GetIndexer(),
+		migrationPolicyStore: migrationPolicyInformer.GetStore(),
+		recorder:             recorder,
+		clientset:            clientset,
+		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationStartLock:   &sync.Mutex{},
+		clusterConfig:        clusterConfig,
+		statusUpdater:        status.NewMigrationStatusUpdater(clientset),
+		handOffMap:           make(map[string]struct{}),
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
 	}
 
-	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return vmiInformer.HasSynced() && podInformer.HasSynced() && migrationInformer.HasSynced() && pdbInformer.HasSynced() && resourceQuotaInformer.HasSynced()
+	}
+
+	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVMI,
 		DeleteFunc: c.deleteVMI,
 		UpdateFunc: c.updateVMI,
@@ -164,7 +169,7 @@ func NewMigrationController(templateService services.TemplateService,
 		return nil, err
 	}
 
-	_, err = c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPod,
 		DeleteFunc: c.deletePod,
 		UpdateFunc: c.updatePod,
@@ -173,7 +178,7 @@ func NewMigrationController(templateService services.TemplateService,
 		return nil, err
 	}
 
-	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
@@ -182,14 +187,14 @@ func NewMigrationController(templateService services.TemplateService,
 		return nil, err
 	}
 
-	_, err = c.pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePDB,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.resourceQuotaInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = resourceQuotaInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateResourceQuota,
 		DeleteFunc: c.deleteResourceQuota,
 	})
@@ -206,7 +211,7 @@ func (c *MigrationController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting migration controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced, c.pdbInformer.HasSynced, c.resourceQuotaInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
@@ -248,42 +253,31 @@ func ensureSelectorLabelPresent(migration *virtv1.VirtualMachineInstanceMigratio
 }
 
 func (c *MigrationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
-	var ops []string
-
+	patchSet := patch.New()
 	if !equality.Semantic.DeepEqual(origVMI.Status.MigrationState, newVMI.Status.MigrationState) {
-		newState, err := json.Marshal(newVMI.Status.MigrationState)
-		if err != nil {
-			return err
-		}
 		if origVMI.Status.MigrationState == nil {
-			ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/status/migrationState", "value": %s }`, string(newState)))
-
+			patchSet.AddOption(patch.WithAdd("/status/migrationState", newVMI.Status.MigrationState))
 		} else {
-			oldState, err := json.Marshal(origVMI.Status.MigrationState)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/status/migrationState", "value": %s }`, string(oldState)))
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/status/migrationState", "value": %s }`, string(newState)))
+			patchSet.AddOption(
+				patch.WithTest("/status/migrationState", origVMI.Status.MigrationState),
+				patch.WithReplace("/status/migrationState", newVMI.Status.MigrationState),
+			)
 		}
 	}
 
 	if !equality.Semantic.DeepEqual(origVMI.Labels, newVMI.Labels) {
-		newLabels, err := json.Marshal(newVMI.Labels)
-		if err != nil {
-			return err
-		}
-		oldLabels, err := json.Marshal(origVMI.Labels)
-		if err != nil {
-			return err
-		}
-		ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s }`, string(oldLabels)))
-		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabels)))
+		patchSet.AddOption(
+			patch.WithTest("/metadata/labels", origVMI.Labels),
+			patch.WithReplace("/metadata/labels", newVMI.Labels),
+		)
 	}
 
-	if len(ops) > 0 {
-		_, err := c.clientset.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	if !patchSet.IsEmpty() {
+		patchBytes, err := patchSet.GeneratePayload()
 		if err != nil {
+			return err
+		}
+		if _, err = c.clientset.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
 			return err
 		}
 	}
@@ -295,7 +289,7 @@ func (c *MigrationController) execute(key string) error {
 	var targetPods []*k8sv1.Pod
 
 	// Fetch the latest state from cache
-	obj, exists, err := c.migrationInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.migrationIndexer.GetByKey(key)
 	if err != nil {
 		return err
 	}
@@ -315,11 +309,11 @@ func (c *MigrationController) execute(key string) error {
 		controller.SetLatestApiVersionAnnotation(migration)
 		// Ensure the migration contains our selector label
 		ensureSelectorLabelPresent(migration)
-		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migration)
+		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(context.Background(), migration, metav1.UpdateOptions{})
 		return err
 	}
 
-	vmiObj, vmiExists, err := c.vmiInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName))
+	vmiObj, vmiExists, err := c.vmiStore.GetByKey(fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName))
 	if err != nil {
 		return err
 	}
@@ -329,7 +323,7 @@ func (c *MigrationController) execute(key string) error {
 
 		if migration.DeletionTimestamp == nil {
 			logger.V(3).Infof("Deleting migration for deleted vmi %s/%s", migration.Namespace, migration.Spec.VMIName)
-			err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &v1.DeleteOptions{})
+			err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, v1.DeleteOptions{})
 		}
 		// nothing to process for a migration that's being deleted
 		return err
@@ -383,7 +377,7 @@ func (c *MigrationController) canMigrateVMI(migration *virtv1.VirtualMachineInst
 	curMigrationUID := vmi.Status.MigrationState.MigrationUID
 
 	// check to see if the curMigrationUID still exists or is finalized
-	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migration.Namespace)
+	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, migration.Namespace)
 
 	if err != nil {
 		return false, err
@@ -416,7 +410,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	if podExists {
 		pod = pods[0]
 
-		if attachmentPods, err := controller.AttachmentPods(pod, c.podInformer); err != nil {
+		if attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer); err != nil {
 			return fmt.Errorf(failedGetAttractionPodsFmt, err)
 		} else {
 			attachmentPodExists = len(attachmentPods) > 0
@@ -441,14 +435,14 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		// 3. Begin progressing migration state based on VMI's MigrationState status.
 	} else if vmi == nil {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because vmi does not exist.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because vmi does not exist.")
 		log.Log.Object(migration).Error("vmi does not exist")
 	} else if vmi.IsFinal() {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed vmi shutdown during migration.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed vmi shutdown during migration.")
 		log.Log.Object(migration).Error("Unable to migrate vmi because vmi is shutdown.")
 	} else if migration.DeletionTimestamp != nil && !c.isMigrationHandedOff(migration, vmi) {
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed due to being canceled")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed due to being canceled")
 		if !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested) {
 			condition := virtv1.VirtualMachineInstanceMigrationCondition{
 				Type:          virtv1.VirtualMachineInstanceMigrationAbortRequested,
@@ -458,31 +452,31 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 			migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
 		}
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-	} else if podExists && podIsDown(pod) {
+	} else if podExists && controller.PodIsDown(pod) {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because target pod shutdown during migration")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target pod %s/%s shutdown during migration", pod.Namespace, pod.Name)
 	} else if migration.TargetIsCreated() && !podExists {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration target pod was removed during active migration.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration target pod was removed during active migration.")
 		log.Log.Object(migration).Error("target pod disappeared during migration")
 	} else if migration.TargetIsHandedOff() && vmi.Status.MigrationState == nil {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI's migration state was cleared during the active migration.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "VMI's migration state was cleared during the active migration.")
 		log.Log.Object(migration).Error("vmi migration state cleared during migration")
 	} else if migration.TargetIsHandedOff() &&
 		vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.MigrationUID != migration.UID {
 
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI's migration state was taken over by another migration job during active migration.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "VMI's migration state was taken over by another migration job during active migration.")
 		log.Log.Object(migration).Error("vmi's migration state was taken over by another migration object")
 	} else if vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.MigrationUID == migration.UID &&
 		vmi.Status.MigrationState.Failed {
 
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "source node reported migration failed")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "source node reported migration failed")
 		log.Log.Object(migration).Errorf("VMI %s/%s reported migration failed", vmi.Namespace, vmi.Name)
 
 	} else if migration.DeletionTimestamp != nil && !migration.IsFinal() &&
@@ -493,9 +487,9 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 			LastProbeTime: v1.Now(),
 		}
 		migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
-	} else if attachmentPodExists && podIsDown(attachmentPod) {
+	} else if attachmentPodExists && controller.PodIsDown(attachmentPod) {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because target attachment pod shutdown during migration")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target attachment pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target attachment pod %s/%s shutdown during migration", attachmentPod.Namespace, attachmentPod.Name)
 	} else {
 		err := c.processMigrationPhase(migration, migrationCopy, pod, attachmentPod, vmi, syncError)
@@ -504,8 +498,14 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		}
 	}
 
+	if migrationCopy.Status.Phase == virtv1.MigrationFailed {
+		if err := descheduler.MarkSourcePodEvictionCompleted(c.clientset, migrationCopy, c.podIndexer); err != nil {
+			return err
+		}
+	}
+
 	controller.SetVMIMigrationPhaseTransitionTimestamp(migration, migrationCopy)
-	controller.SetSourcePod(migrationCopy, vmi, c.podInformer.GetIndexer())
+	controller.SetSourcePod(migrationCopy, vmi, c.podIndexer)
 
 	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
 		err := c.statusUpdater.UpdateStatus(migrationCopy)
@@ -513,7 +513,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 			return err
 		}
 	} else if !equality.Semantic.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
-		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(migrationCopy)
+		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(context.Background(), migrationCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -543,7 +543,7 @@ func (c *MigrationController) processMigrationPhase(
 			// can not migrate because there is an active migration already
 			// in progress for this VMI.
 			migrationCopy.Status.Phase = virtv1.MigrationFailed
-			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI is not eligible for migration because another migration job is in progress.")
+			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "VMI is not eligible for migration because another migration job is in progress.")
 			log.Log.Object(migration).Error("Migration object ont eligible for migration because another job is in progress")
 		}
 	case virtv1.MigrationPending:
@@ -567,9 +567,9 @@ func (c *MigrationController) processMigrationPhase(
 		if conditionManager.HasCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
 			conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
 		}
-		if isPodReady(pod) {
+		if controller.IsPodReady(pod) {
 			if controller.VMIHasHotplugVolumes(vmi) {
-				if attachmentPod != nil && isPodReady(attachmentPod) {
+				if attachmentPod != nil && controller.IsPodReady(attachmentPod) {
 					log.Log.Object(migration).Infof("Attachment pod %s for vmi %s/%s is ready", attachmentPod.Name, vmi.Namespace, vmi.Name)
 					migrationCopy.Status.Phase = virtv1.MigrationScheduled
 				}
@@ -594,22 +594,23 @@ func (c *MigrationController) processMigrationPhase(
 	case virtv1.MigrationRunning:
 		_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
 		if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
-			key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
-			patchOps := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`,
-				key,
-				vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
-
-			_, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, []byte(patchOps), v1.PatchOptions{})
+			patchBytes, err := patch.New(
+				patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)), vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String()),
+			).GeneratePayload()
 			if err != nil {
+				return err
+			}
+
+			if _, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
 				return err
 			}
 		}
 
 		if vmi.Status.MigrationState.Completed &&
 			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
-			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange) {
+			!vmiConditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionTrue) {
 			migrationCopy.Status.Phase = virtv1.MigrationSucceeded
-			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
+			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulMigrationReason, "Source node reported migration succeeded")
 			log.Log.Object(migration).Infof("VMI reported migration succeeded.")
 		}
 	}
@@ -659,7 +660,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 				virtv1.CreatedByLabel: string(vmi.UID),
 			},
 		},
-		TopologyKey: "kubernetes.io/hostname",
+		TopologyKey: k8sv1.LabelHostname,
 	}
 	antiAffinityRule := &k8sv1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{antiAffinityTerm},
@@ -718,17 +719,17 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	if err != nil {
 		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
 			err = fmt.Errorf("failed to create target pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, err)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, err)
 
 		} else {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating pod: %v", err)
 			err = fmt.Errorf("failed to create vmi migration target pod: %v", err)
 		}
 		c.podExpectations.CreationObserved(key)
 		return err
 	}
 	log.Log.Object(vmi).Infof("Created migration target pod %s/%s with uuid %s for migration %s with uuid %s", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID))
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created migration target pod %s", pod.Name)
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created migration target pod %s", pod.Name)
 	return nil
 }
 
@@ -838,7 +839,7 @@ func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.V
 	}
 	log.Log.Object(vmi).Infof("Marked Migration %s/%s failed on vmi due to target pod disappearing before migration kicked off.", migration.Namespace, migration.Name)
 	failureReason := "Target pod is down"
-	c.recorder.Event(vmi, k8sv1.EventTypeWarning, FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: %s", string(migration.UID), failureReason))
+	c.recorder.Event(vmi, k8sv1.EventTypeWarning, controller.FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: %s", string(migration.UID), failureReason))
 	if vmiCopy.Status.MigrationState.FailureReason == "" {
 		// Only set the failure reason if empty, as virt-handler may already have provided a better one
 		vmiCopy.Status.MigrationState.FailureReason = failureReason
@@ -856,13 +857,13 @@ func (c *MigrationController) handlePreHandoffMigrationCancel(migration *virtv1.
 	err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 	if err != nil {
 		c.podExpectations.DeletionObserved(controller.MigrationKey(migration), controller.PodKey(pod))
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleting canceled migration target pod: %v", err)
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleting canceled migration target pod: %v", err)
 		return fmt.Errorf("cannot delete pending target pod %s/%s for migration although migration is aborted", pod.Name, pod.Namespace)
 	}
 
-	reason := "migration canceled"
-	log.Log.Object(vmi).Infof("Deleted pending migration target pod %s/%s with uuid %s for migration %s with uuid %s with reason [%s]", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID), reason)
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, reason, pod.Name)
+	reason := fmt.Sprintf("migration canceled and pod %s/%s is deleted", pod.Namespace, pod.Name)
+	log.Log.Object(vmi).Infof("Deleted pending migration target pod with uuid %s for migration %s with uuid %s with reason [%s]", string(pod.UID), migration.Name, string(migration.UID), reason)
+	c.recorder.Event(migration, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, reason)
 	return nil
 }
 
@@ -889,7 +890,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 	vmiCopy.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] = pod.Spec.NodeName
 
 	if controller.VMIHasHotplugVolumes(vmiCopy) {
-		attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
+		attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 		if err != nil {
 			return fmt.Errorf(failedGetAttractionPodsFmt, err)
 		}
@@ -929,13 +930,13 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 
 	err = c.patchVMI(vmi, vmiCopy)
 	if err != nil {
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 		return err
 	}
 
 	c.addHandOffKey(controller.MigrationKey(migration))
 	log.Log.Object(vmi).Infof("Handed off migration %s/%s to target virt-handler.", migration.Namespace, migration.Name)
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
 	return nil
 }
 
@@ -952,7 +953,10 @@ func (c *MigrationController) markMigrationAbortInVmiStatus(migration *virtv1.Vi
 
 		newStatus := vmiCopy.Status
 		oldStatus := vmi.Status
-		patchBytes, err := patch.GenerateTestReplacePatch("/status", oldStatus, newStatus)
+		patchBytes, err := patch.New(
+			patch.WithTest("/status", oldStatus),
+			patch.WithReplace("/status", newStatus),
+		).GeneratePayload()
 		if err != nil {
 			return err
 		}
@@ -960,11 +964,11 @@ func (c *MigrationController) markMigrationAbortInVmiStatus(migration *virtv1.Vi
 		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		if err != nil {
 			msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
-			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, msg)
+			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedAbortMigrationReason, msg)
 			return fmt.Errorf(msg)
 		}
 		log.Log.Object(vmi).Infof("Signaled migration %s/%s to be aborted.", migration.Namespace, migration.Name)
-		c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
+		c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
 	}
 
 	return nil
@@ -994,7 +998,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	if c.podExpectations.AllPendingCreations() > 0 {
 		c.Queue.AddAfter(key, 1*time.Second)
 		return nil
-	} else if controller.VMIActivePodsCount(vmi, c.podInformer) > 1 {
+	} else if controller.VMIActivePodsCount(vmi, c.podIndexer) > 1 {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for migration because there are already multiple pods running for vmi %s/%s", vmi.Namespace, vmi.Name)
 		c.Queue.AddAfter(key, 1*time.Second)
 		return nil
@@ -1033,7 +1037,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	// should create the target pod
 	if vmi.IsRunning() {
 		if migrations.VMIMigratableOnEviction(c.clusterConfig, vmi) {
-			pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer)
+			pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbIndexer)
 			if err != nil {
 				return err
 			}
@@ -1063,14 +1067,14 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 }
 
 func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) error {
-	sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
+	sourcePod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
 	if err != nil {
 		return fmt.Errorf("failed to get current VMI pod: %v", err)
 	}
 
-	volumes := getHotplugVolumes(vmi, sourcePod)
+	volumes := controller.GetHotplugVolumes(vmi, sourcePod)
 
-	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcInformer.GetStore(), virtLauncherPod.Namespace)
+	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcStore, virtLauncherPod.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get PVC map: %v", err)
 	}
@@ -1078,7 +1082,7 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 	// Reset the hotplug volume statuses to enforce mount
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Status.VolumeStatus = []virtv1.VolumeStatus{}
-	attachmentPodTemplate, err := c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtLauncherPod, vmiCopy, volumeNamesPVCMap, false)
+	attachmentPodTemplate, err := c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtLauncherPod, vmiCopy, volumeNamesPVCMap)
 	if err != nil {
 		return fmt.Errorf("failed to render attachment pod template: %v", err)
 	}
@@ -1100,10 +1104,10 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 	attachmentPod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
 	if err != nil {
 		c.podExpectations.CreationObserved(key)
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating attachment pod: %v", err)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating attachment pod: %v", err)
 		return fmt.Errorf("failed to create attachment pod: %v", err)
 	}
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created attachment pod %s", attachmentPod.Name)
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created attachment pod %s", attachmentPod.Name)
 	return nil
 }
 
@@ -1136,7 +1140,7 @@ func timeSinceCreationSeconds(objectMeta *metav1.ObjectMeta) int64 {
 	return seconds
 }
 
-func (c *MigrationController) deleteTimedOutTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, reason string) error {
+func (c *MigrationController) deleteTimedOutTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, message string) error {
 
 	migrationKey, err := controller.KeyFunc(migration)
 	if err != nil {
@@ -1147,11 +1151,11 @@ func (c *MigrationController) deleteTimedOutTargetPod(migration *virtv1.VirtualM
 	err = c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 	if err != nil {
 		c.podExpectations.DeletionObserved(migrationKey, controller.PodKey(pod))
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleted migration target pod: %v", err)
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleted migration target pod: %v", err)
 		return fmt.Errorf("failed to delete vmi migration target pod that reached pending pod timeout period.: %v", err)
 	}
-	log.Log.Object(vmi).Infof("Deleted pending migration target pod %s/%s with uuid %s for migration %s with uuid %s with reason [%s]", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID), reason)
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, reason, pod.Name)
+	log.Log.Object(vmi).Infof("Deleted pending migration target pod with uuid %s for migration %s with uuid %s with reason [%s]", string(pod.UID), migration.Name, string(migration.UID), message)
+	c.recorder.Event(migration, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, message)
 	return nil
 }
 
@@ -1208,11 +1212,11 @@ func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualM
 		c.recorder.Eventf(
 			migration,
 			k8sv1.EventTypeWarning,
-			MigrationTargetPodUnschedulable,
+			controller.MigrationTargetPodUnschedulable,
 			"Migration target pod for VMI [%s/%s] is currently unschedulable.", vmi.Namespace, vmi.Name)
 		log.Log.Object(migration).Warningf("Migration target pod for VMI [%s/%s] is currently unschedulable.", vmi.Namespace, vmi.Name)
 		if secondsSpentPending >= unschedulableTimeout {
-			return c.deleteTimedOutTargetPod(migration, vmi, pod, "unschedulable pod timeout period exceeded")
+			return c.deleteTimedOutTargetPod(migration, vmi, pod, fmt.Sprintf("unschedulable pod %s/%s timeout period exceeded", pod.Namespace, pod.Name))
 		} else {
 			// Make sure we check this again after some time
 			c.Queue.AddAfter(migrationKey, time.Second*time.Duration(unschedulableTimeout-secondsSpentPending))
@@ -1220,7 +1224,7 @@ func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualM
 	}
 
 	if secondsSpentPending >= catchAllTimeout {
-		return c.deleteTimedOutTargetPod(migration, vmi, pod, "pending pod timeout period exceeded")
+		return c.deleteTimedOutTargetPod(migration, vmi, pod, fmt.Sprintf("pending pod %s/%s timeout period exceeded", pod.Namespace, pod.Name))
 	} else {
 		// Make sure we check this again after some time
 		c.Queue.AddAfter(migrationKey, time.Second*time.Duration(catchAllTimeout-secondsSpentPending))
@@ -1267,12 +1271,12 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		}
 
 		if !targetPodExists {
-			sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
+			sourcePod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
 			if err != nil {
 				log.Log.Reason(err).Error("Failed to fetch pods for namespace from cache.")
 				return err
 			}
-			if !podExists(sourcePod) {
+			if !controller.PodExists(sourcePod) {
 				// for instance sudden deletes can cause this. In this
 				// case we don't have to do anything in the creation flow anymore.
 				// Once the VMI is in a final state or deleted the migration
@@ -1280,19 +1284,29 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				return nil
 			}
 
+			if _, exists := migration.GetAnnotations()[virtv1.EvacuationMigrationAnnotation]; exists {
+				if err = descheduler.MarkEvictionInProgress(c.clientset, sourcePod); err != nil {
+					return err
+				}
+			}
+
 			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
 			patches := c.setupVMIRuntimeUser(vmi)
-			if len(patches) != 0 {
-				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), v1.PatchOptions{})
+			if !patches.IsEmpty() {
+				patchBytes, err := patches.GeneratePayload()
+				if err != nil {
+					return err
+				}
+				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
 				}
 			}
 
 			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
-		} else if isPodReady(pod) {
+		} else if controller.IsPodReady(pod) {
 			if controller.VMIHasHotplugVolumes(vmi) {
-				attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
+				attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 				if err != nil {
 					return fmt.Errorf(failedGetAttractionPodsFmt, err)
 				}
@@ -1320,19 +1334,28 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 
 		// once target pod is running, then alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
-		if targetPodExists && isPodReady(pod) {
+		if targetPodExists && controller.IsPodReady(pod) {
 			return c.handleTargetPodHandoff(migration, vmi, pod)
 		}
 	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady, virtv1.MigrationFailed:
-		if (!targetPodExists || podIsDown(pod)) &&
+		if (!targetPodExists || controller.PodIsDown(pod)) &&
 			vmi.Status.MigrationState != nil &&
 			len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 &&
 			vmi.Status.MigrationState.StartTimestamp == nil &&
 			!vmi.Status.MigrationState.Failed &&
 			!vmi.Status.MigrationState.Completed {
 
-			return c.handleMarkMigrationFailedOnVMI(migration, vmi)
+			err = c.handleMarkMigrationFailedOnVMI(migration, vmi)
+			if err != nil {
+				return err
+			}
 		}
+
+		if migration.Status.Phase != virtv1.MigrationFailed {
+			return nil
+		}
+
+		return descheduler.MarkSourcePodEvictionCompleted(c.clientset, migration, c.podIndexer)
 	case virtv1.MigrationRunning:
 		if migration.DeletionTimestamp != nil && vmi.Status.MigrationState != nil {
 			err = c.markMigrationAbortInVmiStatus(migration, vmi)
@@ -1345,35 +1368,33 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 	return nil
 }
 
-func (c *MigrationController) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) []string {
-	var patches []string
+func (c *MigrationController) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) *patch.PatchSet {
+	patchSet := patch.New()
 	if !c.clusterConfig.RootEnabled() {
 		// The cluster is configured for non-root VMs, ensure the VMI is non-root.
 		// If the VMI is root, the migration will be a root -> non-root migration.
 		if vmi.Status.RuntimeUser != util.NonRootUID {
-			patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.NonRootUID))
+			patchSet.AddOption(patch.WithReplace("/status/runtimeUser", util.NonRootUID))
 		}
 
 		// This is required in order to be able to update from v0.43-v0.51 to v0.52+
 		if vmi.Annotations == nil {
-			patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value":  { "%s": "true"} }`, virtv1.DeprecatedNonRootVMIAnnotation))
+			patchSet.AddOption(patch.WithAdd("/metadata/annotations", map[string]string{virtv1.DeprecatedNonRootVMIAnnotation: "true"}))
 		} else if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; !ok {
-			patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+			patchSet.AddOption(patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)), "true"))
 		}
 	} else {
 		// The cluster is configured for root VMs, ensure the VMI is root.
 		// If the VMI is non-root, the migration will be a non-root -> root migration.
 		if vmi.Status.RuntimeUser != util.RootUser {
-			patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.RootUser))
+			patchSet.AddOption(patch.WithReplace("/status/runtimeUser", util.RootUser))
 		}
 
-		if vmi.Annotations != nil {
-			if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; ok {
-				patches = append(patches, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/annotations/%s"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
-			}
+		if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; ok {
+			patchSet.AddOption(patch.WithRemove(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation))))
 		}
 	}
-	return patches
+	return patchSet
 }
 
 func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) ([]*k8sv1.Pod, error) {
@@ -1389,7 +1410,7 @@ func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMa
 		return nil, err
 	}
 
-	objs, err := c.podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migration.Namespace)
+	objs, err := c.podIndexer.ByIndex(cache.NamespaceIndex, migration.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -1448,7 +1469,7 @@ func (c *MigrationController) resolveControllerRef(namespace string, controllerR
 	if controllerRef.Kind != virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind {
 		return nil
 	}
-	migration, exists, err := c.migrationInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	migration, exists, err := c.migrationIndexer.GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
@@ -1536,7 +1557,7 @@ func (c *MigrationController) updatePod(old, cur interface{}) {
 func (c *MigrationController) updateResourceQuota(_, cur interface{}) {
 	curResourceQuota := cur.(*k8sv1.ResourceQuota)
 	log.Log.V(4).Object(curResourceQuota).Infof("ResourceQuota updated")
-	objs, _ := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, curResourceQuota.Namespace)
+	objs, _ := c.migrationIndexer.ByIndex(cache.NamespaceIndex, curResourceQuota.Namespace)
 	for _, obj := range objs {
 		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
 		if migration.Status.Conditions == nil {
@@ -1556,7 +1577,7 @@ func (c *MigrationController) updateResourceQuota(_, cur interface{}) {
 func (c *MigrationController) deleteResourceQuota(obj interface{}) {
 	resourceQuota := obj.(*k8sv1.ResourceQuota)
 	log.Log.V(4).Object(resourceQuota).Infof("ResourceQuota deleted")
-	objs, _ := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, resourceQuota.Namespace)
+	objs, _ := c.migrationIndexer.ByIndex(cache.NamespaceIndex, resourceQuota.Namespace)
 	for _, obj := range objs {
 		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
 		if migration.Status.Conditions == nil {
@@ -1619,7 +1640,7 @@ func (c *MigrationController) updatePDB(old, cur interface{}) {
 		return
 	}
 
-	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, curPDB.Namespace)
+	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, curPDB.Namespace)
 	if err != nil {
 		return
 	}
@@ -1675,7 +1696,7 @@ func (c *MigrationController) garbageCollectFinalizedMigrations(vmi *virtv1.Virt
 	}
 
 	for i := 0; i < garbageCollectionCount; i++ {
-		err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(finalizedMigrations[i], &v1.DeleteOptions{})
+		err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), finalizedMigrations[i], v1.DeleteOptions{})
 		if err != nil && k8serrors.IsNotFound(err) {
 			// This is safe to ignore. It's possible in some
 			// scenarios that the migration we're trying to garbage
@@ -1691,7 +1712,7 @@ func (c *MigrationController) garbageCollectFinalizedMigrations(vmi *virtv1.Virt
 }
 
 func (c *MigrationController) filterMigrations(namespace string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -1800,7 +1821,7 @@ func (c *MigrationController) deleteVMI(obj interface{}) {
 func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigrations []*virtv1.VirtualMachineInstanceMigration) (int, error) {
 	sum := 0
 	for _, migration := range runningMigrations {
-		if vmi, exists, _ := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
+		if vmi, exists, _ := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
 			if vmi.(*virtv1.VirtualMachineInstance).Status.NodeName == node {
 				sum = sum + 1
 			}
@@ -1815,14 +1836,14 @@ func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigra
 func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
 
 	// Don't start new migrations if we wait for migration object updates because of new target pods
-	notFinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationInformer)
+	notFinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationIndexer)
 	var runningMigrations []*virtv1.VirtualMachineInstanceMigration
 	for _, migration := range notFinishedMigrations {
 		if migration.IsRunning() {
 			runningMigrations = append(runningMigrations, migration)
 			continue
 		}
-		vmi, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		vmi, exists, err := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
 		if err != nil {
 			return nil, err
 		}
@@ -1841,7 +1862,7 @@ func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineI
 }
 
 func (c *MigrationController) getNodeForVMI(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Node, error) {
-	obj, exists, err := c.nodeInformer.GetStore().GetByKey(vmi.Status.NodeName)
+	obj, exists, err := c.nodeStore.GetByKey(vmi.Status.NodeName)
 
 	if err != nil {
 		return nil, fmt.Errorf("cannot get nodes to migrate VMI with host-model CPU. error: %v", err)
@@ -1867,7 +1888,7 @@ func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.Virtua
 		}
 	}
 
-	nodes := c.nodeInformer.GetStore().List()
+	nodes := c.nodeStore.List()
 	for _, nodeInterface := range nodes {
 		node := nodeInterface.(*k8sv1.Node)
 
@@ -1884,7 +1905,7 @@ func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.Virtua
 
 	if !fittingNodeFound {
 		warningMsg := fmt.Sprintf("Migration cannot proceed since no node is suitable to run the required CPU model / required features: %v", requiredNodeLabels)
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, NoSuitableNodesForHostModelMigration, warningMsg)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.NoSuitableNodesForHostModelMigration, warningMsg)
 		log.Log.Object(vmi).Warning(warningMsg)
 	}
 }
@@ -1947,7 +1968,7 @@ func (c *MigrationController) matchMigrationPolicy(vmi *virtv1.VirtualMachineIns
 
 	// Fetch cluster policies
 	var policies []v1alpha1.MigrationPolicy
-	migrationInterfaceList := c.migrationPolicyInformer.GetStore().List()
+	migrationInterfaceList := c.migrationPolicyStore.List()
 	for _, obj := range migrationInterfaceList {
 		policy := obj.(*v1alpha1.MigrationPolicy)
 		policies = append(policies, *policy)
@@ -2045,5 +2066,14 @@ func getTargetPodMemoryRequests(pod *k8sv1.Pod) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("Could not find memory request in VMI compute container")
 	}
+
+	if hugePagesReq, ok := cc.Resources.Requests[k8sv1.ResourceHugePagesPrefix+"2Mi"]; ok {
+		memReq.Add(hugePagesReq)
+	}
+
+	if hugePagesReq, ok := cc.Resources.Requests[k8sv1.ResourceHugePagesPrefix+"1Gi"]; ok {
+		memReq.Add(hugePagesReq)
+	}
+
 	return memReq.String(), nil
 }

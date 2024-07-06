@@ -73,7 +73,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 		virtClient = kubevirt.Client()
 		checks.SkipIfMissingRequiredImage(virtClient, libvmifact.WindowsPVCName)
 		libstorage.CreatePVC(OSWindows, testsuite.GetTestNamespace(nil), "30Gi", libstorage.Config.StorageClassWindows, true)
-		windowsVMI = libvmifact.NewWindows(libnet.WithMasqueradeNetworking()...)
+		windowsVMI = libvmifact.NewWindows(libnet.WithMasqueradeNetworking())
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
@@ -306,7 +306,7 @@ func isTSCFrequencyExposed(virtClient kubecli.KubevirtClient) bool {
 
 func removeTSCFrequencyFromNode(node k8sv1.Node) {
 	for _, baseLabelToRemove := range []string{topology.TSCFrequencyLabel, topology.TSCFrequencySchedulingLabel} {
-		for key, _ := range node.Labels {
+		for key := range node.Labels {
 			if strings.HasPrefix(key, baseLabelToRemove) {
 				libnode.RemoveLabelFromNode(node.Name, key)
 			}

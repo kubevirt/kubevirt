@@ -17,6 +17,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -91,7 +92,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 	DescribeTable("should copy a local file back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub)))
+			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -115,7 +116,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub)))
+			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))))
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 

@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -123,7 +124,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())),
 				libvmi.WithUefi(false),
 				libvmi.WithResourceMemory("1Gi"),
 			)
@@ -142,7 +143,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				}
 			}
 			vm := libvmi.NewVirtualMachine(vmi)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi.Namespace = vm.Namespace
 
@@ -174,7 +175,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			By("Stopping and removing the VM")
 			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})
+			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, k8smetav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("[test_id:10818]TPM across migration and restart", true, false, "migrate", "restart"),
@@ -184,7 +185,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 		)
 		It("should remove persistent storage PVC if VMI is not owned by a VM", func() {
 			By("Creating a VMI with persistent TPM enabled")
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 				Persistent: pointer.BoolPtr(true),
 			}

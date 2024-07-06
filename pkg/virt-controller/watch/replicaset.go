@@ -73,8 +73,8 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 
 	c := &VMIReplicaSet{
 		Queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-replicaset"),
-		vmiInformer:   vmiInformer,
-		vmiRSInformer: vmiRSInformer,
+		vmiIndexer:    vmiInformer.GetIndexer(),
+		vmiRSIndexer:  vmiRSInformer.GetIndexer(),
 		recorder:      recorder,
 		clientset:     clientset,
 		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -82,7 +82,11 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 		statusUpdater: status.NewVMIRSStatusUpdater(clientset),
 	}
 
-	_, err := c.vmiRSInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return vmiInformer.HasSynced() && vmiRSInformer.HasSynced()
+	}
+
+	_, err := vmiRSInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addReplicaSet,
 		DeleteFunc: c.deleteReplicaSet,
 		UpdateFunc: c.updateReplicaSet,
@@ -92,7 +96,7 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 		return nil, err
 	}
 
-	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: c.deleteVirtualMachine,
 		UpdateFunc: c.updateVirtualMachine,
@@ -108,12 +112,13 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 type VMIReplicaSet struct {
 	clientset     kubecli.KubevirtClient
 	Queue         workqueue.RateLimitingInterface
-	vmiInformer   cache.SharedIndexInformer
-	vmiRSInformer cache.SharedIndexInformer
+	vmiIndexer    cache.Indexer
+	vmiRSIndexer  cache.Indexer
 	recorder      record.EventRecorder
 	expectations  *controller.UIDTrackingControllerExpectations
 	burstReplicas uint
 	statusUpdater *status.VMIRSStatusUpdater
+	hasSynced     func() bool
 }
 
 func (c *VMIReplicaSet) Run(threadiness int, stopCh <-chan struct{}) {
@@ -122,7 +127,7 @@ func (c *VMIReplicaSet) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting VirtualMachineInstanceReplicaSet controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmiRSInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -156,7 +161,7 @@ func (c *VMIReplicaSet) Execute() bool {
 
 func (c *VMIReplicaSet) execute(key string) error {
 
-	obj, exists, err := c.vmiRSInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.vmiRSIndexer.GetByKey(key)
 	if err != nil {
 		return nil
 	}
@@ -174,7 +179,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(rs) {
 		rs := rs.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(rs)
-		_, err = c.clientset.ReplicaSet(rs.Namespace).Update(rs)
+		_, err = c.clientset.ReplicaSet(rs.Namespace).Update(context.Background(), rs, metav1.UpdateOptions{})
 		return err
 	}
 
@@ -208,7 +213,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		fresh, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Get(rs.ObjectMeta.Name, metav1.GetOptions{})
+		fresh, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Get(context.Background(), rs.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -374,7 +379,7 @@ func filter(vmis []*virtv1.VirtualMachineInstance, f func(vmi *virtv1.VirtualMac
 
 // listVMIsFromNamespace takes a namespace and returns all VMIs from the VirtualMachineInstance cache which run in this namespace
 func (c *VMIReplicaSet) listVMIsFromNamespace(namespace string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.vmiIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +392,7 @@ func (c *VMIReplicaSet) listVMIsFromNamespace(namespace string) ([]*virtv1.Virtu
 
 // listControllerFromNamespace takes a namespace and returns all VMIReplicaSets from the ReplicaSet cache which run in this namespace
 func (c *VMIReplicaSet) listControllerFromNamespace(namespace string) ([]*virtv1.VirtualMachineInstanceReplicaSet, error) {
-	objs, err := c.vmiRSInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.vmiRSIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -776,7 +781,7 @@ func (c *VMIReplicaSet) resolveControllerRef(namespace string, controllerRef *me
 	if controllerRef.Kind != virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind {
 		return nil
 	}
-	rs, exists, err := c.vmiRSInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	rs, exists, err := c.vmiRSIndexer.GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}

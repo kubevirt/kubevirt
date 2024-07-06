@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login func(vmi *v1.VirtualMachineInstance) error) {
+func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login console.LoginToFunction) {
 	By(fmt.Sprintf("Waiting for vmi %s rebooted", vmi.Name))
 	if vmi.Namespace == "" {
 		vmi.Namespace = testsuite.GetTestNamespace(vmi)

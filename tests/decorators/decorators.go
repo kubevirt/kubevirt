@@ -50,9 +50,14 @@ var (
 	USB                                  = []interface{}{Label("USB")}
 	AutoResourceLimitsGate               = []interface{}{Label("AutoResourceLimitsGate")}
 	RequiresTwoWorkerNodesWithCPUManager = []interface{}{Label("requires-two-worker-nodes-with-cpu-manager")}
+	RequiresDualStackCluster             = []interface{}{Label("requires-dual-stack-cluster")}
+	RequiresHugepages2Mi                 = []interface{}{Label("requireHugepages2Mi")}
 
 	// Storage classes
 	RequiresSnapshotStorageClass = []interface{}{Label("RequiresSnapshotStorageClass")}
 	// Requires a storage class without support for snapshots
 	RequiresNoSnapshotStorageClass = []interface{}{Label("RequiresNoSnapshotStorageClass")}
+
+	// Kubernetes versions
+	Kubernetes130 = []interface{}{Label("kubernetes130")}
 )

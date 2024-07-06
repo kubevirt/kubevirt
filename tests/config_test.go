@@ -48,7 +48,9 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -98,11 +100,15 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"option2": "value2",
 					"option3": "value3",
 				}
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), data)
+				cm := libconfigmap.New(configMapName, data)
+				cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			AfterEach(func() {
-				tests.DeleteConfigMap(configMapName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:782]Should be the fs layout the same for a pod and vmi", func() {
@@ -153,14 +159,18 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			BeforeEach(func() {
 				for i := 0; i < configMapsCnt; i++ {
 					name := "configmap-" + uuid.NewString()
-					tests.CreateConfigMap(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
+					cm := libconfigmap.New(name, map[string]string{"option": "value"})
+					cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 					configMaps = append(configMaps, name)
 				}
 			})
 
 			AfterEach(func() {
-				for _, configMap := range configMaps {
-					tests.DeleteConfigMap(configMap, testsuite.GetTestNamespace(nil))
+				for _, configMapIface := range configMaps {
+					if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapIface, metav1.DeleteOptions{}); err != nil {
+						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+					}
 				}
 				configMaps = nil
 			})
@@ -189,9 +199,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
-				data := map[string]string{
-					"user":     "admin",
-					"password": "redhat",
+				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "redhat"})
+				_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
 				}
 
 				virtCli := kubevirt.Client()
@@ -205,7 +216,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			AfterEach(func() {
-				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:779]Should be the fs layout the same for a pod and vmi", func() {
@@ -272,7 +285,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			AfterEach(func() {
 				for _, secret := range secrets {
-					tests.DeleteSecret(secret, testsuite.GetTestNamespace(nil))
+					if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secret, metav1.DeleteOptions{}); err != nil {
+						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+					}
 				}
 				secrets = nil
 			})
@@ -365,12 +380,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"config3": "value3",
 				}
 
-				secretData := map[string]string{
-					"user":     "admin",
-					"password": "redhat",
-				}
-
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), configData)
+				cm := libconfigmap.New(configMapName, configData)
+				cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				virtCli := kubevirt.Client()
 
@@ -384,8 +396,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			AfterEach(func() {
-				tests.DeleteConfigMap(configMapName, testsuite.GetTestNamespace(nil))
-				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
+				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:786]Should be that cfgMap and secret fs layout same for the pod and vmi", func() {
@@ -497,9 +513,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
-				data := map[string]string{
-					"ssh-privatekey": string(privateKeyBytes),
-					"ssh-publickey":  string(publicKeyBytes),
+				secret := libsecret.New(secretName, libsecret.DataBytes{"ssh-privatekey": privateKeyBytes, "ssh-publickey": publicKeyBytes})
+				_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
 				}
 				virtCli := kubevirt.Client()
 
@@ -513,7 +530,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			AfterEach(func() {
-				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:778]Should be the fs layout the same for a pod and vmi", func() {

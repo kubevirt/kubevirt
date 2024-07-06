@@ -126,7 +126,7 @@ pciHostDevices:
 				Phase: v1.KubeVirtPhaseDeploying,
 			},
 		}
-		fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+		fakeClusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 
 		By("creating an empty device controller")
 		var noDevices []Device
@@ -143,7 +143,7 @@ pciHostDevices:
 				},
 			},
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 		permittedDevices := fakeClusterConfig.GetPermittedHostDevices()
 		Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
 		Expect(permittedDevices.PciHostDevices).To(HaveLen(1), "the fake device was not found")
@@ -160,7 +160,7 @@ pciHostDevices:
 
 		By("deletting the device from the configmap")
 		kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 		permittedDevices = fakeClusterConfig.GetPermittedHostDevices()
 		Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
 		Expect(permittedDevices.PciHostDevices).To(BeEmpty(), "the fake device was not deleted")

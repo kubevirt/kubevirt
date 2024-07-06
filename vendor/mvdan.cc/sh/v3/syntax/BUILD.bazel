@@ -8,7 +8,9 @@ go_library(
         "lexer.go",
         "nodes.go",
         "parser.go",
+        "parser_arithm.go",
         "printer.go",
+        "quote.go",
         "quotestate_string.go",
         "simplify.go",
         "token_string.go",
@@ -18,4 +20,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/mvdan.cc/sh/v3/syntax",
     importpath = "mvdan.cc/sh/v3/syntax",
     visibility = ["//visibility:public"],
+    deps = ["//vendor/mvdan.cc/sh/v3/fileutil:go_default_library"],
 )

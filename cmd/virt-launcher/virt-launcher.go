@@ -410,7 +410,7 @@ func main() {
 		panic(err)
 	}
 
-	l.StartVirtquemud(stopChan)
+	l.StartVirtqemud(stopChan)
 	// only single domain should be present
 	domainName := api.VMINamespaceKeyFunc(vmi)
 
@@ -435,7 +435,7 @@ func main() {
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
 	options := cmdserver.NewServerOptions(*allowEmulation)
-	cmdclient.SetLegacyBaseDir(*virtShareDir)
+	cmdclient.SetBaseDir(*virtShareDir)
 	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options)
 
 	gracefulShutdownCallback := func() {

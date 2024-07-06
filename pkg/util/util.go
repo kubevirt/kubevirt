@@ -92,16 +92,6 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-// Check if the VMI includes passt network interface(s)
-func IsPasstVMI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range vmiSpec.Domain.Devices.Interfaces {
-		if net.Passt != nil {
-			return true
-		}
-	}
-	return false
-}
-
 // Check if a VMI spec requests AMD SEV
 func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
@@ -276,7 +266,7 @@ func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quanti
 	return expectedPvcSize
 }
 
-// GenerateRandomString creates a securely generated random string using crypto/rand
+// GenerateSecureRandomString creates a securely generated random string using crypto/rand
 func GenerateSecureRandomString(n int) (string, error) {
 	ret := make([]byte, n)
 	for i := range ret {

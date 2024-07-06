@@ -32,7 +32,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -46,7 +47,7 @@ const (
 	subjectAltNameId     = "2.5.29.17"
 
 	apiGroup              = "export.kubevirt.io"
-	apiVersion            = "v1alpha1"
+	apiVersion            = "v1beta1"
 	exportResourceName    = "virtualmachineexports"
 	gv                    = apiGroup + "/" + apiVersion
 	externalUrlLinkFormat = "/api/" + gv + "/namespaces/%s/" + exportResourceName + "/%s"
@@ -75,54 +76,76 @@ func (ctrl *VMExportController) getExternalLinks(pvcs []*corev1.PersistentVolume
 
 func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, export *exportv1.VirtualMachineExport, hostAndBase, linkType, cert string, getVolumeName getExportVolumeName) (*exportv1.VirtualMachineExportLink, error) {
 	const scheme = "https://"
-	exportLink := &exportv1.VirtualMachineExportLink{
-		Volumes: []exportv1.VirtualMachineExportVolume{},
-		Cert:    cert,
-		Manifests: []exportv1.VirtualMachineExportManifest{
-			{
-				Type: exportv1.AllManifests,
-				Url:  scheme + path.Join(hostAndBase, linkType, manifestsPath),
-			},
-			{
-				Type: exportv1.AuthHeader,
-				Url:  scheme + path.Join(hostAndBase, linkType, secretManifestPath),
-			},
-		},
+	if exporterPod == nil {
+		return nil, nil
 	}
-	for _, pvc := range pvcs {
-		if pvc != nil && exporterPod != nil && exporterPod.Status.Phase == corev1.PodRunning {
 
-			if ctrl.isKubevirtContentType(pvc) {
-				exportLink.Volumes = append(exportLink.Volumes, exportv1.VirtualMachineExportVolume{
-					Name: getVolumeName(pvc, export),
-					Formats: []exportv1.VirtualMachineExportVolumeFormat{
-						{
-							Format: exportv1.KubeVirtRaw,
-							Url:    scheme + path.Join(hostAndBase, rawURI(pvc)),
-						},
-						{
-							Format: exportv1.KubeVirtGz,
-							Url:    scheme + path.Join(hostAndBase, rawGzipURI(pvc)),
-						},
-					},
-				})
-			} else {
-				exportLink.Volumes = append(exportLink.Volumes, exportv1.VirtualMachineExportVolume{
-					Name: getVolumeName(pvc, export),
-					Formats: []exportv1.VirtualMachineExportVolumeFormat{
-						{
-							Format: exportv1.Dir,
-							Url:    scheme + path.Join(hostAndBase, dirURI(pvc)),
-						},
-						{
-							Format: exportv1.ArchiveGz,
-							Url:    scheme + path.Join(hostAndBase, archiveURI(pvc)),
-						},
-					},
-				})
-			}
-		}
+	paths := CreateServerPaths(ContainerEnvToMap(exporterPod.Spec.Containers[0].Env))
+	exportLink := &exportv1.VirtualMachineExportLink{
+		Cert: cert,
 	}
+
+	if paths.VMURI != "" {
+		exportLink.Manifests = append(exportLink.Manifests, exportv1.VirtualMachineExportManifest{
+			Type: exportv1.AllManifests,
+			Url:  scheme + path.Join(hostAndBase, linkType, paths.VMURI),
+		})
+	}
+	if paths.SecretURI != "" {
+		exportLink.Manifests = append(exportLink.Manifests, exportv1.VirtualMachineExportManifest{
+			Type: exportv1.AuthHeader,
+			Url:  scheme + path.Join(hostAndBase, linkType, paths.SecretURI),
+		})
+	}
+
+	for _, pvc := range pvcs {
+		if pvc == nil || exporterPod.Status.Phase != corev1.PodRunning {
+			continue
+		}
+
+		volumeInfo := paths.GetVolumeInfo(pvc.Name)
+		if volumeInfo == nil {
+			log.Log.Warningf("Volume %s not found in paths", pvc.Name)
+			continue
+		}
+
+		ev := exportv1.VirtualMachineExportVolume{
+			Name: getVolumeName(pvc, export),
+		}
+
+		if volumeInfo.RawURI != "" {
+			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtRaw,
+				Url:    scheme + path.Join(hostAndBase, volumeInfo.RawURI),
+			})
+		}
+		if volumeInfo.RawGzURI != "" {
+			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.KubeVirtGz,
+				Url:    scheme + path.Join(hostAndBase, volumeInfo.RawGzURI),
+			})
+		}
+		if volumeInfo.DirURI != "" {
+			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.Dir,
+				Url:    scheme + path.Join(hostAndBase, volumeInfo.DirURI),
+			})
+		}
+		if volumeInfo.ArchiveURI != "" {
+			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
+				Format: exportv1.ArchiveGz,
+				Url:    scheme + path.Join(hostAndBase, volumeInfo.ArchiveURI),
+			})
+		}
+
+		if len(ev.Formats) == 0 {
+			log.Log.Warningf("No formats found for volume %s", pvc.Name)
+			continue
+		}
+
+		exportLink.Volumes = append(exportLink.Volumes, ev)
+	}
+
 	return exportLink, nil
 }
 

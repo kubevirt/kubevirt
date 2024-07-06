@@ -69,7 +69,6 @@ const (
 	VmiPVC                      = "vmi-pvc"
 	VmiWindows                  = "vmi-windows"
 	VmiKernelBoot               = "vmi-kernel-boot"
-	VmiSlirp                    = "vmi-slirp"
 	VmiMasquerade               = "vmi-masquerade"
 	VmiSRIOV                    = "vmi-sriov"
 	VmiWithHookSidecar          = "vmi-with-sidecar-hook"
@@ -79,7 +78,6 @@ const (
 	VmiHostDisk                 = "vmi-host-disk"
 	VmiGPU                      = "vmi-gpu"
 	VmiARM                      = "vmi-arm"
-	VmiMacvtap                  = "vmi-macvtap"
 	VmiUSB                      = "vmi-usb"
 	VmTemplateFedora            = "vm-template-fedora"
 	VmTemplateRHEL7             = "vm-template-rhel7"
@@ -527,23 +525,6 @@ func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func GetVMISlirp() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiSlirp)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "testSlirp", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(
-		&vm.Spec,
-		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
-
-	slirp := &v1.InterfaceSlirp{}
-	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
-
-	return vm
-}
-
 func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiMasquerade)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
@@ -924,7 +905,7 @@ func getPVCForTemplate(name string) *k8sv1.PersistentVolumeClaim {
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-			Resources: k8sv1.ResourceRequirements{
+			Resources: k8sv1.VolumeResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceStorage: resource.MustParse("10Gi"),
 				},
@@ -1009,7 +990,7 @@ func GetVMDataVolume() *v1.VirtualMachine {
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
 				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-				Resources: k8sv1.ResourceRequirements{
+				Resources: k8sv1.VolumeResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						"storage": quantity,
 					},
@@ -1228,19 +1209,6 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func GetVMIMacvtap() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiMacvtap)
-	macvtapNetworkName := "macvtap"
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vmi.Spec.Networks = []v1.Network{{Name: macvtapNetworkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "macvtapnetwork"}}}}
-	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
-
-	macvtap := &v1.InterfaceMacvtap{}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: macvtap}}}
-	return vmi
-}
-
 // The minimum memory for UEFI boot on Arm64 is 256Mi
 func GetVMIARM() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiARM)
@@ -1397,7 +1365,7 @@ func GetVirtualMachinePreferenceVirtio() *instancetypev1beta1.VirtualMachinePref
 
 func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePreference {
 	spinlocks := uint32(8191)
-	preferredCPUTopology := instancetypev1beta1.PreferSockets
+	preferredCPUTopology := instancetypev1beta1.Sockets
 	return &instancetypev1beta1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),

@@ -147,17 +147,6 @@ func (_mr *_MockConnectionRecorder) ListAllDomains(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllDomains", arg0)
 }
 
-func (_m *MockConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
-	ret := _m.ctrl.Call(_m, "NewStream", flags)
-	ret0, _ := ret[0].(Stream)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockConnectionRecorder) NewStream(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "NewStream", arg0)
-}
-
 func (_m *MockConnection) SetReconnectChan(reconnect chan bool) {
 	_m.ctrl.Call(_m, "SetReconnectChan", reconnect)
 }
@@ -317,16 +306,6 @@ func (_mr *_MockVirDomainRecorder) GetState() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetState")
 }
 
-func (_m *MockVirDomain) Create() error {
-	ret := _m.ctrl.Call(_m, "Create")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirDomainRecorder) Create() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create")
-}
-
 func (_m *MockVirDomain) CreateWithFlags(flags libvirt.DomainCreateFlags) error {
 	ret := _m.ctrl.Call(_m, "CreateWithFlags", flags)
 	ret0, _ := ret[0].(error)
@@ -378,16 +357,6 @@ func (_mr *_MockVirDomainRecorder) GetBlockInfo(arg0, arg1 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetBlockInfo", arg0, arg1)
 }
 
-func (_m *MockVirDomain) AttachDevice(xml string) error {
-	ret := _m.ctrl.Call(_m, "AttachDevice", xml)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirDomainRecorder) AttachDevice(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AttachDevice", arg0)
-}
-
 func (_m *MockVirDomain) AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error {
 	ret := _m.ctrl.Call(_m, "AttachDeviceFlags", xml, flags)
 	ret0, _ := ret[0].(error)
@@ -406,16 +375,6 @@ func (_m *MockVirDomain) UpdateDeviceFlags(xml string, flags libvirt.DomainDevic
 
 func (_mr *_MockVirDomainRecorder) UpdateDeviceFlags(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateDeviceFlags", arg0, arg1)
-}
-
-func (_m *MockVirDomain) DetachDevice(xml string) error {
-	ret := _m.ctrl.Call(_m, "DetachDevice", xml)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirDomainRecorder) DetachDevice(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetachDevice", arg0)
 }
 
 func (_m *MockVirDomain) DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error {
@@ -501,27 +460,6 @@ func (_mr *_MockVirDomainRecorder) GetXMLDesc(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetXMLDesc", arg0)
 }
 
-func (_m *MockVirDomain) GetMetadata(tipus libvirt.DomainMetadataType, uri string, flags libvirt.DomainModificationImpact) (string, error) {
-	ret := _m.ctrl.Call(_m, "GetMetadata", tipus, uri, flags)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirDomainRecorder) GetMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0, arg1, arg2)
-}
-
-func (_m *MockVirDomain) OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error {
-	ret := _m.ctrl.Call(_m, "OpenConsole", devname, stream, flags)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirDomainRecorder) OpenConsole(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "OpenConsole", arg0, arg1, arg2)
-}
-
 func (_m *MockVirDomain) MigrateToURI3(_param0 string, _param1 *libvirt.DomainMigrateParameters, _param2 libvirt.DomainMigrateFlags) error {
 	ret := _m.ctrl.Call(_m, "MigrateToURI3", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
@@ -594,17 +532,6 @@ func (_m *MockVirDomain) SetTime(secs int64, nsecs uint, flags libvirt.DomainSet
 
 func (_mr *_MockVirDomainRecorder) SetTime(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetTime", arg0, arg1, arg2)
-}
-
-func (_m *MockVirDomain) AuthorizedSSHKeysGet(user string, flags libvirt.DomainAuthorizedSSHKeysFlags) ([]string, error) {
-	ret := _m.ctrl.Call(_m, "AuthorizedSSHKeysGet", user, flags)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirDomainRecorder) AuthorizedSSHKeysGet(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AuthorizedSSHKeysGet", arg0, arg1)
 }
 
 func (_m *MockVirDomain) AuthorizedSSHKeysSet(user string, keys []string, flags libvirt.DomainAuthorizedSSHKeysFlags) error {

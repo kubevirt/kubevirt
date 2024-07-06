@@ -112,7 +112,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			//The vmi should have more memory than memToUseInTheVmKib
 			vmiMemSizeMi := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTheVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmi.Spec.Affinity = &v1.Affinity{
@@ -166,7 +166,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			//The vmi should have more memory than memToUseInTheVm
 			vmiMemSize := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTargetNodeVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 			vmiMemReq := resource.MustParse(fmt.Sprintf("%dMi", vmMemoryRequestkib/bytesInKib))
-			vmiToFillTargetNodeMem := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmiToFillTargetNodeMem := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			//we want vmiToFillTargetNodeMem to land on the target node to achieve memory-overcommitment in target
 			affinityRuleForVmiToFill, err := getAffinityForTargetNode(targetNode)
 			Expect(err).ToNot(HaveOccurred())
@@ -183,7 +183,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			err = fillMemWithStressFedoraVMI(vmiToFillTargetNodeMem, memToUseInTargetNodeVmKib)
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-			vmiToMigrate := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmiToMigrate := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmiToMigrate.Spec.Affinity = &v1.Affinity{
@@ -224,7 +224,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 })
 
 func getMemInfoByString(node v1.Node, field string) int {
-	stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(kubevirt.Client(), node.Name, []string{"grep", field, "/proc/meminfo"})
+	stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(node.Name, []string{"grep", field, "/proc/meminfo"})
 	ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
 	fields := strings.Fields(stdout)
 	size, err := strconv.Atoi(fields[1])

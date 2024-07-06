@@ -93,10 +93,8 @@ var _ = Describe("HostDisk", func() {
 	}
 
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "host-disk-images")
+		tempDir = GinkgoT().TempDir()
 		Expect(setDiskDirectory(tempDir)).To(Succeed())
-		Expect(err).NotTo(HaveOccurred())
 
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
@@ -107,10 +105,6 @@ var _ = Describe("HostDisk", func() {
 		hostDiskCreator = NewHostDiskCreator(recorder, 0, 0, root)
 		hostDiskCreatorWithReserve = NewHostDiskCreator(recorder, 10, 1048576, root)
 
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tempDir)).To(Succeed())
 	})
 
 	Describe("HostDisk with 'Disk' type", func() {

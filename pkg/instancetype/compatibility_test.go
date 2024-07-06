@@ -15,15 +15,14 @@ import (
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 )
 
 var _ = Describe("compatibility", func() {
-
 	generateUnknownObjectControllerRevision := func() *appsv1.ControllerRevision {
-		unknownObject := snapshotv1alpha1.VirtualMachineSnapshot{
+		unknownObject := snapshotv1beta1.VirtualMachineSnapshot{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: snapshotv1alpha1.SchemeGroupVersion.String(),
+				APIVersion: snapshotv1beta1.SchemeGroupVersion.String(),
 				Kind:       "VirtualMachineSnapshot",
 			},
 		}
@@ -252,7 +251,7 @@ var _ = Describe("compatibility", func() {
 		var expectedPreferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec
 
 		BeforeEach(func() {
-			preferredCPUTopology := instancetypev1beta1.PreferCores
+			preferredCPUTopology := instancetypev1beta1.DeprecatedPreferCores
 			expectedPreferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
 					PreferredCPUTopology: &preferredCPUTopology,
@@ -277,7 +276,7 @@ var _ = Describe("compatibility", func() {
 		}
 
 		generatev1beta1PreferenceSpec := func() instancetypev1beta1.VirtualMachinePreferenceSpec {
-			preferredTopology := instancetypev1beta1.PreferCores
+			preferredTopology := instancetypev1beta1.DeprecatedPreferCores
 			return instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
 					PreferredCPUTopology: &preferredTopology,

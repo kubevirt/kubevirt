@@ -40,7 +40,7 @@ import (
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
-	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
@@ -107,22 +107,22 @@ var _ = Describe("Clone", func() {
 		mockQueue.Wait()
 	}
 
-	addSnapshot := func(snapshot *snapshotv1alpha1.VirtualMachineSnapshot) {
+	addSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot) {
 		var err error
-		snapshot, err = client.SnapshotV1alpha1().VirtualMachineSnapshots(testNamespace).Create(context.TODO(), snapshot, metav1.CreateOptions{})
+		snapshot, err = client.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace).Create(context.TODO(), snapshot, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		err = snapshotInformer.GetStore().Add(snapshot)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	addSnapshotContent := func(snapshotContent *snapshotv1alpha1.VirtualMachineSnapshotContent) {
+	addSnapshotContent := func(snapshotContent *snapshotv1.VirtualMachineSnapshotContent) {
 		err := snapshotContentInformer.GetStore().Add(snapshotContent)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
-	addRestore := func(restore *snapshotv1alpha1.VirtualMachineRestore) {
+	addRestore := func(restore *snapshotv1.VirtualMachineRestore) {
 		var err error
-		restore, err = client.SnapshotV1alpha1().VirtualMachineRestores(testNamespace).Create(context.TODO(), restore, metav1.CreateOptions{})
+		restore, err = client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Create(context.TODO(), restore, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		err = restoreInformer.GetStore().Add(restore)
 		Expect(err).ToNot(HaveOccurred())
@@ -134,7 +134,7 @@ var _ = Describe("Clone", func() {
 	}
 
 	expectSnapshotExists := func() {
-		vmSnapshot, err := client.SnapshotV1alpha1().VirtualMachineSnapshots(testNamespace).Get(context.TODO(), testSnapshotName, metav1.GetOptions{})
+		vmSnapshot, err := client.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace).Get(context.TODO(), testSnapshotName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmSnapshot).ToNot(BeNil())
 		Expect(vmSnapshot.Spec.Source.Kind).To(Equal("VirtualMachine"))
@@ -143,12 +143,12 @@ var _ = Describe("Clone", func() {
 	}
 
 	expectSnapshotDoesNotExist := func() {
-		_, err := client.SnapshotV1alpha1().VirtualMachineSnapshots(testNamespace).Get(context.TODO(), testSnapshotName, metav1.GetOptions{})
+		_, err := client.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace).Get(context.TODO(), testSnapshotName, metav1.GetOptions{})
 		Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Snapshot should not exists")
 	}
 
 	expectRestoreExists := func() {
-		vmRestore, err := client.SnapshotV1alpha1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
+		vmRestore, err := client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmRestore).ToNot(BeNil())
 		Expect(vmRestore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
@@ -161,7 +161,7 @@ var _ = Describe("Clone", func() {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 
-			restorecreated := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+			restorecreated := create.GetObject().(*snapshotv1.VirtualMachineRestore)
 			Expect(restorecreated.Spec.VirtualMachineSnapshotName).To(Equal(snapshotName))
 			Expect(restorecreated.OwnerReferences).To(HaveLen(1))
 			validateOwnerReference(restorecreated.OwnerReferences[0], vmClone)
@@ -171,7 +171,7 @@ var _ = Describe("Clone", func() {
 	}
 
 	expectRestoreDoesNotExist := func() {
-		_, err := client.SnapshotV1alpha1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
+		_, err := client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 		Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Restore should not exists")
 	}
 
@@ -207,10 +207,10 @@ var _ = Describe("Clone", func() {
 
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
-		snapshotInformer, _ = testutils.NewFakeInformerFor(&snapshotv1alpha1.VirtualMachineSnapshot{})
-		restoreInformer, _ = testutils.NewFakeInformerFor(&snapshotv1alpha1.VirtualMachineRestore{})
+		snapshotInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
+		restoreInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		cloneInformer, cloneSource = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
-		snapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1alpha1.VirtualMachineSnapshotContent{})
+		snapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
 		recorder = record.NewFakeRecorder(100)
@@ -267,9 +267,9 @@ var _ = Describe("Clone", func() {
 
 		virtClient.EXPECT().VirtualMachine(testNamespace).Return(vmInterface).AnyTimes()
 		virtClient.EXPECT().VirtualMachineClone(util.NamespaceTestDefault).Return(client.CloneV1alpha1().VirtualMachineClones(util.NamespaceTestDefault)).AnyTimes()
-		virtClient.EXPECT().VirtualMachineSnapshot(util.NamespaceTestDefault).Return(client.SnapshotV1alpha1().VirtualMachineSnapshots(util.NamespaceTestDefault)).AnyTimes()
-		virtClient.EXPECT().VirtualMachineRestore(util.NamespaceTestDefault).Return(client.SnapshotV1alpha1().VirtualMachineRestores(util.NamespaceTestDefault)).AnyTimes()
-		virtClient.EXPECT().VirtualMachineSnapshotContent(util.NamespaceTestDefault).Return(client.SnapshotV1alpha1().VirtualMachineSnapshotContents(util.NamespaceTestDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineSnapshot(util.NamespaceTestDefault).Return(client.SnapshotV1beta1().VirtualMachineSnapshots(util.NamespaceTestDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineRestore(util.NamespaceTestDefault).Return(client.SnapshotV1beta1().VirtualMachineRestores(util.NamespaceTestDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineSnapshotContent(util.NamespaceTestDefault).Return(client.SnapshotV1beta1().VirtualMachineSnapshotContents(util.NamespaceTestDefault)).AnyTimes()
 
 		k8sClient = k8sfake.NewSimpleClientset()
 		k8sClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -299,7 +299,7 @@ var _ = Describe("Clone", func() {
 			)
 
 			When("snapshot is created", func() {
-				var snapshot *snapshotv1alpha1.VirtualMachineSnapshot
+				var snapshot *snapshotv1.VirtualMachineSnapshot
 
 				BeforeEach(func() {
 					snapshot = createVirtualMachineSnapshot(sourceVM)
@@ -344,8 +344,8 @@ var _ = Describe("Clone", func() {
 
 			When("restore is created", func() {
 				var (
-					snapshot *snapshotv1alpha1.VirtualMachineSnapshot
-					restore  *snapshotv1alpha1.VirtualMachineRestore
+					snapshot *snapshotv1.VirtualMachineSnapshot
+					restore  *snapshotv1.VirtualMachineRestore
 				)
 
 				BeforeEach(func() {
@@ -391,8 +391,8 @@ var _ = Describe("Clone", func() {
 
 			When("snapshot and restore are finished", func() {
 				var (
-					snapshot *snapshotv1alpha1.VirtualMachineSnapshot
-					restore  *snapshotv1alpha1.VirtualMachineRestore
+					snapshot *snapshotv1.VirtualMachineSnapshot
+					restore  *snapshotv1.VirtualMachineRestore
 				)
 
 				BeforeEach(func() {
@@ -437,8 +437,8 @@ var _ = Describe("Clone", func() {
 			When("the clone process is finished and involves one or more PVCs", func() {
 				var (
 					pvc      *k8sv1.PersistentVolumeClaim
-					snapshot *snapshotv1alpha1.VirtualMachineSnapshot
-					restore  *snapshotv1alpha1.VirtualMachineRestore
+					snapshot *snapshotv1.VirtualMachineSnapshot
+					restore  *snapshotv1.VirtualMachineRestore
 				)
 
 				BeforeEach(func() {
@@ -449,7 +449,7 @@ var _ = Describe("Clone", func() {
 
 					restore = createVirtualMachineRestore(sourceVM, snapshot.Name, createOwnerReference(vmClone))
 					restore.Status.Complete = pointer.P(true)
-					restore.Status.Restores = []snapshotv1alpha1.VolumeRestore{
+					restore.Status.Restores = []snapshotv1.VolumeRestore{
 						{PersistentVolumeClaimName: pvc.Name},
 					}
 
@@ -685,7 +685,7 @@ var _ = Describe("Clone", func() {
 		}
 
 		expectVMCreationFromPatches := func(expectedVM *virtv1.VirtualMachine) {
-			restore, err := client.SnapshotV1alpha1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
+			restore, err := client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
 			patchedVM, err := offlinePatchVM(sourceVM, restore.Spec.Patches)
@@ -882,7 +882,7 @@ var _ = Describe("Clone", func() {
 				addClone(vmClone)
 
 				controller.Execute()
-				restore, err := client.SnapshotV1alpha1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
+				restore, err := client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
 				expectedPatches := []string{`{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": ""}`}
@@ -903,7 +903,7 @@ var _ = Describe("Clone", func() {
 				addClone(vmClone)
 
 				controller.Execute()
-				restore, err := client.SnapshotV1alpha1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
+				restore, err := client.SnapshotV1beta1().VirtualMachineRestores(testNamespace).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
 				Expect(restore.Spec.Patches).ToNot(ContainElement(`{"op": "remove", "path": "/metadata/annotations/new_annotation_matching_filter"}`))
@@ -934,35 +934,35 @@ var _ = Describe("Clone", func() {
 	})
 })
 
-func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine, owner ...metav1.OwnerReference) *snapshotv1alpha1.VirtualMachineSnapshot {
-	return &snapshotv1alpha1.VirtualMachineSnapshot{
+func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine, owner ...metav1.OwnerReference) *snapshotv1.VirtualMachineSnapshot {
+	return &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            testSnapshotName,
 			Namespace:       vm.Namespace,
 			UID:             "snapshot-UID",
 			OwnerReferences: owner,
 		},
-		Spec: snapshotv1alpha1.VirtualMachineSnapshotSpec{
+		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: pointer.P(vmAPIGroup),
 				Kind:     "VirtualMachine",
 				Name:     vm.Name,
 			},
 		},
-		Status: &snapshotv1alpha1.VirtualMachineSnapshotStatus{},
+		Status: &snapshotv1.VirtualMachineSnapshotStatus{},
 	}
 }
 
-func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1alpha1.VirtualMachineSnapshotContent {
-	return &snapshotv1alpha1.VirtualMachineSnapshotContent{
+func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshotContent {
+	return &snapshotv1.VirtualMachineSnapshotContent{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testSnapshotContentName,
 			Namespace: vm.Namespace,
 			UID:       "snapshotcontent-UID",
 		},
-		Spec: snapshotv1alpha1.VirtualMachineSnapshotContentSpec{
-			Source: snapshotv1alpha1.SourceSpec{
-				VirtualMachine: &snapshotv1alpha1.VirtualMachine{
+		Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
+			Source: snapshotv1.SourceSpec{
+				VirtualMachine: &snapshotv1.VirtualMachine{
 					ObjectMeta: vm.ObjectMeta,
 					Spec:       vm.Spec,
 					Status:     vm.Status,
@@ -972,15 +972,15 @@ func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1a
 	}
 }
 
-func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string, owner ...metav1.OwnerReference) *snapshotv1alpha1.VirtualMachineRestore {
-	return &snapshotv1alpha1.VirtualMachineRestore{
+func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string, owner ...metav1.OwnerReference) *snapshotv1.VirtualMachineRestore {
+	return &snapshotv1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            testRestoreName,
 			Namespace:       vm.Namespace,
 			UID:             "restore-UID",
 			OwnerReferences: owner,
 		},
-		Spec: snapshotv1alpha1.VirtualMachineRestoreSpec{
+		Spec: snapshotv1.VirtualMachineRestoreSpec{
 			Target: k8sv1.TypedLocalObjectReference{
 				APIGroup: pointer.P(vmAPIGroup),
 				Kind:     "VirtualMachine",
@@ -988,7 +988,7 @@ func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string,
 			},
 			VirtualMachineSnapshotName: snapshotName,
 		},
-		Status: &snapshotv1alpha1.VirtualMachineRestoreStatus{},
+		Status: &snapshotv1.VirtualMachineRestoreStatus{},
 	}
 }
 

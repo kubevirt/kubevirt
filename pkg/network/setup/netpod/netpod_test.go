@@ -186,8 +186,11 @@ var _ = Describe("netpod", func() {
 	},
 		Entry("bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
 		Entry("masquerade", v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}),
-		Entry("passt", v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}),
-		Entry("slirp", v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}),
+
+		// passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
+		Entry("passt", v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}),
+		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
+		Entry("slirp", v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}}),
 	)
 
 	It("setup masquerade binding", func() {
@@ -928,7 +931,7 @@ var _ = Describe("netpod", func() {
 
 		vmiIface := v1.Interface{
 			Name:                   defaultPodNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
 		}
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
@@ -984,11 +987,15 @@ var _ = Describe("netpod", func() {
 	},
 		// Not processed by the discovery & config steps.
 		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}, nmstate.Spec{}),
-		Entry("Macvtap", v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, nmstate.Spec{}),
+
+		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
+		Entry("Macvtap", v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}, nmstate.Spec{}),
+
+		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		// Processed by the discovery but not by the config step.
 		// When processed by the config step, the nmstate structure will be initialized (e.g. to an empty interface list).
 		// Interfaces will not get populated because the specific binding (slirp) is not treated there.
-		Entry("Slirp", v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}, nmstate.Spec{Interfaces: []nmstate.Interface{}}),
+		Entry("Slirp", v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}}, nmstate.Spec{Interfaces: []nmstate.Interface{}}),
 	)
 
 	Context("setup with plugged networks marked for removal", func() {

@@ -42,7 +42,7 @@ import (
 )
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
-	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	// Mock VirtualMachineInstanceMigration
 	var ctrl *gomock.Controller
@@ -52,7 +52,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	var mockVMIClient *kubecli.MockVirtualMachineInstanceInterface
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -63,7 +63,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		})
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -95,7 +95,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			},
 		}
 		mockVMIClient.EXPECT().Get(context.Background(), inFlightMigration.Spec.VMIName, gomock.Any()).Return(vmi, nil)
-		migrationInterface.EXPECT().List(gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
+		migrationInterface.EXPECT().List(context.Background(), gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -125,7 +125,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	Context("with no conflicting migration", func() {
 
 		BeforeEach(func() {
-			migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
+			migrationInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
 
 		})
 

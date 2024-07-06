@@ -76,16 +76,6 @@ var _ = Describe("QEMU slirp networking", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(testMutator.Mutate(testDomainSpec)).To(Equal(expectedDomainSpec))
 			},
-			Entry("interface with slirp binding method",
-				*vmschema.DefaultSlirpNetworkInterface(),
-				*vmschema.DefaultPodNetwork(),
-				[]domainschema.Arg{
-					{Value: `-netdev`},
-					{Value: `user,id=default,net=10.0.2.0/24,dnssearch=dns.com`},
-					{Value: `-device`},
-					{Value: `{"driver":"e1000","netdev":"default","id":"default"}`},
-				},
-			),
 			Entry("custom CIDR",
 				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName}},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{
@@ -156,7 +146,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				Expect(mutatedDomSpec.QEMUCmd.QEMUArg).To(Equal(expectedArgs))
 			},
 			Entry("other qmeu cmd args exist",
-				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}}},
+				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{DeprecatedSlirp: &vmschema.DeprecatedInterfaceSlirp{}}},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 				[]domainschema.Arg{
 					{Value: "-device"}, {Value: "foo"},
@@ -170,7 +160,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 			),
 			Entry("slirp iface qemu cmd args already exist",
-				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}}},
+				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{DeprecatedSlirp: &vmschema.DeprecatedInterfaceSlirp{}}},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 				[]domainschema.Arg{
 					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
@@ -184,7 +174,7 @@ var _ = Describe("QEMU slirp networking", func() {
 		)
 
 		It("should set QEMU cmd args correctly when executed more than once", func() {
-			iface := vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}}}
+			iface := vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{DeprecatedSlirp: &vmschema.DeprecatedInterfaceSlirp{}}}
 			network := vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}}
 			existingArgs := []domainschema.Arg{
 				{Value: "-device"}, {Value: "foo"},

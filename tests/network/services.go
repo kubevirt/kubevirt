@@ -144,12 +144,12 @@ var _ = SIGDescribe("Services", func() {
 		)
 
 		BeforeEach(func() {
-			inboundVMI = libvmifact.NewFedora(append(
+			inboundVMI = libvmifact.NewFedora(
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
 				libvmi.WithSubdomain("vmi"),
 				libvmi.WithHostname("inbound"),
-			)...)
+			)
 			var err error
 			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

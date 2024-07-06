@@ -53,7 +53,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
@@ -100,7 +99,7 @@ var _ = SIGDescribe("Memory dump", func() {
 	createAndStartVM := func() *v1.VirtualMachine {
 		By("Creating VirtualMachine")
 		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunning())
-		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -108,7 +107,7 @@ var _ = SIGDescribe("Memory dump", func() {
 				return false
 			}
 			Expect(err).ToNot(HaveOccurred())
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return vm.Status.Ready && vmi.Status.Phase == v1.Running
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -124,7 +123,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	deleteVirtualMachine := func(vm *v1.VirtualMachine) {
 		waitDeleted(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+			return virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 		})
 		vm = nil
 	}
@@ -178,7 +177,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	waitAndVerifyMemoryDumpCompletion := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -216,7 +215,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	waitAndVerifyMemoryDumpDissociation := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -589,7 +588,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			memoryDumpVirtctlCreatePVCWithStorgeClass(vm.Name, vm.Namespace, memoryDumpPVCName, "no-exist")
 			By("Wait memory dump in progress")
 			Eventually(func() error {
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -717,8 +716,6 @@ var _ = SIGDescribe("Memory dump", func() {
 // createExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
 // run commands against the PVC through this Pod.
 func createExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	var err error
-
 	pod := libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"}, nil, pvc)
 	pod.Spec.Containers[0].ReadinessProbe = &k8sv1.Probe{
 		ProbeHandler: k8sv1.ProbeHandler{
@@ -727,10 +724,5 @@ func createExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) 
 			},
 		},
 	}
-	pod = tests.RunPod(pod)
-
-	Eventually(matcher.ThisPod(pod), 120).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
-	pod, err = matcher.ThisPod(pod)()
-	Expect(err).ToNot(HaveOccurred())
-	return pod
+	return runPodAndExpectPhase(pod, k8sv1.PodRunning)
 }

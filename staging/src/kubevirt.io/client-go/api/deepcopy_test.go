@@ -75,7 +75,7 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&v1.Memory{},
 			&v1.Machine{},
 			&v1.InterfaceBridge{},
-			&v1.InterfaceSlirp{},
+			&v1.DeprecatedInterfaceSlirp{},
 		}
 	})
 

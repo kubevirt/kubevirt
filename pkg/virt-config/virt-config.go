@@ -24,7 +24,7 @@ package virtconfig
 */
 
 import (
-	"fmt"
+	"strings"
 
 	"kubevirt.io/client-go/log"
 
@@ -45,11 +45,13 @@ const (
 	DefaultAMD64MachineType                         = "q35"
 	DefaultPPC64LEMachineType                       = "pseries"
 	DefaultAARCH64MachineType                       = "virt"
+	DefaultS390XMachineType                         = "s390-ccw-virtio"
 	DefaultCPURequest                               = "100m"
 	DefaultMemoryOvercommit                         = 100
 	DefaultAMD64EmulatedMachines                    = "q35*,pc-q35*"
 	DefaultPPC64LEEmulatedMachines                  = "pseries*"
 	DefaultAARCH64EmulatedMachines                  = "virt*"
+	DefaultS390XEmulatedMachines                    = "s390-ccw-virtio*"
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultMinimumReservePVCBytes                   = 131072
 	DefaultNodeSelectors                            = ""
@@ -101,6 +103,10 @@ func IsPPC64(arch string) bool {
 	return arch == "ppc64le"
 }
 
+func IsS390X(arch string) bool {
+	return arch == "s390x"
+}
+
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
 	return *c.GetConfig().MemBalloonStatsPeriod
 }
@@ -133,6 +139,8 @@ func (c *ClusterConfig) GetMachineType(arch string) string {
 		return c.GetConfig().ArchitectureConfiguration.Arm64.MachineType
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.MachineType
+	case "s390x":
+		return DefaultS390XMachineType
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.MachineType
 	}
@@ -165,6 +173,8 @@ func (c *ClusterConfig) GetEmulatedMachines(arch string) []string {
 		return c.GetConfig().ArchitectureConfiguration.Arm64.EmulatedMachines
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.EmulatedMachines
+	case "s390x":
+		return strings.Split(DefaultS390XEmulatedMachines, ",")
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.EmulatedMachines
 	}
@@ -190,38 +200,8 @@ func (c *ClusterConfig) GetDefaultArchitecture() string {
 	return c.GetConfig().ArchitectureConfiguration.DefaultArchitecture
 }
 
-func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachineInstanceSpec) error {
-	autoAttach := spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && !*autoAttach {
-		return nil
-	}
-
-	// Override only when nothing is specified
-	if len(spec.Networks) == 0 && len(spec.Domain.Devices.Interfaces) == 0 {
-		iface := v1.NetworkInterfaceType(c.GetDefaultNetworkInterface())
-		switch iface {
-		case v1.BridgeInterface:
-			if !c.IsBridgeInterfaceOnPodNetworkEnabled() {
-				return fmt.Errorf("Bridge interface is not enabled in kubevirt-config")
-			}
-			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-		case v1.MasqueradeInterface:
-			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		case v1.SlirpInterface:
-			if !c.IsSlirpInterfaceEnabled() {
-				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
-			}
-			defaultIface := v1.DefaultSlirpNetworkInterface()
-			spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
-		}
-
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	}
-	return nil
-}
-
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
-	return *c.GetConfig().NetworkConfiguration.PermitSlirpInterface
+	return *c.GetConfig().NetworkConfiguration.DeprecatedPermitSlirpInterface
 }
 
 func (c *ClusterConfig) GetSMBIOS() *v1.SMBiosConfiguration {
@@ -259,6 +239,8 @@ func (c *ClusterConfig) GetOVMFPath(arch string) string {
 		return c.GetConfig().ArchitectureConfiguration.Arm64.OVMFPath
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.OVMFPath
+	case "s390x":
+		return ""
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.OVMFPath
 	}
@@ -332,7 +314,7 @@ func (c *ClusterConfig) GetDesiredMDEVTypes(node *k8sv1.Node) []string {
 		}
 		if len(mdevTypesMap) != 0 {
 			mdevTypesList := []string{}
-			for mdevType, _ := range mdevTypesMap {
+			for mdevType := range mdevTypesMap {
 				mdevTypesList = append(mdevTypesList, mdevType)
 			}
 			return mdevTypesList

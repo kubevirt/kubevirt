@@ -279,7 +279,7 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineInstances(vmis [
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
-// ReleaseDetachVirtualMachines removes ownership of detached VMs.
+// ReleaseDetachedVirtualMachines removes ownership of detached VMs.
 //
 // It will reconcile the following:
 //   - Release owned objects if the selector no longer matches.
@@ -555,7 +555,7 @@ func (r RealVirtualMachineControl) PatchVirtualMachineInstance(namespace, name s
 
 func (r RealVirtualMachineControl) PatchVirtualMachine(namespace, name string, data []byte) error {
 	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
-	_, err := r.Clientset.VirtualMachine(namespace).Patch(context.Background(), name, types.MergePatchType, data, &metav1.PatchOptions{})
+	_, err := r.Clientset.VirtualMachine(namespace).Patch(context.Background(), name, types.MergePatchType, data, metav1.PatchOptions{})
 	return err
 }
 

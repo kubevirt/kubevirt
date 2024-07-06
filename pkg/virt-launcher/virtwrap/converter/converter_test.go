@@ -56,7 +56,7 @@ import (
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	kubevirtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	sev "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
@@ -159,7 +159,7 @@ var _ = Describe("Converter", func() {
 			}
 			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)
 			Expect(apiDisk.Capacity).ToNot(BeNil())
-			Expect(*apiDisk.Capacity).To(Equal(min(capacity, requests)))
+			Expect(*apiDisk.Capacity).To(Equal(storagetypes.Min(capacity, requests)))
 		},
 			Entry("Higher request than capacity", int64(9999), int64(1111)),
 			Entry("Lower request than capacity", int64(1111), int64(9999)),
@@ -1016,7 +1016,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			vmi.Spec.Domain.IOThreadsPolicy = nil
-			for i, _ := range vmi.Spec.Domain.Devices.Disks {
+			for i := range vmi.Spec.Domain.Devices.Disks {
 				vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread = nil
 			}
 			dom := &api.Domain{}
@@ -1091,6 +1091,28 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = ""
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB), "Expect usb bus")
+		})
+
+		It("should not overwrite the IO policy when when IO threads are enabled", func() {
+			ioPolicy := v1.IONative
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Volumes[0] = v1.Volume{
+				Name: "disk",
+				VolumeSource: v1.VolumeSource{
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Disks[0] = v1.Disk{
+				Name:              "disk",
+				DedicatedIOThread: kubevirtpointer.P(true),
+				IO:                ioPolicy,
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Disks[0].Driver.IO).To(Equal(ioPolicy))
 		})
 
 		It("should not enable sound cards emulation by default", func() {
@@ -1520,46 +1542,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
 		})
-		It("Should create network configuration for macvtap interface and a multus network", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			multusNetworkName := "multusNet"
-
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
-
-			multusNetwork := v1.Network{
-				Name: netName1,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: multusNetworkName},
-				},
-			}
-			vmi.Spec.Networks = []v1.Network{multusNetwork}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).NotTo(BeNil(), "domain should not be nil")
-			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1), "should have a single interface")
-			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"), "Macvtap interfaces must be of type `ethernet`")
-		})
-		It("Should create network configuration for the default pod network plus a secondary macvtap network interface using multus", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
-
-			defaultPodNetwork := v1.DefaultPodNetwork()
-			multusNetwork := v1.Network{
-				Name: netName1,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: netName1},
-				},
-			}
-			vmi.Spec.Networks = []v1.Network{*defaultPodNetwork, multusNetwork}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface(), iface1}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).NotTo(BeNil(), "domain should not be nil")
-			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2), "the VMI spec should feature 2 interfaces")
-			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"), "Macvtap interfaces must be of type `ethernet`")
-		})
 		It("Should create network configuration for an interface using a binding plugin with tap domain attachment", func() {
 			bindingName := "BindingName"
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -1592,35 +1574,6 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
-		})
-		It("Macvtap interfaces should allow setting boot order", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-			firstToBoot := uint(1)
-			lastToBoot := uint(2)
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &lastToBoot}
-			iface2 := v1.Interface{Name: netName2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &firstToBoot}
-
-			firstMacvtapNetwork := v1.Network{
-				Name: netName1,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: netName1},
-				},
-			}
-			secondMacvtapNetwork := v1.Network{
-				Name: netName2,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: netName2},
-				},
-			}
-			vmi.Spec.Networks = []v1.Network{firstMacvtapNetwork, secondMacvtapNetwork}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, iface2}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).NotTo(BeNil(), "domain should not be nil")
-			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2), "the VMI spec should feature 2 interfaces")
-			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(lastToBoot), "the interface whose boot order is higher should be the last to boot")
-			Expect(domain.Spec.Devices.Interfaces[1].BootOrder.Order).To(Equal(firstToBoot), "the interface whose boot order is lower should be the first to boot")
 		})
 		It("creates SRIOV hostdev", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -1744,7 +1697,7 @@ var _ = Describe("Converter", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Features: &v1.Features{
-							HypervPassthrough: &v1.HyperVPassthrough{Enabled: virtpointer.P(true)},
+							HypervPassthrough: &v1.HyperVPassthrough{Enabled: kubevirtpointer.P(true)},
 						},
 					},
 				},
@@ -2571,7 +2524,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.BoolPtr(false),
+						SecureBoot: kubevirtpointer.P(false),
 					},
 				},
 			}
@@ -2815,23 +2768,7 @@ var _ = Describe("Converter", func() {
 
 				Expect(domain.Spec.Memory).ToNot(BeNil())
 				Expect(domain.Spec.Memory.Unit).To(Equal("b"))
-				Expect(domain.Spec.Memory.Value).To(Equal(uint64(maxGuestMemory.Value())))
-
-				Expect(domain.Spec.CPU.NUMA).ToNot(BeNil())
-				Expect(domain.Spec.CPU.NUMA.Cells).To(HaveLen(1))
-				Expect(domain.Spec.CPU.NUMA.Cells[0].Unit).To(Equal("b"))
-				Expect(domain.Spec.CPU.NUMA.Cells[0].Memory).To(Equal(uint64(guestMemory.Value())))
-
-				pluggableMemory := uint64(maxGuestMemory.Value() - guestMemory.Value())
-
-				Expect(domain.Spec.Devices.Memory).ToNot(BeNil())
-				Expect(domain.Spec.Devices.Memory.Model).To(Equal("virtio-mem"))
-				Expect(domain.Spec.Devices.Memory.Target).ToNot(BeNil())
-				Expect(domain.Spec.Devices.Memory.Target.Node).To(Equal("0"))
-				Expect(domain.Spec.Devices.Memory.Target.Size.Value).To(Equal(pluggableMemory))
-				Expect(domain.Spec.Devices.Memory.Target.Size.Unit).To(Equal("b"))
-				Expect(domain.Spec.Devices.Memory.Target.Block.Value).To(Equal(uint64(MemoryHotplugBlockAlignmentBytes)))
-				Expect(domain.Spec.Devices.Memory.Target.Block.Unit).To(Equal("b"))
+				Expect(domain.Spec.Memory.Value).To(Equal(uint64(guestMemory.Value())))
 			})
 		})
 	})
@@ -2846,7 +2783,7 @@ var _ = Describe("Converter", func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.BoolPtr(true)
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = kubevirtpointer.P(true)
 			nonVirtioIface := v1.Interface{Name: "red", Model: "e1000"}
 			secondaryNetwork := v1.Network{Name: "red"}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -2860,13 +2797,13 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.BoolPtr(false),
+					Enabled: kubevirtpointer.P(false),
 				},
 			}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.BoolPtr(false),
+						SecureBoot: kubevirtpointer.P(false),
 					},
 				},
 			}

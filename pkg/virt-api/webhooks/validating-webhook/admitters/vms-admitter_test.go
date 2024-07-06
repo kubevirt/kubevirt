@@ -51,18 +51,19 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	rt "runtime"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	config, crdInformer, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var (
 		vmsAdmitter         *VMsAdmitter
 		dataSourceInformer  cache.SharedIndexInformer
@@ -74,7 +75,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	)
 
 	enableFeatureGate := func(featureGates ...string) {
-		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		if kv.Spec.Configuration.DeveloperConfiguration == nil {
 			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 		}
@@ -83,24 +84,24 @@ var _ = Describe("Validating VM Admitter", func() {
 		} else {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, featureGates...)
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 	disableFeatureGates := func() {
-		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		if kv.Spec.Configuration.DeveloperConfiguration != nil {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = make([]string, 0)
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 	enableLiveUpdate := func() {
-		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		kv.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyLiveUpdate)
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 	disableLiveUpdate := func() {
-		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		kv.Spec.Configuration.VMRolloutStrategy = nil
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
 	notRunning := false
@@ -240,6 +241,32 @@ var _ = Describe("Validating VM Admitter", func() {
 				PageSize: "2Mi",
 			},
 		}
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
+	It("should accept VM requesting hugepages but missing spec.template.spec.domain.memory.guest", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Memory = &v1.Memory{
+			Hugepages: &v1.Hugepages{
+				PageSize: "2Mi",
+			},
+		}
+		vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+			Requests: k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("1Gi"),
+			},
+		}
+
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,
@@ -1810,21 +1837,15 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("failure checking preference requirements"))
 		})
 
-		DescribeTable("should reject if instancetype.Guest.CPU is not divisible by", func(CPU, spreadRatio int) {
-			topology := instancetypev1beta1.PreferSpread
+		DescribeTable("should reject if PreferSpread requested with", func(vCPUs uint32, preferenceSpec instancetypev1beta1.VirtualMachinePreferenceSpec, expectedMessage string) {
 			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &topology,
-					},
-					PreferSpreadSocketToCoreRatio: uint32(spreadRatio),
-				}, nil
+				return &preferenceSpec, nil
 			}
 
 			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
-						Guest: uint32(CPU),
+						Guest: vCPUs,
 					},
 				}, nil
 			}
@@ -1833,17 +1854,130 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Allowed).To(BeFalse())
 			Expect(response.Result.Details.Causes).To(HaveLen(1))
 			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[0].Message).To(Equal("Instancetype CPU Guest is not divisible by PreferSpreadSocketToCoreRatio"))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal("instancetype.spec.cpu.guest"))
+			Expect(response.Result.Details.Causes[0].Message).To(Equal(expectedMessage))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal(instancetypeCPUGuestPath))
 		},
-			Entry("default PreferSpreadSocketToCoreRatio", 3, 0),
-			Entry("odd PreferSpreadSocketToCoreRatio", 8, 3),
+			Entry("3 vCPUs, default of SpreadAcrossSocketsCores and default SocketCoreRatio of 2",
+				uint32(3),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 3, 2),
+			),
+			Entry("2 vCPUs, default of SpreadAcrossSocketsCores and SocketCoreRatio via PreferSpreadSocketToCoreRatio of 3",
+				uint32(2),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferSpreadSocketToCoreRatio: uint32(3),
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 2, 3),
+			),
+			Entry("2 vCPUs, default of SpreadAcrossSocketsCores and SocketCoreRatio via SpreadOptions of 3",
+				uint32(2),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Ratio: pointer.P(uint32(3)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 2, 3),
+			),
+			Entry("4 vCPUs, default of SpreadAcrossSocketsCores and SocketCoreRatio via PreferSpreadSocketToCoreRatio of 3",
+				uint32(4),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferSpreadSocketToCoreRatio: uint32(3),
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 4, 3),
+			),
+			Entry("4 vCPUs, default of SpreadAcrossSocketsCores and SocketCoreRatio via SpreadOptions of 3",
+				uint32(4),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Ratio: pointer.P(uint32(3)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 4, 3),
+			),
+			Entry("3 vCPUs and SpreadAcrossCoresThreads",
+				uint32(3),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, 3, 2),
+			),
+			Entry("5 vCPUs and SpreadAcrossCoresThreads",
+				uint32(5),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, 5, 2),
+			),
+			Entry("5 vCPUs, SpreadAcrossSocketsCoresThreads and default SocketCoreRatio of 2",
+				uint32(5),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, 5, 2, 2),
+			),
+			Entry("6 vCPUs, SpreadAcrossSocketsCoresThreads and SocketCoreRatio via PreferSpreadSocketToCoreRatio of 4",
+				uint32(6),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferSpreadSocketToCoreRatio: uint32(4),
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, 6, 2, 4),
+			),
+			Entry("6 vCPUs, SpreadAcrossSocketsCoresThreads and SocketCoreRatio via SpreadOptions of 4",
+				uint32(6),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  pointer.P(uint32(4)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, 6, 2, 4),
+			),
 		)
 
 		It("should admit VM with preference using preferSpread and without instancetype", func() {
 			vm.Spec.Instancetype = nil
 			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{CPU: &instancetypev1beta1.CPUPreferences{PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread)}}, nil
+				return &instancetypev1beta1.VirtualMachinePreferenceSpec{CPU: &instancetypev1beta1.CPUPreferences{PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread)}}, nil
 			}
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeTrue())
@@ -1872,17 +2006,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			disableFeatureGates()
 		})
 
-		Context("Instance type", func() {
-			It("should reject VM creation", func() {
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: "test",
-					Kind: instancetypeapi.SingularResourceName,
-				}
-				response := admitVm(vmsAdmitter, vm)
-				Expect(response.Allowed).To(BeFalse())
-			})
-		})
-
 		Context("CPU", func() {
 			const maximumSockets uint32 = 24
 
@@ -1900,26 +2023,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Number of sockets in CPU topology is greater than the maximum sockets allowed"))
 			})
 
-			It("should reject VM creation when resource requests are configured", func() {
-				vm.Spec.Template.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
-				vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("400m")
-
-				response := admitVm(vmsAdmitter, vm)
-				Expect(response.Allowed).To(BeFalse())
-				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.resources"))
-				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"))
-			})
-
-			It("should reject VM creation when resource limits are configured", func() {
-				vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-				vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("400m")
-
-				response := admitVm(vmsAdmitter, vm)
-				Expect(response.Allowed).To(BeFalse())
-				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.resources"))
-				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"))
-			})
-
 			When("Hot CPU change is in progress", func() {
 				BeforeEach(func() {
 					vm.Status.Ready = true
@@ -1931,8 +2034,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			var maxGuest resource.Quantity
 
 			BeforeEach(func() {
-				guest := resource.MustParse("64Mi")
-				maxGuest = resource.MustParse("128Mi")
+				guest := resource.MustParse("1Gi")
+				maxGuest = resource.MustParse("4Gi")
 
 				vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
 					Guest:    &guest,
@@ -1951,15 +2054,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(response.Result.Details.Causes).To(ContainElement(cause))
 			},
-				Entry("hugepages is configured", func(vm *v1.VirtualMachine) {
-					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
-						PageSize: "2Mi",
-					}
-				}, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.memory.hugepages",
-					Message: "Memory hotplug is not compatible with hugepages",
-				}),
 				Entry("realtime is configured", func(vm *v1.VirtualMachine) {
 					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.NUMAFeatureGate)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
@@ -1974,7 +2068,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.cpu.realtime",
+					Field:   "spec.template.spec.domain.memory.guest",
 					Message: "Memory hotplug is not compatible with realtime VMs",
 				}),
 				Entry("launchSecurity is configured", func(vm *v1.VirtualMachine) {
@@ -1982,15 +2076,8 @@ var _ = Describe("Validating VM Admitter", func() {
 					vm.Spec.Template.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.launchSecurity",
+					Field:   "spec.template.spec.domain.memory.guest",
 					Message: "Memory hotplug is not compatible with encrypted VMs",
-				}),
-				Entry("dedicated CPUs is configured", func(vm *v1.VirtualMachine) {
-					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
-				}, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.cpu.dedicatedCpuPlacement",
-					Message: "Memory hotplug is not compatible with dedicated CPUs",
 				}),
 				Entry("guest mapping passthrough is configured", func(vm *v1.VirtualMachine) {
 					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.NUMAFeatureGate)
@@ -2005,7 +2092,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.cpu.numa.guestMappingPassthrough",
+					Field:   "spec.template.spec.domain.memory.guest",
 					Message: "Memory hotplug is not compatible with guest mapping passthrough",
 				}),
 				Entry("guest memory is not set", func(vm *v1.VirtualMachine) {
@@ -2026,41 +2113,98 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Guest memory is greater than the configured maxGuest memory",
 				}),
 				Entry("maxGuest is not properly aligned", func(vm *v1.VirtualMachine) {
-					unAlignedMemory := resource.MustParse("333Mi")
+					unAlignedMemory := resource.MustParse("2049Mi")
 					vm.Spec.Template.Spec.Domain.Memory.MaxGuest = &unAlignedMemory
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.memory.maxGuest",
-					Message: fmt.Sprintf("MaxGuest must be %s aligned", resource.NewQuantity(converter.MemoryHotplugBlockAlignmentBytes, resource.BinarySI)),
+					Field:   "spec.template.spec.domain.memory.guest",
+					Message: fmt.Sprintf("MaxGuest must be %s aligned", resource.NewQuantity(memory.HotplugBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("guest memory is not properly aligned", func(vm *v1.VirtualMachine) {
-					unAlignedMemory := resource.MustParse("123")
+					unAlignedMemory := resource.MustParse("1025Mi")
 					vm.Spec.Template.Spec.Domain.Memory.Guest = &unAlignedMemory
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "spec.template.spec.domain.memory.guest",
-					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(converter.MemoryHotplugBlockAlignmentBytes, resource.BinarySI)),
+					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.HotplugBlockAlignmentBytes, resource.BinarySI)),
 				}),
-				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.Multiarchitecture)
-					vm.Spec.Template.Spec.Architecture = "arm"
+				Entry("guest memory with hugepages is not properly aligned", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("2G"))
+					vm.Spec.Template.Spec.Domain.Memory.MaxGuest = pointer.P(resource.MustParse("16Gi"))
+					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: "1Gi"}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.architecture",
-					Message: "Memory hotplug is only available for x86_64 VMs",
+					Field:   "spec.template.spec.domain.memory.guest",
+					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.Hotplug1GHugePagesBlockAlignmentBytes, resource.BinarySI)),
+				}),
+				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
+					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.MultiArchitecture)
+					vm.Spec.Template.Spec.Architecture = "risc-v"
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.memory.guest",
+					Message: "Memory hotplug is only available for x86_64 and arm64 VMs",
+				}),
+				Entry("guest memory is less than 1Gi", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("512Mi"))
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.memory.guest",
+					Message: "Memory hotplug is only available for VMs with at least 1Gi of guest memory",
 				}),
 			)
+		})
+
+		Context("Update volume strategy", func() {
+			It("should accept the VM with the feature gate enabled", func() {
+				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy)
+				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyReplacement)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
+			})
+			It("should reject the VM creation if the feature gate isn't enabled", func() {
+				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyReplacement)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "updateVolumesStrategy",
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
+				}))
+			})
+			It("should accept the VM with the feature gate enabled for volume migration", func() {
+				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration)
+				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyMigration)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
+			})
+			It("should reject the VM creation if the volume migration feature gate isn't enabled", func() {
+				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy)
+				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyMigration)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "updateVolumesStrategy",
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumeMigration),
+				}))
+			})
 		})
 	})
 
 	It("should raise a warning when Deprecated API is used", func() {
-		enableFeatureGate(deprecation.PasstGate)
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-			{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}}
-		vmi.Spec.Networks = []v1.Network{
-			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+		const testsFGName = "test-deprecated"
+		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+			Name:        testsFGName,
+			State:       deprecation.Deprecated,
+			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
+		})
+		DeferCleanup(deprecation.UnregisterFeatureGate, testsFGName)
+		enableFeatureGate(testsFGName)
 
+		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,

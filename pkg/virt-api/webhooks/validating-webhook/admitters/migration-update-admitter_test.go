@@ -39,10 +39,10 @@ import (
 
 var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	migrationUpdateAdmitter := &MigrationUpdateAdmitter{}
-	_, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	_, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -53,7 +53,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		})
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{

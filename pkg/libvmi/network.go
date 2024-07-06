@@ -64,17 +64,6 @@ func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
 	}
 }
 
-// InterfaceDeviceWithSlirpBinding returns an Interface with SLIRP binding.
-func InterfaceDeviceWithSlirpBinding(name string, ports ...kvirtv1.Port) kvirtv1.Interface {
-	return kvirtv1.Interface{
-		Name: name,
-		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
-			Slirp: &kvirtv1.InterfaceSlirp{},
-		},
-		Ports: ports,
-	}
-}
-
 // InterfaceDeviceWithSRIOVBinding returns an Interface with SRIOV binding.
 func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
 	return kvirtv1.Interface{
@@ -141,5 +130,12 @@ func WithHostname(hostname string) Option {
 func WithSubdomain(subdomain string) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
 		vmi.Spec.Subdomain = subdomain
+	}
+}
+
+// WithAutoAttachPodInterface sets the autoattachPodInterface parameter.
+func WithAutoAttachPodInterface(enabled bool) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.AutoattachPodInterface = &enabled
 	}
 }

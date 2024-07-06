@@ -42,6 +42,7 @@ linters-settings:
         ignored-functions:
           - '^Eventually$'
           - '^EventuallyWithOffset$'
+          - '^ExpectWithOffset$'
           - '^console\.ExpectBatch$'
           - '^console\.RunCommand$'
   govet:
@@ -61,6 +62,8 @@ linters-settings:
     dot-import-whitelist:
       - "github.com/onsi/ginkgo/v2"
       - "github.com/onsi/gomega"
+  gofumpt:
+    extra-rules: true
 
 linters:
   disable-all: true
@@ -77,6 +80,7 @@ linters:
     - gocritic
     - gocyclo
     - gofmt
+    - gofumpt
     - goheader
     - goimports
     - gomnd

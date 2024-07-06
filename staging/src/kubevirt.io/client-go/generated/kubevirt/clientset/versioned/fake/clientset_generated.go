@@ -31,6 +31,8 @@ import (
 	fakekubevirtv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1/fake"
 	exportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
 	fakeexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1/fake"
+	exportv1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1beta1"
+	fakeexportv1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1beta1/fake"
 	instancetypev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
 	fakeinstancetypev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1/fake"
 	instancetypev1alpha2 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2"
@@ -43,6 +45,8 @@ import (
 	fakepoolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1/fake"
 	snapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	fakesnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1/fake"
+	snapshotv1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1beta1"
+	fakesnapshotv1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1beta1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -107,6 +111,11 @@ func (c *Clientset) ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface {
 	return &fakeexportv1alpha1.FakeExportV1alpha1{Fake: &c.Fake}
 }
 
+// ExportV1beta1 retrieves the ExportV1beta1Client
+func (c *Clientset) ExportV1beta1() exportv1beta1.ExportV1beta1Interface {
+	return &fakeexportv1beta1.FakeExportV1beta1{Fake: &c.Fake}
+}
+
 // InstancetypeV1alpha1 retrieves the InstancetypeV1alpha1Client
 func (c *Clientset) InstancetypeV1alpha1() instancetypev1alpha1.InstancetypeV1alpha1Interface {
 	return &fakeinstancetypev1alpha1.FakeInstancetypeV1alpha1{Fake: &c.Fake}
@@ -135,4 +144,9 @@ func (c *Clientset) PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface {
 // SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
 func (c *Clientset) SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface {
 	return &fakesnapshotv1alpha1.FakeSnapshotV1alpha1{Fake: &c.Fake}
+}
+
+// SnapshotV1beta1 retrieves the SnapshotV1beta1Client
+func (c *Clientset) SnapshotV1beta1() snapshotv1beta1.SnapshotV1beta1Interface {
+	return &fakesnapshotv1beta1.FakeSnapshotV1beta1{Fake: &c.Fake}
 }

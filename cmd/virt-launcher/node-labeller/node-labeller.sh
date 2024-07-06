@@ -6,6 +6,8 @@ ARCH=$(uname -m)
 MACHINE=q35
 if [ "$ARCH" == "aarch64" ]; then
   MACHINE=virt
+elif [ "$ARCH" == "s390x" ]; then
+  MACHINE=s390-ccw-virtio
 elif [ "$ARCH" != "x86_64" ]; then
   exit 0
 fi
@@ -35,8 +37,6 @@ fi
 virtqemud -d
 
 virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
-
-cp -r /usr/share/libvirt/cpu_map /var/lib/kubevirt-node-labeller
 
 # hypervisor-cpu-baseline command only works on x86
 if [ "$ARCH" == "x86_64" ]; then

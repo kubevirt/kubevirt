@@ -17,6 +17,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet/cluster"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -54,9 +55,7 @@ func newLabeledVMI(label string) (vmi *v1.VirtualMachineInstance) {
 		{Name: "test-port-tcp", Port: 1500, Protocol: "TCP"},
 		{Name: "udp", Port: 82, Protocol: "UDP"},
 		{Name: "test-port-udp", Port: 1500, Protocol: "UDP"}}
-	vmi = libvmifact.NewAlpineWithTestTooling(
-		libnet.WithMasqueradeNetworking(ports...)...,
-	)
+	vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(ports...))
 	vmi.Labels = map[string]string{"expose": label}
 	return
 }
@@ -127,7 +126,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		BeforeEach(func() {
 			tcpVM = newLabeledVMI("vm")
 			tcpVM = tests.RunVMIAndExpectLaunch(tcpVM, 180)
-			tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp", console.LoginToAlpine, false)
+			generateHelloWorldServer(tcpVM, testPort, "tcp", console.LoginToAlpine, false)
 		})
 
 		Context("Expose ClusterIP service", func() {
@@ -286,10 +285,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			DescribeTable("Should expose a ClusterIP service with the correct IPFamilyPolicy", func(ipFamiyPolicy k8sv1.IPFamilyPolicyType) {
-				if ipFamiyPolicy == k8sv1.IPFamilyPolicyRequireDualStack {
-					libnet.SkipWhenNotDualStackCluster()
-				}
-
 				calcNumOfClusterIPs := func() int {
 					switch ipFamiyPolicy {
 					case k8sv1.IPFamilyPolicySingleStack:
@@ -321,7 +316,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			},
 				Entry("over SingleStack IP family policy", k8sv1.IPFamilyPolicySingleStack),
 				Entry("over PreferDualStack IP family policy", k8sv1.IPFamilyPolicyPreferDualStack),
-				Entry("over RequireDualStack IP family policy", k8sv1.IPFamilyPolicyRequireDualStack),
+				Entry("over RequireDualStack IP family policy", decorators.RequiresDualStackCluster, k8sv1.IPFamilyPolicyRequireDualStack),
 			)
 		})
 
@@ -396,7 +391,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		BeforeEach(func() {
 			udpVM = newLabeledVMI("udp-vm")
 			udpVM = tests.RunVMIAndExpectLaunch(udpVM, 180)
-			tests.GenerateHelloWorldServer(udpVM, testPort, "udp", console.LoginToAlpine, false)
+			generateHelloWorldServer(udpVM, testPort, "udp", console.LoginToAlpine, false)
 		})
 
 		Context("Expose ClusterIP UDP service", func() {
@@ -521,12 +516,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")
-			vmrs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(vmrs)
+			vmrs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmrs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking the number of ready replicas")
 			Eventually(func() int {
-				rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Get(vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
+				rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return int(rs.Status.ReadyReplicas)
 			}, 120*time.Second, 1*time.Second).Should(Equal(numberOfVMs))
@@ -539,7 +534,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Expect(err).ToNot(HaveOccurred())
 			for _, vm := range vms.Items {
 				if vm.OwnerReferences != nil {
-					tests.GenerateHelloWorldServer(&vm, testPort, "tcp", console.LoginToAlpine, false)
+					generateHelloWorldServer(&vm, testPort, "tcp", console.LoginToAlpine, false)
 				}
 			}
 		})
@@ -597,7 +592,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			By("Getting the status of the VMI")
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
@@ -618,7 +613,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vm := libvmi.NewVirtualMachine(newLabeledVMI("vm"))
 
 			By("Creating the VM")
-			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			return vm, err
 		}
 
@@ -628,7 +623,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			if vmi == nil {
 				return nil
 			}
-			tests.GenerateHelloWorldServer(vmi, port, protocol, console.LoginToAlpine, false)
+			generateHelloWorldServer(vmi, port, protocol, console.LoginToAlpine, false)
 			return vmi
 		}
 
@@ -719,7 +714,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Creating a TCP server on the VM.")
-				tests.GenerateHelloWorldServer(vmi, testPort, "tcp", console.LoginToAlpine, false)
+				generateHelloWorldServer(vmi, testPort, "tcp", console.LoginToAlpine, false)
 
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
 				By(iteratingClusterIPs)
@@ -808,4 +803,25 @@ func resolveNodeIPAddrByFamily(sourcePod *k8sv1.Pod, node k8sv1.Node, ipFamily k
 		return "", fmt.Errorf("could not get node hostname")
 	}
 	return resolveNodeIp(sourcePod, *hostname, ipFamily)
+}
+
+func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string, loginTo console.LoginToFunction, sudoNeeded bool) {
+	Expect(loginTo(vmi)).To(Succeed())
+
+	sudoPrefix := ""
+	if sudoNeeded {
+		sudoPrefix = "sudo "
+	}
+
+	serverCommand := fmt.Sprintf("%snc -klp %d -e echo -e 'Hello World!'&\n", sudoPrefix, testPort)
+	if protocol == "udp" {
+		// nc has to be in a while loop in case of UDP, since it exists after one message
+		serverCommand = fmt.Sprintf("%ssh -c \"while true; do nc -uklp %d -e echo -e 'Hello UDP World!';done\"&\n", sudoPrefix, testPort)
+	}
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: serverCommand},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: console.EchoLastReturnValue},
+		&expect.BExp{R: console.RetValue("0")},
+	}, 60)).To(Succeed())
 }

@@ -27,12 +27,14 @@ import (
 	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
 	kubevirtv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	exportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
+	exportv1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1beta1"
 	instancetypev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
 	migrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	poolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	snapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
+	snapshotv1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1beta1"
 )
 
 type Interface interface {
@@ -40,12 +42,14 @@ type Interface interface {
 	CloneV1alpha1() clonev1alpha1.CloneV1alpha1Interface
 	KubevirtV1() kubevirtv1.KubevirtV1Interface
 	ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface
+	ExportV1beta1() exportv1beta1.ExportV1beta1Interface
 	InstancetypeV1alpha1() instancetypev1alpha1.InstancetypeV1alpha1Interface
 	InstancetypeV1alpha2() instancetypev1alpha2.InstancetypeV1alpha2Interface
 	InstancetypeV1beta1() instancetypev1beta1.InstancetypeV1beta1Interface
 	MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1Interface
 	PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface
 	SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface
+	SnapshotV1beta1() snapshotv1beta1.SnapshotV1beta1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -55,12 +59,14 @@ type Clientset struct {
 	cloneV1alpha1        *clonev1alpha1.CloneV1alpha1Client
 	kubevirtV1           *kubevirtv1.KubevirtV1Client
 	exportV1alpha1       *exportv1alpha1.ExportV1alpha1Client
+	exportV1beta1        *exportv1beta1.ExportV1beta1Client
 	instancetypeV1alpha1 *instancetypev1alpha1.InstancetypeV1alpha1Client
 	instancetypeV1alpha2 *instancetypev1alpha2.InstancetypeV1alpha2Client
 	instancetypeV1beta1  *instancetypev1beta1.InstancetypeV1beta1Client
 	migrationsV1alpha1   *migrationsv1alpha1.MigrationsV1alpha1Client
 	poolV1alpha1         *poolv1alpha1.PoolV1alpha1Client
 	snapshotV1alpha1     *snapshotv1alpha1.SnapshotV1alpha1Client
+	snapshotV1beta1      *snapshotv1beta1.SnapshotV1beta1Client
 }
 
 // CloneV1alpha1 retrieves the CloneV1alpha1Client
@@ -76,6 +82,11 @@ func (c *Clientset) KubevirtV1() kubevirtv1.KubevirtV1Interface {
 // ExportV1alpha1 retrieves the ExportV1alpha1Client
 func (c *Clientset) ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface {
 	return c.exportV1alpha1
+}
+
+// ExportV1beta1 retrieves the ExportV1beta1Client
+func (c *Clientset) ExportV1beta1() exportv1beta1.ExportV1beta1Interface {
+	return c.exportV1beta1
 }
 
 // InstancetypeV1alpha1 retrieves the InstancetypeV1alpha1Client
@@ -106,6 +117,11 @@ func (c *Clientset) PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface {
 // SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
 func (c *Clientset) SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface {
 	return c.snapshotV1alpha1
+}
+
+// SnapshotV1beta1 retrieves the SnapshotV1beta1Client
+func (c *Clientset) SnapshotV1beta1() snapshotv1beta1.SnapshotV1beta1Interface {
+	return c.snapshotV1beta1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -141,6 +157,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.exportV1beta1, err = exportv1beta1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 	cs.instancetypeV1alpha1, err = instancetypev1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -165,6 +185,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.snapshotV1beta1, err = snapshotv1beta1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -180,12 +204,14 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	cs.cloneV1alpha1 = clonev1alpha1.NewForConfigOrDie(c)
 	cs.kubevirtV1 = kubevirtv1.NewForConfigOrDie(c)
 	cs.exportV1alpha1 = exportv1alpha1.NewForConfigOrDie(c)
+	cs.exportV1beta1 = exportv1beta1.NewForConfigOrDie(c)
 	cs.instancetypeV1alpha1 = instancetypev1alpha1.NewForConfigOrDie(c)
 	cs.instancetypeV1alpha2 = instancetypev1alpha2.NewForConfigOrDie(c)
 	cs.instancetypeV1beta1 = instancetypev1beta1.NewForConfigOrDie(c)
 	cs.migrationsV1alpha1 = migrationsv1alpha1.NewForConfigOrDie(c)
 	cs.poolV1alpha1 = poolv1alpha1.NewForConfigOrDie(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.NewForConfigOrDie(c)
+	cs.snapshotV1beta1 = snapshotv1beta1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -197,12 +223,14 @@ func New(c rest.Interface) *Clientset {
 	cs.cloneV1alpha1 = clonev1alpha1.New(c)
 	cs.kubevirtV1 = kubevirtv1.New(c)
 	cs.exportV1alpha1 = exportv1alpha1.New(c)
+	cs.exportV1beta1 = exportv1beta1.New(c)
 	cs.instancetypeV1alpha1 = instancetypev1alpha1.New(c)
 	cs.instancetypeV1alpha2 = instancetypev1alpha2.New(c)
 	cs.instancetypeV1beta1 = instancetypev1beta1.New(c)
 	cs.migrationsV1alpha1 = migrationsv1alpha1.New(c)
 	cs.poolV1alpha1 = poolv1alpha1.New(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.New(c)
+	cs.snapshotV1beta1 = snapshotv1beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

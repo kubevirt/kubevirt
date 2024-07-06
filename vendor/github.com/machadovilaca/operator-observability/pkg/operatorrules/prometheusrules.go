@@ -62,11 +62,14 @@ func buildRecordingRulesRules() []promv1.Rule {
 		rules = append(rules, promv1.Rule{
 			Record: recordingRule.MetricsOpts.Name,
 			Expr:   recordingRule.Expr,
+			Labels: recordingRule.MetricsOpts.ConstLabels,
 		})
 	}
 
 	slices.SortFunc(rules, func(a, b promv1.Rule) int {
-		return cmp.Compare(a.Record, b.Record)
+		aKey := a.Record + ":" + a.Expr.String()
+		bKey := b.Record + ":" + b.Expr.String()
+		return cmp.Compare(aKey, bKey)
 	})
 
 	return rules

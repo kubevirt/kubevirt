@@ -35,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
@@ -47,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
+	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -61,7 +63,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 
 	BeforeEach(func() {
 		const passtBindingName = "passt"
-		const passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
+		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 		err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
@@ -129,24 +131,6 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 			}
 
 			Context("TCP", func() {
-				checkConnectionToServer := func(serverIP string, port int, expectSuccess bool) []expect.Batcher {
-					expectResult := console.ShellFail
-					if expectSuccess {
-						expectResult = console.ShellSuccess
-					}
-
-					clientCommand := fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null\n", serverIP, port)
-
-					return []expect.Batcher{
-						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: clientCommand},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: tests.EchoLastReturnValue},
-						&expect.BExp{R: expectResult},
-					}
-				}
-
 				verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
 					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 					err := libnet.PingFromVMConsole(clientVMI, serverIP)
@@ -155,7 +139,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 					}
 
 					By("Connecting from the client VM")
-					err = console.SafeExpectBatch(clientVMI, checkConnectionToServer(serverIP, tcpPort, true), 30)
+					err = console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort), 30*time.Second)
 					if err != nil {
 						return err
 					}
@@ -199,7 +183,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 						vmnetserver.StartTCPServer(serverVMI, vmPort+1, console.LoginToAlpine)
 
 						By("Connecting from the client VM to a port not specified on the VM spec")
-						Expect(console.SafeExpectBatch(clientVMI, checkConnectionToServer(serverIP, tcpPort+1, true), 30)).To(Not(Succeed()))
+						Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort+1), 30)).NotTo(Succeed())
 					}
 				},
 					Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080, Protocol: "TCP"}}, 8080, k8sv1.IPv4Protocol),
@@ -235,7 +219,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: fmt.Sprintf("%s\n", runClient)},
 						&expect.BExp{R: console.RetValue("Hello Client")},
-						&expect.BSnd{S: tests.EchoLastReturnValue},
+						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.ShellSuccess},
 					}, 60*time.Second)
 				}
@@ -418,7 +402,7 @@ func startPasstVMI(vmiBuilder func(opts ...libvmi.Option) *v1.VirtualMachineInst
 	vmi := libvmifact.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 	)
 	vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -428,4 +412,8 @@ func startPasstVMI(vmiBuilder func(opts ...libvmi.Option) *v1.VirtualMachineInst
 		libwait.WithTimeout(180),
 	)
 	return vmi
+}
+
+func connectToServerCmd(serverIP string, port int) string {
+	return fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null", serverIP, port)
 }

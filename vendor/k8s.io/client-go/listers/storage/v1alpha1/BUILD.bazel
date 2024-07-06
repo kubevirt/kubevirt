@@ -6,6 +6,7 @@ go_library(
         "csistoragecapacity.go",
         "expansion_generated.go",
         "volumeattachment.go",
+        "volumeattributesclass.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/listers/storage/v1alpha1",
     importpath = "k8s.io/client-go/listers/storage/v1alpha1",

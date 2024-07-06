@@ -43,9 +43,9 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -141,7 +141,7 @@ var _ = Describe("PVC source", func() {
 
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
-			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
+			Return(vmExportClient.ExportV1beta1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
 			Client:                      virtClient,

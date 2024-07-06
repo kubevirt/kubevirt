@@ -25,7 +25,8 @@ func newRegistry() operatorRegisterer {
 func RegisterRecordingRules(recordingRules ...[]RecordingRule) error {
 	for _, recordingRuleList := range recordingRules {
 		for _, recordingRule := range recordingRuleList {
-			operatorRegistry.registeredRecordingRules[recordingRule.MetricsOpts.Name] = recordingRule
+			key := recordingRule.MetricsOpts.Name + ":" + recordingRule.Expr.String()
+			operatorRegistry.registeredRecordingRules[key] = recordingRule
 		}
 	}
 
@@ -51,7 +52,10 @@ func ListRecordingRules() []RecordingRule {
 	}
 
 	slices.SortFunc(rules, func(a, b RecordingRule) int {
-		return cmp.Compare(a.GetOpts().Name, b.GetOpts().Name)
+		aKey := a.GetOpts().Name + ":" + a.Expr.String()
+		bKey := b.GetOpts().Name + ":" + b.Expr.String()
+
+		return cmp.Compare(aKey, bKey)
 	})
 
 	return rules

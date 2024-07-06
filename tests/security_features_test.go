@@ -51,7 +51,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -171,8 +170,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				config.SELinuxLauncherType = superPrivilegedType
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi.Namespace = testsuite.NamespacePrivileged
+				vmi = libvmifact.NewAlpine()
 
 				By("Starting a New VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -203,8 +201,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				config.SELinuxLauncherType = launcherType
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi.Namespace = testsuite.NamespacePrivileged
+				vmi = libvmifact.NewAlpine()
 
 				By("Starting a New VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -243,10 +240,9 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 
 	Context("Check virt-launcher capabilities", func() {
 		var container k8sv1.Container
-		var vmi *v1.VirtualMachineInstance
 
 		It("[test_id:4300]has precisely the documented extra capabilities relative to a regular user pod", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := libvmifact.NewAlpine()
 
 			By("Starting a New VMI")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -321,7 +317,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 	})
 	Context("The VMI SELinux context status", func() {
 		It("Should get set and stay the the same after a migration", decorators.RequiresTwoSchedulableNodes, func() {
-			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
 
 			By("Starting a New VMI")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})

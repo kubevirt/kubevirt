@@ -14,6 +14,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/virtctl/create/instancetype:go_default_library",
         "//pkg/virtctl/create/preference:go_default_library",
         "//pkg/virtctl/create/vm:go_default_library",
@@ -29,6 +30,7 @@ go_library(
         "//tests/framework/cleanup:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/libsecret:go_default_library",
         "//tests/libssh:go_default_library",
         "//tests/libstorage:go_default_library",
         "//tests/libvmifact:go_default_library",

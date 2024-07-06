@@ -109,7 +109,7 @@ var _ = Describe("Apply Instancetypes", func() {
 			clusterPreferenceClient := fakeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()
 			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterPreferenceClient).AnyTimes()
 
-			preferredTopology := instancetypev1beta1.PreferCores
+			preferredTopology := instancetypev1beta1.Cores
 			preference = &instancetypev1beta1.VirtualMachineClusterPreference{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "clusterpreference",
@@ -155,7 +155,7 @@ var _ = Describe("Apply Instancetypes", func() {
 				preference.Labels["test"] = "modified"
 			}),
 			Entry("on modified spec", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
-				preferredTopology := instancetypev1beta1.PreferThreads
+				preferredTopology := instancetypev1beta1.Threads
 				preference.Spec.CPU.PreferredCPUTopology = &preferredTopology
 			}),
 		)

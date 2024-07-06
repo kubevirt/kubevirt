@@ -29,8 +29,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/libstorage"
 )
 
 const (
@@ -91,7 +91,7 @@ var _ = Describe("ImageUpload", func() {
 		defer archiveFile.Close()
 		archiveFilePath = archiveFile.Name()
 
-		tests.ArchiveToFile(archiveFile, imagePath)
+		libstorage.ArchiveToFile(archiveFile, imagePath)
 	})
 
 	AfterEach(func() {
@@ -109,7 +109,7 @@ var _ = Describe("ImageUpload", func() {
 				Annotations: map[string]string{},
 			},
 			Spec: v1.PersistentVolumeClaimSpec{
-				Resources: v1.ResourceRequirements{
+				Resources: v1.VolumeResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceStorage: quantity,
 					},
@@ -129,7 +129,7 @@ var _ = Describe("ImageUpload", func() {
 				Namespace: "default",
 			},
 			Spec: v1.PersistentVolumeClaimSpec{
-				Resources: v1.ResourceRequirements{
+				Resources: v1.VolumeResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceStorage: quantity,
 					},

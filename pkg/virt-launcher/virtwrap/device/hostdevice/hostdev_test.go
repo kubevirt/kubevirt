@@ -27,6 +27,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
@@ -199,6 +200,46 @@ var _ = Describe("HostDevice", func() {
 			expectHostDevice1.RamFB = "on"
 
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
+		})
+
+		It("makes sure that only one ramfb is configured with 2 vGPU devices", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0},
+				{AliasPrefix: aliasPrefix, Name: devName1, ResourceName: resourceName0},
+			}
+			pool.AddResource(resourceName0, uuid0, uuid1)
+
+			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, true)
+			expectHostDevice1.Display = "on"
+			expectHostDevice1.RamFB = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
+		})
+
+		It("makes sure that only one ramfb is configured with 2 vGPU devices and an explicit VirtualGPUOptions setting", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0},
+				{
+					AliasPrefix:  aliasPrefix,
+					Name:         devName1,
+					ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(true),
+							RamFB: &v1.FeatureState{
+								Enabled: pointer.P(true),
+							},
+						},
+					},
+				},
+			}
+			pool.AddResource(resourceName0, uuid0, uuid1)
+
+			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, true)
+			expectHostDevice2.Display = "on"
+			expectHostDevice2.RamFB = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
 		})
 
 		It("makes sute that explicitly setting VirtualGPUOptions can override the default display and ramfb setting", func() {

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/client-go/discovery"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -222,6 +223,48 @@ func IsPrometheusRuleEnabled(clientset kubecli.KubevirtClient) (bool, error) {
 		if api.GroupVersion == promv1.SchemeGroupVersion.String() {
 			for _, resource := range api.APIResources {
 				if resource.Name == "prometheusrules" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// IsValidatingAdmissionPolicyBindingEnabled returns true if ValidatingAdmissionPolicyBinding resource is defined
+// and false otherwise.
+func IsValidatingAdmissionPolicyBindingEnabled(clientset kubecli.KubevirtClient) (bool, error) {
+	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return false, err
+	}
+
+	for _, api := range apis {
+		if api.GroupVersion == admissionregistrationv1.SchemeGroupVersion.String() {
+			for _, resource := range api.APIResources {
+				if resource.Name == "validatingadmissionpolicybindings" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// IsValidatingAdmissionPolicyEnabled returns true if ValidatingAdmissionPolicy resource is defined
+// and false otherwise.
+func IsValidatingAdmissionPolicyEnabled(clientset kubecli.KubevirtClient) (bool, error) {
+	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return false, err
+	}
+
+	for _, api := range apis {
+		if api.GroupVersion == admissionregistrationv1.SchemeGroupVersion.String() {
+			for _, resource := range api.APIResources {
+				if resource.Name == "validatingadmissionpolicies" {
 					return true, nil
 				}
 			}

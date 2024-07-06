@@ -6,14 +6,14 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:9.5.0-6.el9}
-QEMU_VERSION=${QEMU_VERSION:-17:8.0.0-13.el9}
-SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.1-1.el9}
-EDK2_VERSION=${EDK2_VERSION:-0:20230524-3.el9}
-LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.50.1-6.el9}
-GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.50.1-3.el9}
-PASST_VERSION=${PASST_VERSION:-0:0^20230818.g0af928e-4.el9}
-VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.7.2-1.el9}
+LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:10.0.0-7.el9}
+QEMU_VERSION=${QEMU_VERSION:-17:8.2.0-11.el9}
+SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-2.el9}
+EDK2_VERSION=${EDK2_VERSION:-0:20231122-6.el9}
+LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.50.1-7.el9}
+GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.51.6-2.el9}
+PASST_VERSION=${PASST_VERSION:-0:0^20231204.gb86afe3-1.el9}
+VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.10.1-1.el9}
 SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-1.el9}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
 BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
@@ -101,8 +101,13 @@ launcherbase_x86_64="
 "
 launcherbase_aarch64="
   edk2-aarch64-${EDK2_VERSION}
+  qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
+"
+launcherbase_s390x="
+  qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-gpu-ccw-${QEMU_VERSION}
 "
 launcherbase_extra="
   ethtool
@@ -409,4 +414,107 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     # regenerate sandboxes
     rm ${SANDBOX_DIR} -rf
     kubevirt::bootstrap::regenerate aarch64
+fi
+
+if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name testimage_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $testimage_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libvirt-devel_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libvirtdevel_main \
+        $libvirtdevel_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sandboxroot_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sandboxroot_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name launcherbase_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $launcherbase_main \
+        $launcherbase_s390x \
+        $launcherbase_extra
+
+    # create a rpmtree for virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name handlerbase_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $handlerbase_main \
+        $handlerbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name exportserverbase_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $exportserverbase_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim
+
+    # remove all RPMs which are no longer referenced by a rpmtree
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- prune
+
+    # update tar2files targets which act as an adapter between rpms
+    # and cc_library which we need for virt-launcher and virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //rpm:ldd_s390x
+
+    # regenerate sandboxes
+    rm ${SANDBOX_DIR} -rf
+    kubevirt::bootstrap::regenerate s390x
 fi

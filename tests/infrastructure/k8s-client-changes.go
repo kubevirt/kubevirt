@@ -20,6 +20,7 @@
 package infrastructure
 
 import (
+	"context"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -74,7 +75,7 @@ var _ = DescribeInfra("changes to the kubernetes client", func() {
 	It("on the controller rate limiter should lead to delayed VMI starts", func() {
 		By("first getting the basetime for a replicaset")
 		replicaset := tests.NewRandomReplicaSetFromVMI(libvmifact.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
-		replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(replicaset)
+		replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(context.Background(), replicaset, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		start := time.Now()
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
@@ -110,7 +111,7 @@ var _ = DescribeInfra("changes to the kubernetes client", func() {
 		)
 
 		replicaset := tests.NewRandomReplicaSetFromVMI(vmi, 0)
-		replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(replicaset)
+		replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(context.Background(), replicaset, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
 		Eventually(matcher.AllVMIs(replicaset.Namespace), 90*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))

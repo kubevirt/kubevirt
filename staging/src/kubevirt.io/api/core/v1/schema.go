@@ -1335,23 +1335,31 @@ type DHCPPrivateOptions struct {
 // Represents the method which will be used to connect the interface to the guest.
 // Only one of its members may be specified.
 type InterfaceBindingMethod struct {
-	Bridge     *InterfaceBridge     `json:"bridge,omitempty"`
-	Slirp      *InterfaceSlirp      `json:"slirp,omitempty"`
-	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
-	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
-	// Deprecated, please refer to Kubevirt user guide for alternatives.
+	Bridge *InterfaceBridge `json:"bridge,omitempty"`
+	// DeprecatedSlirp is an alias to the deprecated Slirp interface
+	// Deprecated: Removed in v1.3
+	DeprecatedSlirp *DeprecatedInterfaceSlirp `json:"slirp,omitempty"`
+	Masquerade      *InterfaceMasquerade      `json:"masquerade,omitempty"`
+	SRIOV           *InterfaceSRIOV           `json:"sriov,omitempty"`
+	// DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
+	// please refer to Kubevirt user guide for alternatives.
+	// Deprecated: Removed in v1.3
 	// +optional
-	Macvtap *InterfaceMacvtap `json:"macvtap,omitempty"`
-	// Deprecated, please refer to Kubevirt user guide for alternatives.
+	DeprecatedMacvtap *DeprecatedInterfaceMacvtap `json:"macvtap,omitempty"`
+	// DeprecatedPasst is an alias to the deprecated Passt interface,
+	// please refer to Kubevirt user guide for alternatives.
+	// Deprecated: Removed in v1.3
 	// +optional
-	Passt *InterfacePasst `json:"passt,omitempty"`
+	DeprecatedPasst *DeprecatedInterfacePasst `json:"passt,omitempty"`
 }
 
 // InterfaceBridge connects to a given network via a linux bridge.
 type InterfaceBridge struct{}
 
-// InterfaceSlirp connects to a given network using QEMU user networking mode.
-type InterfaceSlirp struct{}
+// DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp
+// that connects to a given network using QEMU user networking mode.
+// Deprecated: Removed in v1.3
+type DeprecatedInterfaceSlirp struct{}
 
 // InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.
 type InterfaceMasquerade struct{}
@@ -1359,11 +1367,14 @@ type InterfaceMasquerade struct{}
 // InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.
 type InterfaceSRIOV struct{}
 
-// InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
-type InterfaceMacvtap struct{}
+// DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap
+// that connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
+// Deprecated: Removed in v1.3
+type DeprecatedInterfaceMacvtap struct{}
 
-// InterfacePasst connects to a given network.
-type InterfacePasst struct{}
+// DeprecatedInterfacePasst is an alias to the deprecated InterfacePasst
+// Deprecated: Removed in v1.3
+type DeprecatedInterfacePasst struct{}
 
 // PluginBinding represents a binding implemented in a plugin.
 type PluginBinding struct {

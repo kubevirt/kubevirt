@@ -50,6 +50,7 @@ generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
 	hack/dockerized hack/sync-kubevirtci.sh
 	hack/dockerized hack/sync-common-instancetypes.sh
+	./hack/update-generated-api-testdata.sh
 
 generate-verify: generate
 	./hack/verify-generate.sh
@@ -210,25 +211,38 @@ lint:
 	hack/dockerized "golangci-lint run --timeout 20m --verbose \
 	  pkg/instancetype/... \
 	  pkg/libvmi/... \
+	  pkg/network/admitter/... \
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
-	  pkg/network/sriov/... \
+	  pkg/network/deviceinfo/... \
+	  pkg/virtctl/credentials/... \
 	  tests/console/... \
+	  tests/instancetype/... \
+	  tests/libinstancetype/... \
 	  tests/libnet/... \
 	  tests/libnode/... \
+	  tests/libconfigmap/... \
 	  tests/libpod/... \
 	  tests/libvmifact/... \
+	  tests/libsecret/... \
 	  && \
 	  golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
 	  ./pkg/... \
 	  ./tests/... \
 	"
+	hack/dockerized "monitoringlinter ./pkg/..."
 
 lint-metrics:
 	hack/dockerized "./hack/prom-metric-linter/metrics_collector.sh > metrics.json"
 	./hack/prom-metric-linter/metric_name_linter.sh --operator-name="kubevirt" --sub-operator-name="kubevirt" --metrics-file=metrics.json
 	rm metrics.json
 
+gofumpt:
+	./hack/dockerized "hack/gofumpt.sh"
+
+update-generated-api-testdata:
+	./hack/update-generated-api-testdata.sh
+    
 .PHONY: \
 	build-verify \
 	conformance \
@@ -265,5 +279,6 @@ lint-metrics:
 	format \
 	fmt \
 	lint \
-	lint-metrics\
+	lint-metrics \
+	update-generated-api-testdata \
 	$(NULL)

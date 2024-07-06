@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -25,6 +26,8 @@ import (
 func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, response *restful.Response) {
 	activeConnectionMetric := apimetrics.NewActiveVNCConnection(request.PathParameter("namespace"), request.PathParameter("name"))
 	defer activeConnectionMetric.Dec()
+
+	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
 
 	streamer := NewRawStreamer(
 		app.FetchVirtualMachineInstance,
@@ -44,6 +47,8 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 	activeConnectionMetric := apimetrics.NewActiveVNCConnection(request.PathParameter("namespace"), request.PathParameter("name"))
 	defer activeConnectionMetric.Dec()
 
+	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
+
 	dialer := NewDirectDialer(
 		app.FetchVirtualMachineInstance,
 		validateVMIForVNC,
@@ -62,7 +67,7 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 	}
 
 	done := make(chan struct{})
-	streamer := kubecli.NewWebsocketStreamer(nc, done)
+	streamer := kvcorev1.NewWebsocketStreamer(nc, done)
 	defer close(done)
 
 	ch := make(chan vnc.ServerMessage)

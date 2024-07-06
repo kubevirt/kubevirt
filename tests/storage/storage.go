@@ -54,6 +54,7 @@ import (
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -140,6 +141,16 @@ var _ = SIGDescribe("Storage", func() {
 				}
 			}
 		}
+
+		createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume, timeoutSec int) *v1.VirtualMachineInstance {
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("Waiting until the DataVolume is ready")
+			libstorage.EventuallyDV(dataVolume, timeoutSec, HaveSucceeded())
+			By("Waiting until the VirtualMachineInstance starts")
+			return libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(timeoutSec))
+		}
+
 		Context("[Serial]with error disk", Serial, func() {
 			var (
 				nodeName, address, device string
@@ -261,7 +272,7 @@ var _ = SIGDescribe("Storage", func() {
 					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 					if targetImagePath != testsuite.HostPathAlpine {
-						tests.DeleteAlpineWithNonQEMUPermissions()
+						deleteAlpineWithNonQEMUPermissions()
 					}
 				})
 				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily, imageOwnedByQEMU bool) {
@@ -271,7 +282,7 @@ var _ = SIGDescribe("Storage", func() {
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
 						if !imageOwnedByQEMU {
-							targetImagePath, nodeName = tests.CopyAlpineWithNonQEMUPermissions()
+							targetImagePath, nodeName = copyAlpineWithNonQEMUPermissions()
 						}
 						nfsPod = storageframework.InitNFS(targetImagePath, nodeName)
 						pvName = createNFSPvAndPvc(family, nfsPod)
@@ -335,17 +346,24 @@ var _ = SIGDescribe("Storage", func() {
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
-				By("Checking that /dev/vdc has a capacity of 1G, aligned to 4k")
+				var emptyDiskDevice string
+				Eventually(func() string {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					emptyDiskDevice = libstorage.LookupVolumeTargetPath(vmi, "emptydisk1")
+					return emptyDiskDevice
+				}, 30*time.Second, time.Second).ShouldNot(BeEmpty())
+				By("Checking that the corresponding device has a capacity of 1G, aligned to 4k")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdc\n"},
+					&expect.BSnd{S: fmt.Sprintf("sudo blockdev --getsize64 %s\n", emptyDiskDevice)},
 					&expect.BExp{R: "999292928"}, // 1G in bytes rounded down to nearest 1MiB boundary
 				}, 10)).To(Succeed())
 
-				By("Checking if we can write to /dev/vdc")
+				By("Checking if we can write to the corresponding device")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo mkfs.ext4 -F /dev/vdc\n"},
+					&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 -F %s\n", emptyDiskDevice)},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 20)).To(Succeed())
 			})
@@ -357,9 +375,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = libvmifact.NewAlpineWithTestTooling(
-					libnet.WithMasqueradeNetworking()...,
-				)
+				vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name:   "emptydisk1",
 					Serial: diskSerial,
@@ -434,7 +450,11 @@ var _ = SIGDescribe("Storage", func() {
 					} else {
 						pvName = tests.DiskAlpineHostPath
 					}
-					vmi = newVMIWithEphemeralPVC(pvName)
+
+					vmi = libvmi.New(
+						libvmi.WithResourceMemory("256Mi"),
+						libvmi.WithEphemeralPersistentVolumeClaim("disk0", pvName),
+					)
 
 					if storageEngine == "nfs" {
 						vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 120)
@@ -453,7 +473,11 @@ var _ = SIGDescribe("Storage", func() {
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3137]should not persist data", func() {
-				vmi = newVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
+				vmi = libvmi.New(
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithEphemeralPersistentVolumeClaim("disk0", tests.DiskAlpineHostPath),
+				)
 
 				By("Starting the VirtualMachineInstance")
 				var createdVMI *v1.VirtualMachineInstance
@@ -470,7 +494,7 @@ var _ = SIGDescribe("Storage", func() {
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "echo content > /mnt/checkpoint\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -498,11 +522,11 @@ var _ = SIGDescribe("Storage", func() {
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/checkpoint &> /dev/null\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("1")},
 				}, 200)).To(Succeed())
 			})
@@ -946,7 +970,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithResourceMemory("256Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-					libvmi.WithCloudInitNoCloudEncodedUserData(cirrosUserData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(cirrosUserData)),
 				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
@@ -959,11 +983,27 @@ var _ = SIGDescribe("Storage", func() {
 
 			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
-				// Start the VirtualMachineInstance with the PVC attached
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
-				By("Launching a VMI with PVC ")
-				tests.RunVMIAndExpectLaunch(vmi, 180)
+				sc, exists := libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Skip("Skip test when Block storage is not present")
+				}
 
+				// Start the VirtualMachineInstance with the PVC attached
+				dv := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+						libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
+						libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+					),
+				)
+
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
+				createAndWaitForVMIReady(vmi, dv, 240)
 				By(checkingVMInstanceConsoleOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
@@ -1083,10 +1123,12 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 			It("should generate the block backingstore disk within the domain", func() {
-				vmi = newVMIWithEphemeralPVC(dataVolume.Name)
+				vmi = libvmifact.NewGuestless(
+					libvmi.WithEphemeralPersistentVolumeClaim("disk0", dataVolume.Name),
+				)
 
 				By("Initializing the VM")
-				tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -1100,7 +1142,10 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(disks[0].BackingStore.Source.Dev).To(Equal(converter.GetBlockDeviceVolumePath("disk0")))
 			})
 			It("should generate the pod with the volumeDevice", func() {
-				vmi = newVMIWithEphemeralPVC(dataVolume.Name)
+				vmi = libvmifact.NewGuestless(
+					libvmi.WithEphemeralPersistentVolumeClaim("disk0", dataVolume.Name),
+				)
+
 				By("Initializing the VM")
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
@@ -1148,7 +1193,7 @@ var _ = SIGDescribe("Storage", func() {
 												Values:   []string{""}},
 										},
 									},
-									TopologyKey: "kubernetes.io/hostname",
+									TopologyKey: k8sv1.LabelHostname,
 								},
 							},
 						},
@@ -1178,8 +1223,8 @@ var _ = SIGDescribe("Storage", func() {
 				setShareable(vmi2, "disk0")
 
 				By("Starting the VirtualMachineInstances")
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi1, dv, 500)
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi2, dv, 500)
+				createAndWaitForVMIReady(vmi1, dv, 500)
+				createAndWaitForVMIReady(vmi2, dv, 500)
 			})
 		})
 		Context("write and read data from a shared disk", func() {
@@ -1207,7 +1252,7 @@ var _ = SIGDescribe("Storage", func() {
 												Values:   []string{""}},
 										},
 									},
-									TopologyKey: "kubernetes.io/hostname",
+									TopologyKey: k8sv1.LabelHostname,
 								},
 							},
 						},
@@ -1358,18 +1403,13 @@ var _ = SIGDescribe("Storage", func() {
 				)
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
-				lunDisk := "/dev/"
-				Eventually(func() bool {
+				var lunDisk string
+				Eventually(func() string {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					for _, volStatus := range vmi.Status.VolumeStatus {
-						if volStatus.Name == "lun0" {
-							lunDisk += volStatus.Target
-							return true
-						}
-					}
-					return false
-				}, 30*time.Second, time.Second).Should(BeTrue())
+					lunDisk = libstorage.LookupVolumeTargetPath(vmi, "lun0")
+					return lunDisk
+				}, 30*time.Second, time.Second).ShouldNot(BeEmpty())
 
 				By(fmt.Sprintf("Checking that %s has a capacity of 8Mi", lunDisk))
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1381,7 +1421,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 -F %s\n", lunDisk)},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 30)).To(Succeed())
 
@@ -1415,31 +1455,6 @@ func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume
 	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 }
 
-func newVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMI()
-
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: "disk0",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusSATA,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "disk0",
-
-		VolumeSource: v1.VolumeSource{
-			Ephemeral: &v1.EphemeralVolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: claimName,
-				},
-			},
-		},
-	})
-	return vmi
-}
-
 func checkResultShellCommandOnVmi(vmi *v1.VirtualMachineInstance, cmd, output string, timeout int) {
 	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 		&expect.BSnd{S: fmt.Sprintf("%s\n", cmd)},
@@ -1462,4 +1477,38 @@ func deletePvAndPvc(name string) {
 	if !errors.IsNotFound(err) {
 		util.PanicOnError(err)
 	}
+}
+
+func runPodAndExpectPhase(pod *k8sv1.Pod, phase k8sv1.PodPhase) *k8sv1.Pod {
+	virtClient := kubevirt.Client()
+
+	var err error
+	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(ThisPod(pod), 120).Should(BeInPhase(phase))
+
+	pod, err = ThisPod(pod)()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pod).ToNot(BeNil())
+	return pod
+}
+
+func copyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
+	dstPath = testsuite.HostPathAlpine + "-nopriv"
+	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
+
+	By("creating an image with without qemu permissions")
+	pod := libpod.RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+
+	nodeName = runPodAndExpectPhase(pod, k8sv1.PodSucceeded).Spec.NodeName
+	return
+}
+
+func deleteAlpineWithNonQEMUPermissions() {
+	nonQemuAlpinePath := testsuite.HostPathAlpine + "-nopriv"
+	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
+
+	pod := libpod.RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+
+	runPodAndExpectPhase(pod, k8sv1.PodSucceeded)
 }

@@ -49,12 +49,12 @@ var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompu
 
 			kv := util2.GetCurrentKv(virtClient)
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(kv.Name, types.JSONPatchType, []byte(data), &metav1.PatchOptions{})
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(data), metav1.PatchOptions{})
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		})
 
-		It("should set RestartRequired when changing any spec field", func() {
+		It("[test_id:11207]should set RestartRequired when changing any spec field", func() {
 			By("Creating a VM with CPU topology")
 			vmi := libvmifact.NewCirros()
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
@@ -65,7 +65,7 @@ var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompu
 				MaxSockets: 2,
 			}
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
 				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -76,7 +76,7 @@ var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompu
 			By("Updating CPU sockets to a value that would be valid in LiveUpdate")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
 			Expect(err).NotTo(HaveOccurred())
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting RestartRequired")

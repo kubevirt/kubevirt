@@ -29,9 +29,11 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/pkg/util/nodes"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	. "github.com/onsi/gomega"
 
@@ -237,15 +239,15 @@ func AddAnnotationToNode(nodeName, key, value string) *k8sv1.Node {
 	return addRemoveLabelAnnotationHelper(nodeName, key, value, annotation, add)
 }
 
-func RemoveLabelFromNode(nodeName string, key string) *k8sv1.Node {
+func RemoveLabelFromNode(nodeName, key string) *k8sv1.Node {
 	return addRemoveLabelAnnotationHelper(nodeName, key, "", label, remove)
 }
 
-func RemoveAnnotationFromNode(nodeName string, key string) *k8sv1.Node {
+func RemoveAnnotationFromNode(nodeName, key string) *k8sv1.Node {
 	return addRemoveLabelAnnotationHelper(nodeName, key, "", annotation, remove)
 }
 
-func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
+func Taint(nodeName, key string, effect k8sv1.TaintEffect) {
 	virtCli := kubevirt.Client()
 	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -388,14 +390,14 @@ func GetWorkerNodesWithCPUManagerEnabled(virtClient kubecli.KubevirtClient) []k8
 }
 
 func GetSupportedCPUFeatures(nodesList k8sv1.NodeList) []string {
-	var featureDenyList = map[string]bool{
+	featureDenyList := map[string]bool{
 		"svm": true,
 	}
 	featuresMap := make(map[string]bool)
 	for _, node := range nodesList.Items {
 		for key := range node.Labels {
-			if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
-				feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+			if strings.Contains(key, v1.CPUFeatureLabel) {
+				feature := strings.TrimPrefix(key, v1.CPUFeatureLabel)
 				if _, ok := featureDenyList[feature]; !ok {
 					featuresMap[feature] = true
 				}
@@ -411,15 +413,15 @@ func GetSupportedCPUFeatures(nodesList k8sv1.NodeList) []string {
 }
 
 func GetSupportedCPUModels(nodeList k8sv1.NodeList) []string {
-	var cpuDenyList = map[string]bool{
+	cpuDenyList := map[string]bool{
 		"qemu64":     true,
 		"Opteron_G2": true,
 	}
 	cpuMap := make(map[string]bool)
 	for _, node := range nodeList.Items {
 		for key := range node.Labels {
-			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
-				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+			if strings.Contains(key, v1.CPUModelLabel) {
+				cpu := strings.TrimPrefix(key, v1.CPUModelLabel)
 				if _, ok := cpuDenyList[cpu]; !ok {
 					cpuMap[cpu] = true
 				}
@@ -432,4 +434,22 @@ func GetSupportedCPUModels(nodeList k8sv1.NodeList) []string {
 		cpus = append(cpus, model)
 	}
 	return cpus
+}
+
+func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
+	for key := range node.Labels {
+		if strings.HasPrefix(key, v1.HostModelCPULabel) {
+			hostModel = strings.TrimPrefix(key, v1.HostModelCPULabel)
+			break
+		}
+	}
+	return hostModel
+}
+
+func ExecuteCommandOnNodeThroughVirtHandler(nodeName string, command []string) (stdout, stderr string, err error) {
+	virtHandlerPod, err := GetVirtHandlerPod(kubevirt.Client(), nodeName)
+	if err != nil {
+		return "", "", err
+	}
+	return exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, command)
 }

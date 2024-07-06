@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -208,7 +209,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 			It("[test_id:1751]should create a virtual machine with one interface", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				detachedVMI := libvmifact.NewAlpineWithTestTooling(
-					libvmi.WithCloudInitNoCloudNetworkData(networkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
@@ -228,7 +229,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				checks.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				detachedVMI := libvmifact.NewAlpineWithTestTooling(
-					libvmi.WithCloudInitNoCloudNetworkData(networkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
@@ -292,7 +293,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				)
 				Expect(err).NotTo(HaveOccurred())
 				detachedVMI := libvmifact.NewAlpineWithTestTooling(
-					libvmi.WithCloudInitNoCloudNetworkData(networkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
@@ -448,7 +449,9 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ptpSubnetIP2+ptpSubnetMask)),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
+						cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ptpSubnetIP2+ptpSubnetMask),
+					)),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmiTwo, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiTwo)).Create(context.Background(), vmiTwo, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -464,7 +467,9 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, ptpSubnetIP1+ptpSubnetMask)),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
+						cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, ptpSubnetIP1+ptpSubnetMask),
+					)),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmiOne, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Create(context.Background(), vmiOne, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -620,11 +625,11 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 					bridgeSubnetMask     = "/24"
 				)
 
-				initialMacAddress, err := GenerateRandomMac()
+				initialMacAddress, err := libnet.GenerateRandomMac()
 				Expect(err).NotTo(HaveOccurred())
 				initialMacAddressStr := initialMacAddress.String()
 
-				spoofedMacAddress, err := GenerateRandomMac()
+				spoofedMacAddress, err := libnet.GenerateRandomMac()
 				Expect(err).NotTo(HaveOccurred())
 				spoofedMacAddressStr := spoofedMacAddress.String()
 
@@ -637,7 +642,9 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				vmiUnderTest := libvmifact.NewFedora(
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask)),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
+						cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask),
+					)),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmiUnderTest, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiUnderTest)).Create(context.Background(), vmiUnderTest, metav1.CreateOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -646,7 +653,9 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				targetVmi := libvmifact.NewFedora(
 					libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
 					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByIface("eth0", targetVMIPAddress+bridgeSubnetMask)),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
+						cloudinit.CreateNetworkDataWithStaticIPsByIface("eth0", targetVMIPAddress+bridgeSubnetMask),
+					)),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				targetVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(targetVmi)).Create(context.Background(), targetVmi, metav1.CreateOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -697,7 +706,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
                     ip addr add %s dev ep1
                     ip addr add %s dev ep2
                 `, ep1Cidr, ep2Cidr, ep1CidrV6, ep2CidrV6)
-				agentVMI := libvmifact.NewFedora(libvmi.WithCloudInitNoCloudUserData(userdata))
+				agentVMI := libvmifact.NewFedora(libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userdata)))
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
 				agentVMI.Spec.Networks = networks
@@ -774,7 +783,7 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: macAddress},
-		&expect.BSnd{S: tests.EchoLastReturnValue},
+		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 
@@ -813,7 +822,7 @@ func activateDHCPOnVMInterfaces(vmi *v1.VirtualMachineInstance, ifacesNames ...s
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "/etc/init.d/networking restart\n"},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: tests.EchoLastReturnValue},
+		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 }

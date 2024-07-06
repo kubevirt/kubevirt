@@ -21,13 +21,13 @@ package main
 
 import (
 	"os"
-	"strings"
 	"time"
 
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/service"
 
+	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	exportServer "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver"
 )
 
@@ -46,32 +46,11 @@ func main() {
 		Deadline:   getDeadline(),
 		ListenAddr: getListenAddr(),
 		TokenFile:  getTokenFile(),
-		Volumes:    getVolumeInfo(),
+		Paths:      export.CreateServerPaths(export.EnvironToMap()),
 	}
 	server := exportServer.NewExportServer(config)
 	service.Setup(server)
 	server.Run()
-}
-
-func getVolumeInfo() []exportServer.VolumeInfo {
-	var result []exportServer.VolumeInfo
-	for _, env := range os.Environ() {
-		kv := strings.Split(env, "=")
-		envPrefix := strings.TrimSuffix(kv[0], "_EXPORT_PATH")
-		if envPrefix != kv[0] {
-			vi := exportServer.VolumeInfo{
-				Path:       kv[1],
-				ArchiveURI: os.Getenv(envPrefix + "_EXPORT_ARCHIVE_URI"),
-				DirURI:     os.Getenv(envPrefix + "_EXPORT_DIR_URI"),
-				RawURI:     os.Getenv(envPrefix + "_EXPORT_RAW_URI"),
-				RawGzURI:   os.Getenv(envPrefix + "_EXPORT_RAW_GZIP_URI"),
-				VMURI:      os.Getenv("EXPORT_VM_DEF_URI"),
-				SecretURI:  os.Getenv("EXPORT_SECRET_DEF_URI"),
-			}
-			result = append(result, vi)
-		}
-	}
-	return result
 }
 
 func getTokenFile() string {

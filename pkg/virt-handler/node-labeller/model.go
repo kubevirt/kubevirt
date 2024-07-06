@@ -30,12 +30,6 @@ type hostCPUModel struct {
 	requiredFeatures cpuFeatures
 }
 
-// hostCapabilities holds informations which provides libvirt,
-// so we don't have to call libvirt at every request
-type cpuInfo struct {
-	usableModels map[string]cpuFeatures
-}
-
 // HostDomCapabilities represents structure for parsing output of virsh capabilities
 type HostDomCapabilities struct {
 	CPU CPU              `xml:"cpu"`

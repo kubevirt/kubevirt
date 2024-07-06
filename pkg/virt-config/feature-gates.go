@@ -56,12 +56,14 @@ const (
 	// devices, its creation and deletion
 	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
 	// HotplugNetworkIfacesGate enables the virtio network interface hotplug feature
+	// Alpha: v1.1.0
+	// Beta: v1.3.0
 	HotplugNetworkIfacesGate = "HotplugNICs"
 	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
 	PersistentReservation = "PersistentReservation"
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
 	VMPersistentState = "VMPersistentState"
-	Multiarchitecture = "MultiArchitecture"
+	MultiArchitecture = "MultiArchitecture"
 	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
@@ -73,22 +75,30 @@ const (
 
 	// Owner: @lyarwood
 	// Alpha: v1.1.0
+	// Beta:  v1.2.0
 	//
 	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
+
+	// VolumesUpdateStrategy enables to specify the strategy on the volume updates.
+	VolumesUpdateStrategy = "VolumesUpdateStrategy"
+	// VolumeMigration enables to migrate the storage. It depends on the VolumesUpdateStrategy feature.
+	VolumeMigration = "VolumeMigration"
+	// Owner: @xpivarc
+	// Alpha: v1.3.0
+	//
+	// NodeRestriction enables Kubelet's like NodeRestriction but for Kubevirt's virt-handler.
+	// This feature requires following Kubernetes feature gate "ServiceAccountTokenPodNodeInfo". The feature gate is available
+	// in Kubernetes 1.30 as Beta.
+	NodeRestrictionGate = "NodeRestriction"
 )
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	deprecatedFeature := deprecation.FeatureGateInfo(featureGate)
-	if deprecatedFeature != nil {
-		switch state := deprecatedFeature.State; state {
-		case deprecation.GA:
-			return true
-		case deprecation.Discontinued:
-			return false
-		}
+	if deprecatedFeature != nil && deprecatedFeature.State == deprecation.GA {
+		return true
 	}
 
 	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
@@ -220,7 +230,7 @@ func (config *ClusterConfig) VMPersistentStateEnabled() bool {
 }
 
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
-	return config.isFeatureGateEnabled(Multiarchitecture)
+	return config.isFeatureGateEnabled(MultiArchitecture)
 }
 
 func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
@@ -245,4 +255,16 @@ func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
 
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(AlignCPUsGate)
+}
+
+func (config *ClusterConfig) VolumesUpdateStrategyEnabled() bool {
+	return config.isFeatureGateEnabled(VolumesUpdateStrategy)
+}
+
+func (config *ClusterConfig) VolumeMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(VolumeMigration)
+}
+
+func (config *ClusterConfig) NodeRestrictionEnabled() bool {
+	return config.isFeatureGateEnabled(NodeRestrictionGate)
 }

@@ -8,6 +8,7 @@ go_library(
         "volumeattachmentsource.go",
         "volumeattachmentspec.go",
         "volumeattachmentstatus.go",
+        "volumeattributesclass.go",
         "volumeerror.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/applyconfigurations/storage/v1alpha1",

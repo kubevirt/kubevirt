@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -56,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
+	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -348,7 +350,7 @@ var istioTests = func(vmType VmType) {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 					libvmi.WithLabel("version", "v1"),
 					libvmi.WithLabel(vmiAppSelectorKey, vmiServerAppSelectorValue),
-					libvmi.WithCloudInitNoCloudNetworkData(networkData),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 					libvmi.WithNamespace(namespace),
 				)
 				By("Starting VirtualMachineInstance")
@@ -468,7 +470,7 @@ var istioTestsWithPasstBinding = func() {
 
 	BeforeEach(func() {
 		const passtBindingName = "passt"
-		const passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
+		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 		err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
@@ -504,6 +506,8 @@ func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineI
 	return nil, nil
 }
 
+const enablePasswordAuth = "#cloud-config\nssh_pwauth: true\n"
+
 func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	vmi := libvmifact.NewAlpineWithTestTooling(
@@ -511,8 +515,10 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData),
-		libvmi.WithCloudInitNoCloudEncodedUserData(enablePasswordAuth()),
+		libvmi.WithCloudInitNoCloud(
+			libvmici.WithNoCloudNetworkData(networkData),
+			libvmici.WithNoCloudEncodedUserData(enablePasswordAuth),
+		),
 	)
 	return vmi
 }
@@ -523,15 +529,9 @@ func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
-		libvmi.WithCloudInitNoCloudEncodedUserData(enablePasswordAuth()),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(enablePasswordAuth)),
 	)
 	return vmi
-}
-
-func enablePasswordAuth() string {
-	sedCmd := "sed -ri 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config"
-
-	return "#!/bin/sh\n" + sedCmd + "\n"
 }
 
 func generateIstioCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {

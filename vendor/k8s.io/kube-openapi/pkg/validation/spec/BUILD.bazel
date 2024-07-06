@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "contact_info.go",
         "external_docs.go",
-        "fuzz.go",
         "gnostic.go",
         "header.go",
         "info.go",
@@ -29,9 +28,7 @@ go_library(
     deps = [
         "//vendor/github.com/go-openapi/jsonreference:go_default_library",
         "//vendor/github.com/go-openapi/swag:go_default_library",
-        "//vendor/github.com/google/gnostic/openapiv2:go_default_library",
-        "//vendor/github.com/google/go-cmp/cmp:go_default_library",
-        "//vendor/github.com/google/gofuzz:go_default_library",
+        "//vendor/github.com/google/gnostic-models/openapiv2:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/internal:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json:go_default_library",
     ],

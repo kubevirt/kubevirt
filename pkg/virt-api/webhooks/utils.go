@@ -80,7 +80,11 @@ type Informers struct {
 	NamespaceInformer  cache.SharedIndexInformer
 }
 
-func IsKubeVirtServiceAccount(serviceAccount string) bool {
+func IsComponentServiceAccount(serviceAccount, namespace, component string) bool {
+	return serviceAccount == fmt.Sprintf("system:serviceaccount:%s:%s", namespace, component)
+}
+
+func GetNamespace() string {
 	ns, err := clientutil.GetNamespace()
 	logger := log.DefaultLogger()
 
@@ -88,11 +92,15 @@ func IsKubeVirtServiceAccount(serviceAccount string) bool {
 		logger.Info("Failed to get namespace. Fallback to default: 'kubevirt'")
 		ns = "kubevirt"
 	}
+	return ns
+}
 
-	prefix := fmt.Sprintf("system:serviceaccount:%s", ns)
-	return serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ApiServiceAccountName) ||
-		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName) ||
-		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ControllerServiceAccountName)
+func IsKubeVirtServiceAccount(serviceAccount string) bool {
+	ns := GetNamespace()
+
+	return IsComponentServiceAccount(serviceAccount, ns, components.ApiServiceAccountName) ||
+		IsComponentServiceAccount(serviceAccount, ns, components.HandlerServiceAccountName) ||
+		IsComponentServiceAccount(serviceAccount, ns, components.ControllerServiceAccountName)
 }
 
 func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
@@ -101,4 +109,7 @@ func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 
 func IsPPC64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 	return vmiSpec.Architecture == "ppc64le"
+}
+func IsS390X(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Architecture == "s390x"
 }

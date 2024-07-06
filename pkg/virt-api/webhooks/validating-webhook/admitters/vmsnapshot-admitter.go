@@ -34,7 +34,7 @@ import (
 
 	"kubevirt.io/api/core"
 
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -148,7 +148,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 }
 
 func (admitter *VMSnapshotAdmitter) validateCreateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+	vm, err := admitter.Client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
 			{

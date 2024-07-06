@@ -36,7 +36,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
@@ -54,7 +53,7 @@ const (
 	localPortArg    = "local-port"
 
 	configName         = "config"
-	filesystemOverhead = cdiv1.Percent("0.055")
+	filesystemOverhead = v1.Percent("0.055")
 	fsOverheadMsg      = "Using default 5.5%% filesystem overhead for pvc size"
 
 	processingWaitInterval = 2 * time.Second
@@ -187,7 +186,7 @@ func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, ac
 			Namespace: namespace,
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
-			Resources: k8sv1.ResourceRequirements{
+			Resources: k8sv1.VolumeResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceStorage: *size,
 				},
@@ -228,7 +227,7 @@ func checkNoExistingPVC(namespace, claimName string, virtClient kubecli.Kubevirt
 }
 
 func checkNoAssociatedMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
-	vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+	vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -338,6 +337,9 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 		ExportSource: exportSource,
 		PortForward:  portForward,
 		LocalPort:    localPort,
+		// Using 2 as retry count to help mitigate a bug that might happen when creating the
+		// exporter pod just after the hotplug pod is deleted: https://issues.redhat.com/browse/CNV-39141
+		DownloadRetries: 2,
 	}
 
 	if portForward {
@@ -360,7 +362,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
 	var claimName string
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

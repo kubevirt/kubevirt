@@ -23,7 +23,6 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -62,9 +61,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 		var reEnlightenmentVMI *v1.VirtualMachineInstance
 
 		vmiWithReEnlightenment := func() *v1.VirtualMachineInstance {
-			options := libnet.WithMasqueradeNetworking()
-			options = append(options, withReEnlightenment())
-			return libvmifact.NewAlpine(options...)
+			return libvmifact.NewAlpine(libnet.WithMasqueradeNetworking(), withReEnlightenment())
 		}
 
 		BeforeEach(func() {
@@ -103,7 +100,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(reEnlightenmentVMI, reEnlightenmentVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				foundNodeSelector := false
-				for key, _ := range virtLauncherPod.Spec.NodeSelector {
+				for key := range virtLauncherPod.Spec.NodeSelector {
 					if strings.HasPrefix(key, topology.TSCFrequencySchedulingLabel+"-") {
 						foundNodeSelector = true
 						break
@@ -225,11 +222,11 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
 
 			for key := range node.Labels {
-				if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
+				if strings.Contains(key, v1.HypervLabel) &&
 					!strings.Contains(key, "tlbflush") &&
 					!strings.Contains(key, "ipi") &&
 					!strings.Contains(key, "synictimer") {
-					supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, services.NFD_KVM_INFO_PREFIX))
+					supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
 				}
 			}
 

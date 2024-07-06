@@ -29,6 +29,7 @@ import (
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 
@@ -159,7 +160,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 				)
 
 				DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
-					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
+					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 					vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 					vmi.Namespace = testsuite.NamespacePrivileged
@@ -203,13 +204,13 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 
 					createLargeVirtualMachine := func() *v1.VirtualMachine {
 						vmi := libvmifact.NewFedora(
-							append(libnet.WithMasqueradeNetworking(),
-								libvmi.WithResourceMemory("3Gi"),
-								libvmi.WithRng())...,
+							libnet.WithMasqueradeNetworking(),
+							libvmi.WithResourceMemory("3Gi"),
+							libvmi.WithRng(),
 						)
 						vm := libvmi.NewVirtualMachine(vmi)
 
-						vm, err := virtClient.VirtualMachine(testsuite.NamespacePrivileged).Create(context.Background(), vm)
+						vm, err := virtClient.VirtualMachine(testsuite.NamespacePrivileged).Create(context.Background(), vm, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						return vm
 					}
@@ -319,7 +320,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 		libvmi.WithPersistentVolumeClaim("disk0", pvName),
 		libvmi.WithResourceMemory(memoryRequestSize),
 		libvmi.WithRng(),
-		libvmi.WithCloudInitNoCloudEncodedUserData(mountSvcAccCommands),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountSvcAccCommands)),
 		libvmi.WithServiceAccountDisk("default"),
 	)
 

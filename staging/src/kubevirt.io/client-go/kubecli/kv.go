@@ -47,70 +47,46 @@ type kv struct {
 }
 
 // Create new KubeVirt in the cluster to specified namespace
-func (o *kv) Create(kv *v1.KubeVirt) (*v1.KubeVirt, error) {
-	newKv, err := o.KubeVirtInterface.Create(context.Background(), kv, k8smetav1.CreateOptions{})
+func (o *kv) Create(ctx context.Context, kv *v1.KubeVirt, opts k8smetav1.CreateOptions) (*v1.KubeVirt, error) {
+	newKv, err := o.KubeVirtInterface.Create(ctx, kv, opts)
 	newKv.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
-
 	return newKv, err
 }
 
 // Get the KubeVirt from the cluster by its name and namespace
-func (o *kv) Get(name string, options *k8smetav1.GetOptions) (*v1.KubeVirt, error) {
-	opts := k8smetav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newKv, err := o.KubeVirtInterface.Get(context.Background(), name, opts)
+func (o *kv) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (*v1.KubeVirt, error) {
+	newKv, err := o.KubeVirtInterface.Get(ctx, name, options)
 	newKv.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
-
 	return newKv, err
 }
 
 // Update the KubeVirt instance in the cluster in given namespace
-func (o *kv) Update(kv *v1.KubeVirt) (*v1.KubeVirt, error) {
-	updatedKv, err := o.KubeVirtInterface.Update(context.Background(), kv, k8smetav1.UpdateOptions{})
+func (o *kv) Update(ctx context.Context, kv *v1.KubeVirt, opts k8smetav1.UpdateOptions) (*v1.KubeVirt, error) {
+	updatedKv, err := o.KubeVirtInterface.Update(ctx, kv, opts)
 	updatedKv.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
-
 	return updatedKv, err
 }
 
 // Delete the defined KubeVirt in the cluster in defined namespace
-func (o *kv) Delete(name string, options *k8smetav1.DeleteOptions) error {
-	opts := k8smetav1.DeleteOptions{}
-	if options != nil {
-		opts = *options
-	}
-	return o.KubeVirtInterface.Delete(context.Background(), name, opts)
+func (o *kv) Delete(ctx context.Context, name string, options k8smetav1.DeleteOptions) error {
+	return o.KubeVirtInterface.Delete(ctx, name, options)
 }
 
 // List all KubeVirts in given namespace
-func (o *kv) List(options *k8smetav1.ListOptions) (*v1.KubeVirtList, error) {
-	opts := k8smetav1.ListOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newKvList, err := o.KubeVirtInterface.List(context.Background(), opts)
+func (o *kv) List(ctx context.Context, options k8smetav1.ListOptions) (*v1.KubeVirtList, error) {
+	newKvList, err := o.KubeVirtInterface.List(ctx, options)
 	for i := range newKvList.Items {
 		newKvList.Items[i].SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
 	}
-
 	return newKvList, err
 }
 
-func (o *kv) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error) {
-	opts := k8smetav1.PatchOptions{}
-	if patchOptions != nil {
-		opts = *patchOptions
-	}
-	return o.KubeVirtInterface.Patch(context.Background(), name, pt, data, opts, subresources...)
+func (o *kv) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error) {
+	return o.KubeVirtInterface.Patch(ctx, name, pt, data, patchOptions, subresources...)
 }
 
-func (o *kv) PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions) (result *v1.KubeVirt, err error) {
-	return o.Patch(name, pt, data, patchOptions, "status")
-}
-
-func (o *kv) UpdateStatus(kv *v1.KubeVirt) (result *v1.KubeVirt, err error) {
-	result, err = o.KubeVirtInterface.UpdateStatus(context.Background(), kv, k8smetav1.UpdateOptions{})
+func (o *kv) UpdateStatus(ctx context.Context, kv *v1.KubeVirt, opts k8smetav1.UpdateOptions) (result *v1.KubeVirt, err error) {
+	result, err = o.KubeVirtInterface.UpdateStatus(ctx, kv, opts)
 	result.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
 	return
 }

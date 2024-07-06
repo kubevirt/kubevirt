@@ -40,7 +40,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	pool "kubevirt.io/api/pool"
-	"kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 )
 
 type rightsEntry struct {
@@ -285,7 +285,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 
 			Entry("[test_id:5243]given a vmsnapshot",
-				v1alpha1.SchemeGroupVersion.Group,
+				snapshotv1.SchemeGroupVersion.Group,
 				"virtualmachinesnapshots",
 				false,
 				allowAllFor("admin"),
@@ -295,7 +295,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 
 			Entry("[test_id:5244]given a vmsnapshotcontent",
-				v1alpha1.SchemeGroupVersion.Group,
+				snapshotv1.SchemeGroupVersion.Group,
 				"virtualmachinesnapshotcontents",
 				false,
 				allowAllFor("admin"),
@@ -304,7 +304,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 			Entry("[test_id:5245]given a vmsrestore",
-				v1alpha1.SchemeGroupVersion.Group,
+				snapshotv1.SchemeGroupVersion.Group,
 				"virtualmachinerestores",
 				false,
 				allowAllFor("admin"),
@@ -442,6 +442,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachineinstances", "sev/injectlaunchsecret",
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("default")),
+			Entry("on vmi usbredir",
+				"virtualmachineinstances", "usbredir",
+				allowGetFor("admin", "edit"),
+				denyAllFor("view", "default")),
 		)
 	})
 })
