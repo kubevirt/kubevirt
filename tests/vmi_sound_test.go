@@ -24,6 +24,8 @@ import (
 	"encoding/xml"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	expect "github.com/google/goexpect"
@@ -37,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -86,7 +88,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 })
 
 func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.VirtualMachineInstance, error) {
-	randomVmi := libvmi.NewCirros()
+	randomVmi := libvmifact.NewCirros()
 	if soundDevice != "" {
 		model := soundDevice
 		if soundDevice == "test-model-empty" {
@@ -97,7 +99,7 @@ func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.
 			Model: model,
 		}
 	}
-	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVmi)
+	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVmi, metav1.CreateOptions{})
 }
 
 func checkXMLSoundCard(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, model string) {

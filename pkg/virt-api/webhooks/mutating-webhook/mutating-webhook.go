@@ -80,8 +80,8 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtco
 	serve(resp, req, &mutators.VMsMutator{ClusterConfig: clusterConfig, InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: virtCli}})
 }
 
-func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers) {
-	serve(resp, req, &mutators.VMIsMutator{ClusterConfig: clusterConfig, VMIPresetInformer: informers.VMIPresetInformer})
+func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) {
+	serve(resp, req, &mutators.VMIsMutator{ClusterConfig: clusterConfig, VMIPresetInformer: informers.VMIPresetInformer, KubeVirtServiceAccounts: kubeVirtServiceAccounts})
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
@@ -89,5 +89,5 @@ func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
 }
 
 func ServeClones(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, &mutators.CloneCreateMutator{})
+	serve(resp, req, mutators.NewCloneCreateMutator())
 }

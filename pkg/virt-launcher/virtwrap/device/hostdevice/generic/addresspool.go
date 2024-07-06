@@ -50,7 +50,7 @@ func extractResources(hostDevices []v1.HostDevice) []string {
 	}
 
 	var resources []string
-	for resource, _ := range resourceSet {
+	for resource := range resourceSet {
 		resources = append(resources, resource)
 	}
 	return resources

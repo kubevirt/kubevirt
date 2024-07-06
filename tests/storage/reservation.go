@@ -17,8 +17,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -27,7 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -230,12 +232,12 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 		It("Should successfully start a VM with persistent reservation", func() {
 			By("Create VMI with the SCSI disk")
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithNamespace(util.NamespaceTestDefault),
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
@@ -259,24 +261,24 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 		It("Should successfully start 2 VMs with persistent reservation on the same LUN", func() {
 			By("Create 2 VMs with the SCSI disk")
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithNamespace(util.NamespaceTestDefault),
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
 				libwait.WithTimeout(180),
 			)
 
-			vmi2 := libvmi.NewFedora(
+			vmi2 := libvmifact.NewFedora(
 				libvmi.WithNamespace(util.NamespaceTestDefault),
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi2, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi2)).Create(context.Background(), vmi2)
+			vmi2, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi2)).Create(context.Background(), vmi2, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi2,
 				libwait.WithFailOnWarnings(false),

@@ -59,7 +59,7 @@ func EnsureNoMigrationConflict(virtClient kubecli.KubevirtClient, vmiName string
 	if err != nil {
 		return err
 	}
-	list, err := virtClient.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{
+	list, err := virtClient.VirtualMachineInstanceMigration(namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 	if err != nil {
@@ -92,7 +92,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(migration.Namespace).Get(context.Background(), migration.Spec.VMIName, &metav1.GetOptions{})
+	vmi, err := admitter.VirtClient.VirtualMachineInstance(migration.Namespace).Get(context.Background(), migration.Spec.VMIName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// ensure VMI exists for the migration
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("the VMI \"%s/%s\" does not exist", migration.Namespace, migration.Spec.VMIName))

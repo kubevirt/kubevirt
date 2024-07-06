@@ -24,10 +24,12 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/types"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +39,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
 
 	"kubevirt.io/kubevirt/tests"
@@ -50,7 +53,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -67,9 +71,9 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 	Context("Cluster VM metrics", func() {
 		It("kubevirt_number_of_vms should reflect the number of VMs", func() {
 			for i := 0; i < 5; i++ {
-				vmi := libvmi.NewGuestless()
+				vmi := libvmifact.NewGuestless()
 				vm := libvmi.NewVirtualMachine(vmi)
-				_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+				_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 
@@ -86,11 +90,11 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		}
 
 		BeforeEach(func() {
-			vmi := libvmi.NewGuestless()
+			vmi := libvmifact.NewGuestless()
 			vm = libvmi.NewVirtualMachine(vmi)
 
 			By("Create a VirtualMachine")
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -156,7 +160,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("Should correctly update metrics on successful VMIM", func() {
 			By("Creating VMIs")
-			vmi := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Migrating VMIs")
@@ -168,25 +172,27 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_running_phase", 0)
 
 			labels := map[string]string{
-				"vmi": vmi.Name,
+				"vmi":       vmi.Name,
+				"namespace": vmi.Namespace,
 			}
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
 			By("Delete VMIs")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 
 		It("Should correctly update metrics on failing VMIM", func() {
 			By("Creating VMIs")
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 			)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			labels := map[string]string{
-				"vmi": vmi.Name,
+				"vmi":       vmi.Name,
+				"namespace": vmi.Namespace,
 			}
 
 			By("Starting the Migration")
@@ -200,7 +206,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1)
 
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 	})
@@ -219,7 +225,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							"storage": quantity,
 						},
@@ -244,6 +250,45 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 	})
 
+	Context("VM metrics that are based on the guest agent", func() {
+		It("[test_id:11267]should have kubevirt_vmi_info correctly configured with guest OS labels", func() {
+			agentVMI := createAgentVMI()
+			Expect(agentVMI.Status.GuestOSInfo.KernelRelease).ToNot(BeEmpty())
+			Expect(agentVMI.Status.GuestOSInfo.Machine).ToNot(BeEmpty())
+			Expect(agentVMI.Status.GuestOSInfo.Name).ToNot(BeEmpty())
+			Expect(agentVMI.Status.GuestOSInfo.VersionID).ToNot(BeEmpty())
+
+			labels := map[string]string{
+				"guest_os_kernel_release": agentVMI.Status.GuestOSInfo.KernelRelease,
+				"guest_os_machine":        agentVMI.Status.GuestOSInfo.Machine,
+				"guest_os_name":           agentVMI.Status.GuestOSInfo.Name,
+				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
+			}
+
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
+		})
+	})
+
+	Context("Metrics that are based on VMI connections", func() {
+		It("should have kubevirt_vmi_last_api_connection_timestamp_seconds correctly configured", func() {
+
+			By("Starting a VirtualMachineInstance")
+			vmi := libvmifact.NewAlpine()
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("Validating the metric gets updated with the last connection timestamp")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			initialMetricValue := validateLastConnectionMetricValue(vmi, 0)
+
+			time.Sleep(1 * time.Minute)
+
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			validateLastConnectionMetricValue(vmi, initialMetricValue)
+		})
+	})
+
 	Context("VM alerts", func() {
 		var scales *libmonitoring.Scaling
 
@@ -260,13 +305,14 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("should fire KubevirtVmHighMemoryUsage alert", func() {
 			By("starting VMI")
-			vmi := libvmi.NewGuestless()
-			tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi := libvmifact.NewGuestless()
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("fill up the vmi pod memory")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 			vmiPodRequestMemory := vmiPod.Spec.Containers[0].Resources.Requests.Memory().Value()
-			_, err := exec.ExecuteCommandOnPod(
+			_, err = exec.ExecuteCommandOnPod(
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"/usr/bin/bash", "-c", fmt.Sprintf("cat <( </dev/zero head -c %d) <(sleep 150) | tail", vmiPodRequestMemory)},
@@ -279,7 +325,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
 			By("starting VMI")
-			vmi := libvmi.NewGuestless()
+			vmi := libvmifact.NewGuestless()
 			tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("delete virt-handler daemonset")
@@ -292,8 +338,8 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("should fire VMCannotBeEvicted alert", func() {
 			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
-			vmi := libvmi.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for VMCannotBeEvicted alert")
@@ -301,3 +347,38 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 	})
 })
+
+func createAgentVMI() *v1.VirtualMachineInstance {
+	virtClient := kubevirt.Client()
+	vmiAgentConnectedConditionMatcher := MatchFields(IgnoreExtras, Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})
+	vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), 180)
+
+	var err error
+	var agentVMI *v1.VirtualMachineInstance
+
+	By("VMI has the guest agent connected condition")
+	Eventually(func() []v1.VirtualMachineInstanceCondition {
+		agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return agentVMI.Status.Conditions
+	}, 240*time.Second, 1*time.Second).Should(ContainElement(vmiAgentConnectedConditionMatcher), "Should have agent connected condition")
+
+	return agentVMI
+}
+
+func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, formerValue float64) float64 {
+	var err error
+	var metricValue float64
+	virtClient := kubevirt.Client()
+	labels := map[string]string{"vmi": vmi.Name, "namespace": vmi.Namespace}
+
+	EventuallyWithOffset(1, func() float64 {
+		metricValue, err = libmonitoring.GetMetricValueWithLabels(virtClient, "kubevirt_vmi_last_api_connection_timestamp_seconds", labels)
+		if err != nil {
+			return -1
+		}
+		return metricValue
+	}, 3*time.Minute, 20*time.Second).Should(BeNumerically(">", formerValue))
+
+	return metricValue
+}

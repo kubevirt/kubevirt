@@ -22,6 +22,8 @@ package sriov
 import (
 	"encoding/json"
 	"fmt"
+
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 )
 
 type PCIAddressWithNetworkStatusPool struct {
@@ -29,13 +31,20 @@ type PCIAddressWithNetworkStatusPool struct {
 }
 
 // NewPCIAddressPoolWithNetworkStatus creates a PCI address pool based on the networkPciMapPath volume
-func NewPCIAddressPoolWithNetworkStatus(networkPCIMapBytes []byte) (*PCIAddressWithNetworkStatusPool, error) {
+func NewPCIAddressPoolWithNetworkStatus(networkInfoBytes []byte) (*PCIAddressWithNetworkStatusPool, error) {
 	pool := &PCIAddressWithNetworkStatusPool{}
 
-	var networkPciMap map[string]string
-	err := json.Unmarshal(networkPCIMapBytes, &networkPciMap)
+	var networkInfo downwardapi.NetworkInfo
+	err := json.Unmarshal(networkInfoBytes, &networkInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal network-pci map %w", err)
+		return nil, fmt.Errorf("failed to unmarshal network-info annotation: %w", err)
+	}
+
+	networkPciMap := map[string]string{}
+	for _, iface := range networkInfo.Interfaces {
+		if iface.DeviceInfo != nil && iface.DeviceInfo.Pci != nil && iface.DeviceInfo.Pci.PciAddress != "" {
+			networkPciMap[iface.Network] = iface.DeviceInfo.Pci.PciAddress
+		}
 	}
 
 	pool.networkPCIMap = networkPciMap

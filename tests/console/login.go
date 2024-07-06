@@ -23,10 +23,10 @@ const (
 )
 
 // LoginToFunction represents any of the LoginTo* functions
-type LoginToFunction func(*v1.VirtualMachineInstance) error
+type LoginToFunction func(*v1.VirtualMachineInstance, ...time.Duration) error
 
 // LoginToCirros performs a console login to a Cirros base VM
-func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
+func LoginToCirros(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
 	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
 	if err != nil {
@@ -55,9 +55,11 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "gocubsgo\n"},
 		&expect.BExp{R: PromptExpression},
 	}
-	const loginTimeout = 180 * time.Second
+	loginTimeout := 180 * time.Second
+	if len(timeout) > 0 {
+		loginTimeout = timeout[0]
+	}
 	resp, err := expecter.ExpectBatch(b, loginTimeout)
-
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
 		return err
@@ -71,7 +73,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 }
 
 // LoginToAlpine performs a console login to an Alpine base VM
-func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
+func LoginToAlpine(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
 
 	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
@@ -103,7 +105,10 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "root\n"},
 		&expect.BExp{R: PromptExpression},
 	}
-	const loginTimeout = 180 * time.Second
+	loginTimeout := 180 * time.Second
+	if len(timeout) > 0 {
+		loginTimeout = timeout[0]
+	}
 	res, err := expecter.ExpectBatch(b, loginTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login failed: %+v", res)
@@ -118,7 +123,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 }
 
 // LoginToFedora performs a console login to a Fedora base VM
-func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
+func LoginToFedora(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
 
 	// TODO: This is temporary workaround for issue seen in CI
@@ -183,7 +188,10 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "sudo su\n"},
 		&expect.BExp{R: PromptExpression},
 	}
-	const loginTimeout = 2 * time.Minute
+	loginTimeout := 2 * time.Minute
+	if len(timeout) > 0 {
+		loginTimeout = timeout[0]
+	}
 	res, err := expecter.ExpectBatch(b, loginTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login attempt failed: %+v", res)

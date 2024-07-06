@@ -15,7 +15,7 @@ go_library(
         "//tests/console:go_default_library",
         "//tests/decorators:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
-        "//tests/libvmi:go_default_library",
+        "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",

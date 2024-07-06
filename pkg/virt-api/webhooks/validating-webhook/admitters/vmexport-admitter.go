@@ -29,7 +29,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virt "kubevirt.io/api/core"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/api/snapshot"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"

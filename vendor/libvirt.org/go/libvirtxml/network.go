@@ -111,7 +111,8 @@ type NetworkForward struct {
 }
 
 type NetworkForwardDriver struct {
-	Name string `xml:"name,attr"`
+	Name  string `xml:"name,attr,omitempty"`
+	Model string `xml:"model,attr,omitempty"`
 }
 
 type NetworkForwardPF struct {

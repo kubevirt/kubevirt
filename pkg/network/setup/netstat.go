@@ -29,7 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/network/sriov"
+	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -234,9 +234,9 @@ func domainInterfaceQueues(driver *api.InterfaceDriver) int32 {
 func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfacesSpecByName map[string]v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
-	for _, hostDevice := range filterHostDevicesByAlias(hostDevices, sriov.AliasPrefix) {
+	for _, hostDevice := range filterHostDevicesByAlias(hostDevices, deviceinfo.SRIOVAliasPrefix) {
 		vmiStatusIface := v1.VirtualMachineInstanceNetworkInterface{
-			Name:       hostDevice.Alias.GetName()[len(sriov.AliasPrefix):],
+			Name:       hostDevice.Alias.GetName()[len(deviceinfo.SRIOVAliasPrefix):],
 			InfoSource: netvmispec.InfoSourceDomain,
 		}
 		if iface, exists := vmiIfacesSpecByName[vmiStatusIface.Name]; exists {

@@ -28,10 +28,11 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
 	"kubevirt.io/kubevirt/tests/libinfra"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -116,7 +117,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		*/
 
 		By("creating a VMI in a user defined namespace")
-		vmi := libvmi.NewAlpine()
+		vmi := libvmifact.NewAlpine()
 		startVMI(vmi)
 
 		By("finding virt-operator pod")
@@ -231,9 +232,9 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		// but if the default disk is not vda, the test will break
 		// TODO: introspect the VMI and get the device name of this
 		// block device?
-		vmi := libvmi.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")))
+		vmi := libvmifact.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")))
 		if preferredNodeName != "" {
-			vmi = libvmi.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")),
+			vmi = libvmifact.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")),
 				libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: preferredNodeName}}))
 		}
 
@@ -491,7 +492,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		for _, key := range keys {
 			// we don't care about the ordering of the labels
-			if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
+			if strings.HasPrefix(key, "kubevirt_vmi_info") {
 				// special case: namespace and name don't make sense for this metric
 				Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
 				continue

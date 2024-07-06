@@ -56,7 +56,7 @@ import (
 
 var _ = Describe("VirtualMachine Mutator", func() {
 	var vm *v1.VirtualMachine
-	var kvInformer cache.SharedIndexInformer
+	var kvStore cache.Store
 	var mutator *VMsMutator
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
@@ -137,7 +137,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
 
 		mutator = &VMsMutator{}
-		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		mutator.ClusterConfig, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -166,39 +166,43 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	It("should apply defaults on VM create", func() {
 		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
-		if webhooks.IsPPC64(&vmSpec.Template.Spec) {
+		switch {
+		case webhooks.IsPPC64(&vmSpec.Template.Spec):
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("pseries"))
-		} else if webhooks.IsARM64(&vmSpec.Template.Spec) {
+		case webhooks.IsARM64(&vmSpec.Template.Spec):
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("virt"))
-		} else {
+		case webhooks.IsS390X(&vmSpec.Template.Spec):
+			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("s390-ccw-virtio"))
+		default:
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
 		}
 	})
 
-	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppcle64MachineType string, result string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppc64leMachineType string, s390xMachineType string, result string) {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{
 						Amd64:   &v1.ArchSpecificConfiguration{MachineType: amd64MachineType},
 						Arm64:   &v1.ArchSpecificConfiguration{MachineType: arm64MachineType},
-						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: ppcle64MachineType},
+						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: ppc64leMachineType},
 					},
 				},
 			},
 		})
 
 		vmSpec, _ := getVMSpecMetaFromResponse(arch)
-		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
 
 	},
-		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", machineTypeFromConfig),
-		Entry("when override is for arm64 architecture", "arm64", "", machineTypeFromConfig, "", machineTypeFromConfig),
-		Entry("when override is for ppc64le architecture", "ppc64le", "", "", machineTypeFromConfig, machineTypeFromConfig),
+		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", "", machineTypeFromConfig),
+		Entry("when override is for arm64 architecture", "arm64", "", machineTypeFromConfig, "", "", machineTypeFromConfig),
+		Entry("when override is for ppc64le architecture", "ppc64le", "", "", machineTypeFromConfig, "", machineTypeFromConfig),
+		Entry("when override is for s390x architecture, no override", "s390x", "", "", "", machineTypeFromConfig, "s390-ccw-virtio"),
 	)
 
 	It("should not override default architecture with defaults on VM create", func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Status: v1.KubeVirtStatus{
 				DefaultArchitecture: "arm64",
 			},
@@ -210,7 +214,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	})
 
 	It("should not override specified properties with defaults on VM create", func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					MachineType: machineTypeFromConfig,
@@ -248,7 +252,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Kind: apiinstancetype.SingularPreferenceResourceName,
 		}
 
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					MachineType: machineTypeFromConfig,
@@ -283,7 +287,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Kind: apiinstancetype.SingularPreferenceResourceName,
 		}
 
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					MachineType: machineTypeFromConfig,
@@ -301,7 +305,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Kind: apiinstancetype.SingularPreferenceResourceName,
 		}
 
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{
@@ -314,7 +318,12 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		})
 
 		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
-		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
+		if rt.GOARCH == "s390x" {
+			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("s390-ccw-virtio"))
+		} else {
+			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
+		}
+
 	})
 
 	It("should default instancetype kind to ClusterSingularResourceName when not provided", func() {

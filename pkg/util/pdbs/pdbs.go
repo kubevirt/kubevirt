@@ -10,8 +10,8 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-func PDBsForVMI(vmi *virtv1.VirtualMachineInstance, pdbInformer cache.SharedIndexInformer) ([]*policyv1.PodDisruptionBudget, error) {
-	pbds, err := pdbInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+func PDBsForVMI(vmi *virtv1.VirtualMachineInstance, pdbIndexer cache.Indexer) ([]*policyv1.PodDisruptionBudget, error) {
+	pbds, err := pdbIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return nil, err
 	}

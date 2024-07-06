@@ -45,14 +45,14 @@ const (
 
 type LifecycleHandler struct {
 	recorder     record.EventRecorder
-	vmiInformer  cache.SharedIndexInformer
+	vmiStore     cache.Store
 	virtShareDir string
 }
 
-func NewLifecycleHandler(recorder record.EventRecorder, vmiInformer cache.SharedIndexInformer, virtShareDir string) *LifecycleHandler {
+func NewLifecycleHandler(recorder record.EventRecorder, vmiStore cache.Store, virtShareDir string) *LifecycleHandler {
 	return &LifecycleHandler{
 		recorder:     recorder,
-		vmiInformer:  vmiInformer,
+		vmiStore:     vmiStore,
 		virtShareDir: virtShareDir,
 	}
 }
@@ -221,7 +221,7 @@ func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *r
 }
 
 func (lh *LifecycleHandler) getVMILauncherClient(request *restful.Request, response *restful.Response) (*v1.VirtualMachineInstance, cmdclient.LauncherClient, error) {
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, code, err := getVMI(request, lh.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)

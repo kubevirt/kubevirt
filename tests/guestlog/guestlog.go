@@ -27,7 +27,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -41,7 +41,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 	)
 
 	BeforeEach(func() {
-		cirrosVmi = libvmi.NewCirros()
+		cirrosVmi = libvmifact.NewCirros()
 		cirrosVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(true)
 		cirrosVmi.Spec.Domain.Devices.LogSerialConsole = pointer.P(true)
 	})
@@ -57,11 +57,6 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
-				if expected {
-					Expect(virtlauncherPod.Spec.Containers).To(HaveLen(3))
-				} else {
-					Expect(virtlauncherPod.Spec.Containers).To(HaveLen(2))
-				}
 				foundContainer := false
 				for _, container := range virtlauncherPod.Spec.Containers {
 					if container.Name == "guest-console-log" {
@@ -197,7 +192,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4 + 1))
 			})
 
-			It("it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", func() {
+			It("[QUARANTINE] it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", decorators.Quarantine, func() {
 				cirrosVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceCPU:    resource.MustParse("1000m"),

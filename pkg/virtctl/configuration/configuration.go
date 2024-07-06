@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -52,7 +53,7 @@ func (c *command) run() error {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
-	kvList, err := virtClient.KubeVirt(namespace).List(&metav1.ListOptions{})
+	kvList, err := virtClient.KubeVirt(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}

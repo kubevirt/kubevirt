@@ -32,14 +32,15 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
-
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -48,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirt"
+	"libvirt.org/go/libvirtxml"
 
 	api2 "kubevirt.io/client-go/api"
 
@@ -57,6 +59,7 @@ import (
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -64,6 +67,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -1294,6 +1298,10 @@ var _ = Describe("Manager", func() {
 		})
 
 		It("should return a VirtualMachineInstance launch measurement", func() {
+			if runtime.GOARCH == "s390x" {
+				Skip("Test is specific to amd64 architecture")
+			}
+
 			domainLaunchSecurityParameters := &libvirt.DomainLaunchSecurityParameters{
 				SEVMeasurementSet: true,
 				SEVMeasurement:    "AAABBBCCC",
@@ -1350,13 +1358,12 @@ var _ = Describe("Manager", func() {
 			var vmi *v1.VirtualMachineInstance
 			var manager *LibvirtDomainManager
 			var domainSpec *api.DomainSpec
-			var pluggableMemorySize api.Memory
 
 			BeforeEach(func() {
 				vmi = newVMI(testNamespace, testVmName)
 
-				guestMemory := resource.MustParse("32Mi")
-				maxGuestMemory := resource.MustParse("128Mi")
+				guestMemory := resource.MustParse("128Mi")
+				maxGuestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest:    &maxGuestMemory,
 					MaxGuest: &maxGuestMemory,
@@ -1372,40 +1379,81 @@ var _ = Describe("Manager", func() {
 					virtShareDir:  testVirtShareDir,
 					metadataCache: metadataCache,
 				}
+			})
 
-				pluggableMemorySize = api.Memory{
-					Unit:  "b",
-					Value: uint64(maxGuestMemory.Value() - guestMemory.Value()),
-				}
+			It("should attach a virtio-mem device when memory hotplug has been requested", func() {
+				mockConn.EXPECT().LookupDomainByName(api.VMINamespaceKeyFunc(vmi)).Return(mockDomain, nil)
+
+				domainSpec = &api.DomainSpec{Devices: api.Devices{}}
+				domainSpecXML, err := xml.Marshal(domainSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(domainSpecXML), nil)
+
+				memoryDevice, err := memory.BuildMemoryDevice(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				memoryDeviceXML, err := xml.Marshal(memoryDevice)
+				Expect(err).ToNot(HaveOccurred())
+
+				attachFlags := libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
+				mockDomain.EXPECT().AttachDeviceFlags(strings.ToLower(string(memoryDeviceXML)), attachFlags).Return(nil)
+
+				mockDomain.EXPECT().Free()
+
+				err = manager.UpdateGuestMemory(vmi)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should update the virtio-mem device if it already exists", func() {
+				mockConn.EXPECT().LookupDomainByName(api.VMINamespaceKeyFunc(vmi)).Return(mockDomain, nil)
+
+				size, err := vcpu.QuantityToByte(resource.MustParse("128Mi"))
+				Expect(err).ToNot(HaveOccurred())
+				requested, err := vcpu.QuantityToByte(resource.MustParse("64Mi"))
+				Expect(err).ToNot(HaveOccurred())
+				block, err := vcpu.QuantityToByte(resource.MustParse("2Mi"))
+				Expect(err).ToNot(HaveOccurred())
 
 				domainSpec = &api.DomainSpec{
 					Devices: api.Devices{
 						Memory: &api.MemoryDevice{
 							Model: "virtio-mem",
+							Alias: api.NewUserDefinedAlias("virtio-mem"),
+							Address: &api.Address{
+								Type:     "pci",
+								Domain:   "0x0000",
+								Bus:      "0x02",
+								Slot:     "0x00",
+								Function: "0x0",
+							},
 							Target: &api.MemoryTarget{
-								Size: pluggableMemorySize,
-								Node: "0",
-								Block: api.Memory{
-									Unit:  "b",
-									Value: 2048,
-								},
+								Node:      "0",
+								Address:   &api.MemoryAddress{Base: "0x100000000"},
+								Size:      size,
+								Requested: requested,
+								Block:     block,
 							},
 						},
 					},
 				}
-			})
-
-			It("should hotplug memory when requested", func() {
-				mockConn.EXPECT().LookupDomainByName(api.VMINamespaceKeyFunc(vmi)).Return(mockDomain, nil)
-
 				domainSpecXML, err := xml.Marshal(domainSpec)
 				Expect(err).ToNot(HaveOccurred())
+
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(domainSpecXML), nil)
 
-				domainSpec.Devices.Memory.Target.Requested = pluggableMemorySize
-				updateXML, err := xml.Marshal(domainSpec.Devices.Memory)
+				// hotplug to MaxGuest
+				vmi.Spec.Domain.Memory.Guest = virtpointer.P(resource.MustParse("256Mi"))
+
+				memoryDevice, err := memory.BuildMemoryDevice(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				mockDomain.EXPECT().UpdateDeviceFlags(strings.ToLower(string(updateXML)), libvirt.DOMAIN_DEVICE_MODIFY_LIVE).Return(nil)
+
+				domainSpec.Devices.Memory.Target.Requested = memoryDevice.Target.Requested
+
+				memoryDeviceXML, err := xml.Marshal(domainSpec.Devices.Memory)
+				Expect(err).ToNot(HaveOccurred())
+
+				attachFlags := libvirt.DOMAIN_DEVICE_MODIFY_LIVE
+				mockDomain.EXPECT().UpdateDeviceFlags(strings.ToLower(string(memoryDeviceXML)), attachFlags).Return(nil)
 
 				mockDomain.EXPECT().Free()
 
@@ -1837,13 +1885,6 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(domainXml), nil)
 
-			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
-			Expect(err).NotTo(HaveOccurred())
-			mockDomain.EXPECT().
-				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				Return(string(metadataXml), nil)
-
 			mockDomain.EXPECT().MigrateToURI3(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("MigrationFailed"))
 			options := &cmdclient.MigrationOptions{
 				Bandwidth:               resource.MustParse("64Mi"),
@@ -2015,11 +2056,6 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(x), nil)
 			mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
 
-			mockDomain.EXPECT().
-				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				AnyTimes().
-				Return("<kubevirt></kubevirt>", nil)
-
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
 			doms, err := manager.ListAllDomains()
 			Expect(err).NotTo(HaveOccurred())
@@ -2061,7 +2097,7 @@ var _ = Describe("Manager", func() {
 			domStats, err := manager.GetDomainStats()
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(domStats).To(HaveLen(1))
+			Expect(domStats).ToNot(BeNil())
 		})
 	})
 
@@ -2633,6 +2669,132 @@ var _ = Describe("migratableDomXML", func() {
 		By("ensuring the generated XML is accurate")
 		Expect(newXML).To(Equal(expectedXML), "the target XML is not as expected")
 	})
+	DescribeTable("slices section", func(domXML string) {
+		retDiskSize := func(disk *libvirtxml.DomainDisk) (int64, error) {
+			return 2028994560, nil
+		}
+		getDiskVirtualSizeFunc = retDiskSize
+		const (
+			volName       = "datavolumedisk1"
+			sourcePvcName = "src-pvc"
+			destPvcName   = "dst-pvc"
+		)
+		expectedXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <devices>
+    <disk type="file" device="disk" model="virtio-non-transitional">
+      <driver name="qemu" type="raw" cache="none" error_policy="stop" discard="unmap"></driver>
+      <source file="/var/run/kubevirt-private/vmi-disks/datavolumedisk1/disk.img" index="1">
+        <slices>
+          <slice type="storage" offset="0" size="2028994560"></slice>
+        </slices>
+      </source>
+      <backingStore></backingStore>
+      <target dev="vda" bus="virtio"></target>
+      <alias name="ua-datavolumedisk1"></alias>
+      <address type="pci" domain="0x0000" bus="0x07" slot="0x00" function="0x0"></address>
+    </disk>
+  </devices>
+</domain>`
+		vmi := newVMI("testns", "kubevirt")
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes,
+			v1.Volume{
+				Name: volName,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: sourcePvcName,
+					},
+				},
+			})
+		vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{
+			{
+				VolumeName: volName,
+				SourcePVCInfo: &v1.PersistentVolumeClaimInfo{
+					ClaimName:  sourcePvcName,
+					VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				},
+				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{
+					ClaimName:  destPvcName,
+					VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				},
+			},
+		}
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
+		domSpec := &api.DomainSpec{}
+		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
+		newXML, err := migratableDomXML(mockDomain, vmi, domSpec)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newXML).To(Equal(expectedXML))
+	},
+		Entry("add slices section", `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <devices>
+    <disk type='file' device='disk' model='virtio-non-transitional'>
+      <driver name='qemu' type='raw' cache='none' error_policy='stop' discard='unmap'/>
+      <source file='/var/run/kubevirt-private/vmi-disks/datavolumedisk1/disk.img' index='1'/>
+      <backingStore/>
+      <target dev='vda' bus='virtio'/>
+      <alias name='ua-datavolumedisk1'/>
+      <address type='pci' domain='0x0000' bus='0x07' slot='0x00' function='0x0'/>
+    </disk>
+  </devices>
+</domain>`),
+		Entry("slices section already set", `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <devices>
+    <disk type='file' device='disk' model='virtio-non-transitional'>
+      <driver name='qemu' type='raw' cache='none' error_policy='stop' discard='unmap'/>
+      <source file='/var/run/kubevirt-private/vmi-disks/datavolumedisk1/disk.img' index='1'>
+        <slices>
+          <slice type='storage' offset='0' size='2028994560'></slice>
+        </slices>
+      </source>
+      <backingStore/>
+      <target dev='vda' bus='virtio'/>
+      <alias name='ua-datavolumedisk1'/>
+      <address type='pci' domain='0x0000' bus='0x07' slot='0x00' function='0x0'/>
+    </disk>
+  </devices>
+</domain>`),
+	)
+	It("should generate correct xml for user data for copied disks during the migration", func() {
+		domXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <devices>
+    <disk type='file' device='disk' model='virtio-non-transitional'>
+      <driver name='qemu' type='raw' cache='none' error_policy='stop' discard='unmap'/>
+      <source file='/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/vm-dv/noCloud.iso' index='1'/>
+      <backingStore/>
+      <target dev='vda' bus='virtio'/>
+      <alias name='ua-cloudinitdisk'/>
+      <address type='pci' domain='0x0000' bus='0x07' slot='0x00' function='0x0'/>
+    </disk>
+  </devices>
+</domain>`
+		expectedXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <devices>
+    <disk type="file" device="disk" model="virtio-non-transitional">
+      <driver name="qemu" type="raw" cache="none" error_policy="stop" discard="unmap"></driver>
+      <source file="/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/vm-dv/noCloud.iso" index="1"></source>
+      <backingStore></backingStore>
+      <target dev="vda" bus="virtio"></target>
+      <alias name="ua-cloudinitdisk"></alias>
+      <address type="pci" domain="0x0000" bus="0x07" slot="0x00" function="0x0"></address>
+    </disk>
+  </devices>
+</domain>`
+		vmi := newVMI("testns", "kubevirt")
+		userData := "fake\nuser\ndata\n"
+		networkData := "FakeNetwork"
+		addCloudInitDisk(vmi, userData, networkData)
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
+		domSpec := &api.DomainSpec{}
+		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
+		newXML, err := migratableDomXML(mockDomain, vmi, domSpec)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newXML).To(Equal(expectedXML))
+	})
 })
 
 var _ = Describe("Manager helper functions", func() {
@@ -2643,15 +2805,8 @@ var _ = Describe("Manager helper functions", func() {
 		var zeroQuantity resource.Quantity
 
 		BeforeEach(func() {
-			var err error
-			tmpDir, err = os.MkdirTemp("", "tempdir")
-			Expect(err).ToNot(HaveOccurred())
-
+			tmpDir = GinkgoT().TempDir()
 			zeroQuantity = *resource.NewScaledQuantity(0, 0)
-		})
-
-		AfterEach(func() {
-			_ = os.RemoveAll(tmpDir)
 		})
 
 		expectNonZeroQuantity := func(ephemeralDiskDir string) {
@@ -2705,7 +2860,7 @@ var _ = Describe("Manager helper functions", func() {
 
 		BeforeEach(func() {
 			fakePercentFloat = 0.7648
-			fakePercent := cdiv1beta1.Percent(fmt.Sprint(fakePercentFloat))
+			fakePercent := v1.Percent(fmt.Sprint(fakePercentFloat))
 			fakeCapacity := int64(2345 * 3456) // We need (1-0.7648)*fakeCapacity to be > 1MiB and misaligned
 
 			properDisk = api.Disk{
@@ -2728,7 +2883,8 @@ var _ = Describe("Manager helper functions", func() {
 		})
 
 		DescribeTable("should return error when", func(createDisk func() api.Disk) {
-
+			_, ok := possibleGuestSize(createDisk())
+			Expect(ok).To(BeFalse())
 		},
 			Entry("disk capacity is nil", func() api.Disk {
 				disk := properDisk
@@ -2740,14 +2896,173 @@ var _ = Describe("Manager helper functions", func() {
 				disk.FilesystemOverhead = nil
 				return disk
 			}),
+			Entry("filesystem overhead is invalid float", func() api.Disk {
+				disk := properDisk
+				badPercent := v1.Percent("3.14") // Must be between 0 and 1
+				disk.FilesystemOverhead = &badPercent
+				return disk
+			}),
 			Entry("filesystem overhead is non-float", func() api.Disk {
 				disk := properDisk
-				fakePercent := cdiv1beta1.Percent(fmt.Sprint("abcdefg"))
+				fakePercent := v1.Percent("abcdefg")
 				disk.FilesystemOverhead = &fakePercent
 				return disk
 			}),
 		)
 
+	})
+
+	Context("configureLocalDiskToMigrate", func() {
+		const (
+			testvol = "test"
+			src     = "src"
+			dst     = "dst"
+		)
+
+		fsMode := k8sv1.PersistentVolumeFilesystem
+		blockMode := k8sv1.PersistentVolumeBlock
+		infoFs := v1.PersistentVolumeClaimInfo{
+			ClaimName:  src,
+			VolumeMode: &fsMode,
+		}
+		infoBlock := v1.PersistentVolumeClaimInfo{
+			ClaimName:  src,
+			VolumeMode: &blockMode,
+		}
+
+		getFsImagePath := func(name string) string {
+			return hostdisk.GetMountedHostDiskDir(name)
+		}
+
+		getBlockPath := func(name string) string {
+			return filepath.Join(string(filepath.Separator), "dev", name)
+		}
+
+		createDomWithFsImage := func(name string) *libvirtxml.Domain {
+			return &libvirtxml.Domain{
+				Devices: &libvirtxml.DomainDeviceList{
+					Disks: []libvirtxml.DomainDisk{
+						{
+							Source: &libvirtxml.DomainDiskSource{
+								File: &libvirtxml.DomainDiskSourceFile{
+									File: getFsImagePath(name),
+								},
+							},
+							Alias: &libvirtxml.DomainAlias{
+								Name: fmt.Sprintf("ua-%s", name),
+							},
+						},
+					},
+				},
+			}
+		}
+		createDomWithBlock := func(name string) *libvirtxml.Domain {
+			return &libvirtxml.Domain{
+				Devices: &libvirtxml.DomainDeviceList{
+					Disks: []libvirtxml.DomainDisk{
+						{
+							Source: &libvirtxml.DomainDiskSource{
+								Block: &libvirtxml.DomainDiskSourceBlock{
+									Dev: getBlockPath(name),
+								},
+							},
+							Alias: &libvirtxml.DomainAlias{
+								Name: fmt.Sprintf("ua-%s", name),
+							},
+						},
+					},
+				},
+			}
+		}
+		volPVC := v1.Volume{
+			Name: testvol,
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: src,
+					},
+				},
+			},
+		}
+		volDV := v1.Volume{
+			Name: testvol,
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: src,
+				},
+			},
+		}
+		volHostDisk := v1.Volume{
+			Name: testvol,
+			VolumeSource: v1.VolumeSource{
+				HostDisk: &v1.HostDisk{
+					Path: getFsImagePath(testvol),
+				},
+			},
+		}
+
+		DescribeTable("replace filesystem and block migrated volumes", func(isSrcBlock, isDstBlock bool, vol v1.Volume) {
+			retDiskSize := func(disk *libvirtxml.DomainDisk) (int64, error) {
+				return 2028994560, nil
+			}
+			getDiskVirtualSizeFunc = retDiskSize
+			var dom *libvirtxml.Domain
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Volumes: []v1.Volume{vol},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					MigratedVolumes: []v1.StorageMigratedVolumeInfo{
+						{
+							VolumeName: testvol,
+						},
+					},
+					VolumeStatus: []v1.VolumeStatus{
+						{
+							Name: testvol,
+							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+								ClaimName: src,
+							},
+						},
+					},
+				},
+			}
+			if isSrcBlock {
+				vmi.Status.MigratedVolumes[0].SourcePVCInfo = &infoBlock
+				dom = createDomWithBlock(testvol)
+			} else {
+				vmi.Status.MigratedVolumes[0].SourcePVCInfo = &infoFs
+				dom = createDomWithFsImage(testvol)
+			}
+			if isDstBlock {
+				vmi.Status.MigratedVolumes[0].DestinationPVCInfo = &infoBlock
+			} else {
+				vmi.Status.MigratedVolumes[0].DestinationPVCInfo = &infoFs
+			}
+
+			err := configureLocalDiskToMigrate(dom, vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			if isDstBlock {
+				Expect(dom.Devices.Disks[0].Source.File).To(BeNil())
+				Expect(dom.Devices.Disks[0].Source.Block).NotTo(BeNil())
+				Expect(dom.Devices.Disks[0].Source.Block.Dev).To(Equal(getBlockPath(testvol)))
+
+			} else {
+				Expect(dom.Devices.Disks[0].Source.Block).To(BeNil())
+				Expect(dom.Devices.Disks[0].Source.File).NotTo(BeNil())
+				Expect(dom.Devices.Disks[0].Source.File.File).To(Equal(getFsImagePath(testvol)))
+			}
+		},
+			Entry("filesystem source and destination", false, false, volPVC),
+			Entry("filesystem source and block destination", false, true, volPVC),
+			Entry("block source and filesystem destination", true, false, volPVC),
+			Entry("block source and destination", true, true, volPVC),
+			Entry("filesystem source and block destination with DV", false, true, volDV),
+			Entry("block source and filesystem destination with DV", true, false, volDV),
+			Entry("filesystem source and block destination with hostdisks", false, true, volHostDisk),
+			Entry("block source and filesystem destination with hostdisks", true, false, volHostDisk),
+		)
 	})
 
 })

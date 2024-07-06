@@ -14,7 +14,7 @@ import (
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
-	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -156,7 +156,7 @@ func (ctrl *VMCloneController) handleSnapshot(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	snapshot, ok := obj.(*snapshotv1alpha1.VirtualMachineSnapshot)
+	snapshot, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
 	if !ok {
 		log.Log.Errorf(unknownTypeErrFmt, "virtualmachinesnapshot")
 		return
@@ -194,7 +194,7 @@ func (ctrl *VMCloneController) handleRestore(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	restore, ok := obj.(*snapshotv1alpha1.VirtualMachineRestore)
+	restore, ok := obj.(*snapshotv1.VirtualMachineRestore)
 	if !ok {
 		log.Log.Errorf(unknownTypeErrFmt, "virtualmachinerestore")
 		return

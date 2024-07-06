@@ -16,7 +16,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-	"kubevirt.io/kubevirt/pkg/network/sriov"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -159,7 +159,9 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 			}
 
 			if volume.Sysprep != nil {
-				renderer.handleSysprep(volume)
+				if err := renderer.handleSysprep(volume); err != nil {
+					return err
+				}
 			}
 
 			if volume.CloudInitConfigDrive != nil {
@@ -264,13 +266,13 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 	}
 }
 
-func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) {
+func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) error {
 	if volume.Sysprep != nil {
 		var volumeSource k8sv1.VolumeSource
 		// attach a Secret or ConfigMap referenced by the user
 		volumeSource, err := sysprepVolumeSource(*volume.Sysprep)
 		if err != nil {
-			//return nil, err
+			return err
 		}
 		vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 			Name:         volume.Name,
@@ -282,6 +284,7 @@ func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) {
 			ReadOnly:  true,
 		})
 	}
+	return nil
 }
 
 func hotplugVolumes(vmiVolumeStatus []v1.VolumeStatus, vmiSpecVolumes []v1.Volume) map[string]struct{} {
@@ -365,7 +368,7 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 			return nil
 		}
 
-		volumeName := vmi.Name + "-state"
+		volumeName := "vm-state"
 		pvcName := backendstorage.PVCForVMI(vmi)
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: volumeName,
@@ -490,12 +493,11 @@ func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
 	}
 }
 
-func withSRIOVPciMapAnnotation() VolumeRendererOption {
+func withNetworkDeviceInfoMapAnnotation() VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(sriov.VolumeName, sriov.MountPath))
 		renderer.podVolumes = append(renderer.podVolumes,
 			downwardAPIDirVolume(
-				sriov.VolumeName, sriov.VolumePath, fmt.Sprintf("metadata.annotations['%s']", sriov.NetworkPCIMapAnnot)),
+				downwardapi.NetworkInfoVolumeName, downwardapi.NetworkInfoVolumePath, fmt.Sprintf("metadata.annotations['%s']", downwardapi.NetworkInfoAnnot)),
 		)
 		return nil
 	}

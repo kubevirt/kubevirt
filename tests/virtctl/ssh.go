@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -16,10 +18,13 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -80,9 +85,9 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 
 	DescribeTable("should succeed to execute a command on the VM", func(cmdFn func(string)) {
 		By("injecting a SSH public key into a VMI")
-		vmi := libvmi.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub)))
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+		vmi := libvmifact.NewAlpineWithTestTooling(
+			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))))
+		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)

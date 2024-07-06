@@ -46,11 +46,11 @@
 // a '* Domain' struct, it is neccessary to call 'Free' on this when no longer
 // required. The use of 'defer' is recommended for this purpose
 //
-//  dom, err := conn.LookupDomainByName("myguest")
-//  if err != nil {
-//      ...
-//  }
-//  defer dom.Free()
+//	dom, err := conn.LookupDomainByName("myguest")
+//	if err != nil {
+//	    ...
+//	}
+//	defer dom.Free()
 //
 // If multiple goroutines are using the same libvirt object struct, it may
 // not be possible to determine which goroutine should call 'Free'. In such
@@ -89,54 +89,54 @@
 // virNodeGetMemoryStats in C) will return a NodeMemoryStats struct containing
 // the typed parameter values.
 //
-//  stats, err := conn.GetMemoryParameters()
-//  if err != nil {
-//     ....
-//  }
-//  if stats.TotalSet {
-//     fmt.Printf("Total memory: %d KB", stats.Total)
-//  }
+//	stats, err := conn.GetMemoryParameters()
+//	if err != nil {
+//	   ....
+//	}
+//	if stats.TotalSet {
+//	   fmt.Printf("Total memory: %d KB", stats.Total)
+//	}
 //
 // Every method that can fail will include an 'error' object as the last return
 // value. This will be an instance of the Error struct if an error occurred. To
 // check for specific libvirt error codes, it is neccessary to cast the error.
 //
-//  err := storage_vol.Wipe(0)
-//  if err != nil {
-//     lverr, ok := err.(libvirt.Error)
-//     if ok && lverr.Code == libvirt.ERR_NO_SUPPORT {
-//         fmt.Println("Wiping storage volumes is not supported");
-//     } else {
-//         fmt.Println("Error wiping storage volume: %s", err)
-//     }
-//  }
+//	err := storage_vol.Wipe(0)
+//	if err != nil {
+//	   lverr, ok := err.(libvirt.Error)
+//	   if ok && lverr.Code == libvirt.ERR_NO_SUPPORT {
+//	       fmt.Println("Wiping storage volumes is not supported");
+//	   } else {
+//	       fmt.Println("Error wiping storage volume: %s", err)
+//	   }
+//	}
 //
-// Example usage
+// # Example usage
 //
 // To connect to libvirt
 //
-//   import (
-//       "libvirt.org/go/libvirt"
-//   )
-//   conn, err := libvirt.NewConnect("qemu:///system")
-//   if err != nil {
-//       ...
-//   }
-//   defer conn.Close()
+//	import (
+//	    "libvirt.org/go/libvirt"
+//	)
+//	conn, err := libvirt.NewConnect("qemu:///system")
+//	if err != nil {
+//	    ...
+//	}
+//	defer conn.Close()
 //
-//   doms, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE)
-//   if err != nil {
-//       ...
-//   }
+//	doms, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE)
+//	if err != nil {
+//	    ...
+//	}
 //
-//   fmt.Printf("%d running domains:\n", len(doms))
-//   for _, dom := range doms {
-//       name, err := dom.GetName()
-//       if err == nil {
-//           fmt.Printf("  %s\n", name)
-//       }
-//       dom.Free()
-//   }
+//	fmt.Printf("%d running domains:\n", len(doms))
+//	for _, dom := range doms {
+//	    name, err := dom.GetName()
+//	    if err == nil {
+//	        fmt.Printf("  %s\n", name)
+//	    }
+//	    dom.Free()
+//	}
 //
 //go:generate go build -o generator ./gen
 //go:generate ./generator

@@ -10,6 +10,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/checkpoint:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
         "//pkg/safepath:go_default_library",
@@ -23,7 +24,6 @@ go_library(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library",
-        "//vendor/github.com/pkg/errors:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
@@ -38,6 +38,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/checkpoint:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
         "//pkg/safepath:go_default_library",

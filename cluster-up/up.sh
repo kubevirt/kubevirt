@@ -33,12 +33,6 @@ source ${KUBEVIRTCI_PATH}hack/common.sh
 source ${KUBEVIRTCI_CLUSTER_PATH}/$KUBEVIRT_PROVIDER/provider.sh
 up
 
-# check if the environment has a corrupted host
-if [[ $(${KUBEVIRTCI_PATH}kubectl.sh get nodes | grep localhost) != "" ]]; then
-    echo "The environment has a corrupted host"
-    exit 1
-fi
-
 if [ ${KUBEVIRT_SINGLE_STACK} == true ]; then
     validate_single_stack_ipv6
 fi

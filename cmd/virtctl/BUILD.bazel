@@ -57,6 +57,15 @@ go_binary(
 )
 
 go_binary(
+    name = "virtctl-s390x",
+    embed = [":go_default_library"],
+    goarch = "s390x",
+    goos = "linux",
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+go_binary(
     name = "virtctl-darwin-arm64",
     embed = [":go_default_library"],
     goarch = "arm64",

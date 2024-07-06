@@ -45,7 +45,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -63,6 +63,7 @@ import (
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	optutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
@@ -125,6 +126,9 @@ const (
 	internalHostKey        = "internal_host"
 	externalCaConfigMapKey = "external_ca_cm"
 	internalCaConfigMapKey = "internal_ca_cm"
+
+	// ReadinessPath is the endpoint used to check the readiness probe
+	ReadinessPath = "/exportready"
 )
 
 // variable so can be overridden in tests
@@ -950,6 +954,21 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		MountPath: "/token",
 	})
 
+	podManifest.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Path:   ReadinessPath,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+			},
+		},
+		InitialDelaySeconds: 5,
+		PeriodSeconds:       5,
+	}
+
 	if vm, err := ctrl.getVmFromExport(vmExport); err != nil {
 		return nil, err
 	} else {
@@ -1155,7 +1174,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, inUseReason, sourceVolumes.availableMessage))
 		vmExportCopy.Status.Phase = exportv1.Pending
 	} else {
-		if exporterPod.Status.Phase == corev1.PodRunning {
+		if optutil.PodIsReady(exporterPod) {
 			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionTrue, podReadyReason, ""))
 			vmExportCopy.Status.Phase = exportv1.Ready
 			vmExportCopy.Status.Links.Internal, err = ctrl.getInteralLinks(sourceVolumes.volumes, exporterPod, service, getVolumeName, vmExport)
@@ -1350,13 +1369,13 @@ func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.Vi
 			volumeName = volume.PersistentVolumeClaim.ClaimName
 		}
 		if volumeName != "" {
-			vm.Spec.DataVolumeTemplates = ctrl.replaceUrlDVTemplate(volumeName, vm.Namespace, vm.Spec.DataVolumeTemplates)
+			vm.Spec.DataVolumeTemplates = ctrl.replaceUrlDVTemplate(volumeName, vm.Spec.DataVolumeTemplates)
 		}
 	}
 	return vm
 }
 
-func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName, namespace string, templates []virtv1.DataVolumeTemplateSpec) []virtv1.DataVolumeTemplateSpec {
+func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName string, templates []virtv1.DataVolumeTemplateSpec) []virtv1.DataVolumeTemplateSpec {
 	res := make([]virtv1.DataVolumeTemplateSpec, 0)
 	for _, template := range templates {
 		if template.ObjectMeta.Name == volumeName {
@@ -1367,6 +1386,7 @@ func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName, namespace strin
 					URL: "",
 				},
 			}
+			replacement.Spec.SourceRef = nil
 			res = append(res, *replacement)
 		} else {
 			res = append(res, template)

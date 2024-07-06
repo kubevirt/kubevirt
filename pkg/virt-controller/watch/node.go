@@ -35,11 +35,12 @@ const (
 type NodeController struct {
 	clientset        kubecli.KubevirtClient
 	Queue            workqueue.RateLimitingInterface
-	nodeInformer     cache.SharedIndexInformer
-	vmiInformer      cache.SharedIndexInformer
+	nodeStore        cache.Store
+	vmiStore         cache.Store
 	recorder         record.EventRecorder
 	heartBeatTimeout time.Duration
 	recheckInterval  time.Duration
+	hasSynced        func() bool
 }
 
 // NewNodeController creates a new instance of the NodeController struct.
@@ -47,14 +48,18 @@ func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.Shar
 	c := &NodeController{
 		clientset:        clientset,
 		Queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
-		nodeInformer:     nodeInformer,
-		vmiInformer:      vmiInformer,
+		nodeStore:        nodeInformer.GetStore(),
+		vmiStore:         vmiInformer.GetStore(),
 		recorder:         recorder,
 		heartBeatTimeout: 5 * time.Minute,
 		recheckInterval:  1 * time.Minute,
 	}
 
-	_, err := c.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return nodeInformer.HasSynced() && vmiInformer.HasSynced()
+	}
+
+	_, err := nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addNode,
 		DeleteFunc: c.deleteNode,
 		UpdateFunc: c.updateNode,
@@ -63,7 +68,7 @@ func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.Shar
 		return nil, err
 	}
 
-	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: func(_ interface{}) { /* nothing to do */ },
 		UpdateFunc: c.updateVirtualMachine,
@@ -119,7 +124,7 @@ func (c *NodeController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting node controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(stopCh, c.nodeInformer.HasSynced, c.vmiInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -159,7 +164,7 @@ func (c *NodeController) Execute() bool {
 func (c *NodeController) execute(key string) error {
 	logger := log.DefaultLogger()
 
-	obj, nodeExists, err := c.nodeInformer.GetStore().GetByKey(key)
+	obj, nodeExists, err := c.nodeStore.GetByKey(key)
 	if err != nil {
 		return err
 	}
@@ -273,7 +278,7 @@ func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv
 	if err != nil {
 		return err
 	}
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, &metav1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
 		return err

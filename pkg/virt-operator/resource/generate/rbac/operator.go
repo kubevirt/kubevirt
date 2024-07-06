@@ -271,6 +271,8 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"validatingwebhookconfigurations",
 					"mutatingwebhookconfigurations",
+					"validatingadmissionpolicybindings",
+					"validatingadmissionpolicies",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "create", "delete", "update", "patch",
@@ -317,15 +319,14 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 	}
 
 	// now append all rules needed by KubeVirt's components
-	operatorRole.Rules = append(operatorRole.Rules, getKubeVirtComponentsRules()...)
+	operatorRole.Rules = append(operatorRole.Rules, getKubeVirtComponentsClusterRules()...)
 	return operatorRole
 }
 
-func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
-
+func getKubeVirtComponentsClusterRules() []rbacv1.PolicyRule {
 	var rules []rbacv1.PolicyRule
 
-	// namespace doesn't matter, we are only interested in the rules of both Roles and ClusterRoles
+	// namespace doesn't matter, we are only interested in the rules of ClusterRoles
 	all := GetAllApiServer("")
 	all = append(all, GetAllController("")...)
 	all = append(all, GetAllHandler("")...)
@@ -336,9 +337,6 @@ func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
 		switch resource.(type) {
 		case *rbacv1.ClusterRole:
 			role, _ := resource.(*rbacv1.ClusterRole)
-			rules = append(rules, role.Rules...)
-		case *rbacv1.Role:
-			role, _ := resource.(*rbacv1.Role)
 			rules = append(rules, role.Rules...)
 		}
 	}
@@ -371,6 +369,27 @@ func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
 		},
 	}
 	rules = append(rules, authDelegationRules...)
+
+	return rules
+}
+
+func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
+	var rules []rbacv1.PolicyRule
+
+	// namespace doesn't matter, we are only interested in the rules
+	all := GetAllApiServer("")
+	all = append(all, GetAllController("")...)
+	all = append(all, GetAllHandler("")...)
+	all = append(all, GetAllExportProxy("")...)
+	all = append(all, GetAllCluster()...)
+
+	for _, resource := range all {
+		switch resource.(type) {
+		case *rbacv1.Role:
+			role, _ := resource.(*rbacv1.Role)
+			rules = append(rules, role.Rules...)
+		}
+	}
 
 	return rules
 }
@@ -432,7 +451,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 
 // NewOperatorRole creates a Role object for kubevirt-operator.
 func NewOperatorRole(namespace string) *rbacv1.Role {
-	return &rbacv1.Role{
+	operatorRole := &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: VersionNamev1,
 			Kind:       "Role",
@@ -527,6 +546,8 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 			},
 		},
 	}
+	operatorRole.Rules = append(operatorRole.Rules, getKubeVirtComponentsRules()...)
+	return operatorRole
 }
 
 func GetKubevirtComponentsServiceAccounts(namespace string) map[string]bool {

@@ -40,6 +40,9 @@ go_library(
         "@io_bazel_rules_go//go/platform:openbsd": [
             "//vendor/golang.org/x/sys/unix:go_default_library",
         ],
+        "@io_bazel_rules_go//go/platform:solaris": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
         "@io_bazel_rules_go//go/platform:windows": [
             "//vendor/golang.org/x/sys/windows:go_default_library",
         ],

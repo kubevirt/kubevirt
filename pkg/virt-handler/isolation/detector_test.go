@@ -63,10 +63,8 @@ var _ = Describe("Isolation Detector", func() {
 			tmpDir, err = os.MkdirTemp("", "kubevirt")
 			Expect(err).ToNot(HaveOccurred())
 
-			cmdclient.SetLegacyBaseDir(tmpDir)
 			cmdclient.SetPodsBaseDir(tmpDir)
 
-			os.MkdirAll(filepath.Join(tmpDir, "sockets/"), os.ModePerm)
 			socketFile := cmdclient.SocketFilePathOnHost(podUID)
 			os.MkdirAll(filepath.Dir(socketFile), os.ModePerm)
 			socket, err = net.Listen("unix", socketFile)

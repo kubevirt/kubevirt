@@ -8,16 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
-
-	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/testsuite"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,15 +18,19 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/errorhandling"
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -120,7 +116,8 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 				"--image-path", imagePath,
 				sizeArg, pvcSize,
 				"--storage-class", sc,
-				"--block-volume",
+				"--force-bind",
+				"--volume-mode", "block",
 				insecureArg)
 			err := virtctlCmd()
 			if err != nil {
@@ -132,18 +129,18 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 			if startVM {
 				By("Start VM")
-				vmi := tests.NewRandomVMIWithDataVolume(targetName)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi := libstorage.RenderVMIWithDataVolume(targetName, testsuite.GetTestNamespace(nil))
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {
-					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}()
 				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithFailOnWarnings(false),
 					libwait.WithTimeout(180),
 				)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
@@ -217,6 +214,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 				"--image-path", imagePath,
 				sizeArg, pvcSize,
 				"--storage-class", sc,
+				"--force-bind",
 				"--volume-mode", volumeMode,
 				insecureArg)
 			err := virtctlCmd()
@@ -269,11 +267,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			Expect(err.Error()).To(ContainSubstring("make sure the PVC is Bound, or use force-bind flag"))
 
 			By("Start VM")
-			vmi := tests.NewRandomVMIWithDataVolume("target-dv")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi := libstorage.RenderVMIWithDataVolume("target-dv", testsuite.GetTestNamespace(nil))
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			defer func() {
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}()
 
@@ -444,7 +442,7 @@ func createArchive(targetFile, tgtDir string, sourceFilesNames ...string) string
 	Expect(err).ToNot(HaveOccurred())
 	defer errorhandling.SafelyCloseFile(tgtFile)
 
-	tests.ArchiveToFile(tgtFile, sourceFilesNames...)
+	libstorage.ArchiveToFile(tgtFile, sourceFilesNames...)
 
 	return tgtPath
 }

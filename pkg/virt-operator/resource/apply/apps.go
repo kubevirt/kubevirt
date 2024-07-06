@@ -51,7 +51,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec)
+	InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec, RequireControlPlanePreferNonWorker)
 
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil {
 		replicas := int32(*kv.Spec.Infra.Replicas)
@@ -101,6 +101,14 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	newSpec, err := json.Marshal(deployment.Spec)
 	if err != nil {
 		return nil, err
+	}
+
+	const revisionAnnotation = "deployment.kubernetes.io/revision"
+	if val, ok := existingCopy.ObjectMeta.Annotations[revisionAnnotation]; ok {
+		if deployment.ObjectMeta.Annotations == nil {
+			deployment.ObjectMeta.Annotations = map[string]string{}
+		}
+		deployment.ObjectMeta.Annotations[revisionAnnotation] = val
 	}
 
 	ops, err := getPatchWithObjectMetaAndSpec([]string{
@@ -276,7 +284,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 
 	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	InjectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec)
+	InjectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec, AnyNode)
 
 	if daemonSet.GetName() == "virt-handler" {
 		setMaxDevices(r.kv, daemonSet)

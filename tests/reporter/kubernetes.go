@@ -70,9 +70,10 @@ const (
 )
 
 type KubernetesReporter struct {
-	failureCount int
-	artifactsDir string
-	maxFails     int
+	failureCount      int
+	artifactsDir      string
+	maxFails          int
+	programmaticFocus bool
 }
 
 type commands struct {
@@ -85,6 +86,15 @@ func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesRepo
 		failureCount: 0,
 		artifactsDir: artifactsDir,
 		maxFails:     maxFailures,
+	}
+}
+
+func (r *KubernetesReporter) ConfigurePerSpecReporting(report Report) {
+	// we want to emit k8s logs anyhow if we focus tests by i.e. FIt
+	r.programmaticFocus = report.SuiteHasProgrammaticFocus
+	_, err := fmt.Fprintf(GinkgoWriter, "ConfigurePerSpecReporting r.programmaticFocus = %t", r.programmaticFocus)
+	if err != nil {
+		GinkgoT().Error(err)
 	}
 }
 
@@ -104,13 +114,12 @@ func (r *KubernetesReporter) Report(report types.Report) {
 
 func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 	fmt.Fprintf(GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
-
-	if r.failureCount > r.maxFails {
+	if !r.programmaticFocus && r.failureCount > r.maxFails {
 		return
 	}
 	if specReport.Failed() {
 		r.failureCount++
-	} else {
+	} else if !r.programmaticFocus {
 		return
 	}
 
@@ -118,7 +127,11 @@ func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 	if r.artifactsDir == "" {
 		return
 	}
-	By("Collecting Logs for failed test")
+	reason := "due to failure"
+	if r.programmaticFocus {
+		reason = "due to use of programmatic focus container"
+	}
+	By(fmt.Sprintf("Collecting Logs %s", reason))
 	r.DumpTestNamespaces(specReport.RunTime)
 }
 
@@ -248,7 +261,7 @@ func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, vmis 
 }
 
 func (r *KubernetesReporter) logVMs(virtCli kubecli.KubevirtClient) {
-	vms, err := virtCli.VirtualMachine(v1.NamespaceAll).List(context.Background(), &metav1.ListOptions{})
+	vms, err := virtCli.VirtualMachine(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vms: %v\n", err)
 		return
@@ -673,7 +686,7 @@ func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
 }
 
 func (r *KubernetesReporter) logKubeVirtCR(virtCli kubecli.KubevirtClient) {
-	kvs, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).List(&metav1.ListOptions{})
+	kvs, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch kubevirts: %v\n", err)
 		return
@@ -917,7 +930,7 @@ func getVirtHandlerList(virtCli kubecli.KubevirtClient) *v1.PodList {
 
 func getVMIList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceList {
 
-	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(context.Background(), &metav1.ListOptions{})
+	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vmis: %v\n", err)
 		return nil
@@ -928,7 +941,7 @@ func getVMIList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceList 
 
 func getVMIMList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceMigrationList {
 
-	vmims, err := virtCli.VirtualMachineInstanceMigration(v1.NamespaceAll).List(&metav1.ListOptions{})
+	vmims, err := virtCli.VirtualMachineInstanceMigration(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vmims: %v\n", err)
 		return nil
@@ -941,7 +954,7 @@ func getRunningVMIs(virtCli kubecli.KubevirtClient, namespace []string) []v12.Vi
 	runningVMIs := []v12.VirtualMachineInstance{}
 
 	for _, ns := range namespace {
-		nsVMIs, err := virtCli.VirtualMachineInstance(ns).List(context.Background(), &metav1.ListOptions{})
+		nsVMIs, err := virtCli.VirtualMachineInstance(ns).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get vmis from namespace %s: %v\n", ns, err)
 			continue
@@ -1079,7 +1092,8 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 
 	response, err := virtCli.RestClient().Get().RequestURI(requestURI).Do(context.Background()).Raw()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "dump %s: %v\n", entityName, err)
+		// If a cluster doesn't support network-attachment-definitions (the only thing this function is used for),
+		// logging an error here would spam the logs.
 		return
 	}
 
@@ -1175,13 +1189,15 @@ func getVmiType(vmi v12.VirtualMachineInstance) (string, error) {
 }
 
 func prepareVmiConsole(vmi v12.VirtualMachineInstance, vmiType string) error {
+	// 20 seconds is plenty here. If the VMI is not ready for login, there's a low chance it has interesting logs
+	timeout := 20 * time.Second
 	switch vmiType {
 	case "fedora":
-		return console.LoginToFedora(&vmi)
+		return console.LoginToFedora(&vmi, timeout)
 	case "cirros":
-		return console.LoginToCirros(&vmi)
+		return console.LoginToCirros(&vmi, timeout)
 	case "alpine":
-		return console.LoginToAlpine(&vmi)
+		return console.LoginToAlpine(&vmi, timeout)
 	default:
 		return fmt.Errorf("unknown vmi %s type", vmi.ObjectMeta.Name)
 	}

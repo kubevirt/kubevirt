@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/libreplicaset",
     visibility = ["//visibility:public"],
     deps = [
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests:go_default_library",
         "//tests/testsuite:go_default_library",

@@ -41,10 +41,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -98,6 +98,7 @@ var _ = Describe("Application", func() {
 		crInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
@@ -131,9 +132,11 @@ var _ = Describe("Application", func() {
 			vmInformer,
 			podInformer,
 			pvcInformer,
+			storageClassInformer,
 			recorder,
 			virtClient,
 			dataVolumeInformer,
+			storageProfileInformer,
 			cdiInformer,
 			cdiConfigInformer,
 			config,
@@ -151,7 +154,9 @@ var _ = Describe("Application", func() {
 			instancetypeMethods,
 			recorder,
 			virtClient,
-			config)
+			config,
+			nil,
+		)
 		app.migrationController, _ = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,

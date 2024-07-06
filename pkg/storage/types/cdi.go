@@ -27,30 +27,31 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const (
 	ConfigName        = "config"
-	DefaultFSOverhead = cdiv1.Percent("0.055")
+	DefaultFSOverhead = virtv1.Percent("0.055")
 	FSOverheadMsg     = "Using default 5.5%% filesystem overhead for pvc size"
 )
 
 var ErrFailedToFindCdi error = errors.New("No CDI instances found")
 var ErrMultipleCdiInstances error = errors.New("Detected more than one CDI instance")
 
-func GetFilesystemOverhead(volumeMode *k8sv1.PersistentVolumeMode, storageClass *string, cdiConfig *cdiv1.CDIConfig) cdiv1.Percent {
+func GetFilesystemOverhead(volumeMode *k8sv1.PersistentVolumeMode, storageClass *string, cdiConfig *cdiv1.CDIConfig) virtv1.Percent {
 	if IsPVCBlock(volumeMode) {
 		return "0"
 	}
 	if storageClass == nil {
-		return cdiConfig.Status.FilesystemOverhead.Global
+		return virtv1.Percent(cdiConfig.Status.FilesystemOverhead.Global)
 	}
 	fsOverhead, ok := cdiConfig.Status.FilesystemOverhead.StorageClass[*storageClass]
 	if !ok {
-		return cdiConfig.Status.FilesystemOverhead.Global
+		return virtv1.Percent(cdiConfig.Status.FilesystemOverhead.Global)
 	}
-	return fsOverhead
+	return virtv1.Percent(fsOverhead)
 }
 
 func roundUpToUnit(size, unit float64) float64 {
@@ -64,7 +65,7 @@ func alignSizeUpTo1MiB(size float64) float64 {
 	return roundUpToUnit(size, float64(MiB))
 }
 
-func GetSizeIncludingGivenOverhead(size *resource.Quantity, overhead cdiv1.Percent) (*resource.Quantity, error) {
+func GetSizeIncludingGivenOverhead(size *resource.Quantity, overhead virtv1.Percent) (*resource.Quantity, error) {
 	fsOverhead, err := strconv.ParseFloat(string(overhead), 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse filesystem overhead as float: %v", err)

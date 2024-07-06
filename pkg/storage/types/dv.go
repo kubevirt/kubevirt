@@ -22,6 +22,7 @@ package types
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,22 +112,15 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 	newDataVolume := &cdiv1.DataVolume{}
 	newDataVolume.Spec = *dataVolumeTemplate.Spec.DeepCopy()
 	newDataVolume.ObjectMeta = *dataVolumeTemplate.ObjectMeta.DeepCopy()
-
-	labels := map[string]string{}
-	for k, v := range dataVolumeTemplate.Labels {
-		labels[k] = v
+	newDataVolume.ObjectMeta.Labels = maps.Clone(dataVolumeTemplate.Labels)
+	if newDataVolume.ObjectMeta.Labels == nil {
+		newDataVolume.ObjectMeta.Labels = make(map[string]string)
 	}
-	newDataVolume.ObjectMeta.Labels = labels
-
-	annotations := map[string]string{}
-	for k, v := range dataVolumeTemplate.Annotations {
-		annotations[k] = v
+	newDataVolume.ObjectMeta.Annotations = maps.Clone(dataVolumeTemplate.Annotations)
+	if newDataVolume.ObjectMeta.Annotations == nil {
+		newDataVolume.ObjectMeta.Annotations = make(map[string]string, 1)
 	}
-
-	// passed to PVC by DataVolume controller
-	annotations[allowClaimAdoptionAnnotation] = "true"
-
-	newDataVolume.ObjectMeta.Annotations = annotations
+	newDataVolume.ObjectMeta.Annotations[allowClaimAdoptionAnnotation] = "true"
 
 	if newDataVolume.Spec.PriorityClassName == "" && priorityClassName != "" {
 		newDataVolume.Spec.PriorityClassName = priorityClassName
@@ -242,11 +236,11 @@ func ListDataVolumesFromTemplates(namespace string, dvTemplates []virtv1.DataVol
 	return dataVolumes, nil
 }
 
-func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataVolumeStore cache.Store, pvcInformer cache.SharedInformer) ([]*cdiv1.DataVolume, error) {
+func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataVolumeStore cache.Store, pvcStore cache.Store) ([]*cdiv1.DataVolume, error) {
 	dataVolumes := []*cdiv1.DataVolume{}
 
 	for _, volume := range volumes {
-		dataVolumeName := getDataVolumeName(namespace, volume, pvcInformer)
+		dataVolumeName := getDataVolumeName(namespace, volume, pvcStore)
 		if dataVolumeName == nil {
 			continue
 		}
@@ -264,9 +258,9 @@ func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataV
 	return dataVolumes, nil
 }
 
-func getDataVolumeName(namespace string, volume virtv1.Volume, pvcInformer cache.SharedInformer) *string {
+func getDataVolumeName(namespace string, volume virtv1.Volume, pvcStore cache.Store) *string {
 	if volume.VolumeSource.PersistentVolumeClaim != nil {
-		pvcInterface, pvcExists, _ := pvcInformer.GetStore().
+		pvcInterface, pvcExists, _ := pvcStore.
 			GetByKey(fmt.Sprintf("%s/%s", namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
 		if pvcExists {
 			pvc := pvcInterface.(*v1.PersistentVolumeClaim)
@@ -281,14 +275,14 @@ func getDataVolumeName(namespace string, volume virtv1.Volume, pvcInformer cache
 	return nil
 }
 
-func DataVolumeByNameFunc(dataVolumeInformer cache.SharedInformer, dataVolumes []*cdiv1.DataVolume) func(name string, namespace string) (*cdiv1.DataVolume, error) {
+func DataVolumeByNameFunc(dataVolumeStore cache.Store, dataVolumes []*cdiv1.DataVolume) func(name string, namespace string) (*cdiv1.DataVolume, error) {
 	return func(name, namespace string) (*cdiv1.DataVolume, error) {
 		for _, dataVolume := range dataVolumes {
 			if dataVolume.Name == name && dataVolume.Namespace == namespace {
 				return dataVolume, nil
 			}
 		}
-		dv, exists, _ := dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+		dv, exists, _ := dataVolumeStore.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 		if !exists {
 			return nil, fmt.Errorf("unable to find datavolume %s/%s", namespace, name)
 		}

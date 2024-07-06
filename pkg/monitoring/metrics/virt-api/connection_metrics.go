@@ -18,7 +18,11 @@
 
 package virt_api
 
-import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+import (
+	"time"
+
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+)
 
 var (
 	connectionMetrics = []operatormetrics.Metric{
@@ -26,6 +30,7 @@ var (
 		activeVNCConnections,
 		activeConsoleConnections,
 		activeUSBRedirConnections,
+		vmiLastConnectionTimestamp,
 	}
 
 	namespaceAndVMILabels = []string{"namespace", "vmi"}
@@ -58,6 +63,14 @@ var (
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_usbredir_active_connections",
 			Help: "Amount of active USB redirection connections, broken down by namespace and vmi name.",
+		},
+		namespaceAndVMILabels,
+	)
+
+	vmiLastConnectionTimestamp = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_last_api_connection_timestamp_seconds",
+			Help: "Virtual Machine Instance last API connection timestamp. Including VNC, console, portforward, SSH and usbredir connections.",
 		},
 		namespaceAndVMILabels,
 	)
@@ -97,4 +110,8 @@ func NewActiveUSBRedirConnection(namespace, name string) Decrementer {
 	recorder := activeUSBRedirConnections.WithLabelValues(namespace, name)
 	recorder.Inc()
 	return recorder
+}
+
+func SetVMILastConnectionTimestamp(namespace, name string) {
+	vmiLastConnectionTimestamp.WithLabelValues(namespace, name).Set(float64(time.Now().Unix()))
 }

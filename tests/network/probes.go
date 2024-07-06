@@ -19,12 +19,14 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 const (
@@ -105,8 +107,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, readinessProbe, 1500)
 			} else {
 				By(specifyingVMReadinessProbe)
-				vmi = libvmi.NewFedora(
-					withMasqueradeNetworkingAndFurtherUserConfig(withReadinessProbe(readinessProbe))...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(readinessProbe))
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
@@ -128,10 +129,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			)
 
 			BeforeEach(func() {
-				vmi = libvmi.NewFedora(
-					withMasqueradeNetworkingAndFurtherUserConfig(
-						withReadinessProbe(
-							createGuestAgentPingProbe(period, initialSeconds)))...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -163,10 +161,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			By("Checking that the VMI is consistently non-ready")
 			Consistently(matcher.ThisVMI(vmi), 30*time.Second, 100*time.Millisecond).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 		},
-			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewAlpine),
-			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewAlpine),
-			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
-			Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), libvmi.NewFedora),
+			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmifact.NewAlpine),
+			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmifact.NewAlpine),
+			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
+			Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), libvmifact.NewFedora),
 		)
 	})
 
@@ -206,9 +204,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, livenessProbe, 1500)
 			} else {
 				By(specifyingVMLivenessProbe)
-				vmi = libvmi.NewFedora(
-					withMasqueradeNetworkingAndFurtherUserConfig(
-						withLivelinessProbe(livenessProbe))...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(livenessProbe))
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
@@ -217,7 +213,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 			By("Checking that the VMI is still running after a while")
 			Consistently(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
@@ -231,9 +227,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		Context("guest agent ping", func() {
 			BeforeEach(func() {
-				vmi = libvmi.NewFedora(withMasqueradeNetworkingAndFurtherUserConfig(
-					withLivelinessProbe(createGuestAgentPingProbe(period, initialSeconds)),
-				)...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
@@ -245,7 +239,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(stopGuestAgent(vmi)).To(Succeed())
 
 				Eventually(func() (*v1.VirtualMachineInstance, error) {
-					return virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					return virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				}, 2*time.Minute, 1*time.Second).Should(Or(matcher.BeInPhase(v1.Failed), matcher.HaveSucceeded()))
 			})
 		})
@@ -257,14 +251,14 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 			By("Checking that the VMI is in a final state after a while")
 			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
 			}, 120, 1).Should(BeTrue())
 		},
-			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewCirros),
-			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewCirros),
-			Entry("[test_id:5880]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
+			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmifact.NewCirros),
+			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmifact.NewCirros),
+			Entry("[test_id:5880]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
 		)
 	})
 })
@@ -293,15 +287,12 @@ func guestAgentOperation(vmi *v1.VirtualMachineInstance, startStopOperation stri
 }
 
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewAlpineWithTestTooling(
-		withMasqueradeNetworkingAndFurtherUserConfig(withReadinessProbe(probe))...)
-
+	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), withReadinessProbe(probe))
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
 func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewAlpineWithTestTooling(
-		withMasqueradeNetworkingAndFurtherUserConfig(withLivelinessProbe(probe))...)
+	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), withLivelinessProbe(probe))
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
@@ -371,10 +362,6 @@ func pointIpv6ProbeToSupportPod(pod *corev1.Pod, probe *v1.Probe) (*v1.Probe, er
 	}
 
 	return patchProbeWithIPAddr(probe, supportPodIP), nil
-}
-
-func withMasqueradeNetworkingAndFurtherUserConfig(opts ...libvmi.Option) []libvmi.Option {
-	return append(libnet.WithMasqueradeNetworking(), opts...)
 }
 
 func withReadinessProbe(probe *v1.Probe) libvmi.Option {

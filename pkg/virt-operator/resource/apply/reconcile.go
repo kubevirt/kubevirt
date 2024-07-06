@@ -30,7 +30,6 @@ import (
 	"github.com/blang/semver"
 	secv1 "github.com/openshift/api/security/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -56,6 +55,13 @@ import (
 
 const Duration7d = time.Hour * 24 * 7
 const Duration1d = time.Hour * 24
+
+type DefaultInfraComponentsNodePlacement int
+
+const (
+	AnyNode DefaultInfraComponentsNodePlacement = iota
+	RequireControlPlanePreferNonWorker
+)
 
 const (
 	replaceSpecPatchTemplate     = `{ "op": "replace", "path": "/spec", "value": %s }`
@@ -125,15 +131,77 @@ const (
 )
 
 // Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
-func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
+func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec, nodePlacementOption DefaultInfraComponentsNodePlacement) {
 	if podSpec == nil {
 		podSpec = &corev1.PodSpec{}
 	}
+
 	if componentConfig == nil || componentConfig.NodePlacement == nil {
-		componentConfig = &v1.ComponentConfig{
-			NodePlacement: &v1.NodePlacement{},
+		switch nodePlacementOption {
+		case AnyNode:
+			componentConfig = &v1.ComponentConfig{NodePlacement: &v1.NodePlacement{}}
+
+		case RequireControlPlanePreferNonWorker:
+			componentConfig = &v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "node-role.kubernetes.io/control-plane",
+												Operator: corev1.NodeSelectorOpExists,
+											},
+										},
+									},
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "node-role.kubernetes.io/master",
+												Operator: corev1.NodeSelectorOpExists,
+											},
+										},
+									},
+								},
+							},
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+								{
+									Weight: 100,
+									Preference: corev1.NodeSelectorTerm{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "node-role.kubernetes.io/worker",
+												Operator: corev1.NodeSelectorOpDoesNotExist,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "node-role.kubernetes.io/control-plane",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+						{
+							Key:      "node-role.kubernetes.io/master",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+					},
+				},
+			}
+
+		default:
+			log.Log.Errorf("Unknown nodePlacementOption %d provided to InjectPlacementMetadata. Falling back to the AnyNode option", nodePlacementOption)
+			componentConfig = &v1.ComponentConfig{NodePlacement: &v1.NodePlacement{}}
 		}
 	}
+
 	nodePlacement := componentConfig.NodePlacement
 	if len(nodePlacement.NodeSelector) == 0 {
 		nodePlacement.NodeSelector = make(map[string]string)
@@ -590,6 +658,16 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		return false, nil
 	}
 
+	err = r.createOrUpdateValidatingAdmissionPolicyBindings()
+	if err != nil {
+		return false, err
+	}
+
+	err = r.createOrUpdateValidatingAdmissionPolicies()
+	if err != nil {
+		return false, err
+	}
+
 	err = r.createOrUpdateComponentsWithCertificates(queue)
 	if err != nil {
 		return false, err
@@ -876,6 +954,56 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 					if err != nil {
 						r.expectations.ConfigMap.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused ValidatingAdmissionPolicyBinding
+	objects = r.stores.ValidatingAdmissionPolicyBindingCache.List()
+	for _, obj := range objects {
+		if validatingAdmissionPolicyBinding, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding); ok && validatingAdmissionPolicyBinding.DeletionTimestamp == nil {
+			found := false
+			for _, targetValidatingAdmissionPolicyBinding := range r.targetStrategy.ValidatingAdmissionPolicyBindings() {
+				if targetValidatingAdmissionPolicyBinding.Name == validatingAdmissionPolicyBinding.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(validatingAdmissionPolicyBinding); err == nil {
+					r.expectations.ValidatingAdmissionPolicyBinding.AddExpectedDeletion(r.kvKey, key)
+					err := r.clientset.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(context.Background(), validatingAdmissionPolicyBinding.Name, deleteOptions)
+					if err != nil {
+						r.expectations.ValidatingAdmissionPolicyBinding.DeletionObserved(r.kvKey, key)
+						log.Log.Errorf("Failed to delete validatingAdmissionPolicyBinding %+v: %v", validatingAdmissionPolicyBinding, err)
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused ValidatingAdmissionPolicy
+	objects = r.stores.ValidatingAdmissionPolicyCache.List()
+	for _, obj := range objects {
+		if validatingAdmissionPolicy, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy); ok && validatingAdmissionPolicy.DeletionTimestamp == nil {
+			found := false
+			for _, targetValidatingAdmissionPolicy := range r.targetStrategy.ValidatingAdmissionPolicies() {
+				if targetValidatingAdmissionPolicy.Name == validatingAdmissionPolicy.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(validatingAdmissionPolicy); err == nil {
+					r.expectations.ValidatingAdmissionPolicy.AddExpectedDeletion(r.kvKey, key)
+					err := r.clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), validatingAdmissionPolicy.Name, deleteOptions)
+					if err != nil {
+						r.expectations.ValidatingAdmissionPolicy.DeletionObserved(r.kvKey, key)
+						log.Log.Errorf("Failed to delete validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, err)
 						return err
 					}
 				}

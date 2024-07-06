@@ -52,6 +52,7 @@ func (CPUInstancetype) SwaggerDoc() map[string]string {
 		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
 		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
 		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
+		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can be hotplugged\n+optional",
 	}
 }
 
@@ -61,6 +62,7 @@ func (MemoryInstancetype) SwaggerDoc() map[string]string {
 		"guest":             "Required amount of memory which is visible inside the guest OS.",
 		"hugepages":         "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
 		"overcommitPercent": "OvercommitPercent is the percentage of the guest memory which will be overcommitted.\nThis means that the VMIs parent pod (virt-launcher) will request less\nphysical memory by a factor specified by the OvercommitPercent.\nOvercommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.\nDefaults to 0\n+optional\n+kubebuilder:validation:Maximum=100\n+kubebuilder:validation:Minimum=0",
+		"maxGuest":          "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.\nThe delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.\n+optional",
 	}
 }
 
@@ -120,7 +122,15 @@ func (CPUPreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "CPUPreferences contains various optional CPU preferences.",
 		"preferredCPUTopology": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.\n\n+optional",
+		"spreadOptions":        "+optional",
 		"preferredCPUFeatures": "PreferredCPUFeatures optionally defines a slice of preferred CPU features.\n\n+optional",
+	}
+}
+
+func (SpreadOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"across": "Across optionally defines how to spread vCPUs across the guest visible topology.\nDefault: SocketsCores\n\n+optional",
+		"ratio":  "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.\nSocketsCores        - 1:N   - Controls the ratio of socket to cores.\nSocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2\n\n+optional",
 	}
 }
 
@@ -141,7 +151,7 @@ func (DevicePreferences) SwaggerDoc() map[string]string {
 		"preferredDiskBus":                    "PreferredDiskBus optionally defines the preferred bus for Disk Disk devices.\n\n+optional",
 		"preferredLunBus":                     "PreferredLunBus optionally defines the preferred bus for Lun Disk devices.\n\n+optional",
 		"preferredCdromBus":                   "PreferredCdromBus optionally defines the preferred bus for Cdrom Disk devices.\n\n+optional",
-		"preferredDiskDedicatedIoThread":      "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.\n\n+optional",
+		"preferredDiskDedicatedIoThread":      "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices using the virtio bus.\n\n+optional",
 		"preferredDiskCache":                  "PreferredCache optionally defines the DriverCache to be used by Disk devices.\n\n+optional",
 		"preferredDiskIO":                     "PreferredIo optionally defines the QEMU disk IO mode to be used by Disk devices.\n\n+optional",
 		"preferredDiskBlockSize":              "PreferredBlockSize optionally defines the block size of Disk devices.\n\n+optional",

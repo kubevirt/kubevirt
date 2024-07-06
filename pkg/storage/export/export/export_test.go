@@ -45,13 +45,14 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	framework "k8s.io/client-go/tools/cache/testing"
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -61,7 +62,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
-	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -70,8 +70,9 @@ import (
 )
 
 const (
-	testNamespace = "default"
-	ingressSecret = "ingress-secret"
+	testNamespace  = "default"
+	ingressSecret  = "ingress-secret"
+	currentVersion = "v1beta1"
 )
 
 var (
@@ -222,7 +223,7 @@ var _ = Describe("Export controller", func() {
 
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
-			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
+			Return(vmExportClient.ExportV1beta1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
 			Client:                      virtClient,
@@ -368,7 +369,7 @@ var _ = Describe("Export controller", func() {
 	generateExpectedPem := func(allPem string) string {
 		now := time.Now()
 		pemOut := strings.Builder{}
-		certs, err := cert.ParseCertsPEM([]byte(allPem))
+		certs, err := certutil.ParseCertsPEM([]byte(allPem))
 		Expect(err).ToNot(HaveOccurred())
 		for _, cert := range certs {
 			if cert.NotAfter.After(now) && cert.NotBefore.Before(now) {
@@ -534,7 +535,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Status: &snapshotv1.VirtualMachineSnapshotStatus{
-				ReadyToUse: pointer.BoolPtr(false),
+				ReadyToUse: pointer.P(false),
 			},
 		}
 		syncCaches(stop)
@@ -590,7 +591,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.BoolPtr(true),
+						Controller: pointer.P(true),
 					},
 				},
 			},
@@ -627,7 +628,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.BoolPtr(true),
+						Controller: pointer.P(true),
 					},
 				},
 			},
@@ -830,7 +831,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Spec: k8sv1.PersistentVolumeClaimSpec{
-				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.StringPtr(string(k8sv1.PersistentVolumeBlock))),
+				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.P(string(k8sv1.PersistentVolumeBlock))),
 			},
 		}
 		testVMExport := populateExportFunc()
@@ -921,6 +922,8 @@ var _ = Describe("Export controller", func() {
 		Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()).To(Equal(int64(1000)))
 		Expect(pod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
 		Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1073741824)))
+		Expect(pod.Spec.Containers[0].ReadinessProbe).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].ReadinessProbe.ProbeHandler.HTTPGet.Path).To(Equal(ReadinessPath))
 	},
 		Entry("PVC", createPVCVMExport, 3),
 		Entry("VM", populateVmExportVM, 4),
@@ -974,8 +977,7 @@ var _ = Describe("Export controller", func() {
 			Expect(ok).To(BeTrue())
 			Expect(secret.GetName()).To(Equal(controller.getExportSecretName(testExportPod)))
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
-			secret.Name = "something"
-			return true, secret, errors.NewAlreadyExists(schema.GroupResource{}, "already exists")
+			return true, nil, errors.NewAlreadyExists(schema.GroupResource{}, secret.Name)
 		})
 		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
@@ -1289,6 +1291,11 @@ var _ = Describe("Export controller", func() {
 					Source: &cdiv1.DataVolumeSource{
 						Blank: &cdiv1.DataVolumeBlankImage{},
 					},
+					SourceRef: &cdiv1.DataVolumeSourceRef{
+						Kind:      "",
+						Name:      "test",
+						Namespace: pointer.P("default"),
+					},
 				},
 			},
 		}
@@ -1322,6 +1329,7 @@ var _ = Describe("Export controller", func() {
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP).ToNot(BeNil())
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(BeEmpty())
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.Blank).To(BeNil())
+		Expect(res.Spec.DataVolumeTemplates[0].Spec.SourceRef).To(BeNil())
 	})
 
 	It("Should generate DataVolumes from VM", func() {
@@ -1336,6 +1344,7 @@ var _ = Describe("Export controller", func() {
 		Expect(dvs[0].Name).To((Equal("pvc")))
 		Expect(dvs[0].Spec.PVC.DataSource).To(BeNil())
 		Expect(dvs[0].Spec.PVC.DataSourceRef).To(BeNil())
+		Expect(dvs[0].Spec.SourceRef).To(BeNil())
 	})
 })
 
@@ -1390,9 +1399,9 @@ func verifyKubevirtInternal(vmExport *exportv1.VirtualMachineExport, exportName,
 func verifyKubevirtExternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
 	verifyLinksExternal(vmExport,
 		exportv1.KubeVirtRaw,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", namespace, exportName, volumeName),
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", currentVersion, namespace, exportName, volumeName),
 		exportv1.KubeVirtGz,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", namespace, exportName, volumeName))
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", currentVersion, namespace, exportName, volumeName))
 }
 
 func verifyArchiveInternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
@@ -1469,9 +1478,9 @@ func ingressToHost() *networkingv1.Ingress {
 func verifyArchiveExternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
 	verifyLinksExternal(vmExport,
 		exportv1.Dir,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/dir", namespace, exportName, volumeName),
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/dir", currentVersion, namespace, exportName, volumeName),
 		exportv1.ArchiveGz,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", namespace, exportName, volumeName))
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", currentVersion, namespace, exportName, volumeName))
 }
 
 func writeCertsToDir(dir string) {
@@ -1495,7 +1504,7 @@ func createPVCVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "PersistentVolumeClaim",
 				Name:     testPVCName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: pointer.P("token"),
 		},
 	}
 }
@@ -1530,7 +1539,7 @@ func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachineSnapshot",
 				Name:     testVmsnapshotName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: pointer.P("token"),
 		},
 	}
 }
@@ -1549,7 +1558,7 @@ func createVMVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachine",
 				Name:     testVmName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: pointer.P("token"),
 		},
 	}
 }

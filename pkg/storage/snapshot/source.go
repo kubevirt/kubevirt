@@ -34,7 +34,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -119,7 +119,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		log.Log.Infof("Adding VM snapshot finalizer to %s", s.vm.Name)
 		controller.AddFinalizer(vmCopy, sourceFinalizer)
-		_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+		_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -138,7 +138,7 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 
 	if controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		controller.RemoveFinalizer(vmCopy, sourceFinalizer)
-		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}

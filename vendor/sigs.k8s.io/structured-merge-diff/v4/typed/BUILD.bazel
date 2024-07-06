@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "compare.go",
         "doc.go",
         "helpers.go",
         "merge.go",
@@ -11,7 +12,6 @@ go_library(
         "remove.go",
         "tofieldset.go",
         "typed.go",
-        "union.go",
         "validate.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/structured-merge-diff/v4/typed",

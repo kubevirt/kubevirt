@@ -52,7 +52,7 @@ func NewSlirpNetworkConfigurator(ifaces []vmschema.Interface, networks []vmschem
 	if iface == nil {
 		return nil, fmt.Errorf("iface %q not found", network.Name)
 	}
-	if iface.Binding == nil && iface.Slirp == nil {
+	if iface.Binding == nil && iface.DeprecatedSlirp == nil {
 		return nil, fmt.Errorf("iface %q is not set with slirp network binding plugin or slirp binding method", network.Name)
 	}
 	if iface.Binding != nil && iface.Binding.Name != SlirpPluginName {

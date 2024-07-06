@@ -305,8 +305,13 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}))
 		},
-			Entry("with Passt", deprecation.PasstGate, "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."),
-			Entry("with SRIOVLiveMigrationGate", deprecation.SRIOVLiveMigrationGate, "feature gate SRIOVLiveMigration is deprecated, therefore it can be safely removed and is redundant. For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"),
+			Entry("with LiveMigration", deprecation.LiveMigrationGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.LiveMigrationGate, deprecation.GA)),
+			Entry("with SRIOVLiveMigration", deprecation.SRIOVLiveMigrationGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.SRIOVLiveMigrationGate, deprecation.GA)),
+			Entry("with NonRoot", deprecation.NonRoot, fmt.Sprintf(deprecation.WarningPattern, deprecation.NonRoot, deprecation.GA)),
+			Entry("with PSA", deprecation.PSA, fmt.Sprintf(deprecation.WarningPattern, deprecation.PSA, deprecation.GA)),
+			Entry("with CPUNodeDiscoveryGate", deprecation.CPUNodeDiscoveryGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.CPUNodeDiscoveryGate, deprecation.GA)),
+			Entry("with Passt", deprecation.PasstGate, deprecation.PasstDiscontinueMessage),
+			Entry("with MacvtapGate", deprecation.MacvtapGate, deprecation.MacvtapDiscontinueMessage),
 		)
 	})
 })

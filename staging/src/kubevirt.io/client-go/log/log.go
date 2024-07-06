@@ -238,6 +238,10 @@ func (l FilteredVerbosityLogger) Reason(err error) *FilteredVerbosityLogger {
 	return &l
 }
 
+func (l FilteredVerbosityLogger) Verbosity(level int) bool {
+	return l.filteredLogger.Verbosity(level)
+}
+
 func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 
 	name := obj.GetObjectMeta().GetName()
@@ -293,6 +297,10 @@ func (l FilteredLogger) V(level int) *FilteredVerbosityLogger {
 	return &FilteredVerbosityLogger{
 		filteredLogger: l,
 	}
+}
+
+func (l FilteredLogger) Verbosity(level int) bool {
+	return l.currentVerbosityLevel >= level
 }
 
 func (l FilteredLogger) Reason(err error) *FilteredLogger {

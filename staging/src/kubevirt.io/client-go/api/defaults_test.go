@@ -41,13 +41,6 @@ var _ = Describe("Defaults", func() {
 		Expect(vmi.Spec.Domain.Features.SMM).To(BeNil())
 	})
 
-	It("should add interface and pod network by default", func() {
-		vmi := &v1.VirtualMachineInstance{}
-		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(vmi.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
-		Expect(vmi.Spec.Networks).NotTo(BeEmpty())
-	})
-
 	It("should default to true to all defined features", func() {
 		vmi := &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
@@ -276,55 +269,6 @@ var _ = Describe("Defaults", func() {
 		vmi := &v1.VirtualMachineInstance{}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		Expect(vmi.Spec.Domain.IOThreadsPolicy).To(BeNil(), "Default IOThreadsPolicy should be nil")
-	})
-})
-
-var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
-
-	It("should append pod interface if interface is not defined", func() {
-		vmi := &v1.VirtualMachineInstance{}
-		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
-		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("default"))
-		Expect(vmi.Spec.Networks[0].Name).To(Equal("default"))
-		Expect(vmi.Spec.Networks[0].Pod).ToNot(BeNil())
-	})
-
-	It("should not append pod interface if interface is defined", func() {
-		vmi := &v1.VirtualMachineInstance{}
-		net := v1.Network{
-			Name: "testnet",
-		}
-		iface := v1.Interface{Name: net.Name}
-		vmi.Spec.Networks = []v1.Network{net}
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
-
-		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
-		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("testnet"))
-		Expect(vmi.Spec.Networks[0].Name).To(Equal("testnet"))
-		Expect(vmi.Spec.Networks[0].Pod).To(BeNil())
-	})
-
-	It("should not append pod interface if it's explicitly disabled", func() {
-		autoAttach := false
-		vmi := &v1.VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
-
-		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(vmi.Spec.Domain.Devices.Interfaces).To(BeEmpty())
-		Expect(vmi.Spec.Networks).To(BeEmpty())
-	})
-
-	It("should append pod interface if auto attach is true", func() {
-		autoAttach := true
-		vmi := &v1.VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
-		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
-		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("default"))
-		Expect(vmi.Spec.Networks[0].Name).To(Equal("default"))
-		Expect(vmi.Spec.Networks[0].Pod).ToNot(BeNil())
 	})
 
 	It("should default probes", func() {
