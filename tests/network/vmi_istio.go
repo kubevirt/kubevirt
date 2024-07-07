@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -189,7 +190,10 @@ var istioTests = func(vmType VmType) {
 				checks.SkipIfMigrationIsNotPossible()
 			})
 			JustBeforeEach(func() {
-				sourcePodName = tests.GetVmPodName(virtClient, vmi)
+				sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).ToNot(HaveOccurred())
+				sourcePodName = sourcePod.Name
+
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			})
