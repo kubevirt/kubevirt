@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -180,14 +181,15 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 			It("should keep connectivity after a migration", func() {
 				const containerCompletionWaitTime = 60
-				serverVMIPodName := tests.GetVmPodName(kubevirt.Client(), serverVMI)
+				serverVmiPod, err := libpod.GetPodByVirtualMachineInstance(serverVMI, testsuite.GetTestNamespace(nil))
+				Expect(err).ToNot(HaveOccurred())
 				migration := libmigration.New(serverVMI.Name, serverVMI.GetNamespace())
 				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
 				// will be reachable only when the original launcher pod terminates.
 				Eventually(func() error {
-					return waitForPodCompleted(serverVMI.Namespace, serverVMIPodName)
-				}, containerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod: %s", serverVMIPodName))
+					return waitForPodCompleted(serverVMI.Namespace, serverVmiPod.Name)
+				}, containerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod: %s", serverVMI.Name))
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
 			})
 		})
