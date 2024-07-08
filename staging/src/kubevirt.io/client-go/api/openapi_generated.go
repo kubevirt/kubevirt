@@ -20099,11 +20099,17 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"computeResourceOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding. version: v1alphav1",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.InterfaceBindingMigration"},
+			"k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/api/core/v1.InterfaceBindingMigration"},
 	}
 }
 

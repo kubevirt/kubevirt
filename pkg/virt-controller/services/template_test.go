@@ -5042,6 +5042,54 @@ var _ = Describe("Template", func() {
 			),
 		)
 	})
+
+	Context("Network binding plugin", func() {
+		It("Should consider network binding plugin memory overhead", func() {
+			const (
+				iface1name  = "iface1"
+				plugin1name = "plugin1"
+				iface2name  = "iface2"
+				plugin2name = "plugin2"
+			)
+
+			bindingPlugins := map[string]v1.InterfaceBindingPlugin{
+				plugin1name: {
+					ComputeResourceOverhead: &k8sv1.ResourceRequirements{
+						Requests: map[k8sv1.ResourceName]resource.Quantity{
+							k8sv1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+					},
+				},
+				plugin2name: {
+					ComputeResourceOverhead: &k8sv1.ResourceRequirements{
+						Requests: map[k8sv1.ResourceName]resource.Quantity{
+							k8sv1.ResourceMemory: resource.MustParse("600Mi"),
+						},
+					},
+				},
+			}
+
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{Binding: bindingPlugins}
+			_, kvInformer, svc := configFactory(defaultArch)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace("default"),
+				libvmi.WithInterface(v1.Interface{Name: iface1name, Binding: &v1.PluginBinding{Name: plugin1name}}),
+				libvmi.WithNetwork(&v1.Network{Name: iface1name}),
+				libvmi.WithInterface(v1.Interface{Name: iface2name, Binding: &v1.PluginBinding{Name: plugin2name}}),
+				libvmi.WithNetwork(&v1.Network{Name: iface2name}),
+			)
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedMemory := GetMemoryOverhead(vmi, defaultArch, nil)
+			expectedMemory.Add(resource.MustParse("1100Mi"))
+			Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
+		})
+	})
 })
 
 func networkInfoAnnotVolume() k8sv1.Volume {
