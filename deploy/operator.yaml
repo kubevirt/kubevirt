@@ -61,7 +61,7 @@ spec:
         - name: CDI_VERSION
           value: v1.59.0
         - name: NETWORK_ADDONS_VERSION
-          value: v0.94.1
+          value: v0.94.2
         - name: SSP_VERSION
           value: v0.20.0
         - name: HPPO_VERSION
@@ -282,9 +282,9 @@ spec:
         - name: LINUX_BRIDGE_MARKER_IMAGE
           value: quay.io/kubevirt/bridge-marker@sha256:bba066e3b5ff3fb8c5e20861fe8abe51e3c9b50ad6ce3b2616af9cb5479a06d0
         - name: OVS_CNI_IMAGE
-          value: quay.io/kubevirt/ovs-cni-plugin@sha256:e16ac74343da21abb8fb668ce71e728053d00503a992dae2164b9e94a280113e
+          value: ghcr.io/k8snetworkplumbingwg/ovs-cni-plugin@sha256:a53d381d62796f44c8db4bb7ee0a1ada7c5355ef869a20382affcb5e21a5e3f2
         - name: KUBEMACPOOL_IMAGE
-          value: quay.io/kubevirt/kubemacpool@sha256:20e156be33e6d3692c456081acbb91a4349f94de448f7d1f1cddd0228931b31f
+          value: quay.io/kubevirt/kubemacpool@sha256:677971a25ff3ce95d9e6ecc86090a09f0ae691ce67b8349384f1881562feed7b
         - name: MACVTAP_CNI_IMAGE
           value: quay.io/kubevirt/macvtap-cni@sha256:850b89343ace7c7ea6b18dd8e11964613974e9d1f7377af03854d407fb15230a
         - name: KUBE_RBAC_PROXY_IMAGE
@@ -296,11 +296,11 @@ spec:
         - name: KUBEVIRT_IPAM_CONTROLLER_IMAGE
           value: ghcr.io/kubevirt/ipam-controller@sha256:f272eaf82c9e4fcd7fdee5d9031afba8019cff2dc842ca3e36be49de28083fee
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:6709c036bbdcc8d2179e42f49c7062fda54e873da98b67b8afb70ef8f0d771c1
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:70568a8402901d4649977eba352c0db12d90c68b753e4dd0d7e0ec11adc1b410
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.94.1
+          value: v0.94.2
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -320,7 +320,7 @@ spec:
           value: prometheus-k8s
         - name: RUNBOOK_URL_TEMPLATE
           value: https://kubevirt.io/monitoring/runbooks/%s
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:6709c036bbdcc8d2179e42f49c7062fda54e873da98b67b8afb70ef8f0d771c1
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:70568a8402901d4649977eba352c0db12d90c68b753e4dd0d7e0ec11adc1b410
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources:
