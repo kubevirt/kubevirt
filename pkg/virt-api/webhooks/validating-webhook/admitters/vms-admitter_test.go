@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	rt "runtime"
 )
@@ -2034,6 +2035,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			var maxGuest resource.Quantity
 
 			BeforeEach(func() {
+				checks.SkipIfS390X(rt.GOARCH, "Memory hotplug is not supported for s390x")
 				guest := resource.MustParse("1Gi")
 				maxGuest = resource.MustParse("4Gi")
 
