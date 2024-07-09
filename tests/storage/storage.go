@@ -54,7 +54,6 @@ import (
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -80,10 +79,6 @@ const (
 	startingVMInstance           = "Starting VirtualMachineInstance"
 	hostDiskName                 = "host-disk"
 	diskImgName                  = "disk.img"
-
-	// Without cloud init user data Cirros takes long time to boot,
-	// so provide this dummy data to make it boot faster
-	cirrosUserData = "#!/bin/bash\necho 'hello'\n"
 )
 
 const (
@@ -970,7 +965,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithResourceMemory("256Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(cirrosUserData)),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
