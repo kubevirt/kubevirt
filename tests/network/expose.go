@@ -129,7 +129,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By(iteratingClusterIPs)
-				runJobsAgainstService(svc, tcpVM.Namespace, job.NewHelloWorldJobTCP)
+				err = runJobAgainstService(svc, tcpVM.Namespace, job.NewHelloWorldJobTCP)
+				Expect(err).ToNot(HaveOccurred())
 			},
 				Entry("[test_id:1531] over default IPv4 IP family", ipv4),
 				Entry(overIPv6Family, ipv6),
@@ -395,7 +396,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By(iteratingClusterIPs)
-				runJobsAgainstService(svc, udpVM.Namespace, job.NewHelloWorldJobUDP)
+				err = runJobAgainstService(svc, udpVM.Namespace, job.NewHelloWorldJobUDP)
+				Expect(err).ToNot(HaveOccurred())
 			},
 				Entry("[test_id:1535] over default IPv4 IP family", ipv4),
 				Entry(overIPv6Family, ipv6),
@@ -438,7 +440,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(nodePort).To(BeNumerically(">", 0))
 
 				By(iteratingClusterIPs)
-				runJobsAgainstService(svc, udpVM.Namespace, job.NewHelloWorldJobUDP)
+				err = runJobAgainstService(svc, udpVM.Namespace, job.NewHelloWorldJobUDP)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting the node IP from all nodes")
 				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
@@ -539,7 +542,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By(iteratingClusterIPs)
-				runJobsAgainstService(svc, vmrs.Namespace, job.NewHelloWorldJobTCP)
+				err = runJobAgainstService(svc, vmrs.Namespace, job.NewHelloWorldJobTCP)
+				Expect(err).ToNot(HaveOccurred())
 			},
 				Entry("[test_id:1537] over default IPv4 IP family", ipv4),
 				Entry(overIPv6Family, ipv6),
@@ -633,7 +637,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By(iteratingClusterIPs)
-				runJobsAgainstService(svc, vm.Namespace, job.NewHelloWorldJobTCP)
+				err = runJobAgainstService(svc, vm.Namespace, job.NewHelloWorldJobTCP)
+				Expect(err).ToNot(HaveOccurred())
 			},
 				Entry("[test_id:1538] over default IPv4 IP family", ipv4),
 				Entry(overIPv6Family, ipv6),
@@ -660,7 +665,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By(iteratingClusterIPs)
-				runJobsAgainstService(svc, vmObj.Namespace, job.NewHelloWorldJobTCP)
+				err = runJobAgainstService(svc, vmObj.Namespace, job.NewHelloWorldJobTCP)
+				Expect(err).ToNot(HaveOccurred())
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
 				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(context.Background(), vmObj.Name, k8smetav1.GetOptions{})
@@ -689,7 +695,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
 				By(iteratingClusterIPs)
-				runJobsAgainstService(svc, vmObj.Namespace, job.NewHelloWorldJobTCP)
+				err = runJobAgainstService(svc, vmObj.Namespace, job.NewHelloWorldJobTCP)
+				Expect(err).ToNot(HaveOccurred())
 			},
 				Entry("[test_id:345] over default IPv4 IP family", ipv4),
 				Entry(overIPv6Family, ipv6),
@@ -809,12 +816,14 @@ func createAndWaitForJobToSucceed(jobFactory func(host, port string) *batchv1.Jo
 	return job.WaitForJobToSucceed(jobInstance, time.Duration(120)*time.Second)
 }
 
-func runJobsAgainstService(svc *k8sv1.Service, namespace string, jobFactories ...func(host, port string) *batchv1.Job) {
+func runJobAgainstService(svc *k8sv1.Service, namespace string, jobFactory func(host, port string) *batchv1.Job) error {
 	serviceIPs := svc.Spec.ClusterIPs
-	for _, jobFactory := range jobFactories {
-		for ipOrderNum, ip := range serviceIPs {
-			servicePort := strconv.Itoa(int(svc.Spec.Ports[0].Port))
-			Expect(createAndWaitForJobToSucceed(jobFactory, namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
+	for ipOrderNum, ip := range serviceIPs {
+		servicePort := strconv.Itoa(int(svc.Spec.Ports[0].Port))
+		err := createAndWaitForJobToSucceed(jobFactory, namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))
+		if err != nil {
+			return fmt.Errorf("failed running job against service with ClusterIP %s", ip)
 		}
 	}
+	return nil
 }
