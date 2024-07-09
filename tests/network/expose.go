@@ -92,16 +92,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	runJobsAgainstService := func(svc *k8sv1.Service, namespace string, jobFactories ...func(host, port string) *batchv1.Job) {
-		serviceIPs := svc.Spec.ClusterIPs
-		for _, jobFactory := range jobFactories {
-			for ipOrderNum, ip := range serviceIPs {
-				servicePort := fmt.Sprint(svc.Spec.Ports[0].Port)
-				Expect(createAndWaitForJobToSucceed(jobFactory, namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
-			}
-		}
-	}
-
 	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance
 		BeforeEach(func() {
@@ -817,4 +807,14 @@ func createAndWaitForJobToSucceed(jobFactory func(host, port string) *batchv1.Jo
 
 	By("Waiting for the job to report a successful connection attempt")
 	return job.WaitForJobToSucceed(jobInstance, time.Duration(120)*time.Second)
+}
+
+func runJobsAgainstService(svc *k8sv1.Service, namespace string, jobFactories ...func(host, port string) *batchv1.Job) {
+	serviceIPs := svc.Spec.ClusterIPs
+	for _, jobFactory := range jobFactories {
+		for ipOrderNum, ip := range serviceIPs {
+			servicePort := strconv.Itoa(int(svc.Spec.Ports[0].Port))
+			Expect(createAndWaitForJobToSucceed(jobFactory, namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
+		}
+	}
 }
