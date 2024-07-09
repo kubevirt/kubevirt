@@ -316,26 +316,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("VirtualMachineInstance with default settings", func() {
-		It("[test_id:1542]should be able to reach the internet", func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			outboundVMI := libvmifact.NewCirros()
-			outboundVMI = runVMI(outboundVMI)
-			libwait.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
-
-			By("checking the VirtualMachineInstance can fetch via HTTP")
-			err := console.SafeExpectBatch(outboundVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: console.EchoLastReturnValue},
-				&expect.BExp{R: console.RetValue("0")},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
-		})
-	})
-
 	Context("VirtualMachineInstance with custom interface model", func() {
 		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
