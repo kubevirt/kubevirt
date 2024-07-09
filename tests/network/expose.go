@@ -92,16 +92,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	createAndWaitForJobToSucceed := func(jobFactory func(host, port string) *batchv1.Job, namespace, ip, port, viaMessage string) error {
-		By(fmt.Sprintf("Starting a job which tries to reach the VMI via the %s", viaMessage))
-		jobInstance := jobFactory(ip, port)
-		jobInstance, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), jobInstance, metav1.CreateOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		By("Waiting for the job to report a successful connection attempt")
-		return job.WaitForJobToSucceed(jobInstance, time.Duration(120)*time.Second)
-	}
-
 	runJobsAgainstService := func(svc *k8sv1.Service, namespace string, jobFactories ...func(host, port string) *batchv1.Job) {
 		serviceIPs := svc.Spec.ClusterIPs
 		for _, jobFactory := range jobFactories {
@@ -815,4 +805,16 @@ func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 60)).To(Succeed())
+}
+
+func createAndWaitForJobToSucceed(jobFactory func(host, port string) *batchv1.Job, namespace, ip, port, viaMessage string) error {
+	By(fmt.Sprintf("Starting a job which tries to reach the VMI via the %s", viaMessage))
+	jobInstance := jobFactory(ip, port)
+	jobInstance, err := kubevirt.Client().BatchV1().Jobs(namespace).Create(context.Background(), jobInstance, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	By("Waiting for the job to report a successful connection attempt")
+	return job.WaitForJobToSucceed(jobInstance, time.Duration(120)*time.Second)
 }
