@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -66,11 +66,9 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			enabled  int
 			disabled int
 		}
-		countDomCPUs := func(vmi *v1.VirtualMachineInstance) (count cpuCount) {
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
-			ExpectWithOffset(1, err).NotTo(HaveOccurred())
-			ExpectWithOffset(1, domSpec.VCPUs).NotTo(BeNil())
-			for _, cpu := range domSpec.VCPUs.VCPU {
+		countDomCPUs := func(spec *api.DomainSpec) (count cpuCount) {
+			ExpectWithOffset(1, spec.VCPUs).NotTo(BeNil())
+			for _, cpu := range spec.VCPUs.VCPU {
 				if cpu.Enabled == "yes" {
 					count.enabled++
 				} else {
@@ -114,7 +112,13 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 
 			By("Ensuring the libvirt domain has 2 enabled cores and 2 hotpluggable cores")
-			Expect(countDomCPUs(vmi)).To(Equal(cpuCount{
+			var domSpec *api.DomainSpec
+			Eventually(func() error {
+				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				return err
+			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
+
+			Expect(countDomCPUs(domSpec)).To(Equal(cpuCount{
 				enabled:  2,
 				disabled: 2,
 			}))
@@ -145,11 +149,13 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
-			Eventually(func() cpuCount {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				return countDomCPUs(vmi)
-			}, 240*time.Second, time.Second).Should(Equal(cpuCount{
+
+			Eventually(func() error {
+				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				return err
+			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
+
+			Expect(countDomCPUs(domSpec)).To(Equal(cpuCount{
 				enabled:  4,
 				disabled: 0,
 			}))
@@ -213,7 +219,13 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 
 			By("Ensuring the libvirt domain has 2 enabled cores and 4 disabled cores")
-			Expect(countDomCPUs(vmi)).To(Equal(cpuCount{
+			var domSpec *api.DomainSpec
+			Eventually(func() error {
+				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				return err
+			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
+
+			Expect(countDomCPUs(domSpec)).To(Equal(cpuCount{
 				enabled:  2,
 				disabled: 4,
 			}))
@@ -242,11 +254,12 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			))
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
-			Eventually(func() cpuCount {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				return countDomCPUs(vmi)
-			}, 30*time.Second, time.Second).Should(Equal(cpuCount{
+			Eventually(func() error {
+				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				return err
+			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
+
+			Expect(countDomCPUs(domSpec)).To(Equal(cpuCount{
 				enabled:  4,
 				disabled: 2,
 			}))
