@@ -23,6 +23,9 @@ onDefineDomain) and run them and provide the necessary arguments as command line
 Besides a binary, one could also execute shell or python scripts by making them available at the
 expected location.
 
+`sidecar-shim-image` is built as part of the Kubevirt build chain and its consumed as the
+default image from `virt-operator` and `virt-controller`.
+
 In the case of `onDefineDomain`, the arguments will be the VMI information as JSON string, (e.g
 --vmi vmiJSON) and the current domain XML (e.g --domain domainXML) to the users binaries. As
 standard output it expects the modified domain XML.
@@ -180,15 +183,22 @@ the annotations:
 ```yaml
 annotations:
   hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"],
-    "image": "registry:5000/kubevirt/sidecar-shim:devel",
     "configMap": {"name": "my-config-map", "key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]'
 ```
+
+Please notice that annotations set on VMs are not automatically propagated to VMIs so,
+in the case of a VM, the VM owner should configure it on `/spec/template/metadata/annotations`
+instead of directly annotating the VM as in [this example](../../examples/vm-cirros-with-sidecar-hook-configmap.yaml).
+The annotation will be rendered on the generated VMI once the VM will be restarted.
 
 The `name` field indicates the name of the ConfigMap on the cluster which contains the script you 
 want to execute. The `key` field indicates the key in the ConfigMap which contains the script to 
 be executed. Finally, `hookPath` indicates the path where you would like the script to be 
 mounted. It could be either of `/usr/bin/onDefineDomain` or `/usr/bin/preCloudInitIso` depending 
 upon the hook you would like to execute.
+
+The optional `image` parameter can be specified if a custom image should be used instead of the
+`sidecar-shim-image` built with `virt-operator` and `virt-controller`.
 
 After creating the VMI, verify that it is in the `Running` state, and connect to its console and
 see if the desired changes to baseboard manufacturer get reflected:
@@ -199,4 +209,6 @@ cluster/virtctl.sh vnc vmi-with-sidecar-hook-configmap
 
 # Check whether the base board manufacturer value was successfully overwritten
 sudo dmidecode -s baseboard-manufacturer
+# or
+cat /sys/devices/virtual/dmi/id/board_vendor
 ```
