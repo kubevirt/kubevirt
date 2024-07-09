@@ -3435,37 +3435,6 @@ var _ = Describe("CurrentMemory in Libvirt Domain", func() {
 	)
 })
 
-type vmiCondMatcher struct {
-	vmi v1.VirtualMachineInstance
-}
-
-func NewVMICondMatcher(vmi v1.VirtualMachineInstance) gomock.Matcher {
-	return &vmiCondMatcher{vmi}
-}
-
-func (m *vmiCondMatcher) Matches(x interface{}) bool {
-	vmi, ok := x.(*v1.VirtualMachineInstance)
-	if !ok {
-		return false
-	}
-
-	if len(m.vmi.Status.Conditions) != len(vmi.Status.Conditions) {
-		return false
-	}
-
-	for ind := range vmi.Status.Conditions {
-		if m.vmi.Status.Conditions[ind].Type != vmi.Status.Conditions[ind].Type {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (m *vmiCondMatcher) String() string {
-	return "conditions matches on vmis"
-}
-
 func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName string) *v1.VirtualMachineInstance {
 
 	if vmi.Status.ActivePods != nil {
