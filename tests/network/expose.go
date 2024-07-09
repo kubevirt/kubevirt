@@ -102,15 +102,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		return job.WaitForJobToSucceed(jobInstance, time.Duration(120)*time.Second)
 	}
 
-	getService := func(namespace, serviceName string) (*k8sv1.Service, error) {
-		svc, err := virtClient.CoreV1().Services(namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-		return svc, nil
-	}
-
 	runJobsAgainstService := func(svc *k8sv1.Service, namespace string, jobFactories ...func(host, port string) *batchv1.Job) {
 		serviceIPs := svc.Spec.ClusterIPs
 		for _, jobFactory := range jobFactories {
@@ -152,7 +143,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By(gettingValidatingClusterIP)
-				svc, err := getService(tcpVM.Namespace, serviceName)
+				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
@@ -308,7 +299,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By("Getting the service")
-				svc, err := getService(tcpVM.Namespace, serviceName)
+				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Validating the num of cluster ips")
@@ -344,7 +335,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By("Getting the service")
-				svc, err := getService(tcpVM.Namespace, serviceName)
+				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				nodePort := svc.Spec.Ports[0].NodePort
@@ -418,7 +409,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By(gettingValidatingClusterIP)
-				svc, err := getService(udpVM.Namespace, serviceName)
+				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
@@ -458,7 +449,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By(gettingValidatingClusterIP)
-				svc, err := getService(udpVM.Namespace, serviceName)
+				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
@@ -562,7 +553,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(executeVirtctlExposeCommand(vmirsExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By(gettingValidatingClusterIP)
-				svc, err := getService(vmrs.Namespace, serviceName)
+				svc, err := virtClient.CoreV1().Services(vmrs.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
@@ -656,7 +647,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				// This TC also covers:
 				// [test_id:1795] Exposed VM (as a service) can be reconnected multiple times.
 				By(gettingValidatingClusterIP)
-				svc, err := getService(vm.Namespace, serviceName)
+				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
@@ -683,7 +674,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmObj := vm
 
 				By(gettingValidatingClusterIP)
-				svc, err := getService(vmObj.Namespace, serviceName)
+				svc, err := virtClient.CoreV1().Services(vmObj.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
