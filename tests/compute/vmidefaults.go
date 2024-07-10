@@ -21,6 +21,7 @@ package compute
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -243,6 +245,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Getting VirtualMachineInstance")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithPolling(1 * time.Second).WithTimeout(60 * time.Second).Should(matcher.Exist())
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
