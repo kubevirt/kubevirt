@@ -19,12 +19,68 @@
 
 package libvmifact
 
-var architecture string
+var (
+	architectureProvider archProvider = defaultMemProvider{}
+
+	archProviders = map[string]archProvider{
+		"arm64": arm64MemProvider{},
+	}
+)
 
 func RegisterArchitecture(arch string) {
-	architecture = arch
+	if provider, found := archProviders[arch]; found {
+		architectureProvider = provider
+	}
 }
 
-func isARM64() bool {
-	return architecture == "arm64"
+// GetMinimalMemory returns the minimal required VMI memory according to the architecture
+func GetMinimalMemory() string {
+	return architectureProvider.getMinimalMemory()
+}
+
+// GetQemuMinimalMemory returns the minimal required QEMU memory according to the architecture
+func GetQemuMinimalMemory() string {
+	return architectureProvider.getQemuMinimalMemory()
+}
+
+type archProvider interface {
+	minimalMemoryProvider
+}
+
+// minimalMemoryProvider is an interface to return the minimal memory needed for a VMI, according to the architecture
+type minimalMemoryProvider interface {
+	getMinimalMemory() string
+	getQemuMinimalMemory() string
+}
+
+type arm64MemProvider struct{}
+
+const (
+	arm64MinimalMemory = "256Mi"
+
+	// required to start qemu on ARM with UEFI firmware
+	// https://github.com/kubevirt/kubevirt/pull/11366#issuecomment-1970247448
+	armMinimalBootableMemory = "128Mi"
+)
+
+func (arm64MemProvider) getMinimalMemory() string {
+	return arm64MinimalMemory
+}
+
+func (arm64MemProvider) getQemuMinimalMemory() string {
+	return armMinimalBootableMemory
+}
+
+type defaultMemProvider struct{}
+
+const (
+	defaultMinimalMemory         = "128Mi"
+	defaultMinimalBootableMemory = "1Mi"
+)
+
+func (defaultMemProvider) getMinimalMemory() string {
+	return defaultMinimalMemory
+}
+func (defaultMemProvider) getQemuMinimalMemory() string {
+	return defaultMinimalBootableMemory
 }
