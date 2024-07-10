@@ -81,6 +81,7 @@ const (
 func (defaultMemProvider) getMinimalMemory() string {
 	return defaultMinimalMemory
 }
+
 func (defaultMemProvider) getQemuMinimalMemory() string {
 	return defaultMinimalBootableMemory
 }
