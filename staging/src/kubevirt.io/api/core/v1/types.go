@@ -2992,13 +2992,6 @@ func (p PreferenceMatcher) GetRevisionName() string {
 	return p.RevisionName
 }
 
-type LiveUpdateAffinity struct{}
-
-type LiveUpdateCPU struct {
-	// The maximum amount of sockets that can be hot-plugged to the Virtual Machine
-	MaxSockets *uint32 `json:"maxSockets,omitempty" optional:"true"`
-}
-
 type LiveUpdateConfiguration struct {
 	// MaxHotplugRatio is the ratio used to define the max amount
 	// of a hotplug resource that can be made available to a VM
@@ -3011,12 +3004,6 @@ type LiveUpdateConfiguration struct {
 	MaxCpuSockets *uint32 `json:"maxCpuSockets,omitempty"`
 	// MaxGuest defines the maximum amount memory that can be allocated
 	// to the guest using hotplug.
-	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
-}
-
-type LiveUpdateMemory struct {
-	// MaxGuest defines the maximum amount memory that can be allocated for the VM.
-	// +optional
 	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
 }
 
