@@ -27,8 +27,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func CalculateMemoryOverhead(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity {
-	return sumPluginsMemoryOverhead(
+type MemoryCalculator struct{}
+
+func (mc MemoryCalculator) Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+	return sumPluginsMemoryRequests(
 		filterUniquePlugins(vmi.Spec.Domain.Devices.Interfaces, registeredPlugins),
 	)
 }
@@ -60,7 +62,7 @@ func filterUniquePlugins(interfaces []v1.Interface, registeredPlugins map[string
 	return uniquePlugins
 }
 
-func sumPluginsMemoryOverhead(uniquePlugins []v1.InterfaceBindingPlugin) resource.Quantity {
+func sumPluginsMemoryRequests(uniquePlugins []v1.InterfaceBindingPlugin) resource.Quantity {
 	result := resource.Quantity{}
 
 	for _, plugin := range uniquePlugins {

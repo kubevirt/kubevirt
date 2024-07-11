@@ -126,6 +126,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var certDir string
 
+	var networkBindingPluginMemoryCalculator *stubNetBindingPluginMemoryCalculator
+
 	const migratableNetworkBindingPlugin = "mig_plug"
 
 	getCgroupManager = func(_ *v1.VirtualMachineInstance) (cgroup.Manager, error) {
@@ -213,6 +215,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
 		fakeDownwardMetricsManager := newFakeManager()
 
+		networkBindingPluginMemoryCalculator = &stubNetBindingPluginMemoryCalculator{}
+
 		controller, _ = NewController(recorder,
 			virtClient,
 			host,
@@ -230,6 +234,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			fakeDownwardMetricsManager,
 			nil,
 			"",
+			networkBindingPluginMemoryCalculator,
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
@@ -2047,6 +2052,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(conditionManager.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)).To(BeFalse())
 			Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 			Expect(vmi.Status.Memory.GuestRequested).To(Equal(vmi.Spec.Domain.Memory.Guest))
+			Expect(networkBindingPluginMemoryCalculator.calculatedMemoryOverhead).To(BeTrue())
 		})
 
 		It("should not hotplug memory if target pod does not have enough memory", func() {
@@ -3583,3 +3589,13 @@ func (*fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int) error {
 	return nil
 }
 func (*fakeManager) StopServer(_ *v1.VirtualMachineInstance) {}
+
+type stubNetBindingPluginMemoryCalculator struct {
+	calculatedMemoryOverhead bool
+}
+
+func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+	smc.calculatedMemoryOverhead = true
+
+	return resource.Quantity{}
+}

@@ -49,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
@@ -126,6 +125,10 @@ const (
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
 )
 
+type netBindingPluginMemoryCalculator interface {
+	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
+}
+
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -156,7 +159,8 @@ type templateService struct {
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
 
-	sidecarCreators []SidecarCreatorFunc
+	sidecarCreators                  []SidecarCreatorFunc
+	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -1457,7 +1461,12 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 		vmiCPUArch = t.clusterConfig.GetClusterCPUArch()
 	}
 	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
-	memoryOverhead.Add(netbinding.CalculateMemoryOverhead(vmi, t.clusterConfig.GetNetworkBindings()))
+
+	if t.netBindingPluginMemoryCalculator != nil {
+		memoryOverhead.Add(
+			t.netBindingPluginMemoryCalculator.Calculate(vmi, t.clusterConfig.GetNetworkBindings()),
+		)
+	}
 
 	metrics.SetVmiLaucherMemoryOverhead(vmi, memoryOverhead)
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
@@ -1530,5 +1539,11 @@ func readinessGates() []k8sv1.PodReadinessGate {
 		{
 			ConditionType: v1.VirtualMachineUnpaused,
 		},
+	}
+}
+
+func WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator) templateServiceOption {
+	return func(service *templateService) {
+		service.netBindingPluginMemoryCalculator = netBindingPluginMemoryCalculator
 	}
 }
