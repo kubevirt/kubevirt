@@ -64,9 +64,7 @@ var _ = Describe("[Serial][sig-compute] virt-handler node restrictions via valid
 		_, err = virtClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), "kubevirt-node-restriction-binding", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "validating admission policy binding should appear")
 
-		nodesList, err := virtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
+		nodesList := libnode.GetAllSchedulableNodes(virtClient)
 		Expect(nodesList.Items).ToNot(BeEmpty())
 		nodeName = nodesList.Items[0].Name
 		patchBytes, err := patch.New(
