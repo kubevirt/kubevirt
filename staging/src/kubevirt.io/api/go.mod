@@ -5,6 +5,7 @@ go 1.22.0
 toolchain go1.22.2
 
 require (
+	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.3.0
 	k8s.io/api v0.30.0
 	k8s.io/apiextensions-apiserver v0.30.0
@@ -30,4 +31,5 @@ require (
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
+	sigs.k8s.io/yaml v1.3.0 // indirect
 )
