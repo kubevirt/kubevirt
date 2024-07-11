@@ -2,7 +2,6 @@ package admitters
 
 import (
 	"fmt"
-	"slices"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,31 +35,12 @@ func (f *ClusterPreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 func validatePreferenceSpec(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	causes = append(causes, validatePreferredCPUTopology(field, spec)...)
 	causes = append(causes, validateSpreadOptions(field, spec)...)
 	return causes
 }
 
-const preferredCPUTopologyUnknownErrFmt = "unknown preferredCPUTopology %s"
-
-func validatePreferredCPUTopology(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
-	if spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
-		return nil
-	}
-	topology := *spec.CPU.PreferredCPUTopology
-	if !instancetype.IsPreferredTopologySupported(topology) {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf(preferredCPUTopologyUnknownErrFmt, topology),
-			Field:   field.Child("cpu", "preferredCPUTopology").String(),
-		}}
-	}
-	return nil
-}
-
 const (
 	spreadAcrossCoresThreadsRatioErr = "only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads"
-	spreadAcrossUnsupportedErrFmt    = "across %s is not supported"
 )
 
 func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
@@ -68,20 +48,6 @@ func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.Vi
 		return nil
 	}
 	ratio, across := instancetype.GetSpreadOptions(spec)
-
-	supportedSpreadAcross := []instancetypeapiv1beta1.SpreadAcross{
-		instancetypeapiv1beta1.SpreadAcrossCoresThreads,
-		instancetypeapiv1beta1.SpreadAcrossSocketsCores,
-		instancetypeapiv1beta1.SpreadAcrossSocketsCoresThreads,
-	}
-	if !slices.Contains(supportedSpreadAcross, across) {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf(spreadAcrossUnsupportedErrFmt, across),
-			Field:   field.Child("cpu", "spreadOptions", "across").String(),
-		}}
-	}
-
 	if across == instancetypeapiv1beta1.SpreadAcrossCoresThreads && ratio != 2 {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
