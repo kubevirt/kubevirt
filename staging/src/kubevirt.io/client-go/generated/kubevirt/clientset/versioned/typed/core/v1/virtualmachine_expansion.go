@@ -38,10 +38,8 @@ type VirtualMachineExpansion interface {
 	GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error)
 	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (*v1.VirtualMachine, error)
 	Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
-	ForceRestart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
 	Start(ctx context.Context, name string, startOptions *v1.StartOptions) error
 	Stop(ctx context.Context, name string, stopOptions *v1.StopOptions) error
-	ForceStop(ctx context.Context, name string, stopOptions *v1.StopOptions) error
 	Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
@@ -69,22 +67,6 @@ func (c *virtualMachines) PatchStatus(ctx context.Context, name string, pt types
 }
 
 func (c *virtualMachines) Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error {
-	body, err := json.Marshal(restartOptions)
-	if err != nil {
-		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
-	}
-	return c.client.Put().
-		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
-		Resource("virtualmachines").
-		Name(name).
-		SubResource("restart").
-		Body(body).
-		Do(ctx).
-		Error()
-}
-
-func (c *virtualMachines) ForceRestart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error {
 	body, err := json.Marshal(restartOptions)
 	if err != nil {
 		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
@@ -128,22 +110,6 @@ func (c *virtualMachines) Stop(ctx context.Context, name string, stopOptions *v1
 		Name(name).
 		SubResource("stop").
 		Body(optsJson).
-		Do(ctx).
-		Error()
-}
-
-func (c *virtualMachines) ForceStop(ctx context.Context, name string, stopOptions *v1.StopOptions) error {
-	body, err := json.Marshal(stopOptions)
-	if err != nil {
-		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
-	}
-	return c.client.Put().
-		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
-		Resource("virtualmachines").
-		Name(name).
-		SubResource("stop").
-		Body(body).
 		Do(ctx).
 		Error()
 }
