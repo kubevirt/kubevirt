@@ -56,9 +56,8 @@ var configureNonRootOwnerAndSelinuxContext = func(vmi *v1.VirtualMachineInstance
 
 // usingBlockStorage checks if the VM is using block backend storage.
 func usingBlockStorage(vmi *v1.VirtualMachineInstance) (bool, error) {
-	targetVolumeName := backendstorage.PodVolumeName(vmi.Name)
 	for _, v := range vmi.Status.VolumeStatus {
-		if v.Name != targetVolumeName {
+		if v.Name != "vm-state" {
 			continue
 		}
 		if v.PersistentVolumeClaimInfo == nil || v.PersistentVolumeClaimInfo.VolumeMode == nil {

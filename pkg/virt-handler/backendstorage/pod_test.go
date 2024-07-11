@@ -28,7 +28,7 @@ var _ = Describe("Backend storage block volume tests", func() {
 		Status: v1.VirtualMachineInstanceStatus{
 			VolumeStatus: []v1.VolumeStatus{
 				{
-					Name: "vm1-state",
+					Name: "vm-state",
 					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						VolumeMode: &blockVolumeMode,
 					},
@@ -58,7 +58,7 @@ var _ = Describe("Backend storage block volume tests", func() {
 		Status: v1.VirtualMachineInstanceStatus{
 			VolumeStatus: []v1.VolumeStatus{
 				{
-					Name: "vm1-state",
+					Name: "vm-state",
 					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						VolumeMode: &filesystemVolumeMode,
 					},

@@ -24,8 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -137,24 +135,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				"NOT_VALID_CIPHER is not a valid cipher",
 				1,
 			),
-		)
-	})
-
-	Context("with VM state configuration", func() {
-		filesystemVolumeMode := k8sv1.PersistentVolumeFilesystem
-		blockVolumeMode := k8sv1.PersistentVolumeBlock
-		DescribeTable("should properly handle VM state configuration", func(configuration *v1.KubeVirtConfiguration, shouldAllow bool) {
-			causes := validateVMStateConfig(configuration)
-			if shouldAllow {
-				Expect(causes).To(BeEmpty())
-			} else {
-				Expect(causes).To(HaveLen(1))
-			}
-		},
-			Entry("no VM state configurations", &v1.KubeVirtConfiguration{}, true),
-			Entry("has VMStateStorageClass only", &v1.KubeVirtConfiguration{VMStateStorageClass: "ceph-block"}, true),
-			Entry("has VMStateVolumeMode only", &v1.KubeVirtConfiguration{VMStateVolumeMode: &filesystemVolumeMode}, false),
-			Entry("has both VMStateStorageClass and VMStateVolumeMode", &v1.KubeVirtConfiguration{VMStateStorageClass: "ceph-block", VMStateVolumeMode: &blockVolumeMode}, true),
 		)
 	})
 

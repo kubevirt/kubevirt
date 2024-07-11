@@ -593,10 +593,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			It("should create a corresponding Pod on VMI creation with a storage class in WaitForFirstConsumer mode", func() {
 				sc := &storagev1.StorageClass{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "testsc456",
+						Name:        "testsc456",
+						Annotations: map[string]string{},
 					},
 					VolumeBindingMode: pointer.P(storagev1.VolumeBindingWaitForFirstConsumer),
 				}
+				sc.ObjectMeta.Annotations["storageclass.cdi.kubevirt.io/is-default-class"] = "true"
 				Expect(storageClassInformer.GetIndexer().Add(sc)).To(Succeed())
 
 				pvc := NewPvc(vmi.Namespace, backendstorage.PVCForVMI(vmi))

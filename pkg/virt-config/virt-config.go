@@ -414,10 +414,6 @@ func (c *ClusterConfig) GetVMStateStorageClass() string {
 	return c.GetConfig().VMStateStorageClass
 }
 
-func (c *ClusterConfig) GetVMStateVolumeMode() *k8sv1.PersistentVolumeMode {
-	return c.GetConfig().VMStateVolumeMode
-}
-
 func (c *ClusterConfig) IsFreePageReportingDisabled() bool {
 	return c.GetConfig().VirtualMachineOptions != nil && c.GetConfig().VirtualMachineOptions.DisableFreePageReporting != nil
 }

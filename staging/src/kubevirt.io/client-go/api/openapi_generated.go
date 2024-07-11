@@ -20653,14 +20653,6 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
-					"vmStateVolumeMode": {
-						SchemaProps: spec.SchemaProps{
-							Description: "VMStateVolumeMode is the volume mode used to create the PVCs to preserve VM state. If not specified, for each VM, Kubevirt will use the one from this VM's main DV/PVC disk to create the PVC.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
-							Type:        []string{"string"},
-							Format:      "",
-							Enum:        []interface{}{"Block", "Filesystem"},
-						},
-					},
 					"virtualMachineOptions": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/api/core/v1.VirtualMachineOptions"),

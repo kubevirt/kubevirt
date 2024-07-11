@@ -1626,12 +1626,6 @@ var CRDsValidation map[string]string = map[string]string{
                 specified, for each VM, Kubevirt will use the one from this VM's main
                 DV/PVC disk to create the PVC.
               type: string
-            vmStateVolumeMode:
-              description: |-
-                VMStateVolumeMode is the volume mode used to create the PVCs to preserve
-                VM state. If not specified, for each VM, Kubevirt will use the one from
-                this VM's main DV/PVC disk to create the PVC.
-              type: string
             webhookConfiguration:
               description: |-
                 ReloadableComponentConfiguration holds all generic k8s configuration options which can

@@ -64,14 +64,15 @@ var _ = Describe("Backend Storage", func() {
 			kvCR.Spec.Configuration.VMStateStorageClass = "myfave"
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
 
-			By("Expecting getStorageClass() to return that one")
-			sc, err := backendStorage.getStorageClass()
+			By("Expecting GetStorageClass() to return that one")
+			sc, err := backendStorage.GetStorageClass()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(sc).To(Equal("myfave"))
 
-			By("Expecting getAccessMode() to return RWX")
-			accessMode := backendStorage.getAccessMode(sc, v1.PersistentVolumeFilesystem)
+			By("Expecting GetModes() to return RWX")
+			accessMode, volumeMode := backendStorage.GetModes(sc)
 			Expect(accessMode).To(Equal(v1.ReadWriteMany))
+			Expect(volumeMode).To(Equal(v1.PersistentVolumeFilesystem))
 		})
 
 		It("Should return the default storage class when VMStateStorageClass is not set", func() {
@@ -89,14 +90,15 @@ var _ = Describe("Backend Storage", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			By("Expecting getStorageClass() to return the default one")
-			sc, err := backendStorage.getStorageClass()
+			By("Expecting GetStorageClass() to return the default one")
+			sc, err := backendStorage.GetStorageClass()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(sc).To(Equal("sc3"))
 
-			By("Expecting getAccessMode() to return RWO")
-			accessMode := backendStorage.getAccessMode(sc, v1.PersistentVolumeFilesystem)
+			By("Expecting GetModes() to return RWO")
+			accessMode, volumeMode := backendStorage.GetModes(sc)
 			Expect(accessMode).To(Equal(v1.ReadWriteOnce))
+			Expect(volumeMode).To(Equal(v1.PersistentVolumeBlock))
 		})
 	})
 
@@ -137,23 +139,27 @@ var _ = Describe("Backend Storage", func() {
 		})
 
 		It("Should default to RWO when no storage profile is defined", func() {
-			accessMode := backendStorage.getAccessMode("doesntexist", v1.PersistentVolumeFilesystem)
+			accessMode, volumeMode := backendStorage.GetModes("doesntexist")
 			Expect(accessMode).To(Equal(v1.ReadWriteOnce))
+			Expect(volumeMode).To(Equal(v1.PersistentVolumeBlock))
 		})
 
 		It("Should default to RWO when the storage profile doesn't have any access mode", func() {
-			accessMode := backendStorage.getAccessMode("nomode", v1.PersistentVolumeFilesystem)
+			accessMode, volumeMode := backendStorage.GetModes("nomode")
 			Expect(accessMode).To(Equal(v1.ReadWriteOnce))
+			Expect(volumeMode).To(Equal(v1.PersistentVolumeBlock))
 		})
 
 		It("Should pick RWX when both RWX and RWO are available", func() {
-			accessMode := backendStorage.getAccessMode("both", v1.PersistentVolumeFilesystem)
+			accessMode, volumeMode := backendStorage.GetModes("both")
 			Expect(accessMode).To(Equal(v1.ReadWriteMany))
+			Expect(volumeMode).To(Equal(v1.PersistentVolumeFilesystem))
 		})
 
 		It("Should pick RWO when RWX isn't possible", func() {
-			accessMode := backendStorage.getAccessMode("onlyrwo", v1.PersistentVolumeFilesystem)
+			accessMode, volumeMode := backendStorage.GetModes("onlyrwo")
 			Expect(accessMode).To(Equal(v1.ReadWriteOnce), fmt.Sprintf("%#v", storageProfileInformer.GetStore().ListKeys()))
+			Expect(volumeMode).To(Equal(v1.PersistentVolumeFilesystem))
 		})
 	})
 })

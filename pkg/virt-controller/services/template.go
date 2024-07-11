@@ -763,16 +763,19 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList) (*VolumeRenderer, error) {
-	bs := backendstorage.NewBackendStorage(t.virtClient, t.clusterConfig, t.storageClassStore, t.storageClassStore, t.pvcIndexer)
-	_, backendStorageVolumeMode, err := bs.DetermineStorageClassAndVolumeMode(vmi)
-	if err != nil {
-		return nil, err
-	}
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
 		withAccessCredentials(vmi.Spec.AccessCredentials),
-		withBackendStorage(vmi, backendStorageVolumeMode),
+	}
+	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		bs := backendstorage.NewBackendStorage(t.virtClient, t.clusterConfig, t.storageClassStore, t.storageProfileStore, t.pvcIndexer)
+		storageClass, err := bs.GetStorageClass()
+		if err != nil {
+			return nil, err
+		}
+		_, backendStorageVolumeMode := bs.GetModes(storageClass)
+		volumeOpts = append(volumeOpts, withBackendStorage(vmi, &backendStorageVolumeMode))
 	}
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))

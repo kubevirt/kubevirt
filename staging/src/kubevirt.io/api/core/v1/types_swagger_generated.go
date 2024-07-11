@@ -750,7 +750,6 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"supportContainerResources":          "+listType=map\n+listMapKey=type\nSupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.",
 		"supportedGuestAgentVersions":        "deprecated",
 		"vmStateStorageClass":                "VMStateStorageClass is the name of the storage class to use for the PVCs\ncreated to preserve VM state, like TPM. The storage class must support\nRWX in the volume mode specified by the VMStateVolumeMode below. If not\nspecified, for each VM, Kubevirt will use the one from this VM's main\nDV/PVC disk to create the PVC.",
-		"vmStateVolumeMode":                  "VMStateVolumeMode is the volume mode used to create the PVCs to preserve\nVM state. If not specified, for each VM, Kubevirt will use the one from\nthis VM's main DV/PVC disk to create the PVC.",
 		"ksmConfiguration":                   "KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).",
 		"autoCPULimitNamespaceLabelSelector": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside\nnamespaces that match the label selector.\nThe CPU limit will equal the number of requested vCPUs.\nThis setting does not apply to VMIs with dedicated CPUs.",
 		"liveUpdateConfiguration":            "LiveUpdateConfiguration holds defaults for live update features",

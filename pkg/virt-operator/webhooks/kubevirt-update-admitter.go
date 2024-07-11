@@ -79,7 +79,6 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
-	results = append(results, validateVMStateConfig(&newKV.Spec.Configuration)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -485,16 +484,4 @@ func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.Status
 	}
 
 	return
-}
-
-func validateVMStateConfig(c *v1.KubeVirtConfiguration) []metav1.StatusCause {
-	if len(c.VMStateStorageClass) == 0 && c.VMStateVolumeMode != nil {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "vmStateVolumeMode cannot be configured without vmStateStorageClass",
-			},
-		}
-	}
-	return []metav1.StatusCause{}
 }

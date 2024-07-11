@@ -22,7 +22,6 @@ package backendstorage
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -31,8 +30,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-
-	"kubevirt.io/kubevirt/pkg/storage/types"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,69 +98,106 @@ func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.
 	}
 }
 
-func (bs *BackendStorage) getStorageClass() (string, error) {
+func (bs *BackendStorage) GetStorageClass() (string, error) {
 	storageClass := bs.clusterConfig.GetVMStateStorageClass()
 	if storageClass != "" {
 		return storageClass, nil
 	}
 
+	k8sDefault := ""
+	kvDefault := ""
 	for _, obj := range bs.scStore.List() {
 		sc := obj.(*storagev1.StorageClass)
+		if sc.Annotations["storageclass.cdi.kubevirt.io/is-default-class"] == "true" {
+			kvDefault = sc.Name
+		}
 		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
-			return sc.Name, nil
+			k8sDefault = sc.Name
 		}
 	}
 
-	return "", fmt.Errorf("no default storage class found")
+	if kvDefault != "" {
+		return kvDefault, nil
+	} else if k8sDefault != "" {
+		return k8sDefault, nil
+	} else {
+		return "", fmt.Errorf("no default storage class found")
+	}
 }
 
-func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentVolumeMode) v1.PersistentVolumeAccessMode {
-	// The default access mode should be RWX if the storage class was manually specified.
-	// However, if we're using the cluster default storage class, default to access mode RWO.
+func (bs *BackendStorage) GetModes(storageClass string) (v1.PersistentVolumeAccessMode, v1.PersistentVolumeMode) {
+	// The default access mode should be RWX on Filesystem if the storage class was manually specified.
+	// However, if we're using the cluster default storage class, default to access mode RWO on Block (most commonly supported).
 	accessMode := v1.ReadWriteMany
+	mode := v1.PersistentVolumeFilesystem
 	if bs.clusterConfig.GetVMStateStorageClass() == "" {
 		accessMode = v1.ReadWriteOnce
+		mode = v1.PersistentVolumeBlock
 	}
 
 	// Storage profiles are guaranteed to have the same name as their storage class
 	obj, exists, err := bs.spStore.GetByKey(storageClass)
 	if err != nil {
 		log.Log.Reason(err).Infof("couldn't access storage profiles, defaulting to %s", accessMode)
-		return accessMode
+		return accessMode, mode
 	}
 	if !exists {
 		log.Log.Infof("no storage profile found for %s, defaulting to %s", storageClass, accessMode)
-		return accessMode
+		return accessMode, mode
 	}
 	storageProfile := obj.(*v1beta1.StorageProfile)
 
 	if storageProfile.Status.ClaimPropertySets == nil || len(storageProfile.Status.ClaimPropertySets) == 0 {
 		log.Log.Infof("no ClaimPropertySets in storage profile %s, defaulting to %s", storageProfile.Name, accessMode)
-		return accessMode
+		return accessMode, mode
 	}
 
-	foundrwo := false
+	foundFSRWX := false
+	foundFSRWO := false
+	foundBlockRWX := false
+	foundBlockRWO := false
 	for _, property := range storageProfile.Status.ClaimPropertySets {
-		if property.VolumeMode == nil || *property.VolumeMode != mode || property.AccessModes == nil {
+		if property.VolumeMode == nil || property.AccessModes == nil {
 			continue
 		}
-		for _, accessMode := range property.AccessModes {
-			switch accessMode {
+		for _, am := range property.AccessModes {
+			switch am {
 			case v1.ReadWriteMany:
-				return v1.ReadWriteMany
+				switch *property.VolumeMode {
+				case v1.PersistentVolumeFilesystem:
+					foundFSRWX = true
+				case v1.PersistentVolumeBlock:
+					foundBlockRWX = true
+				}
 			case v1.ReadWriteOnce:
-				foundrwo = true
+				switch *property.VolumeMode {
+				case v1.PersistentVolumeFilesystem:
+					foundFSRWO = true
+				case v1.PersistentVolumeBlock:
+					foundBlockRWO = true
+				}
 			}
 		}
 	}
-	if foundrwo {
-		return v1.ReadWriteOnce
+
+	// From most desirable to least desirable
+	if foundFSRWX {
+		return v1.ReadWriteMany, v1.PersistentVolumeFilesystem
+	}
+	if foundFSRWO {
+		return v1.ReadWriteOnce, v1.PersistentVolumeFilesystem
+	}
+	if foundBlockRWX {
+		return v1.ReadWriteMany, v1.PersistentVolumeBlock
+	}
+	if foundBlockRWO {
+		return v1.ReadWriteOnce, v1.PersistentVolumeBlock
 	}
 
-	return accessMode
+	return accessMode, mode
 }
 
-func updateVolumeStatus(vmi *corev1.VirtualMachineInstance, accessMode v1.PersistentVolumeAccessMode) {
+func updateVolumeStatus(vmi *corev1.VirtualMachineInstance, accessMode v1.PersistentVolumeAccessMode, volumeMode *v1.PersistentVolumeMode) {
 	if vmi.Status.VolumeStatus == nil {
 		vmi.Status.VolumeStatus = []corev1.VolumeStatus{}
 	}
@@ -175,6 +209,7 @@ func updateVolumeStatus(vmi *corev1.VirtualMachineInstance, accessMode v1.Persis
 			}
 			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.ClaimName = name
 			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.AccessModes = []v1.PersistentVolumeAccessMode{accessMode}
+			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.VolumeMode = volumeMode
 			return
 		}
 	}
@@ -199,16 +234,16 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 
 	if exists {
 		pvc := obj.(*v1.PersistentVolumeClaim)
-		updateVolumeStatus(vmi, pvc.Spec.AccessModes[0])
+		updateVolumeStatus(vmi, pvc.Spec.AccessModes[0], pvc.Spec.VolumeMode)
 		return nil
 	}
 
-	storageClass, volumeMode, err := bs.DetermineStorageClassAndVolumeMode(vmi)
+	storageClass, err := bs.GetStorageClass()
 	if err != nil {
-		return fmt.Errorf("failed to determine the backend storage class and volume mode: %w", err)
+		return err
 	}
 
-	accessMode := bs.getAccessMode(*storageClass, *volumeMode)
+	accessMode, volumeMode := bs.GetModes(storageClass)
 	ownerReferences := vmi.OwnerReferences
 	if len(vmi.OwnerReferences) == 0 {
 		// If the VMI has no owner, then it did not originate from a VM.
@@ -229,12 +264,12 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			Resources: v1.VolumeResourceRequirements{
 				Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse(PVCSize)},
 			},
-			StorageClassName: storageClass,
-			VolumeMode:       volumeMode,
+			StorageClassName: &storageClass,
+			VolumeMode:       &volumeMode,
 		},
 	}
 
-	updateVolumeStatus(vmi, accessMode)
+	updateVolumeStatus(vmi, accessMode, &volumeMode)
 
 	pvc, err = bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(err) {
@@ -281,86 +316,4 @@ func (bs *BackendStorage) IsPVCReady(vmi *corev1.VirtualMachineInstance) (bool, 
 	}
 
 	return false, nil
-}
-
-func PodVolumeName(vmiName string) string {
-	return vmiName + "-state"
-}
-
-func (bs *BackendStorage) DetermineStorageClassAndVolumeMode(vmi *corev1.VirtualMachineInstance) (*string, *v1.PersistentVolumeMode, error) {
-	storageClass, err := bs.getStorageClass()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	volumeMode := bs.clusterConfig.GetVMStateVolumeMode()
-	if len(storageClass) != 0 && volumeMode != nil {
-		return &storageClass, volumeMode, nil
-	}
-	disksCopy := make([]corev1.Disk, len(vmi.Spec.Domain.Devices.Disks))
-	for i, d := range vmi.Spec.Domain.Devices.Disks {
-		d.DeepCopyInto(&disksCopy[i])
-	}
-	sort.Slice(disksCopy, func(i, j int) bool {
-		a, b := disksCopy[i], disksCopy[j]
-		if a.BootOrder != nil && b.BootOrder != nil {
-			return *a.BootOrder < *b.BootOrder
-		}
-		return a.BootOrder != nil
-	})
-	for _, d := range disksCopy {
-		if d.Disk == nil {
-			continue
-		}
-		for _, v := range vmi.Spec.Volumes {
-			if v.Name != d.Name {
-				continue
-			}
-			var pvcName string
-			if v.DataVolume != nil {
-				pvcName = v.DataVolume.Name
-			} else if v.PersistentVolumeClaim != nil {
-				pvcName = v.PersistentVolumeClaim.ClaimName
-			}
-			if len(pvcName) > 0 {
-				pvc, exists, _, err := types.IsPVCBlockFromIndexer(bs.pvcIndexer, vmi.Namespace, pvcName)
-				if err != nil {
-					return nil, nil, err
-				}
-				if !exists {
-					return nil, nil, fmt.Errorf("could not find the PVC %s", pvcName)
-				}
-				s, v := determineStorageClassAndVolumeModeFromPVC(storageClass, volumeMode, pvc)
-				return s, v, nil
-			}
-		}
-	}
-	// If we cannot detect the storage class and volume mode, we will just
-	// return NILs, and Kubernetes will use the default configuration in the
-	// cluster to create the backend PVC.
-	return nil, nil, nil
-}
-
-// determineStorageClassAndVolumeModeFromPVC returns the final storage class and
-// the volume mode to be used, based on the provided default configuration and
-// the configuration of the VM main disk PVC.
-//
-// The webhook will block the case where volume mode is provided but the
-// storage class is not. Therefore, in the following we only care about the
-// case where 1) storage class is provided but volume mode is not, and 2) both
-// storage class and volume mode are not provided.
-func determineStorageClassAndVolumeModeFromPVC(defaultStorageClass string, defaultVolumeMode *v1.PersistentVolumeMode, pvc *v1.PersistentVolumeClaim) (*string, *v1.PersistentVolumeMode) {
-	// If no default storage class was provided, we use the storage class and the
-	// volume mode from the PVC.
-	if len(defaultStorageClass) == 0 {
-		return pvc.Spec.StorageClassName, pvc.Spec.VolumeMode
-	}
-	// If no default volume mode was provided, we use the volume mode from the PVC,
-	// ONLY when the PVC storage class matches the default storage class.
-	if defaultVolumeMode == nil && (pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName == defaultStorageClass) {
-		return &defaultStorageClass, pvc.Spec.VolumeMode
-	}
-	// In all the other cases, we just use the default configuration provided by
-	// the user.
-	return &defaultStorageClass, defaultVolumeMode
 }

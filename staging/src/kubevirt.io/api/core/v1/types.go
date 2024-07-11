@@ -2478,10 +2478,6 @@ type KubeVirtConfiguration struct {
 	// specified, for each VM, Kubevirt will use the one from this VM's main
 	// DV/PVC disk to create the PVC.
 	VMStateStorageClass string `json:"vmStateStorageClass,omitempty"`
-	// VMStateVolumeMode is the volume mode used to create the PVCs to preserve
-	// VM state. If not specified, for each VM, Kubevirt will use the one from
-	// this VM's main DV/PVC disk to create the PVC.
-	VMStateVolumeMode *k8sv1.PersistentVolumeMode `json:"vmStateVolumeMode,omitempty"`
 
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
 
