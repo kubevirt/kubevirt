@@ -32,11 +32,9 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
-
-	. "github.com/onsi/gomega"
 )
 
-func CreateDiskOnHost(diskPath string) *k8sv1.Pod {
+func CreateHostDisk(diskPath string) *k8sv1.Pod {
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 	dir := filepath.Dir(diskPath)
 
@@ -47,22 +45,23 @@ func CreateDiskOnHost(diskPath string) *k8sv1.Pod {
 
 	args := []string{command}
 	pod := libpod.RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
-
 	return pod
 }
 
-func RemoveHostDiskImage(diskPath string, nodeName string) {
+func RemoveHostDisk(diskPath string, nodeName string) error {
 	virtClient := kubevirt.Client()
 	procPath := filepath.Join("/proc/1/root", diskPath)
 
 	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return err
+	}
 
 	_, _, err = exec.ExecuteCommandOnPodWithResults(virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
-	Expect(err).ToNot(HaveOccurred())
+	return err
 }
 
-func RandTmpDir() string {
+func RandHostDiskDir() string {
 	const tmpPath = "/var/provision/kubevirt.io/tests"
 	return filepath.Join(tmpPath, rand.String(10))
 }

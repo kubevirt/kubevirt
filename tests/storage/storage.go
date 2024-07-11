@@ -600,7 +600,7 @@ var _ = SIGDescribe("Storage", func() {
 				var nodeName string
 
 				BeforeEach(func() {
-					hostDiskDir = RandTmpDir()
+					hostDiskDir = RandHostDiskDir()
 					nodeName = ""
 				})
 
@@ -613,7 +613,7 @@ var _ = SIGDescribe("Storage", func() {
 						Eventually(ThisVMI(vmi), 30).Should(Or(BeGone(), BeInPhase(v1.Failed), BeInPhase(v1.Succeeded)))
 					}
 					if nodeName != "" {
-						RemoveHostDiskImage(hostDiskDir, nodeName)
+						Expect(RemoveHostDisk(hostDiskDir, nodeName)).To(Succeed())
 					}
 				})
 
@@ -701,7 +701,7 @@ var _ = SIGDescribe("Storage", func() {
 						diskName = fmt.Sprintf("disk-%s.img", uuid.NewString())
 						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
-						pod := CreateDiskOnHost(diskPath)
+						pod := CreateHostDisk(diskPath)
 						pod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
@@ -837,7 +837,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				BeforeEach(func() {
 					By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
-					tmpDir := RandTmpDir()
+					tmpDir := RandHostDiskDir()
 					mountDir = filepath.Join(tmpDir, "mount")
 					diskPath = filepath.Join(mountDir, diskImgName)
 					srcDir := filepath.Join(tmpDir, "src")
