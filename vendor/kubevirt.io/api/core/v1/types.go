@@ -2832,6 +2832,11 @@ type InterfaceBindingPlugin struct {
 	// version: v1alphav1
 	// +optional
 	DownwardAPI NetworkBindingDownwardAPIType `json:"downwardAPI,omitempty"`
+
+	// ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding.
+	// version: v1alphav1
+	// +optional
+	ComputeResourceOverhead *k8sv1.ResourceRequirements `json:"computeResourceOverhead,omitempty"`
 }
 
 type DomainAttachmentType string

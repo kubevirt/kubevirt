@@ -2211,6 +2211,11 @@ func (in *InterfaceBindingPlugin) DeepCopyInto(out *InterfaceBindingPlugin) {
 		*out = new(InterfaceBindingMigration)
 		**out = **in
 	}
+	if in.ComputeResourceOverhead != nil {
+		in, out := &in.ComputeResourceOverhead, &out.ComputeResourceOverhead
+		*out = new(corev1.ResourceRequirements)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
