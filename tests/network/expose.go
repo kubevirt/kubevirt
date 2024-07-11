@@ -333,7 +333,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 					if includesIpv4(ipFamily) {
 						By("Connecting to IPv4 node IP")
-						Expect(createAndWaitForJobToSucceed(job.NewHelloWorldJobTCP, tcpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(job.NewHelloWorldJobTCP(nodeIP, strconv.Itoa(int(nodePort))), tcpVM.Namespace, fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
 					}
 					if inlcudesIpv6(ipFamily) {
 						launcher, err := libpod.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace())
@@ -346,7 +346,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						Expect(ipv6NodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
 
 						By("Connecting to IPv6 node IP")
-						Expect(createAndWaitForJobToSucceed(job.NewHelloWorldJobTCP, tcpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(job.NewHelloWorldJobTCP(ipv6NodeIP, strconv.Itoa(int(nodePort))), tcpVM.Namespace, fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
 					}
 				}
 			},
@@ -464,11 +464,11 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 					if includesIpv4(ipFamily) {
 						By("Connecting to IPv4 node IP")
-						Expect(createAndWaitForJobToSucceed(job.NewHelloWorldJobUDP, udpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv4 address")).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(job.NewHelloWorldJobUDP(nodeIP, strconv.Itoa(int(nodePort))), udpVM.Namespace, "NodePort ipv4 address")).To(Succeed())
 					}
 					if inlcudesIpv6(ipFamily) {
 						By("Connecting to IPv6 node IP")
-						Expect(createAndWaitForJobToSucceed(job.NewHelloWorldJobUDP, udpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv6 address")).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(job.NewHelloWorldJobUDP(ipv6NodeIP, strconv.Itoa(int(nodePort))), udpVM.Namespace, "NodePort ipv6 address")).To(Succeed())
 					}
 				}
 			},
@@ -804,9 +804,8 @@ func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 	}, 60)).To(Succeed())
 }
 
-func createAndWaitForJobToSucceed(jobFactory func(host, port string) *batchv1.Job, namespace, ip, port, viaMessage string) error {
+func createAndWaitForJobToSucceed(jobInstance *batchv1.Job, namespace, viaMessage string) error {
 	By(fmt.Sprintf("Starting a job which tries to reach the VMI via the %s", viaMessage))
-	jobInstance := jobFactory(ip, port)
 	jobInstance, err := kubevirt.Client().BatchV1().Jobs(namespace).Create(context.Background(), jobInstance, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -820,7 +819,7 @@ func runJobAgainstService(svc *k8sv1.Service, namespace string, jobFactory func(
 	serviceIPs := svc.Spec.ClusterIPs
 	for ipOrderNum, ip := range serviceIPs {
 		servicePort := strconv.Itoa(int(svc.Spec.Ports[0].Port))
-		err := createAndWaitForJobToSucceed(jobFactory, namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))
+		err := createAndWaitForJobToSucceed(jobFactory(ip, servicePort), namespace, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))
 		if err != nil {
 			return fmt.Errorf("failed running job against service with ClusterIP %s", ip)
 		}
