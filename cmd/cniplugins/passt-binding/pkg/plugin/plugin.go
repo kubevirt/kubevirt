@@ -32,11 +32,10 @@ import (
 
 	"kubevirt.io/kubevirt/cmd/cniplugins/passt-binding/pkg/plugin/netlink"
 	"kubevirt.io/kubevirt/cmd/cniplugins/passt-binding/pkg/plugin/sysctl"
+	"kubevirt.io/kubevirt/pkg/network/link"
 )
 
 const (
-	primaryPodInterfaceName = "eth0"
-
 	virtLauncherUserID = 107
 )
 
@@ -101,11 +100,16 @@ func (c *cmd) CmdAddResult(args *skel.CmdArgs) (types.Result, error) {
 		netname := netConf.Args.Cni.LogicNetworkName
 		log.Printf("setup for logical network %s completed successfully", netname)
 
-		podLink, lerr := c.netlinkAdapter.ReadLink(primaryPodInterfaceName)
-		if lerr != nil {
-			return lerr
+		defaultGatwayLinks, err := link.DiscoverByDefaultGateway(vishnetlink.FAMILY_ALL)
+		if err != nil {
+			return err
 		}
 
+		if len(defaultGatwayLinks) != 1 {
+			return fmt.Errorf("unexpected number of default gw links")
+		}
+
+		podLink := defaultGatwayLinks[0]
 		result.Interfaces = append(result.Interfaces, &type100.Interface{
 			Name:    podLink.Attrs().Name,
 			Mac:     podLink.Attrs().HardwareAddr.String(),

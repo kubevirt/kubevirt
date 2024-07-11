@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	vishnetlink "github.com/vishvananda/netlink"
+
 	vmschema "kubevirt.io/api/core/v1"
 
 	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -32,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
@@ -139,6 +141,15 @@ func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, 
 		acpi = &domainschema.ACPI{Index: uint(p.vmiSpecIface.ACPIIndex)}
 	}
 
+	defaultGatwayLinks, err := link.DiscoverByDefaultGateway(vishnetlink.FAMILY_ALL)
+	if err != nil {
+		return err
+	}
+
+	if len(defaultGatwayLinks) != 1 {
+		return nil, fmt.Errorf("unexpected number of default gw links")
+	}
+
 	const (
 		ifaceTypeUser     = "user"
 		ifaceBackendPasst = "passt"
@@ -150,7 +161,7 @@ func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, 
 		MAC:         mac,
 		ACPI:        acpi,
 		Type:        ifaceTypeUser,
-		Source:      domainschema.InterfaceSource{Device: namescheme.PrimaryPodInterfaceName},
+		Source:      domainschema.InterfaceSource{Device: defaultGatwayLinks[0].Attrs().Name()},
 		Backend:     &domainschema.InterfaceBackend{Type: ifaceBackendPasst, LogFile: PasstLogFilePath},
 		PortForward: p.generatePortForward(),
 	}, nil
