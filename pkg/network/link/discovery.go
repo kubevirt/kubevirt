@@ -45,6 +45,28 @@ func DiscoverByNetwork(handler driver.NetworkHandler, networks []v1.Network, sub
 	return linkByNames(handler, ifaceNames)
 }
 
+func DiscoverByDefaultGateway(family int) ([]netlink.Link, error) {
+	routes, err := netlink.RouteList(nil, family)
+	if err != nil {
+		return nil, fmt.Errorf("failed looking for default gw routes: %w", err)
+	}
+	selectedLinksMap := map[string]netlink.Link{}
+	for _, r := range routes {
+		if r.Dst == nil {
+			selectedLink, err := netlink.LinkByIndex(r.LinkIndex)
+			if err != nil {
+				return nil, fmt.Errorf("failed looking for default gw links: %w", err)
+			}
+			selectedLinksMap[selectedLink.Attrs().Name] = selectedLink
+		}
+	}
+	selectedLinks := []netlink.Link{}
+	for _, selectedLink := range selectedLinksMap {
+		selectedLinks = append(selectedLinks, selectedLink)
+	}
+	return selectedLinks, nil
+}
+
 func networkInterfaceNames(networks []v1.Network, subjectNetwork v1.Network) ([]string, error) {
 	ifaceName := namescheme.HashedPodInterfaceName(subjectNetwork)
 	ordinalIfaceName := namescheme.OrdinalPodInterfaceName(subjectNetwork.Name, networks)
