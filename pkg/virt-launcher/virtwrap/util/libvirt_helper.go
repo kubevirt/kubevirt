@@ -283,12 +283,12 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 			panic(err)
 		}
 
+		logfile := fmt.Sprintf("/var/log/libvirt/qemu/%s.log", domainName)
+		if nonRoot {
+			logfile = filepath.Join("/var", "run", "libvirt", "qemu", "log", fmt.Sprintf("%s.log", domainName))
+		}
+		var tailLog *tail.Tail
 		go func() {
-			logfile := fmt.Sprintf("/var/log/libvirt/qemu/%s.log", domainName)
-			if nonRoot {
-				logfile = filepath.Join("/var", "run", "kubevirt-private", "libvirt", "qemu", "log", fmt.Sprintf("%s.log", domainName))
-			}
-
 			// It can take a few seconds to the log file to be created
 			for {
 				_, err = os.Stat(logfile)
@@ -297,23 +297,15 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 				}
 				time.Sleep(time.Second)
 			}
-			// #nosec No risk for path injection. logfile has a static basedir
-			file, err := os.Open(logfile)
+			tailLog, err = tail.TailFile(
+				logfile, tail.Config{Follow: true, ReOpen: true})
 			if err != nil {
-				errMsg := fmt.Sprintf("failed to open logfile in path: \"%s\"", logfile)
-				log.Log.Reason(err).Error(errMsg)
+				log.LogQemuLogLine(log.Log, "tail file start fail")
 				return
 			}
-			defer util.CloseIOAndCheckErr(file, nil)
-
-			scanner := bufio.NewScanner(file)
-			scanner.Buffer(make([]byte, 1024), 512*1024)
-			for scanner.Scan() {
-				log.LogQemuLogLine(log.Log, scanner.Text())
-			}
-
-			if err := scanner.Err(); err != nil {
-				log.Log.Reason(err).Error("failed to read virtlogd logs")
+			// Print the text of each received line
+			for line := range tailLog.Lines {
+				log.LogQemuLogLine(log.Log, line.Text)
 			}
 		}()
 
@@ -324,6 +316,9 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 
 		select {
 		case <-stopChan:
+			if tailLog != nil {
+				tailLog.Stop()
+			}
 			_ = cmd.Process.Kill()
 			return
 		case <-exitChan:
