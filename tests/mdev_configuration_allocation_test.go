@@ -81,7 +81,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			var latestPod k8sv1.Pod
-			err := wait.PollUntilContextTimeout(context.TODO(), 5*time.Second, 3*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
+			err := wait.PollUntilContextTimeout(context.TODO(), 5*time.Second, 1*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 			return &latestPod, err
 		}
 
@@ -100,7 +100,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		var latestPod k8sv1.Pod
-		err := wait.PollUntilContextTimeout(context.TODO(), time.Second, 2*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
+		err := wait.PollUntilContextTimeout(context.TODO(), time.Second, 1*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 		return &latestPod, err
 	}
 
