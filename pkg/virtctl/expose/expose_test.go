@@ -19,11 +19,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -44,9 +43,11 @@ var _ = Describe("Expose", func() {
 	var obtainedService *k8sv1.Service
 
 	BeforeEach(func() {
-		vmi = api.NewMinimalVMI(vmName)
-		vmNoLabel = api.NewMinimalVMI(vmNoLabelName)
-		vm = kubecli.NewMinimalVM(vmName)
+		vmi = libvmi.New(libvmi.WithLabel("key", "value"))
+		vmi.Name = vmName
+		vmNoLabel = libvmi.New()
+		vmNoLabel.Name = vmNoLabelName
+		vm = libvmi.NewVirtualMachine(vmi)
 		vmrs = kubecli.NewMinimalVirtualMachineInstanceReplicaSet(vmName)
 
 		// create the wrapping environment that would retur the mock virt client
@@ -72,10 +73,7 @@ var _ = Describe("Expose", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeclient.CoreV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().DiscoveryClient().Return(discovery).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().DynamicClient().Return(dynamic).AnyTimes()
-		// set labels on vm, vm and vmrs
-		vmi.ObjectMeta.Labels = map[string]string{"key": "value"}
-		vmNoLabel.ObjectMeta.Labels = map[string]string{}
-		vm.Spec = v1.VirtualMachineSpec{Template: &v1.VirtualMachineInstanceTemplateSpec{ObjectMeta: vmi.ObjectMeta}}
+		// set vmrs
 		vmrs.Spec = v1.VirtualMachineInstanceReplicaSetSpec{Selector: &k8smetav1.LabelSelector{MatchLabels: vmi.ObjectMeta.Labels}, Template: &v1.VirtualMachineInstanceTemplateSpec{}}
 		// set up mock interface behavior
 		vmiInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil).AnyTimes()
