@@ -124,7 +124,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		// creation of a ControllerRevision later on in the test to use the now
 		// created VirtualMachine as an OwnerReference.
 		instancetype := builder.NewInstancetype(
-			builder.WithCPUs(uint32(1)),
+			builder.WithCPUs(1),
 			builder.WithMemory("128Mi"),
 		)
 		instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -187,7 +187,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineInstancetype from v1beta1 without labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builder.NewInstancetype(
-					builder.WithCPUs(uint32(1)),
+					builder.WithCPUs(1),
 					builder.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.VirtualMachineInstancetype(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -200,7 +200,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineInstancetype from v1beta1 with labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builder.NewInstancetype(
-					builder.WithCPUs(uint32(1)),
+					builder.WithCPUs(1),
 					builder.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.VirtualMachineInstancetype(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -213,7 +213,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineInstancetype from v1alpha2 to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha2.NewInstancetype(
-					builderv1alpha2.WithCPUs(uint32(1)),
+					builderv1alpha2.WithCPUs(1),
 					builderv1alpha2.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -226,7 +226,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineInstancetype from v1alpha1 to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha1.NewInstancetype(
-					builderv1alpha1.WithCPUs(uint32(1)),
+					builderv1alpha1.WithCPUs(1),
 					builderv1alpha1.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -239,7 +239,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineInstancetypeSpecRevision v1alpha1 to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha1.NewInstancetype(
-					builderv1alpha1.WithCPUs(uint32(1)),
+					builderv1alpha1.WithCPUs(1),
 					builderv1alpha1.WithMemory("128Mi"),
 				)
 				specBytes, err := json.Marshal(&instancetype.Spec)
@@ -269,7 +269,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineClusterInstancetype from v1beta1 without labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builder.NewClusterInstancetype(
-					builder.WithCPUs(uint32(1)),
+					builder.WithCPUs(1),
 					builder.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -282,7 +282,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineClusterInstancetype from v1beta1 with labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builder.NewClusterInstancetype(
-					builder.WithCPUs(uint32(1)),
+					builder.WithCPUs(1),
 					builder.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -295,7 +295,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineClusterInstancetype from v1alpha2 to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha2.NewClusterInstancetype(
-					builderv1alpha2.WithCPUs(uint32(1)),
+					builderv1alpha2.WithCPUs(1),
 					builderv1alpha2.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterInstancetypes().Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -308,7 +308,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineClusterInstancetype from v1alpha1 to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha1.NewClusterInstancetype(
-					builderv1alpha1.WithCPUs(uint32(1)),
+					builderv1alpha1.WithCPUs(1),
 					builderv1alpha1.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterInstancetypes().Create(context.Background(), instancetype, metav1.CreateOptions{})

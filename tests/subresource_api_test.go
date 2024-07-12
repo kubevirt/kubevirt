@@ -437,7 +437,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 			BeforeEach(func() {
 				instancetype = instancetypebuilder.NewInstancetype(
-					instancetypebuilder.WithCPUs(uint32(2)),
+					instancetypebuilder.WithCPUs(2),
 				)
 				instancetype, err = virtCli.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 					Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -448,7 +448,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				}
 
 				clusterInstancetype = instancetypebuilder.NewClusterInstancetype(
-					instancetypebuilder.WithCPUs(uint32(2)),
+					instancetypebuilder.WithCPUs(2),
 				)
 				clusterInstancetype, err = virtCli.VirtualMachineClusterInstancetype().
 					Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
