@@ -73,7 +73,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 			},
 			MetricType: operatormetrics.GaugeType,
 			Expr: intstr.FromString(
-				fmt.Sprintf("sum(kubevirt_virt_operator_ready_status{namespace='%s'}) or vector(0)", namespace),
+				fmt.Sprintf("sum(kube_pod_status_ready{pod=~'virt-operator-.*', condition='true', namespace='%s'} * on (pod) kubevirt_virt_operator_ready_status{namespace='%s'}) or vector(0)", namespace, namespace),
 			),
 		},
 		{
