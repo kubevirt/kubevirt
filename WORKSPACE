@@ -21,6 +21,20 @@ http_archive(
     ],
 )
 
+# Bazel buildtools prebuilt binaries
+http_archive(
+    name = "buildifier_prebuilt",
+    sha256 = "8ada9d88e51ebf5a1fdff37d75ed41d51f5e677cdbeafb0a22dda54747d6e07e",
+    strip_prefix = "buildifier-prebuilt-6.4.0",
+    urls = [
+        "http://github.com/keith/buildifier-prebuilt/archive/6.4.0.tar.gz",
+    ],
+)
+
+load("@buildifier_prebuilt//:deps.bzl", "buildifier_prebuilt_deps")
+
+buildifier_prebuilt_deps()
+
 # Additional bazel rules
 http_archive(
     name = "rules_proto",
@@ -58,6 +72,14 @@ http_archive(
         "https://storage.googleapis.com/builddeps/c6966ec828da198c5d9adbaa94c05e3a1c7f21bd012a0b29ba8ddbccb2c93b0d",
     ],
 )
+
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+
+bazel_skylib_workspace()
+
+load("@buildifier_prebuilt//:defs.bzl", "buildifier_prebuilt_register_toolchains")
+
+buildifier_prebuilt_register_toolchains()
 
 http_archive(
     name = "bazel_gazelle",
@@ -178,10 +200,6 @@ load(
 )
 
 gazelle_dependencies()
-
-load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
-
-buildifier_dependencies()
 
 bazeldnf_dependencies()
 
