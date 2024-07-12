@@ -31,7 +31,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
@@ -234,7 +233,7 @@ func createBatchRunningVMWithRateControl(virtClient kubecli.KubevirtClient, vmCo
 func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.VirtualMachineInstancetype {
 	instancetype := instancetypeBuilder.NewInstancetype(
 		instancetypeBuilder.WithCPUs(1),
-		instancetypeBuilder.WithMemory(resource.MustParse("90Mi")),
+		instancetypeBuilder.WithMemory("90Mi"),
 	)
 	instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())

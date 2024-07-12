@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -126,7 +125,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		// created VirtualMachine as an OwnerReference.
 		instancetype := builder.NewInstancetype(
 			builder.WithCPUs(uint32(1)),
-			builder.WithMemory(resource.MustParse("128Mi")),
+			builder.WithMemory("128Mi"),
 		)
 		instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -189,7 +188,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builder.NewInstancetype(
 					builder.WithCPUs(uint32(1)),
-					builder.WithMemory(resource.MustParse("128Mi")),
+					builder.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.VirtualMachineInstancetype(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -202,7 +201,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builder.NewInstancetype(
 					builder.WithCPUs(uint32(1)),
-					builder.WithMemory(resource.MustParse("128Mi")),
+					builder.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.VirtualMachineInstancetype(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -215,7 +214,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha2.NewInstancetype(
 					builderv1alpha2.WithCPUs(uint32(1)),
-					builderv1alpha2.WithMemory(resource.MustParse("128Mi")),
+					builderv1alpha2.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -228,7 +227,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha1.NewInstancetype(
 					builderv1alpha1.WithCPUs(uint32(1)),
-					builderv1alpha1.WithMemory(resource.MustParse("128Mi")),
+					builderv1alpha1.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -241,7 +240,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha1.NewInstancetype(
 					builderv1alpha1.WithCPUs(uint32(1)),
-					builderv1alpha1.WithMemory(resource.MustParse("128Mi")),
+					builderv1alpha1.WithMemory("128Mi"),
 				)
 				specBytes, err := json.Marshal(&instancetype.Spec)
 				Expect(err).ToNot(HaveOccurred())
@@ -271,7 +270,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builder.NewClusterInstancetype(
 					builder.WithCPUs(uint32(1)),
-					builder.WithMemory(resource.MustParse("128Mi")),
+					builder.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -284,7 +283,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builder.NewClusterInstancetype(
 					builder.WithCPUs(uint32(1)),
-					builder.WithMemory(resource.MustParse("128Mi")),
+					builder.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -297,7 +296,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha2.NewClusterInstancetype(
 					builderv1alpha2.WithCPUs(uint32(1)),
-					builderv1alpha2.WithMemory(resource.MustParse("128Mi")),
+					builderv1alpha2.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterInstancetypes().Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -310,7 +309,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builderv1alpha1.NewClusterInstancetype(
 					builderv1alpha1.WithCPUs(uint32(1)),
-					builderv1alpha1.WithMemory(resource.MustParse("128Mi")),
+					builderv1alpha1.WithMemory("128Mi"),
 				)
 				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterInstancetypes().Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())

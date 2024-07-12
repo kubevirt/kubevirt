@@ -53,9 +53,9 @@ func WithCPUs(vCPUs uint32) InstancetypeSpecOption {
 	}
 }
 
-func WithMemory(memory resource.Quantity) InstancetypeSpecOption {
+func WithMemory(memory string) InstancetypeSpecOption {
 	return func(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) {
-		spec.Memory.Guest = memory
+		spec.Memory.Guest = resource.MustParse(memory)
 	}
 }
 
