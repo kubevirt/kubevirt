@@ -109,6 +109,22 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		It("should reject unsupported PreferredCPUTopolgy value", func() {
+			preference := builder.NewPreference(
+				builder.WithPreferredCPUTopology(instancetypev1beta1.PreferredCPUTopology("foo")),
+			)
+			_, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should reject unsupported SpreadOptions.Across value", func() {
+			preference := builder.NewPreference(
+				builder.WithSpreadAcross(instancetypev1beta1.SpreadAcross("foo")),
+			)
+			_, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Context("VM with invalid InstancetypeMatcher", func() {
