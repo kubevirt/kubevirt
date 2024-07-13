@@ -96,28 +96,28 @@ http_archive(
 # Disk images
 http_file(
     name = "alpine_image",
-    sha256 = "a90150589e493d5b7e87297056b6e124d8af1b91fa2eb92bab61a839839e287b",
+    sha256 = "f87a0fd3ab0e65d2a84acd5dad5f8b6afce51cb465f65dd6f8a3810a3723b6e4",
     urls = [
-        "https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-virt-3.16.3-x86_64.iso",
-        "https://storage.googleapis.com/builddeps/a90150589e493d5b7e87297056b6e124d8af1b91fa2eb92bab61a839839e287b",
+        "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.1-x86_64.iso",
+        "https://storage.googleapis.com/builddeps/f87a0fd3ab0e65d2a84acd5dad5f8b6afce51cb465f65dd6f8a3810a3723b6e4",
     ],
 )
 
 http_file(
     name = "alpine_image_aarch64",
-    sha256 = "f3510fa675a6480a5f86b3325e97ca764368a8138d95fc4ba2efaebb41f8e325",
+    sha256 = "ca2f0e8aa7a1d7917bce7b9e7bd413772b64ec529a1938d20352558f90a5035a",
     urls = [
-        "https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/aarch64/alpine-virt-3.16.3-aarch64.iso",
-        "https://storage.googleapis.com/builddeps/f3510fa675a6480a5f86b3325e97ca764368a8138d95fc4ba2efaebb41f8e325",
+        "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/aarch64/alpine-virt-3.20.1-aarch64.iso",
+        "https://storage.googleapis.com/builddeps/ca2f0e8aa7a1d7917bce7b9e7bd413772b64ec529a1938d20352558f90a5035a",
     ],
 )
 
 http_file(
     name = "alpine_image_s390x",
-    sha256 = "6844e37c5f5bdbf34bc80cac6d504e1c450e799539a218fb4f1d625ad4afff54",
+    sha256 = "d24430eafd67f8d527550824c4bd56fbe3d3eca328d9f1dc4c7c7e237d693869",
     urls = [
-        "https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/s390x/alpine-standard-3.16.3-s390x.iso",
-        "https://storage.googleapis.com/builddeps/6844e37c5f5bdbf34bc80cac6d504e1c450e799539a218fb4f1d625ad4afff54",
+        "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/s390x/alpine-standard-3.20.1-s390x.iso",
+        "https://storage.googleapis.com/builddeps/d24430eafd67f8d527550824c4bd56fbe3d3eca328d9f1dc4c7c7e237d693869",
     ],
 )
 

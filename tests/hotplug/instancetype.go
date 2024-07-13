@@ -65,9 +65,8 @@ var _ = Describe("[sig-compute][Serial]Instance Type and Preference Hotplug", de
 			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 
-		vmi = libvmifact.NewAlpineWithTestTooling(
-			libnet.WithMasqueradeNetworking()...,
-		)
+		vmiOpts := append(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("1Gi"))
+		vmi = libvmifact.NewAlpine(vmiOpts...)
 		vmi.Namespace = testsuite.GetTestNamespace(vmi)
 
 		originalGuest = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]

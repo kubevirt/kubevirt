@@ -213,7 +213,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Requests: kubev1.ResourceList{},
 				Limits: kubev1.ResourceList{
 					kubev1.ResourceCPU:    resource.MustParse("1"),
-					kubev1.ResourceMemory: resource.MustParse("64M"),
+					kubev1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 			}
 
@@ -311,7 +311,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("100M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 
@@ -330,7 +330,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 15)).To(Succeed(), "should report number of cores")
 
 				By("Checking the requested amount of memory allocated for a guest")
-				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("100M"))
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("128Mi"))
 
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -345,17 +345,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				if computeContainer == nil {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(371)))
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(406)))
 
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("[test_id:4624]should set a correct memory units", func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64Mi"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
-				expectedMemoryInKiB := 64 * 1024
+				expectedMemoryInKiB := 128 * 1024
 				expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
 
 				By("Starting a VirtualMachineInstance")
@@ -375,7 +375,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("120M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 
@@ -399,7 +399,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("1200m"),
-						kubev1.ResourceMemory: resource.MustParse("100M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 
@@ -422,7 +422,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("100M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 					Limits: kubev1.ResourceList{
 						kubev1.ResourceCPU: resource.MustParse("1200m"),
@@ -475,7 +475,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 						kubev1.ResourceCPU:    resource.MustParse("3"),
 					},
 				}
@@ -500,7 +500,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 						kubev1.ResourceCPU:    resource.MustParse("3"),
 					},
 				}
@@ -524,7 +524,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 				vmi.Spec.Domain.Devices.BlockMultiQueue = &_false
@@ -1035,7 +1035,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi.Namespace = testsuite.NamespaceTestAlternative
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 					Limits: kubev1.ResourceList{
 						kubev1.ResourceCPU: resource.MustParse("1000m"),
