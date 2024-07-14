@@ -43,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -383,7 +382,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libvmi.WithDataVolume(dataVolume2.Name, dataVolume2.Name),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				)
-				vmSpec := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vmSpec := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(context.Background(), vmSpec, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -450,7 +449,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					return err
 				}, 30*time.Second, 1*time.Second).Should(Succeed())
 
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 				dvt := &v1.DataVolumeTemplateSpec{
 					ObjectMeta: dv.ObjectMeta,
 					Spec:       dv.Spec,
@@ -476,8 +475,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
-				vm := libstorage.RenderVMWithDataVolumeTemplate(dataVolume)
-				vm.Spec.Running = pointer.P(true)
+				vm := libstorage.RenderVMWithDataVolumeTemplate(dataVolume, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 				By(creatingVMInvalidDataVolume)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -500,7 +498,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				//  Add the invalid DataVolume to a VMI
 				vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil))
 				// Create a VM for this VMI
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 				By(creatingVMInvalidDataVolume)
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -548,7 +546,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				//  Add the invalid DataVolume to a VMI
 				vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil))
 				// Create a VM for this VMI
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -585,15 +583,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		k8sClient := clientcmd.GetK8sCmdClient()
 
 		BeforeEach(func() {
-			running := true
-
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-			vm.Spec.Running = &running
+			vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
 			pvcName = dataVolumeName
@@ -1426,7 +1422,7 @@ func renderVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, s
 	return libstorage.RenderVMWithDataVolumeTemplate(dv)
 }
 
-func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *virtv1.VirtualMachine {
+func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *v1.VirtualMachine {
 	importUrl := cd.DataVolumeImportUrlForContainerDisk(containerDisk)
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(importUrl),

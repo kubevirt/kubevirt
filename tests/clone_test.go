@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libdv"
@@ -26,7 +29,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -85,7 +87,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 			},
 			Spec: snapshotv1.VirtualMachineSnapshotSpec{
 				Source: k8sv1.TypedLocalObjectReference{
-					APIGroup: pointer.String(vmAPIGroup),
+					APIGroup: pointer.P(vmAPIGroup),
 					Kind:     "VirtualMachine",
 					Name:     vm.Name,
 				},
@@ -140,7 +142,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(vmAPIGroup),
+			APIGroup: pointer.P(vmAPIGroup),
 			Kind:     "VirtualMachine",
 			Name:     sourceVM.Name,
 		}
@@ -158,13 +160,13 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", snapshot.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(virtsnapshot.GroupName),
+			APIGroup: pointer.P(virtsnapshot.GroupName),
 			Kind:     "VirtualMachineSnapshot",
 			Name:     snapshot.Name,
 		}
 
 		cloneTargetRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(vmAPIGroup),
+			APIGroup: pointer.P(vmAPIGroup),
 			Kind:     "VirtualMachine",
 			Name:     targetVMName,
 		}
@@ -191,14 +193,19 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
 		By(fmt.Sprintf("Starting VM %s", vm.Name))
-		vm = tests.StartVirtualMachine(vm)
+		vm, err = startCloneVM(virtClient, vm)
+		Expect(err).ShouldNot(HaveOccurred())
+		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 		targetVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, v1.GetOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
 		err = login(targetVMI)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		vm = tests.StopVirtualMachine(vm)
+		vm, err = stopCloneVM(virtClient, vm)
+		Expect(err).ShouldNot(HaveOccurred())
+		Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
+		Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
 
 		return vm
 	}
@@ -470,7 +477,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					)
 
 					vmClone = generateCloneFromVM()
-					vmClone.Spec.NewSMBiosSerial = pointer.String(targetSerial)
+					vmClone.Spec.NewSMBiosSerial = pointer.P(targetSerial)
 
 					createCloneAndWaitForFinish(vmClone)
 
@@ -526,7 +533,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				return expectVMRunnable(vm, console.LoginToAlpine)
 			}
 
-			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
+			createVMWithStorageClass := func(storageClass string, runStrategy virtv1.VirtualMachineRunStrategy) *virtv1.VirtualMachine {
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -536,11 +543,11 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					),
 				)
 				vm := libstorage.RenderVMWithDataVolumeTemplate(dv)
-				vm.Spec.Running = pointer.Bool(running)
+				vm.Spec.RunStrategy = &runStrategy
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				if !running && libstorage.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
+				if !(runStrategy == virtv1.RunStrategyAlways) && libstorage.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
 					return vm
 				}
 
@@ -563,10 +570,12 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 						// create running in case storage is WFFC (local storage)
 						By("Creating source VM")
-						sourceVM = createVMWithStorageClass(noSnapshotStorageClass, true)
+						sourceVM = createVMWithStorageClass(noSnapshotStorageClass, virtv1.RunStrategyAlways)
 						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, v1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						sourceVM = tests.StopVirtualMachine(sourceVM)
+						sourceVM, err = stopCloneVM(virtClient, sourceVM)
+						Eventually(ThisVMIWith(sourceVM.Namespace, sourceVM.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
+						Eventually(ThisVM(sourceVM), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
 					})
 
 					It("with VM source", func() {
@@ -606,13 +615,13 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				})
 
 				It("with a simple clone", func() {
-					running := false
+					runStrategy := virtv1.RunStrategyHalted
 					if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass) {
 						// with wffc need to start the virtual machine
 						// in order for the pvc to be populated
-						running = true
+						runStrategy = virtv1.RunStrategyAlways
 					}
-					sourceVM = createVMWithStorageClass(snapshotStorageClass, running)
+					sourceVM = createVMWithStorageClass(snapshotStorageClass, runStrategy)
 					vmClone = generateCloneFromVM()
 
 					createCloneAndWaitForFinish(vmClone)
@@ -740,14 +749,14 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						return vmclone
 					}
 
-					running := false
+					runStrategy := virtv1.RunStrategyHalted
 					wffcSC := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
 					if wffcSC {
 						// with wffc need to start the virtual machine
 						// in order for the pvc to be populated
-						running = true
+						runStrategy = virtv1.RunStrategyAlways
 					}
-					sourceVM = createVMWithStorageClass(snapshotStorageClass, running)
+					sourceVM = createVMWithStorageClass(snapshotStorageClass, runStrategy)
 					vmClone = generateCloneWithFilters(sourceVM, targetVMName)
 
 					createCloneAndWaitForFinish(vmClone)
@@ -798,9 +807,12 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 							return vmclone
 						}
 
-						sourceVM = createVMWithStorageClass(snapshotStorageClass, true)
+						sourceVM = createVMWithStorageClass(snapshotStorageClass, virtv1.RunStrategyAlways)
 						vmClone = generateCloneWithFilters(sourceVM, targetVMName)
-						tests.StopVirtualMachine(sourceVM)
+						sourceVM, err = stopCloneVM(virtClient, sourceVM)
+						Expect(err).ShouldNot(HaveOccurred())
+						Eventually(ThisVMIWith(sourceVM.Namespace, sourceVM.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
+						Eventually(ThisVM(sourceVM), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
 
 						createCloneAndWaitForFinish(vmClone)
 
@@ -840,3 +852,21 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		})
 	})
 })
+
+func startCloneVM(virtClient kubecli.KubevirtClient, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	patch, err := patch.New(patch.WithAdd("/spec/runStrategy", virtv1.RunStrategyAlways)).GeneratePayload()
+	if err != nil {
+		return nil, err
+	}
+
+	return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, v1.PatchOptions{})
+}
+
+func stopCloneVM(virtClient kubecli.KubevirtClient, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	patch, err := patch.New(patch.WithAdd("/spec/runStrategy", virtv1.RunStrategyHalted)).GeneratePayload()
+	if err != nil {
+		return nil, err
+	}
+
+	return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, v1.PatchOptions{})
+}

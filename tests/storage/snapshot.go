@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -252,7 +253,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
 
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
-			if vm.Spec.Running != nil && *vm.Spec.Running {
+			if (vm.Spec.Running != nil && *vm.Spec.Running) || (vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == v1.RunStrategyAlways) {
 				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotNoGuestAgentIndication}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 				checkOnlineSnapshotExpectedContentSource(vm, contentName, false)
@@ -273,21 +274,18 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 
 		It("[test_id:4610]create a snapshot when VM is running should succeed", func() {
-			patch, err := patch.New(patch.WithReplace("/spec/running", true)).GeneratePayload()
+			patch, err := patch.New(patch.WithReplace("/spec/runStrategy", v1.RunStrategyAlways)).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*vm.Spec.Running).Should(BeTrue())
+			Expect(vm.Spec.RunStrategy).To(HaveValue(Equal(v1.RunStrategyAlways)))
 
 			createAndVerifyVMSnapshot(vm)
 		})
 
 		It("should create a snapshot when VM runStrategy is Manual", func() {
-			patch, err := patch.New(
-				patch.WithRemove("/spec/running"),
-				patch.WithAdd("/spec/runStrategy", "Manual"),
-			).GeneratePayload()
+			patch, err := patch.New(patch.WithReplace("/spec/runStrategy", v1.RunStrategyManual)).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
@@ -299,7 +297,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 
 		It("VM should contain snapshot status for all volumes", func() {
-			patch, err := patch.New(patch.WithReplace("/spec/running", true)).GeneratePayload()
+			patch, err := patch.New(patch.WithReplace("/spec/runStrategy", v1.RunStrategyAlways)).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
@@ -345,7 +343,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 				var vmi *v1.VirtualMachineInstance
-				vm.Spec.Running = pointer.BoolPtr(true)
+				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
@@ -866,7 +864,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				By("Creating VM")
 				var vmi *v1.VirtualMachineInstance
 				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
-				vm.Spec.Running = pointer.BoolPtr(false)
+				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyHalted)
 
 				vm, vmi = createAndStartVM(vm)
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1025,9 +1023,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				if wffcSC {
 					// with wffc need to start the virtual machine
 					// in order for the pvc to be populated
-					vm.Spec.Running = pointer.BoolPtr(true)
+					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 				} else {
-					vm.Spec.Running = pointer.BoolPtr(false)
+					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyHalted)
 				}
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -1363,9 +1361,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				if wffcSC {
 					// with wffc need to start the virtual machine
 					// in order for the pvc to be populated
-					vm.Spec.Running = pointer.BoolPtr(true)
+					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 				} else {
-					vm.Spec.Running = pointer.BoolPtr(false)
+					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyHalted)
 				}
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -1574,7 +1572,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					Name: instancetype.Name,
 					Kind: "VirtualMachineInstanceType",
 				}
-				vm.Spec.Running = pointer.BoolPtr(true)
+				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 				By("Starting the VM and expecting it to run")
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())

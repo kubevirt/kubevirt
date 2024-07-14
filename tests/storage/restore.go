@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -129,8 +130,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 		var vmi *v1.VirtualMachineInstance
 
-		t := true
-		vm.Spec.Running = &t
+		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		var gracePeriod int64 = 10
 		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
 
@@ -392,7 +392,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:5257]should reject restore if VM running", func() {
-				patch, err := patch.New(patch.WithReplace("/spec/running", true)).GeneratePayload()
+				patch, err := patch.New(patch.WithReplace("/spec/runStrategy", v1.RunStrategyAlways)).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
 
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
@@ -402,7 +402,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is not stopped", vm.Name)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vm.Name, v1.RunStrategyHalted)))
 			})
 
 			It("[test_id:5258]should reject restore if another in progress", func() {
