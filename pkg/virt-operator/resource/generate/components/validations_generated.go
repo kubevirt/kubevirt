@@ -8448,6 +8448,138 @@ var CRDsValidation map[string]string = map[string]string{
             - name
             type: object
           type: array
+        volumeUpdateState:
+          description: |-
+            VolumeUpdateState contains the information about the volumes set
+            updates related to the volumeUpdateStrategy
+          properties:
+            volumeMigrationState:
+              description: VolumeMigrationState tracks the information related to
+                the volume migration
+              properties:
+                manualRecoveryRequired:
+                  description: ManualRecoveryRequired indicates if the update due
+                    to the migration failed and the volumes set needs to be manually
+                    restored
+                  type: boolean
+                migratedVolumes:
+                  description: MigratedVolumes lists the source and destination volumes
+                    during the volume migration
+                  items:
+                    description: StorageMigratedVolumeInfo tracks the information
+                      about the source and destination volumes during the volume migration
+                    properties:
+                      destinationPVCInfo:
+                        description: DestinationPVCInfo contains the information about
+                          the destination PVC
+                        properties:
+                          accessModes:
+                            description: |-
+                              AccessModes contains the desired access modes the volume should have.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          capacity:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Capacity represents the capacity set on the
+                              corresponding PVC status
+                            type: object
+                          claimName:
+                            description: ClaimName is the name of the PVC
+                            type: string
+                          filesystemOverhead:
+                            description: Percentage of filesystem's size to be reserved
+                              when resizing the PVC
+                            pattern: ^(0(?:\.\d{1,3})?|1)$
+                            type: string
+                          preallocated:
+                            description: Preallocated indicates if the PVC's storage
+                              is preallocated or not
+                            type: boolean
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Requests represents the resources requested
+                              by the corresponding PVC spec
+                            type: object
+                          volumeMode:
+                            description: |-
+                              VolumeMode defines what type of volume is required by the claim.
+                              Value of Filesystem is implied when not included in claim spec.
+                            type: string
+                        type: object
+                      sourcePVCInfo:
+                        description: SourcePVCInfo contains the information about
+                          the source PVC
+                        properties:
+                          accessModes:
+                            description: |-
+                              AccessModes contains the desired access modes the volume should have.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          capacity:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Capacity represents the capacity set on the
+                              corresponding PVC status
+                            type: object
+                          claimName:
+                            description: ClaimName is the name of the PVC
+                            type: string
+                          filesystemOverhead:
+                            description: Percentage of filesystem's size to be reserved
+                              when resizing the PVC
+                            pattern: ^(0(?:\.\d{1,3})?|1)$
+                            type: string
+                          preallocated:
+                            description: Preallocated indicates if the PVC's storage
+                              is preallocated or not
+                            type: boolean
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Requests represents the resources requested
+                              by the corresponding PVC spec
+                            type: object
+                          volumeMode:
+                            description: |-
+                              VolumeMode defines what type of volume is required by the claim.
+                              Value of Filesystem is implied when not included in claim spec.
+                            type: string
+                        type: object
+                      volumeName:
+                        description: VolumeName is the name of the volume that is
+                          being migrated
+                        type: string
+                    required:
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
+              type: object
+          type: object
       type: object
   required:
   - spec
@@ -28799,6 +28931,141 @@ var CRDsValidation map[string]string = map[string]string{
                         - name
                         type: object
                       type: array
+                    volumeUpdateState:
+                      description: |-
+                        VolumeUpdateState contains the information about the volumes set
+                        updates related to the volumeUpdateStrategy
+                      properties:
+                        volumeMigrationState:
+                          description: VolumeMigrationState tracks the information
+                            related to the volume migration
+                          properties:
+                            manualRecoveryRequired:
+                              description: ManualRecoveryRequired indicates if the
+                                update due to the migration failed and the volumes
+                                set needs to be manually restored
+                              type: boolean
+                            migratedVolumes:
+                              description: MigratedVolumes lists the source and destination
+                                volumes during the volume migration
+                              items:
+                                description: StorageMigratedVolumeInfo tracks the
+                                  information about the source and destination volumes
+                                  during the volume migration
+                                properties:
+                                  destinationPVCInfo:
+                                    description: DestinationPVCInfo contains the information
+                                      about the destination PVC
+                                    properties:
+                                      accessModes:
+                                        description: |-
+                                          AccessModes contains the desired access modes the volume should have.
+                                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      capacity:
+                                        additionalProperties:
+                                          anyOf:
+                                          - type: integer
+                                          - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                        description: Capacity represents the capacity
+                                          set on the corresponding PVC status
+                                        type: object
+                                      claimName:
+                                        description: ClaimName is the name of the
+                                          PVC
+                                        type: string
+                                      filesystemOverhead:
+                                        description: Percentage of filesystem's size
+                                          to be reserved when resizing the PVC
+                                        pattern: ^(0(?:\.\d{1,3})?|1)$
+                                        type: string
+                                      preallocated:
+                                        description: Preallocated indicates if the
+                                          PVC's storage is preallocated or not
+                                        type: boolean
+                                      requests:
+                                        additionalProperties:
+                                          anyOf:
+                                          - type: integer
+                                          - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                        description: Requests represents the resources
+                                          requested by the corresponding PVC spec
+                                        type: object
+                                      volumeMode:
+                                        description: |-
+                                          VolumeMode defines what type of volume is required by the claim.
+                                          Value of Filesystem is implied when not included in claim spec.
+                                        type: string
+                                    type: object
+                                  sourcePVCInfo:
+                                    description: SourcePVCInfo contains the information
+                                      about the source PVC
+                                    properties:
+                                      accessModes:
+                                        description: |-
+                                          AccessModes contains the desired access modes the volume should have.
+                                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      capacity:
+                                        additionalProperties:
+                                          anyOf:
+                                          - type: integer
+                                          - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                        description: Capacity represents the capacity
+                                          set on the corresponding PVC status
+                                        type: object
+                                      claimName:
+                                        description: ClaimName is the name of the
+                                          PVC
+                                        type: string
+                                      filesystemOverhead:
+                                        description: Percentage of filesystem's size
+                                          to be reserved when resizing the PVC
+                                        pattern: ^(0(?:\.\d{1,3})?|1)$
+                                        type: string
+                                      preallocated:
+                                        description: Preallocated indicates if the
+                                          PVC's storage is preallocated or not
+                                        type: boolean
+                                      requests:
+                                        additionalProperties:
+                                          anyOf:
+                                          - type: integer
+                                          - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                        description: Requests represents the resources
+                                          requested by the corresponding PVC spec
+                                        type: object
+                                      volumeMode:
+                                        description: |-
+                                          VolumeMode defines what type of volume is required by the claim.
+                                          Value of Filesystem is implied when not included in claim spec.
+                                        type: string
+                                    type: object
+                                  volumeName:
+                                    description: VolumeName is the name of the volume
+                                      that is being migrated
+                                    type: string
+                                required:
+                                - volumeName
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          type: object
+                      type: object
                   type: object
               type: object
           type: object
