@@ -1243,6 +1243,12 @@ var CRDsValidation map[string]string = map[string]string{
                     then considered stuck and therefore cancelled. Defaults to 150
                   format: int64
                   type: integer
+                unsafeBlockBackendStorageMigration:
+                  description: |-
+                    Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem
+                    corruption. By default, VMs that use block backend-storage are marked non-migratable.
+                    When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.
+                  type: boolean
                 unsafeMigrationOverride:
                   description: |-
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
@@ -13491,6 +13497,12 @@ var CRDsValidation map[string]string = map[string]string{
                     then considered stuck and therefore cancelled. Defaults to 150
                   format: int64
                   type: integer
+                unsafeBlockBackendStorageMigration:
+                  description: |-
+                    Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem
+                    corruption. By default, VMs that use block backend-storage are marked non-migratable.
+                    When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.
+                  type: boolean
                 unsafeMigrationOverride:
                   description: |-
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
@@ -13905,6 +13917,12 @@ var CRDsValidation map[string]string = map[string]string{
                     then considered stuck and therefore cancelled. Defaults to 150
                   format: int64
                   type: integer
+                unsafeBlockBackendStorageMigration:
+                  description: |-
+                    Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem
+                    corruption. By default, VMs that use block backend-storage are marked non-migratable.
+                    When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.
+                  type: boolean
                 unsafeMigrationOverride:
                   description: |-
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check

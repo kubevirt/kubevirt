@@ -2660,6 +2660,10 @@ type MigrationConfiguration struct {
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+	// Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem
+	// corruption. By default, VMs that use block backend-storage are marked non-migratable.
+	// When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.
+	UnsafeBlockBackendStorageMigration *bool `json:"unsafeBlockBackendStorageMigration,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits

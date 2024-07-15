@@ -2502,9 +2502,14 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	volumeStatusMap := make(map[string]v1.VolumeStatus)
 
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.Name == backendstorage.PVCForVMI(vmi) && volumeStatus.PersistentVolumeClaimInfo != nil &&
-			!pvctypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) {
-			return true, fmt.Errorf("cannot migrate VMI: Backend storage PVC is not RWX")
+		if volumeStatus.Name == backendstorage.PVCForVMI(vmi) && volumeStatus.PersistentVolumeClaimInfo != nil {
+			if !pvctypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) {
+				return true, fmt.Errorf("cannot migrate VMI: Backend storage PVC is not RWX")
+			}
+			if !d.clusterConfig.IsBlockBackendStorageMigrationAllowed() &&
+				pvctypes.IsPVCBlock(volumeStatus.PersistentVolumeClaimInfo.VolumeMode) {
+				return true, fmt.Errorf("cannot migrate VMI: Backend storage PVC is Block")
+			}
 		}
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
 	}

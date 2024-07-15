@@ -468,3 +468,11 @@ func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugi
 	}
 	return nil
 }
+
+func (c *ClusterConfig) IsBlockBackendStorageMigrationAllowed() bool {
+	migrationConfig := c.GetConfig().MigrationConfiguration
+	if migrationConfig == nil || migrationConfig.UnsafeBlockBackendStorageMigration == nil {
+		return false
+	}
+	return *migrationConfig.UnsafeBlockBackendStorageMigration
+}

@@ -15041,6 +15041,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "unsafeBlockBackendStorageMigration": {
+      "description": "Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem corruption. By default, VMs that use block backend-storage are marked non-migratable. When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.",
+      "type": "boolean"
+     },
      "unsafeMigrationOverride": {
       "description": "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
       "type": "boolean"

@@ -21607,6 +21607,13 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"unsafeBlockBackendStorageMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem corruption. By default, VMs that use block backend-storage are marked non-migratable. When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

@@ -3112,6 +3112,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.UnsafeBlockBackendStorageMigration != nil {
+		in, out := &in.UnsafeBlockBackendStorageMigration, &out.UnsafeBlockBackendStorageMigration
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
