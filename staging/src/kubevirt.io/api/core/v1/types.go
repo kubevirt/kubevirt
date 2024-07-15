@@ -1668,6 +1668,16 @@ type VirtualMachineStatus struct {
 	// RunStrategy tracks the last recorded RunStrategy used by the VM.
 	// This is needed to correctly process the next strategy (for now only the RerunOnFailure)
 	RunStrategy VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
+
+	// VolumeMigration tracks the information related to the volume migration
+	VolumeMigration *VolumeMigration `json:"volumeMigration,omitempty" optional:"true"`
+}
+
+type VolumeMigration struct {
+	// MigratedVolumes lists the source and destination volumes during the volume migration
+	// +listType=atomic
+	// +optional
+	MigratedVolumes []StorageMigratedVolumeInfo `json:"migratedVolumes,omitempty"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1726,6 +1736,18 @@ const (
 
 	// VirtualMachineRestartRequired is added when changes made to the VM can't be live-propagated to the VMI
 	VirtualMachineRestartRequired VirtualMachineConditionType = "RestartRequired"
+)
+
+const (
+	VMVolumeMigrationConditionStarted   VirtualMachineConditionType = "VolumeMigrationStarted"
+	VMVolumeMigrationConditionCompleted VirtualMachineConditionType = "VolumeMigratinCompleted"
+)
+
+const (
+	VMVolumeMigrationReasonStarted    = "MigrationStarted"
+	VMVolumeMigrationReasonVMICrashed = "VMICrashed"
+	VMVolumeMigrationReasonFailed     = "MigrationFailed"
+	VMVolumeMigrationReasonSucceeded  = "MigrationSucceeded"
 )
 
 type HostDiskType string
