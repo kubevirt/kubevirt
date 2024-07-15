@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	k8sv1 "k8s.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -291,7 +292,10 @@ func GenerateMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineIns
 }
 
 // PatchVMIStatusWithMigratedVolumes patches the VMI status with the source and destination volume information during the volume migration
-func PatchVMIStatusWithMigratedVolumes(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance, migVolsInfo []virtv1.StorageMigratedVolumeInfo) error {
+func PatchVMIStatusWithMigratedVolumes(clientset kubecli.KubevirtClient, migVolsInfo []v1.StorageMigratedVolumeInfo, vmi *virtv1.VirtualMachineInstance) error {
+	if len(vmi.Status.MigratedVolumes) > 0 {
+		return nil
+	}
 	if equality.Semantic.DeepEqual(migVolsInfo, vmi.Status.MigratedVolumes) {
 		return nil
 	}
