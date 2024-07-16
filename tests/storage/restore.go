@@ -558,7 +558,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Expect(newVMInterfaces[0].MacAddress).ToNot(Equal(oldVMInterfaces[0].MacAddress))
 
 					By("Making sure new VM is runnable")
-					tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, newVM, v1.RunStrategyAlways)
+					err = virtClient.VirtualMachine(newVM.Namespace).Start(context.Background(), newVM.Name, &v1.StartOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Eventually(ThisVM(newVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 				})
 
 			})
