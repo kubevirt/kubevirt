@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmruntime"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -562,7 +563,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Expect(newVMInterfaces[0].MacAddress).ToNot(Equal(oldVMInterfaces[0].MacAddress))
 
 					By("Making sure new VM is runnable")
-					tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, newVM, v1.RunStrategyAlways)
+					libvmruntime.StartVirtualMachine(newVM)
+					Eventually(ThisVM(newVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 				})
 
 			})
