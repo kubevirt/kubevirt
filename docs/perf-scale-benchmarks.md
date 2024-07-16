@@ -1,6 +1,6 @@
 ### Benchmarks
 
-This document shares some of the performance benchmarks observed as part of the v1 release.
+This document shares some of the performance benchmarks observed as part of the v1.3.0 release.
 It will talk about what this means for an end-user's perf and scale story.
 
 #### Background: How to interpret the numbers?
@@ -10,8 +10,9 @@ KubeVirt is an extension for Kubernetes that includes a collection of custom res
 nature of the system, understanding performance and scalability data becomes challenging without
 taking specific assumptions into account. This section aims to provide clarity on those assumptions.
 
-1. The data presented in the document is collected from `periodic-kubevirt-e2e-k8s-1.25-sig-performance` and after Sept
-   06, 2023, data was collected `periodic-kubevirt-e2e-k8s-1.27-sig-performance`.
+1. The data presented in the document is collected from `periodic-kubevirt-e2e-k8s-1.25-sig-performance`, after Sept
+   06, 2023, data was collected from `periodic-kubevirt-e2e-k8s-1.27-sig-performance` and after March
+   25, 2024, data was collected from `periodic-kubevirt-e2e-k8s-1.29-sig-performance`
 1. The test suite includes three tests:
    1. It creates 100 minimal VMIs, with a small pause of 100 ms between creation of 2 VMIs. The definition
       of minimal VMIs can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L273).
@@ -37,13 +38,14 @@ taking specific assumptions into account. This section aims to provide clarity o
       potentially act on it.  
 1. The performance job is run 3 times a day and metrics are collected.
 1. The blue dots on the graphs are individual measurements, and orange line is weekly average
-1. The gray dotted line in the graph is March 1, 2023, denoting release of v0.60
-1. The blue dotted line in the graph is July 6, 2023, denoting release of v1.0.0
-1. The green dotted line in the graph is September 6, 2023, denoting change in k8s provider from v1.25 to v1.27
-1. The red dotted line in the graph is December 26, 2023, denoting release of v1.1.0
+1. The gray dotted line in the graph is July 6, 2023, denoting release of v1.0.0.
+1. The blue dotted line in the graph is September 6, 2023, denoting change in k8s provider from v1.25 to v1.27.
+1. The red dotted line in the graph is November 6, 2023, denoting release of v1.1.0.
+1. The green dotted line in the graph is March 5, 2024, denoting release of v1.2.0.
+1. The violet dotted line in the graph is March 25, 2024, denoting change in k8s provider from v1.27 to v1.29.
 
 
-#### Performance benchmarks for v1.2.0 release
+#### Performance benchmarks for v1.3.0 release
 
 #### vmiCreationToRunningSecondsP50
 
@@ -57,7 +59,9 @@ taking specific assumptions into account. This section aims to provide clarity o
 
 ![vmiCreationToRunningSecondsP95 for VM](perf-scale-graphs/vm/vm-p95-Creation-to-Running.png "vmiCreationToRunningSecondsP95 for VM")
 
-#### Scalability benchmarks for v1.2.0 release
+#### Scalability benchmarks for v1.3.0 release
+
+NOTE: The scalability metrics were hampered by a bug, that was fixed before the release [here](https://github.com/kubevirt/kubevirt/pull/12096). Hence the scalability metrics data needs to be re-evaluated by users with the bug fix to get a more accurate benchmarks
 
 #### PATCH-pods-count
 
