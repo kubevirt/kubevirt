@@ -141,7 +141,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		return func(vmi *v1.VirtualMachineInstance) {
 			kernelBootFirmware := utils.GetVMIKernelBootWithRandName().Spec.Domain.Firmware
 			if vmiFirmware := vmi.Spec.Domain.Firmware; vmiFirmware == nil {
-				vmiFirmware = kernelBootFirmware
+				vmi.Spec.Domain.Firmware = kernelBootFirmware
 			} else {
 				vmiFirmware.KernelBoot = kernelBootFirmware.KernelBoot
 			}
@@ -2619,6 +2619,15 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			// check VMI, confirm migration state
 			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			// delete VMI
+			// Keep this here! This can reproduce clean up issue where vmi will disappear from cache on source code before
+			// clean up happened
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.TODO(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
+
+			By("Waiting for VMI to disappear")
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 		})
 	})
 
