@@ -52,7 +52,7 @@ func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-		libvmi.WithResourceMemory(cirrosMemory()),
+		libvmi.WithResourceMemory(GetMinimalMemory()),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	vmi := libvmi.New(cirrosOpts...)
@@ -67,10 +67,9 @@ func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 
 // NewAlpine instantiates a new Alpine based VMI configuration
 func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
-	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		libvmi.WithResourceMemory(alpineMemory()),
+		libvmi.WithResourceMemory(GetMinimalMemory()),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -78,10 +77,9 @@ func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 }
 
 func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
-	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
-		libvmi.WithResourceMemory(alpineMemory()),
+		libvmi.WithResourceMemory(GetMinimalMemory()),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -97,26 +95,9 @@ func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInst
 
 func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	opts = append(
-		[]libvmi.Option{libvmi.WithResourceMemory(qemuMinimumMemory())},
+		[]libvmi.Option{libvmi.WithResourceMemory(GetQemuMinimalMemory())},
 		opts...)
 	return libvmi.New(opts...)
-}
-
-func qemuMinimumMemory() string {
-	if isARM64() {
-		// required to start qemu on ARM with UEFI firmware
-		// https://github.com/kubevirt/kubevirt/pull/11366#issuecomment-1970247448
-		const armMinimalBootableMemory = "128Mi"
-		return armMinimalBootableMemory
-	}
-	return "1Mi"
-}
-
-func cirrosMemory() string {
-	if isARM64() {
-		return "256Mi"
-	}
-	return "128Mi"
 }
 
 func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {

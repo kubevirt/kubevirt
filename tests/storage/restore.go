@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1200,12 +1198,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				originalPVCName := dv.Name
 
-				memory := "128Mi"
-				if checks.IsARM64(testsuite.Arch) {
-					memory = "256Mi"
-				}
 				vmi = libstorage.RenderVMIWithDataVolume(originalPVCName, testsuite.GetTestNamespace(nil),
-					libvmi.WithResourceMemory(memory), libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript)))
+					libvmi.WithResourceMemory(libvmifact.GetMinimalMemory()), libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript)))
 				vm, vmi = createAndStartVM(libvmi.NewVirtualMachine(vmi))
 
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
