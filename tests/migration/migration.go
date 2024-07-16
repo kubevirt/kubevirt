@@ -925,7 +925,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
-				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Checking that the migrated VirtualMachineInstance has an updated time")
