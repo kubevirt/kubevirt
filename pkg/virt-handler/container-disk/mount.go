@@ -13,7 +13,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
@@ -364,15 +363,11 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 		}
 	}
 
-	if util.HasKernelBootContainerImage(vmi) {
-		_, err := m.kernelBootSocketPathGetter(vmi)
-		if err != nil {
-			log.DefaultLogger().Object(vmi).Reason(err).Info("kernelboot container not yet ready")
-			if time.Now().After(notInitializedSince.Add(m.suppressWarningTimeout)) {
-				return false, fmt.Errorf("kernelboot container still not ready after one minute")
-			}
-			return false, nil
+	if !m.kernelBootDisksReady(vmi) {
+		if time.Now().After(notInitializedSince.Add(m.suppressWarningTimeout)) {
+			return false, fmt.Errorf("kernelboot container still not ready after one minute")
 		}
+		return false, nil
 	}
 
 	log.DefaultLogger().Object(vmi).V(4).Info("all containerdisks are ready")
@@ -443,30 +438,11 @@ func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksu
 		diskChecksums.ContainerDiskChecksums[volume.Name] = checksum
 	}
 
+	var err error
 	// kernel and initrd
-	if util.HasKernelBootContainerImage(vmi) {
-		kernelArtifacts, err := m.getKernelArtifactPaths(vmi)
-		if err != nil {
-			return nil, err
-		}
-
-		if kernelArtifacts.kernel != nil {
-			checksum, err := getDigest(kernelArtifacts.kernel)
-			if err != nil {
-				return nil, err
-			}
-
-			diskChecksums.KernelBootChecksum.Kernel = &checksum
-		}
-
-		if kernelArtifacts.initrd != nil {
-			checksum, err := getDigest(kernelArtifacts.initrd)
-			if err != nil {
-				return nil, err
-			}
-
-			diskChecksums.KernelBootChecksum.Initrd = &checksum
-		}
+	diskChecksums.KernelBootChecksum.Kernel, diskChecksums.KernelBootChecksum.Initrd, err = m.kernelBootComputeChecksums(vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	return diskChecksums, nil
@@ -503,34 +479,8 @@ func VerifyChecksums(mounter Mounter, vmi *v1.VirtualMachineInstance) error {
 	}
 
 	// verify kernel and initrd
-	if util.HasKernelBootContainerImage(vmi) {
-		if vmi.Status.KernelBootStatus == nil {
-			return ErrChecksumMissing
-		}
-
-		if diskChecksums.KernelBootChecksum.Kernel != nil {
-			if vmi.Status.KernelBootStatus.KernelInfo == nil {
-				return fmt.Errorf("checksum missing for kernel image: %w", ErrChecksumMissing)
-			}
-
-			expectedChecksum := vmi.Status.KernelBootStatus.KernelInfo.Checksum
-			computedChecksum := *diskChecksums.KernelBootChecksum.Kernel
-			if err := compareChecksums(expectedChecksum, computedChecksum); err != nil {
-				return fmt.Errorf("checksum error for kernel image: %w", err)
-			}
-		}
-
-		if diskChecksums.KernelBootChecksum.Initrd != nil {
-			if vmi.Status.KernelBootStatus.InitrdInfo == nil {
-				return fmt.Errorf("checksum missing for initrd image: %w", ErrChecksumMissing)
-			}
-
-			expectedChecksum := vmi.Status.KernelBootStatus.InitrdInfo.Checksum
-			computedChecksum := *diskChecksums.KernelBootChecksum.Initrd
-			if err := compareChecksums(expectedChecksum, computedChecksum); err != nil {
-				return fmt.Errorf("checksum error for initrd image: %w", err)
-			}
-		}
+	if err := kernelBootVerifyChecksums(vmi, diskChecksums); err != nil {
+		return err
 	}
 
 	return nil
