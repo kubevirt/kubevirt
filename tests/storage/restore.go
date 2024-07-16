@@ -248,7 +248,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		return r
 	}
 
-	createVMWithCloudInit := func(containerDisk cd.ContainerDisk, storageClass string) *v1.VirtualMachine {
+	createVMWithCloudInit := func(containerDisk cd.ContainerDisk, storageClass string, opts ...libvmi.Option) *v1.VirtualMachine {
+		defaultOpts := []libvmi.Option{
+			libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+		}
+		opts = append(defaultOpts, opts...)
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(containerDisk)),
 			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -258,7 +262,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			),
 		)
 		return libvmi.NewVirtualMachine(
-			libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot())),
+			libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, opts...),
 			libvmi.WithDataVolumeTemplate(dv),
 		)
 	}
@@ -1480,7 +1484,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
+				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithResourceMemory("512Mi")))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1493,7 +1497,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			It("should restore vm spec at startup without new changes", func() {
-				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
+				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithResourceMemory("512Mi")))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
