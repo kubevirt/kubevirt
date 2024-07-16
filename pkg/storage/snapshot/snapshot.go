@@ -628,9 +628,9 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 
 	if volumeSnapshotClass != "" {
 		return pvc, nil
-	} else {
-		log.Log.Warningf("No VolumeSnapshotClass for %s", pvc.Spec.storageClassName)
 	}
+
+	log.Log.Warningf("No VolumeSnapshotClass for %s", pvc.Spec.storageClassName)
 
 	return nil, nil
 }
