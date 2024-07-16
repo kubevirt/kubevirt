@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["vmruntime.go"],
+    importpath = "kubevirt.io/kubevirt/tests/libvmruntime",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/apimachinery/patch:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//tests/framework/kubevirt:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+    ],
+)
