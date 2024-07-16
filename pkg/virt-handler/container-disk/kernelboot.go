@@ -33,12 +33,12 @@ type kernelArtifacts struct {
 func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 	const kernelBootName = containerdisk.KernelBootName
 
-	log.Log.Object(vmi).Infof("mounting kernel artifacts")
-
 	if !util.HasKernelBootContainerImage(vmi) {
-		log.Log.Object(vmi).Infof("kernel boot not defined - nothing to mount")
+		log.Log.Object(vmi).Info("kernel boot not defined - nothing to mount")
 		return nil
 	}
+
+	log.Log.Object(vmi).Info("mounting kernel artifacts")
 
 	kb := vmi.Spec.Domain.Firmware.KernelBoot.Container
 
@@ -160,8 +160,6 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 		return nil
 	}
 
-	log.DefaultLogger().Object(vmi).Infof("unmounting kernel artifacts")
-
 	kb := vmi.Spec.Domain.Firmware.KernelBoot.Container
 
 	record, err := m.getMountTargetRecord(vmi)
@@ -195,6 +193,8 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 		}
 		return nil
 	}
+
+	log.DefaultLogger().Object(vmi).Info("unmounting kernel artifacts")
 
 	for idx, entry := range record.MountTargetEntries {
 		if !strings.Contains(entry.TargetFile, containerdisk.KernelBootName) {
