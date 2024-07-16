@@ -30,11 +30,13 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
@@ -201,6 +203,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			var replacedIndex int
 			vm, err := virtClient.VirtualMachine(ns).Get(context.Background(), vmName, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
+			vmOld := vm.DeepCopy()
 			// Remove datavolume templates
 			vm.Spec.DataVolumeTemplates = []virtv1.DataVolumeTemplateSpec{}
 			// Replace dst pvc
@@ -218,9 +221,18 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				}
 			}
 			vm.Spec.UpdateVolumesStrategy = pointer.P(virtv1.UpdateVolumesStrategyMigration)
-			vm, err = virtClient.VirtualMachine(ns).Update(context.Background(), vm, metav1.UpdateOptions{})
+			p, err := patch.New(patch.WithTest("/spec/dataVolumeTemplates", vmOld.Spec.DataVolumeTemplates),
+				patch.WithReplace("/spec/dataVolumeTemplates", vm.Spec.DataVolumeTemplates),
+				patch.WithTest("/spec/template/spec/volumes", vmOld.Spec.Template.Spec.Volumes),
+				patch.WithReplace("/spec/template/spec/volumes", vm.Spec.Template.Spec.Volumes),
+				patch.WithTest("/spec/updateVolumesStrategy", vmOld.Spec.UpdateVolumesStrategy),
+				patch.WithReplace("/spec/updateVolumesStrategy", vm.Spec.UpdateVolumesStrategy),
+			).GeneratePayload()
+			By(fmt.Sprintf("Apply patch: %v", string(p)))
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(vm.Spec.Template.Spec.Volumes[replacedIndex].VolumeSource.PersistentVolumeClaim.
+			vmExpect, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vmExpect.Spec.Template.Spec.Volumes[replacedIndex].VolumeSource.PersistentVolumeClaim.
 				PersistentVolumeClaimVolumeSource.ClaimName).To(Equal(claim))
 
 		}
