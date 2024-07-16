@@ -1161,7 +1161,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi := libvmi.New(
 					libvmi.WithDataVolume("disk0", dataVolume.Name),
 					libvmi.WithResourceMemory("256Mi"),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\n echo hello\n")),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					// Stir things up, /dev/urandom access will be needed

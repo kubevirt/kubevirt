@@ -64,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
@@ -1848,7 +1847,7 @@ var _ = SIGDescribe("Export", func() {
 
 		vm := libvmi.NewVirtualMachine(
 			libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript)),
+				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				libvmi.WithDataVolume("blankdisk", blankDv.Name),
 			),
 			libvmi.WithRunStrategy(virtv1.RunStrategyAlways),

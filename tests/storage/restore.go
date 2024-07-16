@@ -37,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests"
@@ -64,8 +63,6 @@ const (
 
 	macAddressCloningPatchPattern   = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
 	firmwareUUIDCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/firmware/uuid", "value": "%s"}`
-
-	bashHelloScript = "#!/bin/bash\necho 'hello'\n"
 
 	onlineSnapshot = true
 	offlineSnaphot = false
@@ -261,7 +258,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			),
 		)
 		return libvmi.NewVirtualMachine(
-			libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript))),
+			libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot())),
 			libvmi.WithDataVolumeTemplate(dv),
 		)
 	}
@@ -1205,7 +1202,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					memory = "256Mi"
 				}
 				vmi = libstorage.RenderVMIWithDataVolume(originalPVCName, testsuite.GetTestNamespace(nil),
-					libvmi.WithResourceMemory(memory), libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript)))
+					libvmi.WithResourceMemory(memory), libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
 				vm, vmi = createAndStartVM(libvmi.NewVirtualMachine(vmi))
 
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
@@ -1761,7 +1758,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					)
 
 					return libvmi.NewVirtualMachine(
-						libstorage.RenderVMIWithDataVolume(dataVolume.Name, sourceDV.Namespace, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript))),
+						libstorage.RenderVMIWithDataVolume(dataVolume.Name, sourceDV.Namespace, libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot())),
 						libvmi.WithDataVolumeTemplate(dataVolume),
 					)
 				}
