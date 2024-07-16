@@ -25,27 +25,26 @@ import (
 	"reflect"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libinfra"
-	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
-
+	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
@@ -75,17 +74,12 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		}, 10*time.Second, 1*time.Second).Should(BeNumerically(">", 0))
 
 		By("destroying the certificate")
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			secret.Data = map[string][]byte{
-				"tls.crt": []byte(""),
-				"tls.key": []byte(""),
-			}
-
-			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
-			return err
-		})
+		secretPatch, err := patch.New(
+			patch.WithReplace("/data/tls.crt", ""),
+			patch.WithReplace("/data/tls.key", ""),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), components.KubeVirtCASecretName, types.JSONPatchType, secretPatch, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("checking that the CA secret gets restored with a new ca bundle")
@@ -171,19 +165,12 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 	DescribeTable("should be rotated when deleted for ", func(secretName string) {
 		By("destroying the certificate")
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			secret.Data = map[string][]byte{
-				"tls.crt": []byte(""),
-				"tls.key": []byte(""),
-			}
-			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
-
-			return err
-		})
+		secretPatch, err := patch.New(
+			patch.WithReplace("/data/tls.crt", ""),
+			patch.WithReplace("/data/tls.key", ""),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), components.KubeVirtCASecretName, types.JSONPatchType, secretPatch, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("checking that the secret gets restored with a new certificate")
