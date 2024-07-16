@@ -82,10 +82,16 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err := virtoperator.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
+			err = virtoperator.RegisterLeaderMetrics()
+			Expect(err).ToNot(HaveOccurred())
+
 			err = virtapi.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
 			err = virtcontroller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = virtcontroller.RegisterLeaderMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, metric := range operatormetrics.ListMetrics() {

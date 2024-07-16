@@ -88,6 +88,14 @@ func SetupMetrics(
 	)
 }
 
+func RegisterLeaderMetrics() error {
+	if err := operatormetrics.RegisterMetrics(leaderMetrics); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func UpdateVMIMigrationInformer(informer cache.SharedIndexInformer) {
 	vmiMigrationInformer = informer
 }
