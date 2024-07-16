@@ -365,6 +365,29 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitMigrationToNotExist(vm.Name, ns)
 		})
+
+		It("should perform volume migration after the VM started up", func() {
+			const volName = "disk0"
+			dv := createDV()
+			libstorage.CreateFSPVC(destPVC, ns, size, nil)
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithDataVolume(volName, dv.Name),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n")),
+			)
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithRunning(),
+				libvmi.WithDataVolumeTemplate(dv),
+			)
+			vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("Update volumes")
+			updateVMWithPVC(vm.Name, volName, destPVC)
+			waitForMigrationToSucceed(vm.Name, ns)
+		})
 	})
 })
 
