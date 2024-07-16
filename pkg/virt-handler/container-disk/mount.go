@@ -219,7 +219,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 			diskName := containerdisk.GetDiskTargetName(i)
 			// If diskName is a symlink it will fail if the target exists.
 			if err := safepath.TouchAtNoFollow(diskTargetDir, diskName, os.ModePerm); err != nil {
-				if err != nil && !os.IsExist(err) {
+				if !os.IsExist(err) {
 					return nil, fmt.Errorf("failed to create mount point target: %v", err)
 				}
 			}
@@ -290,7 +290,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 			disksInfo[volume.Name] = imageInfo
 		}
 	}
-	err = m.mountKernelArtifacts(vmi, true)
+	err = m.mountKernelArtifacts(vmi)
 	if err != nil {
 		return nil, fmt.Errorf("error mounting kernel artifacts: %v", err)
 	}

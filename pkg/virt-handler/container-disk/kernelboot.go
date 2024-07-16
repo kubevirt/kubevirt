@@ -30,7 +30,7 @@ type kernelArtifacts struct {
 
 // MountKernelArtifacts mounts artifacts defined by KernelBootName in VMI.
 // This function is assumed to run after MountAndVerify.
-func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bool) error {
+func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 	const kernelBootName = containerdisk.KernelBootName
 
 	log.Log.Object(vmi).Infof("mounting kernel artifacts")
@@ -146,13 +146,11 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 
 	}
 
-	if verify {
-		mounted, err := areKernelArtifactsMounted(targetDir, targetInitrdPath, targetKernelPath)
-		if err != nil {
-			return fmt.Errorf("failed to check if kernel artifacts are mounted. error: %v", err)
-		} else if !mounted {
-			return fmt.Errorf("kernel artifacts verification failed")
-		}
+	mounted, err := areKernelArtifactsMounted(targetDir, targetInitrdPath, targetKernelPath)
+	if err != nil {
+		return fmt.Errorf("failed to check if kernel artifacts are mounted. error: %v", err)
+	} else if !mounted {
+		return fmt.Errorf("kernel artifacts verification failed")
 	}
 
 	return nil
@@ -267,72 +265,79 @@ func (m *mounter) getKernelArtifactPaths(vmi *v1.VirtualMachineInstance) (*kerne
 
 func (m *mounter) kernelBootComputeChecksums(vmi *v1.VirtualMachineInstance) (*uint32, *uint32, error) {
 	var kernel, initrd *uint32
-	if util.HasKernelBootContainerImage(vmi) {
-		kernelArtifacts, err := m.getKernelArtifactPaths(vmi)
+	if !util.HasKernelBootContainerImage(vmi) {
+		return kernel, initrd, nil
+	}
+
+	kernelArtifacts, err := m.getKernelArtifactPaths(vmi)
+	if err != nil {
+		return kernel, initrd, err
+	}
+
+	if kernelArtifacts.kernel != nil {
+		checksum, err := getDigest(kernelArtifacts.kernel)
 		if err != nil {
 			return kernel, initrd, err
 		}
 
-		if kernelArtifacts.kernel != nil {
-			checksum, err := getDigest(kernelArtifacts.kernel)
-			if err != nil {
-				return kernel, initrd, err
-			}
-
-			kernel = &checksum
-		}
-
-		if kernelArtifacts.initrd != nil {
-			checksum, err := getDigest(kernelArtifacts.initrd)
-			if err != nil {
-				return kernel, initrd, err
-			}
-
-			initrd = &checksum
-		}
+		kernel = &checksum
 	}
+
+	if kernelArtifacts.initrd != nil {
+		checksum, err := getDigest(kernelArtifacts.initrd)
+		if err != nil {
+			return kernel, initrd, err
+		}
+
+		initrd = &checksum
+	}
+
 	return kernel, initrd, nil
 }
 
 func (m *mounter) kernelBootDisksReady(vmi *v1.VirtualMachineInstance) bool {
-	if util.HasKernelBootContainerImage(vmi) {
-		_, err := m.kernelBootSocketPathGetter(vmi)
-		if err != nil {
-			log.DefaultLogger().Object(vmi).Reason(err).Info("kernelboot container not yet ready")
-			return false
-		}
+	if !util.HasKernelBootContainerImage(vmi) {
+		return true
 	}
+	_, err := m.kernelBootSocketPathGetter(vmi)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Reason(err).Info("kernelboot container not yet ready")
+		return false
+	}
+
 	return true
 }
 
 func kernelBootVerifyChecksums(vmi *v1.VirtualMachineInstance, diskChecksums *DiskChecksums) error {
-	if util.HasKernelBootContainerImage(vmi) {
-		if vmi.Status.KernelBootStatus == nil {
-			return ErrChecksumMissing
+	if !util.HasKernelBootContainerImage(vmi) {
+		return nil
+	}
+
+	if vmi.Status.KernelBootStatus == nil {
+		return ErrChecksumMissing
+	}
+
+	if diskChecksums.KernelBootChecksum.Kernel != nil {
+		if vmi.Status.KernelBootStatus.KernelInfo == nil {
+			return fmt.Errorf("checksum missing for kernel image: %w", ErrChecksumMissing)
 		}
 
-		if diskChecksums.KernelBootChecksum.Kernel != nil {
-			if vmi.Status.KernelBootStatus.KernelInfo == nil {
-				return fmt.Errorf("checksum missing for kernel image: %w", ErrChecksumMissing)
-			}
+		expectedChecksum := vmi.Status.KernelBootStatus.KernelInfo.Checksum
+		computedChecksum := *diskChecksums.KernelBootChecksum.Kernel
+		if err := compareChecksums(expectedChecksum, computedChecksum); err != nil {
+			return fmt.Errorf("checksum error for kernel image: %w", err)
+		}
+	}
 
-			expectedChecksum := vmi.Status.KernelBootStatus.KernelInfo.Checksum
-			computedChecksum := *diskChecksums.KernelBootChecksum.Kernel
-			if err := compareChecksums(expectedChecksum, computedChecksum); err != nil {
-				return fmt.Errorf("checksum error for kernel image: %w", err)
-			}
+	if diskChecksums.KernelBootChecksum.Initrd != nil {
+		if vmi.Status.KernelBootStatus.InitrdInfo == nil {
+			return fmt.Errorf("checksum missing for initrd image: %w", ErrChecksumMissing)
 		}
 
-		if diskChecksums.KernelBootChecksum.Initrd != nil {
-			if vmi.Status.KernelBootStatus.InitrdInfo == nil {
-				return fmt.Errorf("checksum missing for initrd image: %w", ErrChecksumMissing)
-			}
-
-			expectedChecksum := vmi.Status.KernelBootStatus.InitrdInfo.Checksum
-			computedChecksum := *diskChecksums.KernelBootChecksum.Initrd
-			if err := compareChecksums(expectedChecksum, computedChecksum); err != nil {
-				return fmt.Errorf("checksum error for initrd image: %w", err)
-			}
+		expectedChecksum := vmi.Status.KernelBootStatus.InitrdInfo.Checksum
+		computedChecksum := *diskChecksums.KernelBootChecksum.Initrd
+		if err := compareChecksums(expectedChecksum, computedChecksum); err != nil {
+			return fmt.Errorf("checksum error for initrd image: %w", err)
 		}
 	}
 
