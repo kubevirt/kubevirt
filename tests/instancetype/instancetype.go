@@ -215,11 +215,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm := libvmi.NewVirtualMachine(vmi,
 				libvmi.WithInstancetype(instancetype.Name),
 				libvmi.WithPreference(preference.Name),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -258,11 +259,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm := libvmi.NewVirtualMachine(vmi,
 				libvmi.WithClusterInstancetype(clusterInstancetype.Name),
 				libvmi.WithClusterPreference(clusterPreference.Name),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -314,6 +316,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm := libvmi.NewVirtualMachine(vmi,
 				libvmi.WithInstancetype(instancetype.Name),
 				libvmi.WithPreference(preference.Name),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 			)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
 				"preferred-annotation-2": "2",
@@ -321,7 +324,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -369,11 +372,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype(instancetype.Name))
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithInstancetype(instancetype.Name),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -471,11 +477,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), clusterPreference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterPreference(clusterPreference.Name))
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithClusterPreference(clusterPreference.Name),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -493,12 +502,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), clusterPreference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterPreference(clusterPreference.Name))
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithClusterPreference(clusterPreference.Name),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+			)
 			vm.Spec.Template.Spec.Domain.Devices.Disks = []virtv1.Disk{}
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -711,6 +723,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		createAndValidateVirtualMachine := func() {
 			By("Creating the VirtualMachine")
 			var err error
+			libvmi.WithRunStrategy(virtv1.RunStrategyAlways)(vm)
 			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -724,7 +737,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			By("Validating the VirtualMachineInstance")
 			var vmi *virtv1.VirtualMachineInstance
@@ -796,6 +809,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			// This is the default but it should still be cleared
 			failurePolicy := virtv1.RejectInferFromVolumeFailure
+			runStrategy := virtv1.RunStrategyHalted
 
 			vm = &virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
@@ -816,7 +830,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 							Domain: virtv1.DomainSpec{},
 						},
 					},
-					Running: pointer.P(false),
+					RunStrategy: &runStrategy,
 				},
 			}
 		})
