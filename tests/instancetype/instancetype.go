@@ -889,14 +889,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+						libdv.WithDataVolumeSourceRef(dataSource.Name, namespace, "DataSource"),
 					)
-
-					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
-					dataVolume.Spec.SourceRef = &cdiv1beta1.DataVolumeSourceRef{
-						Kind:      "DataSource",
-						Namespace: &namespace,
-						Name:      dataSource.Name,
-					}
 
 					return generateDataVolumeTemplatesFromDataVolume(dataVolume)
 				},
@@ -943,14 +937,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+						libdv.WithDataVolumeSourceRef(dataSource.Name, namespace, "DataSource"),
 					)
-
-					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
-					dataVolume.Spec.SourceRef = &cdiv1beta1.DataVolumeSourceRef{
-						Kind:      "DataSource",
-						Namespace: &namespace,
-						Name:      dataSource.Name,
-					}
 
 					return generateDataVolumeTemplatesFromDataVolume(dataVolume)
 				},
