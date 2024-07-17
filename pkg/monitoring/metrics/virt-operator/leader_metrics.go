@@ -22,7 +22,7 @@ package virt_operator
 import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
 var (
-	configurationMetrics = []operatormetrics.Metric{
+	leaderMetrics = []operatormetrics.Metric{
 		emulationEnabled,
 	}
 
