@@ -51,6 +51,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -2122,7 +2123,13 @@ func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtua
 }
 
 func retryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
-	return tests.RetryIfModified(func() error {
-		return do(objectMeta)
-	})
+	retries := 0
+	for err = do(objectMeta); errors.IsConflict(err); err = do(objectMeta) {
+		if retries >= 10 {
+			return fmt.Errorf("object seems to be permanently modified, failing after 10 retries: %v", err)
+		}
+		retries++
+		log.DefaultLogger().Reason(err).Infof("Object got modified, will retry.")
+	}
+	return err
 }
