@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/golang/mock/gomock"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,6 +14,10 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 var _ = Describe("Apply Instancetypes", func() {
@@ -33,9 +36,16 @@ var _ = Describe("Apply Instancetypes", func() {
 			return true, nil, nil
 		})
 
+		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+
 		reconciler = &Reconciler{
 			kv:        &v1.KubeVirt{},
 			clientset: virtClient,
+			stores: util.Stores{
+				ClusterInstancetype: clusterInstancetypeInformer.GetStore(),
+				ClusterPreference:   clusterPreferenceInformer.GetStore(),
+			},
 		}
 	})
 
@@ -62,26 +72,22 @@ var _ = Describe("Apply Instancetypes", func() {
 		})
 
 		It("should create instancetype", func() {
-			getCalled := expectGetReturnNotFound(fakeClient, apiinstancetype.ClusterPluralResourceName)
 			createCalled := expectCreate(fakeClient, apiinstancetype.ClusterPluralResourceName, instancetype)
 			Expect(reconciler.createOrUpdateInstancetype(instancetype)).To(Succeed())
-			Expect(*getCalled).To(BeTrue())
 			Expect(*createCalled).To(BeTrue())
 		})
 
 		It("should not update instancetypes on sync when they are equal", func() {
-			getCalled := expectGet(fakeClient, apiinstancetype.ClusterPluralResourceName, instancetype)
+			reconciler.stores.ClusterInstancetype.Add(instancetype)
 			Expect(reconciler.createOrUpdateInstancetype(instancetype)).To(Succeed())
-			Expect(*getCalled).To(BeTrue())
 		})
 
 		DescribeTable("should update instancetypes on sync when they are not equal", func(modifyFn func(*instancetypev1beta1.VirtualMachineClusterInstancetype)) {
 			modifiedInstancetype := instancetype.DeepCopy()
 			modifyFn(modifiedInstancetype)
-			getCalled := expectGet(fakeClient, apiinstancetype.ClusterPluralResourceName, modifiedInstancetype)
+			reconciler.stores.ClusterInstancetype.Add(modifiedInstancetype)
 			updateCalled := expectUpdate(fakeClient, apiinstancetype.ClusterPluralResourceName, instancetype)
 			Expect(reconciler.createOrUpdateInstancetype(instancetype)).To(Succeed())
-			Expect(*getCalled).To(BeTrue())
 			Expect(*updateCalled).To(BeTrue())
 		},
 			Entry("on modified annotations", func(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) {
@@ -126,26 +132,22 @@ var _ = Describe("Apply Instancetypes", func() {
 		})
 
 		It("should create preference", func() {
-			getCalled := expectGetReturnNotFound(fakeClient, apiinstancetype.ClusterPluralPreferenceResourceName)
 			createCalled := expectCreate(fakeClient, apiinstancetype.ClusterPluralPreferenceResourceName, preference)
 			Expect(reconciler.createOrUpdatePreference(preference)).To(Succeed())
-			Expect(*getCalled).To(BeTrue())
 			Expect(*createCalled).To(BeTrue())
 		})
 
 		It("should not update preferences on sync when they are equal", func() {
-			getCalled := expectGet(fakeClient, apiinstancetype.ClusterPluralPreferenceResourceName, preference)
+			reconciler.stores.ClusterPreference.Add(preference)
 			Expect(reconciler.createOrUpdatePreference(preference)).To(Succeed())
-			Expect(*getCalled).To(BeTrue())
 		})
 
 		DescribeTable("should update preferences on sync when they are not equal", func(modifyFn func(*instancetypev1beta1.VirtualMachineClusterPreference)) {
 			modifiedPreference := preference.DeepCopy()
 			modifyFn(modifiedPreference)
-			getCalled := expectGet(fakeClient, apiinstancetype.ClusterPluralPreferenceResourceName, modifiedPreference)
+			reconciler.stores.ClusterPreference.Add(modifiedPreference)
 			updateCalled := expectUpdate(fakeClient, apiinstancetype.ClusterPluralPreferenceResourceName, preference)
 			Expect(reconciler.createOrUpdatePreference(preference)).To(Succeed())
-			Expect(*getCalled).To(BeTrue())
 			Expect(*updateCalled).To(BeTrue())
 		},
 			Entry("on modified annotations", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
@@ -155,8 +157,7 @@ var _ = Describe("Apply Instancetypes", func() {
 				preference.Labels["test"] = "modified"
 			}),
 			Entry("on modified spec", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
-				preferredTopology := instancetypev1beta1.Threads
-				preference.Spec.CPU.PreferredCPUTopology = &preferredTopology
+				preference.Spec.CPU.PreferredCPUTopology = pointer.P(instancetypev1beta1.Spread)
 			}),
 		)
 
@@ -168,28 +169,6 @@ var _ = Describe("Apply Instancetypes", func() {
 	})
 
 })
-
-func expectGet(fakeClient *fake.Clientset, resource string, object runtime.Object) *bool {
-	called := false
-	fakeClient.Fake.PrependReactor("get", resource, func(action testing.Action) (bool, runtime.Object, error) {
-		_, ok := action.(testing.GetAction)
-		Expect(ok).To(BeTrue())
-		called = true
-		return true, object, nil
-	})
-	return &called
-}
-
-func expectGetReturnNotFound(fakeClient *fake.Clientset, resource string) *bool {
-	called := false
-	fakeClient.Fake.PrependReactor("get", resource, func(action testing.Action) (bool, runtime.Object, error) {
-		get, ok := action.(testing.GetAction)
-		Expect(ok).To(BeTrue())
-		called = true
-		return true, nil, k8serrors.NewNotFound(get.GetResource().GroupResource(), get.GetName())
-	})
-	return &called
-}
 
 func expectCreate(fakeClient *fake.Clientset, resource string, object runtime.Object) *bool {
 	called := false
