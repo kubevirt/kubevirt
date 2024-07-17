@@ -2193,6 +2193,46 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumeMigration),
 				}))
 			})
+			DescribeTable("should validate if the VM is running with the migration volume update strategy", func(runStrategy v1.VirtualMachineRunStrategy) {
+				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration)
+				vmi := api.NewMinimalVMI("testvmi")
+				vm := &v1.VirtualMachine{
+					Spec: v1.VirtualMachineSpec{
+						UpdateVolumesStrategy: pointer.P(v1.UpdateVolumesStrategyMigration),
+						RunStrategy:           pointer.P(runStrategy),
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: vmi.Spec,
+						},
+					}}
+				vmBytes, _ := json.Marshal(vm)
+				ar := &admissionv1.AdmissionReview{
+					Request: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Update,
+						Resource:  webhooks.VirtualMachineGroupVersionResource,
+						Object: runtime.RawExtension{
+							Raw: vmBytes,
+						},
+					},
+				}
+				resp := vmsAdmitter.Admit(ar)
+				if runStrategy != v1.RunStrategyHalted {
+					Expect(resp.Allowed).To(BeTrue())
+					Expect(resp.Result).To(BeNil())
+				} else {
+					Expect(resp.Allowed).To(BeFalse())
+					Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Field:   k8sfield.NewPath("spec", "updateVolumesStrategy").String(),
+						Message: "Cannot update the volumes with migration if the VM is off",
+					}))
+				}
+			},
+				Entry("with runStrategy: Always", v1.RunStrategyAlways),
+				Entry("with runStrategy: Halted", v1.RunStrategyHalted),
+				Entry("with runStrategy: Manual", v1.RunStrategyManual),
+				Entry("with runStrategy: RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure),
+				Entry("with runStrategy: RunStrategyOnce", v1.RunStrategyOnce),
+			)
 		})
 	})
 
