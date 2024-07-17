@@ -787,14 +787,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				libdv.WithForceBindAnnotation(),
 				libdv.WithBlankImageSource(),
 				libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+				libdv.WithDefaultInstancetype(instancetypeapi.SingularResourceName, instancetype.Name),
+				libdv.WithDefaultPreference(instancetypeapi.SingularPreferenceResourceName, preference.Name),
 			)
-			// TODO - Add withDefault{Instancetype,Preference}Label support to libdv
-			sourceDV.Labels = map[string]string{
-				instancetypeapi.DefaultInstancetypeLabel:     instancetype.Name,
-				instancetypeapi.DefaultInstancetypeKindLabel: instancetypeapi.SingularResourceName,
-				instancetypeapi.DefaultPreferenceLabel:       preference.Name,
-				instancetypeapi.DefaultPreferenceKindLabel:   instancetypeapi.SingularPreferenceResourceName,
-			}
+
 			sourceDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), sourceDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libstorage.EventuallyDV(sourceDV, 180, matcher.HaveSucceeded())
