@@ -28,6 +28,7 @@ import (
 
 	instancetypeapi "kubevirt.io/api/instancetype"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -170,6 +171,16 @@ func WithDefaultPreference(kind, name string) dvOption {
 		}
 		dv.Labels[instancetypeapi.DefaultPreferenceLabel] = name
 		dv.Labels[instancetypeapi.DefaultPreferenceKindLabel] = kind
+	}
+}
+
+func WithDataVolumeSourceRef(kind, namespace, name string) dvOption {
+	return func(dv *v1beta1.DataVolume) {
+		dv.Spec.SourceRef = &v1beta1.DataVolumeSourceRef{
+			Kind:      kind,
+			Namespace: pointer.P(namespace),
+			Name:      name,
+		}
 	}
 }
 
