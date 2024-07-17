@@ -23,10 +23,23 @@ func (r *Reconciler) createOrUpdateInstancetypes() error {
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) error {
-	instancetypeClient := r.clientset.VirtualMachineClusterInstancetype()
+func (r *Reconciler) findInstancetype(name string) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
+	obj, exists, err := r.stores.ClusterInstancetype.GetByKey(name)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(v1.Resource("VirtualMachineClusterInstancetype"), name)
+	}
+	foundObj, ok := obj.(*instancetypev1beta1.VirtualMachineClusterInstancetype)
+	if !ok {
+		return nil, fmt.Errorf("unknown object within VirtualMachineClusterInstancetype store")
+	}
+	return foundObj, nil
+}
 
-	foundObj, err := instancetypeClient.Get(context.Background(), instancetype.Name, metav1.GetOptions{})
+func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) error {
+	foundObj, err := r.findInstancetype(instancetype.Name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -35,7 +48,7 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 	injectOperatorMetadata(r.kv, &instancetype.ObjectMeta, imageTag, imageRegistry, id, true)
 
 	if errors.IsNotFound(err) {
-		if _, err := instancetypeClient.Create(context.Background(), instancetype, metav1.CreateOptions{}); err != nil {
+		if _, err := r.clientset.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to create instancetype %+v: %v", instancetype, err)
 		}
 		log.Log.V(2).Infof("instancetype %v created", instancetype.GetName())
@@ -50,7 +63,7 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 	}
 
 	instancetype.ResourceVersion = foundObj.ResourceVersion
-	if _, err := instancetypeClient.Update(context.Background(), instancetype, metav1.UpdateOptions{}); err != nil {
+	if _, err := r.clientset.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("unable to update instancetype %+v: %v", instancetype, err)
 	}
 	log.Log.V(2).Infof("instancetype %v updated", instancetype.GetName())
@@ -83,10 +96,23 @@ func (r *Reconciler) createOrUpdatePreferences() error {
 	return nil
 }
 
-func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.VirtualMachineClusterPreference) error {
-	preferenceClient := r.clientset.VirtualMachineClusterPreference()
+func (r *Reconciler) findPreference(name string) (*instancetypev1beta1.VirtualMachineClusterPreference, error) {
+	obj, exists, err := r.stores.ClusterPreference.GetByKey(name)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(v1.Resource("VirtualMachineClusterPreference"), name)
+	}
+	foundObj, ok := obj.(*instancetypev1beta1.VirtualMachineClusterPreference)
+	if !ok {
+		return nil, fmt.Errorf("unknown object within VirtualMachineClusterPreference store")
+	}
+	return foundObj, nil
+}
 
-	foundObj, err := preferenceClient.Get(context.Background(), preference.Name, metav1.GetOptions{})
+func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.VirtualMachineClusterPreference) error {
+	foundObj, err := r.findPreference(preference.Name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -95,7 +121,7 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 	injectOperatorMetadata(r.kv, &preference.ObjectMeta, imageTag, imageRegistry, id, true)
 
 	if errors.IsNotFound(err) {
-		if _, err := preferenceClient.Create(context.Background(), preference, metav1.CreateOptions{}); err != nil {
+		if _, err := r.clientset.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to create preference %+v: %v", preference, err)
 		}
 		log.Log.V(2).Infof("preference %v created", preference.GetName())
@@ -110,7 +136,7 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 	}
 
 	preference.ResourceVersion = foundObj.ResourceVersion
-	if _, err := preferenceClient.Update(context.Background(), preference, metav1.UpdateOptions{}); err != nil {
+	if _, err := r.clientset.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("unable to update preference %+v: %v", preference, err)
 	}
 	log.Log.V(2).Infof("preference %v updated", preference.GetName())
