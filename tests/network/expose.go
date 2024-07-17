@@ -33,8 +33,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -487,7 +487,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		var vmrs *v1.VirtualMachineInstanceReplicaSet
 		BeforeEach(func() {
 			By("Creating a VMRS object with 2 replicas")
-			vmrs = tests.NewRandomReplicaSetFromVMI(newLabeledVMI("vmirs"), int32(numberOfVMs))
+			vmrs = replicaset.New(newLabeledVMI("vmirs"), numberOfVMs)
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")
