@@ -349,6 +349,13 @@ container_pull(
 )
 
 container_pull(
+    name = "fedora_with_test_tooling_s390x",
+    digest = "sha256:47f205b2667453830c8bce74cdb56fb938fc1f9e4507d83c33604530607caf8a",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora-with-test-tooling",
+)
+
+container_pull(
     name = "alpine-ext-kernel-boot-demo-container-base",
     digest = "sha256:a2ddb2f568bf3814e594a14bc793d5a655a61d5983f3561d60d02afa7bbc56b4",
     registry = "quay.io",

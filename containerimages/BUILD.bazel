@@ -89,10 +89,12 @@ container_image(
     name = "fedora-with-test-tooling",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_with_test_tooling_aarch64//image",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@fedora_with_test_tooling_s390x//image",
         "//conditions:default": "@fedora_with_test_tooling//image",
     }),
     mode = "444",
