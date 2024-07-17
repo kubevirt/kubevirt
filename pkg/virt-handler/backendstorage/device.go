@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
-	blockfs "github.com/siderolabs/go-blockdevice/blockdevice/filesystem"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -14,19 +14,24 @@ import (
 )
 
 func createExt3IfNotExist(mountNamespace string, deviceFile *safepath.Path) error {
-	sb, err := blockfs.Probe(unsafepath.UnsafeAbsolute(deviceFile.Raw()))
+	out, err := virt_chroot.ExecWithMountNamespace(mountNamespace, "/sbin/blkid", "-o", "export", unsafepath.UnsafeRelative(deviceFile.Raw())).CombinedOutput()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to run blkid: %s, error: %w", out, err)
 	}
-	if sb != nil {
+	blkid := string(out)
+	if strings.Contains(blkid, "TYPE=ext3") {
 		return nil
 	}
+	if strings.Contains(blkid, "TYPE=") {
+		return fmt.Errorf("partition contains non-ext3 filesystem: %s", blkid)
+	}
+
 	log.DefaultLogger().V(2).Infof("Creating ext3 filesystem on block device: %s", deviceFile)
 	b, err := virt_chroot.ExecWithMountNamespace(mountNamespace, "/sbin/mkfs.ext3", "-O", "^has_journal", unsafepath.UnsafeRelative(deviceFile.Raw())).CombinedOutput()
-
 	if err != nil {
 		return fmt.Errorf("failed to run mkfs: %s, error: %w", b, err)
 	}
+
 	return nil
 }
 
