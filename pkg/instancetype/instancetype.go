@@ -523,7 +523,7 @@ func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*in
 		}
 		return &preference.Spec, nil
 
-	case apiinstancetype.ClusterSingularPreferenceResourceName, apiinstancetype.ClusterPluralPreferenceResourceName:
+	case apiinstancetype.ClusterSingularPreferenceResourceName, apiinstancetype.ClusterPluralPreferenceResourceName, "":
 		clusterPreference, err := m.findClusterPreference(vm)
 		if err != nil {
 			return nil, err
