@@ -125,6 +125,14 @@ fi
 # Give the nodes enough memory to run tests in parallel, including tests which involve fedora
 export KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-11264M}
 
+# All lanes enable CPUManager and wait for it to appear as part of the test suite setup.
+# That process can take more than a minute. Enabling it from the start will free that time.
+if [[ -z $FEATURE_GATES ]]; then
+  export FEATURE_GATES="CPUManager"
+else
+  export FEATURE_GATES="${FEATURE_GATES},CPUManager"
+fi
+
 export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
 export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2016}
