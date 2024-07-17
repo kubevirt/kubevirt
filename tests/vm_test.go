@@ -280,7 +280,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			vm := createVM(virtClient, libvmifact.NewCirros())
 
-			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
+			err = retryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
 				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Spec.Template.ObjectMeta.Annotations = annotations
@@ -305,7 +305,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			vm := createVM(virtClient, libvmifact.NewCirros())
 
-			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
+			err = retryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
 				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Annotations = annotations
@@ -2088,7 +2088,7 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 
 func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachine")
-	err := tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
+	err := retryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
 		vm, err := virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vm.Spec.Running = nil
@@ -2113,7 +2113,7 @@ func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtu
 
 func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Stopping the VirtualMachine")
-	err := tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
+	err := retryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
 		vm, err := virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vm.Spec.Running = nil
@@ -2134,4 +2134,10 @@ func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtua
 	Expect(err).ToNot(HaveOccurred())
 
 	return vm
+}
+
+func retryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
+	return tests.RetryIfModified(func() error {
+		return do(objectMeta)
+	})
 }
