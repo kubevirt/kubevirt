@@ -539,6 +539,16 @@ spec:
           - list
           - watch
           - update
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - alertmanagers
+          - alertmanagers/api
+          verbs:
+          - get
+          - list
+          - create
+          - delete
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:

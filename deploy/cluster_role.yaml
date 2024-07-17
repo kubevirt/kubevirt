@@ -1145,6 +1145,16 @@ rules:
   - list
   - watch
   - update
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - alertmanagers
+  - alertmanagers/api
+  verbs:
+  - get
+  - list
+  - create
+  - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

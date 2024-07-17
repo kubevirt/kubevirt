@@ -52,10 +52,13 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/hyperconverged"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/observability"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
+
+const openshiftMonitoringNamespace = "openshift-monitoring"
 
 // Change below variables to serve metrics on different host or port.
 var (
@@ -171,6 +174,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	if ci.IsOpenshift() {
+		if err = observability.SetupWithManager(mgr); err != nil {
+			logger.Error(err, "unable to create controller", "controller", "Observability")
+			os.Exit(1)
+		}
+	}
+
 	err = createPriorityClass(ctx, mgr)
 	cmdHelper.ExitOnError(err, "Failed creating PriorityClass")
 
@@ -249,7 +259,10 @@ func getCacheOption(operatorNamespace string, isMonitoringAvailable, isOpenshift
 
 	cacheOptionsByObjectForOpenshift := map[client.Object]cache.ByObject{
 		&openshiftroutev1.Route{}: {
-			Field: namespaceSelector,
+			Namespaces: map[string]cache.Config{
+				operatorNamespace:            {},
+				openshiftMonitoringNamespace: {},
+			},
 		},
 		&imagev1.ImageStream{}: {
 			Label: labelSelector,

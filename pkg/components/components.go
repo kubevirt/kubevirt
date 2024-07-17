@@ -575,6 +575,11 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			Resources: stringListToSlice("consoles"),
 			Verbs:     stringListToSlice("get", "list", "watch", "update"),
 		},
+		{
+			APIGroups: stringListToSlice("monitoring.coreos.com"),
+			Resources: stringListToSlice("alertmanagers", "alertmanagers/api"),
+			Verbs:     stringListToSlice("get", "list", "create", "delete"),
+		},
 	}
 }
 
