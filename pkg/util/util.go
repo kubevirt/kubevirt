@@ -223,7 +223,7 @@ func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
 			if newSize == 0 {
 				logger.Errorf("disks must be at least 1MiB, %d bytes is too small", size)
 			} else {
-				logger.Warningf("disk size is not 1MiB-aligned. Adjusting from %d down to %d.", size, newSize)
+				logger.V(4).Infof("disk size is not 1MiB-aligned. Adjusting from %d down to %d.", size, newSize)
 			}
 		}
 		return newSize
