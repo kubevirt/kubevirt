@@ -486,7 +486,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		var vmrs *v1.VirtualMachineInstanceReplicaSet
 		BeforeEach(func() {
 			By("Creating a VMRS object with 2 replicas")
-			vmrs = tests.NewRandomReplicaSetFromVMI(newLabeledVMI("vmirs"), int32(numberOfVMs))
+			vmrs = libvmi.NewReplicaSet(newLabeledVMI("vmirs"), numberOfVMs)
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")

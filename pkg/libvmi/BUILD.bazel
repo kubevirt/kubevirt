@@ -8,6 +8,7 @@ go_library(
         "cpu.go",
         "memory.go",
         "network.go",
+        "replicaset.go",
         "selector.go",
         "storage.go",
         "vm.go",
