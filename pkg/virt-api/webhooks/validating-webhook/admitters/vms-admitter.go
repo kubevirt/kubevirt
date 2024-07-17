@@ -207,6 +207,11 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	causes = validateVolumesUpdateWithMigrationStrategy(ar.Request, &vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
 	isDryRun := ar.Request.DryRun != nil && *ar.Request.DryRun
 	if !isDryRun && ar.Request.Operation == admissionv1.Create {
 		metrics.NewVMCreated(&vm)
@@ -750,6 +755,30 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("Cannot update VM spec until snapshot %q completes", *vm.Status.SnapshotInProgress),
 			Field:   k8sfield.NewPath("spec").String(),
+		}}
+	}
+
+	return nil
+}
+
+func validateVolumesUpdateWithMigrationStrategy(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
+	if ar.Operation != admissionv1.Update {
+		return nil
+	}
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeUnexpectedServerResponse,
+			Message: "Cannot determine the run strategy",
+		}}
+	}
+	if vm.Spec.UpdateVolumesStrategy != nil &&
+		*vm.Spec.UpdateVolumesStrategy == v1.UpdateVolumesStrategyMigration &&
+		runStrategy == v1.RunStrategyHalted {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "Cannot update the volumes with migration if the VM is off",
+			Field:   k8sfield.NewPath("spec", "updateVolumesStrategy").String(),
 		}}
 	}
 
