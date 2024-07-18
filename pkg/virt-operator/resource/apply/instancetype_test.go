@@ -17,6 +17,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	fake2 "kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/fake"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -67,6 +68,10 @@ var _ = Describe("Apply Instancetypes", func() {
 				},
 			}
 
+			reconciler.targetStrategy = &fake2.FakeStrategy{
+				FakeInstancetypes: []*instancetypev1beta1.VirtualMachineClusterInstancetype{instancetype},
+			}
+
 			imageTag, imageRegistry, id := getTargetVersionRegistryID(reconciler.kv)
 			injectOperatorMetadata(reconciler.kv, &instancetype.ObjectMeta, imageTag, imageRegistry, id, true)
 		})
@@ -101,10 +106,15 @@ var _ = Describe("Apply Instancetypes", func() {
 			}),
 		)
 
-		It("should delete all instancetypes managed by virt-operator", func() {
+		It("should delete all deployed instance types managed by virt-operator", func() {
+			reconciler.stores.ClusterInstancetype.Add(instancetype)
 			deleteCollectionCalled := expectDeleteCollection(fakeClient, reconciler.kv, apiinstancetype.ClusterPluralResourceName)
 			Expect(reconciler.deleteInstancetypes()).To(Succeed())
 			Expect(*deleteCollectionCalled).To(BeTrue())
+		})
+
+		It("should not call delete if no instance types have been deployed by virt-operator", func() {
+			Expect(reconciler.deleteInstancetypes()).To(Succeed())
 		})
 	})
 
@@ -125,6 +135,10 @@ var _ = Describe("Apply Instancetypes", func() {
 						PreferredCPUTopology: &preferredTopology,
 					},
 				},
+			}
+
+			reconciler.targetStrategy = &fake2.FakeStrategy{
+				FakePreferences: []*instancetypev1beta1.VirtualMachineClusterPreference{preference},
 			}
 
 			imageTag, imageRegistry, id := getTargetVersionRegistryID(reconciler.kv)
@@ -161,10 +175,15 @@ var _ = Describe("Apply Instancetypes", func() {
 			}),
 		)
 
-		It("should delete all preferences managed by virt-operator", func() {
+		It("should delete all deployed preferences managed by virt-operator", func() {
+			reconciler.stores.ClusterPreference.Add(preference)
 			deleteCollectionCalled := expectDeleteCollection(fakeClient, reconciler.kv, apiinstancetype.ClusterPluralPreferenceResourceName)
 			Expect(reconciler.deletePreferences()).To(Succeed())
 			Expect(*deleteCollectionCalled).To(BeTrue())
+		})
+
+		It("should not call delete if no preferences have been deployed by virt-operator", func() {
+			Expect(reconciler.deletePreferences()).To(Succeed())
 		})
 	})
 
