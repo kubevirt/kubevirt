@@ -72,6 +72,20 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 }
 
 func (r *Reconciler) deleteInstancetypes() error {
+	foundInstancetype := false
+	for _, instancetype := range r.targetStrategy.Instancetypes() {
+		_, exists, err := r.stores.ClusterInstancetype.GetByKey(instancetype.Name)
+		if err != nil {
+			return err
+		}
+		if exists {
+			foundInstancetype = true
+			break
+		}
+	}
+	if !foundInstancetype {
+		return nil
+	}
 	ls := labels.Set{
 		v1.AppComponentLabel: GetAppComponent(r.kv),
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
@@ -145,6 +159,20 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 }
 
 func (r *Reconciler) deletePreferences() error {
+	foundPreference := false
+	for _, preference := range r.targetStrategy.Preferences() {
+		_, exists, err := r.stores.ClusterPreference.GetByKey(preference.Name)
+		if err != nil {
+			return err
+		}
+		if exists {
+			foundPreference = true
+			break
+		}
+	}
+	if !foundPreference {
+		return nil
+	}
 	ls := labels.Set{
 		v1.AppComponentLabel: GetAppComponent(r.kv),
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
