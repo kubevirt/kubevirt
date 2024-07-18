@@ -328,7 +328,7 @@ container_pull(
 # TODO build fedora_with_test_tooling for multi-arch
 container_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:85f7bb99624422dc45b2c203d520a06bfce7a760ef831aafbf0e2bf2b92ebcf4",
+    digest = "sha256:33a19d099a6fe9cb98e0f03cd90a771a690008059425d9ca0070bea1ae274b2e",
     registry = "quay.io",
     repository = "kubevirtci/fedora-with-test-tooling",
 )
@@ -343,7 +343,14 @@ container_pull(
 
 container_pull(
     name = "fedora_with_test_tooling_aarch64",
-    digest = "sha256:f5bcb56c8c3ce6f0801aa897db4691950235e7676d1ae22c64b088def4196701",
+    digest = "sha256:ba0ac0f7f043db5a903d8843f6045830fc3d7d4c2ae728a59ac94e2e2916c023",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora-with-test-tooling",
+)
+
+container_pull(
+    name = "fedora_with_test_tooling_s390x",
+    digest = "sha256:cac5aa2b64563bd2791cf4744f1c27a06c4a8e423dcf6b91d3e6f715176b8fee",
     registry = "quay.io",
     repository = "kubevirtci/fedora-with-test-tooling",
 )
