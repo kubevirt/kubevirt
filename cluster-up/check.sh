@@ -38,7 +38,7 @@ function is_enabled() {
 	if [ "$1" == "1" ]; then
 		return 0
 	fi
-	if [ "$1" == "Y" ] || [ "$1" == "y"]; then
+	if [ "$1" == "Y" ] || [ "$1" == "y" ]; then
 		return 0
 	fi
 	return 1
