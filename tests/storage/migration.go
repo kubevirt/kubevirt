@@ -27,6 +27,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -386,6 +387,43 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			// increasing. Therefore, after 2 minutes we don't expect more then 6 mgration objects.
 			Expect(len(migList.Items)).Should(BeNumerically(">", 1))
 			Expect(len(migList.Items)).Should(BeNumerically("<", 56))
+		})
+
+		It("should set the restart condition since the second volume is RWO and not part of the migration", func() {
+			const volName = "vol0"
+			dv1 := createDV()
+			dv2 := createBlankDV()
+			destDV := createBlankDV()
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithDataVolume(volName, dv1.Name),
+				libvmi.WithDataVolume("vol1", dv2.Name),
+				libvmi.WithCloudInitNoCloudEncodedUserData(("#!/bin/bash\necho hello\n")),
+			)
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithRunning(),
+				libvmi.WithDataVolumeTemplate(dv1),
+			)
+			vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+			By("Update volumes")
+			updateVMWithDV(vm.Name, volName, destDV.Name)
+			Eventually(func() []virtv1.VirtualMachineCondition {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Conditions
+			}).WithTimeout(120*time.Second).WithPolling(time.Second).Should(
+				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":    Equal(virtv1.VirtualMachineRestartRequired),
+					"Status":  Equal(k8sv1.ConditionTrue),
+					"Message": Equal("cannot migrate the VM. The volume vol1 is RWO and not included in the migration volumes"),
+				})), "The RestartRequired condition should be false",
+			)
 		})
 	})
 })
