@@ -408,8 +408,12 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 		} else if exists := lookup[vmi.Namespace+"/"+vmi.Name]; exists {
 			continue
 		}
-
-		if automatedMigrationAllowed && (vmi.IsMigratable() || volumemig.CanVolumesUpdateMigration(vmi)) {
+		volMig := false
+		errValid := volumemig.ValidateVolumesUpdateMigration(vmi, nil, vmi.Status.MigratedVolumes)
+		if len(vmi.Status.MigratedVolumes) > 0 && errValid == nil {
+			volMig = true
+		}
+		if automatedMigrationAllowed && (vmi.IsMigratable() || volMig) {
 			data.migratableOutdatedVMIs = append(data.migratableOutdatedVMIs, vmi)
 		} else if automatedShutdownAllowed {
 			data.evictOutdatedVMIs = append(data.evictOutdatedVMIs, vmi)
