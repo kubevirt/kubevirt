@@ -217,13 +217,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			fakeDownwardMetricsManager,
 			nil,
 			"",
+			&netConfStub{},
+			&netStatStub{},
 			networkBindingPluginMemoryCalculator,
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
-
-		controller.netConf = &netConfStub{}
-		controller.netStat = &netStatStub{}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
