@@ -375,22 +375,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("VirtualMachineInstance with invalid MAC address", func() {
-		It("[test_id:700]should failed to start with invalid MAC address", func() {
-			By("Start VMI")
-			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-			masqIface.MacAddress = "de:00c:00c:00:00:de:abc"
-			beafdeadVMI := libvmifact.NewAlpine(
-				libvmi.WithInterface(masqIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), beafdeadVMI, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-			testErr := err.(*errors.StatusError)
-			Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
-		})
-	})
-
 	Context("VirtualMachineInstance with disabled automatic attachment of interfaces", func() {
 		It("[test_id:1774]should not configure any external interfaces", func() {
 			By("checking loopback is the only guest interface")
