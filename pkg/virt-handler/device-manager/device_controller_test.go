@@ -102,11 +102,13 @@ var _ = Describe("Device Controller", func() {
 		host = "master"
 		maxDevices = 100
 		permissions = "rw"
-		stop = make(chan struct{})
+		stop = make(chan struct{}, 1)
 	})
 
 	AfterEach(func() {
 		defer os.RemoveAll(workDir)
+		// Ensure the deviceController is stopped after each test to avoid leaking resources
+		stop <- struct{}{}
 	})
 
 	Context("Basic Tests", func() {
