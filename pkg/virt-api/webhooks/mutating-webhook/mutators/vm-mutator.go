@@ -76,10 +76,10 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
-		if causes := validateInstancetypeMatcherUpdate(newVM.Spec.Instancetype, oldVM.Spec.Instancetype); len(causes) > 0 {
+		if causes := validateInstancetypeMatcherUpdate(oldVM.Spec.Instancetype, newVM.Spec.Instancetype); len(causes) > 0 {
 			return webhookutils.ToAdmissionResponse(causes)
 		}
-		if causes := validatePreferenceMatcherUpdate(newVM.Spec.Preference, oldVM.Spec.Preference); len(causes) > 0 {
+		if causes := validatePreferenceMatcherUpdate(oldVM.Spec.Preference, newVM.Spec.Preference); len(causes) > 0 {
 			return webhookutils.ToAdmissionResponse(causes)
 		}
 	}
@@ -228,7 +228,7 @@ func (mutator *VMsMutator) setDefaultPreferenceKind(vm *v1.VirtualMachine) {
 	}
 }
 
-func validateInstancetypeMatcherUpdate(oldInstancetypeMatcher *v1.InstancetypeMatcher, newInstancetypeMatcher *v1.InstancetypeMatcher) []metav1.StatusCause {
+func validateInstancetypeMatcherUpdate(oldInstancetypeMatcher, newInstancetypeMatcher *v1.InstancetypeMatcher) []metav1.StatusCause {
 	// Allow updates introducing or removing the matchers
 	if oldInstancetypeMatcher == nil || newInstancetypeMatcher == nil {
 		return nil
@@ -243,7 +243,7 @@ func validateInstancetypeMatcherUpdate(oldInstancetypeMatcher *v1.InstancetypeMa
 	return nil
 }
 
-func validatePreferenceMatcherUpdate(oldPreferenceMatcher *v1.PreferenceMatcher, newPreferenceMatcher *v1.PreferenceMatcher) []metav1.StatusCause {
+func validatePreferenceMatcherUpdate(oldPreferenceMatcher, newPreferenceMatcher *v1.PreferenceMatcher) []metav1.StatusCause {
 	// Allow updates introducing or removing the matchers
 	if oldPreferenceMatcher == nil || newPreferenceMatcher == nil {
 		return nil
