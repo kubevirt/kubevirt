@@ -24,6 +24,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -84,7 +85,7 @@ func (o *Command) expandRun(args []string, cmd *cobra.Command) error {
 			return fmt.Errorf("error expanding VirtualMachine - %s in namespace - %s: %w", vmName, namespace, err)
 		}
 	} else {
-		vm, err := readVMFromFile(filePath)
+		vm, err := readVMFromFileOrStdin(filePath)
 		if err != nil {
 			return err
 		}
@@ -111,6 +112,9 @@ func usageExpand() string {
   # Expand a virtual machine from file called myvm.yaml.
   {{ProgramName}} expand --file myvm.yaml
 
+  # Expand a virtual machine from stdin. Press Ctrl+D (Unix) or Ctrl+Z (Windows) to signal the end of input.
+  {{ProgramName}} expand --file -
+
   # Expand a virtual machine called myvm and display output in json format.
   {{ProgramName}} expand --vm myvm --output json
   `
@@ -130,16 +134,23 @@ func expandArgs() cobra.PositionalArgs {
 	}
 }
 
-func readVMFromFile(filePath string) (*v1.VirtualMachine, error) {
+func readVMFromFileOrStdin(payload string) (*v1.VirtualMachine, error) {
 	vm := &v1.VirtualMachine{}
 
-	readFile, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("error reading file %+w", err)
+	var data []byte
+	var err error
+
+	if payload == "-" {
+		if data, err = io.ReadAll(os.Stdin); err != nil {
+			return nil, fmt.Errorf("error reading from stdin: %+w", err)
+		}
+	} else {
+		if data, err = os.ReadFile(payload); err != nil {
+			return nil, fmt.Errorf("error reading file %+w", err)
+		}
 	}
 
-	err = yml.NewYAMLOrJSONDecoder(bytes.NewReader(readFile), 1024).Decode(&vm)
-	if err != nil {
+	if err = yml.NewYAMLOrJSONDecoder(bytes.NewReader(data), 1024).Decode(&vm); err != nil {
 		return nil, fmt.Errorf("error decoding VirtualMachine %+w", err)
 	}
 

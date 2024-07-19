@@ -48,7 +48,26 @@ var _ = Describe("Expand command", func() {
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var expandSpecInterface *kubecli.MockExpandSpecInterface
 	var ctrl *gomock.Controller
-	const vmName = "testvm"
+	const (
+		vmName = "testvm"
+		vmSpec = `apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: testvm
+spec:
+  runStrategy: Always
+  template:
+    spec:
+      domain:
+        devices: {}
+        machine:
+          type: q35
+        resources: {}
+        volumes:
+status:
+`
+		invalidYaml = `apiVersion: kubevirt.io/v1kind: VirtualMachine`
+	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -107,25 +126,6 @@ var _ = Describe("Expand command", func() {
 	Context("with file input", func() {
 		var file *os.File
 
-		const (
-			vmSpec = `apiVersion: kubevirt.io/v1
-kind: VirtualMachine
-metadata:
-  name: testvm
-spec:
-  runStrategy: Always
-  template:
-    spec:
-      domain:
-        devices: {}
-        machine:
-          type: q35
-        resources: {}
-        volumes:
-status:
-`
-			invalidYaml = `apiVersion: kubevirt.io/v1kind: VirtualMachine`
-		)
 		BeforeEach(func() {
 			var err error
 			file, err = os.CreateTemp(GinkgoT().TempDir(), "file-*")
@@ -164,10 +164,57 @@ status:
 			Expect(yaml.Unmarshal([]byte(invalidYaml), vm)).ToNot(Succeed())
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand("expand", fileInput, file.Name())
-			err := cmd()
 
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(MatchError("error decoding VirtualMachine error converting YAML to JSON: yaml: mapping values are not allowed in this context"))
+			Expect(cmd()).Should(MatchError("error decoding VirtualMachine error converting YAML to JSON: yaml: mapping values are not allowed in this context"))
+		})
+	})
+
+	Context("with stdin input", func() {
+		var (
+			oldStdin *os.File
+			r        *os.File
+			w        *os.File
+			err      error
+		)
+
+		writeToStdin := func(data string) {
+			go func() {
+				defer w.Close()
+				_, _ = w.Write([]byte(data))
+			}()
+		}
+
+		BeforeEach(func() {
+			oldStdin = os.Stdin
+			r, w, err = os.Pipe()
+			Expect(err).ToNot(HaveOccurred())
+			os.Stdin = r
+			DeferCleanup(func() {
+				os.Stdin = oldStdin
+				r.Close()
+				w.Close()
+			})
+		})
+
+		It("should succeed when called with valid stdin input", func() {
+			Expect(yaml.Unmarshal([]byte(vmSpec), vm)).To(Succeed())
+
+			kubecli.MockKubevirtClientInstance.EXPECT().ExpandSpec(k8smetav1.NamespaceDefault).Return(expandSpecInterface).Times(1)
+			expandSpecInterface.EXPECT().ForVirtualMachine(vm).Return(vm, nil).Times(1)
+
+			writeToStdin(vmSpec)
+
+			cmd := clientcmd.NewRepeatableVirtctlCommand("expand", fileInput, "-")
+
+			Expect(cmd()).To(Succeed())
+		})
+
+		It("should fail when called with invalid yaml in stdin input", func() {
+			writeToStdin(invalidYaml)
+
+			cmd := clientcmd.NewRepeatableVirtctlCommand("expand", fileInput, "-")
+
+			Expect(cmd()).To(MatchError("error decoding VirtualMachine error converting YAML to JSON: yaml: mapping values are not allowed in this context"))
 		})
 	})
 })
