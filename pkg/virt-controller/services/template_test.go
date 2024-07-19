@@ -133,6 +133,7 @@ var _ = Describe("Template", func() {
 					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 						return hooks.UnmarshalHookSidecarList(vmi)
 					}),
+				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -2928,6 +2929,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
+				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
 			)
 			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
 				Name: "testvmi", Namespace: "default", UID: "1234",
@@ -5048,46 +5050,53 @@ var _ = Describe("Template", func() {
 			const (
 				iface1name  = "iface1"
 				plugin1name = "plugin1"
-				iface2name  = "iface2"
-				plugin2name = "plugin2"
 			)
 
-			bindingPlugins := map[string]v1.InterfaceBindingPlugin{
-				plugin1name: {
-					ComputeResourceOverhead: &k8sv1.ResourceRequirements{
-						Requests: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceMemory: resource.MustParse("500Mi"),
-						},
-					},
-				},
-				plugin2name: {
-					ComputeResourceOverhead: &k8sv1.ResourceRequirements{
-						Requests: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceMemory: resource.MustParse("600Mi"),
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
+				Binding: map[string]v1.InterfaceBindingPlugin{
+					plugin1name: {
+						ComputeResourceOverhead: &k8sv1.ResourceRequirements{
+							Requests: map[k8sv1.ResourceName]resource.Quantity{
+								k8sv1.ResourceMemory: resource.MustParse("500Mi"),
+							},
 						},
 					},
 				},
 			}
 
-			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{Binding: bindingPlugins}
-			_, kvStore, svc = configFactory(defaultArch)
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kvConfig.Spec.Configuration)
+
+			netBindingPluginMemoryOverheadCalculator := &stubNetBindingPluginMemoryCalculator{}
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithSidecarCreator(testSidecarCreator),
+				WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
+			)
 
 			vmi := libvmi.New(
 				libvmi.WithNamespace("default"),
 				libvmi.WithInterface(v1.Interface{Name: iface1name, Binding: &v1.PluginBinding{Name: plugin1name}}),
 				libvmi.WithNetwork(&v1.Network{Name: iface1name}),
-				libvmi.WithInterface(v1.Interface{Name: iface2name, Binding: &v1.PluginBinding{Name: plugin2name}}),
-				libvmi.WithNetwork(&v1.Network{Name: iface2name}),
 			)
 
-			pod, err := svc.RenderLaunchManifest(vmi)
+			_, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedMemory := GetMemoryOverhead(vmi, defaultArch, nil)
-			expectedMemory.Add(resource.MustParse("1100Mi"))
-			Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
+			Expect(netBindingPluginMemoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
 		})
 	})
 })
@@ -5214,4 +5223,14 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 	Expect(failMsg).To(Equal(""))
 
 	return timeoutString
+}
+
+type stubNetBindingPluginMemoryCalculator struct {
+	calculatedMemoryOverhead bool
+}
+
+func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+	smc.calculatedMemoryOverhead = true
+
+	return resource.Quantity{}
 }

@@ -42,7 +42,9 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 	)
 
 	DescribeTable("Memory overhead should be zero", func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) {
-		actualResult := netbinding.CalculateMemoryOverhead(vmi, registeredPlugins)
+		memoryCalculator := netbinding.MemoryCalculator{}
+
+		actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
 		Expect(actualResult.Value()).To(BeZero())
 	},
 		Entry("when the VMI does not have NICs and there aren't any registered plugins", libvmi.New(), nil),
@@ -87,7 +89,9 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 	)
 
 	DescribeTable("It should calculate memory overhead", func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin, expectedValue resource.Quantity) {
-		actualResult := netbinding.CalculateMemoryOverhead(vmi, registeredPlugins)
+		memoryCalculator := netbinding.MemoryCalculator{}
+
+		actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
 		Expect(actualResult.Value()).To(Equal(expectedValue.Value()))
 	},
 		Entry("when there is a single interface using a binding plugin",
