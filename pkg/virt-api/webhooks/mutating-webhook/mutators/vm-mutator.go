@@ -258,7 +258,16 @@ func validatePreferenceMatcherUpdate(oldPreferenceMatcher, newPreferenceMatcher 
 	return nil
 }
 
+const (
+	matcherUpdateInferFromVolumeSetErr = "InferFromVolume already set, should be cleared before setting Name or Kind"
+)
+
 func validateMatcherUpdate(oldMatcher, newMatcher v1.Matcher) error {
+	// Provide a meaningful error if the user mistaken sets inferFromVolume, name and kind
+	if oldMatcher.GetInferFromVolume() != "" && newMatcher.GetInferFromVolume() != "" && (newMatcher.GetName() != "" || newMatcher.GetKind() != "") {
+		return fmt.Errorf(matcherUpdateInferFromVolumeSetErr)
+	}
+
 	// Do not check anything when the original matcher didn't have a revisionName as this is likely the VM Controller updating the matcher
 	if oldMatcher.GetRevisionName() == "" {
 		return nil

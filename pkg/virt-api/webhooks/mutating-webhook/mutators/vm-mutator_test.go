@@ -589,6 +589,19 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				resp := getResponseFromVMUpdate(oldVM, newVM)
 				Expect(resp.Allowed).To(BeFalse())
 			})
+			It("should reject update request providing InferFromVolume, Name and Kind", func() {
+				oldVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					InferFromVolume: "foo",
+				}
+				newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					InferFromVolume: "foo",
+					Name:            "foo",
+					Kind:            apiinstancetype.ClusterSingularResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Message).To(ContainSubstring(matcherUpdateInferFromVolumeSetErr))
+			})
 		})
 		Context("of PreferenceMatcher", func() {
 			const (
@@ -683,6 +696,19 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				}
 				resp := getResponseFromVMUpdate(oldVM, newVM)
 				Expect(resp.Allowed).To(BeFalse())
+			})
+			It("should reject update request providing InferFromVolume, Name and Kind", func() {
+				oldVM.Spec.Preference = &v1.PreferenceMatcher{
+					InferFromVolume: "foo",
+				}
+				newVM.Spec.Preference = &v1.PreferenceMatcher{
+					InferFromVolume: "foo",
+					Name:            "foo",
+					Kind:            apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Message).To(ContainSubstring(matcherUpdateInferFromVolumeSetErr))
 			})
 		})
 	})
