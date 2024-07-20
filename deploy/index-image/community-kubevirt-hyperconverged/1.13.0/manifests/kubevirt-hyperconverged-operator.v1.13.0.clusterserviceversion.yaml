@@ -3902,7 +3902,7 @@ spec:
                 - name: CSI_PROVISIONER_IMAGE
                   value: quay.io/kubevirt/hostpath-csi-driver@sha256:b7ccc469ad7e640fed2e98b50eae57a64e81c7b9862a799b7a9892d14ade8937
                 - name: NODE_DRIVER_REG_IMAGE
-                  value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:f25af73ee708ff9c82595ae99493cdef9295bd96953366cddf36305f82555dac
+                  value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:e01facb9fb9cffaf52d0053bdb979fbd8c505c8e411939a6e026dd061a6b4fbe
                 - name: LIVENESS_PROBE_IMAGE
                   value: registry.k8s.io/sig-storage/livenessprobe@sha256:d2a9027a4876e039185e9bef7c61a0142c8ea14e7440860285c34ac73fee4ffb
                 - name: CSI_SNAPSHOT_IMAGE
@@ -4920,7 +4920,7 @@ spec:
     name: cni-default-plugins
   - image: registry.k8s.io/coredns/coredns@sha256:a0ead06651cf580044aeb0a0feba63591858fb2e43ade8c9dea45a6a89ae7e5e
     name: coredns
-  - image: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:f25af73ee708ff9c82595ae99493cdef9295bd96953366cddf36305f82555dac
+  - image: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:e01facb9fb9cffaf52d0053bdb979fbd8c505c8e411939a6e026dd061a6b4fbe
     name: csi-node-driver-registrar
   - image: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
     name: csi-provisioner
