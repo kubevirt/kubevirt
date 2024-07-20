@@ -28,17 +28,17 @@ import (
 func NewReplicaSet(vmi *v1.VirtualMachineInstance, replicas int) *v1.VirtualMachineInstanceReplicaSet {
 	const taillength = 5
 	replicas32 := int32(replicas)
-	name := "replicaset" + rand.String(taillength)
+	rsselector := "rsselector" + rand.String(taillength)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(taillength)},
 		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 			Replicas: &replicas32,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"name": name},
+				MatchLabels: map[string]string{"rsslector": rsselector},
 			},
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"name": name},
+					Labels: map[string]string{"rsslector": rsselector},
 					Name:   vmi.ObjectMeta.Name,
 				},
 				Spec: vmi.Spec,
