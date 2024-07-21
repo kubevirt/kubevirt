@@ -1,6 +1,7 @@
 package admitters
 
 import (
+	"context"
 	"fmt"
 	"slices"
 
@@ -18,13 +19,13 @@ import (
 
 type PreferenceAdmitter struct{}
 
-func (f *PreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (f *PreferenceAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitPreference(ar.Request, instancetypeapi.PluralPreferenceResourceName)
 }
 
 type ClusterPreferenceAdmitter struct{}
 
-func (f *ClusterPreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (f *ClusterPreferenceAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitPreference(ar.Request, instancetypeapi.ClusterPluralPreferenceResourceName)
 }
 

@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -137,11 +138,11 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				BeTrue(),
 			)
 
-			DescribeTable("and NodeName set", func(handlernode string, matcher types.GomegaMatcher) {
+			DescribeTable("and NodeName set", func(ctx context.Context, handlernode string, matcher types.GomegaMatcher) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Status.NodeName = "got"
 
-				resp := vmiUpdateAdmitter.Admit(admission(vmi, handlernode))
+				resp := vmiUpdateAdmitter.Admit(ctx, admission(vmi, handlernode))
 				Expect(resp).To(matcher)
 			},
 				Entry("should deny request if handler is on different node", "diff",
@@ -152,14 +153,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				),
 			)
 
-			DescribeTable("and TargetNode set", func(handlernode string, matcher types.GomegaMatcher) {
+			DescribeTable("and TargetNode set", func(ctx context.Context, handlernode string, matcher types.GomegaMatcher) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Status.NodeName = "got"
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 					TargetNode: "git",
 				}
 
-				resp := vmiUpdateAdmitter.Admit(admission(vmi, handlernode))
+				resp := vmiUpdateAdmitter.Admit(ctx, admission(vmi, handlernode))
 				Expect(resp).To(matcher)
 			},
 				Entry("should deny request if handler is on different node", "diff",
@@ -170,14 +171,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				),
 			)
 
-			DescribeTable("and both NodeName and TargetNode set", func(handlernode string, matcher types.GomegaMatcher) {
+			DescribeTable("and both NodeName and TargetNode set", func(ctx context.Context, handlernode string, matcher types.GomegaMatcher) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Status.NodeName = "got"
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 					TargetNode: "target",
 				}
 
-				resp := vmiUpdateAdmitter.Admit(admission(vmi, handlernode))
+				resp := vmiUpdateAdmitter.Admit(ctx, admission(vmi, handlernode))
 				Expect(resp).To(matcher)
 			},
 				Entry("should deny request if handler is on different node", "diff",
@@ -192,7 +193,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				),
 			)
 
-			It("should allow finalize migration", func() {
+			It("should allow finalize migration", func(ctx context.Context) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Status.NodeName = "got"
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -202,11 +203,11 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				updatedVMI := vmi.DeepCopy()
 				updatedVMI.Status.NodeName = "target"
 
-				resp := vmiUpdateAdmitter.Admit(admissionWithCustomUpdate(vmi, updatedVMI, "got"))
+				resp := vmiUpdateAdmitter.Admit(ctx, admissionWithCustomUpdate(vmi, updatedVMI, "got"))
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
-			It("should not allow to set targetNode to source handler", func() {
+			It("should not allow to set targetNode to source handler", func(ctx context.Context) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Status.NodeName = "got"
 
@@ -214,17 +215,22 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				updatedVMI.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 					TargetNode: "target",
 				}
-				resp := vmiUpdateAdmitter.Admit(admissionWithCustomUpdate(vmi, updatedVMI, "got"))
+				resp := vmiUpdateAdmitter.Admit(ctx, admissionWithCustomUpdate(vmi, updatedVMI, "got"))
 				Expect(resp.Allowed).To(BeFalse())
 			})
 		})
 
 		DescribeTable("with Node Restriction feature gate disabled should allow different handler", func(migrationState *v1.VirtualMachineInstanceMigrationState) {
+			// can't use context parameter if passing nil in the Entry's first parameter. This is bug in ginkgo.
+			// This bug was fixed in ginkgo v2.18.0
+			// todo: add ctx parameter instead of the variable, after upgrading ginkgo
+			ctx := context.Background()
+
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Status.NodeName = "got"
 			vmi.Status.MigrationState = migrationState
 
-			resp := vmiUpdateAdmitter.Admit(admission(vmi, "diff"))
+			resp := vmiUpdateAdmitter.Admit(ctx, admission(vmi, "diff"))
 			Expect(resp.Allowed).To(BeTrue())
 		},
 			Entry("when TargetNode is not set", nil),
@@ -233,7 +239,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	})
 
-	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(ctx context.Context, data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -245,7 +251,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				},
 			},
 		}
-		resp := review(ar)
+		resp := review(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
@@ -257,7 +263,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		),
 	)
 
-	It("should reject valid VirtualMachineInstance spec on update", func() {
+	It("should reject valid VirtualMachineInstance spec on update", func(ctx context.Context) {
 		vmi := api.NewMinimalVMI("testvmi")
 
 		updateVmi := vmi.DeepCopy()
@@ -286,7 +292,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			},
 		}
 
-		resp := vmiUpdateAdmitter.Admit(ar)
+		resp := vmiUpdateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal("update of VMI object is restricted"))
@@ -842,7 +848,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		)
 	})
 
-	DescribeTable("Admit or deny based on user", func(user string, expected types.GomegaMatcher) {
+	DescribeTable("Admit or deny based on user", func(ctx context.Context, user string, expected types.GomegaMatcher) {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.CPU = &v1.CPU{}
 		vmi.Spec.Volumes = makeVolumes(1)
@@ -868,14 +874,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				Operation: admissionv1.Update,
 			},
 		}
-		resp := vmiUpdateAdmitter.Admit(ar)
+		resp := vmiUpdateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(expected)
 	},
 		Entry("Should admit internal sa", "system:serviceaccount:kubevirt:"+components.ApiServiceAccountName, BeTrue()),
 		Entry("Should reject regular user", "system:serviceaccount:someNamespace:someUser", BeFalse()),
 	)
 
-	DescribeTable("Updates in CPU topology", func(oldCPUTopology, newCPUTopology *v1.CPU, expected types.GomegaMatcher) {
+	DescribeTable("Updates in CPU topology", func(ctx context.Context, oldCPUTopology, newCPUTopology *v1.CPU, expected types.GomegaMatcher) {
 		vmi := api.NewMinimalVMI("testvmi")
 		updateVmi := vmi.DeepCopy()
 		vmi.Spec.Domain.CPU = oldCPUTopology
@@ -896,7 +902,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				Operation: admissionv1.Update,
 			},
 		}
-		resp := vmiUpdateAdmitter.Admit(ar)
+		resp := vmiUpdateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(expected)
 	},
 		Entry("deny update of maxSockets",
@@ -908,7 +914,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			},
 			BeFalse()))
 
-	It("should reject updates to maxGuest", func() {
+	It("should reject updates to maxGuest", func(ctx context.Context) {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.CPU = &v1.CPU{}
 		updateVmi := vmi.DeepCopy()
@@ -937,11 +943,11 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				Operation: admissionv1.Update,
 			},
 		}
-		resp := vmiUpdateAdmitter.Admit(ar)
+		resp := vmiUpdateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
-	It("should allow change for a persistent volume if it is a migrated volume", func() {
+	It("should allow change for a persistent volume if it is a migrated volume", func(ctx context.Context) {
 		disks := []v1.Disk{
 			{
 				Name:       "vol0",

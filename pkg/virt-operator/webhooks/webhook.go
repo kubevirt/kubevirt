@@ -32,7 +32,7 @@ type KubeVirtDeletionAdmitter struct {
 	client kubecli.KubevirtClient
 }
 
-func (k *KubeVirtDeletionAdmitter) Admit(review *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (k *KubeVirtDeletionAdmitter) Admit(_ context.Context, review *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	var kv *v1.KubeVirt
 	var err error
 	if review.Request.Name != "" {

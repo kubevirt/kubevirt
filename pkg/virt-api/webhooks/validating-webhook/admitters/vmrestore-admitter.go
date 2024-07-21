@@ -60,7 +60,7 @@ func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kubev
 }
 
 // Admit validates an AdmissionReview
-func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *VMRestoreAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if ar.Request.Resource.Group != snapshotv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinerestores" {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))

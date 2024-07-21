@@ -1,6 +1,7 @@
 package fuzz
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -44,7 +45,7 @@ func FuzzAdmitter(f *testing.F) {
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 				adm := &admitters.VMICreateAdmitter{ClusterConfig: config}
-				return adm.Admit(request)
+				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(withSyntaxErrors),
 		},
@@ -54,7 +55,7 @@ func FuzzAdmitter(f *testing.F) {
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 				adm := &admitters.VMICreateAdmitter{ClusterConfig: config}
-				return adm.Admit(request)
+				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(),
 		},
@@ -67,7 +68,7 @@ func FuzzAdmitter(f *testing.F) {
 					ClusterConfig:       config,
 					InstancetypeMethods: testutils.NewMockInstancetypeMethods(),
 				}
-				return adm.Admit(request)
+				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(withSyntaxErrors),
 		},
@@ -80,7 +81,7 @@ func FuzzAdmitter(f *testing.F) {
 					ClusterConfig:       config,
 					InstancetypeMethods: testutils.NewMockInstancetypeMethods(),
 				}
-				return adm.Admit(request)
+				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(),
 		},

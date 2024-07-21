@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -68,7 +69,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		disableFeatureGates()
 	})
 
-	It("should reject Migration on update if spec changes", func() {
+	It("should reject Migration on update if spec changes", func(ctx context.Context) {
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigrationthatchanged",
@@ -100,11 +101,11 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
-	It("should accept Migration on update if spec doesn't change", func() {
+	It("should accept Migration on update if spec doesn't change", func(ctx context.Context) {
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigration",
@@ -133,11 +134,11 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
-	It("should reject Migration on update if labels include our selector and are removed", func() {
+	It("should reject Migration on update if labels include our selector and are removed", func(ctx context.Context) {
 		vmi := api.NewMinimalVMI("testmigratevmiupdate-labelsremoved")
 
 		migration := v1.VirtualMachineInstanceMigration{
@@ -176,11 +177,11 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
-	It("should reject Migration on update if our selector label is removed", func() {
+	It("should reject Migration on update if our selector label is removed", func(ctx context.Context) {
 		vmi := api.NewMinimalVMI("testmigratevmiupdate-selectorremoved")
 
 		migration := v1.VirtualMachineInstanceMigration{
@@ -219,11 +220,11 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
-	It("should accept Migration on update if non-selector label is removed", func() {
+	It("should accept Migration on update if non-selector label is removed", func(ctx context.Context) {
 		vmi := api.NewMinimalVMI("testmigratevmiupdate-otherremoved")
 
 		migration := v1.VirtualMachineInstanceMigration{
@@ -262,7 +263,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })

@@ -160,8 +160,8 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		admitter = &VirtualMachineCloneAdmitter{Config: config, Client: virtClient}
 		vmClone = newValidClone()
 		vm = newValidVM(vmClone.Namespace, vmClone.Spec.Source.Name)
-		vmInterface.EXPECT().Get(context.Background(), vmClone.Spec.Source.Name, gomock.Any()).Return(vm, nil).AnyTimes()
-		vmInterface.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("does-not-exist")).AnyTimes()
+		vmInterface.EXPECT().Get(gomock.Any(), vmClone.Spec.Source.Name, gomock.Any()).Return(vm, nil).AnyTimes()
+		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("does-not-exist")).AnyTimes()
 
 		kubevirtClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Expect(action).To(BeNil())
@@ -208,13 +208,13 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		disableFeatureGates()
 	})
 
-	It("should allow legal clone", func() {
-		admitter.admitAndExpect(vmClone, true)
+	It("should allow legal clone", func(ctx context.Context) {
+		admitter.admitAndExpect(ctx, vmClone, true)
 	})
 
-	DescribeTable("should reject clone with source that lacks information", func(getSource func() *k8sv1.TypedLocalObjectReference) {
+	DescribeTable("should reject clone with source that lacks information", func(ctx context.Context, getSource func() *k8sv1.TypedLocalObjectReference) {
 		vmClone.Spec.Source = getSource()
-		admitter.admitAndExpect(vmClone, false)
+		admitter.admitAndExpect(ctx, vmClone, false)
 	},
 		Entry("Source without Name", func() *k8sv1.TypedLocalObjectReference {
 			source := newValidObjReference()
@@ -245,65 +245,65 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 
 	Context("source types", func() {
 
-		DescribeTable("should allow legal types", func(kind string) {
+		DescribeTable("should allow legal types", func(ctx context.Context, kind string) {
 			vmClone.Spec.Source.Kind = kind
-			admitter.admitAndExpect(vmClone, true)
+			admitter.admitAndExpect(ctx, vmClone, true)
 		},
 			Entry("VM", virtualMachineKind),
 			Entry("Snapshot", virtualMachineSnapshotKind),
 		)
 
-		It("Should reject unknown source type", func() {
+		It("Should reject unknown source type", func(ctx context.Context) {
 			vmClone.Spec.Source.Kind = rand.String(5)
-			admitter.admitAndExpect(vmClone, false)
+			admitter.admitAndExpect(ctx, vmClone, false)
 		})
 	})
 
-	It("Should reject unknown target type", func() {
+	It("Should reject unknown target type", func(ctx context.Context) {
 		vmClone.Spec.Target.Kind = rand.String(5)
-		admitter.admitAndExpect(vmClone, false)
+		admitter.admitAndExpect(ctx, vmClone, false)
 	})
 
-	It("Should reject a source VM that does not exist", func() {
+	It("Should reject a source VM that does not exist", func(ctx context.Context) {
 		vmClone.Spec.Source.Name = "vm-that-doesnt-exist"
-		admitter.admitAndExpect(vmClone, false)
+		admitter.admitAndExpect(ctx, vmClone, false)
 	})
 
 	When("Both source and target kinds are VirtualMachine", func() {
-		It("Should reject a target with the same name as the source", func() {
+		It("Should reject a target with the same name as the source", func(ctx context.Context) {
 			vmClone.Spec.Source.Kind = virtualMachineKind
 			vmClone.Spec.Target.Kind = virtualMachineKind
 
 			vmClone.Spec.Target.Name = vmClone.Spec.Source.Name
-			admitter.admitAndExpect(vmClone, false)
+			admitter.admitAndExpect(ctx, vmClone, false)
 		})
 	})
 
 	When("Source kind is a VirtualMachineSnapshot and target kind is VirtualMachine", func() {
-		It("Should allow the target to have the same name as the source", func() {
+		It("Should allow the target to have the same name as the source", func(ctx context.Context) {
 			vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
 			vmClone.Spec.Target.Kind = virtualMachineKind
 
 			vmClone.Spec.Target.Name = vmClone.Spec.Source.Name
-			admitter.admitAndExpect(vmClone, true)
+			admitter.admitAndExpect(ctx, vmClone, true)
 		})
 	})
 
-	It("Should reject if snapshot feature gate is not enabled", func() {
+	It("Should reject if snapshot feature gate is not enabled", func(ctx context.Context) {
 		disableFeatureGates()
-		admitter.admitAndExpect(vmClone, false)
+		admitter.admitAndExpect(ctx, vmClone, false)
 	})
 
-	DescribeTable("Should reject a source volume not Snapshot-able", func(index int) {
+	DescribeTable("Should reject a source volume not Snapshot-able", func(ctx context.Context, index int) {
 		vm.Status.VolumeSnapshotStatuses[index].Enabled = false
-		admitter.admitAndExpect(vmClone, false)
+		admitter.admitAndExpect(ctx, vmClone, false)
 	},
 		Entry("DataVolume", 0),
 		Entry("PersistentVolumeClaim", 1),
 	)
 
 	Context("volume snapshots", func() {
-		It("should allow non-PVC/DV volumes that have disabled volume snapshot status", func() {
+		It("should allow non-PVC/DV volumes that have disabled volume snapshot status", func(ctx context.Context) {
 			volumeName := "ephemeral-volume"
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{
 				{
@@ -318,17 +318,17 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 				},
 			}
 
-			admitter.admitAndExpect(vmClone, true)
+			admitter.admitAndExpect(ctx, vmClone, true)
 		})
 
-		It("should reject PVC/DV volumes with disabled volume snapshot status", func() {
+		It("should reject PVC/DV volumes with disabled volume snapshot status", func(ctx context.Context) {
 			for i := range vm.Status.VolumeSnapshotStatuses {
 				vm.Status.VolumeSnapshotStatuses[i].Enabled = false
 			}
-			admitter.admitAndExpect(vmClone, false)
+			admitter.admitAndExpect(ctx, vmClone, false)
 		})
 
-		It("should reject if vmsnapshot contents don't include a volume's backup", func() {
+		It("should reject if vmsnapshot contents don't include a volume's backup", func(ctx context.Context) {
 			vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
 
 			kubevirtClient.Fake.PrependReactor("get", "virtualmachinesnapshotcontents", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -346,19 +346,19 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 				return true, contents, nil
 			})
 
-			admitter.admitAndExpect(vmClone, false)
+			admitter.admitAndExpect(ctx, vmClone, false)
 		})
 	})
 
 	Context("Annotations and labels filters", func() {
-		testFilter := func(filter string, expectAllowed bool) {
+		testFilter := func(ctx context.Context, filter string, expectAllowed bool) {
 			vmClone.Spec.LabelFilters = []string{filter}
 			vmClone.Spec.AnnotationFilters = []string{filter}
-			admitter.admitAndExpect(vmClone, expectAllowed)
+			admitter.admitAndExpect(ctx, vmClone, expectAllowed)
 		}
 
-		DescribeTable("Should reject", func(filter string) {
-			testFilter(filter, false)
+		DescribeTable("Should reject", func(ctx context.Context, filter string) {
+			testFilter(ctx, filter, false)
 
 		},
 			Entry("negation character alone", "!"),
@@ -368,8 +368,8 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Entry("wildcard in the middle", "mykey/*something"),
 		)
 
-		DescribeTable("Should allow", func(filter string) {
-			testFilter(filter, true)
+		DescribeTable("Should allow", func(ctx context.Context, filter string) {
+			testFilter(ctx, filter, true)
 		},
 			Entry("regular filter", "mykey/something"),
 			Entry("wildcard only", "*"),
@@ -379,14 +379,14 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	})
 
 	Context("Template Annotations and labels filters", func() {
-		testFilter := func(filter string, expectAllowed bool) {
+		testFilter := func(ctx context.Context, filter string, expectAllowed bool) {
 			vmClone.Spec.Template.LabelFilters = []string{filter}
 			vmClone.Spec.Template.AnnotationFilters = []string{filter}
-			admitter.admitAndExpect(vmClone, expectAllowed)
+			admitter.admitAndExpect(ctx, vmClone, expectAllowed)
 		}
 
-		DescribeTable("Should reject", func(filter string) {
-			testFilter(filter, false)
+		DescribeTable("Should reject", func(ctx context.Context, filter string) {
+			testFilter(ctx, filter, false)
 		},
 			Entry("templateFilter negation character alone", "!"),
 			Entry("templateFilter negation in the middle", "mykey/!something"),
@@ -395,8 +395,8 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Entry("templateFilter wildcard in the middle", "mykey/*something"),
 		)
 
-		DescribeTable("Should allow", func(filter string) {
-			testFilter(filter, true)
+		DescribeTable("Should allow", func(ctx context.Context, filter string) {
+			testFilter(ctx, filter, true)
 		},
 			Entry("templateFilter regular filter", "mykey/something"),
 			Entry("templateFilter wildcard only", "*"),
@@ -436,9 +436,9 @@ func createCloneAdmissionReview(vmClone *clonev1lpha1.VirtualMachineClone) *admi
 	return ar
 }
 
-func (admitter *VirtualMachineCloneAdmitter) admitAndExpect(clone *clonev1lpha1.VirtualMachineClone, expectAllowed bool) {
+func (admitter *VirtualMachineCloneAdmitter) admitAndExpect(ctx context.Context, clone *clonev1lpha1.VirtualMachineClone, expectAllowed bool) {
 	ar := createCloneAdmissionReview(clone)
-	resp := admitter.Admit(ar)
+	resp := admitter.Admit(ctx, ar)
 	Expect(resp.Allowed).To(Equal(expectAllowed))
 }
 

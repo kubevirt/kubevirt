@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -46,13 +47,13 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	Context("With feature gate disabled", func() {
-		It("should reject anything", func() {
+		It("should reject anything", func(ctx context.Context) {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{},
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(Equal("vm export feature gate not enabled"))
 		})
@@ -90,14 +91,14 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			disableFeatureGates()
 		})
 
-		It("should reject invalid request resource", func() {
+		It("should reject invalid request resource", func(ctx context.Context) {
 			ar := &admissionv1.AdmissionReview{
 				Request: &admissionv1.AdmissionRequest{
 					Resource: webhooks.VirtualMachineGroupVersionResource,
 				},
 			}
 
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
@@ -126,14 +127,14 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 		}
 
-		DescribeTable("it should reject blank names", func(objectRefFunc func() corev1.TypedLocalObjectReference, errorString string) {
+		DescribeTable("it should reject blank names", func(ctx context.Context, objectRefFunc func() corev1.TypedLocalObjectReference, errorString string) {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: objectRefFunc(),
 				},
 			}
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring(errorString))
 		},
@@ -142,7 +143,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Entry("virtual machine", createBlankVMObjectRef, "Virtual Machine name must not be empty"),
 		)
 
-		It("should reject unknown kind", func() {
+		It("should reject unknown kind", func(ctx context.Context) {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
@@ -154,13 +155,13 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.kind"))
 		})
 
-		It("should reject spec update", func() {
+		It("should reject spec update", func(ctx context.Context) {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
@@ -182,13 +183,13 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportUpdateAdmissionReview(oldExport, export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
 		})
 
-		It("should allow metadata update", func() {
+		It("should allow metadata update", func(ctx context.Context) {
 			oldExport := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
@@ -213,11 +214,11 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportUpdateAdmissionReview(oldExport, export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		DescribeTable("it should allow", func(apiGroup, kind string) {
+		DescribeTable("it should allow", func(ctx context.Context, apiGroup, kind string) {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
@@ -229,7 +230,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue(), "should allow APIGroup: %s, Kind: %s", apiGroup, kind)
 		},
 			Entry("persistent volume claim blank", "", pvc),
@@ -237,7 +238,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Entry("virtual machine", kubevirtApiGroup, vmKind),
 		)
 
-		DescribeTable("it should reject invalid apigroups", func(apiGroup, kind string) {
+		DescribeTable("it should reject invalid apigroups", func(ctx context.Context, apiGroup, kind string) {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
@@ -249,7 +250,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse(), "should reject APIGroup: %s, Kind: %s", apiGroup, kind)
 		},
 			Entry("persistent volume claim", "invalid", pvc),

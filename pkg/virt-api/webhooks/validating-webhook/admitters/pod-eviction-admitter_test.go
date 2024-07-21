@@ -20,6 +20,7 @@
 package admitters_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -62,7 +63,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		withStatusNodeName(testNodeName),
 	}
 
-	It("should allow the request when it refers to a non virt-launcher pod", func() {
+	It("should allow the request when it refers to a non virt-launcher pod", func(ctx context.Context) {
 		virtClient := kubevirtfake.NewSimpleClientset()
 		Expect(virtClient.Fake.Resources).To(BeEmpty())
 
@@ -78,6 +79,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(evictedPod.Namespace, evictedPod.Name, !isDryRun),
 		)
 
@@ -86,7 +88,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Fake.Actions()).To(BeEmpty())
 	})
 
-	It("should allow the request when the admitter cannot fetch the pod", func() {
+	It("should allow the request when the admitter cannot fetch the pod", func(ctx context.Context) {
 		virtClient := kubevirtfake.NewSimpleClientset()
 		Expect(virtClient.Fake.Resources).To(BeEmpty())
 
@@ -100,6 +102,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(testNamespace, "does-not-exist", !isDryRun),
 		)
 
@@ -108,7 +111,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Fake.Actions()).To(BeEmpty())
 	})
 
-	DescribeTable("should allow the request when it refers to a virt-launcher pod", func(podPhase k8sv1.PodPhase) {
+	DescribeTable("should allow the request when it refers to a virt-launcher pod", func(ctx context.Context, podPhase k8sv1.PodPhase) {
 		vmi := libvmi.New(defaultVMIOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(vmi)
 
@@ -122,6 +125,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(pod.Namespace, pod.Name, !isDryRun),
 		)
 
@@ -134,6 +138,11 @@ var _ = Describe("Pod eviction admitter", func() {
 	)
 
 	DescribeTable("should trigger VMI Evacuation and deny the request", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, additionalVMIOptions ...libvmi.Option) {
+		// can't use context parameter if passing nil in the Entry's first parameter. This is bug in ginkgo.
+		// This bug was fixed in ginkgo v2.18.0
+		// todo: add ctx parameter instead of the variable, after upgrading ginkgo
+		ctx := context.Background()
+
 		vmiOptions := append(defaultVMIOptions, additionalVMIOptions...)
 
 		vmi := libvmi.New(vmiOptions...)
@@ -153,6 +162,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -200,6 +210,11 @@ var _ = Describe("Pod eviction admitter", func() {
 	)
 
 	DescribeTable("should allow the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, additionalVMIOptions ...libvmi.Option) {
+		// can't use context parameter if passing nil in the Entry's first parameter. This is bug in ginkgo.
+		// This bug was fixed in ginkgo v2.18.0
+		// todo: add ctx parameter instead of the variable, after upgrading ginkgo
+		ctx := context.Background()
+
 		vmiOptions := append(defaultVMIOptions, additionalVMIOptions...)
 
 		vmi := libvmi.New(vmiOptions...)
@@ -215,6 +230,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -255,6 +271,11 @@ var _ = Describe("Pod eviction admitter", func() {
 	)
 
 	DescribeTable("should deny the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, additionalVMIOptions ...libvmi.Option) {
+		// can't use context parameter if passing nil in the Entry's first parameter. This is bug in ginkgo.
+		// This bug was fixed in ginkgo v2.18.0
+		// todo: add ctx parameter instead of the variable, after upgrading ginkgo
+		ctx := context.Background()
+
 		vmiOptions := append(defaultVMIOptions, additionalVMIOptions...)
 
 		vmi := libvmi.New(vmiOptions...)
@@ -274,6 +295,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -290,7 +312,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		),
 	)
 
-	It("should deny the request when the admitter fails to fetch the VMI", func() {
+	It("should deny the request when the admitter fails to fetch the VMI", func(ctx context.Context) {
 		vmi := libvmi.New(defaultVMIOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(vmi)
 
@@ -313,6 +335,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -321,7 +344,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Fake.Actions()).To(HaveLen(1))
 	})
 
-	It("should deny the request when the admitter fails to patch the VMI", func() {
+	It("should deny the request when the admitter fails to patch the VMI", func(ctx context.Context) {
 		vmiOptions := append(defaultVMIOptions,
 			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withLiveMigratableCondition(),
@@ -349,6 +372,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -360,7 +384,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, patchBytes)))
 	})
 
-	It("should allow the request and not mark the VMI again when the VMI is already marked for evacuation", func() {
+	It("should allow the request and not mark the VMI again when the VMI is already marked for evacuation", func(ctx context.Context) {
 		vmiOptions := append(defaultVMIOptions,
 			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withLiveMigratableCondition(),
@@ -380,6 +404,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -388,7 +413,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Fake.Actions()).To(HaveLen(1))
 	})
 
-	It("should deny the request and perform a dryRun patch on the VMI when the request is a dry run", func() {
+	It("should deny the request and perform a dryRun patch on the VMI when the request is a dry run", func(ctx context.Context) {
 		vmiOptions := append(defaultVMIOptions,
 			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withLiveMigratableCondition(),
@@ -411,6 +436,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			ctx,
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, isDryRun),
 		)
 

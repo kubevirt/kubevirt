@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,7 +41,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	vmirsAdmitter := &VMIRSAdmitter{ClusterConfig: config}
 
-	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(ctx context.Context, data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -52,7 +53,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 				},
 			},
 		}
-		resp := review(ar)
+		resp := review(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
@@ -63,7 +64,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 			vmirsAdmitter.Admit,
 		),
 	)
-	DescribeTable("reject invalid VirtualMachineInstance spec", func(vmirs *v1.VirtualMachineInstanceReplicaSet, causes []string) {
+	DescribeTable("reject invalid VirtualMachineInstance spec", func(ctx context.Context, vmirs *v1.VirtualMachineInstanceReplicaSet, causes []string) {
 		vmirsBytes, _ := json.Marshal(&vmirs)
 
 		ar := &admissionv1.AdmissionReview{
@@ -75,7 +76,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 			},
 		}
 
-		resp := vmirsAdmitter.Admit(ar)
+		resp := vmirsAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(len(causes)))
 		for i, cause := range causes {
@@ -106,7 +107,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 			"spec.selector",
 		}),
 	)
-	It("should accept valid vmi spec", func() {
+	It("should accept valid vmi spec", func(ctx context.Context) {
 		vmirs := &v1.VirtualMachineInstanceReplicaSet{
 			Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 				Selector: &metav1.LabelSelector{
@@ -137,7 +138,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 			},
 		}
 
-		resp := vmirsAdmitter.Admit(ar)
+		resp := vmirsAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })
