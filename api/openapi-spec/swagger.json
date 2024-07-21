@@ -14186,6 +14186,10 @@
    "v1.InterfaceBindingPlugin": {
     "type": "object",
     "properties": {
+     "computeResourceOverhead": {
+      "description": "ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding. version: v1alphav1",
+      "$ref": "#/definitions/k8s.io.api.core.v1.ResourceRequirements"
+     },
      "domainAttachmentType": {
       "description": "DomainAttachmentType is a standard domain network attachment method kubevirt supports. Supported values: \"tap\". The standard domain attachment can be used instead or in addition to the sidecarImage. version: 1alphav1",
       "type": "string"

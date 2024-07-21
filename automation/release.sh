@@ -52,7 +52,7 @@ function update_github_release() {
     set +e
     if ! gh release view --repo "$GITHUB_REPOSITORY" "$DOCKER_TAG" ; then
         set -e
-        git show "$DOCKER_TAG" --format=format:%B > /tmp/tag_notes
+        git show "$DOCKER_TAG" --format=format:%n > /tmp/tag_notes
         gh release create --repo "$GITHUB_REPOSITORY" "$DOCKER_TAG" --prerelease --title="$DOCKER_TAG" --notes-file /tmp/tag_notes
     else
         set -e

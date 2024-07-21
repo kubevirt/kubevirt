@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -63,12 +64,20 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 
 	BeforeEach(func() {
 		const passtBindingName = "passt"
+
+		var passtComputeMemoryOverheadWhenAllPortsAreForwarded = resource.MustParse("500Mi")
+
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 		err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
 			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
 			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
+			ComputeResourceOverhead: &k8sv1.ResourceRequirements{
+				Requests: map[k8sv1.ResourceName]resource.Quantity{
+					k8sv1.ResourceMemory: passtComputeMemoryOverheadWhenAllPortsAreForwarded,
+				},
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})

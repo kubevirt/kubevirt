@@ -88,7 +88,7 @@ var _ = Describe("Workload Updater", func() {
 
 		expectedImage = "cur-image"
 
-		err := metrics.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
+		err := metrics.RegisterLeaderMetrics()
 		Expect(err).ToNot(HaveOccurred())
 		metrics.SetOutdatedVirtualMachineInstanceWorkloads(0)
 

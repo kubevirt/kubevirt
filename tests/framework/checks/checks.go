@@ -82,6 +82,10 @@ func IsARM64(arch string) bool {
 	return arch == "arm64"
 }
 
+func IsS390X(arch string) bool {
+	return arch == "s390x"
+}
+
 func HasLiveMigration() bool {
 	return HasFeature("LiveMigration")
 }

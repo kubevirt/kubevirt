@@ -140,25 +140,6 @@ func cirrosMemory() string {
 	return "128Mi"
 }
 
-// NewRandomVMIWithEphemeralDisk
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	opts := []libvmi.Option{
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-		libvmi.WithResourceMemory(cirrosMemory()),
-		libvmi.WithContainerDisk("disk0", containerImage),
-	}
-	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
-		opts = append(
-			[]libvmi.Option{libvmi.WithRng()},
-			opts...)
-	}
-	return libvmi.New(opts...)
-}
-
 // AddEphemeralDisk
 //
 // Deprecated: Use libvmi
@@ -187,25 +168,20 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 //
 // Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	cloudInitNoCloudEncodedUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(userData))
-	cloudInitNoCloudEncodedUserData(vmi)
-	return vmi
-}
-
-// NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	if b64encode {
-		cloudInitConfigDriveData := libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveEncodedUserData(userData), libvmici.WithConfigDriveEncodedNetworkData(networkData))
-		cloudInitConfigDriveData(vmi)
-	} else {
-		cloudInitConfigDriveData := libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData), libvmici.WithConfigDriveNetworkData(networkData))
-		cloudInitConfigDriveData(vmi)
+	opts := []libvmi.Option{
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+		libvmi.WithResourceMemory(cirrosMemory()),
+		libvmi.WithContainerDisk("disk0", containerImage),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(userData)),
 	}
-	return vmi
+	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
+		opts = append(
+			[]libvmi.Option{libvmi.WithRng()},
+			opts...)
+	}
+	return libvmi.New(opts...)
 }
 
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
@@ -634,12 +610,6 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 		}
 		return nil
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
-}
-
-func RetryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
-	return RetryIfModified(func() error {
-		return do(objectMeta)
-	})
 }
 
 func RetryIfModified(do func() error) (err error) {

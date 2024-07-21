@@ -84,3 +84,15 @@ func WithConfigDriveEncodedNetworkData(data string) ConfigDriveOption {
 		source.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(data))
 	}
 }
+
+func WithConfigDriveUserDataSecretName(secretName string) ConfigDriveOption {
+	return func(source *v1.CloudInitConfigDriveSource) {
+		source.UserDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
+	}
+}
+
+func WithConfigDriveNetworkDataSecretName(secretName string) ConfigDriveOption {
+	return func(source *v1.CloudInitConfigDriveSource) {
+		source.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
+	}
+}

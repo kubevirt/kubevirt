@@ -54,7 +54,6 @@ import (
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -80,10 +79,6 @@ const (
 	startingVMInstance           = "Starting VirtualMachineInstance"
 	hostDiskName                 = "host-disk"
 	diskImgName                  = "disk.img"
-
-	// Without cloud init user data Cirros takes long time to boot,
-	// so provide this dummy data to make it boot faster
-	cirrosUserData = "#!/bin/bash\necho 'hello'\n"
 )
 
 const (
@@ -709,12 +704,12 @@ var _ = SIGDescribe("Storage", func() {
 						diskName = fmt.Sprintf("disk-%s.img", uuid.NewString())
 						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
-						job := CreateDiskOnHost(diskPath)
-						job, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), job, metav1.CreateOptions{})
+						pod := CreateDiskOnHost(diskPath)
+						pod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						Eventually(ThisPod(job), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
-						pod, err := ThisPod(job)()
+						Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+						pod, err = ThisPod(pod)()
 						Expect(err).NotTo(HaveOccurred())
 						nodeName = pod.Spec.NodeName
 					})
@@ -975,7 +970,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithResourceMemory("256Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(cirrosUserData)),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 

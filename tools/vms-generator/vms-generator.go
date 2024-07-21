@@ -53,7 +53,7 @@ func main() {
 
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 		DeveloperConfiguration: &v1.DeveloperConfiguration{
-			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices"},
+			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices", "Sidecar"},
 		},
 		NetworkConfiguration: &v1.NetworkConfiguration{
 			DeprecatedPermitSlirpInterface:    &permit,
@@ -95,6 +95,7 @@ func main() {
 		utils.VmAlpineDataVolume:                                  utils.GetVMDataVolume(),
 		utils.VMPriorityClass:                                     utils.GetVMPriorityClass(),
 		utils.VmCirrosSata:                                        utils.GetVMCirrosSata(),
+		utils.VmCirrosWithHookSidecarConfigMap:                    utils.GetVMCirrosWithHookSidecarConfigMap(),
 		utils.VmCirrosInstancetypeComputeSmall:                    utils.GetVmCirrosInstancetypeComputeSmall(),
 		utils.VmCirrosClusterInstancetypeComputeSmall:             utils.GetVmCirrosClusterInstancetypeComputeSmall(),
 		utils.VmCirrosInstancetypeComputeLarge:                    utils.GetVmCirrosInstancetypeComputeLarge(),

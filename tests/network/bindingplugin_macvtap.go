@@ -151,7 +151,6 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 		Context("with live traffic", func() {
 			var serverVMI *v1.VirtualMachineInstance
-			var serverVMIPodName string
 			var serverIP string
 
 			const macvtapIfaceIPReportTimeout = 4 * time.Minute
@@ -170,7 +169,6 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
-				serverVMIPodName = tests.GetVmPodName(kubevirt.Client(), serverVMI)
 
 				serverIP, err = waitVMMacvtapIfaceIPReport(serverVMI, serverMAC, macvtapIfaceIPReportTimeout)
 				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
@@ -184,6 +182,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 			It("should keep connectivity after a migration", func() {
 				const containerCompletionWaitTime = 60
+				serverVMIPodName := tests.GetVmPodName(kubevirt.Client(), serverVMI)
 				migration := libmigration.New(serverVMI.Name, serverVMI.GetNamespace())
 				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI

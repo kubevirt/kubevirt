@@ -84,7 +84,7 @@ var _ = Describe("Restart command", func() {
 			GracePeriodSeconds: &gracePeriod,
 			DryRun:             nil,
 		}
-		vmInterface.EXPECT().ForceRestart(context.Background(), vm.Name, &restartOptions).Return(nil).Times(1)
+		vmInterface.EXPECT().Restart(context.Background(), vm.Name, &restartOptions).Return(nil).Times(1)
 
 		cmd := clientcmd.NewRepeatableVirtctlCommand("restart", vmName, "--force", "--grace-period=0")
 		Expect(cmd()).To(Succeed())

@@ -49,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const linuxBridgeName = "supadupabr"
@@ -305,41 +304,6 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
-	})
-
-	Context("a stopped VM", func() {
-		var vm *v1.VirtualMachine
-		var vmi *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			By("create stopped VM")
-			vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(),
-				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, nadName)),
-				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)))
-			vm = libvmi.NewVirtualMachine(vmi)
-
-			var err error
-			vm, err = kubevirt.Client().VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("cannot be subject to **hot** unplug, but will mutate the template.Spec on behalf of the user", func() {
-			previousVMTemplateSpec := vm.Spec.Template.Spec.DeepCopy()
-			Expect(removeInterface(vm, linuxBridgeNetworkName2)).To(Succeed())
-
-			By("wait for requested interface VM spec have 'absent' state")
-			Eventually(func() v1.InterfaceState {
-				var err error
-				vm, err = kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				iface := vmispec.LookupInterfaceByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
-				return iface.State
-			}, 30*time.Second).Should(Equal(v1.InterfaceStateAbsent))
-
-			Expect(previousVMTemplateSpec.Networks).To(Equal(vm.Spec.Template.Spec.Networks), "network spec should not change")
-		})
 	})
 })
 

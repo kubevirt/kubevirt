@@ -492,3 +492,16 @@ The following points should be addressed in relation to migration support:
 > is started and plugging it back at the destination after the migration completes.
 > Future development will consider adding a new migration method to support
 > migration for such interfaces.
+
+## Compute Resource Overhead
+
+Some plugins may need additional resources to be added to the compute container of the virt-launcher pod.
+
+It is possible to specify compute resource overhead that will be added to the `compute` container of virt-launcher pods
+derived from virtual machines using the plugin.
+
+> **Note**: At the moment, only memory overhead requests are supported.
+
+For a network binding plugin to support compute resource overhead, the `computeResourceOverhead` field
+must be specified in the Kubevirt CR.
+See the user-guide network binding plugin [section](https://kubevirt.io/user-guide/network/network_binding_plugins/#register) on how to define it.
