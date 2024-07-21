@@ -56,7 +56,7 @@ func NewVMSnapshotAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kube
 }
 
 // Admit validates an AdmissionReview
-func (admitter *VMSnapshotAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *VMSnapshotAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if ar.Request.Resource.Group != snapshotv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinesnapshots" {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))

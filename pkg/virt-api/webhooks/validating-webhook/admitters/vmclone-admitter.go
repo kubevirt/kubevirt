@@ -65,7 +65,7 @@ func NewVMCloneAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kubevir
 }
 
 // Admit validates an AdmissionReview
-func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *VirtualMachineCloneAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if ar.Request.Resource.Group != clonev1alpha1.VirtualMachineCloneKind.Group {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected group: %+v. Expected group: %+v", ar.Request.Resource.Group, clonev1alpha1.VirtualMachineCloneKind.Group))
 	}

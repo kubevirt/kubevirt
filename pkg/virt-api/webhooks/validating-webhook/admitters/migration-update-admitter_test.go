@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -100,7 +101,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
@@ -133,7 +134,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
@@ -176,7 +177,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
@@ -219,7 +220,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
@@ -262,7 +263,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(ar)
+		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })

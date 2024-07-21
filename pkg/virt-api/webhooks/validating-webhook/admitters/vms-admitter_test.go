@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	rt "runtime"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -59,8 +60,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-
-	rt "runtime"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
@@ -327,8 +326,8 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 
 		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
-		mockVMIClient.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).Return(vmi, nil)
-		resp := vmsAdmitter.Admit(ar)
+		mockVMIClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(vmi, nil)
+		resp := vmsAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	},
 		Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
@@ -440,7 +439,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
-		mockVMIClient.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).Return(vmi, nil)
+		mockVMIClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(vmi, nil)
 		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},
@@ -1450,7 +1449,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "ns3", "sa", "ns3", "ns2", "sa"),
 		)
 
-		DescribeTable("should successfully authorize clone from sourceRef", func(arNamespace,
+		DescribeTable("should successfully authorize clone from sourceRef", func(
+			arNamespace,
 			vmNamespace,
 			sourceRefNamespace,
 			sourceNamespace,
@@ -1614,7 +1614,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		resp := vmsAdmitter.Admit(ar)
+		resp := vmsAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(Equal(allow))
 
 		if !allow {
@@ -1671,7 +1671,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		resp := vmsAdmitter.Admit(ar)
+		resp := vmsAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(Equal(allow))
 
 		if !allow {
@@ -2353,7 +2353,7 @@ func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.Admissio
 		},
 	}
 
-	return admitter.Admit(ar)
+	return admitter.Admit(context.Background(), ar)
 }
 
 func makeCloneAdmitFunc(k8sClient *k8sfake.Clientset, expectedSourceNamespace, expectedPVCName, expectedTargetNamespace, expectedServiceAccount string) CloneAuthFunc {

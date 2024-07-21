@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -42,7 +43,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 
 	always := v1.RunStrategyAlways
 
-	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -54,7 +55,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 				},
 			},
 		}
-		resp := review(ar)
+		resp := review(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
@@ -77,7 +78,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 			},
 		}
 
-		resp := poolAdmitter.Admit(ar)
+		resp := poolAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(len(causes)))
 		for i, cause := range causes {
@@ -171,7 +172,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 			},
 		}
 
-		resp := poolAdmitter.Admit(ar)
+		resp := poolAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })

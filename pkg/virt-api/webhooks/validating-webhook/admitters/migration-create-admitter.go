@@ -77,7 +77,7 @@ func EnsureNoMigrationConflict(virtClient kubecli.KubevirtClient, vmiName string
 	return nil
 }
 
-func (admitter *MigrationCreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *MigrationCreateAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	migration, _, err := getAdmissionReviewMigration(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)

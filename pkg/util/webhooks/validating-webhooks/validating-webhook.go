@@ -1,6 +1,7 @@
 package validating_webhooks
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 )
 
 type admitter interface {
-	Admit(*admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
+	Admit(context.Context, *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
 }
 
 type AlwaysPassAdmitter struct {
@@ -70,7 +71,8 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter admitter) {
 			Kind:       "AdmissionReview",
 		},
 	}
-	reviewResponse := admitter.Admit(review)
+
+	reviewResponse := admitter.Admit(req.Context(), review)
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		response.Response.UID = review.Request.UID

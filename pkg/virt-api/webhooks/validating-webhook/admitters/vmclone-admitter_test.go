@@ -160,8 +160,8 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		admitter = &VirtualMachineCloneAdmitter{Config: config, Client: virtClient}
 		vmClone = newValidClone()
 		vm = newValidVM(vmClone.Namespace, vmClone.Spec.Source.Name)
-		vmInterface.EXPECT().Get(context.Background(), vmClone.Spec.Source.Name, gomock.Any()).Return(vm, nil).AnyTimes()
-		vmInterface.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("does-not-exist")).AnyTimes()
+		vmInterface.EXPECT().Get(gomock.Any(), vmClone.Spec.Source.Name, gomock.Any()).Return(vm, nil).AnyTimes()
+		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("does-not-exist")).AnyTimes()
 
 		kubevirtClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Expect(action).To(BeNil())
@@ -438,7 +438,7 @@ func createCloneAdmissionReview(vmClone *clonev1lpha1.VirtualMachineClone) *admi
 
 func (admitter *VirtualMachineCloneAdmitter) admitAndExpect(clone *clonev1lpha1.VirtualMachineClone, expectAllowed bool) {
 	ar := createCloneAdmissionReview(clone)
-	resp := admitter.Admit(ar)
+	resp := admitter.Admit(context.Background(), ar)
 	Expect(resp.Allowed).To(Equal(expectAllowed))
 }
 

@@ -94,8 +94,8 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				VMIName: vmi.Name,
 			},
 		}
-		mockVMIClient.EXPECT().Get(context.Background(), inFlightMigration.Spec.VMIName, gomock.Any()).Return(vmi, nil)
-		migrationInterface.EXPECT().List(context.Background(), gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
+		mockVMIClient.EXPECT().Get(gomock.Any(), inFlightMigration.Spec.VMIName, gomock.Any()).Return(vmi, nil)
+		migrationInterface.EXPECT().List(gomock.Any(), gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -118,14 +118,14 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			},
 		}
 
-		resp := migrationCreateAdmitter.Admit(ar)
+		resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
 	Context("with no conflicting migration", func() {
 
 		BeforeEach(func() {
-			migrationInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
+			migrationInterface.EXPECT().List(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
 
 		})
 
@@ -155,7 +155,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			resp := migrationCreateAdmitter.Admit(ar)
+			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.vmiName"))
@@ -164,7 +164,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		It("should accept valid Migration spec on create", func() {
 			vmi := api.NewMinimalVMI("testvmimigrate1")
 
-			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -187,7 +187,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			resp := migrationCreateAdmitter.Admit(ar)
+			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -199,7 +199,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				Failed:       false,
 			}
 
-			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -222,7 +222,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			resp := migrationCreateAdmitter.Admit(ar)
+			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -230,7 +230,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			vmi := api.NewMinimalVMI("testmigratevmi3")
 			vmi.Status.Phase = v1.Succeeded
 
-			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -253,7 +253,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			resp := migrationCreateAdmitter.Admit(ar)
+			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 		})
 
@@ -273,7 +273,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -296,12 +296,12 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			resp := migrationCreateAdmitter.Admit(ar)
+			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring("DisksNotLiveMigratable"))
 		})
 
-		DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+		DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 			input := map[string]interface{}{}
 			json.Unmarshal([]byte(data), &input)
 
@@ -313,7 +313,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 					},
 				},
 			}
-			resp := review(ar)
+			resp := review(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(validationResult))
 		},

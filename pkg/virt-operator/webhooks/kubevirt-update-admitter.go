@@ -63,7 +63,7 @@ func NewKubeVirtUpdateAdmitter(client kubecli.KubevirtClient, clusterConfig *vir
 	}
 }
 
-func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *KubeVirtUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	// Get new and old KubeVirt from admission response
 	newKV, currKV, err := getAdmissionReviewKubeVirt(ar)
 	if err != nil {
