@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,15 +20,8 @@ type admitter interface {
 	Admit(context.Context, *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
 }
 
-type AlwaysPassAdmitter struct {
-}
-
 func NewPassingAdmissionResponse() *admissionv1.AdmissionResponse {
 	return &admissionv1.AdmissionResponse{Allowed: true}
-}
-
-func (*AlwaysPassAdmitter) Admit(*admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	return NewPassingAdmissionResponse()
 }
 
 func NewAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionResponse {
@@ -71,12 +65,26 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter admitter) {
 			Kind:       "AdmissionReview",
 		},
 	}
-	ctx := context.Background() // todo: use timeout context with the "timeout" request query parameter
+
+	ctx, cancel, err := getContextFromRequest(req)
+	if err != nil {
+		resp.WriteHeader(http.StatusBadRequest)
+		resp.Write([]byte(err.Error()))
+		return
+	}
+
+	defer func() {
+		if cancel != nil {
+			cancel()
+		}
+	}()
+
 	reviewResponse := admitter.Admit(ctx, review)
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		response.Response.UID = review.Request.UID
 	}
+
 	// reset the Object and OldObject, they are not needed in admitter response.
 	review.Request.Object = runtime.RawExtension{}
 	review.Request.OldObject = runtime.RawExtension{}
@@ -92,4 +100,27 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter admitter) {
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
+}
+
+func getContextFromRequest(req *http.Request) (context.Context, context.CancelFunc, error) {
+	ctx := req.Context()
+	if _, timeoutDefined := ctx.Deadline(); timeoutDefined {
+		return ctx, nil, nil
+	}
+
+	timeout := 10 * time.Second
+	if timeoutStr := req.URL.Query().Get("timeout"); timeoutStr != "" {
+		parsedTimeout, err := time.ParseDuration(timeoutStr)
+		if err != nil {
+			errTxt := fmt.Sprintf("failed to parse timeout duration of %q", timeoutStr)
+			log.Log.Reason(err).Error(errTxt)
+			return nil, nil, fmt.Errorf(errTxt)
+		} else {
+			timeout = parsedTimeout
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+
+	return ctx, cancel, nil
 }
