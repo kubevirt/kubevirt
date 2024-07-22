@@ -267,13 +267,15 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 		})
 
 		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template", func() {
-			BeforeEach(func() {
+			BeforeEach(func(ctx context.Context) {
 				const (
 					OSRhel   = "rhel"
 					diskRhel = "disk-rhel"
 				)
 
-				checks.SkipIfMissingRequiredImage(virtClient, diskRhel)
+				pv := checks.GetRequiredImageAndSkipIfMissing(virtClient, diskRhel)
+				Expect(libstorage.MakePVAvailable(ctx, pv)).To(Succeed())
+
 				libstorage.CreatePVC(OSRhel, testsuite.GetTestNamespace(nil), "15Gi", libstorage.Config.StorageClassRhel, true)
 				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
 			})

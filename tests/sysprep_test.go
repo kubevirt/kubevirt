@@ -309,17 +309,19 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 
 	var windowsVMI *v1.VirtualMachineInstance
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
 		const OSWindowsSysprep = "windows-sysprep"
 		virtClient = kubevirt.Client()
-		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
+		pv := checks.GetRequiredImageAndSkipIfMissing(virtClient, tests.DiskWindowsSysprep)
+		Expect(libstorage.MakePVAvailable(ctx, pv)).To(Succeed())
+
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		windowsVMI = libvmi.New()
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
 		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
 		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
-		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
+		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(ctx, cm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		addExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"

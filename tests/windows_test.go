@@ -66,10 +66,12 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 	var virtClient kubecli.KubevirtClient
 	var windowsVMI *v1.VirtualMachineInstance
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
 		const OSWindows = "windows"
 		virtClient = kubevirt.Client()
-		checks.SkipIfMissingRequiredImage(virtClient, libvmifact.WindowsPVCName)
+		pv := checks.GetRequiredImageAndSkipIfMissing(virtClient, libvmifact.WindowsPVCName)
+		Expect(libstorage.MakePVAvailable(ctx, pv)).To(Succeed())
+
 		libstorage.CreatePVC(OSWindows, testsuite.GetTestNamespace(nil), "30Gi", libstorage.Config.StorageClassWindows, true)
 		windowsVMI = libvmifact.NewWindows(libnet.WithMasqueradeNetworking())
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
