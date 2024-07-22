@@ -5,6 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+
 	v12 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -25,29 +29,21 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 	numberOfNodes := 0
 
 	setccs := func(ccs v12.CustomizeComponents) (oldcss v12.CustomizeComponents) {
-		originalKv := util.GetCurrentKv(virtClient)
-		kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, v1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		kv := util.GetCurrentKv(virtClient)
 		oldcss = kv.Spec.CustomizeComponents
-		kv.Spec.CustomizeComponents = ccs
-		EventuallyWithOffset(1, func() error {
-			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, v1.UpdateOptions{})
-			return err
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
+		patchPayload, err := patch.New(patch.WithReplace("/spec/customizeComponents", ccs)).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.GetName(), types.JSONPatchType, patchPayload, v1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		return oldcss
 	}
 
 	restorescc := func(ccs v12.CustomizeComponents) {
-		originalKv := util.GetCurrentKv(virtClient)
-		kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, v1.GetOptions{})
+		kv := util.GetCurrentKv(virtClient)
+		patchPayload, err := patch.New(patch.WithReplace("/spec/customizeComponents", v12.CustomizeComponents{})).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
-		kv.Spec.CustomizeComponents = v12.CustomizeComponents{}
-
-		EventuallyWithOffset(1, func() error {
-			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, v1.UpdateOptions{})
-			return err
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.GetName(), types.JSONPatchType, patchPayload, v1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	getApiReplicas := func(virtClient kubecli.KubevirtClient, expectedResult int32) int32 {
