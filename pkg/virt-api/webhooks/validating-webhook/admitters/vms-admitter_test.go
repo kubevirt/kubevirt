@@ -1438,7 +1438,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(k8sClient, expectedSourceNamespace, "whocares",
 				expectedTargetNamespace, expectedServiceAccount)
-			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(ar, vm)
+			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(context.Background(), ar, vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes).To(BeEmpty())
 		},
@@ -1529,7 +1529,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				expectedTargetNamespace,
 				expectedServiceAccount)
 
-			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(ar, vm)
+			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(context.Background(), ar, vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes).To(BeEmpty())
 		},
@@ -1569,7 +1569,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			ar := &admissionv1.AdmissionRequest{}
 
 			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFailFunc(failMessage, failErr)
-			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(ar, vm)
+			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(context.Background(), ar, vm)
 			if failErr != nil {
 				Expect(err).To(Equal(failErr))
 			} else {
