@@ -39,7 +39,7 @@ import (
 // feature gate PersistentReservation. The enablement/disablement of this
 // feature gate redeploys virt-handler pod, and this might interfer with other
 // tests.
-var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
+var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, Ordered, func() {
 	const randLen = 8
 	var (
 		naa          string
@@ -181,7 +181,8 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 		}, 90*time.Second, 1*time.Second).Should(BeTrue())
 	}
-	BeforeEach(func() {
+
+	BeforeAll(func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
@@ -190,11 +191,6 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 			tests.EnableFeatureGate(virtconfig.PersistentReservation)
 		}
 
-	})
-	AfterEach(func() {
-		if fgDisabled {
-			tests.DisableFeatureGate(virtconfig.PersistentReservation)
-		}
 	})
 
 	Context("Use LUN disk with presistent reservation", func() {
@@ -311,8 +307,8 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		})
 	})
 
-	Context("with PersistentReservation feature gate toggled", func() {
-		It("should delete and recreate virt-handler", func() {
+	AfterAll(func() {
+		if fgDisabled {
 			tests.DisableFeatureGate(virtconfig.PersistentReservation)
 
 			Eventually(func() bool {
@@ -337,7 +333,6 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(output).To(BeEmpty())
 			}
-		})
+		}
 	})
-
 })
