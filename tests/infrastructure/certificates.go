@@ -170,7 +170,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 			patch.WithReplace("/data/tls.key", ""),
 		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), components.KubeVirtCASecretName, types.JSONPatchType, secretPatch, metav1.PatchOptions{})
+		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), secretName, types.JSONPatchType, secretPatch, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("checking that the secret gets restored with a new certificate")
