@@ -39,7 +39,7 @@ import (
 // feature gate PersistentReservation. The enablement/disablement of this
 // feature gate redeploys virt-handler pod, and this might interfer with other
 // tests.
-var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, Ordered, func() {
+var _ = SIGDescribe("[Serial]SCSI persistent reservation", Label("kvmanualreset"), Serial, Ordered, func() {
 	const randLen = 8
 	var (
 		naa          string
