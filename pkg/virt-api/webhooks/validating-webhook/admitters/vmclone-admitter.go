@@ -65,7 +65,7 @@ func NewVMCloneAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kubevir
 }
 
 // Admit validates an AdmissionReview
-func (admitter *VirtualMachineCloneAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *VirtualMachineCloneAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if ar.Request.Resource.Group != clonev1alpha1.VirtualMachineCloneKind.Group {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected group: %+v. Expected group: %+v", ar.Request.Resource.Group, clonev1alpha1.VirtualMachineCloneKind.Group))
 	}
@@ -102,7 +102,7 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(_ context.Context, ar *admiss
 		causes = append(causes, newCauses...)
 	}
 
-	if newCauses := validateSource(admitter.Client, vmClone); newCauses != nil {
+	if newCauses := validateSource(ctx, admitter.Client, vmClone); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -190,7 +190,7 @@ func validateSourceAndTargetKind(vmClone *clonev1alpha1.VirtualMachineClone) []m
 	return causes
 }
 
-func validateSource(client kubecli.KubevirtClient, vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+func validateSource(ctx context.Context, client kubecli.KubevirtClient, vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
 	var causes []metav1.StatusCause = nil
 	sourceField := k8sfield.NewPath("spec")
 	source := vmClone.Spec.Source
@@ -227,9 +227,9 @@ func validateSource(client kubecli.KubevirtClient, vmClone *clonev1alpha1.Virtua
 	if source.Kind != "" && source.Name != "" {
 		switch source.Kind {
 		case virtualMachineKind:
-			causes = append(causes, validateCloneSourceVM(client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
+			causes = append(causes, validateCloneSourceVM(ctx, client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
 		case virtualMachineSnapshotKind:
-			causes = append(causes, validateCloneSourceSnapshot(client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
+			causes = append(causes, validateCloneSourceSnapshot(ctx, client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
 		default:
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
@@ -313,8 +313,8 @@ func validateCloneSourceExists(clientGetErr error, sourceField *k8sfield.Path, k
 	return nil
 }
 
-func validateCloneSourceVM(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
-	vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func validateCloneSourceVM(ctx context.Context, client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
+	vm, err := client.VirtualMachine(namespace).Get(ctx, name, metav1.GetOptions{})
 	causes := validateCloneSourceExists(err, sourceField, virtualMachineKind, name, namespace)
 
 	if causes != nil {
@@ -330,8 +330,8 @@ func validateCloneSourceVM(client kubecli.KubevirtClient, name, namespace string
 	return causes
 }
 
-func validateCloneSourceSnapshot(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
-	vmSnapshot, err := client.VirtualMachineSnapshot(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func validateCloneSourceSnapshot(ctx context.Context, client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
+	vmSnapshot, err := client.VirtualMachineSnapshot(namespace).Get(ctx, name, metav1.GetOptions{})
 	causes := validateCloneSourceExists(err, sourceField, virtualMachineSnapshotKind, name, namespace)
 	if causes != nil {
 		return causes
