@@ -588,20 +588,11 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a VM Snapshot")
-			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				snap, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-
-				snap.Labels = map[string]string{
-					"key": "42",
-				}
-
-				opts := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
-				_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Update(context.Background(), snap, opts)
-				return err
-			})
+			snap, err := virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			patch := []byte(`{"metadata":{"labels":{"key":"42"}}}`)
+			opts := metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}}
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Patch(context.Background(), snap.Name, types.MergePatchType, patch, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
@@ -684,20 +675,12 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a VM Restore")
-			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
+			restore, err := virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				restore.Labels = map[string]string{
-					"key": "42",
-				}
-
-				opts := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
-				_, err = virtClient.VirtualMachineRestore(restore.Namespace).Update(context.Background(), restore, opts)
-				return err
-			})
+			patch := []byte(`{"metadata":{"labels":{"key":"42"}}}`)
+			opts := metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}}
+			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Patch(context.Background(), restore.Name, types.MergePatchType, patch, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
