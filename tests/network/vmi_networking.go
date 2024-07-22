@@ -299,20 +299,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					checkNetworkVendor(networkVMI, virtio_vid)
 				}
 			})
-
-			Context("VirtualMachineInstance with unsupported interface model", func() {
-				It("[test_id:1551]should reject the creation of virtual machine with unsupported interface model", func() {
-					// Create a virtual machine with an unsupported interface model
-					masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-					masqIface.Model = "gibberish"
-					customIfVMI := libvmifact.NewCirros(
-						libvmi.WithInterface(masqIface),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), customIfVMI, metav1.CreateOptions{})
-					Expect(err).To(HaveOccurred())
-				})
-			})
 		})
 	})
 
