@@ -67,13 +67,14 @@ type VMsAdmitter struct {
 }
 
 type authProxy struct {
+	ctx                context.Context
 	client             kubecli.KubevirtClient
 	dataSourceInformer cache.SharedIndexInformer
 	namespaceInformer  cache.SharedIndexInformer
 }
 
 func (p *authProxy) CreateSar(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
-	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
+	return p.client.AuthorizationV1().SubjectAccessReviews().Create(p.ctx, sar, metav1.CreateOptions{})
 }
 
 func (p *authProxy) GetNamespace(name string) (*corev1.Namespace, error) {
@@ -115,7 +116,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 	}
 }
 
-func (admitter *VMsAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
 		return webhookutils.ToAdmissionResponseError(err)
@@ -182,7 +183,7 @@ func (admitter *VMsAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionR
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes, err = admitter.authorizeVirtualMachineSpec(ar.Request, &vm)
+	causes, err = admitter.authorizeVirtualMachineSpec(ctx, ar.Request, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -190,7 +191,7 @@ func (admitter *VMsAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionR
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes, err = admitter.validateVolumeRequests(&vm)
+	causes, err = admitter.validateVolumeRequests(ctx, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	} else if len(causes) > 0 {
@@ -219,13 +220,13 @@ func (admitter *VMsAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionR
 
 }
 
-func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	vm, _, err := webhookutils.GetVMFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes, err := admitter.validateVolumeRequests(vm)
+	causes, err := admitter.validateVolumeRequests(ctx, vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	} else if len(causes) > 0 {
@@ -330,7 +331,7 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 	return nil, nil, causes
 }
 
-func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	var causes []metav1.StatusCause
 
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
@@ -354,7 +355,12 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.Admissi
 			}
 		}
 
-		proxy := &authProxy{client: admitter.VirtClient, dataSourceInformer: admitter.DataSourceInformer, namespaceInformer: admitter.NamespaceInformer}
+		proxy := &authProxy{
+			ctx:                ctx,
+			client:             admitter.VirtClient,
+			dataSourceInformer: admitter.DataSourceInformer,
+			namespaceInformer:  admitter.NamespaceInformer,
+		}
 		dv := &cdiv1.DataVolume{
 			ObjectMeta: dataVolume.ObjectMeta,
 			Spec:       dataVolume.Spec,
@@ -519,7 +525,7 @@ func validateLiveUpdateCPU(field *k8sfield.Path, domain *v1.DomainSpec) (causes 
 	return causes
 }
 
-func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	if len(vm.Status.VolumeRequests) == 0 {
 		return nil, nil
 	}
@@ -537,7 +543,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 	if vm.Status.Ready {
 		var err error
 
-		vmi, err = admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		vmi, err = admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(ctx, vm.Name, metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		} else if err == nil && vmi.DeletionTimestamp == nil {

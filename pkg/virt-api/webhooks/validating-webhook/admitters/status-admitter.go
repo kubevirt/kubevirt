@@ -14,13 +14,13 @@ type StatusAdmitter struct {
 	VmsAdmitter *VMsAdmitter
 }
 
-func (s *StatusAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (s *StatusAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if resp := webhooks.ValidateStatus(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
 	if webhooks.ValidateRequestResource(ar.Request.Resource, webhooks2.VirtualMachineGroupVersionResource.Group, webhooks2.VirtualMachineGroupVersionResource.Resource) {
-		return s.VmsAdmitter.AdmitStatus(ar)
+		return s.VmsAdmitter.AdmitStatus(ctx, ar)
 	}
 
 	reviewResponse := admissionv1.AdmissionResponse{}
