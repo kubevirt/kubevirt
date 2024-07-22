@@ -71,7 +71,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
-	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 
@@ -217,6 +216,8 @@ func NewController(
 	downwardMetricsManager downwardMetricsManager,
 	capabilities *nodelabellerapi.Capabilities,
 	hostCpuModel string,
+	netConf netconf,
+	netStat netstat,
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
 ) (*VirtualMachineController, error) {
 
@@ -254,6 +255,8 @@ func NewController(
 		vmiExpectations:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		sriovHotplugExecutorPool:         executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 		ioErrorRetryManager:              NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
+		netConf:                          netConf,
+		netStat:                          netStat,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 	}
 
@@ -289,9 +292,6 @@ func NewController(
 	}
 
 	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
-
-	c.netConf = netsetup.NewNetConf()
-	c.netStat = netsetup.NewNetStat()
 
 	c.downwardMetricsManager = downwardMetricsManager
 
