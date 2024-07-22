@@ -135,15 +135,13 @@ func SkipTestIfNotSEVESCapable() {
 	ginkgo.Skip("no node capable of running SEV-ES workloads detected", 1)
 }
 
-func SkipIfMissingRequiredImage(virtClient kubecli.KubevirtClient, imageName string) {
-	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, metav1.GetOptions{})
-	if err != nil || windowsPv.Status.Phase == k8sv1.VolumePending || windowsPv.Status.Phase == k8sv1.VolumeFailed {
+func GetRequiredImageAndSkipIfMissing(virtClient kubecli.KubevirtClient, imageName string) *k8sv1.PersistentVolume {
+	pv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, metav1.GetOptions{})
+	if err != nil || pv.Status.Phase == k8sv1.VolumePending || pv.Status.Phase == k8sv1.VolumeFailed {
 		ginkgo.Skip(fmt.Sprintf("Skip tests that requires PV %s", imageName))
-	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
-		windowsPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
+
+	return pv
 }
 
 func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
