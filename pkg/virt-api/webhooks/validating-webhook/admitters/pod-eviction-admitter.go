@@ -34,8 +34,8 @@ func NewPodEvictionAdmitter(clusterConfig *virtconfig.ClusterConfig, kubeClient 
 	}
 }
 
-func (admitter *PodEvictionAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	pod, err := admitter.kubeClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
+func (admitter *PodEvictionAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+	pod, err := admitter.kubeClient.CoreV1().Pods(ar.Request.Namespace).Get(ctx, ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
@@ -49,7 +49,7 @@ func (admitter *PodEvictionAdmitter) Admit(_ context.Context, ar *admissionv1.Ad
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	vmi, err := admitter.virtClient.KubevirtV1().VirtualMachineInstances(ar.Request.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
+	vmi, err := admitter.virtClient.KubevirtV1().VirtualMachineInstances(ar.Request.Namespace).Get(ctx, vmiName, metav1.GetOptions{})
 	if err != nil {
 		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %s", err.Error()))
 	}
@@ -78,7 +78,7 @@ func (admitter *PodEvictionAdmitter) Admit(_ context.Context, ar *admissionv1.Ad
 
 	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == pod.Spec.NodeName {
 		dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
-		err := admitter.markVMI(vmi.Namespace, vmi.Name, vmi.Status.NodeName, dryRun)
+		err := admitter.markVMI(ctx, vmi.Namespace, vmi.Name, vmi.Status.NodeName, dryRun)
 		if err != nil {
 			// As with the previous case, it is up to the user to issue a retry.
 			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
@@ -92,7 +92,7 @@ func (admitter *PodEvictionAdmitter) Admit(_ context.Context, ar *admissionv1.Ad
 	return validating_webhooks.NewPassingAdmissionResponse()
 }
 
-func (admitter *PodEvictionAdmitter) markVMI(vmiNamespace, vmiName, nodeName string, dryRun bool) error {
+func (admitter *PodEvictionAdmitter) markVMI(ctx context.Context, vmiNamespace, vmiName, nodeName string, dryRun bool) error {
 	patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", nodeName)).GeneratePayload()
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (admitter *PodEvictionAdmitter) markVMI(vmiNamespace, vmiName, nodeName str
 		virtClient.
 		KubevirtV1().
 		VirtualMachineInstances(vmiNamespace).
-		Patch(context.Background(),
+		Patch(ctx,
 			vmiName,
 			types.JSONPatchType,
 			patchBytes,
