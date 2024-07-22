@@ -168,40 +168,36 @@ var _ = Describe("Pod eviction admitter", func() {
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrate)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrateIfPossible and VMI is migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrateIfPossible),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is External and VMI is not migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyExternal)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyExternal),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is External and VMI is migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyExternal)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyExternal),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrate, VMI eviction strategy is missing and VMI is migratable",
 			pointer.P(virtv1.EvictionStrategyLiveMigrate),
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrateIfPossible, VMI eviction strategy is missing and VMI is migratable",
 			pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible),
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is External, VMI eviction strategy is missing and VMI is not migratable",
 			pointer.P(virtv1.EvictionStrategyExternal),
-			withEvictionStrategy(nil),
 		),
 		Entry("When cluster-wide eviction strategy is External, VMI eviction strategy is missing and VMI is migratable",
 			pointer.P(virtv1.EvictionStrategyExternal),
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 	)
@@ -234,38 +230,33 @@ var _ = Describe("Pod eviction admitter", func() {
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is missing and VMI is not migratable",
 			nil,
-			withEvictionStrategy(nil),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is missing and VMI is migratable",
 			nil,
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is None and VMI is not migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyNone)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyNone),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is None and VMI is migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyNone)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyNone),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrateIfPossible and VMI is not migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrateIfPossible),
 		),
 		Entry("When cluster-wide eviction strategy is None, VMI eviction strategy is missing and VMI is not migratable",
 			pointer.P(virtv1.EvictionStrategyNone),
-			withEvictionStrategy(nil),
 		),
 		Entry("When cluster-wide eviction strategy is None, VMI eviction strategy is missing and VMI is migratable",
 			pointer.P(virtv1.EvictionStrategyNone),
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrateIfPossible, VMI eviction strategy is missing and VMI is not migratable",
 			pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible),
-			withEvictionStrategy(nil),
 		),
 	)
 
@@ -301,11 +292,10 @@ var _ = Describe("Pod eviction admitter", func() {
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is not migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrate)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrate, VMI eviction strategy is missing and VMI is not migratable",
 			pointer.P(virtv1.EvictionStrategyLiveMigrate),
-			withEvictionStrategy(nil),
 		),
 	)
 
@@ -346,11 +336,10 @@ var _ = Describe("Pod eviction admitter", func() {
 	})
 
 	It("should deny the request when the admitter fails to patch the VMI", func() {
-		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
 		vmiOptions := []libvmi.Option{
 			libvmi.WithNamespace(testNamespace),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withStatusNodeName(testNodeName),
-			withEvictionStrategy(&evictionStrategy),
 			withLiveMigratableCondition(),
 		}
 
@@ -388,11 +377,10 @@ var _ = Describe("Pod eviction admitter", func() {
 	})
 
 	It("should allow the request and not mark the VMI again when the VMI is already marked for evacuation", func() {
-		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
 		vmiOptions := []libvmi.Option{
 			libvmi.WithNamespace(testNamespace),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withStatusNodeName(testNodeName),
-			withEvictionStrategy(&evictionStrategy),
 			withLiveMigratableCondition(),
 			withEvacuationNodeName(testNodeName),
 		}
@@ -419,11 +407,10 @@ var _ = Describe("Pod eviction admitter", func() {
 	})
 
 	It("should deny the request and perform a dryRun patch on the VMI when the request is a dry run", func() {
-		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
 		vmiOptions := []libvmi.Option{
 			libvmi.WithNamespace(testNamespace),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withStatusNodeName(testNodeName),
-			withEvictionStrategy(&evictionStrategy),
 			withLiveMigratableCondition(),
 		}
 
@@ -586,12 +573,6 @@ func newExpectedJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, expectedJSONP
 func withStatusNodeName(nodeName string) libvmi.Option {
 	return func(vmi *virtv1.VirtualMachineInstance) {
 		vmi.Status.NodeName = nodeName
-	}
-}
-
-func withEvictionStrategy(evictionStrategy *virtv1.EvictionStrategy) libvmi.Option {
-	return func(vmi *virtv1.VirtualMachineInstance) {
-		vmi.Spec.EvictionStrategy = evictionStrategy
 	}
 }
 
