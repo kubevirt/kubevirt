@@ -2881,7 +2881,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			for _, line := range cpuLines {
 				lineSplits := strings.Fields(line)
 				cpu, err := strconv.Atoi(lineSplits[1])
-				Expect(err).ToNot(HaveOccurred(), "cpu id is non string in vcpupin output")
+				Expect(err).ToNot(HaveOccurred(), "cpu id is non string in vcpupin output", line)
 
 				cpuSet = append(cpuSet, cpu)
 			}
