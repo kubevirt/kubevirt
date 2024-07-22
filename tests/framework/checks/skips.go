@@ -49,31 +49,6 @@ func SkipTestIfNoFeatureGate(featureGate string) {
 	}
 }
 
-func SkipTestIfNotEnoughNodesWithCPUManager(nodeCount int) {
-	if !HasFeature(virtconfig.CPUManager) {
-		ginkgo.Skip("the CPUManager feature gate is not enabled.")
-	}
-
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	found := 0
-	for _, node := range nodes.Items {
-		if IsCPUManagerPresent(&node) {
-			found++
-		}
-	}
-
-	if found < nodeCount {
-		msg := fmt.Sprintf(
-			"not enough node with CPUManager detected: expected %v nodes, but got %v",
-			nodeCount,
-			found,
-		)
-		ginkgo.Skip(msg, 1)
-	}
-}
-
 func SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount int) {
 	virtClient := kubevirt.Client()
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
@@ -96,7 +71,7 @@ func SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount int) {
 }
 
 func SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(nodeCount int) {
-	SkipTestIfNotEnoughNodesWithCPUManager(nodeCount)
+	IsThereEnoughNodesWithCPUManager(nodeCount)
 	SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount)
 }
 

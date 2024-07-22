@@ -10,6 +10,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libnode"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 
@@ -128,4 +129,29 @@ func RequireFeatureGateVirtHandlerRestart(feature string) bool {
 func IsRunningOnKindInfra() bool {
 	provider := os.Getenv("KUBEVIRT_PROVIDER")
 	return strings.HasPrefix(provider, "kind")
+}
+
+func IsThereEnoughNodesWithCPUManager(nodeCount int) {
+	if !HasFeature(virtconfig.CPUManager) {
+		ginkgo.Fail("the CPUManager feature gate is not enabled.")
+	}
+
+	virtClient := kubevirt.Client()
+	nodes := libnode.GetAllSchedulableNodes(virtClient)
+
+	found := 0
+	for _, node := range nodes.Items {
+		if IsCPUManagerPresent(&node) {
+			found++
+		}
+	}
+
+	if found < nodeCount {
+		msg := fmt.Sprintf(
+			"not enough node with CPUManager detected: expected %v nodes, but got %v",
+			nodeCount,
+			found,
+		)
+		ginkgo.Fail(msg, 1)
+	}
 }
