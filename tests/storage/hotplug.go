@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/log"
@@ -46,6 +47,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
@@ -1483,9 +1485,13 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			cdi := libstorage.GetCDI(virtClient)
 			orgCdiResourceRequirements = cdi.Spec.Config.PodResourceRequirements
-			newCdi := cdi.DeepCopy()
-			newCdi.Spec.Config.PodResourceRequirements = requirements
-			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Update(context.Background(), newCdi, metav1.UpdateOptions{})
+			patchSet := patch.New(
+				patch.WithAdd(fmt.Sprintf("/spec/config/podResourceRequirements"), requirements),
+			)
+			patchBytes, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Patch(context.Background(), cdi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
 				cdiConfig, _ := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
