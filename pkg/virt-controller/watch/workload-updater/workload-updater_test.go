@@ -36,7 +36,6 @@ var _ = Describe("Workload Updater", func() {
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var kubeVirtInterface *kubecli.MockKubeVirtInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var kubeVirtInformer cache.SharedIndexInformer
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
 	var kubeClient *fake.Clientset
@@ -45,20 +44,12 @@ var _ = Describe("Workload Updater", func() {
 
 	var expectedImage string
 
-	syncCaches := func(stop chan struct{}) {
-		go kubeVirtInformer.Run(stop)
-
-		Expect(cache.WaitForCacheSync(stop,
-			kubeVirtInformer.HasSynced,
-		)).To(BeTrue())
-	}
-
 	addKubeVirt := func(kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
 		key, err := virtcontroller.KeyFunc(kv)
 		Expect(err).To(Not(HaveOccurred()))
 		mockQueue.Add(key)
-		kubeVirtInformer.GetStore().Add(kv)
+		controller.kubeVirtStore.Add(kv)
 		mockQueue.Wait()
 	}
 
@@ -100,8 +91,7 @@ var _ = Describe("Workload Updater", func() {
 		recorder.IncludeObject = true
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-		kubeVirtInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
-		kubeVirtInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
+		kubeVirtInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 
 		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
@@ -120,7 +110,6 @@ var _ = Describe("Workload Updater", func() {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
-		syncCaches(stop)
 	})
 
 	Context("workload update in progress", func() {
