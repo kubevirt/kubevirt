@@ -2790,6 +2790,31 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(cond.Reason).To(Equal(v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable))
 		})
 
+		It("report multiple conditions why the VMI shouldn't be migratable", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: pointer.P(true)}}
+			vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
+				{
+					Name:     "VIRTIOFS",
+					Virtiofs: &v1.FilesystemVirtiofs{},
+				},
+			}
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				SEV: &v1.SEV{},
+			}
+
+			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(v1.VirtualMachineInstanceReasonMultipleNotMigratable))
+			Expect(cond.Message).To(Equal(fmt.Sprintf("%s: %s, %s: %s, %s: %s",
+				v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable, "VMI uses virtiofs",
+				v1.VirtualMachineInstanceReasonSEVNotMigratable, "VMI uses SEV",
+				v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable, "VMI uses hyperv passthrough",
+			)))
+		})
+
 	})
 
 	Context("VirtualMachineInstance network status", func() {
