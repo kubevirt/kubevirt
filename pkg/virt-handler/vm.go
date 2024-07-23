@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	goerror "errors"
@@ -1618,49 +1619,96 @@ func newNonMigratableCondition(msg string, reason string) *v1.VirtualMachineInst
 	}
 }
 
+type multipleNonMigratableCondition struct {
+	reasons []string
+	msgs    []string
+}
+
+func newMultipleNonMigratableCondition() *multipleNonMigratableCondition {
+	return &multipleNonMigratableCondition{}
+}
+
+func (cond *multipleNonMigratableCondition) addNonMigratableCondition(reason, msg string) {
+	cond.reasons = append(cond.reasons, reason)
+	cond.msgs = append(cond.msgs, msg)
+}
+
+func (cond *multipleNonMigratableCondition) String() string {
+	var buffer bytes.Buffer
+	for i, c := range cond.reasons {
+		if i > 0 {
+			buffer.WriteString(", ")
+		}
+		buffer.WriteString(fmt.Sprintf("%s: %s", c, cond.msgs[i]))
+	}
+	return buffer.String()
+}
+
+func (cond *multipleNonMigratableCondition) generateLiveMigrationCondition() *v1.VirtualMachineInstanceCondition {
+	switch len(cond.reasons) {
+	case 0:
+		return &v1.VirtualMachineInstanceCondition{
+			Type:   v1.VirtualMachineInstanceIsMigratable,
+			Status: k8sv1.ConditionTrue,
+		}
+	case 1:
+		return &v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceIsMigratable,
+			Status:  k8sv1.ConditionFalse,
+			Message: cond.msgs[0],
+			Reason:  cond.reasons[0],
+		}
+	default:
+		return &v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceIsMigratable,
+			Status:  k8sv1.ConditionFalse,
+			Message: cond.String(),
+			Reason:  v1.VirtualMachineInstanceReasonMultipleNotMigratable,
+		}
+	}
+}
+
 func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceCondition, bool) {
+	multiCond := newMultipleNonMigratableCondition()
 	isBlockMigration, err := d.checkVolumesForMigration(vmi)
 	if err != nil {
-		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonDisksNotMigratable, err.Error())
 	}
 
 	err = d.checkNetworkInterfacesForMigration(vmi)
 	if err != nil {
-		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonInterfaceNotMigratable), isBlockMigration
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonInterfaceNotMigratable, err.Error())
 	}
 
 	if err := d.isHostModelMigratable(vmi); err != nil {
-		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCPUModeNotMigratable, err.Error())
 	}
 
 	if util.IsVMIVirtiofsEnabled(vmi) {
-		return newNonMigratableCondition("VMI uses virtiofs", v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable), isBlockMigration
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable, "VMI uses virtiofs")
 	}
 
 	if vmiContainsPCIHostDevice(vmi) {
-		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, "VMI uses a PCI host devices")
 	}
 
 	if util.IsSEVVMI(vmi) {
-		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonSEVNotMigratable, "VMI uses SEV")
 	}
 
 	if reservation.HasVMIPersistentReservation(vmi) {
-		return newNonMigratableCondition("VMI uses SCSI persitent reservation", v1.VirtualMachineInstanceReasonPRNotMigratable), isBlockMigration
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonPRNotMigratable, "VMI uses SCSI persitent reservation")
 	}
 
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
-		return newNonMigratableCondition(tscRequirement.Reason, v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable), isBlockMigration
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable, tscRequirement.Reason)
 	}
 
 	if vmiFeatures := vmi.Spec.Domain.Features; vmiFeatures != nil && vmiFeatures.HypervPassthrough != nil && *vmiFeatures.HypervPassthrough.Enabled {
-		return newNonMigratableCondition("VMI uses hyperv passthrough", v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable), isBlockMigration
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable, "VMI uses hyperv passthrough")
 	}
 
-	return &v1.VirtualMachineInstanceCondition{
-		Type:   v1.VirtualMachineInstanceIsMigratable,
-		Status: k8sv1.ConditionTrue,
-	}, isBlockMigration
+	return multiCond.generateLiveMigrationCondition(), isBlockMigration
 }
 
 func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) bool {
