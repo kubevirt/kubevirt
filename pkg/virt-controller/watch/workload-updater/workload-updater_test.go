@@ -37,7 +37,6 @@ var _ = Describe("Workload Updater", func() {
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var kubeVirtInterface *kubecli.MockKubeVirtInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var migrationInformer cache.SharedIndexInformer
 	var kubeVirtSource *framework.FakeControllerSource
 	var kubeVirtInformer cache.SharedIndexInformer
 	var recorder *record.FakeRecorder
@@ -49,11 +48,9 @@ var _ = Describe("Workload Updater", func() {
 	var expectedImage string
 
 	syncCaches := func(stop chan struct{}) {
-		go migrationInformer.Run(stop)
 		go kubeVirtInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
-			migrationInformer.HasSynced,
 			kubeVirtInformer.HasSynced,
 		)).To(BeTrue())
 	}
@@ -96,7 +93,7 @@ var _ = Describe("Workload Updater", func() {
 				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
 			},
 		})
-		migrationInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(200)
 		recorder.IncludeObject = true
