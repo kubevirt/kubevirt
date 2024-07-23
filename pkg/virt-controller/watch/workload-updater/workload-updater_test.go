@@ -31,7 +31,6 @@ import (
 
 var _ = Describe("Workload Updater", func() {
 	var ctrl *gomock.Controller
-	var stop chan struct{}
 	var virtClient *kubecli.MockKubevirtClient
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var kubeVirtInterface *kubecli.MockKubeVirtInterface
@@ -69,7 +68,6 @@ var _ = Describe("Workload Updater", func() {
 		Expect(err).ToNot(HaveOccurred())
 		metrics.SetOutdatedVirtualMachineInstanceWorkloads(0)
 
-		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
@@ -525,9 +523,6 @@ var _ = Describe("Workload Updater", func() {
 	})
 
 	AfterEach(func() {
-
-		close(stop)
-
 		Expect(recorder.Events).To(BeEmpty())
 	})
 })
