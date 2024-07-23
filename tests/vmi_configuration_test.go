@@ -2009,12 +2009,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("[Serial]with automatic CPU limit configured in the CR", Serial, func() {
+		const autoCPULimitLabel = "autocpulimit"
 		BeforeEach(func() {
 			By("Adding a label selector to the CR for auto CPU limit")
 			kv := util.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
 			config.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
-				MatchLabels: map[string]string{"autocpulimit": "true"},
+				MatchLabels: map[string]string{autoCPULimitLabel: "true"},
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 		})
@@ -2037,9 +2038,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("Adding the right label to VMI namespace")
 			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.GetTestNamespace(vmi), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			namespace.Labels["autocpulimit"] = "true"
-			namespace, err = virtClient.CoreV1().Namespaces().Update(context.Background(), namespace, metav1.UpdateOptions{})
-			Expect(err).NotTo(HaveOccurred())
+
+			patchData := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, autoCPULimitLabel))
+			_, err = virtClient.CoreV1().Namespaces().Patch(context.Background(), namespace.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the VMI")
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
