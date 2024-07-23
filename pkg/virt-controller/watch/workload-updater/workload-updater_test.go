@@ -30,11 +30,8 @@ import (
 )
 
 var _ = Describe("Workload Updater", func() {
-	var ctrl *gomock.Controller
-	var virtClient *kubecli.MockKubevirtClient
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var kubeVirtInterface *kubecli.MockKubeVirtInterface
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var recorder *record.FakeRecorder
 	var kubeClient *fake.Clientset
 
@@ -68,11 +65,11 @@ var _ = Describe("Workload Updater", func() {
 		Expect(err).ToNot(HaveOccurred())
 		metrics.SetOutdatedVirtualMachineInstanceWorkloads(0)
 
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
 		kubeVirtInterface = kubecli.NewMockKubeVirtInterface(ctrl)
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		vmiInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
 		vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
 			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
