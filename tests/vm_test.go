@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
@@ -2073,16 +2074,11 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 
 func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachine")
-	err := retryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-		vm, err := virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vm.Spec.Running = nil
-		runStrategyAlways := v1.RunStrategyAlways
-		vm.Spec.RunStrategy = &runStrategyAlways
-		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-		return err
-	})
-	Expect(err).ToNot(HaveOccurred())
+	patchData, err := createVMRunStrategyPatch(v1.RunStrategyAlways)
+	Expect(err).NotTo(HaveOccurred())
+
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+	Expect(err).NotTo(HaveOccurred())
 
 	By("Waiting for VMI to be running")
 	Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).Should(BeRunning())
@@ -2098,16 +2094,11 @@ func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtu
 
 func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Stopping the VirtualMachine")
-	err := retryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-		vm, err := virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vm.Spec.Running = nil
-		runStrategyHalted := v1.RunStrategyHalted
-		vm.Spec.RunStrategy = &runStrategyHalted
-		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-		return err
-	})
-	Expect(err).ToNot(HaveOccurred())
+	patchData, err := createVMRunStrategyPatch(v1.RunStrategyHalted)
+	Expect(err).NotTo(HaveOccurred())
+
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+	Expect(err).NotTo(HaveOccurred())
 
 	By("Waiting for VMI to not exist")
 	Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
@@ -2119,6 +2110,14 @@ func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtua
 	Expect(err).ToNot(HaveOccurred())
 
 	return vm
+}
+
+func createVMRunStrategyPatch(strategy v1.VirtualMachineRunStrategy) ([]byte, error) {
+	patches := patch.New(
+		patch.WithAdd("/spec/running", nil),
+		patch.WithAdd("/spec/runStrategy", string(strategy)),
+	)
+	return patches.GeneratePayload()
 }
 
 func retryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
