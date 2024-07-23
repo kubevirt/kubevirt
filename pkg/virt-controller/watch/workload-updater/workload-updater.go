@@ -76,6 +76,8 @@ type WorkloadUpdateController struct {
 	launcherImage         string
 
 	lastDeletionBatch time.Time
+
+	hasSynced func() bool
 }
 
 type updateData struct {
@@ -115,6 +117,9 @@ func NewWorkloadUpdateController(
 		launcherImage:         launcherImage,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
+		hasSynced: func() bool {
+			return migrationInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && kubeVirtInformer.HasSynced()
+		},
 	}
 
 	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -260,7 +265,7 @@ func (c *WorkloadUpdateController) Run(stopCh <-chan struct{}) {
 	threadiness := 1
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.migrationInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.kubeVirtInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
