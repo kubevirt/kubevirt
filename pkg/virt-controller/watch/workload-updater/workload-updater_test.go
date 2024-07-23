@@ -38,13 +38,11 @@ var _ = Describe("Workload Updater", func() {
 	var kubeVirtInterface *kubecli.MockKubeVirtInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var migrationInformer cache.SharedIndexInformer
-	var migrationSource *framework.FakeControllerSource
 	var kubeVirtSource *framework.FakeControllerSource
 	var kubeVirtInformer cache.SharedIndexInformer
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
 	var kubeClient *fake.Clientset
-	var migrationFeeder *testutils.MigrationFeeder
 
 	var controller *WorkloadUpdateController
 
@@ -98,7 +96,7 @@ var _ = Describe("Workload Updater", func() {
 				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
 			},
 		})
-		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(200)
 		recorder.IncludeObject = true
@@ -110,7 +108,6 @@ var _ = Describe("Workload Updater", func() {
 		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
-		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(migrationInterface).AnyTimes()
@@ -252,7 +249,7 @@ var _ = Describe("Workload Updater", func() {
 
 			By("populating with pending migrations that should be ignored while counting the threshold")
 			for i := 0; i < vmsPendingMigration; i++ {
-				migrationFeeder.Add(newMigration(fmt.Sprintf("vmim-pending-%d", i), fmt.Sprintf("testvm-migratable-pending-%d", i), v1.MigrationPending))
+				controller.migrationStore.Add(newMigration(fmt.Sprintf("vmim-pending-%d", i), fmt.Sprintf("testvm-migratable-pending-%d", i), v1.MigrationPending))
 			}
 
 			reasons := []string{}
@@ -260,13 +257,13 @@ var _ = Describe("Workload Updater", func() {
 				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", controller.vmiStore, controller.podIndexer)
 				// create enough migrations to only allow one more active one to be created
 				if i < int(virtconfig.ParallelMigrationsPerClusterDefault)-1 {
-					migrationFeeder.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationRunning))
+					controller.migrationStore.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationRunning))
 				} else if i < int(virtconfig.ParallelMigrationsPerClusterDefault) {
-					migrationFeeder.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
+					controller.migrationStore.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
 					// expect only a single migration to occur due to global limit
 					reasons = append(reasons, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 				} else {
-					migrationFeeder.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
+					controller.migrationStore.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
 				}
 			}
 
@@ -354,9 +351,9 @@ var _ = Describe("Workload Updater", func() {
 			addKubeVirt(kv)
 
 			vmi := newVirtualMachine("testvm-migratable", true, "madeup", controller.vmiStore, controller.podIndexer)
-			migrationFeeder.Add(newMigration("vmim-1", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("vmim-1", vmi.Name, v1.MigrationRunning))
 			vmi = newVirtualMachine("testvm-nonmigratable", true, "madeup", controller.vmiStore, controller.podIndexer)
-			migrationFeeder.Add(newMigration("vmim-2", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("vmim-2", vmi.Name, v1.MigrationRunning))
 
 			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
 
@@ -469,7 +466,7 @@ var _ = Describe("Workload Updater", func() {
 		createMig := func(vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
 			mig := newMigration("test", vmiName, phase)
 			mig.Annotations = map[string]string{v1.WorkloadUpdateMigrationAnnotation: ""}
-			migrationFeeder.Add(mig)
+			controller.migrationStore.Add(mig)
 			return mig
 		}
 
