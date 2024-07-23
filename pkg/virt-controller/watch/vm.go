@@ -2576,18 +2576,18 @@ func (c *VMController) isVirtualMachineStatusPaused(vm *virtv1.VirtualMachine, v
 	return vmi.IsRunning() && hasPausedCondition
 }
 
-// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Stopping".
+// isVirtualMachineStatusStopping determines whether the VM status field should be set to "Stopping".
 func (c *VMController) isVirtualMachineStatusStopping(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return vmi != nil && !vmi.IsFinal() &&
 		(vmi.IsMarkedForDeletion() || c.isVMIStopExpected(vm))
 }
 
-// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Terminating".
+// isVirtualMachineStatusTerminating determines whether the VM status field should be set to "Terminating".
 func (c *VMController) isVirtualMachineStatusTerminating(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return vm.ObjectMeta.DeletionTimestamp != nil
 }
 
-// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Migrating".
+// isVirtualMachineStatusMigrating determines whether the VM status field should be set to "Migrating".
 func (c *VMController) isVirtualMachineStatusMigrating(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return vmi != nil && migrations.IsMigrating(vmi)
 }
