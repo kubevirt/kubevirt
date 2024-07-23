@@ -562,7 +562,7 @@ var _ = Describe("Workload Updater", func() {
 
 func waitForNumberOfInstancesOnVMIInformerCache(wu *WorkloadUpdateController, vmisNo int) {
 	EventuallyWithOffset(1, func() []interface{} {
-		return wu.vmiInformer.GetStore().List()
+		return wu.vmiStore.List()
 	}, 3*time.Second, 200*time.Millisecond).Should(HaveLen(vmisNo))
 }
 
