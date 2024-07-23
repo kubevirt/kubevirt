@@ -37,8 +37,6 @@ var _ = Describe("Workload Updater", func() {
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var kubeVirtInterface *kubecli.MockKubeVirtInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var vmiSource *framework.FakeControllerSource
-	var vmiInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
 	var migrationSource *framework.FakeControllerSource
 	var kubeVirtSource *framework.FakeControllerSource
@@ -53,12 +51,10 @@ var _ = Describe("Workload Updater", func() {
 	var expectedImage string
 
 	syncCaches := func(stop chan struct{}) {
-		go vmiInformer.Run(stop)
 		go migrationInformer.Run(stop)
 		go kubeVirtInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
-			vmiInformer.HasSynced,
 			migrationInformer.HasSynced,
 			kubeVirtInformer.HasSynced,
 		)).To(BeTrue())
@@ -96,7 +92,7 @@ var _ = Describe("Workload Updater", func() {
 		kubeVirtInterface = kubecli.NewMockKubeVirtInterface(ctrl)
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
+		vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
 			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 			"node": func(obj interface{}) (strings []string, e error) {
 				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
@@ -134,7 +130,7 @@ var _ = Describe("Workload Updater", func() {
 
 	Context("workload update in progress", func() {
 		It("should migrate the VMI", func() {
-			newVirtualMachine("testvm", true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+			newVirtualMachine("testvm", true, "madeup", controller.vmiStore, controller.podIndexer)
 			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
 			kv := newKubeVirt(1)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
@@ -147,7 +143,7 @@ var _ = Describe("Workload Updater", func() {
 		})
 
 		It("should do nothing if deployment is updating", func() {
-			newVirtualMachine("testvm", true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+			newVirtualMachine("testvm", true, "madeup", controller.vmiStore, controller.podIndexer)
 			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
 			kv := newKubeVirt(1)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
@@ -168,16 +164,16 @@ var _ = Describe("Workload Updater", func() {
 			totalVMs := 0
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", controller.vmiStore, controller.podIndexer)
 				totalVMs++
 			}
 			for i := 0; i < 50; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-non-migratable-%d", i), false, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-non-migratable-%d", i), false, "madeup", controller.vmiStore, controller.podIndexer)
 				totalVMs++
 			}
 			// add vmis that are not outdated to ensure they are not counted as outdated in count
 			for i := 0; i < 100; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-up-to-date-%d", i), false, expectedImage, vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-up-to-date-%d", i), false, expectedImage, controller.vmiStore, controller.podIndexer)
 				totalVMs++
 			}
 			for i := 0; i < int(virtconfig.ParallelMigrationsPerClusterDefault); i++ {
@@ -219,11 +215,11 @@ var _ = Describe("Workload Updater", func() {
 			totalVMs := 0
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", controller.vmiStore, controller.podIndexer)
 				totalVMs++
 			}
 			for i := 0; i < 50; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, "madeup", controller.vmiStore, controller.podIndexer)
 				totalVMs++
 			}
 			for i := 0; i < int(virtconfig.ParallelMigrationsPerClusterDefault); i++ {
@@ -261,7 +257,7 @@ var _ = Describe("Workload Updater", func() {
 
 			reasons := []string{}
 			for i := 0; i < desiredNumberOfVMs; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", controller.vmiStore, controller.podIndexer)
 				// create enough migrations to only allow one more active one to be created
 				if i < int(virtconfig.ParallelMigrationsPerClusterDefault)-1 {
 					migrationFeeder.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationRunning))
@@ -284,16 +280,16 @@ var _ = Describe("Workload Updater", func() {
 
 		It("should migrate/shutdown outdated VMIs and leave up to date VMIs alone", func() {
 			reasons := []string{}
-			newVirtualMachine("testvm-outdated-migratable", true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+			newVirtualMachine("testvm-outdated-migratable", true, "madeup", controller.vmiStore, controller.podIndexer)
 			reasons = append(reasons, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 
-			newVirtualMachine("testvm-outdated-non-migratable", false, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+			newVirtualMachine("testvm-outdated-non-migratable", false, "madeup", controller.vmiStore, controller.podIndexer)
 			reasons = append(reasons, SuccessfulEvictVirtualMachineInstanceReason)
 
 			totalVMs := 2
 			for i := 0; i < 50; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-up-to-date-migratable-%d", i), true, expectedImage, vmiInformer.GetIndexer(), controller.podIndexer)
-				newVirtualMachine(fmt.Sprintf("testvm-up-to-date-non-migratable-%d", i), false, expectedImage, vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-up-to-date-migratable-%d", i), true, expectedImage, controller.vmiStore, controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-up-to-date-non-migratable-%d", i), false, expectedImage, controller.vmiStore, controller.podIndexer)
 				totalVMs += 2
 			}
 
@@ -314,11 +310,11 @@ var _ = Describe("Workload Updater", func() {
 		It("should do nothing if no method is set", func() {
 			totalVMs := 0
 			for i := 0; i < 50; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", controller.vmiStore, controller.podIndexer)
 				totalVMs++
 			}
 			for i := 0; i < 50; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, "madeup", controller.vmiStore, controller.podIndexer)
 				totalVMs++
 			}
 
@@ -332,7 +328,7 @@ var _ = Describe("Workload Updater", func() {
 			const desiredNumberOfVMs = 50
 			reasons := []string{}
 			for i := 0; i < desiredNumberOfVMs; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", controller.vmiStore, controller.podIndexer)
 			}
 			for i := 0; i < defaultBatchDeletionCount; i++ {
 				reasons = append(reasons, SuccessfulEvictVirtualMachineInstanceReason)
@@ -357,9 +353,9 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			vmi := newVirtualMachine("testvm-migratable", true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+			vmi := newVirtualMachine("testvm-migratable", true, "madeup", controller.vmiStore, controller.podIndexer)
 			migrationFeeder.Add(newMigration("vmim-1", vmi.Name, v1.MigrationRunning))
-			vmi = newVirtualMachine("testvm-nonmigratable", true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+			vmi = newVirtualMachine("testvm-nonmigratable", true, "madeup", controller.vmiStore, controller.podIndexer)
 			migrationFeeder.Add(newMigration("vmim-2", vmi.Name, v1.MigrationRunning))
 
 			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
@@ -373,7 +369,7 @@ var _ = Describe("Workload Updater", func() {
 			batchDeletions := 30
 			reasons := []string{}
 			for i := 0; i < desiredNumberOfVMs; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", controller.vmiStore, controller.podIndexer)
 			}
 			for i := 0; i < batchDeletions; i++ {
 				reasons = append(reasons, SuccessfulEvictVirtualMachineInstanceReason)
@@ -402,7 +398,7 @@ var _ = Describe("Workload Updater", func() {
 			}
 
 			for i := 0; i < batchDeletions*2; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-migratable-1-%d", i), true, "madeup", vmiInformer.GetIndexer(), controller.podIndexer)
+				newVirtualMachine(fmt.Sprintf("testvm-migratable-1-%d", i), true, "madeup", controller.vmiStore, controller.podIndexer)
 			}
 			waitForNumberOfInstancesOnVMIInformerCache(controller, batchDeletions*2)
 			kv := newKubeVirt(batchDeletions * 2)
@@ -467,7 +463,7 @@ var _ = Describe("Workload Updater", func() {
 				vmi.ObjectMeta.Annotations = make(map[string]string)
 				vmi.ObjectMeta.Annotations[v1.WorkloadUpdateMigrationAbortionAnnotation] = ""
 			}
-			vmiSource.Add(vmi)
+			controller.vmiStore.Add(vmi)
 			return vmi
 		}
 		createMig := func(vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
@@ -577,7 +573,7 @@ func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 	}
 }
 
-func newVirtualMachine(name string, isMigratable bool, image string, vmiIndexer cache.Indexer, podStore cache.Store) *v1.VirtualMachineInstance {
+func newVirtualMachine(name string, isMigratable bool, image string, vmiIndexer cache.Store, podStore cache.Store) *v1.VirtualMachineInstance {
 	vmi := api.NewMinimalVMI("testvm")
 	vmi.Name = name
 	vmi.Namespace = k8sv1.NamespaceDefault
