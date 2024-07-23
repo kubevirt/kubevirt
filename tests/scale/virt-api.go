@@ -5,53 +5,41 @@ import (
 	"strconv"
 	"time"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
 	v12 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 	numberOfNodes := 0
 
-	setccs := func(ccs v12.CustomizeComponents) (oldcss v12.CustomizeComponents) {
-		kv := util.GetCurrentKv(virtClient)
-		oldcss = kv.Spec.CustomizeComponents
+	setccs := func(ccs v12.CustomizeComponents, kvNamespace string, kvName string) error {
 		patchPayload, err := patch.New(patch.WithReplace("/spec/customizeComponents", ccs)).GeneratePayload()
-		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.GetName(), types.JSONPatchType, patchPayload, v1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return oldcss
-	}
-
-	restorescc := func(ccs v12.CustomizeComponents) {
-		kv := util.GetCurrentKv(virtClient)
-		patchPayload, err := patch.New(patch.WithReplace("/spec/customizeComponents", v12.CustomizeComponents{})).GeneratePayload()
-		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.GetName(), types.JSONPatchType, patchPayload, v1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			return err
+		}
+		_, err = virtClient.KubeVirt(kvNamespace).Patch(context.Background(), kvName, types.JSONPatchType, patchPayload, v1.PatchOptions{})
+		return err
 	}
 
 	getApiReplicas := func(virtClient kubecli.KubevirtClient, expectedResult int32) int32 {
 		By("Finding out virt-api replica number")
-		kv := util.GetCurrentKv(virtClient)
-		Expect(kv).ToNot(BeNil())
-
-		apiDeployment, err := virtClient.AppsV1().Deployments(kv.GetNamespace()).Get(context.Background(), components.VirtAPIName, v1.GetOptions{})
+		apiDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), components.VirtAPIName, v1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Expecting number of replicas to be as expected")
@@ -99,6 +87,7 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 	})
 
 	It("[Serial]virt-api replicas should be determined by patch if exist", Serial, func() {
+		originalKv := util.GetCurrentKv(virtClient)
 		expectedResult := calcExpectedReplicas(numberOfNodes)
 		expectedResult += 1
 		ccs := v12.CustomizeComponents{
@@ -111,8 +100,12 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 				},
 			},
 		}
-		oldcss := setccs(ccs)
-		DeferCleanup(restorescc, oldcss)
+		err := setccs(ccs, originalKv.Namespace, originalKv.Name)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() {
+			err := setccs(originalKv.Spec.CustomizeComponents, originalKv.Namespace, originalKv.Name)
+			Expect(err).ToNot(HaveOccurred())
+		})
 
 		Eventually(func() int32 {
 			return getApiReplicas(virtClient, expectedResult)
