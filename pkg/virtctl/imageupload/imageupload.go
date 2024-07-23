@@ -33,8 +33,8 @@ import (
 	"strings"
 	"time"
 
+	pb "github.com/cheggaaa/pb/v3"
 	"github.com/spf13/cobra"
-	pb "gopkg.in/cheggaaa/pb.v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -460,7 +460,8 @@ func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) erro
 		return err
 	}
 
-	bar := pb.New64(fi.Size()).SetUnits(pb.U_BYTES)
+	bar := pb.Full.Start64(fi.Size())
+	bar.Set(pb.Bytes, true)
 	reader := bar.NewProxyReader(file)
 
 	client := httpClientCreatorFunc(insecure)
