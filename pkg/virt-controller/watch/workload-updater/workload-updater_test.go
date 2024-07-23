@@ -30,14 +30,16 @@ import (
 )
 
 var _ = Describe("Workload Updater", func() {
-	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
-	var kubeVirtInterface *kubecli.MockKubeVirtInterface
-	var recorder *record.FakeRecorder
-	var kubeClient *fake.Clientset
+	var (
+		migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
+		kubeVirtInterface  *kubecli.MockKubeVirtInterface
+		recorder           *record.FakeRecorder
+		kubeClient         *fake.Clientset
 
-	var controller *WorkloadUpdateController
+		controller *WorkloadUpdateController
 
-	var expectedImage string
+		expectedImage string
+	)
 
 	addKubeVirt := func(kv *v1.KubeVirt) {
 		key, err := virtcontroller.KeyFunc(kv)
