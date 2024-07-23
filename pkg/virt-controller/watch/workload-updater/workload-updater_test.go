@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/client-go/api"
@@ -37,7 +36,6 @@ var _ = Describe("Workload Updater", func() {
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var kubeVirtInterface *kubecli.MockKubeVirtInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var kubeVirtSource *framework.FakeControllerSource
 	var kubeVirtInformer cache.SharedIndexInformer
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
@@ -57,7 +55,10 @@ var _ = Describe("Workload Updater", func() {
 
 	addKubeVirt := func(kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
-		kubeVirtSource.Add(kv)
+		key, err := virtcontroller.KeyFunc(kv)
+		Expect(err).To(Not(HaveOccurred()))
+		mockQueue.Add(key)
+		kubeVirtInformer.GetStore().Add(kv)
 		mockQueue.Wait()
 	}
 
@@ -100,7 +101,7 @@ var _ = Describe("Workload Updater", func() {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		kubeVirtInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
-		kubeVirtInformer, kubeVirtSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
+		kubeVirtInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 
 		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
