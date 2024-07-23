@@ -37,7 +37,6 @@ var _ = Describe("Workload Updater", func() {
 	var kubeVirtInterface *kubecli.MockKubeVirtInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
 	var kubeClient *fake.Clientset
 
 	var controller *WorkloadUpdateController
@@ -45,12 +44,10 @@ var _ = Describe("Workload Updater", func() {
 	var expectedImage string
 
 	addKubeVirt := func(kv *v1.KubeVirt) {
-		mockQueue.ExpectAdds(1)
 		key, err := virtcontroller.KeyFunc(kv)
 		Expect(err).To(Not(HaveOccurred()))
-		mockQueue.Add(key)
 		controller.kubeVirtStore.Add(kv)
-		mockQueue.Wait()
+		controller.queue.Add(key)
 	}
 
 	shouldExpectMultiplePodEvictions := func(evictionCount *int) {
@@ -94,8 +91,6 @@ var _ = Describe("Workload Updater", func() {
 		kubeVirtInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 
 		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
-		mockQueue = testutils.NewMockWorkQueue(controller.queue)
-		controller.queue = mockQueue
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(migrationInterface).AnyTimes()
