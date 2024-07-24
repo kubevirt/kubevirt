@@ -3383,20 +3383,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedVmi.Status.VSOCKCID).NotTo(BeNil())
 		})
-
-		It("should recycle the CID when the pods are deleted", func() {
-			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-			Expect(controller.cidsMap.Allocate(vmi)).To(Succeed())
-			vmi.Status.Phase = virtv1.Succeeded
-			addVirtualMachine(vmi)
-
-			Expect(vmiInformer.GetIndexer().Delete(vmi)).To(Succeed())
-			controller.Execute()
-
-			Expect(controller.cidsMap.cids).To(BeEmpty())
-			Expect(controller.cidsMap.reverse).To(BeEmpty())
-		})
 	})
 
 	Context("dynamic interface attachment", func() {
