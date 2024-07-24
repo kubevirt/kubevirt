@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	k8scorev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -24,16 +25,16 @@ type PodEvictionAdmitter struct {
 }
 
 func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	launcher, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
+	pod, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	if value, exists := launcher.GetLabels()[virtv1.AppLabel]; !exists || value != "virt-launcher" {
+	if !isVirtLauncher(pod) || isCompleted(pod) {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	domainName, exists := launcher.GetAnnotations()[virtv1.DomainAnnotation]
+	domainName, exists := pod.GetAnnotations()[virtv1.DomainAnnotation]
 	if !exists {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
@@ -65,7 +66,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 		markForEviction = true
 	}
 
-	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == launcher.Spec.NodeName {
+	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == pod.Spec.NodeName {
 		dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
 		err := admitter.markVMI(ar, vmi.Name, vmi.Status.NodeName, dryRun)
 		if err != nil {
@@ -104,4 +105,12 @@ func denied(message string) *admissionv1.AdmissionResponse {
 			Code:    http.StatusTooManyRequests,
 		},
 	}
+}
+
+func isVirtLauncher(pod *k8scorev1.Pod) bool {
+	return pod.Labels[virtv1.AppLabel] == "virt-launcher"
+}
+
+func isCompleted(pod *k8scorev1.Pod) bool {
+	return pod.Status.Phase == k8scorev1.PodFailed || pod.Status.Phase == k8scorev1.PodSucceeded
 }
