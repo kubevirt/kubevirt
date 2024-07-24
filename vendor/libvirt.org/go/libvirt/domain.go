@@ -1012,6 +1012,13 @@ const (
 	DOMAIN_FD_ASSOCIATE_SECLABEL_WRITABLE = DomainFDAssociateFlags(C.VIR_DOMAIN_FD_ASSOCIATE_SECLABEL_WRITABLE)
 )
 
+type DomainGraphicsReloadType uint
+
+const (
+	DOMAIN_GRAPHICS_RELOAD_TYPE_ANY = DomainGraphicsReloadType(C.VIR_DOMAIN_GRAPHICS_RELOAD_TYPE_ANY)
+	DOMAIN_GRAPHICS_RELOAD_TYPE_VNC = DomainGraphicsReloadType(C.VIR_DOMAIN_GRAPHICS_RELOAD_TYPE_VNC)
+)
+
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainFree
 func (d *Domain) Free() error {
 	var err C.virError
@@ -4971,6 +4978,8 @@ type DomainLaunchSecurityParameters struct {
 	SEVBuildID        uint
 	SEVPolicySet      bool
 	SEVPolicy         uint
+	SEVSNPPolicySet   bool
+	SEVSNPPolicy      uint64
 }
 
 func getDomainLaunchSecurityFieldInfo(params *DomainLaunchSecurityParameters) map[string]typedParamsFieldInfo {
@@ -4994,6 +5003,10 @@ func getDomainLaunchSecurityFieldInfo(params *DomainLaunchSecurityParameters) ma
 		C.VIR_DOMAIN_LAUNCH_SECURITY_SEV_POLICY: typedParamsFieldInfo{
 			set: &params.SEVPolicySet,
 			ui:  &params.SEVPolicy,
+		},
+		C.VIR_DOMAIN_LAUNCH_SECURITY_SEV_SNP_POLICY: typedParamsFieldInfo{
+			set: &params.SEVSNPPolicySet,
+			ul:  &params.SEVSNPPolicy,
 		},
 	}
 }
@@ -5722,4 +5735,14 @@ func (d *Domain) FDAssociate(name string, files []os.File, flags DomainFDAssocia
 	}
 	return nil
 
+}
+
+func (d *Domain) GraphicsReload(typ DomainGraphicsReloadType, flags uint32) error {
+	var err C.virError
+	ret := C.virDomainGraphicsReloadWrapper(d.ptr, C.uint(typ), C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
+
+	return nil
 }

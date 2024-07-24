@@ -43,13 +43,14 @@ type DomainControllerPCIModel struct {
 }
 
 type DomainControllerPCITarget struct {
-	ChassisNr *uint
-	Chassis   *uint
-	Port      *uint
-	BusNr     *uint
-	Index     *uint
-	NUMANode  *uint
-	Hotplug   string
+	ChassisNr  *uint
+	Chassis    *uint
+	Port       *uint
+	BusNr      *uint
+	Index      *uint
+	NUMANode   *uint
+	Hotplug    string
+	MemReserve *uint64
 }
 
 type DomainControllerPCI struct {
@@ -1516,6 +1517,13 @@ type DomainPanic struct {
 	Address *DomainAddress    `xml:"address"`
 }
 
+type DomainSoundDriver struct {
+	IOMMU     string `xml:"iommu,attr,omitempty"`
+	ATS       string `xml:"ats,attr,omitempty"`
+	Packed    string `xml:"packed,attr,omitempty"`
+	PagePerVQ string `xml:"page_per_vq,attr,omitempty"`
+}
+
 type DomainSoundCodec struct {
 	Type string `xml:"type,attr"`
 }
@@ -1524,10 +1532,12 @@ type DomainSound struct {
 	XMLName      xml.Name           `xml:"sound"`
 	Model        string             `xml:"model,attr"`
 	MultiChannel string             `xml:"multichannel,attr,omitempty"`
+	Streams      uint               `xml:"streams,attr,omitempty"`
 	Codec        []DomainSoundCodec `xml:"codec"`
 	Audio        *DomainSoundAudio  `xml:"audio"`
 	ACPI         *DomainDeviceACPI  `xml:"acpi"`
 	Alias        *DomainAlias       `xml:"alias"`
+	Driver       *DomainSoundDriver `xml:"driver"`
 	Address      *DomainAddress     `xml:"address"`
 }
 
@@ -1797,6 +1807,8 @@ type DomainHostdevSubsysPCIDriver struct {
 }
 
 type DomainHostdevSubsysPCI struct {
+	Display string                        `xml:"display,attr,omitempty"`
+	RamFB   string                        `xml:"ramfb,attr,omitempty"`
 	Driver  *DomainHostdevSubsysPCIDriver `xml:"driver"`
 	Source  *DomainHostdevSubsysPCISource `xml:"source"`
 	Teaming *DomainInterfaceTeaming       `xml:"teaming"`
@@ -1924,13 +1936,14 @@ type DomainMemorydevTargetAddress struct {
 }
 
 type DomainMemorydevTarget struct {
-	Size      *DomainMemorydevTargetSize      `xml:"size"`
-	Node      *DomainMemorydevTargetNode      `xml:"node"`
-	Label     *DomainMemorydevTargetLabel     `xml:"label"`
-	Block     *DomainMemorydevTargetBlock     `xml:"block"`
-	Requested *DomainMemorydevTargetRequested `xml:"requested"`
-	ReadOnly  *DomainMemorydevTargetReadOnly  `xml:"readonly"`
-	Address   *DomainMemorydevTargetAddress   `xml:"address"`
+	DynamicMemslots string                          `xml:"dynamicMemslots,attr,omitempty"`
+	Size            *DomainMemorydevTargetSize      `xml:"size"`
+	Node            *DomainMemorydevTargetNode      `xml:"node"`
+	Label           *DomainMemorydevTargetLabel     `xml:"label"`
+	Block           *DomainMemorydevTargetBlock     `xml:"block"`
+	Requested       *DomainMemorydevTargetRequested `xml:"requested"`
+	ReadOnly        *DomainMemorydevTargetReadOnly  `xml:"readonly"`
+	Address         *DomainMemorydevTargetAddress   `xml:"address"`
 }
 
 type DomainMemorydev struct {
@@ -2382,10 +2395,11 @@ type DomainCPUModel struct {
 }
 
 type DomainCPUTopology struct {
-	Sockets int `xml:"sockets,attr,omitempty"`
-	Dies    int `xml:"dies,attr,omitempty"`
-	Cores   int `xml:"cores,attr,omitempty"`
-	Threads int `xml:"threads,attr,omitempty"`
+	Sockets  int `xml:"sockets,attr,omitempty"`
+	Dies     int `xml:"dies,attr,omitempty"`
+	Clusters int `xml:"clusters,attr,omitempty"`
+	Cores    int `xml:"cores,attr,omitempty"`
+	Threads  int `xml:"threads,attr,omitempty"`
 }
 
 type DomainCPUFeature struct {
@@ -2625,6 +2639,7 @@ type DomainFeatureCapability struct {
 
 type DomainLaunchSecurity struct {
 	SEV    *DomainLaunchSecuritySEV    `xml:"-"`
+	SEVSNP *DomainLaunchSecuritySEVSNP `xml:"-"`
 	S390PV *DomainLaunchSecurityS390PV `xml:"-"`
 }
 
@@ -2635,6 +2650,19 @@ type DomainLaunchSecuritySEV struct {
 	Policy          *uint  `xml:"policy"`
 	DHCert          string `xml:"dhCert"`
 	Session         string `xml:"sesion"`
+}
+
+type DomainLaunchSecuritySEVSNP struct {
+	KernelHashes            string  `xml:"kernelHashes,attr,omitempty"`
+	AuthorKey               string  `xml:"authorKey,attr,omitempty"`
+	VCEK                    string  `xml:"vcek,attr,omitempty"`
+	CBitPos                 *uint   `xml:"cbitpos"`
+	ReducedPhysBits         *uint   `xml:"reducedPhysBits"`
+	Policy                  *uint64 `xml:"policy"`
+	GuestVisibleWorkarounds string  `xml:"guestVisibleWorkarounds,omitempty"`
+	IDBlock                 string  `xml:"idBlock,omitempty"`
+	IDAuth                  string  `xml:"idAuth,omitempty"`
+	HostData                string  `xml:"hostData,omitempty"`
 }
 
 type DomainLaunchSecurityS390PV struct {
@@ -2729,6 +2757,7 @@ type DomainFeatureList struct {
 	IBS           *DomainFeatureIBS           `xml:"ibs"`
 	TCG           *DomainFeatureTCG           `xml:"tcg"`
 	AsyncTeardown *DomainFeatureAsyncTeardown `xml:"async-teardown"`
+	RAS           *DomainFeatureState         `xml:"ras"`
 }
 
 type DomainCPUTuneShares struct {
@@ -3143,6 +3172,7 @@ func (a *DomainControllerPCITarget) MarshalXML(e *xml.Encoder, start xml.StartEl
 	marshalUintAttr(&start, "port", a.Port, "%d")
 	marshalUintAttr(&start, "busNr", a.BusNr, "%d")
 	marshalUintAttr(&start, "index", a.Index, "%d")
+	marshalUint64Attr(&start, "memReserve", a.MemReserve, "%d")
 	if a.Hotplug != "" {
 		start.Attr = append(start.Attr, xml.Attr{
 			xml.Name{Local: "hotplug"}, a.Hotplug,
@@ -3181,6 +3211,10 @@ func (a *DomainControllerPCITarget) UnmarshalXML(d *xml.Decoder, start xml.Start
 			}
 		} else if attr.Name.Local == "index" {
 			if err := unmarshalUintAttr(attr.Value, &a.Index, 10); err != nil {
+				return err
+			}
+		} else if attr.Name.Local == "memReserve" {
+			if err := unmarshalUint64Attr(attr.Value, &a.MemReserve, 10); err != nil {
 				return err
 			}
 		} else if attr.Name.Local == "hotplug" {
@@ -6668,6 +6702,185 @@ func (a *DomainLaunchSecuritySEV) UnmarshalXML(d *xml.Decoder, start xml.StartEl
 	return nil
 }
 
+func (a *DomainLaunchSecuritySEVSNP) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+
+	if a.KernelHashes != "" {
+		start.Attr = append(start.Attr, xml.Attr{
+			xml.Name{Local: "kernelHashes"}, a.KernelHashes,
+		})
+	}
+
+	if a.AuthorKey != "" {
+		start.Attr = append(start.Attr, xml.Attr{
+			xml.Name{Local: "authorKey"}, a.AuthorKey,
+		})
+	}
+
+	if a.VCEK != "" {
+		start.Attr = append(start.Attr, xml.Attr{
+			xml.Name{Local: "vcek"}, a.VCEK,
+		})
+	}
+
+	e.EncodeToken(start)
+
+	if a.CBitPos != nil {
+		cbitpos := xml.StartElement{
+			Name: xml.Name{Local: "cbitpos"},
+		}
+		e.EncodeToken(cbitpos)
+		e.EncodeToken(xml.CharData(fmt.Sprintf("%d", *a.CBitPos)))
+		e.EncodeToken(cbitpos.End())
+	}
+
+	if a.ReducedPhysBits != nil {
+		reducedPhysBits := xml.StartElement{
+			Name: xml.Name{Local: "reducedPhysBits"},
+		}
+		e.EncodeToken(reducedPhysBits)
+		e.EncodeToken(xml.CharData(fmt.Sprintf("%d", *a.ReducedPhysBits)))
+		e.EncodeToken(reducedPhysBits.End())
+	}
+
+	if a.Policy != nil {
+		policy := xml.StartElement{
+			Name: xml.Name{Local: "policy"},
+		}
+		e.EncodeToken(policy)
+		e.EncodeToken(xml.CharData(fmt.Sprintf("0x%08x", *a.Policy)))
+		e.EncodeToken(policy.End())
+	}
+
+	gvwo := xml.StartElement{
+		Name: xml.Name{Local: "guestVisibleWorkarounds"},
+	}
+	e.EncodeToken(gvwo)
+	e.EncodeToken(xml.CharData(fmt.Sprintf("%s", a.GuestVisibleWorkarounds)))
+	e.EncodeToken(gvwo.End())
+
+	idBlock := xml.StartElement{
+		Name: xml.Name{Local: "idBlock"},
+	}
+	e.EncodeToken(idBlock)
+	e.EncodeToken(xml.CharData(fmt.Sprintf("%s", a.IDBlock)))
+	e.EncodeToken(idBlock.End())
+
+	idAuth := xml.StartElement{
+		Name: xml.Name{Local: "idAuth"},
+	}
+	e.EncodeToken(idAuth)
+	e.EncodeToken(xml.CharData(fmt.Sprintf("%s", a.IDAuth)))
+	e.EncodeToken(idAuth.End())
+
+	hostData := xml.StartElement{
+		Name: xml.Name{Local: "hostData"},
+	}
+	e.EncodeToken(hostData)
+	e.EncodeToken(xml.CharData(fmt.Sprintf("%s", a.HostData)))
+	e.EncodeToken(hostData.End())
+
+	e.EncodeToken(start.End())
+
+	return nil
+}
+
+func (a *DomainLaunchSecuritySEVSNP) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		if attr.Name.Local == "kernelHashes" {
+			a.KernelHashes = attr.Value
+		} else if attr.Name.Local == "authorKey" {
+			a.AuthorKey = attr.Value
+		} else if attr.Name.Local == "vcek" {
+			a.VCEK = attr.Value
+		}
+	}
+
+	for {
+		tok, err := d.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		switch tok := tok.(type) {
+		case xml.StartElement:
+			if tok.Name.Local == "policy" {
+				data, err := d.Token()
+				if err != nil {
+					return err
+				}
+				switch data := data.(type) {
+				case xml.CharData:
+					if err := unmarshalUint64Attr(string(data), &a.Policy, 16); err != nil {
+						return err
+					}
+				}
+			} else if tok.Name.Local == "cbitpos" {
+				data, err := d.Token()
+				if err != nil {
+					return err
+				}
+				switch data := data.(type) {
+				case xml.CharData:
+					if err := unmarshalUintAttr(string(data), &a.CBitPos, 10); err != nil {
+						return err
+					}
+				}
+			} else if tok.Name.Local == "reducedPhysBits" {
+				data, err := d.Token()
+				if err != nil {
+					return err
+				}
+				switch data := data.(type) {
+				case xml.CharData:
+					if err := unmarshalUintAttr(string(data), &a.ReducedPhysBits, 10); err != nil {
+						return err
+					}
+				}
+			} else if tok.Name.Local == "guestVisibleWorkarounds" {
+				data, err := d.Token()
+				if err != nil {
+					return err
+				}
+				switch data := data.(type) {
+				case xml.CharData:
+					a.GuestVisibleWorkarounds = string(data)
+				}
+			} else if tok.Name.Local == "idBlock" {
+				data, err := d.Token()
+				if err != nil {
+					return err
+				}
+				switch data := data.(type) {
+				case xml.CharData:
+					a.IDBlock = string(data)
+				}
+			} else if tok.Name.Local == "idAuth" {
+				data, err := d.Token()
+				if err != nil {
+					return err
+				}
+				switch data := data.(type) {
+				case xml.CharData:
+					a.IDAuth = string(data)
+				}
+			} else if tok.Name.Local == "hostData" {
+				data, err := d.Token()
+				if err != nil {
+					return err
+				}
+				switch data := data.(type) {
+				case xml.CharData:
+					a.HostData = string(data)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (a *DomainLaunchSecurity) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 
 	if a.SEV != nil {
@@ -6675,6 +6888,11 @@ func (a *DomainLaunchSecurity) MarshalXML(e *xml.Encoder, start xml.StartElement
 			xml.Name{Local: "type"}, "sev",
 		})
 		return e.EncodeElement(a.SEV, start)
+	} else if a.SEVSNP != nil {
+		start.Attr = append(start.Attr, xml.Attr{
+			xml.Name{Local: "type"}, "sev-snp",
+		})
+		return e.EncodeElement(a.SEVSNP, start)
 	} else if a.S390PV != nil {
 		start.Attr = append(start.Attr, xml.Attr{
 			xml.Name{Local: "type"}, "s390-pv",
@@ -6702,6 +6920,9 @@ func (a *DomainLaunchSecurity) UnmarshalXML(d *xml.Decoder, start xml.StartEleme
 	if typ == "sev" {
 		a.SEV = &DomainLaunchSecuritySEV{}
 		return d.DecodeElement(a.SEV, &start)
+	} else if typ == "sev-snp" {
+		a.SEVSNP = &DomainLaunchSecuritySEVSNP{}
+		return d.DecodeElement(a.SEVSNP, &start)
 	} else if typ == "s390-pv" {
 		a.S390PV = &DomainLaunchSecurityS390PV{}
 		return d.DecodeElement(a.S390PV, &start)

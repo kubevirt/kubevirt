@@ -1038,6 +1038,12 @@ virDomainGetXMLDescWrapper(virDomainPtr domain,
                            virErrorPtr err);
 
 int
+virDomainGraphicsReloadWrapper(virDomainPtr domain,
+                               unsigned int type,
+                               unsigned int flags,
+                               virErrorPtr err);
+
+int
 virDomainHasCurrentSnapshotWrapper(virDomainPtr domain,
                                    unsigned int flags,
                                    virErrorPtr err);
@@ -2270,6 +2276,12 @@ int
 virNodeDeviceUndefineWrapper(virNodeDevicePtr dev,
                              unsigned int flags,
                              virErrorPtr err);
+
+int
+virNodeDeviceUpdateWrapper(virNodeDevicePtr dev,
+                           const char * xmlDesc,
+                           unsigned int flags,
+                           virErrorPtr err);
 
 int
 virNodeGetCPUMapWrapper(virConnectPtr conn,

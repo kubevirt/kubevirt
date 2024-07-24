@@ -43,11 +43,11 @@ package libvirt
 
 
 typedef int
-(*virTypedParamsAddBooleanType)(virTypedParameterPtr * params,
-                                int * nparams,
-                                int * maxparams,
-                                const char * name,
-                                int value);
+(*virTypedParamsAddBooleanFuncType)(virTypedParameterPtr * params,
+                                    int * nparams,
+                                    int * maxparams,
+                                    const char * name,
+                                    int value);
 
 int
 virTypedParamsAddBooleanWrapper(virTypedParameterPtr * params,
@@ -58,7 +58,7 @@ virTypedParamsAddBooleanWrapper(virTypedParameterPtr * params,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsAddBooleanType virTypedParamsAddBooleanSymbol;
+    static virTypedParamsAddBooleanFuncType virTypedParamsAddBooleanSymbol;
     static bool once;
     static bool success;
 
@@ -81,11 +81,11 @@ virTypedParamsAddBooleanWrapper(virTypedParameterPtr * params,
 }
 
 typedef int
-(*virTypedParamsAddDoubleType)(virTypedParameterPtr * params,
-                               int * nparams,
-                               int * maxparams,
-                               const char * name,
-                               double value);
+(*virTypedParamsAddDoubleFuncType)(virTypedParameterPtr * params,
+                                   int * nparams,
+                                   int * maxparams,
+                                   const char * name,
+                                   double value);
 
 int
 virTypedParamsAddDoubleWrapper(virTypedParameterPtr * params,
@@ -96,7 +96,7 @@ virTypedParamsAddDoubleWrapper(virTypedParameterPtr * params,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsAddDoubleType virTypedParamsAddDoubleSymbol;
+    static virTypedParamsAddDoubleFuncType virTypedParamsAddDoubleSymbol;
     static bool once;
     static bool success;
 
@@ -119,12 +119,12 @@ virTypedParamsAddDoubleWrapper(virTypedParameterPtr * params,
 }
 
 typedef int
-(*virTypedParamsAddFromStringType)(virTypedParameterPtr * params,
-                                   int * nparams,
-                                   int * maxparams,
-                                   const char * name,
-                                   int type,
-                                   const char * value);
+(*virTypedParamsAddFromStringFuncType)(virTypedParameterPtr * params,
+                                       int * nparams,
+                                       int * maxparams,
+                                       const char * name,
+                                       int type,
+                                       const char * value);
 
 int
 virTypedParamsAddFromStringWrapper(virTypedParameterPtr * params,
@@ -136,7 +136,7 @@ virTypedParamsAddFromStringWrapper(virTypedParameterPtr * params,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsAddFromStringType virTypedParamsAddFromStringSymbol;
+    static virTypedParamsAddFromStringFuncType virTypedParamsAddFromStringSymbol;
     static bool once;
     static bool success;
 
@@ -160,11 +160,11 @@ virTypedParamsAddFromStringWrapper(virTypedParameterPtr * params,
 }
 
 typedef int
-(*virTypedParamsAddIntType)(virTypedParameterPtr * params,
-                            int * nparams,
-                            int * maxparams,
-                            const char * name,
-                            int value);
+(*virTypedParamsAddIntFuncType)(virTypedParameterPtr * params,
+                                int * nparams,
+                                int * maxparams,
+                                const char * name,
+                                int value);
 
 int
 virTypedParamsAddIntWrapper(virTypedParameterPtr * params,
@@ -175,7 +175,7 @@ virTypedParamsAddIntWrapper(virTypedParameterPtr * params,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsAddIntType virTypedParamsAddIntSymbol;
+    static virTypedParamsAddIntFuncType virTypedParamsAddIntSymbol;
     static bool once;
     static bool success;
 
@@ -198,11 +198,11 @@ virTypedParamsAddIntWrapper(virTypedParameterPtr * params,
 }
 
 typedef int
-(*virTypedParamsAddLLongType)(virTypedParameterPtr * params,
-                              int * nparams,
-                              int * maxparams,
-                              const char * name,
-                              long long value);
+(*virTypedParamsAddLLongFuncType)(virTypedParameterPtr * params,
+                                  int * nparams,
+                                  int * maxparams,
+                                  const char * name,
+                                  long long value);
 
 int
 virTypedParamsAddLLongWrapper(virTypedParameterPtr * params,
@@ -213,7 +213,7 @@ virTypedParamsAddLLongWrapper(virTypedParameterPtr * params,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsAddLLongType virTypedParamsAddLLongSymbol;
+    static virTypedParamsAddLLongFuncType virTypedParamsAddLLongSymbol;
     static bool once;
     static bool success;
 
@@ -236,11 +236,11 @@ virTypedParamsAddLLongWrapper(virTypedParameterPtr * params,
 }
 
 typedef int
-(*virTypedParamsAddStringType)(virTypedParameterPtr * params,
-                               int * nparams,
-                               int * maxparams,
-                               const char * name,
-                               const char * value);
+(*virTypedParamsAddStringFuncType)(virTypedParameterPtr * params,
+                                   int * nparams,
+                                   int * maxparams,
+                                   const char * name,
+                                   const char * value);
 
 int
 virTypedParamsAddStringWrapper(virTypedParameterPtr * params,
@@ -251,7 +251,7 @@ virTypedParamsAddStringWrapper(virTypedParameterPtr * params,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsAddStringType virTypedParamsAddStringSymbol;
+    static virTypedParamsAddStringFuncType virTypedParamsAddStringSymbol;
     static bool once;
     static bool success;
 
@@ -274,11 +274,11 @@ virTypedParamsAddStringWrapper(virTypedParameterPtr * params,
 }
 
 typedef int
-(*virTypedParamsAddStringListType)(virTypedParameterPtr * params,
-                                   int * nparams,
-                                   int * maxparams,
-                                   const char * name,
-                                   const char ** values);
+(*virTypedParamsAddStringListFuncType)(virTypedParameterPtr * params,
+                                       int * nparams,
+                                       int * maxparams,
+                                       const char * name,
+                                       const char ** values);
 
 int
 virTypedParamsAddStringListWrapper(virTypedParameterPtr * params,
@@ -289,7 +289,7 @@ virTypedParamsAddStringListWrapper(virTypedParameterPtr * params,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsAddStringListType virTypedParamsAddStringListSymbol;
+    static virTypedParamsAddStringListFuncType virTypedParamsAddStringListSymbol;
     static bool once;
     static bool success;
 
@@ -312,11 +312,11 @@ virTypedParamsAddStringListWrapper(virTypedParameterPtr * params,
 }
 
 typedef int
-(*virTypedParamsAddUIntType)(virTypedParameterPtr * params,
-                             int * nparams,
-                             int * maxparams,
-                             const char * name,
-                             unsigned int value);
+(*virTypedParamsAddUIntFuncType)(virTypedParameterPtr * params,
+                                 int * nparams,
+                                 int * maxparams,
+                                 const char * name,
+                                 unsigned int value);
 
 int
 virTypedParamsAddUIntWrapper(virTypedParameterPtr * params,
@@ -327,7 +327,7 @@ virTypedParamsAddUIntWrapper(virTypedParameterPtr * params,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsAddUIntType virTypedParamsAddUIntSymbol;
+    static virTypedParamsAddUIntFuncType virTypedParamsAddUIntSymbol;
     static bool once;
     static bool success;
 
@@ -350,11 +350,11 @@ virTypedParamsAddUIntWrapper(virTypedParameterPtr * params,
 }
 
 typedef int
-(*virTypedParamsAddULLongType)(virTypedParameterPtr * params,
-                               int * nparams,
-                               int * maxparams,
-                               const char * name,
-                               unsigned long long value);
+(*virTypedParamsAddULLongFuncType)(virTypedParameterPtr * params,
+                                   int * nparams,
+                                   int * maxparams,
+                                   const char * name,
+                                   unsigned long long value);
 
 int
 virTypedParamsAddULLongWrapper(virTypedParameterPtr * params,
@@ -365,7 +365,7 @@ virTypedParamsAddULLongWrapper(virTypedParameterPtr * params,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsAddULLongType virTypedParamsAddULLongSymbol;
+    static virTypedParamsAddULLongFuncType virTypedParamsAddULLongSymbol;
     static bool once;
     static bool success;
 
@@ -388,15 +388,15 @@ virTypedParamsAddULLongWrapper(virTypedParameterPtr * params,
 }
 
 typedef void
-(*virTypedParamsClearType)(virTypedParameterPtr params,
-                           int nparams);
+(*virTypedParamsClearFuncType)(virTypedParameterPtr params,
+                               int nparams);
 
 void
 virTypedParamsClearWrapper(virTypedParameterPtr params,
                            int nparams)
 {
 
-    static virTypedParamsClearType virTypedParamsClearSymbol;
+    static virTypedParamsClearFuncType virTypedParamsClearSymbol;
     static bool once;
     static bool success;
 
@@ -412,15 +412,15 @@ virTypedParamsClearWrapper(virTypedParameterPtr params,
 }
 
 typedef void
-(*virTypedParamsFreeType)(virTypedParameterPtr params,
-                          int nparams);
+(*virTypedParamsFreeFuncType)(virTypedParameterPtr params,
+                              int nparams);
 
 void
 virTypedParamsFreeWrapper(virTypedParameterPtr params,
                           int nparams)
 {
 
-    static virTypedParamsFreeType virTypedParamsFreeSymbol;
+    static virTypedParamsFreeFuncType virTypedParamsFreeSymbol;
     static bool once;
     static bool success;
 
@@ -436,9 +436,9 @@ virTypedParamsFreeWrapper(virTypedParameterPtr params,
 }
 
 typedef virTypedParameterPtr
-(*virTypedParamsGetType)(virTypedParameterPtr params,
-                         int nparams,
-                         const char * name);
+(*virTypedParamsGetFuncType)(virTypedParameterPtr params,
+                             int nparams,
+                             const char * name);
 
 virTypedParameterPtr
 virTypedParamsGetWrapper(virTypedParameterPtr params,
@@ -447,7 +447,7 @@ virTypedParamsGetWrapper(virTypedParameterPtr params,
                          virErrorPtr err)
 {
     virTypedParameterPtr ret = NULL;
-    static virTypedParamsGetType virTypedParamsGetSymbol;
+    static virTypedParamsGetFuncType virTypedParamsGetSymbol;
     static bool once;
     static bool success;
 
@@ -468,10 +468,10 @@ virTypedParamsGetWrapper(virTypedParameterPtr params,
 }
 
 typedef int
-(*virTypedParamsGetBooleanType)(virTypedParameterPtr params,
-                                int nparams,
-                                const char * name,
-                                int * value);
+(*virTypedParamsGetBooleanFuncType)(virTypedParameterPtr params,
+                                    int nparams,
+                                    const char * name,
+                                    int * value);
 
 int
 virTypedParamsGetBooleanWrapper(virTypedParameterPtr params,
@@ -481,7 +481,7 @@ virTypedParamsGetBooleanWrapper(virTypedParameterPtr params,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsGetBooleanType virTypedParamsGetBooleanSymbol;
+    static virTypedParamsGetBooleanFuncType virTypedParamsGetBooleanSymbol;
     static bool once;
     static bool success;
 
@@ -503,10 +503,10 @@ virTypedParamsGetBooleanWrapper(virTypedParameterPtr params,
 }
 
 typedef int
-(*virTypedParamsGetDoubleType)(virTypedParameterPtr params,
-                               int nparams,
-                               const char * name,
-                               double * value);
+(*virTypedParamsGetDoubleFuncType)(virTypedParameterPtr params,
+                                   int nparams,
+                                   const char * name,
+                                   double * value);
 
 int
 virTypedParamsGetDoubleWrapper(virTypedParameterPtr params,
@@ -516,7 +516,7 @@ virTypedParamsGetDoubleWrapper(virTypedParameterPtr params,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsGetDoubleType virTypedParamsGetDoubleSymbol;
+    static virTypedParamsGetDoubleFuncType virTypedParamsGetDoubleSymbol;
     static bool once;
     static bool success;
 
@@ -538,10 +538,10 @@ virTypedParamsGetDoubleWrapper(virTypedParameterPtr params,
 }
 
 typedef int
-(*virTypedParamsGetIntType)(virTypedParameterPtr params,
-                            int nparams,
-                            const char * name,
-                            int * value);
+(*virTypedParamsGetIntFuncType)(virTypedParameterPtr params,
+                                int nparams,
+                                const char * name,
+                                int * value);
 
 int
 virTypedParamsGetIntWrapper(virTypedParameterPtr params,
@@ -551,7 +551,7 @@ virTypedParamsGetIntWrapper(virTypedParameterPtr params,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsGetIntType virTypedParamsGetIntSymbol;
+    static virTypedParamsGetIntFuncType virTypedParamsGetIntSymbol;
     static bool once;
     static bool success;
 
@@ -573,10 +573,10 @@ virTypedParamsGetIntWrapper(virTypedParameterPtr params,
 }
 
 typedef int
-(*virTypedParamsGetLLongType)(virTypedParameterPtr params,
-                              int nparams,
-                              const char * name,
-                              long long * value);
+(*virTypedParamsGetLLongFuncType)(virTypedParameterPtr params,
+                                  int nparams,
+                                  const char * name,
+                                  long long * value);
 
 int
 virTypedParamsGetLLongWrapper(virTypedParameterPtr params,
@@ -586,7 +586,7 @@ virTypedParamsGetLLongWrapper(virTypedParameterPtr params,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsGetLLongType virTypedParamsGetLLongSymbol;
+    static virTypedParamsGetLLongFuncType virTypedParamsGetLLongSymbol;
     static bool once;
     static bool success;
 
@@ -608,10 +608,10 @@ virTypedParamsGetLLongWrapper(virTypedParameterPtr params,
 }
 
 typedef int
-(*virTypedParamsGetStringType)(virTypedParameterPtr params,
-                               int nparams,
-                               const char * name,
-                               const char ** value);
+(*virTypedParamsGetStringFuncType)(virTypedParameterPtr params,
+                                   int nparams,
+                                   const char * name,
+                                   const char ** value);
 
 int
 virTypedParamsGetStringWrapper(virTypedParameterPtr params,
@@ -621,7 +621,7 @@ virTypedParamsGetStringWrapper(virTypedParameterPtr params,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsGetStringType virTypedParamsGetStringSymbol;
+    static virTypedParamsGetStringFuncType virTypedParamsGetStringSymbol;
     static bool once;
     static bool success;
 
@@ -643,10 +643,10 @@ virTypedParamsGetStringWrapper(virTypedParameterPtr params,
 }
 
 typedef int
-(*virTypedParamsGetUIntType)(virTypedParameterPtr params,
-                             int nparams,
-                             const char * name,
-                             unsigned int * value);
+(*virTypedParamsGetUIntFuncType)(virTypedParameterPtr params,
+                                 int nparams,
+                                 const char * name,
+                                 unsigned int * value);
 
 int
 virTypedParamsGetUIntWrapper(virTypedParameterPtr params,
@@ -656,7 +656,7 @@ virTypedParamsGetUIntWrapper(virTypedParameterPtr params,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsGetUIntType virTypedParamsGetUIntSymbol;
+    static virTypedParamsGetUIntFuncType virTypedParamsGetUIntSymbol;
     static bool once;
     static bool success;
 
@@ -678,10 +678,10 @@ virTypedParamsGetUIntWrapper(virTypedParameterPtr params,
 }
 
 typedef int
-(*virTypedParamsGetULLongType)(virTypedParameterPtr params,
-                               int nparams,
-                               const char * name,
-                               unsigned long long * value);
+(*virTypedParamsGetULLongFuncType)(virTypedParameterPtr params,
+                                   int nparams,
+                                   const char * name,
+                                   unsigned long long * value);
 
 int
 virTypedParamsGetULLongWrapper(virTypedParameterPtr params,
@@ -691,7 +691,7 @@ virTypedParamsGetULLongWrapper(virTypedParameterPtr params,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virTypedParamsGetULLongType virTypedParamsGetULLongSymbol;
+    static virTypedParamsGetULLongFuncType virTypedParamsGetULLongSymbol;
     static bool once;
     static bool success;
 
