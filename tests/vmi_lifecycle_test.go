@@ -661,7 +661,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
-
 				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
 				vmi = libvmifact.NewCirros()
 				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})

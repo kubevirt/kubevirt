@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -41,17 +42,16 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 	)
 
 	BeforeEach(func() {
-		cirrosVmi = libvmifact.NewCirros()
+		cirrosVmi = libvmifact.NewCirros(libvmi.WithLogSerialConsole(true))
 		cirrosVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(true)
-		cirrosVmi.Spec.Domain.Devices.LogSerialConsole = pointer.P(true)
 	})
 
 	Describe("[level:component] Guest console log container", func() {
 		Context("set LogSerialConsole", func() {
 			DescribeTable("should successfully start with LogSerialConsole", func(autoattachSerialConsole, logSerialConsole, expected bool) {
 				By("Starting a VMI")
+				cirrosVmi = libvmifact.NewCirros(libvmi.WithLogSerialConsole(logSerialConsole))
 				cirrosVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(autoattachSerialConsole)
-				cirrosVmi.Spec.Domain.Devices.LogSerialConsole = pointer.P(logSerialConsole)
 				vmi := tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")
