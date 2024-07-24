@@ -21,4 +21,7 @@ package istio
 
 const (
 	ISTIO_INJECT_ANNOTATION = "sidecar.istio.io/inject"
+
+	// Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
+	ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
 )
