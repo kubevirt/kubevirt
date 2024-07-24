@@ -213,7 +213,7 @@ type VMIController struct {
 	cdiStore          cache.Store
 	cdiConfigStore    cache.Store
 	clusterConfig     *virtconfig.ClusterConfig
-	cidsMap           *cidsMap
+	cidsMap           Allocator
 	backendStorage    *backendstorage.BackendStorage
 	hasSynced         func() bool
 }
