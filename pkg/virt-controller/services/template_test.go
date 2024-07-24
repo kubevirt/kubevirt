@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -1036,7 +1037,7 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations["v1.multus-cni.io/default-network"]
+				value, ok := pod.Annotations[multus.DefaultNetworkCNIAnnotation]
 				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("default"))
 				value, ok = pod.Annotations[networkv1.NetworkAttachmentAnnot]

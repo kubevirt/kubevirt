@@ -33,6 +33,11 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+// DefaultNetworkCNIAnnotation is used when one wants to instruct Multus to connect the pod's primary interface
+// to a network other than Multus's `clusterNetwork` field under /etc/cni/net.d
+// The value of this annotation should be a NetworkAttachmentDefinition's name
+const DefaultNetworkCNIAnnotation = "v1.multus-cni.io/default-network"
+
 func GenerateCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network, config *virtconfig.ClusterConfig) (string, error) {
 	return GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config)
 }

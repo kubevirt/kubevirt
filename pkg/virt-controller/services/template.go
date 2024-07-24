@@ -1352,7 +1352,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	}
 
 	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
-		annotationsSet[network.MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION] = multusDefaultNetwork
+		annotationsSet[multus.DefaultNetworkCNIAnnotation] = multusDefaultNetwork
 	}
 
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
