@@ -57,13 +57,13 @@ import (
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -3996,7 +3996,7 @@ func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 func NewPodForVirtualMachineWithMultusAnnotations(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase, config *virtconfig.ClusterConfig, podNetworkStatus ...networkv1.NetworkStatus) (*k8sv1.Pod, error) {
 	pod := NewPodForVirtualMachine(vmi, phase)
 
-	multusAnnotations, err := network.GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)
+	multusAnnotations, err := multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)
 	if err != nil {
 		return nil, err
 	}

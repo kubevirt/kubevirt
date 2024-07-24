@@ -27,8 +27,45 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+func GenerateCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network, config *virtconfig.ClusterConfig) (string, error) {
+	return GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config)
+}
+
+func GenerateCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string, config *virtconfig.ClusterConfig) (string, error) {
+	multusNetworkAnnotationPool := NetworkAnnotationPool{}
+
+	for _, network := range networks {
+		if vmispec.IsSecondaryMultusNetwork(network) {
+			podInterfaceName := networkNameScheme[network.Name]
+			multusNetworkAnnotationPool.Add(
+				NewAnnotationData(namespace, interfaces, network, podInterfaceName))
+		}
+
+		if config != nil && config.NetworkBindingPlugingsEnabled() {
+			if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
+				bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
+					config.GetConfig(), iface.Binding.Name, namespace, network.Name)
+				if err != nil {
+					return "", err
+				}
+				if bindingPluginAnnotationData != nil {
+					multusNetworkAnnotationPool.Add(*bindingPluginAnnotationData)
+				}
+			}
+		}
+	}
+
+	if !multusNetworkAnnotationPool.IsEmpty() {
+		return multusNetworkAnnotationPool.ToString()
+	}
+	return "", nil
+}
 
 type NetworkAnnotationPool struct {
 	pool []networkv1.NetworkSelectionElement
@@ -63,4 +100,28 @@ func NewAnnotationData(namespace string, interfaces []v1.Interface, network v1.N
 		Namespace:        namespace,
 		Name:             networkName,
 	}
+}
+
+func newBindingPluginAnnotationData(kvConfig *v1.KubeVirtConfiguration, pluginName, namespace, networkName string) (*networkv1.NetworkSelectionElement, error) {
+	plugin := netbinding.ReadNetBindingPluginConfiguration(kvConfig, pluginName)
+	if plugin == nil {
+		return nil, fmt.Errorf("unable to find the network binding plugin '%s' in Kubevirt configuration", pluginName)
+	}
+
+	if plugin.NetworkAttachmentDefinition == "" {
+		return nil, nil
+	}
+	netAttachDefNamespace, netAttachDefName := GetNamespaceAndNetworkName(namespace, plugin.NetworkAttachmentDefinition)
+
+	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
+	// The binding plugin CNI should read this arg and realize which logical network it should modify.
+	const cniArgNetworkName = "logicNetworkName"
+
+	return &networkv1.NetworkSelectionElement{
+		Namespace: netAttachDefNamespace,
+		Name:      netAttachDefName,
+		CNIArgs: &map[string]interface{}{
+			cniArgNetworkName: networkName,
+		},
+	}, nil
 }

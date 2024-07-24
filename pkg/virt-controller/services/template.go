@@ -48,6 +48,7 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -268,7 +269,7 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 
 	if namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
 		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
-		multusNetworksAnnotation, err := network.GenerateMultusCNIAnnotationFromNameScheme(
+		multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
 			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme, t.clusterConfig)
 		if err != nil {
 			return nil, err
@@ -1342,7 +1343,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := network.GenerateMultusCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
+	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
 	if err != nil {
 		return nil, err
 	}
