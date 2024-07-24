@@ -46,7 +46,6 @@ go_test(
     deps = [
         "//pkg/libvmi:go_default_library",
         "//pkg/network/downwardapi:go_default_library",
-        "//pkg/network/multus:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",

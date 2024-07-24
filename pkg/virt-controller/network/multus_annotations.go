@@ -37,37 +37,17 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-type multusNetworkAnnotationPool struct {
-	pool []networkv1.NetworkSelectionElement
-}
-
-func (mnap *multusNetworkAnnotationPool) add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
-	mnap.pool = append(mnap.pool, multusNetworkAnnotation)
-}
-
-func (mnap multusNetworkAnnotationPool) isEmpty() bool {
-	return len(mnap.pool) == 0
-}
-
-func (mnap multusNetworkAnnotationPool) toString() (string, error) {
-	multusNetworksAnnotation, err := json.Marshal(mnap.pool)
-	if err != nil {
-		return "", fmt.Errorf("failed to create JSON list from multus interface pool %v", mnap.pool)
-	}
-	return string(multusNetworksAnnotation), nil
-}
-
 func GenerateMultusCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network, config *virtconfig.ClusterConfig) (string, error) {
 	return GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config)
 }
 
 func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string, config *virtconfig.ClusterConfig) (string, error) {
-	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
+	multusNetworkAnnotationPool := multus.NetworkAnnotationPool{}
 
 	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
-			multusNetworkAnnotationPool.add(
+			multusNetworkAnnotationPool.Add(
 				multus.NewAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 
@@ -79,14 +59,14 @@ func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1
 					return "", err
 				}
 				if bindingPluginAnnotationData != nil {
-					multusNetworkAnnotationPool.add(*bindingPluginAnnotationData)
+					multusNetworkAnnotationPool.Add(*bindingPluginAnnotationData)
 				}
 			}
 		}
 	}
 
-	if !multusNetworkAnnotationPool.isEmpty() {
-		return multusNetworkAnnotationPool.toString()
+	if !multusNetworkAnnotationPool.IsEmpty() {
+		return multusNetworkAnnotationPool.ToString()
 	}
 	return "", nil
 }

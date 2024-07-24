@@ -25,72 +25,13 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Multus annotations", func() {
-	var multusAnnotationPool multusNetworkAnnotationPool
-	var vmi v1.VirtualMachineInstance
-	var network v1.Network
-
-	BeforeEach(func() {
-		vmi = v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "testvmi", Namespace: "namespace1", UID: "1234",
-			},
-		}
-		network = v1.Network{
-			NetworkSource: v1.NetworkSource{
-				Multus: &v1.MultusNetwork{NetworkName: "test1"},
-			},
-		}
-	})
-
-	Context("a multus annotation pool with no elements", func() {
-		BeforeEach(func() {
-			multusAnnotationPool = multusNetworkAnnotationPool{}
-		})
-
-		It("is empty", func() {
-			Expect(multusAnnotationPool.isEmpty()).To(BeTrue())
-		})
-
-		It("when added an element, is no longer empty", func() {
-			podIfaceName := "net1"
-			multusAnnotationPool.add(multus.NewAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, podIfaceName))
-			Expect(multusAnnotationPool.isEmpty()).To(BeFalse())
-		})
-
-		It("generate a null string", func() {
-			Expect(multusAnnotationPool.toString()).To(BeIdenticalTo("null"))
-		})
-	})
-
-	Context("a multus annotation pool with elements", func() {
-		BeforeEach(func() {
-			multusAnnotationPool = multusNetworkAnnotationPool{
-				pool: []networkv1.NetworkSelectionElement{
-					multus.NewAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, "net1"),
-				},
-			}
-		})
-
-		It("is not empty", func() {
-			Expect(multusAnnotationPool.isEmpty()).To(BeFalse())
-		})
-
-		It("generates a json serialized string representing the annotation", func() {
-			expectedString := `[{"name":"test1","namespace":"namespace1","interface":"net1"}]`
-			Expect(multusAnnotationPool.toString()).To(BeIdenticalTo(expectedString))
-		})
-	})
-
 	Context("Generate Multus network selection annotation", func() {
 		When("NetworkBindingPlugins feature enabled", func() {
 			It("should fail if the specified network binding plugin is not registered (specified in Kubevirt config)", func() {
