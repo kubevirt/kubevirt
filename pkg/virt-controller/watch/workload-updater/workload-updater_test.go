@@ -396,8 +396,8 @@ var _ = Describe("Workload Updater", func() {
 			controller.Execute()
 			Expect(recorder.Events).To(BeEmpty())
 
-			// sleep to account for batch interval
-			time.Sleep(3 * time.Second)
+			// Shift time for batch interval
+			controller.lastDeletionBatch = time.Now().Add(-3 * time.Second)
 
 			// Should execute another batch of deletions after sleep
 			addKubeVirt(kv)
