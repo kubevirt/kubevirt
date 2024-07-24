@@ -68,7 +68,7 @@ func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
 			multusNetworkAnnotationPool.add(
-				newMultusAnnotationData(namespace, interfaces, network, podInterfaceName))
+				multus.NewAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 
 		if config != nil && config.NetworkBindingPlugingsEnabled() {
@@ -113,21 +113,6 @@ func newBindingPluginMultusAnnotationData(kvConfig *v1.KubeVirtConfiguration, pl
 			cniArgNetworkName: networkName,
 		},
 	}, nil
-}
-
-func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) networkv1.NetworkSelectionElement {
-	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
-	namespace, networkName := multus.GetNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
-	var multusIfaceMac string
-	if multusIface != nil {
-		multusIfaceMac = multusIface.MacAddress
-	}
-	return networkv1.NetworkSelectionElement{
-		InterfaceRequest: podInterfaceName,
-		MacRequest:       multusIfaceMac,
-		Namespace:        namespace,
-		Name:             networkName,
-	}
 }
 
 func NonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {

@@ -29,6 +29,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -62,7 +63,7 @@ var _ = Describe("Multus annotations", func() {
 
 		It("when added an element, is no longer empty", func() {
 			podIfaceName := "net1"
-			multusAnnotationPool.add(newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, podIfaceName))
+			multusAnnotationPool.add(multus.NewAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, podIfaceName))
 			Expect(multusAnnotationPool.isEmpty()).To(BeFalse())
 		})
 
@@ -75,7 +76,7 @@ var _ = Describe("Multus annotations", func() {
 		BeforeEach(func() {
 			multusAnnotationPool = multusNetworkAnnotationPool{
 				pool: []networkv1.NetworkSelectionElement{
-					newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, "net1"),
+					multus.NewAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, "net1"),
 				},
 			}
 		})
