@@ -332,12 +332,16 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, patchBytes)))
 	})
 
-	It("should allow the request and not mark the VMI again when the VMI is already marked for evacuation", func() {
+	It("should deny the request and not mark the VMI again when the VMI is already marked for evacuation", func() {
 		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
 		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition(), withEvacuationNodeName(testNodeName)}
 
 		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
+		virtClient.AddReactor("*", "*", func(_ testing.Action) (handled bool, ret runtime.Object, err error) {
+			Fail("Not rest call should be made")
+			return
+		})
 
 		evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
 		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
@@ -352,7 +356,7 @@ var _ = Describe("Pod eviction admitter", func() {
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
-		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(actualAdmissionResponse).To(Equal(newDeniedAdmissionResponse(`Eviction triggered evacuation of VMI "test-ns/my-vmi"`)))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 		Expect(virtClient.Fake.Actions()).To(HaveLen(1))
 	})

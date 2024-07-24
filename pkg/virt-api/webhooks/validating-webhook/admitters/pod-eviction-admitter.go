@@ -76,19 +76,20 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 		markForEviction = true
 	}
 
-	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == pod.Spec.NodeName {
-		dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
-		err := admitter.markVMI(vmi.Namespace, vmi.Name, vmi.Status.NodeName, dryRun)
-		if err != nil {
-			// As with the previous case, it is up to the user to issue a retry.
-			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
+	if markForEviction && vmi.Status.NodeName == pod.Spec.NodeName {
+		if !vmi.IsMarkedForEviction() {
+			dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
+			err := admitter.markVMI(vmi.Namespace, vmi.Name, vmi.Status.NodeName, dryRun)
+			if err != nil {
+				// As with the previous case, it is up to the user to issue a retry.
+				return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
+			}
 		}
 
 		return denied(fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", vmi.Namespace, vmi.Name))
 	}
 
-	// We can let the request go through because the pod is protected by a PDB if the VMI wants to be live-migrated on
-	// eviction. Otherwise, we can just evict it.
+	// We can let the request go through. The VMI can still be protected by PDB
 	return validating_webhooks.NewPassingAdmissionResponse()
 }
 
