@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -99,7 +100,7 @@ func newBindingPluginMultusAnnotationData(kvConfig *v1.KubeVirtConfiguration, pl
 	if plugin.NetworkAttachmentDefinition == "" {
 		return nil, nil
 	}
-	netAttachDefNamespace, netAttachDefName := getNamespaceAndNetworkName(namespace, plugin.NetworkAttachmentDefinition)
+	netAttachDefNamespace, netAttachDefName := multus.GetNamespaceAndNetworkName(namespace, plugin.NetworkAttachmentDefinition)
 
 	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
 	// The binding plugin CNI should read this arg and realize which logical network it should modify.
@@ -116,7 +117,7 @@ func newBindingPluginMultusAnnotationData(kvConfig *v1.KubeVirtConfiguration, pl
 
 func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) networkv1.NetworkSelectionElement {
 	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
-	namespace, networkName := getNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
+	namespace, networkName := multus.GetNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress
