@@ -551,18 +551,6 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
-func RetryIfModified(do func() error) (err error) {
-	retries := 0
-	for err = do(); errors.IsConflict(err); err = do() {
-		if retries >= 10 {
-			return fmt.Errorf("object seems to be permanently modified, failing after 10 retries: %v", err)
-		}
-		retries++
-		log.DefaultLogger().Reason(err).Infof("Object got modified, will retry.")
-	}
-	return err
-}
-
 func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	randPort := strconv.Itoa(4321 + rand.Intn(6000))
 	stopChan := make(chan struct{})
