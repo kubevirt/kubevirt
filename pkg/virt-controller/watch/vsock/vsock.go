@@ -1,4 +1,4 @@
-package watch
+package vsock
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ type cidsMap struct {
 	nextCID nextCIDFunc
 }
 
-func newCIDsMap() *cidsMap {
+func NewCIDsMap() *cidsMap {
 	return &cidsMap{
 		cids:    make(map[string]uint32),
 		reverse: make(map[uint32]string),

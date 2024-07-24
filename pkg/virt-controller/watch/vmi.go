@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
@@ -105,7 +106,7 @@ func NewVMIController(templateService services.TemplateService,
 		cdiConfigStore:    cdiConfigInformer.GetStore(),
 		clusterConfig:     clusterConfig,
 		topologyHinter:    topologyHinter,
-		cidsMap:           newCIDsMap(),
+		cidsMap:           vsock.NewCIDsMap(),
 		backendStorage:    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 	}
 
@@ -213,7 +214,7 @@ type VMIController struct {
 	cdiStore          cache.Store
 	cdiConfigStore    cache.Store
 	clusterConfig     *virtconfig.ClusterConfig
-	cidsMap           Allocator
+	cidsMap           vsock.Allocator
 	backendStorage    *backendstorage.BackendStorage
 	hasSynced         func() bool
 }

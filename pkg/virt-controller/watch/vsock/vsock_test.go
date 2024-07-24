@@ -1,4 +1,4 @@
-package watch
+package vsock
 
 import (
 	"fmt"
@@ -32,7 +32,7 @@ var _ = Describe("VSOCK", func() {
 	}
 
 	BeforeEach(func() {
-		m = newCIDsMap()
+		m = NewCIDsMap()
 	})
 
 	DescribeTable("Syncing CIDs from exsisting VMIs",
