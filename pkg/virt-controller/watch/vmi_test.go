@@ -77,7 +77,6 @@ type PodVmIfaceStatus struct {
 var _ = Describe("VirtualMachineInstance watcher", func() {
 	var config *virtconfig.ClusterConfig
 
-	var ctrl *gomock.Controller
 	var vmiSource *framework.FakeControllerSource
 	var vmSource *framework.FakeControllerSource
 	var podSource *framework.FakeControllerSource
@@ -88,20 +87,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var controller *VMIController
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
-	var virtClient *kubecli.MockKubevirtClient
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
 	var storageClassInformer cache.SharedIndexInformer
-	var rqInformer cache.SharedIndexInformer
-	var nsInformer cache.SharedIndexInformer
 	var kvStore cache.Store
 
 	var dataVolumeInformer cache.SharedIndexInformer
 	var cdiInformer cache.SharedIndexInformer
 	var cdiConfigInformer cache.SharedIndexInformer
-	var qemuGid int64 = 107
 
 	expectMatchingPodCreation := func(vmi *virtv1.VirtualMachineInstance, matchers ...gomegaTypes.GomegaMatcher) {
 		pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", virtv1.CreatedByLabel, string(vmi.UID))})
@@ -252,8 +247,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
@@ -275,8 +269,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
-		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
-		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+		rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
+		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+		var qemuGid int64 = 107
 		controller, _ = NewVMIController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
@@ -3312,7 +3307,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				When("TSC frequency is not exposed", func() {
 					unexposeTscFrequency := func(requirement topology.TscFrequencyRequirementType) {
-						mockHinter := topology.NewMockHinter(ctrl)
+						mockHinter := topology.NewMockHinter(gomock.NewController(GinkgoT()))
 						mockHinter.EXPECT().TopologyHintsForVMI(gomock.Any()).Return(nil, requirement, fmt.Errorf("tsc frequency is not exposed on the cluster")).AnyTimes()
 						mockHinter.EXPECT().IsTscFrequencyRequired(gomock.Any()).Return(requirement == topology.RequiredForBoot)
 						controller.topologyHinter = mockHinter
