@@ -60,7 +60,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		virtClient = kubevirt.Client()
 	})
 
-	DescribeTable("should", func(image string, policy k8sv1.PullPolicy, expectedPolicy k8sv1.PullPolicy) {
+	DescribeTable("[s390x]should", func(image string, policy k8sv1.PullPolicy, expectedPolicy k8sv1.PullPolicy) {
 		vmi := libvmifact.NewGuestless(libvmi.WithContainerDisk("disk0", image))
 
 		vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy = policy
@@ -226,7 +226,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("[rfe_id:4052][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", func() {
+	Describe("[rfe_id:4052][crit:high][arm64][s390x][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:4299]should not have world write permissions", func() {
 				vmi := libvmifact.NewAlpine()

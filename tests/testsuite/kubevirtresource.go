@@ -23,6 +23,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -92,8 +94,27 @@ func AdjustKubeVirtResource() {
 			},
 		},
 	}
+
+	// cpu manager is currently not supported on s390x
+	buildArch := os.Getenv("BUILD_ARCH")
+	var arch string
+
+	if buildArch != "" {
+		archElements := strings.Split(buildArch, "-")
+		if len(archElements) == 2 {
+			arch = archElements[1]
+		} else {
+			arch = archElements[0]
+		}
+	}
+
+	if arch != "s390x" {
+		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+			virtconfig.CPUManager,
+		)
+	}
+
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-		virtconfig.CPUManager,
 		virtconfig.IgnitionGate,
 		virtconfig.SidecarGate,
 		virtconfig.SnapshotGate,

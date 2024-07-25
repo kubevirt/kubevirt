@@ -382,7 +382,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				}
 			})
 
-			It("[test_id:786]Should be that cfgMap and secret fs layout same for the pod and vmi", func() {
+			It("[test_id:786][s390x]Should be that cfgMap and secret fs layout same for the pod and vmi", func() {
 				expectedOutputCfgMap := "value1value2value3"
 				expectedOutputSecret := "adminredhat"
 

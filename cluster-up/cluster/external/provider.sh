@@ -20,6 +20,7 @@ docker_tag=\${DOCKER_TAG}
 docker_prefix=\${DOCKER_PREFIX}
 manifest_docker_prefix=\${DOCKER_PREFIX}
 image_pull_policy=\${IMAGE_PULL_POLICY:-Always}
+kubectl=\${KUBECTL}
 EOF
 
     if which oc; then

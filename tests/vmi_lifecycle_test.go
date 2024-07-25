@@ -120,17 +120,17 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	})
 
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
-		It("[test_id:1619]should success", func() {
+		It("[s390x][test_id:1619]should success", func() {
 			vmi := libvmifact.NewAlpine()
 			_, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 		})
 
-		It("[test_id:1620]should start it", func() {
+		It("[s390x][test_id:1620]should start it", func() {
 			tests.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 		})
 
-		It("[test_id:6095]should start in paused state if start strategy set to paused", func() {
+		It("[s390x][test_id:6095]should start in paused state if start strategy set to paused", func() {
 			vmi := libvmifact.NewAlpine(libvmi.WithStartStrategy(v1.StartStrategyPaused))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, startupTimeout)
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
@@ -141,7 +141,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 		})
 
-		It("[test_id:1621]should attach virt-launcher to it", func() {
+		It("[s390x][test_id:1621]should attach virt-launcher to it", func() {
 			vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Getting virt-launcher logs")
@@ -152,7 +152,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Should(ContainSubstring("Found PID for"))
 		})
 
-		It("[test_id:3195]should carry annotations to pod", func() {
+		It("[s390x][test_id:3195]should carry annotations to pod", func() {
 			vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewAlpine(
 				libvmi.WithAnnotation("testannotation", "annotation from vmi")),
 				startupTimeout)
@@ -163,7 +163,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
 		})
 
-		It("[test_id:3196]should carry kubernetes and kubevirt annotations to pod", func() {
+		It("[s390x][test_id:3196]should carry kubernetes and kubevirt annotations to pod", func() {
 			vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewAlpine(
 				libvmi.WithAnnotation("kubevirt.io/test", "test"),
 				libvmi.WithAnnotation("kubernetes.io/test", "test")),
@@ -176,7 +176,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
 		})
 
-		It("Should prevent eviction when EvictionStratgy: External", func() {
+		It("[s390x]Should prevent eviction when EvictionStratgy: External", func() {
 			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyExternal))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
@@ -204,7 +204,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		})
 
-		It("[test_id:1622]should log libvirtd logs", func() {
+		It("[s390x][test_id:1622]should log libvirtd logs", func() {
 			vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Getting virt-launcher logs")
@@ -262,7 +262,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Entry("[test_id:8533]disabled when log verbosity, debug logs and customLogFilters are not defined", nil, nil, false),
 		)
 
-		It("[test_id:1623]should reject POST if validation webhook deems the spec invalid", func() {
+		It("[s390x][test_id:1623]should reject POST if validation webhook deems the spec invalid", func() {
 			vmi := libvmifact.NewAlpine()
 			// Add a disk that doesn't map to a volume.
 			// This should get rejected which tells us the webhook validator is working.
@@ -290,7 +290,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Expect(reviewResponse.Details.Causes[1].Field).To(Equal("spec.domain.devices.disks[2].name"))
 		})
 
-		It("[test_id:1624]should reject PATCH if schema is invalid", func() {
+		It("[s390x][test_id:1624]should reject PATCH if schema is invalid", func() {
 			vmi := libvmifact.NewAlpine()
 			err := kubevirt.Client().RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred(), "Send POST successfully")
@@ -311,7 +311,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi = libvmifact.NewAlpine()
 				vmi.Name = "testvmi" + rand.String(63)
 			})
-			It("[test_id:1625]should start it", func() {
+			It("[s390x][test_id:1625]should start it", func() {
 				By("Creating a VirtualMachineInstance with a long name")
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "cannot create VirtualMachineInstance %q: %v", vmi.Name, err)
@@ -328,7 +328,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("when it already exist", func() {
-			It("[test_id:1626]should be rejected", func() {
+			It("[s390x][test_id:1626]should be rejected", func() {
 				By("Creating a VirtualMachineInstance")
 				vmi := libvmifact.NewAlpine()
 				err := kubevirt.Client().RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()
