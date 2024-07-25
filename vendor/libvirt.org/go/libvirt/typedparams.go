@@ -274,7 +274,7 @@ func typedParamsPackNew(infomap map[string]typedParamsFieldInfo) (*C.virTypedPar
 				}
 				ret = C.virTypedParamsAddBooleanWrapper(&cparams, &nparams, &maxparams, cname, C.int(v), &err)
 			} else if value.d != nil {
-				ret = C.virTypedParamsAddDoubleWrapper(&cparams, &nparams, &maxparams, cname, C.double(*value.i), &err)
+				ret = C.virTypedParamsAddDoubleWrapper(&cparams, &nparams, &maxparams, cname, C.double(*value.d), &err)
 			} else if value.s != nil {
 				cvalue := C.CString(*value.s)
 				defer C.free(unsafe.Pointer(cvalue))

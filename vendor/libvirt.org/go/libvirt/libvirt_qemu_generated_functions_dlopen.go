@@ -43,8 +43,8 @@ package libvirt
 
 
 typedef int
-(*virConnectDomainQemuMonitorEventDeregisterType)(virConnectPtr conn,
-                                                  int callbackID);
+(*virConnectDomainQemuMonitorEventDeregisterFuncType)(virConnectPtr conn,
+                                                      int callbackID);
 
 int
 virConnectDomainQemuMonitorEventDeregisterWrapper(virConnectPtr conn,
@@ -52,7 +52,7 @@ virConnectDomainQemuMonitorEventDeregisterWrapper(virConnectPtr conn,
                                                   virErrorPtr err)
 {
     int ret = -1;
-    static virConnectDomainQemuMonitorEventDeregisterType virConnectDomainQemuMonitorEventDeregisterSymbol;
+    static virConnectDomainQemuMonitorEventDeregisterFuncType virConnectDomainQemuMonitorEventDeregisterSymbol;
     static bool once;
     static bool success;
 
@@ -72,13 +72,13 @@ virConnectDomainQemuMonitorEventDeregisterWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectDomainQemuMonitorEventRegisterType)(virConnectPtr conn,
-                                                virDomainPtr dom,
-                                                const char * event,
-                                                virConnectDomainQemuMonitorEventCallback cb,
-                                                void * opaque,
-                                                virFreeCallback freecb,
-                                                unsigned int flags);
+(*virConnectDomainQemuMonitorEventRegisterFuncType)(virConnectPtr conn,
+                                                    virDomainPtr dom,
+                                                    const char * event,
+                                                    virConnectDomainQemuMonitorEventCallback cb,
+                                                    void * opaque,
+                                                    virFreeCallback freecb,
+                                                    unsigned int flags);
 
 int
 virConnectDomainQemuMonitorEventRegisterWrapper(virConnectPtr conn,
@@ -91,7 +91,7 @@ virConnectDomainQemuMonitorEventRegisterWrapper(virConnectPtr conn,
                                                 virErrorPtr err)
 {
     int ret = -1;
-    static virConnectDomainQemuMonitorEventRegisterType virConnectDomainQemuMonitorEventRegisterSymbol;
+    static virConnectDomainQemuMonitorEventRegisterFuncType virConnectDomainQemuMonitorEventRegisterSymbol;
     static bool once;
     static bool success;
 
@@ -116,10 +116,10 @@ virConnectDomainQemuMonitorEventRegisterWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virDomainQemuAgentCommandType)(virDomainPtr domain,
-                                 const char * cmd,
-                                 int timeout,
-                                 unsigned int flags);
+(*virDomainQemuAgentCommandFuncType)(virDomainPtr domain,
+                                     const char * cmd,
+                                     int timeout,
+                                     unsigned int flags);
 
 char *
 virDomainQemuAgentCommandWrapper(virDomainPtr domain,
@@ -129,7 +129,7 @@ virDomainQemuAgentCommandWrapper(virDomainPtr domain,
                                  virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainQemuAgentCommandType virDomainQemuAgentCommandSymbol;
+    static virDomainQemuAgentCommandFuncType virDomainQemuAgentCommandSymbol;
     static bool once;
     static bool success;
 
@@ -151,9 +151,9 @@ virDomainQemuAgentCommandWrapper(virDomainPtr domain,
 }
 
 typedef virDomainPtr
-(*virDomainQemuAttachType)(virConnectPtr conn,
-                           unsigned int pid_value,
-                           unsigned int flags);
+(*virDomainQemuAttachFuncType)(virConnectPtr conn,
+                               unsigned int pid_value,
+                               unsigned int flags);
 
 virDomainPtr
 virDomainQemuAttachWrapper(virConnectPtr conn,
@@ -162,7 +162,7 @@ virDomainQemuAttachWrapper(virConnectPtr conn,
                            virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainQemuAttachType virDomainQemuAttachSymbol;
+    static virDomainQemuAttachFuncType virDomainQemuAttachSymbol;
     static bool once;
     static bool success;
 
@@ -183,10 +183,10 @@ virDomainQemuAttachWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virDomainQemuMonitorCommandType)(virDomainPtr domain,
-                                   const char * cmd,
-                                   char ** result,
-                                   unsigned int flags);
+(*virDomainQemuMonitorCommandFuncType)(virDomainPtr domain,
+                                       const char * cmd,
+                                       char ** result,
+                                       unsigned int flags);
 
 int
 virDomainQemuMonitorCommandWrapper(virDomainPtr domain,
@@ -196,7 +196,7 @@ virDomainQemuMonitorCommandWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainQemuMonitorCommandType virDomainQemuMonitorCommandSymbol;
+    static virDomainQemuMonitorCommandFuncType virDomainQemuMonitorCommandSymbol;
     static bool once;
     static bool success;
 
@@ -218,14 +218,14 @@ virDomainQemuMonitorCommandWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainQemuMonitorCommandWithFilesType)(virDomainPtr domain,
-                                            const char * cmd,
-                                            unsigned int ninfiles,
-                                            int * infiles,
-                                            unsigned int * noutfiles,
-                                            int ** outfiles,
-                                            char ** result,
-                                            unsigned int flags);
+(*virDomainQemuMonitorCommandWithFilesFuncType)(virDomainPtr domain,
+                                                const char * cmd,
+                                                unsigned int ninfiles,
+                                                int * infiles,
+                                                unsigned int * noutfiles,
+                                                int ** outfiles,
+                                                char ** result,
+                                                unsigned int flags);
 
 int
 virDomainQemuMonitorCommandWithFilesWrapper(virDomainPtr domain,
@@ -239,7 +239,7 @@ virDomainQemuMonitorCommandWithFilesWrapper(virDomainPtr domain,
                                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainQemuMonitorCommandWithFilesType virDomainQemuMonitorCommandWithFilesSymbol;
+    static virDomainQemuMonitorCommandWithFilesFuncType virDomainQemuMonitorCommandWithFilesSymbol;
     static bool once;
     static bool success;
 

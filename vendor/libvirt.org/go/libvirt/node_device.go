@@ -67,6 +67,20 @@ const (
 	NODE_DEVICE_DEFINE_XML_VALIDATE = NodeDeviceDefineXMLFlags(C.VIR_NODE_DEVICE_DEFINE_XML_VALIDATE)
 )
 
+type NodeDeviceXMLFlags int
+
+const (
+	NODE_DEVICE_XML_INACTIVE = NodeDeviceXMLFlags(C.VIR_NODE_DEVICE_XML_INACTIVE)
+)
+
+type NodeDeviceUpdateFlags int
+
+const (
+	NODE_DEVICE_UPDATE_AFFECT_CURRENT = NodeDeviceUpdateFlags(C.VIR_NODE_DEVICE_UPDATE_AFFECT_CURRENT)
+	NODE_DEVICE_UPDATE_AFFECT_CONFIG  = NodeDeviceUpdateFlags(C.VIR_NODE_DEVICE_UPDATE_AFFECT_CONFIG)
+	NODE_DEVICE_UPDATE_AFFECT_LIVE    = NodeDeviceUpdateFlags(C.VIR_NODE_DEVICE_UPDATE_AFFECT_LIVE)
+)
+
 type NodeDevice struct {
 	ptr C.virNodeDevicePtr
 }
@@ -154,7 +168,7 @@ func (n *NodeDevice) GetName() (string, error) {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-nodedev.html#virNodeDeviceGetXMLDesc
-func (n *NodeDevice) GetXMLDesc(flags uint32) (string, error) {
+func (n *NodeDevice) GetXMLDesc(flags NodeDeviceXMLFlags) (string, error) {
 	var err C.virError
 	result := C.virNodeDeviceGetXMLDescWrapper(n.ptr, C.uint(flags), &err)
 	if result == nil {
@@ -284,4 +298,16 @@ func (n *NodeDevice) IsPersistent() (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-network.html#virNodeDeviceUpdate
+func (n *NodeDevice) Update(xml string, flags NodeDeviceUpdateFlags) error {
+	cXml := C.CString(xml)
+	defer C.free(unsafe.Pointer(cXml))
+	var err C.virError
+	result := C.virNodeDeviceUpdateWrapper(n.ptr, cXml, C.uint(flags), &err)
+	if result == -1 {
+		return makeError(&err)
+	}
+	return nil
 }

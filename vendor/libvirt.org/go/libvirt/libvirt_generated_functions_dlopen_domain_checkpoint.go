@@ -43,9 +43,9 @@ package libvirt
 
 
 typedef virDomainCheckpointPtr
-(*virDomainCheckpointCreateXMLType)(virDomainPtr domain,
-                                    const char * xmlDesc,
-                                    unsigned int flags);
+(*virDomainCheckpointCreateXMLFuncType)(virDomainPtr domain,
+                                        const char * xmlDesc,
+                                        unsigned int flags);
 
 virDomainCheckpointPtr
 virDomainCheckpointCreateXMLWrapper(virDomainPtr domain,
@@ -54,7 +54,7 @@ virDomainCheckpointCreateXMLWrapper(virDomainPtr domain,
                                     virErrorPtr err)
 {
     virDomainCheckpointPtr ret = NULL;
-    static virDomainCheckpointCreateXMLType virDomainCheckpointCreateXMLSymbol;
+    static virDomainCheckpointCreateXMLFuncType virDomainCheckpointCreateXMLSymbol;
     static bool once;
     static bool success;
 
@@ -75,8 +75,8 @@ virDomainCheckpointCreateXMLWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainCheckpointDeleteType)(virDomainCheckpointPtr checkpoint,
-                                 unsigned int flags);
+(*virDomainCheckpointDeleteFuncType)(virDomainCheckpointPtr checkpoint,
+                                     unsigned int flags);
 
 int
 virDomainCheckpointDeleteWrapper(virDomainCheckpointPtr checkpoint,
@@ -84,7 +84,7 @@ virDomainCheckpointDeleteWrapper(virDomainCheckpointPtr checkpoint,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virDomainCheckpointDeleteType virDomainCheckpointDeleteSymbol;
+    static virDomainCheckpointDeleteFuncType virDomainCheckpointDeleteSymbol;
     static bool once;
     static bool success;
 
@@ -104,14 +104,14 @@ virDomainCheckpointDeleteWrapper(virDomainCheckpointPtr checkpoint,
 }
 
 typedef int
-(*virDomainCheckpointFreeType)(virDomainCheckpointPtr checkpoint);
+(*virDomainCheckpointFreeFuncType)(virDomainCheckpointPtr checkpoint);
 
 int
 virDomainCheckpointFreeWrapper(virDomainCheckpointPtr checkpoint,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainCheckpointFreeType virDomainCheckpointFreeSymbol;
+    static virDomainCheckpointFreeFuncType virDomainCheckpointFreeSymbol;
     static bool once;
     static bool success;
 
@@ -130,14 +130,14 @@ virDomainCheckpointFreeWrapper(virDomainCheckpointPtr checkpoint,
 }
 
 typedef virConnectPtr
-(*virDomainCheckpointGetConnectType)(virDomainCheckpointPtr checkpoint);
+(*virDomainCheckpointGetConnectFuncType)(virDomainCheckpointPtr checkpoint);
 
 virConnectPtr
 virDomainCheckpointGetConnectWrapper(virDomainCheckpointPtr checkpoint,
                                      virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virDomainCheckpointGetConnectType virDomainCheckpointGetConnectSymbol;
+    static virDomainCheckpointGetConnectFuncType virDomainCheckpointGetConnectSymbol;
     static bool once;
     static bool success;
 
@@ -156,14 +156,14 @@ virDomainCheckpointGetConnectWrapper(virDomainCheckpointPtr checkpoint,
 }
 
 typedef virDomainPtr
-(*virDomainCheckpointGetDomainType)(virDomainCheckpointPtr checkpoint);
+(*virDomainCheckpointGetDomainFuncType)(virDomainCheckpointPtr checkpoint);
 
 virDomainPtr
 virDomainCheckpointGetDomainWrapper(virDomainCheckpointPtr checkpoint,
                                     virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainCheckpointGetDomainType virDomainCheckpointGetDomainSymbol;
+    static virDomainCheckpointGetDomainFuncType virDomainCheckpointGetDomainSymbol;
     static bool once;
     static bool success;
 
@@ -182,14 +182,14 @@ virDomainCheckpointGetDomainWrapper(virDomainCheckpointPtr checkpoint,
 }
 
 typedef const char *
-(*virDomainCheckpointGetNameType)(virDomainCheckpointPtr checkpoint);
+(*virDomainCheckpointGetNameFuncType)(virDomainCheckpointPtr checkpoint);
 
 const char *
 virDomainCheckpointGetNameWrapper(virDomainCheckpointPtr checkpoint,
                                   virErrorPtr err)
 {
     const char * ret = NULL;
-    static virDomainCheckpointGetNameType virDomainCheckpointGetNameSymbol;
+    static virDomainCheckpointGetNameFuncType virDomainCheckpointGetNameSymbol;
     static bool once;
     static bool success;
 
@@ -208,8 +208,8 @@ virDomainCheckpointGetNameWrapper(virDomainCheckpointPtr checkpoint,
 }
 
 typedef virDomainCheckpointPtr
-(*virDomainCheckpointGetParentType)(virDomainCheckpointPtr checkpoint,
-                                    unsigned int flags);
+(*virDomainCheckpointGetParentFuncType)(virDomainCheckpointPtr checkpoint,
+                                        unsigned int flags);
 
 virDomainCheckpointPtr
 virDomainCheckpointGetParentWrapper(virDomainCheckpointPtr checkpoint,
@@ -217,7 +217,7 @@ virDomainCheckpointGetParentWrapper(virDomainCheckpointPtr checkpoint,
                                     virErrorPtr err)
 {
     virDomainCheckpointPtr ret = NULL;
-    static virDomainCheckpointGetParentType virDomainCheckpointGetParentSymbol;
+    static virDomainCheckpointGetParentFuncType virDomainCheckpointGetParentSymbol;
     static bool once;
     static bool success;
 
@@ -237,8 +237,8 @@ virDomainCheckpointGetParentWrapper(virDomainCheckpointPtr checkpoint,
 }
 
 typedef char *
-(*virDomainCheckpointGetXMLDescType)(virDomainCheckpointPtr checkpoint,
-                                     unsigned int flags);
+(*virDomainCheckpointGetXMLDescFuncType)(virDomainCheckpointPtr checkpoint,
+                                         unsigned int flags);
 
 char *
 virDomainCheckpointGetXMLDescWrapper(virDomainCheckpointPtr checkpoint,
@@ -246,7 +246,7 @@ virDomainCheckpointGetXMLDescWrapper(virDomainCheckpointPtr checkpoint,
                                      virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainCheckpointGetXMLDescType virDomainCheckpointGetXMLDescSymbol;
+    static virDomainCheckpointGetXMLDescFuncType virDomainCheckpointGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -266,9 +266,9 @@ virDomainCheckpointGetXMLDescWrapper(virDomainCheckpointPtr checkpoint,
 }
 
 typedef int
-(*virDomainCheckpointListAllChildrenType)(virDomainCheckpointPtr checkpoint,
-                                          virDomainCheckpointPtr ** children,
-                                          unsigned int flags);
+(*virDomainCheckpointListAllChildrenFuncType)(virDomainCheckpointPtr checkpoint,
+                                              virDomainCheckpointPtr ** children,
+                                              unsigned int flags);
 
 int
 virDomainCheckpointListAllChildrenWrapper(virDomainCheckpointPtr checkpoint,
@@ -277,7 +277,7 @@ virDomainCheckpointListAllChildrenWrapper(virDomainCheckpointPtr checkpoint,
                                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainCheckpointListAllChildrenType virDomainCheckpointListAllChildrenSymbol;
+    static virDomainCheckpointListAllChildrenFuncType virDomainCheckpointListAllChildrenSymbol;
     static bool once;
     static bool success;
 
@@ -298,9 +298,9 @@ virDomainCheckpointListAllChildrenWrapper(virDomainCheckpointPtr checkpoint,
 }
 
 typedef virDomainCheckpointPtr
-(*virDomainCheckpointLookupByNameType)(virDomainPtr domain,
-                                       const char * name,
-                                       unsigned int flags);
+(*virDomainCheckpointLookupByNameFuncType)(virDomainPtr domain,
+                                           const char * name,
+                                           unsigned int flags);
 
 virDomainCheckpointPtr
 virDomainCheckpointLookupByNameWrapper(virDomainPtr domain,
@@ -309,7 +309,7 @@ virDomainCheckpointLookupByNameWrapper(virDomainPtr domain,
                                        virErrorPtr err)
 {
     virDomainCheckpointPtr ret = NULL;
-    static virDomainCheckpointLookupByNameType virDomainCheckpointLookupByNameSymbol;
+    static virDomainCheckpointLookupByNameFuncType virDomainCheckpointLookupByNameSymbol;
     static bool once;
     static bool success;
 
@@ -330,14 +330,14 @@ virDomainCheckpointLookupByNameWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainCheckpointRefType)(virDomainCheckpointPtr checkpoint);
+(*virDomainCheckpointRefFuncType)(virDomainCheckpointPtr checkpoint);
 
 int
 virDomainCheckpointRefWrapper(virDomainCheckpointPtr checkpoint,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainCheckpointRefType virDomainCheckpointRefSymbol;
+    static virDomainCheckpointRefFuncType virDomainCheckpointRefSymbol;
     static bool once;
     static bool success;
 
@@ -356,9 +356,9 @@ virDomainCheckpointRefWrapper(virDomainCheckpointPtr checkpoint,
 }
 
 typedef int
-(*virDomainListAllCheckpointsType)(virDomainPtr domain,
-                                   virDomainCheckpointPtr ** checkpoints,
-                                   unsigned int flags);
+(*virDomainListAllCheckpointsFuncType)(virDomainPtr domain,
+                                       virDomainCheckpointPtr ** checkpoints,
+                                       unsigned int flags);
 
 int
 virDomainListAllCheckpointsWrapper(virDomainPtr domain,
@@ -367,7 +367,7 @@ virDomainListAllCheckpointsWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainListAllCheckpointsType virDomainListAllCheckpointsSymbol;
+    static virDomainListAllCheckpointsFuncType virDomainListAllCheckpointsSymbol;
     static bool once;
     static bool success;
 

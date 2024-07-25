@@ -78,8 +78,8 @@ require (
 	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
 	kubevirt.io/qe-tools v0.1.8
-	libvirt.org/go/libvirt v1.10000.0
-	libvirt.org/go/libvirtxml v1.10000.0
+	libvirt.org/go/libvirt v1.10005.0
+	libvirt.org/go/libvirtxml v1.10005.0
 	mvdan.cc/sh/v3 v3.8.0
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
 	sigs.k8s.io/yaml v1.3.0

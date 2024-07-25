@@ -135,6 +135,7 @@ type DomainCapsFeatures struct {
 	SEV               *DomainCapsFeatureSEV               `xml:"sev"`
 	SGX               *DomainCapsFeatureSGX               `xml:"sgx"`
 	HyperV            *DomainCapsFeatureHyperV            `xml:"hyperv"`
+	LaunchSecurity    *DomainCapsFeatureLaunchSecurity    `xml:"launchSecurity"`
 }
 
 type DomainCapsFeatureGIC struct {
@@ -199,6 +200,11 @@ type DomainCapsFeatureSGXSection struct {
 }
 
 type DomainCapsFeatureHyperV struct {
+	Supported string           `xml:"supported,attr"`
+	Enums     []DomainCapsEnum `xml:"enum"`
+}
+
+type DomainCapsFeatureLaunchSecurity struct {
 	Supported string           `xml:"supported,attr"`
 	Enums     []DomainCapsEnum `xml:"enum"`
 }

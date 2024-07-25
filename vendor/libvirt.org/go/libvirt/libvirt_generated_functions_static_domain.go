@@ -2044,6 +2044,26 @@ virDomainGetXMLDescWrapper(virDomainPtr domain,
 }
 
 int
+virDomainGraphicsReloadWrapper(virDomainPtr domain,
+                               unsigned int type,
+                               unsigned int flags,
+                               virErrorPtr err)
+{
+    int ret = -1;
+#if !LIBVIR_CHECK_VERSION(10, 2, 0)
+    setVirError(err, "Function virDomainGraphicsReload not available prior to libvirt version 10.2.0");
+#else
+    ret = virDomainGraphicsReload(domain,
+                                  type,
+                                  flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+#endif
+    return ret;
+}
+
+int
 virDomainHasManagedSaveImageWrapper(virDomainPtr dom,
                                     unsigned int flags,
                                     virErrorPtr err)
