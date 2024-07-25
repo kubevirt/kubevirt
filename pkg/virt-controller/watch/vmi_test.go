@@ -91,7 +91,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var storageClassInformer cache.SharedIndexInformer
 	var kvStore cache.Store
 
-	var cdiInformer cache.SharedIndexInformer
 	var cdiConfigInformer cache.SharedIndexInformer
 
 	expectMatchingPodCreation := func(vmi *virtv1.VirtualMachineInstance, matchers ...gomegaTypes.GomegaMatcher) {
@@ -258,7 +257,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
-		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
+		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
@@ -2843,8 +2842,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}
 			// We add multiple CDI instances to trigger the error
-			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
-			Expect(cdiInformer.GetIndexer().Add(&cdi2)).To(Succeed())
+			Expect(controller.cdiStore.Add(&cdi)).To(Succeed())
+			Expect(controller.cdiStore.Add(&cdi2)).To(Succeed())
 
 			fsOverhead, err := controller.getFilesystemOverhead(&k8sv1.PersistentVolumeClaim{})
 			Expect(err).ToNot(HaveOccurred())
@@ -2864,7 +2863,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}
 
-			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
+			Expect(controller.cdiStore.Add(&cdi)).To(Succeed())
 
 			fsOverhead, err := controller.getFilesystemOverhead(nil)
 			Expect(err).To(HaveOccurred())
@@ -2904,7 +2903,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pvc.Spec.StorageClassName = &scName
 			}
 
-			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
+			Expect(controller.cdiStore.Add(&cdi)).To(Succeed())
 			Expect(cdiConfigInformer.GetIndexer().Add(&cfg)).To(Succeed())
 
 			fsOverhead, err := controller.getFilesystemOverhead(pvc)
