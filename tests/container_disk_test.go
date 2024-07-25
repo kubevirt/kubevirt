@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -83,9 +82,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachineInstance", func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:1463][Conformance] should success multiple times", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				num := 2
-				for i := 0; i < num; i++ {
+				vmi := libvmifact.NewCirros()
+				for range 2 {
 					By("Starting the VirtualMachineInstance")
 					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 					Expect(err).ToNot(HaveOccurred())
@@ -94,10 +92,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					libwait.WaitForSuccessfulVMIStart(vmiObj)
 
 					By("Stopping the VirtualMachineInstance")
-					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do(context.Background()).Get()
+					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmiObj.Namespace).Name(vmi.GetObjectMeta().GetName()).Do(context.Background()).Get()
 					Expect(err).ToNot(HaveOccurred())
 					By("Waiting until the VirtualMachineInstance is gone")
-					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiObj, 120)
 				}
 			})
 		})
@@ -175,13 +173,24 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", func() {
 		Context("with disk at /custom-disk/downloaded", func() {
+
 			It("[test_id:1466]should boot normally", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation), "#!/bin/bash\necho 'hello'\n")
-				for ind, volume := range vmi.Spec.Volumes {
-					if volume.ContainerDisk != nil {
-						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/downloaded"
-					}
-				}
+				const (
+					minimalVMIRequiredMemory = "256Mi"
+					volName                  = "disk0"
+					customPath               = "/custom-disk/downloaded"
+				)
+
+				vmi := libvmi.New(
+					libvmi.WithResourceMemory(minimalVMIRequiredMemory),
+					libvmi.WithContainerDisk(
+						"disk0",
+						cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation),
+					),
+					withVolumePath(volName, customPath),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+				)
+
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			})
@@ -291,4 +300,15 @@ func hasContainerDisk(pods []k8sv1.Pod) bool {
 	}
 
 	return false
+}
+
+func withVolumePath(volName, path string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		for _, vol := range vmi.Spec.Volumes {
+			if vol.Name == volName && vol.ContainerDisk != nil {
+				vol.ContainerDisk.Path = path
+				break
+			}
+		}
+	}
 }

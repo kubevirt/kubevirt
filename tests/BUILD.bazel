@@ -10,8 +10,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/libvmi:go_default_library",
-        "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
@@ -19,7 +17,6 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests/console:go_default_library",
-        "//tests/containerdisk:go_default_library",
         "//tests/exec:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",

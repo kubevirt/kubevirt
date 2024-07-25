@@ -39,7 +39,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
@@ -59,7 +58,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 const (
@@ -72,7 +70,6 @@ const (
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]CloudInit UserData", decorators.SigCompute, func() {
 
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	var (
@@ -309,40 +306,34 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		It("[test_id:1618]should take user-data from k8s secret", func() {
 			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "")
+			secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 
-			idx := 0
-			for i, volume := range vmi.Spec.Volumes {
-				if volume.CloudInitNoCloud == nil {
-					continue
-				}
-				idx = i
+			vmi := libvmifact.NewCirros(
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserDataSecretName(secretID)),
+			)
 
-				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
-				spec := volume.CloudInitNoCloud
-				spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
+			// Store userdata as k8s secret
+			By("Creating a user-data secret")
+			secret := libsecret.New(secretID, libsecret.DataString{"userdata": userData})
+			_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				// Store userdata as k8s secret
-				By("Creating a user-data secret")
-				secret := libsecret.New(secretID, libsecret.DataString{"userdata": userData})
-				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				break
-			}
+			runningVMI := tests.RunVMIAndExpectLaunch(vmi, 60)
+			runningVMI = libwait.WaitUntilVMIReady(runningVMI, console.LoginToCirros)
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
-
-			CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
+			CheckCloudInitIsoSize(runningVMI, cloudinit.DataSourceNoCloud)
 
 			By("Checking whether the user-data script had created the file")
-			Expect(console.RunCommand(vmi, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
+			Expect(console.RunCommand(runningVMI, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
 
 			// Expect that the secret is not present on the vmi itself
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			runningVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(runningVMI)).Get(context.Background(), runningVMI.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
-			Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
+
+			runningCloudInitVolume := lookupCloudInitNoCloudVolume(runningVMI.Spec.Volumes)
+			origCloudInitVolume := lookupCloudInitNoCloudVolume(vmi.Spec.Volumes)
+
+			Expect(origCloudInitVolume).To(Equal(runningCloudInitVolume), "volume must not be changed when running the vmi, to prevent secret leaking")
 		})
 
 		Context("with cloudInitNoCloud networkData", func() {
