@@ -51,6 +51,7 @@ var _ = Describe("Authorizer", func() {
 			req.Request.Header[userHeader] = []string{"user"}
 			req.Request.Header[groupHeader] = []string{"userGroup"}
 			req.Request.Header[userExtraHeaderPrefix+"test"] = []string{"userExtraValue"}
+			req.Request.Header[userExtraHeaderPrefix+"test%2fencoded"] = []string{"encodedUserExtraValue"}
 			req.Request.TLS = &tls.ConnectionState{}
 			req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, &x509.Certificate{})
 
@@ -75,6 +76,10 @@ var _ = Describe("Authorizer", func() {
 			Context("with namespaced resource", func() {
 				allowed := func(allowed bool) func(review *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
 					return func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+						Expect(sar.Spec.User).To(Equal("user"))
+						Expect(sar.Spec.Groups).To(Equal([]string{"userGroup"}))
+						Expect(sar.Spec.Extra).To(HaveKeyWithValue("test", authv1.ExtraValue{"userExtraValue"}))
+						Expect(sar.Spec.Extra).To(HaveKeyWithValue("test/encoded", authv1.ExtraValue{"encodedUserExtraValue"}))
 						Expect(sar.Spec.NonResourceAttributes).To(BeNil())
 						Expect(sar.Spec.ResourceAttributes).ToNot(BeNil())
 						Expect(sar.Spec.ResourceAttributes.Namespace).To(Equal("default"))
