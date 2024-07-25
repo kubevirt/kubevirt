@@ -77,7 +77,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var config *virtconfig.ClusterConfig
 
 	var vmiSource *framework.FakeControllerSource
-	var podSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
 	var stop chan struct{}
@@ -238,7 +237,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
 
 		vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, kvcontroller.GetVirtualMachineInformerIndexers())
-		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		recorder = record.NewFakeRecorder(100)
@@ -949,8 +948,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			modifiedPod := pod.DeepCopy()
 			modifiedPod.DeletionTimestamp = pointer.P(metav1.Now())
 
+			key, err := kvcontroller.KeyFunc(vmi)
+			Expect(err).To(Not(HaveOccurred()))
 			mockQueue.ExpectAdds(1)
-			podSource.Modify(modifiedPod)
+			mockQueue.Add(key)
+			controller.podIndexer.Update(modifiedPod)
+			controller.podExpectations.SetExpectations(key, 0, 0)
 			mockQueue.Wait()
 
 			controller.Execute()
@@ -1503,8 +1506,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			pod = NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
+			key, err := kvcontroller.KeyFunc(vmi)
+			Expect(err).To(Not(HaveOccurred()))
 			mockQueue.ExpectAdds(1)
-			podSource.Modify(pod)
+			mockQueue.Add(key)
+			controller.podIndexer.Update(pod)
+			controller.podExpectations.SetExpectations(key, 0, 0)
 			mockQueue.Wait()
 
 			controller.Execute()
@@ -1522,8 +1529,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 
+			key, err := kvcontroller.KeyFunc(vmi)
+			Expect(err).To(Not(HaveOccurred()))
 			mockQueue.ExpectAdds(1)
-			podSource.Delete(pod)
+			mockQueue.Add(key)
+			controller.podIndexer.Delete(pod)
 			mockQueue.Wait()
 
 			controller.Execute()
