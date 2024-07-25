@@ -88,7 +88,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
-	var storageClassInformer cache.SharedIndexInformer
+	// We pass the store to backend storage and we don't have direct access
+	var storageClassStore cache.Store
 	var kvStore cache.Store
 
 	expectMatchingPodCreation := func(vmi *virtv1.VirtualMachineInstance, matchers ...gomegaTypes.GomegaMatcher) {
@@ -225,11 +226,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
 
-		go storageClassInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			podInformer.HasSynced,
-			storageClassInformer.HasSynced)).To(BeTrue())
+		)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -254,7 +254,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+		storageClassStore = storageClassInformer.GetStore()
 		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
@@ -559,7 +560,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 					VolumeBindingMode: mode,
 				}
-				Expect(storageClassInformer.GetIndexer().Add(sc)).To(Succeed())
+				Expect(storageClassStore.Add(sc)).To(Succeed())
 
 				pvc := NewPvc(vmi.Namespace, backendstorage.PVCForVMI(vmi))
 				pvc.Status.Phase = k8sv1.ClaimPending
@@ -580,7 +581,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 					VolumeBindingMode: pointer.P(storagev1.VolumeBindingWaitForFirstConsumer),
 				}
-				Expect(storageClassInformer.GetIndexer().Add(sc)).To(Succeed())
+				Expect(storageClassStore.Add(sc)).To(Succeed())
 
 				pvc := NewPvc(vmi.Namespace, backendstorage.PVCForVMI(vmi))
 				pvc.Status.Phase = k8sv1.ClaimPending
