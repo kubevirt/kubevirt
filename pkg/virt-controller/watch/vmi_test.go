@@ -91,8 +91,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var storageClassInformer cache.SharedIndexInformer
 	var kvStore cache.Store
 
-	var cdiConfigInformer cache.SharedIndexInformer
-
 	expectMatchingPodCreation := func(vmi *virtv1.VirtualMachineInstance, matchers ...gomegaTypes.GomegaMatcher) {
 		pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", virtv1.CreatedByLabel, string(vmi.UID))})
 		Expect(err).ToNot(HaveOccurred())
@@ -258,7 +256,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
-		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
+		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		var qemuGid int64 = 107
@@ -2904,7 +2902,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 
 			Expect(controller.cdiStore.Add(&cdi)).To(Succeed())
-			Expect(cdiConfigInformer.GetIndexer().Add(&cfg)).To(Succeed())
+			Expect(controller.cdiConfigStore.Add(&cfg)).To(Succeed())
 
 			fsOverhead, err := controller.getFilesystemOverhead(pvc)
 			Expect(err).ToNot(HaveOccurred())
