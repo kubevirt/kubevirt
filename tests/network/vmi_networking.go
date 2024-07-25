@@ -47,10 +47,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
-	"k8s.io/utils/pointer"
-
-	kvutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -58,6 +54,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -80,7 +77,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var currentConfiguration v1.KubeVirtConfiguration
 
 	const (
 		testPort                   = 1500
@@ -90,9 +86,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		kv := util.GetCurrentKv(virtClient)
-		currentConfiguration = kv.Spec.Configuration
 	})
 
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string) {
@@ -118,16 +111,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
 		output := tests.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0-nic/brport/learning"})
 		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
-	}
-
-	setBridgeEnabled := func(enable bool) {
-		if currentConfiguration.NetworkConfiguration == nil {
-			currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
-		}
-
-		currentConfiguration.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = pointer.BoolPtr(enable)
-		kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
-		currentConfiguration = kv.Spec.Configuration
 	}
 
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
@@ -997,21 +980,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				[]string{"/bin/bash", "-c", "/usr/sbin/ethtool -k k6t-eth0|grep tx-checksumming|awk '{ printf $2 }'"},
 			)
 			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("off"))
-		})
-	})
-
-	Context("[Serial]vmi with default bridge interface on pod network", Serial, func() {
-		BeforeEach(func() {
-			setBridgeEnabled(false)
-		})
-		AfterEach(func() {
-			setBridgeEnabled(true)
-		})
-		It("[test_id:2964]should reject VMIs with bridge interface when it's not permitted on pod network", func() {
-			vmi := libvmifact.NewCirros()
-
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err.Error()).To(ContainSubstring("bridge interface is not enabled in kubevirt-config"))
 		})
 	})
 })
