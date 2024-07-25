@@ -91,7 +91,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var storageClassInformer cache.SharedIndexInformer
 	var kvStore cache.Store
 
-	var dataVolumeInformer cache.SharedIndexInformer
 	var cdiInformer cache.SharedIndexInformer
 	var cdiConfigInformer cache.SharedIndexInformer
 
@@ -229,12 +228,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
 
-		go dataVolumeInformer.Run(stop)
 		go storageClassInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			podInformer.HasSynced,
-			dataVolumeInformer.HasSynced,
 			storageClassInformer.HasSynced)).To(BeTrue())
 	}
 
@@ -247,7 +244,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, kvcontroller.GetVirtualMachineInformerIndexers())
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
@@ -325,7 +322,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	addDataVolume := func(dv *cdiv1.DataVolume) {
-		Expect(dataVolumeInformer.GetIndexer().Add(dv)).To(Succeed())
+		Expect(controller.dataVolumeIndexer.Add(dv)).To(Succeed())
 	}
 
 	Context("On valid VirtualMachineInstance given with DataVolume source", func() {
@@ -1312,7 +1309,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase: cdiv1.Pending,
 				},
 			}
-			Expect(dataVolumeInformer.GetIndexer().Add(dv)).To(Succeed())
+			Expect(controller.dataVolumeIndexer.Add(dv)).To(Succeed())
 			Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
 			volume := virtv1.Volume{
 				Name: "test-dv",
