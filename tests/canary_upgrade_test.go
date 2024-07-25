@@ -25,10 +25,8 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,11 +37,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/util"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
 
 var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, decorators.SigOperator, func() {
@@ -66,7 +64,7 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, de
 
 		virtCli = kubevirt.Client()
 
-		originalKV = util.GetCurrentKv(virtCli).DeepCopy()
+		originalKV = libkubevirt.GetCurrentKv(virtCli).DeepCopy()
 
 		stopCh = make(chan struct{})
 		lastObservedEvent = ""
@@ -99,7 +97,7 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, de
 	}
 
 	updateVirtHandler := func() error {
-		kv := util.GetCurrentKv(virtCli)
+		kv := libkubevirt.GetCurrentKv(virtCli)
 
 		patch := fmt.Sprintf(`{"spec": { "template": {"metadata": {"annotations": {"%s": "test"}}}}}`,
 			e2eCanaryTestAnnotation)

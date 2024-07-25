@@ -25,23 +25,20 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/util"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libnode"
 )
 
 var _ = DescribeInfra("virt-handler", func() {
@@ -100,7 +97,7 @@ var _ = DescribeInfra("virt-handler", func() {
 
 		forceMemoryPressureOnNodes(nodesToEnableKSM)
 
-		originalKubeVirt = util.GetCurrentKv(virtClient)
+		originalKubeVirt = libkubevirt.GetCurrentKv(virtClient)
 	})
 
 	AfterEach(func() {

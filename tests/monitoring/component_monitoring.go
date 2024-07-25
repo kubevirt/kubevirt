@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
@@ -109,7 +110,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 				},
 			},
 		}
-		originalKubeVirt := util.GetCurrentKv(virtClient)
+		originalKubeVirt := libkubevirt.GetCurrentKv(virtClient)
 		originalKubeVirt.Spec.Configuration.ControllerConfiguration = rateLimitConfig
 		originalKubeVirt.Spec.Configuration.HandlerConfiguration = rateLimitConfig
 		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)

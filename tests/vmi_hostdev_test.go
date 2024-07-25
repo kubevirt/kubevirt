@@ -5,13 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/tests/util"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,10 +18,13 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -40,12 +39,12 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		kv := util.GetCurrentKv(virtClient)
+		kv := libkubevirt.GetCurrentKv(virtClient)
 		config = kv.Spec.Configuration
 	})
 
 	AfterEach(func() {
-		kv := util.GetCurrentKv(virtClient)
+		kv := libkubevirt.GetCurrentKv(virtClient)
 		// Reinitialized the DeveloperConfiguration to avoid to influence the next test
 		config = kv.Spec.Configuration
 		config.DeveloperConfiguration = &v1.DeveloperConfiguration{}

@@ -21,6 +21,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
@@ -38,7 +39,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		kv := util.GetCurrentKv(virtClient)
+		kv := libkubevirt.GetCurrentKv(virtClient)
 		config = kv.Spec.Configuration
 
 		nodeName := tests.NodeNameWithHandler()

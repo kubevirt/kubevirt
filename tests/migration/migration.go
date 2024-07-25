@@ -31,78 +31,69 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libmigration"
-
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libnet/job"
-	"kubevirt.io/kubevirt/tests/libnet/service"
-	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
-	"kubevirt.io/kubevirt/tests/events"
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libconfigmap"
-	"kubevirt.io/kubevirt/tests/libinfra"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-
-	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util/hardware"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
-	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/libdv"
-	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/util"
-	"kubevirt.io/kubevirt/tools/vms-generator/utils"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/libwait"
-
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
+	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/job"
+	"kubevirt.io/kubevirt/tests/libnet/service"
+	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tests/watcher"
+	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
 const (
@@ -233,7 +224,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By(msg)
 				tcpJob := job.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
 				tcpJob.Spec.BackoffLimit = pointer.P(int32(3))
-				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
+				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				err = job.WaitForJobToSucceed(tcpJob, 90*time.Second)
@@ -2564,7 +2555,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		Context("[Serial] with freePageReporting", Serial, func() {
 
 			BeforeEach(func() {
-				kv := util.GetCurrentKv(virtClient)
+				kv := libkubevirt.GetCurrentKv(virtClient)
 				kvConfigurationCopy := kv.Spec.Configuration.DeepCopy()
 				kvConfigurationCopy.VirtualMachineOptions = nil
 				tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
@@ -3463,7 +3454,7 @@ func getPodsCgroupVersion(pod *k8sv1.Pod) cgroup.CgroupVersion {
 }
 
 func getCurrentKvConfig(virtClient kubecli.KubevirtClient) v1.KubeVirtConfiguration {
-	kvc := util.GetCurrentKv(virtClient)
+	kvc := libkubevirt.GetCurrentKv(virtClient)
 
 	if kvc.Spec.Configuration.MigrationConfiguration == nil {
 		kvc.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{}

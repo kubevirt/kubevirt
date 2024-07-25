@@ -46,12 +46,12 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkvconfig"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	util2 "kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
@@ -59,7 +59,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 	BeforeEach(func() {
 		checks.SkipIfMigrationIsNotPossible()
 		virtClient = kubevirt.Client()
-		originalKv := util2.GetCurrentKv(virtClient)
+		originalKv := libkubevirt.GetCurrentKv(virtClient)
 		updateStrategy := &virtv1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []virtv1.WorkloadUpdateMethod{virtv1.WorkloadUpdateMethodLiveMigrate},
 		}
@@ -67,7 +67,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 		libkvconfig.PatchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy,
 			[]string{virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration})
 
-		currentKv := util2.GetCurrentKv(virtClient)
+		currentKv := libkubevirt.GetCurrentKv(virtClient)
 		tests.WaitForConfigToBePropagatedToComponent(
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,

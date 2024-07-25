@@ -36,12 +36,14 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/Masterminds/semver"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-github/v32/github"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	v12 "k8s.io/api/apps/v1"
+
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -87,6 +89,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -156,7 +159,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		deleteAllKvAndWait = func(ignoreOriginal bool) {
 			Eventually(func() error {
 
-				kvs := util2.GetKvList(virtClient)
+				kvs := libkubevirt.GetKvList(virtClient)
 
 				deleteCount := 0
 				for _, kv := range kvs {
@@ -203,7 +206,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		// make sure virt deployments use shasums before we start
 		ensureShasums()
 
-		originalKv = util2.GetCurrentKv(virtClient)
+		originalKv = libkubevirt.GetCurrentKv(virtClient)
 
 		// save the operator sha
 		_, _, _, _, version := parseOperatorImage()
@@ -546,7 +549,7 @@ spec:
 	AfterEach(func() {
 		deleteAllKvAndWait(true)
 
-		kvs := util2.GetKvList(virtClient)
+		kvs := libkubevirt.GetKvList(virtClient)
 		if len(kvs) == 0 {
 			By("Re-creating the original KV to stabilize")
 			createKv(copyOriginalKv(originalKv))
@@ -611,7 +614,7 @@ spec:
 	})
 
 	It("[test_id:1746]should have created and available condition", func() {
-		kv := util2.GetCurrentKv(virtClient)
+		kv := libkubevirt.GetCurrentKv(virtClient)
 
 		By("verifying that created and available condition is present")
 		waitForKv(kv)
@@ -645,13 +648,13 @@ spec:
 			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for deployment to revert to original state")
 
 			Eventually(func() int64 {
-				currentKV := util2.GetCurrentKv(virtClient)
+				currentKV := libkubevirt.GetCurrentKv(virtClient)
 				return apply.GetExpectedGeneration(resource, currentKV.Status.Generations)
 			}, 60*time.Second, 5*time.Second).Should(Equal(generation), "reverted deployment generation should be set on KV resource")
 
 			By("Test that the expected generation is unchanged")
 			Consistently(func() int64 {
-				currentKV := util2.GetCurrentKv(virtClient)
+				currentKV := libkubevirt.GetCurrentKv(virtClient)
 				return apply.GetExpectedGeneration(resource, currentKV.Status.Generations)
 			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
 		},
@@ -784,7 +787,7 @@ spec:
 				},
 
 				func() runtime.Object {
-					var ds *v12.DaemonSet
+					var ds *appsv1.DaemonSet
 
 					// wait for virt-handler readiness
 					Eventually(func() bool {
@@ -2127,7 +2130,7 @@ spec:
 		It("[test_id:8235]should check if kubevirt components have linux node selector", func() {
 			By("Listing only kubevirt components")
 
-			kv := util2.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(virtClient)
 			productComponent := kv.Spec.ProductComponent
 			if productComponent == "" {
 				productComponent = "kubevirt"
@@ -2397,7 +2400,7 @@ spec:
 
 				}
 
-				kv := util2.GetCurrentKv(virtClient)
+				kv := libkubevirt.GetCurrentKv(virtClient)
 				kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
 					VirtualMachineInstanceProfile: vmProfile,
 				}
@@ -2430,7 +2433,7 @@ spec:
 		Context("VirtualMachineInstance Profile", func() {
 			DescribeTable("with VirtualMachineInstance Profile set to", func(virtualMachineProfile *v1.VirtualMachineInstanceProfile, expectedProfile *k8sv1.SeccompProfile) {
 				By("Configuring VirtualMachineInstance Profile")
-				kv := util2.GetCurrentKv(virtClient)
+				kv := libkubevirt.GetCurrentKv(virtClient)
 				if kv.Spec.Configuration.SeccompConfiguration == nil {
 					kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{}
 				}
@@ -2507,7 +2510,7 @@ spec:
 				testsuite.EnsureKubevirtReady()
 			}
 
-			appComponent = apply.GetAppComponent(util2.GetCurrentKv(virtClient))
+			appComponent = apply.GetAppComponent(libkubevirt.GetCurrentKv(virtClient))
 			labelSelector = labels.Set{
 				v1.AppComponentLabel: appComponent,
 				v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
@@ -3301,14 +3304,14 @@ func patchOperator(newImageName, version *string) bool {
 	return true
 }
 
-func parseOperatorImage() (*v12.Deployment, string, string, string, string) {
+func parseOperatorImage() (*appsv1.Deployment, string, string, string, string) {
 	return parseDeployment("virt-operator")
 }
 
-func parseDeployment(name string) (*v12.Deployment, string, string, string, string) {
+func parseDeployment(name string) (*appsv1.Deployment, string, string, string, string) {
 	var (
 		err        error
-		deployment *v12.Deployment
+		deployment *appsv1.Deployment
 	)
 
 	deployment, err = kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
