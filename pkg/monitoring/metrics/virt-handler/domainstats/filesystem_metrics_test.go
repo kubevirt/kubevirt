@@ -26,6 +26,8 @@ import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k6tv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 )
 
 var _ = Describe("filesystem metrics", func() {
@@ -55,7 +57,7 @@ var _ = Describe("filesystem metrics", func() {
 
 		DescribeTable("should collect metrics values", func(metric operatormetrics.Metric, expectedValue float64) {
 			crs := filesystemMetrics{}.Collect(vmiReport)
-			Expect(crs).To(ContainElement(gomegaContainsMetricMatcher(metric, expectedValue)))
+			Expect(crs).To(ContainElement(libmonitoring.GomegaContainsCollectorResultMatcher(metric, expectedValue)))
 		},
 			Entry("kubevirt_vmi_filesystem_capacity_bytes", filesystemCapacityBytes, 1.0),
 			Entry("kubevirt_vmi_filesystem_used_bytes", filesystemUsedBytes, 2.0),

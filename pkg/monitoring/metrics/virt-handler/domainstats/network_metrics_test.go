@@ -28,6 +28,7 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 )
 
 var _ = Describe("network metrics", func() {
@@ -70,7 +71,7 @@ var _ = Describe("network metrics", func() {
 
 		DescribeTable("should collect metrics values", func(metric operatormetrics.Metric, expectedValue float64) {
 			crs := networkMetrics{}.Collect(vmiReport)
-			Expect(crs).To(ContainElement(gomegaContainsMetricMatcher(metric, expectedValue)))
+			Expect(crs).To(ContainElement(libmonitoring.GomegaContainsCollectorResultMatcher(metric, expectedValue)))
 		},
 			Entry("kubevirt_vmi_network_receive_bytes_total", networkReceiveBytes, 1.0),
 			Entry("kubevirt_vmi_network_transmit_bytes_total", networkTransmitBytes, 2.0),

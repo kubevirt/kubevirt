@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats/collector"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 )
 
 var _ = Describe("domain stats collector", func() {
@@ -75,10 +76,9 @@ var _ = Describe("domain stats collector", func() {
 				vmiStats: vmiStats,
 			}
 			crs := execCollector(concCollector, vmis)
-
 			Expect(crs).To(HaveLen(2))
-			Expect(crs).To(ContainElement(gomegaContainsMetricMatcher(memoryResident, kibibytesToBytes(1))))
-			Expect(crs).To(ContainElement(gomegaContainsMetricMatcher(memoryResident, kibibytesToBytes(2))))
+			Expect(crs).To(ContainElement(libmonitoring.GomegaContainsCollectorResultMatcher(memoryResident, kibibytesToBytes(1))))
+			Expect(crs).To(ContainElement(libmonitoring.GomegaContainsCollectorResultMatcher(memoryResident, kibibytesToBytes(2))))
 		})
 	})
 })
@@ -116,6 +116,6 @@ func (fc fakeCollector) Collect(_ []*k6tv1.VirtualMachineInstance, scraper colle
 func fakeCollect(scraper collector.MetricsScraper, wg *sync.WaitGroup, vmi *k6tv1.VirtualMachineInstance, vmiStats *VirtualMachineInstanceStats) {
 	defer wg.Done()
 
-	dScraper := scraper.(*domainstatsScraper)
+	dScraper := scraper.(*DomainstatsScraper)
 	dScraper.report(vmi, vmiStats)
 }
