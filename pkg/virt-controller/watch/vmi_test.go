@@ -78,7 +78,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
-	var podInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *VMIController
 	var recorder *record.FakeRecorder
@@ -221,11 +220,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
-		go podInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
-			podInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
@@ -237,7 +234,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
 
 		vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, kvcontroller.GetVirtualMachineInformerIndexers())
-		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		recorder = record.NewFakeRecorder(100)
@@ -303,7 +300,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	addPod := func(pod *k8sv1.Pod) {
-		Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
+		Expect(controller.podIndexer.Add(pod)).To(Succeed())
 		_, err := kubeClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -450,7 +447,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
-			Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
+			Expect(controller.podIndexer.Add(pod)).To(Succeed())
 
 			// Non owned pod that shouldn't be found by waitForFirstConsumerTemporaryPods
 			nonOwnedPod := &k8sv1.Pod{
@@ -465,7 +462,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase: k8sv1.PodRunning,
 				},
 			}
-			Expect(podInformer.GetIndexer().Add(nonOwnedPod)).To(Succeed())
+			Expect(controller.podIndexer.Add(nonOwnedPod)).To(Succeed())
 
 			res, err := controller.waitForFirstConsumerTemporaryPods(vmi, pod)
 			Expect(err).ToNot(HaveOccurred())
@@ -1379,7 +1376,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addPod(pod)
 			addPod(failedTargetPod2)
 
-			selectedPod, err := kvcontroller.CurrentVMIPod(vmi, podInformer.GetIndexer())
+			selectedPod, err := kvcontroller.CurrentVMIPod(vmi, controller.podIndexer)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(selectedPod.UID).To(Equal(pod.UID))
@@ -2600,7 +2597,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			for i := 0; i < podCount; i++ {
 				attachmentPod := NewPodForVirtlauncher(virtlauncherPod, fmt.Sprintf("test-pod%d", i), fmt.Sprintf("abcd%d", i), k8sv1.PodRunning)
-				Expect(podInformer.GetIndexer().Add(attachmentPod)).To(Succeed())
+				Expect(controller.podIndexer.Add(attachmentPod)).To(Succeed())
 			}
 			// Add some non owned pods.
 			for i := 0; i < 5; i++ {
@@ -2613,7 +2610,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						Phase: k8sv1.PodRunning,
 					},
 				}
-				Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
+				Expect(controller.podIndexer.Add(pod)).To(Succeed())
 			}
 			otherPod := &k8sv1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2625,13 +2622,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase: k8sv1.PodRunning,
 				},
 			}
-			Expect(podInformer.GetIndexer().Add(otherPod)).To(Succeed())
+			Expect(controller.podIndexer.Add(otherPod)).To(Succeed())
 			for i := 10; i < 10+podCount; i++ {
 				attachmentPod := NewPodForVirtlauncher(otherPod, fmt.Sprintf("test-pod%d", i), fmt.Sprintf("abcde%d", i), k8sv1.PodRunning)
-				Expect(podInformer.GetIndexer().Add(attachmentPod)).To(Succeed())
+				Expect(controller.podIndexer.Add(attachmentPod)).To(Succeed())
 			}
 
-			res, err := kvcontroller.AttachmentPods(virtlauncherPod, podInformer.GetIndexer())
+			res, err := kvcontroller.AttachmentPods(virtlauncherPod, controller.podIndexer)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(HaveLen(podCount))
 		},
@@ -2720,7 +2717,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			for _, pod := range attachmentPods {
 				pod.DeletionTimestamp = pointer.P(metav1.Now())
-				Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
+				Expect(controller.podIndexer.Add(pod)).To(Succeed())
 			}
 			for _, pvcIndex := range pvcIndexes {
 				pvc := NewHotplugPVC(fmt.Sprintf("claim%d", pvcIndex), k8sv1.NamespaceDefault, k8sv1.ClaimBound)
