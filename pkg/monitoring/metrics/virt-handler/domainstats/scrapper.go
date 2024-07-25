@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -31,11 +30,17 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
-type domainstatsScraper struct {
-	ch chan operatormetrics.CollectorResult
+type DomainstatsScraper struct {
+	ch chan *VirtualMachineInstanceReport
 }
 
-func (d domainstatsScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineInstance) {
+func NewDomainstatsScraper(channelLength int) *DomainstatsScraper {
+	return &DomainstatsScraper{
+		ch: make(chan *VirtualMachineInstanceReport, channelLength),
+	}
+}
+
+func (d DomainstatsScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineInstance) {
 	ts := time.Now()
 
 	exists, vmStats, err := gatherMetrics(socketFile)
@@ -62,11 +67,19 @@ func (d domainstatsScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineI
 	d.report(vmi, vmStats)
 }
 
-func (d domainstatsScraper) Complete() {
+func (d DomainstatsScraper) GetValues() []VirtualMachineInstanceReport {
+	var reports []VirtualMachineInstanceReport
+	for report := range d.ch {
+		reports = append(reports, *report)
+	}
+	return reports
+}
+
+func (d DomainstatsScraper) Complete() {
 	close(d.ch)
 }
 
-func (d domainstatsScraper) report(vmi *k6tv1.VirtualMachineInstance, vmStats *VirtualMachineInstanceStats) {
+func (d DomainstatsScraper) report(vmi *k6tv1.VirtualMachineInstance, vmStats *VirtualMachineInstanceStats) {
 	// statsMaxAge is an estimation - and there is no better way to do that. So it is possible that
 	// GetDomainStats() takes enough time to lag behind, but not enough to trigger the statsMaxAge check.
 	// In this case the next functions will end up writing on a closed channel. This will panic.
@@ -79,13 +92,7 @@ func (d domainstatsScraper) report(vmi *k6tv1.VirtualMachineInstance, vmStats *V
 		}
 	}()
 
-	vmiReport := newVirtualMachineInstanceReport(vmi, vmStats)
-	for _, rm := range rms {
-		crs := rm.Collect(vmiReport)
-		for _, cr := range crs {
-			d.ch <- cr
-		}
-	}
+	d.ch <- newVirtualMachineInstanceReport(vmi, vmStats)
 }
 
 func gatherMetrics(socketFile string) (bool, *VirtualMachineInstanceStats, error) {

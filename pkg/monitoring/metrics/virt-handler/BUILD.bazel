@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "metrics.go",
+        "migrationstats_collector.go",
         "version_metrics.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler",
@@ -12,6 +13,7 @@ go_library(
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/common/workqueue:go_default_library",
         "//pkg/monitoring/metrics/virt-handler/domainstats:go_default_library",
+        "//pkg/monitoring/metrics/virt-handler/migrationdomainstats:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",
         "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
@@ -20,6 +22,18 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["virt_handler_suite_test.go"],
-    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
+    srcs = [
+        "migrationstats_collector_test.go",
+        "virt_handler_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/monitoring/metrics/virt-handler/migrationdomainstats:go_default_library",
+        "//pkg/virt-launcher/virtwrap/stats:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//tests/libmonitoring:go_default_library",
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
 )
