@@ -51,7 +51,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -87,7 +86,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var mockQueue *testutils.MockWorkQueue
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
-	var networkClient *fakenetworkclient.Clientset
 	// We pass the store to backend storage and we don't have direct access
 	var storageClassStore cache.Store
 	var kvStore cache.Store
@@ -287,8 +285,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		networkClient = fakenetworkclient.NewSimpleClientset()
-		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 
 		syncCaches(stop)
 	})
