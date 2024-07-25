@@ -78,10 +78,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var config *virtconfig.ClusterConfig
 
 	var vmiSource *framework.FakeControllerSource
-	var vmSource *framework.FakeControllerSource
 	var podSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
-	var vmInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *VMIController
@@ -230,7 +228,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
-		go vmInformer.Run(stop)
 		go podInformer.Run(stop)
 		go pvcInformer.Run(stop)
 
@@ -238,7 +235,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		go storageClassInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
-			vmInformer.HasSynced,
 			podInformer.HasSynced,
 			pvcInformer.HasSynced,
 			dataVolumeInformer.HasSynced,
@@ -251,7 +247,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
-		vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, kvcontroller.GetVirtualMachineInformerIndexers())
+
+		vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, kvcontroller.GetVirtualMachineInformerIndexers())
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
@@ -1602,7 +1599,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 
 			if vmExists {
-				vmSource.Add(vm)
+				controller.vmStore.Add(vm)
 				// the controller isn't using informer callbacks for the VM informer
 				// so add a sleep here to ensure the informer has time to cache up before
 				// we call Execute()
