@@ -17,7 +17,7 @@
  *
  */
 
-package libmonitoring
+package testing
 
 import (
 	"fmt"
@@ -30,6 +30,11 @@ const (
 	prometheusMetricNameLabel       = "__name__"
 	prometheusHistogramBucketSuffix = "_bucket"
 )
+
+type PromResult struct {
+	Metric map[string]string `json:"metric"`
+	Value  []interface{}     `json:"value"`
+}
 
 type MetricMatcher struct {
 	Metric operatormetrics.Metric
@@ -57,7 +62,7 @@ func (matcher *MetricMatcher) NegatedFailureMessage(actual interface{}) (message
 }
 
 func (matcher *MetricMatcher) Match(actual interface{}) (success bool, err error) {
-	actualMetric, ok := actual.(promResult)
+	actualMetric, ok := actual.(PromResult)
 	if !ok {
 		return false, fmt.Errorf("metric matcher requires a libmonitoring.PromResult")
 	}

@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k6tv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -72,7 +73,7 @@ var _ = Describe("memory metrics", func() {
 
 		DescribeTable("should collect metrics values", func(metric operatormetrics.Metric, expectedValue float64) {
 			crs := memoryMetrics{}.Collect(vmiReport)
-			Expect(crs).To(ContainElement(gomegaContainsMetricMatcher(metric, expectedValue)))
+			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(metric, expectedValue)))
 		},
 			Entry("kubevirt_vmi_memory_resident_bytes", memoryResident, kibibytesToBytes(1)),
 			Entry("kubevirt_vmi_memory_available_bytes", memoryAvailable, kibibytesToBytes(2)),

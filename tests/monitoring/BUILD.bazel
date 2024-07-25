@@ -13,6 +13,7 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/monitoring/metrics/testing:go_default_library",
         "//pkg/monitoring/metrics/virt-api:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/monitoring/metrics/virt-handler:go_default_library",

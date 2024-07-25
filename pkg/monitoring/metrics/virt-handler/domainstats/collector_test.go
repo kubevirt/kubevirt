@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k6tv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats/collector"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -75,10 +76,9 @@ var _ = Describe("domain stats collector", func() {
 				vmiStats: vmiStats,
 			}
 			crs := execCollector(concCollector, vmis)
-
 			Expect(crs).To(HaveLen(2))
-			Expect(crs).To(ContainElement(gomegaContainsMetricMatcher(memoryResident, kibibytesToBytes(1))))
-			Expect(crs).To(ContainElement(gomegaContainsMetricMatcher(memoryResident, kibibytesToBytes(2))))
+			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(memoryResident, kibibytesToBytes(1))))
+			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(memoryResident, kibibytesToBytes(2))))
 		})
 	})
 })
