@@ -110,10 +110,9 @@ http_file(
 
 http_file(
     name = "alpine_image_s390x",
-    sha256 = "d24430eafd67f8d527550824c4bd56fbe3d3eca328d9f1dc4c7c7e237d693869",
+    sha256 = "4ca1462252246d53e4949523b87fcea088e8b4992dbd6df792818c5875069b16",
     urls = [
-        "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/s390x/alpine-standard-3.20.1-s390x.iso",
-        "https://storage.googleapis.com/builddeps/d24430eafd67f8d527550824c4bd56fbe3d3eca328d9f1dc4c7c7e237d693869",
+        "https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/s390x/alpine-standard-3.18.8-s390x.iso",
     ],
 )
 
