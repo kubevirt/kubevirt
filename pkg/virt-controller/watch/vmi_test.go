@@ -3416,8 +3416,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		Context("pod status update", func() {
-			const mac1 = "abc"
-			const mac2 = "bcd"
 			BeforeEach(func() {
 				vmi = api.NewMinimalVMI(vmName)
 				pod = NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -3919,7 +3917,8 @@ func setReadyCondition(vmi *virtv1.VirtualMachineInstance, status k8sv1.Conditio
 }
 
 func setDataVolumeCondition(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeCondition) {
-	for _, c := range dv.Status.Conditions {
+	for i := range dv.Status.Conditions {
+		c := &dv.Status.Conditions[i]
 		if c.Type == cond.Type {
 			c.Status = cond.Status
 			c.Message = cond.Message
