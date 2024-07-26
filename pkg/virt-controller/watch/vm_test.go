@@ -5600,7 +5600,7 @@ var _ = Describe("VirtualMachine", func() {
 			),
 			Entry(
 				"fails with proper error",
-				testSynchronizer{err: &syncErrorImpl{err: fmt.Errorf("good error"), reason: "good reason"}},
+				testSynchronizer{err: newSyncError(fmt.Errorf("good error"), "good reason")},
 				v1.VirtualMachineCondition{Type: v1.VirtualMachineFailure, Status: k8sv1.ConditionTrue, Reason: "good reason", Message: "good error"}, 2,
 			),
 			Entry(
