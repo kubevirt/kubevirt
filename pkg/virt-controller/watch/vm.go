@@ -35,6 +35,7 @@ import (
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	"github.com/google/uuid"
@@ -388,7 +389,7 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
-	var syncErr syncError
+	var syncErr common.SyncError
 
 	vm, syncErr, err = c.sync(vm, vmi, key)
 	if err != nil {
@@ -1006,7 +1007,7 @@ func (c *VMController) addStartRequest(vm *virtv1.VirtualMachine) error {
 	return nil
 }
 
-func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, runStrategy virtv1.VirtualMachineRunStrategy) (*virtv1.VirtualMachine, syncError) {
+func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, runStrategy virtv1.VirtualMachineRunStrategy) (*virtv1.VirtualMachine, common.SyncError) {
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Errorf(fetchingVMKeyErrFmt, err)
@@ -2409,7 +2410,7 @@ func (c *VMController) syncGenerationInfo(vm *virtv1.VirtualMachine, vmi *virtv1
 	return nil
 }
 
-func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError, logger *log.FilteredLogger) error {
+func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr common.SyncError, logger *log.FilteredLogger) error {
 	key := controller.VirtualMachineKey(vmOrig)
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: vmOrig.Name})
 
@@ -2674,7 +2675,7 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	}
 }
 
-func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
+func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr common.SyncError) {
 	cm := controller.NewVirtualMachineConditionManager()
 
 	// ready condition is handled differently as it persists regardless if vmi exists or not
@@ -2725,7 +2726,7 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 	}
 }
 
-func processFailureCondition(vm *virtv1.VirtualMachine, syncErr syncError) {
+func processFailureCondition(vm *virtv1.VirtualMachine, syncErr common.SyncError) {
 
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if syncErr == nil {
@@ -3051,12 +3052,12 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 	return false
 }
 
-func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, syncError, error) {
+func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, common.SyncError, error) {
 
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
 	var (
-		syncErr     syncError
+		syncErr     common.SyncError
 		err         error
 		startVMSpec *virtv1.VirtualMachineSpec
 	)
@@ -3150,7 +3151,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 	if c.netSynchronizer != nil {
 		syncedVM, errSync := c.netSynchronizer.Sync(vmCopy, vmi)
-		var errWithReason syncError
+		var errWithReason common.SyncError
 		if errSync != nil {
 			if errors.As(errSync, &errWithReason) {
 				return vm, errWithReason, nil
