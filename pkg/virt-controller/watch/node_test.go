@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -16,7 +15,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -24,13 +22,13 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/testing"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 )
 
 var _ = Describe("Node controller with", func() {
@@ -120,12 +118,12 @@ var _ = Describe("Node controller with", func() {
 	Context("pods and vmis given", func() {
 		It("should only select stuck vmis", func() {
 			node := NewHealthyNode("test")
-			vmiWithPod := NewRunningVirtualMachine("vmiWithPod", node)
+			vmiWithPod := watchtesting.NewRunningVirtualMachine("vmiWithPod", node)
 			podForVMI := NewHealthyPodForVirtualMachine("podForVMI", vmiWithPod)
-			vmiWithPodInDifferentNamespace := NewRunningVirtualMachine("vmiWithPodInDifferentNamespace", node)
+			vmiWithPodInDifferentNamespace := watchtesting.NewRunningVirtualMachine("vmiWithPodInDifferentNamespace", node)
 			podInDifferentNamespace := NewHealthyPodForVirtualMachine("podInDifferentnamespace", vmiWithPodInDifferentNamespace)
 			podInDifferentNamespace.Namespace = "wrong"
-			vmiWithoutPod := NewRunningVirtualMachine("vmiWithoutPod", node)
+			vmiWithoutPod := watchtesting.NewRunningVirtualMachine("vmiWithoutPod", node)
 
 			vmis := filterStuckVirtualMachinesWithoutPods([]*v1.VirtualMachineInstance{
 				vmiWithPod,
@@ -174,7 +172,7 @@ var _ = Describe("Node controller with", func() {
 		})
 		DescribeTable("should set a vmi without a pod to failed state if the vmi is in ", func(phase v1.VirtualMachineInstancePhase) {
 			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi1", node)
+			vmi := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			vmi.Status.Phase = phase
 			addVMI(vmi)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
@@ -190,11 +188,11 @@ var _ = Describe("Node controller with", func() {
 		)
 		It("should set multiple vmis to failed in one go, even if some updates fail", func() {
 			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi", node)
+			vmi := watchtesting.NewRunningVirtualMachine("vmi", node)
 			addVMI(vmi)
-			vmi1 := NewRunningVirtualMachine("vmi1", node)
+			vmi1 := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			addVMI(vmi1)
-			vmi2 := NewRunningVirtualMachine("vmi2", node)
+			vmi2 := watchtesting.NewRunningVirtualMachine("vmi2", node)
 			addVMI(vmi2)
 
 			fakeVirtClient.Fake.PrependReactor("patch", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -213,7 +211,7 @@ var _ = Describe("Node controller with", func() {
 		})
 		It("should set a vmi without a pod to failed state, triggered by vmi add event", func() {
 			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi1", node)
+			vmi := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			addVMI(vmi)
 
 			vmiFeeder.Add(vmi)
@@ -232,7 +230,7 @@ var _ = Describe("Node controller with", func() {
 		})
 		It("should set a vmi without a pod containing all terminated containers in a failed state", func() {
 			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi1", node)
+			vmi := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			addVMI(vmi)
 
 			kubeClient.Fake.PrependReactor("list", "pods", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
@@ -245,7 +243,7 @@ var _ = Describe("Node controller with", func() {
 		})
 		It("should set a vmi without a pod to failed state, triggered by node update", func() {
 			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi1", node)
+			vmi := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			addVMI(vmi)
 
 			Expect(nodeInformer.GetStore().Add(node)).To(Succeed())
@@ -265,7 +263,7 @@ var _ = Describe("Node controller with", func() {
 		})
 		It("should set a vmi without a pod to failed state, triggered by node delete", func() {
 			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi1", node)
+			vmi := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			addVMI(vmi)
 
 			Expect(nodeInformer.GetStore().Add(node)).To(Succeed())
@@ -285,7 +283,7 @@ var _ = Describe("Node controller with", func() {
 		})
 		It("should set a vmi without a pod to failed state, triggered by vmi modify event", func() {
 			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi1", node)
+			vmi := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			addVMI(vmi)
 
 			Expect(vmiInformer.GetStore().Add(vmi)).To(Succeed())
@@ -305,7 +303,7 @@ var _ = Describe("Node controller with", func() {
 		})
 		It("should set a vmi with an unhealthy pod to failed state, triggered by vmi modify event", func() {
 			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi1", node)
+			vmi := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			addVMI(vmi)
 
 			Expect(vmiInformer.GetStore().Add(vmi)).To(Succeed())
@@ -326,10 +324,10 @@ var _ = Describe("Node controller with", func() {
 
 		DescribeTable("should ignore a vmi which still has a healthy pod in", func(phase v1.VirtualMachineInstancePhase) {
 			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi", node)
+			vmi := watchtesting.NewRunningVirtualMachine("vmi", node)
 			vmi.Status.Phase = phase
 			addVMI(vmi)
-			vmi1 := NewRunningVirtualMachine("vmi1", node)
+			vmi1 := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			vmi1.Status.Phase = phase
 			addVMI(vmi1)
 
@@ -357,7 +355,7 @@ var _ = Describe("Node controller with", func() {
 
 		BeforeEach(func() {
 			node = NewHealthyNode("testnode")
-			vmi = NewRunningVirtualMachine("vmi", node)
+			vmi = watchtesting.NewRunningVirtualMachine("vmi", node)
 		})
 
 		DescribeTable("testing orpahned event", func(returnVirtHandler bool, ds *appv1.DaemonSet, hasrunningvmi bool, expectEvent bool) {
@@ -475,17 +473,6 @@ func NewVirtHandlerPod(nodeName string) *k8sv1.Pod {
 			NodeName: nodeName,
 		},
 	}
-}
-
-func NewRunningVirtualMachine(vmiName string, node *k8sv1.Node) *v1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMI(vmiName)
-	vmi.UID = types.UID(uuid.NewString())
-	vmi.Status.Phase = v1.Running
-	vmi.Status.NodeName = node.Name
-	vmi.Labels = map[string]string{
-		v1.NodeNameLabel: node.Name,
-	}
-	return vmi
 }
 
 func NewUnhealthyStuckTerminatingPodForVirtualMachine(podName string, vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
