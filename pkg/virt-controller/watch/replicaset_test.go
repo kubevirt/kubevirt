@@ -33,6 +33,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 )
 
 var _ = Describe("Replicaset", func() {
@@ -409,7 +410,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
-			markAsReady(vmi)
+			watchtesting.MarkAsReady(vmi)
 
 			addReplicaSet(rs)
 			addVMI(vmi)
@@ -452,7 +453,7 @@ var _ = Describe("Replicaset", func() {
 			// Move one VirtualMachineInstance to a final state
 			modifiedVMI := vmi.DeepCopy()
 			modifiedVMI.Status.Phase = v1.Running
-			markAsReady(modifiedVMI)
+			watchtesting.MarkAsReady(modifiedVMI)
 			modifiedVMI.ResourceVersion = "1"
 			vmiFeeder.Modify(modifiedVMI)
 
@@ -468,7 +469,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
-			markAsReady(vmi)
+			watchtesting.MarkAsReady(vmi)
 			addReplicaSet(rs)
 			addVMI(vmi)
 
@@ -480,7 +481,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Move one VirtualMachineInstance to a final state
 			modifiedVMI := vmi.DeepCopy()
-			markAsNonReady(modifiedVMI)
+			watchtesting.MarkAsNonReady(modifiedVMI)
 			modifiedVMI.ResourceVersion = "1"
 			vmiFeeder.Modify(modifiedVMI)
 
@@ -521,7 +522,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
-			markAsReady(vmi)
+			watchtesting.MarkAsReady(vmi)
 			addReplicaSet(rs)
 			addVMI(vmi)
 
@@ -560,7 +561,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
-			markAsReady(vmi)
+			watchtesting.MarkAsReady(vmi)
 			addReplicaSet(rs)
 			addVMI(vmi)
 
