@@ -64,6 +64,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
+	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
@@ -1565,7 +1567,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Status.Phase = virtv1.Succeeded
 			Expect(vmi.Finalizers).To(ContainElement(virtv1.VirtualMachineControllerFinalizer))
 
-			vm := VirtualMachineFromVMI(vmi.Name, vmi, true)
+			vm := watchtesting.VirtualMachineFromVMI(vmi.Name, vmi, true)
 			vm.UID = "123"
 			if hasOwner {
 				t := true
@@ -3150,7 +3152,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				})
 			}
 
-			vmi := NewRunningVirtualMachine("testvmi", &k8sv1.Node{
+			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testnode",
 				},
@@ -4046,16 +4048,6 @@ func newPodForVirtlauncher(virtlauncher *k8sv1.Pod, name, uid string, phase k8sv
 			},
 		},
 	}
-}
-
-func markAsReady(vmi *virtv1.VirtualMachineInstance) {
-	vmi.Status.Phase = "Running"
-	kvcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
-}
-
-func markAsNonReady(vmi *virtv1.VirtualMachineInstance) {
-	kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-	kvcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse})
 }
 
 func addVolumeStatuses(vmi *virtv1.VirtualMachineInstance, volumeStatuses ...virtv1.VolumeStatus) *virtv1.VirtualMachineInstance {
