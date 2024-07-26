@@ -45,7 +45,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -76,7 +75,6 @@ type PodVmIfaceStatus struct {
 var _ = Describe("VirtualMachineInstance watcher", func() {
 	var config *virtconfig.ClusterConfig
 
-	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *VMIController
@@ -231,7 +229,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
-		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
+		vmiInformer, _ = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
 
 		vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, kvcontroller.GetVirtualMachineInformerIndexers())
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
@@ -292,10 +290,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	})
 
 	addVirtualMachine := func(vmi *virtv1.VirtualMachineInstance) {
-		mockQueue.ExpectAdds(1)
-		vmiSource.Add(vmi)
-		mockQueue.Wait()
-		_, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+		controller.vmiIndexer.Add(vmi)
+		key, err := kvcontroller.KeyFunc(vmi)
+		Expect(err).To(Not(HaveOccurred()))
+		mockQueue.Add(key)
+		_, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -947,11 +946,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			key, err := kvcontroller.KeyFunc(vmi)
 			Expect(err).To(Not(HaveOccurred()))
-			mockQueue.ExpectAdds(1)
 			mockQueue.Add(key)
 			controller.podIndexer.Update(modifiedPod)
 			controller.podExpectations.SetExpectations(key, 0, 0)
-			mockQueue.Wait()
 
 			controller.Execute()
 			expectVMIFailedState(vmi)
@@ -1097,9 +1094,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Expect(controller.Queue.Len()).To(Equal(0))
 				// When the PVC appears, we will automatically be retriggered, it is not an error condition
 				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(BeZero())
-				mockQueue.ExpectAdds(1)
-				vmiSource.Add(vmi)
-				mockQueue.Wait()
+
+				controller.vmiIndexer.Add(vmi)
+				key, err := kvcontroller.KeyFunc(vmi)
+				Expect(err).To(Not(HaveOccurred()))
+				mockQueue.Add(key)
+				// in previous loop we have updated the status
+				controller.vmiExpectations.SetExpectations(key, 0, 0)
 
 				controller.Execute()
 				Expect(controller.Queue.Len()).To(Equal(0))
@@ -1505,11 +1506,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			key, err := kvcontroller.KeyFunc(vmi)
 			Expect(err).To(Not(HaveOccurred()))
-			mockQueue.ExpectAdds(1)
 			mockQueue.Add(key)
+
 			controller.podIndexer.Update(pod)
 			controller.podExpectations.SetExpectations(key, 0, 0)
-			mockQueue.Wait()
 
 			controller.Execute()
 			expectVMIScheduledState(vmi)
@@ -1528,10 +1528,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			key, err := kvcontroller.KeyFunc(vmi)
 			Expect(err).To(Not(HaveOccurred()))
-			mockQueue.ExpectAdds(1)
 			mockQueue.Add(key)
+
 			controller.podIndexer.Delete(pod)
-			mockQueue.Wait()
 
 			controller.Execute()
 			expectVMIFailedState(vmi)
