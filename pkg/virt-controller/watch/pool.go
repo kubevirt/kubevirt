@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/util/status"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
@@ -795,7 +796,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 	return nil
 }
 
-func (c *PoolController) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (syncError, bool) {
+func (c *PoolController) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (common.SyncError, bool) {
 	diff := c.calcDiff(pool, vms)
 	if diff == 0 {
 		// nothing to do
@@ -1078,7 +1079,7 @@ func (c *PoolController) isOutdatedVM(pool *poolv1.VirtualMachinePool, vm *virtv
 
 }
 
-func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) syncError {
+func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) common.SyncError {
 
 	keys, err := c.revisionIndexer.IndexKeys("vmpool", string(pool.UID))
 	if err != nil {
@@ -1130,7 +1131,7 @@ func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, v
 	return nil
 }
 
-func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (syncError, bool) {
+func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (common.SyncError, bool) {
 	// List of VMs that need to be updated
 	vmOutdatedList := []*virtv1.VirtualMachine{}
 	// List of VMs that are up-to-date that need to be checked to see if VMI is up-to-date
@@ -1192,7 +1193,7 @@ func (c *PoolController) Execute() bool {
 	return true
 }
 
-func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, syncErr syncError) error {
+func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, syncErr common.SyncError) error {
 
 	key, err := controller.KeyFunc(origPool)
 	if err != nil {
@@ -1258,7 +1259,7 @@ func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms [
 func (c *PoolController) execute(key string) error {
 	logger := log.DefaultLogger()
 
-	var syncErr syncError
+	var syncErr common.SyncError
 
 	obj, poolExists, err := c.poolIndexer.GetByKey(key)
 	if err != nil {
