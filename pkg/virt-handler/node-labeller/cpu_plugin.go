@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -84,12 +83,16 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	usableModels := make([]string, 0)
 	for _, mode := range hostDomCapabilities.CPU.Mode {
 		if mode.Name == v1.CPUModeHostModel {
-			if virtconfig.IsARM64(runtime.GOARCH) {
+			if virtconfig.IsARM64(n.arch) {
 				log.Log.Warning("host-model cpu mode is not supported for ARM architecture")
 				continue
 			}
 
 			n.cpuModelVendor = mode.Vendor.Name
+			// On s390x the xml does not include a CPU Vendor, however there is only one company selling them anyway.
+			if virtconfig.IsS390X(n.arch) && n.cpuModelVendor == "" {
+				n.cpuModelVendor = "IBM"
+			}
 
 			if len(mode.Model) < 1 {
 				return fmt.Errorf("host model mode is expected to contain a model")
@@ -135,11 +138,10 @@ func (n *NodeLabeller) loadHostSupportedFeatures() error {
 
 	usableFeatures := make([]string, 0)
 	for _, f := range hostFeatures.Feature {
-		if f.Policy != util.RequirePolicy {
-			continue
+		// On s390x, the policy is not set
+		if f.Policy == util.RequirePolicy || (virtconfig.IsS390X(n.arch) && f.Policy == "") {
+			usableFeatures = append(usableFeatures, f.Name)
 		}
-
-		usableFeatures = append(usableFeatures, f.Name)
 	}
 
 	n.supportedFeatures = usableFeatures

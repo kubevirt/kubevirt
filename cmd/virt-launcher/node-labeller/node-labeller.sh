@@ -38,8 +38,8 @@ virtqemud -d
 
 virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
 
-# hypervisor-cpu-baseline command only works on x86
-if [ "$ARCH" == "x86_64" ]; then
+# hypervisor-cpu-baseline command only works on x86 and s390x
+if [ "$ARCH" == "x86_64" ] || [ "$ARCH" == "s390x" ]; then
    virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE | virsh hypervisor-cpu-baseline --features /dev/stdin --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/supported_features.xml
 fi
 
