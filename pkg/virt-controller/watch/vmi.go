@@ -156,27 +156,6 @@ func NewVMIController(templateService services.TemplateService,
 	return c, nil
 }
 
-func newSyncError(err error, reason string) *syncErrorImpl {
-	return &syncErrorImpl{err, reason}
-}
-
-type syncErrorImpl struct {
-	err    error
-	reason string
-}
-
-func (e *syncErrorImpl) Error() string {
-	return e.err.Error()
-}
-
-func (e *syncErrorImpl) Reason() string {
-	return e.reason
-}
-
-func (e *syncErrorImpl) RequiresRequeue() bool {
-	return true
-}
-
 type informalSyncError struct {
 	err    error
 	reason string
@@ -515,7 +494,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			if vmi.Status.TopologyHints == nil {
 				if topologyHints, tscRequirement, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil && tscRequirement == topology.RequiredForBoot {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedGatherhingClusterTopologyHints, err.Error())
-					return newSyncError(err, controller.FailedGatherhingClusterTopologyHints)
+					return common.NewSyncError(err, controller.FailedGatherhingClusterTopologyHints)
 				} else if topologyHints != nil {
 					vmiCopy.Status.TopologyHints = topologyHints
 				}
@@ -588,7 +567,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				podQosClass := pod.Status.QOSClass
 				if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
-					syncErr = newSyncError(fmt.Errorf("failed to guarantee pod resources"), controller.FailedGuaranteePodResourcesReason)
+					syncErr = common.NewSyncError(fmt.Errorf("failed to guarantee pod resources"), controller.FailedGuaranteePodResourcesReason)
 					break
 				}
 
@@ -944,7 +923,7 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 
 		reason := containerStatus.State.Waiting.Reason
 		if reason == controller.ErrImagePullReason || reason == controller.ImagePullBackOffReason {
-			return newSyncError(fmt.Errorf(containerStatus.State.Waiting.Message), reason)
+			return common.NewSyncError(fmt.Errorf(containerStatus.State.Waiting.Message), reason)
 
 		}
 	}
@@ -959,7 +938,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	if vmi.DeletionTimestamp != nil {
 		err := c.deleteAllMatchingPods(vmi)
 		if err != nil {
-			return newSyncError(fmt.Errorf("failed to delete pod: %v", err), controller.FailedDeletePodReason)
+			return common.NewSyncError(fmt.Errorf("failed to delete pod: %v", err), controller.FailedDeletePodReason)
 		}
 		return nil
 	}
@@ -967,7 +946,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	if vmi.IsFinal() {
 		err := c.deleteAllAttachmentPods(vmi)
 		if err != nil {
-			return newSyncError(fmt.Errorf("failed to delete attachment pods: %v", err), controller.FailedHotplugSyncReason)
+			return common.NewSyncError(fmt.Errorf("failed to delete attachment pods: %v", err), controller.FailedHotplugSyncReason)
 		}
 		return nil
 	}
@@ -979,7 +958,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 	err := c.backendStorage.CreateIfNeededAndUpdateVolumeStatus(vmi)
 	if err != nil {
-		return newSyncError(err, controller.FailedBackendStorageCreateReason)
+		return common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
 	}
 
 	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
@@ -1008,11 +987,11 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		var backendStorageReady bool
 		backendStorageReady, err = c.backendStorage.IsPVCReady(vmi)
 		if err != nil {
-			return newSyncError(err, controller.FailedBackendStorageProbeReason)
+			return common.NewSyncError(err, controller.FailedBackendStorageProbeReason)
 		}
 		if !backendStorageReady {
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while backend storage populates.")
-			return newSyncError(fmt.Errorf("PVC pending"), controller.BackendStorageNotReadyReason)
+			return common.NewSyncError(fmt.Errorf("PVC pending"), controller.BackendStorageNotReadyReason)
 		}
 
 		var templatePod *k8sv1.Pod
@@ -1027,7 +1006,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedPvcNotFoundReason, failedToRenderLaunchManifestErrFormat, err)
 			return &informalSyncError{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), controller.FailedPvcNotFoundReason}
 		} else if err != nil {
-			return newSyncError(fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), controller.FailedCreatePodReason)
+			return common.NewSyncError(fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), controller.FailedCreatePodReason)
 		}
 
 		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig)
@@ -1036,7 +1015,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			validateErrors = append(validateErrors, errors.New(cause.String()))
 		}
 		if validateErr := errors.Join(validateErrors...); validateErrors != nil {
-			return newSyncError(fmt.Errorf("failed create validation: %v", validateErr), "FailedCreateValidation")
+			return common.NewSyncError(fmt.Errorf("failed create validation: %v", validateErr), "FailedCreateValidation")
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
@@ -1045,12 +1024,12 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
 			psaErr := fmt.Errorf("failed to create pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, psaErr)
-			return newSyncError(psaErr, controller.FailedCreatePodReason)
+			return common.NewSyncError(psaErr, controller.FailedCreatePodReason)
 		}
 		if err != nil {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating pod: %v", err)
 			c.podExpectations.CreationObserved(vmiKey)
-			return newSyncError(fmt.Errorf("failed to create virtual machine pod: %v", err), controller.FailedCreatePodReason)
+			return common.NewSyncError(fmt.Errorf("failed to create virtual machine pod: %v", err), controller.FailedCreatePodReason)
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created virtual machine pod %s", pod.Name)
 		return nil
@@ -1059,7 +1038,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	if !isWaitForFirstConsumer {
 		err := c.cleanupWaitForFirstConsumerTemporaryPods(vmi, pod)
 		if err != nil {
-			return newSyncError(fmt.Errorf("failed to clean up temporary pods: %v", err), controller.FailedHotplugSyncReason)
+			return common.NewSyncError(fmt.Errorf("failed to clean up temporary pods: %v", err), controller.FailedHotplugSyncReason)
 		}
 	}
 
@@ -1069,14 +1048,14 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
 		if err != nil {
-			return newSyncError(err, controller.FailedPodPatchReason)
+			return common.NewSyncError(err, controller.FailedPodPatchReason)
 		}
 		*pod = *patchedPod
 
 		hotplugVolumes := controller.GetHotplugVolumes(vmi, pod)
 		hotplugAttachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 		if err != nil {
-			return newSyncError(fmt.Errorf("failed to get attachment pods: %v", err), controller.FailedHotplugSyncReason)
+			return common.NewSyncError(fmt.Errorf("failed to get attachment pods: %v", err), controller.FailedHotplugSyncReason)
 		}
 
 		if pod.DeletionTimestamp == nil && c.needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods) {
@@ -1096,7 +1075,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := network.CalculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi); dynamicIfacesExist {
 			if err := c.updateMultusAnnotation(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
-				return newSyncError(fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err), controller.FailedHotplugSyncReason)
+				return common.NewSyncError(fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err), controller.FailedHotplugSyncReason)
 			}
 		}
 	}
@@ -1120,7 +1099,7 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 					return false, false, &informalSyncError{err: fmt.Errorf("PVC %s/%s does not exist, waiting for it to appear", vmi.Namespace, storagetypes.PVCNameFromVirtVolume(&volume)), reason: controller.FailedPvcNotFoundReason}
 				} else {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedPvcNotFoundReason, "Error determining if volume is ready: %v", err)
-					return false, false, newSyncError(fmt.Errorf("Error determining if volume is ready %v", err), controller.FailedDataVolumeImportReason)
+					return false, false, common.NewSyncError(fmt.Errorf("Error determining if volume is ready %v", err), controller.FailedDataVolumeImportReason)
 				}
 			}
 			wffc = wffc || volumeWffc
@@ -1666,7 +1645,7 @@ func (c *VMIController) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*
 			continue
 		}
 		if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
-			return newSyncError(fmt.Errorf("Error deleting attachment pod %v", err), controller.FailedDeletePodReason)
+			return common.NewSyncError(fmt.Errorf("Error deleting attachment pod %v", err), controller.FailedDeletePodReason)
 		}
 	}
 	return nil
@@ -1698,7 +1677,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		var err error
 		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 		if err != nil {
-			return newSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
+			return common.NewSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
 		}
 		if wffc {
 			// Volume in WaitForFirstConsumer, it has not been populated by CDI yet. create a dummy pod
@@ -1723,7 +1702,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 			key, err := controller.KeyFunc(vmi)
 			if err != nil {
 				logger.Object(vmi).Reason(err).Error("failed to extract key from virtualmachine.")
-				return newSyncError(fmt.Errorf("failed to extract key from virtualmachine. %v", err), controller.FailedHotplugSyncReason)
+				return common.NewSyncError(fmt.Errorf("failed to extract key from virtualmachine. %v", err), controller.FailedHotplugSyncReason)
 			}
 			c.Queue.AddAfter(key, waitTime)
 		} else {
@@ -1770,7 +1749,7 @@ func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, 
 	if err != nil {
 		c.podExpectations.CreationObserved(vmiKey)
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating attachment pod: %v", err)
-		return nil, newSyncError(fmt.Errorf("Error creating attachment pod %v", err), controller.FailedCreatePodReason)
+		return nil, common.NewSyncError(fmt.Errorf("Error creating attachment pod %v", err), controller.FailedCreatePodReason)
 	}
 	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created attachment pod %s", pod.Name)
 	return pod, nil
@@ -1779,7 +1758,7 @@ func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, 
 func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) common.SyncError {
 	populateHotplugPodTemplate, err := c.createAttachmentPopulateTriggerPodTemplate(volume, virtLauncherPod, vmi)
 	if err != nil {
-		return newSyncError(fmt.Errorf("Error creating trigger pod template %v", err), controller.FailedCreatePodReason)
+		return common.NewSyncError(fmt.Errorf("Error creating trigger pod template %v", err), controller.FailedCreatePodReason)
 	}
 	if populateHotplugPodTemplate != nil { // nil means the PVC is not populated yet.
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
@@ -1789,7 +1768,7 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 		if err != nil {
 			c.podExpectations.CreationObserved(vmiKey)
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating hotplug population trigger pod for volume %s: %v", volume.Name, err)
-			return newSyncError(fmt.Errorf("Error creating hotplug population trigger pod %v", err), controller.FailedCreatePodReason)
+			return common.NewSyncError(fmt.Errorf("Error creating hotplug population trigger pod %v", err), controller.FailedCreatePodReason)
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created hotplug trigger pod for volume %s", volume.Name)
 	}

@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	gomegatypes "github.com/onsi/gomega/types"
@@ -5600,7 +5601,7 @@ var _ = Describe("VirtualMachine", func() {
 			),
 			Entry(
 				"fails with proper error",
-				testSynchronizer{err: newSyncError(fmt.Errorf("good error"), "good reason")},
+				testSynchronizer{err: common.NewSyncError(fmt.Errorf("good error"), "good reason")},
 				v1.VirtualMachineCondition{Type: v1.VirtualMachineFailure, Status: k8sv1.ConditionTrue, Reason: "good reason", Message: "good error"}, 2,
 			),
 			Entry(

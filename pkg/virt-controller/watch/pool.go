@@ -807,12 +807,12 @@ func (c *PoolController) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Vi
 	if diff < 0 {
 		err := c.scaleOut(pool, abs(diff))
 		if err != nil {
-			return newSyncError(fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason), false
+			return common.NewSyncError(fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason), false
 		}
 	} else if diff > 0 {
 		err := c.scaleIn(pool, vms, diff)
 		if err != nil {
-			return newSyncError(fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason), false
+			return common.NewSyncError(fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason), false
 		}
 	}
 
@@ -1084,7 +1084,7 @@ func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, v
 	keys, err := c.revisionIndexer.IndexKeys("vmpool", string(pool.UID))
 	if err != nil {
 		if err != nil {
-			return newSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
+			return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 		}
 	}
 
@@ -1124,7 +1124,7 @@ func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, v
 	for revisionName := range deletionMap {
 		err := c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, v1.DeleteOptions{})
 		if err != nil {
-			return newSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
+			return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 		}
 	}
 
@@ -1140,7 +1140,7 @@ func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.V
 	for _, vm := range vms {
 		outdated, err := c.isOutdatedVM(pool, vm)
 		if err != nil {
-			return newSyncError(fmt.Errorf("Error while detected outdated VMs: %v", err), FailedUpdateReason), false
+			return common.NewSyncError(fmt.Errorf("Error while detected outdated VMs: %v", err), FailedUpdateReason), false
 		}
 
 		if outdated {
@@ -1152,12 +1152,12 @@ func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.V
 
 	err := c.opportunisticUpdate(pool, vmOutdatedList)
 	if err != nil {
-		return newSyncError(fmt.Errorf("Error during VM update: %v", err), FailedUpdateReason), false
+		return common.NewSyncError(fmt.Errorf("Error during VM update: %v", err), FailedUpdateReason), false
 	}
 
 	err = c.proactiveUpdate(pool, vmUpdatedList)
 	if err != nil {
-		return newSyncError(fmt.Errorf("Error during VMI update: %v", err), FailedUpdateReason), false
+		return common.NewSyncError(fmt.Errorf("Error during VMI update: %v", err), FailedUpdateReason), false
 	}
 
 	vmUpdateStable := false
