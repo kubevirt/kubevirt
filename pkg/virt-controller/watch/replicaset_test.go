@@ -548,6 +548,11 @@ var _ = Describe("Replicaset", func() {
 			)
 		})
 
+		markAsPodTerminating := func(vmi *v1.VirtualMachineInstance) {
+			virtcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+			virtcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse, Reason: v1.PodTerminatingReason})
+		}
+
 		It("should delete VirtualMachineInstance in unknown state", func() {
 			rs, vmi := defaultReplicaSet(1)
 			rs.Status.Replicas = 1
