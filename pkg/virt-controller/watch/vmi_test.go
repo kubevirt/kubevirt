@@ -75,8 +75,6 @@ type PodVmIfaceStatus struct {
 var _ = Describe("VirtualMachineInstance watcher", func() {
 	var config *virtconfig.ClusterConfig
 
-	var vmiInformer cache.SharedIndexInformer
-	var stop chan struct{}
 	var controller *VMIController
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
@@ -216,20 +214,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 	}
 
-	syncCaches := func(stop chan struct{}) {
-		go vmiInformer.Run(stop)
-
-		Expect(cache.WaitForCacheSync(stop,
-			vmiInformer.HasSynced,
-		)).To(BeTrue())
-	}
-
 	BeforeEach(func() {
-		stop = make(chan struct{})
 		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
-		vmiInformer, _ = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
+		vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
 
 		vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, kvcontroller.GetVirtualMachineInformerIndexers())
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
@@ -279,12 +268,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		syncCaches(stop)
 	})
 
 	AfterEach(func() {
-		close(stop)
 		// Ensure that we add checks for expected events to every test
 		Expect(recorder.Events).To(BeEmpty())
 	})
@@ -3377,7 +3363,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Status.Phase = virtv1.Succeeded
 			addVirtualMachine(vmi)
 
-			Expect(vmiInformer.GetIndexer().Delete(vmi)).To(Succeed())
+			Expect(controller.vmiIndexer.Delete(vmi)).To(Succeed())
 			controller.Execute()
 
 			Expect(controller.cidsMap.cids).To(BeEmpty())
