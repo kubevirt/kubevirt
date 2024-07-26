@@ -16,7 +16,7 @@
  *
  */
 
-package watch
+package vmi
 
 import (
 	"context"
@@ -74,7 +74,7 @@ const (
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 )
 
-func NewVMIController(templateService services.TemplateService,
+func NewController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
@@ -88,9 +88,9 @@ func NewVMIController(templateService services.TemplateService,
 	cdiConfigInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
-) (*VMIController, error) {
+) (*Controller, error) {
 
-	c := &VMIController{
+	c := &Controller{
 		templateService:   templateService,
 		Queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
 		vmiIndexer:        vmiInformer.GetIndexer(),
@@ -171,7 +171,7 @@ func (i informalSyncError) RequiresRequeue() bool {
 	return false
 }
 
-type VMIController struct {
+type Controller struct {
 	templateService   services.TemplateService
 	clientset         kubecli.KubevirtClient
 	Queue             workqueue.RateLimitingInterface
@@ -192,7 +192,7 @@ type VMIController struct {
 	hasSynced         func() bool
 }
 
-func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
+func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting vmi controller.")
@@ -217,14 +217,14 @@ func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Stopping vmi controller.")
 }
 
-func (c *VMIController) runWorker() {
+func (c *Controller) runWorker() {
 	for c.Execute() {
 	}
 }
 
 var virtControllerVMIWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
-func (c *VMIController) Execute() bool {
+func (c *Controller) Execute() bool {
 	key, quit := c.Queue.Get()
 	if quit {
 		return false
@@ -246,7 +246,7 @@ func (c *VMIController) Execute() bool {
 	return true
 }
 
-func (c *VMIController) execute(key string) error {
+func (c *Controller) execute(key string) error {
 
 	// Fetch the latest Vm state from cache
 	obj, exists, err := c.vmiIndexer.GetByKey(key)
@@ -318,7 +318,7 @@ func (c *VMIController) execute(key string) error {
 }
 
 // These "dynamic" labels are Pod labels which may diverge from the VMI over time that we want to keep in sync.
-func (c *VMIController) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+func (c *Controller) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	patchSet := patch.New()
 
 	dynamicLabels := []string{
@@ -376,7 +376,7 @@ func (c *VMIController) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstanc
 	return nil
 }
 
-func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
+func (c *Controller) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
 	patchSet := patch.New()
 	for key, newValue := range newAnnotations {
 		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
@@ -402,7 +402,7 @@ func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[st
 	return patchedPod, nil
 }
 
-func (c *VMIController) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string) *virtv1.VirtualMachineInstance {
+func (c *Controller) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string) *virtv1.VirtualMachineInstance {
 
 	if curPodImage != "" && curPodImage != c.templateService.GetLauncherImage() {
 		if vmi.Labels == nil {
@@ -421,7 +421,7 @@ func (c *VMIController) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInsta
 
 }
 
-func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
+func (c *Controller) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 	controllerRef := v1.GetControllerOf(vmi)
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
 		return false
@@ -436,7 +436,7 @@ func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 	return controllerRef.UID == ownerVM.UID
 }
 
-func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr common.SyncError) error {
+func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr common.SyncError) error {
 	key := controller.VirtualMachineInstanceKey(vmi)
 	defer virtControllerVMIWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VMI Name", Value: vmi.Name})
 
@@ -796,7 +796,7 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 	return patchSet
 }
 
-func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
+func (c *Controller) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	podConditions := controller.NewPodConditionManager()
 
@@ -853,7 +853,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 	}
 }
 
-func (c *VMIController) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	podConditions := controller.NewPodConditionManager()
 
@@ -929,7 +929,7 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 	return nil
 }
 
-func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
+func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
 	key := controller.VirtualMachineInstanceKey(vmi)
 	defer virtControllerVMIWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VMI Name", Value: vmi.Name})
 
@@ -1080,7 +1080,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	return nil
 }
 
-func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, bool, common.SyncError) {
+func (c *Controller) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, bool, common.SyncError) {
 
 	ready := true
 	wffc := false
@@ -1109,7 +1109,7 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 	return ready, wffc, nil
 }
 
-func (c *VMIController) addPVC(obj interface{}) {
+func (c *Controller) addPVC(obj interface{}) {
 	pvc := obj.(*k8sv1.PersistentVolumeClaim)
 	if pvc.DeletionTimestamp != nil {
 		return
@@ -1125,7 +1125,7 @@ func (c *VMIController) addPVC(obj interface{}) {
 	}
 }
 
-func (c *VMIController) updatePVC(old, cur interface{}) {
+func (c *Controller) updatePVC(old, cur interface{}) {
 	curPVC := cur.(*k8sv1.PersistentVolumeClaim)
 	oldPVC := old.(*k8sv1.PersistentVolumeClaim)
 	if curPVC.ResourceVersion == oldPVC.ResourceVersion {
@@ -1154,7 +1154,7 @@ func (c *VMIController) updatePVC(old, cur interface{}) {
 	}
 }
 
-func (c *VMIController) addDataVolume(obj interface{}) {
+func (c *Controller) addDataVolume(obj interface{}) {
 	dataVolume := obj.(*cdiv1.DataVolume)
 	if dataVolume.DeletionTimestamp != nil {
 		c.deleteDataVolume(dataVolume)
@@ -1171,7 +1171,7 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 	}
 }
 
-func (c *VMIController) updateDataVolume(old, cur interface{}) {
+func (c *Controller) updateDataVolume(old, cur interface{}) {
 	curDataVolume := cur.(*cdiv1.DataVolume)
 	oldDataVolume := old.(*cdiv1.DataVolume)
 	if curDataVolume.ResourceVersion == oldDataVolume.ResourceVersion {
@@ -1203,7 +1203,7 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		c.enqueueVirtualMachine(vmi)
 	}
 }
-func (c *VMIController) deleteDataVolume(obj interface{}) {
+func (c *Controller) deleteDataVolume(obj interface{}) {
 	dataVolume, ok := obj.(*cdiv1.DataVolume)
 	// When a delete is dropped, the relist will notice a dataVolume in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -1232,7 +1232,7 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 }
 
 // When a pod is created, enqueue the vmi that manages it and update its podExpectations.
-func (c *VMIController) addPod(obj interface{}) {
+func (c *Controller) addPod(obj interface{}) {
 	pod := obj.(*k8sv1.Pod)
 
 	if pod.DeletionTimestamp != nil {
@@ -1259,7 +1259,7 @@ func (c *VMIController) addPod(obj interface{}) {
 // When a pod is updated, figure out what vmi/s manage it and wake them
 // up. If the labels of the pod have changed we need to awaken both the old
 // and new vmi. old and cur must be *v1.Pod types.
-func (c *VMIController) updatePod(old, cur interface{}) {
+func (c *Controller) updatePod(old, cur interface{}) {
 	curPod := cur.(*k8sv1.Pod)
 	oldPod := old.(*k8sv1.Pod)
 	if curPod.ResourceVersion == oldPod.ResourceVersion {
@@ -1299,7 +1299,7 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 
 // When a pod is deleted, enqueue the vmi that manages the pod and update its podExpectations.
 // obj could be an *v1.Pod, or a DeletionFinalStateUnknown marker item.
-func (c *VMIController) deletePod(obj interface{}) {
+func (c *Controller) deletePod(obj interface{}) {
 	pod, ok := obj.(*k8sv1.Pod)
 
 	// When a delete is dropped, the relist will notice a pod in the store not
@@ -1332,12 +1332,12 @@ func (c *VMIController) deletePod(obj interface{}) {
 	c.enqueueVirtualMachine(vmi)
 }
 
-func (c *VMIController) addVirtualMachineInstance(obj interface{}) {
+func (c *Controller) addVirtualMachineInstance(obj interface{}) {
 	c.lowerVMIExpectation(obj)
 	c.enqueueVirtualMachine(obj)
 }
 
-func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
+func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
 	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 
 	// When a delete is dropped, the relist will notice a vmi in the store not
@@ -1359,12 +1359,12 @@ func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
 	c.enqueueVirtualMachine(vmi)
 }
 
-func (c *VMIController) updateVirtualMachineInstance(_, curr interface{}) {
+func (c *Controller) updateVirtualMachineInstance(_, curr interface{}) {
 	c.lowerVMIExpectation(curr)
 	c.enqueueVirtualMachine(curr)
 }
 
-func (c *VMIController) lowerVMIExpectation(curr interface{}) {
+func (c *Controller) lowerVMIExpectation(curr interface{}) {
 	key, err := controller.KeyFunc(curr)
 	if err != nil {
 		return
@@ -1372,7 +1372,7 @@ func (c *VMIController) lowerVMIExpectation(curr interface{}) {
 	c.vmiExpectations.LowerExpectations(key, 1, 0)
 }
 
-func (c *VMIController) enqueueVirtualMachine(obj interface{}) {
+func (c *Controller) enqueueVirtualMachine(obj interface{}) {
 	logger := log.Log
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	key, err := controller.KeyFunc(vmi)
@@ -1386,7 +1386,7 @@ func (c *VMIController) enqueueVirtualMachine(obj interface{}) {
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
-func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineInstance {
+func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineInstance {
 	if controllerRef != nil && controllerRef.Kind == "Pod" {
 		// This could be an attachment pod, look up the pod, and check if it is owned by a VMI.
 		obj, exists, err := c.podIndexer.GetByKey(namespace + "/" + controllerRef.Name)
@@ -1420,7 +1420,7 @@ func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1
 	return vmi.(*virtv1.VirtualMachineInstance)
 }
 
-func (c *VMIController) listVMIsMatchingDV(namespace string, dvName string) ([]*virtv1.VirtualMachineInstance, error) {
+func (c *Controller) listVMIsMatchingDV(namespace string, dvName string) ([]*virtv1.VirtualMachineInstance, error) {
 	// TODO - refactor if/when dv/pvc do not have the same name
 	vmis := []*virtv1.VirtualMachineInstance{}
 	for _, indexName := range []string{"dv", "pvc"} {
@@ -1436,7 +1436,7 @@ func (c *VMIController) listVMIsMatchingDV(namespace string, dvName string) ([]*
 	return vmis, nil
 }
 
-func (c *VMIController) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, error) {
+func (c *Controller) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, error) {
 	pods, err := c.listPodsFromNamespace(vmi.Namespace)
 	if err != nil {
 		return false, err
@@ -1452,7 +1452,7 @@ func (c *VMIController) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool
 
 }
 
-func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
+func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
 	pods, err := c.listPodsFromNamespace(vmi.Namespace)
 	if err != nil {
 		return err
@@ -1485,7 +1485,7 @@ func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance
 }
 
 // listPodsFromNamespace takes a namespace and returns all Pods from the pod cache which run in this namespace
-func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, error) {
+func (c *Controller) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, error) {
 	objs, err := c.podIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
@@ -1498,7 +1498,7 @@ func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, e
 	return pods, nil
 }
 
-func (c *VMIController) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+func (c *Controller) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
 	pods, err := c.listPodsFromNamespace(vmi.Namespace)
 	if err != nil {
 		return nil, err
@@ -1534,7 +1534,7 @@ func shouldSetMigrationTransport(pod *k8sv1.Pod) bool {
 	return ok
 }
 
-func (c *VMIController) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) error {
+func (c *Controller) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) error {
 	triggerPods, err := c.waitForFirstConsumerTemporaryPods(vmi, virtLauncherPod)
 	if err != nil {
 		return err
@@ -1543,7 +1543,7 @@ func (c *VMIController) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.Vir
 	return c.deleteRunningOrFinishedWFFCPods(vmi, triggerPods...)
 }
 
-func (c *VMIController) deleteRunningOrFinishedWFFCPods(vmi *virtv1.VirtualMachineInstance, pods ...*k8sv1.Pod) error {
+func (c *Controller) deleteRunningOrFinishedWFFCPods(vmi *virtv1.VirtualMachineInstance, pods ...*k8sv1.Pod) error {
 	for _, pod := range pods {
 		err := c.deleteRunningFinishedOrFailedPod(vmi, pod)
 		if err != nil && !k8serrors.IsNotFound(err) {
@@ -1555,7 +1555,7 @@ func (c *VMIController) deleteRunningOrFinishedWFFCPods(vmi *virtv1.VirtualMachi
 	return nil
 }
 
-func (c *VMIController) deleteRunningFinishedOrFailedPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+func (c *Controller) deleteRunningFinishedOrFailedPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	zero := int64(0)
 	if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
@@ -1571,7 +1571,7 @@ func (c *VMIController) deleteRunningFinishedOrFailedPod(vmi *virtv1.VirtualMach
 	return nil
 }
 
-func (c *VMIController) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) ([]*k8sv1.Pod, error) {
+func (c *Controller) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) ([]*k8sv1.Pod, error) {
 	var temporaryPods []*k8sv1.Pod
 
 	// Get all pods from the namespace
@@ -1598,7 +1598,7 @@ func (c *VMIController) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMac
 	return temporaryPods, nil
 }
 
-func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
+func (c *Controller) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
 	if len(hotplugAttachmentPods) > 1 {
 		return true
 	}
@@ -1609,7 +1609,7 @@ func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotp
 	return len(hotplugVolumes) > 0 || len(hotplugAttachmentPods) > 0
 }
 
-func (c *VMIController) getActiveAndOldAttachmentPods(readyHotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
+func (c *Controller) getActiveAndOldAttachmentPods(readyHotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
 	var currentPod *k8sv1.Pod
 	oldPods := make([]*k8sv1.Pod, 0)
 	for _, attachmentPod := range hotplugAttachmentPods {
@@ -1631,7 +1631,7 @@ func (c *VMIController) getActiveAndOldAttachmentPods(readyHotplugVolumes []*vir
 // 3. The newest oldPod is not running and not marked for deletion.
 // If any of those are true, it will not delete the newest oldPod, since that one is the latest
 // pod that is closest to the desired state.
-func (c *VMIController) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, numReadyVolumes int) common.SyncError {
+func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, numReadyVolumes int) common.SyncError {
 	foundRunning := false
 	for _, attachmentPod := range oldPods {
 		if !foundRunning &&
@@ -1659,14 +1659,14 @@ func hasPendingPods(pods []*k8sv1.Pod) bool {
 	return false
 }
 
-func (c *VMIController) requeueAfter(oldPods []*k8sv1.Pod, threshold time.Duration) (bool, time.Duration) {
+func (c *Controller) requeueAfter(oldPods []*k8sv1.Pod, threshold time.Duration) (bool, time.Duration) {
 	if len(oldPods) > 0 && oldPods[0].CreationTimestamp.Time.After(time.Now().Add(-1*threshold)) {
 		return true, threshold - time.Since(oldPods[0].CreationTimestamp.Time)
 	}
 	return false, 0
 }
 
-func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
+func (c *Controller) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
 	logger := log.Log.Object(vmi)
 
 	readyHotplugVolumes := make([]*virtv1.Volume, 0)
@@ -1718,7 +1718,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 	return nil
 }
 
-func (c *VMIController) podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*virtv1.Volume) bool {
+func (c *Controller) podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*virtv1.Volume) bool {
 	// -2 for empty dir and token
 	if len(attachmentPod.Spec.Volumes)-2 != len(volumes) {
 		return false
@@ -1735,7 +1735,7 @@ func (c *VMIController) podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, 
 	return len(podVolumeMap) == 0
 }
 
-func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, common.SyncError) {
+func (c *Controller) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, common.SyncError) {
 	attachmentPodTemplate, _ := c.createAttachmentPodTemplate(vmi, virtLauncherPod, volumes)
 	if attachmentPodTemplate == nil {
 		return nil, nil
@@ -1753,7 +1753,7 @@ func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, 
 	return pod, nil
 }
 
-func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) common.SyncError {
+func (c *Controller) triggerHotplugPopulation(volume *virtv1.Volume, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) common.SyncError {
 	populateHotplugPodTemplate, err := c.createAttachmentPopulateTriggerPodTemplate(volume, virtLauncherPod, vmi)
 	if err != nil {
 		return common.NewSyncError(fmt.Errorf("Error creating trigger pod template %v", err), controller.FailedCreatePodReason)
@@ -1773,7 +1773,7 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 	return nil
 }
 
-func (c *VMIController) volumeStatusContainsVolumeAndPod(volumeStatus []virtv1.VolumeStatus, volume *virtv1.Volume) bool {
+func (c *Controller) volumeStatusContainsVolumeAndPod(volumeStatus []virtv1.VolumeStatus, volume *virtv1.Volume) bool {
 	for _, status := range volumeStatus {
 		if status.Name == volume.Name && status.HotplugVolume != nil && status.HotplugVolume.AttachPodName != "" {
 			return true
@@ -1782,7 +1782,7 @@ func (c *VMIController) volumeStatusContainsVolumeAndPod(volumeStatus []virtv1.V
 	return false
 }
 
-func (c *VMIController) getNewHotplugVolumes(hotplugAttachmentPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume) []*virtv1.Volume {
+func (c *Controller) getNewHotplugVolumes(hotplugAttachmentPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume) []*virtv1.Volume {
 	var newVolumes []*virtv1.Volume
 	hotplugVolumeMap := make(map[string]*virtv1.Volume)
 	for _, volume := range hotplugVolumes {
@@ -1801,7 +1801,7 @@ func (c *VMIController) getNewHotplugVolumes(hotplugAttachmentPods []*k8sv1.Pod,
 	return newVolumes
 }
 
-func (c *VMIController) getDeletedHotplugVolumes(hotplugPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume) []k8sv1.Volume {
+func (c *Controller) getDeletedHotplugVolumes(hotplugPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume) []k8sv1.Volume {
 	var deletedVolumes []k8sv1.Volume
 	hotplugVolumeMap := make(map[string]*virtv1.Volume)
 	for _, volume := range hotplugVolumes {
@@ -1817,7 +1817,7 @@ func (c *VMIController) getDeletedHotplugVolumes(hotplugPods []*k8sv1.Pod, hotpl
 	return deletedVolumes
 }
 
-func (c *VMIController) deleteAttachmentPodForVolume(vmi *virtv1.VirtualMachineInstance, attachmentPod *k8sv1.Pod) error {
+func (c *Controller) deleteAttachmentPodForVolume(vmi *virtv1.VirtualMachineInstance, attachmentPod *k8sv1.Pod) error {
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 	zero := int64(0)
 
@@ -1838,7 +1838,7 @@ func (c *VMIController) deleteAttachmentPodForVolume(vmi *virtv1.VirtualMachineI
 	return nil
 }
 
-func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, error) {
+func (c *Controller) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, error) {
 	logger := log.Log.Object(vmi)
 	var pod *k8sv1.Pod
 	var err error
@@ -1871,7 +1871,7 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 	return pod, err
 }
 
-func (c *VMIController) createAttachmentPopulateTriggerPodTemplate(volume *virtv1.Volume, virtlauncherPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error) {
+func (c *Controller) createAttachmentPopulateTriggerPodTemplate(volume *virtv1.Volume, virtlauncherPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	claimName := storagetypes.PVCNameFromVirtVolume(volume)
 	if claimName == "" {
 		return nil, errors.New("Unable to hotplug, claim not PVC or Datavolume")
@@ -1888,7 +1888,7 @@ func (c *VMIController) createAttachmentPopulateTriggerPodTemplate(volume *virtv
 	return pod, err
 }
 
-func (c *VMIController) deleteAllAttachmentPods(vmi *virtv1.VirtualMachineInstance) error {
+func (c *Controller) deleteAllAttachmentPods(vmi *virtv1.VirtualMachineInstance) error {
 	virtlauncherPod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
 	if err != nil {
 		return err
@@ -1908,7 +1908,7 @@ func (c *VMIController) deleteAllAttachmentPods(vmi *virtv1.VirtualMachineInstan
 	return nil
 }
 
-func (c *VMIController) deleteOrphanedAttachmentPods(vmi *virtv1.VirtualMachineInstance) error {
+func (c *Controller) deleteOrphanedAttachmentPods(vmi *virtv1.VirtualMachineInstance) error {
 	pods, err := c.listPodsFromNamespace(vmi.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to list pods from namespace %s: %v", vmi.Namespace, err)
@@ -1941,7 +1941,7 @@ func (c *VMIController) deleteOrphanedAttachmentPods(vmi *virtv1.VirtualMachineI
 	return nil
 }
 
-func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) error {
+func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) error {
 	oldStatus := vmi.Status.DeepCopy().VolumeStatus
 	oldStatusMap := make(map[string]virtv1.VolumeStatus)
 	for _, status := range oldStatus {
@@ -2064,11 +2064,11 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	return nil
 }
 
-func (c *VMIController) volumeReady(phase virtv1.VolumePhase) bool {
+func (c *Controller) volumeReady(phase virtv1.VolumePhase) bool {
 	return phase == virtv1.VolumeReady
 }
 
-func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (virtv1.Percent, error) {
+func (c *Controller) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (virtv1.Percent, error) {
 	// To avoid conflicts, we only allow having one CDI instance
 	if cdiInstances := len(c.cdiStore.List()); cdiInstances != 1 {
 		if cdiInstances > 1 {
@@ -2091,11 +2091,11 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig), nil
 }
 
-func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
+func (c *Controller) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
 	return (currentPhase == "" || currentPhase == virtv1.VolumeBound || currentPhase == virtv1.VolumePending)
 }
 
-func (c *VMIController) findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
+func (c *Controller) findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
 	for _, pod := range attachmentPods {
 		for _, podVolume := range pod.Spec.Volumes {
 			if podVolume.Name == volumeName {
@@ -2106,7 +2106,7 @@ func (c *VMIController) findAttachmentPodByVolumeName(volumeName string, attachm
 	return nil
 }
 
-func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, namespace string) (virtv1.VolumePhase, string, string) {
+func (c *Controller) getVolumePhaseMessageReason(volume *virtv1.Volume, namespace string) (virtv1.VolumePhase, string, string) {
 	claimName := storagetypes.PVCNameFromVirtVolume(volume)
 
 	pvcInterface, pvcExists, _ := c.pvcIndexer.GetByKey(fmt.Sprintf("%s/%s", namespace, claimName))
@@ -2122,7 +2122,7 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 	return virtv1.VolumePending, controller.PVCNotReadyReason, "PVC is in phase Lost"
 }
 
-func (c *VMIController) updateMultusAnnotation(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
+func (c *Controller) updateMultusAnnotation(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
 	podAnnotations := pod.GetAnnotations()
 
 	indexedMultusStatusIfaces := network.NonDefaultMultusNetworksIndexedByIfaceName(pod)
@@ -2151,7 +2151,7 @@ func (c *VMIController) updateMultusAnnotation(namespace string, interfaces []vi
 	return nil
 }
 
-func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+func (c *Controller) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	indexedMultusStatusIfaces := network.NonDefaultMultusNetworksIndexedByIfaceName(pod)
 	ifaceNamingScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
 	for _, network := range vmi.Spec.Networks {
@@ -2178,7 +2178,7 @@ func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance
 	return nil
 }
 
-func (c *VMIController) syncHotplugCondition(vmi *virtv1.VirtualMachineInstance, conditionType virtv1.VirtualMachineInstanceConditionType) {
+func (c *Controller) syncHotplugCondition(vmi *virtv1.VirtualMachineInstance, conditionType virtv1.VirtualMachineInstanceConditionType) {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	condition := virtv1.VirtualMachineInstanceCondition{
 		Type:   conditionType,
@@ -2191,7 +2191,7 @@ func (c *VMIController) syncHotplugCondition(vmi *virtv1.VirtualMachineInstance,
 
 }
 
-func (c *VMIController) requireCPUHotplug(vmi *virtv1.VirtualMachineInstance) bool {
+func (c *Controller) requireCPUHotplug(vmi *virtv1.VirtualMachineInstance) bool {
 	if vmi.Status.CurrentCPUTopology == nil ||
 		vmi.Spec.Domain.CPU == nil ||
 		vmi.Spec.Domain.CPU.MaxSockets == 0 {
@@ -2207,7 +2207,7 @@ func (c *VMIController) requireCPUHotplug(vmi *virtv1.VirtualMachineInstance) bo
 	return hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU) != hardware.GetNumberOfVCPUs(cpuTopoLogyFromStatus)
 }
 
-func (c *VMIController) requireMemoryHotplug(vmi *virtv1.VirtualMachineInstance) bool {
+func (c *Controller) requireMemoryHotplug(vmi *virtv1.VirtualMachineInstance) bool {
 	if vmi.Status.Memory == nil ||
 		vmi.Spec.Domain.Memory == nil ||
 		vmi.Spec.Domain.Memory.Guest == nil ||
@@ -2218,7 +2218,7 @@ func (c *VMIController) requireMemoryHotplug(vmi *virtv1.VirtualMachineInstance)
 	return vmi.Spec.Domain.Memory.Guest.Value() != vmi.Status.Memory.GuestRequested.Value()
 }
 
-func (c *VMIController) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
+func (c *Controller) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
 	c.syncHotplugCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange)
 	// store additionalGuestMemoryOverheadRatio
 	overheadRatio := c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio
@@ -2230,7 +2230,7 @@ func (c *VMIController) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
 	}
 }
 
-func (c *VMIController) requireVolumesUpdate(vmi *virtv1.VirtualMachineInstance) bool {
+func (c *Controller) requireVolumesUpdate(vmi *virtv1.VirtualMachineInstance) bool {
 	if len(vmi.Status.MigratedVolumes) < 1 {
 		return false
 	}
@@ -2254,7 +2254,7 @@ func (c *VMIController) requireVolumesUpdate(vmi *virtv1.VirtualMachineInstance)
 	return false
 }
 
-func (c *VMIController) syncVolumesUpdate(vmi *virtv1.VirtualMachineInstance) {
+func (c *Controller) syncVolumesUpdate(vmi *virtv1.VirtualMachineInstance) {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	condition := virtv1.VirtualMachineInstanceCondition{
 		Type:               virtv1.VirtualMachineInstanceVolumesChange,
@@ -2265,7 +2265,7 @@ func (c *VMIController) syncVolumesUpdate(vmi *virtv1.VirtualMachineInstance) {
 	vmiConditions.UpdateCondition(vmi, &condition)
 }
 
-func (c *VMIController) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachineInstance, dvs []*cdiv1.DataVolume) {
+func (c *Controller) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachineInstance, dvs []*cdiv1.DataVolume) {
 	if len(dvs) == 0 {
 		return
 	}

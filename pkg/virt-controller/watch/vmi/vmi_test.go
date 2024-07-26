@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package vmi
 
 import (
 	"context"
@@ -78,7 +78,7 @@ type PodVmIfaceStatus struct {
 var _ = Describe("VirtualMachineInstance watcher", func() {
 	var config *virtconfig.ClusterConfig
 
-	var controller *VMIController
+	var controller *Controller
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
 	var virtClientset *kubevirtfake.Clientset
@@ -245,7 +245,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		var qemuGid int64 = 107
-		controller, _ = NewVMIController(
+		controller, _ = NewController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
