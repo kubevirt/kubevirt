@@ -36,8 +36,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -271,14 +269,8 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	By("Stopping the VirtualMachineInstance")
 	virtClient := kubevirt.Client()
 
-	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = pointer.P(false)
-		updatedVM.Spec.RunStrategy = nil
-		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
-		return err
-	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	err := virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+	Expect(err).ToNot(HaveOccurred())
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
@@ -303,14 +295,8 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachineInstance")
 	virtClient := kubevirt.Client()
 
-	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = pointer.P(true)
-		updatedVM.Spec.RunStrategy = nil
-		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
-		return err
-	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	err := virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+	Expect(err).ToNot(HaveOccurred())
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance created
