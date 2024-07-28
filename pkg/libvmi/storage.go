@@ -126,6 +126,13 @@ func WithHostDisk(diskName, path string, diskType v1.HostDiskType) Option {
 	}
 }
 
+// WithIOThreadsPolicy sets the WithIOThreadPolicy parameter
+func WithIOThreadsPolicy(policy v1.IOThreadsPolicy) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.IOThreadsPolicy = &policy
+	}
+}
+
 func addDisk(vmi *v1.VirtualMachineInstance, disk v1.Disk) {
 	if !diskExists(vmi, disk) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
