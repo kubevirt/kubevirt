@@ -112,6 +112,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		state,
 		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
 		netpod.WithCacheCreator(c.cacheCreator),
+		netpod.WithLogger(log.Log.Object(vmi)),
 	)
 
 	if err := netpod.Setup(); err != nil {

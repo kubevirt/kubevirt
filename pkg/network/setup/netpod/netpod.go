@@ -76,6 +76,8 @@ type NetPod struct {
 
 	cacheCreator cacheCreator
 	state        *State
+
+	log *log.FilteredLogger
 }
 
 type option func(*NetPod)
@@ -94,6 +96,8 @@ func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string
 		masqueradeAdapter: masquerade.New(),
 
 		cacheCreator: cache.CacheCreator{},
+
+		log: log.Log,
 	}
 	for _, opt := range opts {
 		opt(&n)
@@ -116,6 +120,12 @@ func WithMasqueradeAdapter(h masqueradeAdapter) option {
 func WithCacheCreator(c cacheCreator) option {
 	return func(n *NetPod) {
 		n.cacheCreator = c
+	}
+}
+
+func WithLogger(logger *log.FilteredLogger) option {
+	return func(n *NetPod) {
+		n.log = logger
 	}
 }
 
@@ -156,7 +166,7 @@ func (n NetPod) Setup() error {
 		if err != nil {
 			return err
 		}
-		log.Log.Infof("Current pod network: %s", currentStatusBytes)
+		n.log.Infof("Current pod network: %s", currentStatusBytes)
 
 		if derr := n.discover(currentStatus); derr != nil {
 			return derr
@@ -213,7 +223,7 @@ func (n NetPod) config(currentStatus *nmstate.Status) error {
 	if err != nil {
 		return err
 	}
-	log.Log.Infof("Desired pod network: %s", desiredSpecBytes)
+	n.log.Infof("Desired pod network: %s", desiredSpecBytes)
 
 	if err = n.nmstateAdapter.Apply(desiredSpec); err != nil {
 		return err
