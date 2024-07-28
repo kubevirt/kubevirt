@@ -1070,9 +1070,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
 				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
-				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
 				image := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
-				tests.AddEphemeralDisk(vmi, "myephemeral", v1.VirtIO, image)
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc, libvmi.WithContainerDisk("myephemeral", image))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
