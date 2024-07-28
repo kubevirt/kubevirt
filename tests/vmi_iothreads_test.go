@@ -23,41 +23,35 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libvmifact"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
-	var vmi *v1.VirtualMachineInstance
-	dedicated := true
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		vmi = libvmifact.NewAlpine()
 	})
 
 	Context("IOThreads Policies", func() {
@@ -68,8 +62,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:4122]Should honor shared ioThreadsPolicy for single disk", func() {
-			policy := v1.IOThreadsPolicyShared
-			vmi.Spec.Domain.IOThreadsPolicy = &policy
+			vmi := libvmifact.NewAlpine(libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyShared))
 
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -94,14 +87,13 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:864][ref_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", func() {
-			policy := v1.IOThreadsPolicyShared
-			vmi.Spec.Domain.IOThreadsPolicy = &policy
-
-			// The disk that came with the VMI
-			vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = &dedicated
-
-			tests.AddEphemeralDisk(vmi, "shr1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyShared),
+				withSetDiskAsDedicatedIOThread("disk0"),
+				libvmi.WithContainerDisk("shr1", containerDiskCirros),
+				libvmi.WithContainerDisk("shr2", containerDiskCirros),
+			)
 
 			By("Creating VMI with 1 dedicated and 2 shared ioThreadPolicies")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -148,21 +140,18 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
 
-			policy := v1.IOThreadsPolicyAuto
-			vmi.Spec.Domain.IOThreadsPolicy = &policy
-
-			vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = &dedicated
-
-			tests.AddEphemeralDisk(vmi, "ded2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			vmi.Spec.Domain.Devices.Disks[1].DedicatedIOThread = &dedicated
-
-			tests.AddEphemeralDisk(vmi, "shr1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr3", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr4", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-
-			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
+			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				withSetDiskAsDedicatedIOThread("disk0"),
+				libvmi.WithContainerDisk("ded2", containerDiskCirros),
+				withSetDiskAsDedicatedIOThread("ded2"),
+				libvmi.WithContainerDisk("shr1", containerDiskCirros),
+				libvmi.WithContainerDisk("shr2", containerDiskCirros),
+				libvmi.WithContainerDisk("shr3", containerDiskCirros),
+				libvmi.WithContainerDisk("shr4", containerDiskCirros),
+				libvmi.WithResourceCPU(strconv.Itoa(numCpus)),
+			)
 
 			By("Creating VMI with 2 dedicated and 4 shared ioThreadPolicies")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -235,17 +224,17 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", func() {
 			checks.SkipTestIfNoCPUManager()
 
-			policy := v1.IOThreadsPolicyAuto
-			vmi.Spec.Domain.IOThreadsPolicy = &policy
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores:                 1,
-				DedicatedCPUPlacement: true,
-				IsolateEmulatorThread: true,
-			}
+			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				libvmi.WithContainerDisk("disk1", containerDiskCirros),
+				libvmi.WithContainerDisk("ded2", containerDiskCirros),
+				withSetDiskAsDedicatedIOThread("ded2"),
+				libvmi.WithCPUCount(1, 0, 0),
+				libvmi.WithDedicatedCPUPlacement(),
+			)
 
-			tests.AddEphemeralDisk(vmi, "disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "ded2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			vmi.Spec.Domain.Devices.Disks[2].DedicatedIOThread = &dedicated
+			vmi.Spec.Domain.CPU.IsolateEmulatorThread = true
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -298,4 +287,16 @@ func getDiskByName(domSpec *api.DomainSpec, diskName string) (*api.Disk, error) 
 		}
 	}
 	return nil, fmt.Errorf("disk device '%s' not found", diskName)
+}
+
+// withSetDiskAsDedicatedIOThread option, set a disk with DedicatedIOThread = true. Assumes the disk already exist
+func withSetDiskAsDedicatedIOThread(diskName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		for i, disk := range vmi.Spec.Domain.Devices.Disks {
+			if disk.Name == diskName {
+				vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread = pointer.P(true)
+				break
+			}
+		}
+	}
 }
