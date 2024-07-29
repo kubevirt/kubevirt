@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -22,10 +23,10 @@ import (
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	utils "kubevirt.io/kubevirt/pkg/util"
-
-	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -75,29 +76,23 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	}
 
 	updateInstancetypeMatcher := func(revisionName string) {
-		Eventually(func(g Gomega) {
-			var err error
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			g.Expect(err).ToNot(HaveOccurred())
+		vmPatch, err := patch.New(
+			patch.WithReplace("/spec/instancetype/revisionName", revisionName),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Instancetype.RevisionName = revisionName
-
-			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-			g.Expect(err).ToNot(HaveOccurred())
-		}, 30*time.Second, time.Second).Should(Succeed())
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, vmPatch, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	updatePreferenceMatcher := func(revisionName string) {
-		Eventually(func(g Gomega) {
-			var err error
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			g.Expect(err).ToNot(HaveOccurred())
+		vmPatch, err := patch.New(
+			patch.WithReplace("/spec/preference/revisionName", revisionName),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Preference.RevisionName = revisionName
-
-			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-			g.Expect(err).ToNot(HaveOccurred())
-		}, 30*time.Second, time.Second).Should(Succeed())
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, vmPatch, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	getInstancetypeRevisionName := func() string {
