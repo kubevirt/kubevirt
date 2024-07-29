@@ -203,15 +203,14 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			vmi := libvmifact.NewCirros(
+			vm = libvmi.NewVirtualMachine(libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-			vmi.Namespace = util.NamespaceTestDefault
-			vm = libvmi.NewVirtualMachine(vmi)
+				libvmi.WithNamespace(util.NamespaceTestDefault)),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v12.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vm = tests.StartVirtualMachine(vm)
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 		})
 
 		When("paused via API", func() {
