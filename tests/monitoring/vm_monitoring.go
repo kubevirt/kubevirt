@@ -49,7 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -89,15 +89,6 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			"kubevirt_vmi_cpu_user_usage_seconds_total",
 		}
 
-		BeforeEach(func() {
-			vmi := libvmifact.NewGuestless()
-			vm = libvmi.NewVirtualMachine(vmi)
-
-			By("Create a VirtualMachine")
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		})
-
 		checkMetricTo := func(metric string, labels map[string]string, matcher types.GomegaMatcher, description string) {
 			EventuallyWithOffset(1, func() float64 {
 				i, err := libmonitoring.GetMetricValueWithLabels(virtClient, metric, labels)
@@ -109,8 +100,11 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		}
 
 		It("Should be available for a running VM", func() {
-			By("Start the VM")
-			vm = tests.StartVirtualMachine(vm)
+			By("Create a running VirtualMachine")
+			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			By("Checking that the VM metrics are available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
@@ -120,8 +114,11 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 
 		It("Should be available for a paused VM", func() {
-			By("Start the VM")
-			vm = tests.StartVirtualMachine(vm)
+			By("Create a running VirtualMachine")
+			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			By("Pausing the VM")
 			command := clientcmd.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_PAUSE, "vm", "--namespace", testsuite.GetTestNamespace(vm), vm.Name)
@@ -138,6 +135,11 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 
 		It("Should not be available for a stopped VM", func() {
+			By("Create a stopped VirtualMachine")
+			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless())
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Checking that the VM metrics are not available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
 			for _, metric := range cpuMetrics {
@@ -200,7 +202,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
 			migration = libmigration.RunMigration(virtClient, migration)
 
-			Eventually(matcher.ThisMigration(migration), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
+			Eventually(ThisMigration(migration), 2*time.Minute, 5*time.Second).Should(BeInPhase(v1.MigrationFailed), "migration creation should fail")
 
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1)
