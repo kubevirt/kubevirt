@@ -33,12 +33,14 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
@@ -138,15 +140,11 @@ func SetDataVolumeGC(virtCli kubecli.KubevirtClient, ttlSec *int32) {
 	if cdi.Spec.Config.DataVolumeTTLSeconds == ttlSec {
 		return
 	}
-	cdi.Spec.Config.DataVolumeTTLSeconds = ttlSec
-	_, err := virtCli.CdiClient().CdiV1beta1().CDIs().Update(context.TODO(), cdi, v12.UpdateOptions{})
-	Expect(err).ToNot(HaveOccurred())
 
-	Eventually(func() *int32 {
-		config, err := virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", v12.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return config.Spec.DataVolumeTTLSeconds
-	}, 10, time.Second).Should(Equal(ttlSec))
+	p, err := patch.New(patch.WithReplace("/spec/config/dataVolumeTTLSeconds", ttlSec)).GeneratePayload()
+	Expect(err).NotTo(HaveOccurred())
+	_, err = virtCli.CdiClient().CdiV1beta1().CDIs().Patch(context.Background(), cdi.Name, types.JSONPatchType, p, v12.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func IsDataVolumeGC(virtCli kubecli.KubevirtClient) bool {
