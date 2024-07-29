@@ -5,20 +5,17 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -107,10 +104,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 			vm = libvmi.NewVirtualMachine(libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			))
+			), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			vm = libvmops.StartVirtualMachine(vm)
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 		})
 
 		AfterEach(func() {
