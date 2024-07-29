@@ -166,6 +166,7 @@ var _ = Describe("VirtLauncher", func() {
 				done := make(chan string)
 
 				go func() {
+					defer GinkgoRecover()
 					mon.RunForever(time.Second, stopChan)
 					done <- "exit"
 				}()
@@ -186,6 +187,7 @@ var _ = Describe("VirtLauncher", func() {
 				done := make(chan string)
 
 				go func() {
+					defer GinkgoRecover()
 					mon.monitorLoop(1*time.Second, stopChan)
 					done <- "exit"
 				}()
@@ -214,6 +216,7 @@ var _ = Describe("VirtLauncher", func() {
 				go func() { CleanupProcess() }()
 
 				go func() {
+					defer GinkgoRecover()
 					mon.monitorLoop(1*time.Second, stopChan)
 					done <- "exit"
 				}()
@@ -231,6 +234,7 @@ var _ = Describe("VirtLauncher", func() {
 				VerifyProcessStarted()
 				go func() { CleanupProcess() }()
 				go func() {
+					defer GinkgoRecover()
 					mon.gracePeriod = 1
 					mon.monitorLoop(1*time.Second, stopChan)
 					done <- "exit"
