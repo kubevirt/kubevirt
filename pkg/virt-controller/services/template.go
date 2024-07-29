@@ -117,6 +117,8 @@ const (
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 	// Default: limits.memory = 2*requests.memory
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
+
+	FailedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 )
 
 type netBindingPluginMemoryCalculator interface {
