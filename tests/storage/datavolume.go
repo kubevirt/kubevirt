@@ -1065,10 +1065,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dvName := vm.Spec.DataVolumeTemplates[0].Name
 
 			if gcAnnotation != "" {
-				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.TODO(), dvName, metav1.GetOptions{})
+				ann := map[string]string{"cdi.kubevirt.io/storage.deleteAfterCompletion": gcAnnotation}
+				p, err := patch.New(patch.WithAdd("/metadata/annotations", ann)).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
-				dv.Annotations = map[string]string{"cdi.kubevirt.io/storage.deleteAfterCompletion": gcAnnotation}
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Update(context.TODO(), dv, metav1.UpdateOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Patch(context.TODO(), dvName, types.JSONPatchType, p, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 
