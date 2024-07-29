@@ -22,6 +22,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -206,15 +207,12 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 		}
 
 		updateVMWithPVC := func(vm *virtv1.VirtualMachine, volName, claim string) {
-			var replacedIndex int
 			// Replace dst pvc
-			for i, v := range vm.Spec.Template.Spec.Volumes {
-				if v.Name == volName {
-					By(fmt.Sprintf("Replacing volume %s with PVC %s", volName, claim))
-					replacedIndex = i
-					break
-				}
-			}
+			i := slices.IndexFunc(vm.Spec.Template.Spec.Volumes, func(volume virtv1.Volume) bool {
+				return volume.Name == volName
+			})
+			Expect(i).To(BeNumerically(">", -1))
+			By(fmt.Sprintf("Replacing volume %s with PVC %s", volName, claim))
 
 			updatedVolume := virtv1.Volume{
 				Name: volName,
@@ -225,14 +223,14 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 
 			p, err := patch.New(
 				patch.WithReplace("/spec/dataVolumeTemplates", []virtv1.DataVolumeTemplateSpec{}),
-				patch.WithReplace(fmt.Sprintf("/spec/template/spec/volumes/%d", replacedIndex), updatedVolume),
+				patch.WithReplace(fmt.Sprintf("/spec/template/spec/volumes/%d", i), updatedVolume),
 				patch.WithReplace("/spec/updateVolumesStrategy", virtv1.UpdateVolumesStrategyMigration),
 			).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vm.Spec.Template.Spec.Volumes[replacedIndex].VolumeSource.PersistentVolumeClaim.
+			Expect(vm.Spec.Template.Spec.Volumes[i].VolumeSource.PersistentVolumeClaim.
 				PersistentVolumeClaimVolumeSource.ClaimName).To(Equal(claim))
 		}
 		// TODO: right now, for simplicity, this function assumes the DV in the first position in the datavolumes templata list. Otherwise, we need
