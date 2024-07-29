@@ -235,10 +235,8 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 		}
 		// TODO: right now, for simplicity, this function assumes the DV in the first position in the datavolumes templata list. Otherwise, we need
 		// to pass the old name of the DV to be replaces.
-		updateVMWithDV := func(vmName, volName, name string) {
+		updateVMWithDV := func(vm *virtv1.VirtualMachine, volName, name string) {
 			var replacedIndex int
-			vm, err := virtClient.VirtualMachine(ns).Get(context.Background(), vmName, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
 			for i, v := range vm.Spec.Template.Spec.Volumes {
 				if v.Name == volName {
 					replacedIndex = i
@@ -302,7 +300,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			vm := createVMWithDV(createDV(), volName)
 			destDV := createBlankDV()
 			By("Update volumes")
-			updateVMWithDV(vm.Name, volName, destDV.Name)
+			updateVMWithDV(vm, volName, destDV.Name)
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
 					metav1.GetOptions{})
@@ -425,7 +423,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 			By("Update volumes")
-			updateVMWithDV(vm.Name, volName, destDV.Name)
+			updateVMWithDV(vm, volName, destDV.Name)
 			Eventually(func() []virtv1.VirtualMachineCondition {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
