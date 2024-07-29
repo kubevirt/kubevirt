@@ -22,6 +22,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -201,13 +202,11 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 		updateVMWithPVC := func(vm *virtv1.VirtualMachine, volName, claim string) {
 			var replacedIndex int
 			// Replace dst pvc
-			for i, v := range vm.Spec.Template.Spec.Volumes {
-				if v.Name == volName {
-					By(fmt.Sprintf("Replacing volume %s with PVC %s", volName, claim))
-					replacedIndex = i
-					break
-				}
-			}
+			i := slices.IndexFunc(vm.Spec.Template.Spec.Volumes, func(volume virtv1.Volume) bool {
+				return volume.Name == volName
+			})
+			Expect(i).To(BeNumerically(">", 0))
+			By(fmt.Sprintf("Replacing volume %s with PVC %s", volName, claim))
 
 			p, err := patch.New(
 				patch.WithRemove("/spec/dataVolumeTemplates"),
