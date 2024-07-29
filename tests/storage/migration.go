@@ -198,10 +198,8 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			return vm
 		}
 
-		updateVMWithPVC := func(vmName, volName, claim string) {
+		updateVMWithPVC := func(vm *virtv1.VirtualMachine, volName, claim string) {
 			var replacedIndex int
-			vm, err := virtClient.VirtualMachine(ns).Get(context.Background(), vmName, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
 			// Replace dst pvc
 			for i, v := range vm.Spec.Template.Spec.Volumes {
 				if v.Name == volName {
@@ -265,7 +263,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				Fail("Unrecognized mode")
 			}
 			By("Update volumes")
-			updateVMWithPVC(vm.Name, volName, destPVC)
+			updateVMWithPVC(vm, volName, destPVC)
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
 					metav1.GetOptions{})
@@ -316,7 +314,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Update volumes")
-			updateVMWithPVC(vm.Name, volName, destPVC)
+			updateVMWithPVC(vm, volName, destPVC)
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
 					metav1.GetOptions{})
@@ -340,11 +338,11 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			// Create dest PVC
 			createUnschedulablePVC(destPVC, ns, size)
 			By("Update volumes")
-			updateVMWithPVC(vm.Name, volName, destPVC)
+			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(vm.Name, ns)
 			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 			By("Cancel the volume migration")
-			updateVMWithPVC(vm.Name, volName, dv.Name)
+			updateVMWithPVC(vm, volName, dv.Name)
 			// After the volume migration abortion the VMI should have:
 			// 1. the source volume restored
 			// 2. condition VolumesChange set to false
