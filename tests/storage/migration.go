@@ -239,19 +239,28 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			var replacedIndex int
 			vm, err := virtClient.VirtualMachine(ns).Get(context.Background(), vmName, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			vm.Spec.DataVolumeTemplates[0].Name = name
 			for i, v := range vm.Spec.Template.Spec.Volumes {
 				if v.Name == volName {
-					vm.Spec.Template.Spec.Volumes[i].VolumeSource.DataVolume = &virtv1.DataVolumeSource{
-						Name: name,
-					}
 					replacedIndex = i
 					break
 				}
 			}
-			vm.Spec.UpdateVolumesStrategy = pointer.P(virtv1.UpdateVolumesStrategyMigration)
-			vm, err = virtClient.VirtualMachine(ns).Update(context.Background(), vm, metav1.UpdateOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+
+			updatedVolume := virtv1.Volume{
+				Name: volName,
+				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
+					Name: name,
+				}}}
+
+			p, err := patch.New(
+				patch.WithReplace("/spec/dataVolumeTemplates/0/metadata/name", name),
+				patch.WithReplace(fmt.Sprintf("/spec/template/spec/volumes/%d", replacedIndex), updatedVolume),
+				patch.WithReplace("/spec/updateVolumesStrategy", virtv1.UpdateVolumesStrategyMigration),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			Expect(vm.Spec.Template.Spec.Volumes[replacedIndex].VolumeSource.DataVolume.Name).To(Equal(name))
 		}
 
