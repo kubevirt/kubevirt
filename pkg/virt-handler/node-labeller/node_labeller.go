@@ -73,6 +73,7 @@ type NodeLabeller struct {
 	cpuModelVendor          string
 	volumePath              string
 	domCapabilitiesFileName string
+	isNodeRealtimeCapable   bool
 	capabilities            *api.Capabilities
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
@@ -168,6 +169,11 @@ func (n *NodeLabeller) loadAll() error {
 	}
 
 	n.loadHypervFeatures()
+
+	n.isNodeRealtimeCapable, err = isNodeRealtimeCapable()
+	if err != nil {
+		n.logger.Errorf("failed to identify if a node is capable of running realtime workloads" + err.Error())
+	}
 
 	return nil
 }
@@ -268,11 +274,7 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
 	newLabels[kubevirtv1.HostModelCPULabel+hostCpuModel.Name] = "true"
 
-	capable, err := isNodeRealtimeCapable()
-	if err != nil {
-		n.logger.Reason(err).Error("failed to identify if a node is capable of running realtime workloads")
-	}
-	if capable {
+	if n.isNodeRealtimeCapable {
 		newLabels[kubevirtv1.RealtimeLabel] = ""
 	}
 
