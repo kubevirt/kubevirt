@@ -347,9 +347,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		Context("with boot order", func() {
 			DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
 				By("defining a VirtualMachineInstance with an Alpine disk")
-				vmi = libvmifact.NewAlpine()
-				By("adding a Cirros Disk")
-				tests.AddEphemeralDisk(vmi, "disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi = libvmifact.NewAlpine(libvmi.WithContainerDisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 
 				By("setting boot order")
 				vmi = addBootOrderToDisk(vmi, "disk0", &alpineBootOrder)
