@@ -511,6 +511,36 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
+	_, err = c.informers.ClusterInstancetype.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, nil)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, nil)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, nil)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = c.informers.ClusterPreference.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, nil)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, nil)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, nil)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &c, nil
 }
 

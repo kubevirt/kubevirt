@@ -72,6 +72,34 @@ type APIServiceInterface interface {
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *apiregv1.APIService, err error)
 }
 
+type StrategyInterface interface {
+	ServiceAccounts() []*corev1.ServiceAccount
+	ClusterRoles() []*rbacv1.ClusterRole
+	ClusterRoleBindings() []*rbacv1.ClusterRoleBinding
+	Roles() []*rbacv1.Role
+	RoleBindings() []*rbacv1.RoleBinding
+	Services() []*corev1.Service
+	Deployments() []*appsv1.Deployment
+	ApiDeployments() []*appsv1.Deployment
+	ControllerDeployments() []*appsv1.Deployment
+	ExportProxyDeployments() []*appsv1.Deployment
+	DaemonSets() []*appsv1.DaemonSet
+	ValidatingWebhookConfigurations() []*admissionregistrationv1.ValidatingWebhookConfiguration
+	MutatingWebhookConfigurations() []*admissionregistrationv1.MutatingWebhookConfiguration
+	APIServices() []*apiregv1.APIService
+	CertificateSecrets() []*corev1.Secret
+	SCCs() []*secv1.SecurityContextConstraints
+	ServiceMonitors() []*promv1.ServiceMonitor
+	PrometheusRules() []*promv1.PrometheusRule
+	ConfigMaps() []*corev1.ConfigMap
+	CRDs() []*extv1.CustomResourceDefinition
+	Routes() []*routev1.Route
+	Instancetypes() []*instancetypev1beta1.VirtualMachineClusterInstancetype
+	Preferences() []*instancetypev1beta1.VirtualMachineClusterPreference
+	ValidatingAdmissionPolicyBindings() []*admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	ValidatingAdmissionPolicies() []*admissionregistrationv1.ValidatingAdmissionPolicy
+}
+
 type Strategy struct {
 	serviceAccounts []*corev1.ServiceAccount
 

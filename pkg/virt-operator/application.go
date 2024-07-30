@@ -196,6 +196,8 @@ func Execute() {
 		Namespace:                app.informerFactory.Namespace(),
 		Secrets:                  app.informerFactory.Secrets(),
 		ConfigMap:                app.informerFactory.OperatorConfigMap(),
+		ClusterInstancetype:      app.informerFactory.VirtualMachineClusterInstancetype(),
+		ClusterPreference:        app.informerFactory.VirtualMachineClusterPreference(),
 	}
 
 	app.stores = util.Stores{
@@ -218,6 +220,8 @@ func Execute() {
 		NamespaceCache:                app.informerFactory.Namespace().GetStore(),
 		SecretCache:                   app.informerFactory.Secrets().GetStore(),
 		ConfigMapCache:                app.informerFactory.OperatorConfigMap().GetStore(),
+		ClusterInstancetype:           app.informerFactory.VirtualMachineClusterInstancetype().GetStore(),
+		ClusterPreference:             app.informerFactory.VirtualMachineClusterPreference().GetStore(),
 	}
 
 	app.crdInformer = app.informerFactory.CRD()

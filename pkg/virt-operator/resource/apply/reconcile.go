@@ -362,7 +362,7 @@ func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 	return shouldTakeUpdatePath
 }
 
-func haveApiDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
+func haveApiDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.ApiDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
 			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
@@ -374,7 +374,7 @@ func haveApiDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeV
 	return true
 }
 
-func haveControllerDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
+func haveControllerDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.ControllerDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
 			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
@@ -386,7 +386,7 @@ func haveControllerDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v
 	return true
 }
 
-func haveExportProxyDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
+func haveExportProxyDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.ExportProxyDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
 			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
@@ -398,7 +398,7 @@ func haveExportProxyDeploymentsRolledOver(targetStrategy *install.Strategy, kv *
 	return true
 }
 
-func haveDaemonSetsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
+func haveDaemonSetsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, daemonSet := range targetStrategy.DaemonSets() {
 		if !util.DaemonsetIsReady(kv, daemonSet, stores) {
 			log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
@@ -518,7 +518,7 @@ type Reconciler struct {
 	kv    *v1.KubeVirt
 	kvKey string
 
-	targetStrategy   *install.Strategy
+	targetStrategy   install.StrategyInterface
 	stores           util.Stores
 	clientset        kubecli.KubevirtClient
 	aggregatorclient install.APIServiceInterface
@@ -526,7 +526,7 @@ type Reconciler struct {
 	recorder         record.EventRecorder
 }
 
-func NewReconciler(kv *v1.KubeVirt, targetStrategy *install.Strategy, stores util.Stores, clientset kubecli.KubevirtClient, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder) (*Reconciler, error) {
+func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, stores util.Stores, clientset kubecli.KubevirtClient, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder) (*Reconciler, error) {
 	kvKey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return nil, err
