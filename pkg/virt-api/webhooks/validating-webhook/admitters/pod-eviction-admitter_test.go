@@ -108,6 +108,31 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Fake.Actions()).To(BeEmpty())
 	})
 
+	DescribeTable("should allow the request when it refers to a virt-launcher pod", func(podPhase k8sv1.PodPhase) {
+		vmi := libvmi.New(defaultVMIOptions...)
+		virtClient := kubevirtfake.NewSimpleClientset(vmi)
+
+		pod := newVirtLauncherPodWithPhase(vmi.Namespace, vmi.Name, vmi.Status.NodeName, podPhase)
+		kubeClient := fake.NewSimpleClientset(pod)
+
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			kubeClient,
+			virtClient,
+		)
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(pod.Namespace, pod.Name, !isDryRun),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		Expect(virtClient.Fake.Actions()).To(BeEmpty())
+	},
+		Entry("in failed phase", k8sv1.PodFailed),
+		Entry("in succeeded phase", k8sv1.PodSucceeded),
+	)
+
 	DescribeTable("should trigger VMI Evacuation and deny the request", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, additionalVMIOptions ...libvmi.Option) {
 		vmiOptions := append(defaultVMIOptions, additionalVMIOptions...)
 
@@ -438,6 +463,12 @@ func newVirtLauncherPod(namespace, vmiName, nodeName string) *k8sv1.Pod {
 	}
 
 	return virtLauncher
+}
+
+func newVirtLauncherPodWithPhase(namespace, vmiName, nodeName string, phase k8sv1.PodPhase) *k8sv1.Pod {
+	pod := newVirtLauncherPod(namespace, vmiName, nodeName)
+	pod.Status.Phase = phase
+	return pod
 }
 
 func newAdmissionReview(evictedPodNamespace, evictedPodName string, isDryRun bool) *admissionv1.AdmissionReview {
