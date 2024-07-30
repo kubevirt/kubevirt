@@ -64,6 +64,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -267,6 +268,12 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.ValidatingAdmissionPolicy, k.ValidatingAdmissionPolicySource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
 	k.stores.ValidatingAdmissionPolicyCache = k.informers.ValidatingAdmissionPolicy.GetStore()
 	k.stores.ValidatingAdmissionPolicyEnabled = true
+
+	k.informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+	k.stores.ClusterInstancetype = k.informers.ClusterInstancetype.GetStore()
+
+	k.informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+	k.stores.ClusterPreference = k.informers.ClusterPreference.GetStore()
 
 	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.kvInformer, k.recorder, k.stores, k.informers, NAMESPACE)
 	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
