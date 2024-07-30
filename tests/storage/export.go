@@ -185,7 +185,7 @@ var _ = SIGDescribe("Export", func() {
 		return pod
 	}
 
-	createDownloadPodForPvc := func(pvc *k8sv1.PersistentVolumeClaim, caConfigMap *k8sv1.ConfigMap) *k8sv1.Pod {
+	createDownloadPodForPvc := func(pvc *k8sv1.PersistentVolumeClaim, caConfigMap *k8sv1.ConfigMap) (*k8sv1.Pod, error) {
 		volumeName := pvc.GetName()
 		pod := createDownloadPod(caConfigMap)
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
@@ -203,10 +203,10 @@ var _ = SIGDescribe("Export", func() {
 		} else {
 			addFilesystemVolume(pod, volumeName)
 		}
-		return libpod.RunPod(pod)
+		return libpod.Run(pod, testsuite.GetTestNamespace(pod))
 	}
 
-	createSourcePodChecker := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
+	createSourcePodChecker := func(pvc *k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
 		volumeName := pvc.GetName()
 		podName := "download-pod"
 		pod := libpod.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
@@ -229,7 +229,7 @@ var _ = SIGDescribe("Export", func() {
 		} else {
 			addFilesystemVolume(pod, volumeName)
 		}
-		return libpod.RunPod(pod)
+		return libpod.Run(pod, testsuite.GetTestNamespace(pod))
 	}
 
 	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
@@ -299,7 +299,8 @@ var _ = SIGDescribe("Export", func() {
 		By("Making sure the DV is successful")
 		libstorage.EventuallyDV(dv, 90, HaveSucceeded())
 
-		pod := createSourcePodChecker(pvc)
+		pod, err := createSourcePodChecker(pvc)
+		Expect(err).ToNot(HaveOccurred())
 
 		fileName := filepath.Join(dataPath, diskImage)
 		if volumeMode == k8sv1.PersistentVolumeBlock {
@@ -541,7 +542,8 @@ var _ = SIGDescribe("Export", func() {
 
 		caConfigMap := caBundleGenerator("export-cacerts", targetPvc.Namespace, export)
 
-		downloadPod := createDownloadPodForPvc(targetPvc, caConfigMap)
+		downloadPod, err := createDownloadPodForPvc(targetPvc, caConfigMap)
+		Expect(err).ToNot(HaveOccurred())
 
 		downloadUrl, fileName := urlGenerator(expectedFormat, pvc.Name, urlTemplate, pvc.Name, export)
 		Expect(downloadUrl).ToNot(BeEmpty())
@@ -1766,7 +1768,8 @@ var _ = SIGDescribe("Export", func() {
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
-		pod = libpod.RunPod(pod)
+		pod, err = libpod.Run(pod, testsuite.GetTestNamespace(pod))
+		Expect(err).ToNot(HaveOccurred())
 		checkWithYamlOutput(pod, export, vm)
 		checkWithJsonOutput(pod, export, vm)
 	})
@@ -1799,7 +1802,8 @@ var _ = SIGDescribe("Export", func() {
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
-		pod = libpod.RunPod(pod)
+		pod, err = libpod.Run(pod, testsuite.GetTestNamespace(pod))
+		Expect(err).ToNot(HaveOccurred())
 		checkWithYamlOutput(pod, export, vm)
 		checkWithJsonOutput(pod, export, vm)
 	})
@@ -1880,7 +1884,8 @@ var _ = SIGDescribe("Export", func() {
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
-		pod = libpod.RunPod(pod)
+		pod, err = libpod.Run(pod, testsuite.GetTestNamespace(pod))
+		Expect(err).ToNot(HaveOccurred())
 		By("Getting export VM definition yaml")
 		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests), token.Data["token"])
 		command := []string{

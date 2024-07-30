@@ -1810,7 +1810,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libwait.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Checking the CPU model under the guest OS")
-				output := tests.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
+				output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
 
 				niceName := parseCPUNiceName(output)
 
@@ -1832,7 +1832,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(cpuVmi)
 
-				output := tests.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
+				output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
 
 				niceName := parseCPUNiceName(output)
 
@@ -2158,7 +2158,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			tmpHostDiskDir := tests.RandTmpDir()
+			tmpHostDiskDir := storage.RandHostDiskDir()
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -2186,7 +2186,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).NotTo(HaveOccurred())
-			defer tests.RemoveHostDiskImage(tmpHostDiskDir, vmiPod.Spec.NodeName)
+			defer func() {
+				Expect(storage.RemoveHostDisk(tmpHostDiskDir, vmiPod.Spec.NodeName)).To(Succeed())
+			}()
 
 			disks := runningVMISpec.Devices.Disks
 			By("checking if number of attached disks is equal to real disks number")
@@ -2373,17 +2375,19 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("creating a disk image")
 			var nodeName string
-			tmpHostDiskDir := tests.RandTmpDir()
+			tmpHostDiskDir := storage.RandHostDiskDir()
 			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewString()))
 
-			pod := storage.CreateDiskOnHost(tmpHostDiskPath)
+			pod := storage.CreateHostDisk(tmpHostDiskPath)
 			pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 			pod, err = ThisPod(pod)()
 			Expect(err).NotTo(HaveOccurred())
 			nodeName = pod.Spec.NodeName
-			defer tests.RemoveHostDiskImage(tmpHostDiskDir, nodeName)
+			defer func() {
+				Expect(storage.RemoveHostDisk(tmpHostDiskDir, nodeName)).To(Succeed())
+			}()
 
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

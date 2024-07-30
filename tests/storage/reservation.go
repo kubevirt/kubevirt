@@ -89,7 +89,8 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		libstorage.CreateFSPVC(pvc, testsuite.NamespacePrivileged, diskSize, nil)
 		// Create targetcli container
 		By("Create targetcli pod")
-		pod := libpod.RunPodInNamespace(libpod.RenderTargetcliPod(podName, pvc), testsuite.NamespacePrivileged)
+		pod, err := libpod.Run(libpod.RenderTargetcliPod(podName, pvc), testsuite.NamespacePrivileged)
+		Expect(err).ToNot(HaveOccurred())
 		node = pod.Spec.NodeName
 		// The vm-killer image is built with bazel and the /etc/ld.so.cache isn't built
 		// at the package installation. The targetcli utility relies on ctype python package that

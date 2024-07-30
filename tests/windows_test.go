@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/network/dns"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -251,7 +250,7 @@ func winrnLoginCommand(windowsVMI *v1.VirtualMachineInstance) []string {
 
 func getPodSearchDomain(windowsVMI *v1.VirtualMachineInstance) string {
 	By("fetching /etc/resolv.conf from the VMI Pod")
-	resolvConf := tests.RunCommandOnVmiPod(windowsVMI, []string{"cat", "/etc/resolv.conf"})
+	resolvConf := libpod.RunCommandOnVmiPod(windowsVMI, []string{"cat", "/etc/resolv.conf"})
 
 	By("extracting the search domain of the VMI")
 	searchDomains, err := dns.ParseSearchDomains(resolvConf)

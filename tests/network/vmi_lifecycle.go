@@ -145,9 +145,9 @@ func renderPkillAllPod(processName string) *k8sv1.Pod {
 }
 
 func verifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {
-	output := tests.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
+	output := libpod.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
 	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
 
-	output = tests.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
+	output = libpod.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
 	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
 }

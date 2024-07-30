@@ -63,7 +63,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -116,18 +115,6 @@ func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, 
 	)
 }
 
-func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
-	virtCli := kubevirt.Client()
-
-	var err error
-	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
-}
-
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
@@ -150,15 +137,15 @@ func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) 
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-	if err != nil {
-		return "", err
-	}
-
 	// get current vmi
 	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get vmi, %s", err)
+	}
+
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(freshVMI, testsuite.GetTestNamespace(freshVMI))
+	if err != nil {
+		return "", err
 	}
 
 	command := []string{"virsh"}
@@ -214,33 +201,6 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 		panic(err)
 	}
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
-}
-
-func RemoveHostDiskImage(diskPath string, nodeName string) {
-	virtClient := kubevirt.Client()
-	procPath := filepath.Join("/proc/1/root", diskPath)
-	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
-	Expect(err).ToNot(HaveOccurred())
-	_, _, err = exec.ExecuteCommandOnPodWithResults(virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
-	Expect(err).ToNot(HaveOccurred())
-}
-
-// RunCommandOnVmiPod runs specified command on the virt-launcher pod
-func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string {
-	virtClient := kubevirt.Client()
-	pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), UnfinishedVMIPodSelector(vmi))
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
-	vmiPod := pods.Items[0]
-
-	output, err := exec.ExecuteCommandOnPod(
-		&vmiPod,
-		"compute",
-		command,
-	)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	return output
 }
 
 func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
@@ -515,11 +475,6 @@ func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
-}
-
-func RandTmpDir() string {
-	const tmpPath = "/var/provision/kubevirt.io/tests"
-	return filepath.Join(tmpPath, rand.String(10))
 }
 
 func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
