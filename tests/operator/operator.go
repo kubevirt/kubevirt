@@ -90,6 +90,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -2293,13 +2294,13 @@ spec:
 	Context("with VMExport feature gate toggled", func() {
 
 		AfterEach(func() {
-			tests.EnableFeatureGate(virtconfig.VMExportGate)
+			config.EnableFeatureGate(virtconfig.VMExportGate)
 			testsuite.WaitExportProxyReady()
 		})
 
 		It("should delete and recreate virt-exportproxy", func() {
 			testsuite.WaitExportProxyReady()
-			tests.DisableFeatureGate(virtconfig.VMExportGate)
+			config.DisableFeatureGate(virtconfig.VMExportGate)
 
 			Eventually(func() error {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
@@ -2317,14 +2318,14 @@ spec:
 
 			enableSeccompFeature := func() {
 				//Disable feature first to simulate addition
-				tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
-				tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				config.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				config.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
 			}
 
 			disableSeccompFeature := func() {
 				//Enable feature first to simulate removal
-				tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
-				tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				config.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				config.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
 			}
 
 			enableKubevirtProfile := func(enable bool) {

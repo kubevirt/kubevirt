@@ -42,6 +42,7 @@ go_library(
         "//tests/framework/matcher:go_default_library",
         "//tests/libinfra:go_default_library",
         "//tests/libkubevirt:go_default_library",
+        "//tests/libkubevirt/config:go_default_library",
         "//tests/libmonitoring:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",

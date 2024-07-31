@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
@@ -316,7 +317,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("[Serial]with sidecar feature gate disabled", Serial, func() {
 			BeforeEach(func() {
-				tests.DisableFeatureGate(virtconfig.SidecarGate)
+				config.DisableFeatureGate(virtconfig.SidecarGate)
 			})
 
 			It("[test_id:2666]should not start with hook sidecar annotation", func() {

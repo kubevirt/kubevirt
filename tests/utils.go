@@ -52,9 +52,8 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -126,61 +125,6 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }
 
-func DisableFeatureGate(feature string) {
-	if !checks.HasFeature(feature) {
-		return
-	}
-	virtClient := kubevirt.Client()
-
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration == nil {
-		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-			FeatureGates: []string{},
-		}
-	}
-
-	var newArray []string
-	featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-	for _, fg := range featureGates {
-		if fg == feature {
-			continue
-		}
-
-		newArray = append(newArray, fg)
-	}
-
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = newArray
-	if checks.RequireFeatureGateVirtHandlerRestart(feature) {
-		updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kv.Spec.Configuration)
-		return
-	}
-
-	UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-}
-
-func EnableFeatureGate(feature string) *v1.KubeVirt {
-	virtClient := kubevirt.Client()
-
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if checks.HasFeature(feature) {
-		return kv
-	}
-
-	if kv.Spec.Configuration.DeveloperConfiguration == nil {
-		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-			FeatureGates: []string{},
-		}
-	}
-
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature)
-
-	if checks.RequireFeatureGateVirtHandlerRestart(feature) {
-		return updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kv.Spec.Configuration)
-	}
-
-	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-}
-
 func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
 	runningVMISpec := launcherApi.DomainSpec{}
 	cli := kubevirt.Client()
@@ -192,29 +136,6 @@ func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.Domai
 
 	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
 	return &runningVMISpec, err
-}
-
-func updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-	virtClient := kubevirt.Client()
-	ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	currentGen := ds.Status.ObservedGeneration
-	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
-	Eventually(func() bool {
-		ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		gen := ds.Status.ObservedGeneration
-		if gen > currentGen {
-			return true
-		}
-		return false
-
-	}, 90*time.Second, 1*time.Second).Should(BeTrue())
-
-	waitForConfigToBePropagated(kv.ResourceVersion)
-	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
-
-	return kv
 }
 
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource

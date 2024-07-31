@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
@@ -59,7 +60,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 	var err error
 
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.VSOCKGate)
+		config.EnableFeatureGate(virtconfig.VSOCKGate)
 		checks.SkipTestIfNoFeatureGate(virtconfig.VSOCKGate)
 		virtClient = kubevirt.Client()
 	})

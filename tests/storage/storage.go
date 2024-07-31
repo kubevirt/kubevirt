@@ -59,6 +59,7 @@ import (
 	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -570,7 +571,7 @@ var _ = SIGDescribe("Storage", func() {
 
 		Context("[Serial]With feature gates disabled for", Serial, func() {
 			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
-				tests.DisableFeatureGate(virtconfig.HostDiskGate)
+				config.DisableFeatureGate(virtconfig.HostDiskGate)
 				vmi = libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),

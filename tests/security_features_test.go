@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -305,7 +306,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			policyRemovedByTest = err == nil
 
 			By("Disabling the custom policy by adding the corresponding feature gate")
-			tests.EnableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
+			config.EnableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
 
 			By("Ensuring the custom SELinux policy is absent from all nodes")
 			Consistently(func() error {
