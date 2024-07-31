@@ -54,7 +54,9 @@ var _ = Describe("Streamer", func() {
 		streamToClientCalled = make(chan struct{}, 1)
 		streamToServerCalled = make(chan struct{}, 1)
 		serverConn, serverPipe = net.Pipe()
+
 		directDialer = NewDirectDialer(
+			// fake fetch vmi function
 			func(_, _ string) (*v1.VirtualMachineInstance, *errors.StatusError) {
 				fetchVMICalled = true
 				return testVMI, nil
@@ -104,6 +106,13 @@ var _ = Describe("Streamer", func() {
 		params := req.PathParameters()
 		params[definitions.NamespaceParamName] = testNamespace
 		params[definitions.NameParamName] = testName
+
+		streamer.dialer.fetchVMI = func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+			Expect(namespace).To(Equal(testNamespace))
+			Expect(name).To(Equal(testName))
+			fetchVMICalled = true
+			return nil, nil
+		}
 
 		streamer.Handle(req, resp)
 		Expect(fetchVMICalled).To(BeTrue())
