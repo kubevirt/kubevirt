@@ -126,7 +126,6 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())),
 				libvmi.WithUefi(false),
-				libvmi.WithResourceMemory("1Gi"),
 			)
 			if withTPM {
 				By("with persistent TPM enabled")

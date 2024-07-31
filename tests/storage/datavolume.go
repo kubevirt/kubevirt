@@ -1148,7 +1148,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolume = dvChange(dataVolume)
 			preallocated := dataVolume.Spec.Preallocation != nil && *dataVolume.Spec.Preallocation
 
-			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil), libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
+			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil),
+				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+				libvmi.WithResourceMemory("512Mi"),
+			)
 			vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = "scsi"
 
 			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
