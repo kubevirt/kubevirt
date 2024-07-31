@@ -28,6 +28,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +44,7 @@ import (
 	"kubevirt.io/client-go/api"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+	testing2 "kubevirt.io/client-go/testing"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -92,7 +94,6 @@ var _ = Describe("Pool", func() {
 		var crInformer cache.SharedIndexInformer
 		var crSource *framework.FakeControllerSource
 
-		var vmInterface *kubecli.MockVirtualMachineInterface
 		var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 
 		var vmiSource *framework.FakeControllerSource
@@ -145,7 +146,6 @@ var _ = Describe("Pool", func() {
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
-			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
@@ -180,7 +180,7 @@ var _ = Describe("Pool", func() {
 
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
-			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
+			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(client.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
 			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(client.PoolV1alpha1().VirtualMachinePools(testNamespace)).AnyTimes()
 
@@ -244,23 +244,41 @@ var _ = Describe("Pool", func() {
 			})
 		}
 
+		expectVMCreation := func(nameMatcher types.GomegaMatcher) {
+			client.Fake.PrependReactor("create", "virtualmachines", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				created, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				createObj := created.GetObject().(*v1.VirtualMachine)
+				Expect(createObj.Name).To(nameMatcher)
+				Expect(createObj.GenerateName).To(Equal(""))
+				return true, created.GetObject(), nil
+			})
+		}
+
+		expectVMUpdate := func(revisionName string) {
+			client.Fake.PrependReactor("update", "virtualmachines", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				created, ok := action.(testing.UpdateAction)
+				Expect(ok).To(BeTrue())
+				updateObj := created.GetObject().(*v1.VirtualMachine)
+				Expect(updateObj.Labels).To(HaveKeyWithValue(v1.VirtualMachinePoolRevisionName, revisionName))
+				return true, created.GetObject(), nil
+			})
+		}
+
 		It("should create missing VMs", func() {
-			pool, vm := DefaultPool(3)
+			pool, _ := DefaultPool(3)
 
 			addPool(pool)
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
-
-			vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(3).Do(func(ctx context.Context, arg interface{}, options metav1.CreateOptions) {
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal(""))
-			}).Return(vm, nil)
+			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			Expect(testing2.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
 		It("should update VM when VM template changes, but not VMI unless VMI template changes", func() {
@@ -299,13 +317,9 @@ var _ = Describe("Pool", func() {
 			addVMI(vmi, false)
 
 			expectControllerRevisionCreation(newPoolRevision)
+			expectVMUpdate(newPoolRevision.Name)
 
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(0)
-			vmInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).MaxTimes(1).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				newVM := arg.(*v1.VirtualMachine)
-				revisionName := newVM.Labels[v1.VirtualMachinePoolRevisionName]
-				Expect(revisionName).To(Equal(newPoolRevision.Name))
-			}).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -420,9 +434,6 @@ var _ = Describe("Pool", func() {
 			expectedPool := pool.DeepCopy()
 			expectedPool.Status.Replicas = 0
 
-			// No invocations expected
-			vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(0)
-
 			// Expect pool to be updated with paused condition
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.UpdateAction)
@@ -438,6 +449,8 @@ var _ = Describe("Pool", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulPausedPoolReason)
+			// Expect pool to be updated with paused condition
+			Expect(testing2.FilterActions(&client.Fake, "create", "virtualmachines")).To(BeEmpty())
 		})
 
 		It("should set failed condition when reconcile error occurs", func() {
@@ -448,7 +461,9 @@ var _ = Describe("Pool", func() {
 			expectedPool := pool.DeepCopy()
 			expectedPool.Status.Replicas = 0
 
-			vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(3).Return(nil, fmt.Errorf("error"))
+			client.Fake.PrependReactor("create", "virtualmachines", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, &v1.VirtualMachine{}, fmt.Errorf("error")
+			})
 
 			// Expect pool to be updated with paused condition
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -469,6 +484,7 @@ var _ = Describe("Pool", func() {
 
 			testutils.ExpectEvent(recorder, FailedCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, FailedScaleOutReason)
+			Expect(testing2.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
 		It("should remove failed condition when no reconcile error occurs", func() {
@@ -501,7 +517,7 @@ var _ = Describe("Pool", func() {
 		})
 
 		It("should create missing VMs when pool is resumed", func() {
-			pool, vm := DefaultPool(3)
+			pool, _ := DefaultPool(3)
 
 			pool.Status.Conditions = append(pool.Status.Conditions,
 				poolv1.VirtualMachinePoolCondition{
@@ -517,9 +533,7 @@ var _ = Describe("Pool", func() {
 			expectedPool := pool.DeepCopy()
 			expectedPool.Status.Replicas = 0
 
-			vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(3).Do(func(ctx context.Context, arg interface{}, options metav1.CreateOptions) {
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-			}).Return(vm, nil)
+			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
 			// Expect pool to be updated with paused condition
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -539,17 +553,15 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulResumePoolReason)
+			Expect(testing2.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
 		It("should create missing VMs in batches of a maximum of burst replicas VMs at once", func() {
-			pool, vm := DefaultPool(15)
+			pool, _ := DefaultPool(15)
 
 			addPool(pool)
 
-			// Check if only 10 are created
-			vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(10).Do(func(ctx context.Context, arg interface{}, options metav1.CreateOptions) {
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-			}).Return(vm, nil)
+			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
@@ -559,6 +571,8 @@ var _ = Describe("Pool", func() {
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			}
+			// Check if only 10 are created
+			Expect(testing2.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(10))
 		})
 
 		It("should delete VMs in batches of a maximum of burst replicas", func() {
@@ -581,14 +595,17 @@ var _ = Describe("Pool", func() {
 				return true, update.GetObject(), nil
 			})
 
-			// Check if only 10 are deleted
-			vmInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(10).Return(nil)
+			client.Fake.PrependReactor("delete", "virtualmachines", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
 
 			controller.Execute()
 
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			}
+			// Check if only 10 are deleted
+			Expect(testing2.FilterActions(&client.Fake, "delete", "virtualmachines")).To(HaveLen(10))
 		})
 
 		It("should not delete vms which are already marked deleted", func() {
@@ -617,15 +634,16 @@ var _ = Describe("Pool", func() {
 				Expect(updateObj.Status.Replicas).To(Equal(int32(10)))
 				return true, update.GetObject(), nil
 			})
-
-			// Check if only 5 are deleted
-			vmInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(5).Return(nil)
-
+			client.Fake.PrependReactor("delete", "virtualmachines", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
 			controller.Execute()
 
 			for x := 0; x < 5; x++ {
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			}
+			// Check if only 5 are deleted
+			Expect(testing2.FilterActions(&client.Fake, "delete", "virtualmachines")).To(HaveLen(5))
 		})
 
 		It("should ignore and skip the name for non-matching VMs", func() {
@@ -643,11 +661,7 @@ var _ = Describe("Pool", func() {
 
 			addPool(pool)
 
-			vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(3).Do(func(ctx context.Context, arg interface{}, options metav1.CreateOptions) {
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).ToNot(Equal(nonMatchingVM.Name))
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal(""))
-			}).Return(vm, nil)
+			expectVMCreation(And(HavePrefix(fmt.Sprintf("%s-", pool.Name)), Not(Equal(nonMatchingVM.Name))))
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
@@ -656,6 +670,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			Expect(testing2.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
 		It("should ignore orphaned VMs even when selector matches", func() {
@@ -668,10 +683,7 @@ var _ = Describe("Pool", func() {
 
 			addPool(pool)
 
-			vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(3).Do(func(ctx context.Context, arg interface{}, options metav1.CreateOptions) {
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal(""))
-			}).Return(vm, nil)
+			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.UpdateAction)
@@ -698,8 +710,13 @@ var _ = Describe("Pool", func() {
 			addPool(pool)
 			addVM(vm)
 
-			vmInterface.EXPECT().Patch(context.Background(), vm.ObjectMeta.Name, gomock.Any(), gomock.Any(), gomock.Any())
-			vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(3).Return(vm, nil)
+			client.Fake.PrependReactor("patch", "virtualmachines", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				patchAction, ok := action.(testing.PatchAction)
+				Expect(ok).To(BeTrue())
+				Expect(patchAction.GetName()).To(Equal(vm.Name))
+				return true, vm, nil
+			})
+			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.UpdateAction)
@@ -714,7 +731,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-
+			Expect(testing2.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 	})
 })
