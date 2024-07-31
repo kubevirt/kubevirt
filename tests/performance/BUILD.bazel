@@ -24,7 +24,7 @@ go_library(
         "//tests/libinstancetype/builder:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",
-        "//tests/util:go_default_library",
+        "//tests/testsuite:go_default_library",
         "//tools/perfscale-audit/api:go_default_library",
         "//tools/perfscale-audit/metric-client:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",

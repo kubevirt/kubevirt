@@ -57,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
@@ -215,12 +214,12 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		quantity, _ := resource.ParseQuantity("500Mi")
 
 		createSimplePVCWithRestoreLabels := func(name string) {
-			_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
+			_, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: name,
 					Labels: map[string]string{
 						"restore.kubevirt.io/source-vm-name":      "simple-vm",
-						"restore.kubevirt.io/source-vm-namespace": util.NamespaceTestDefault,
+						"restore.kubevirt.io/source-vm-namespace": testsuite.NamespaceTestDefault,
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
@@ -236,8 +235,8 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		}
 
 		It("[test_id:8639]Number of disks restored and total restored bytes metric values should be correct", func() {
-			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
-			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
+			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
+			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
 			numPVCs := 2.0
 
 			for i := 1.0; i < numPVCs+1; i++ {

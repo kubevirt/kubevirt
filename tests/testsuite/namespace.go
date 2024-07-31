@@ -51,6 +51,9 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
+// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
+var NamespaceTestDefault = "kubevirt-test-default"
+
 // NamespaceTestAlternative is used to test controller-namespace independently.
 var NamespaceTestAlternative = "kubevirt-test-alternative"
 
@@ -60,7 +63,7 @@ var NamespaceTestOperator = "kubevirt-test-operator"
 // NamespacePrivileged is used for helper pods that requires to be privileged
 var NamespacePrivileged = "kubevirt-test-privileged"
 
-var TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
+var TestNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
 
 type IgnoreDeprecationWarningsLogger struct{}
 
@@ -373,13 +376,13 @@ func createNamespaces() {
 // CalculateNamespaces checks on which ginkgo gest node the tests are run and sets the namespaces accordingly
 func CalculateNamespaces() {
 	worker := GinkgoParallelProcess()
-	util.NamespaceTestDefault = fmt.Sprintf("%s%d", util.NamespaceTestDefault, worker)
+	NamespaceTestDefault = fmt.Sprintf("%s%d", NamespaceTestDefault, worker)
 	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
 	NamespacePrivileged = fmt.Sprintf("%s%d", NamespacePrivileged, worker)
 	// TODO, that is not needed, just a shortcut to not have to treat this namespace
 	// differently when running in parallel
 	NamespaceTestOperator = fmt.Sprintf("%s%d", NamespaceTestOperator, worker)
-	TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
+	TestNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
 }
 
 func GetTestNamespace(object metav1.Object) string {
@@ -391,5 +394,5 @@ func GetTestNamespace(object metav1.Object) string {
 		return NamespacePrivileged
 	}
 
-	return util.NamespaceTestDefault
+	return NamespaceTestDefault
 }

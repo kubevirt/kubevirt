@@ -30,6 +30,7 @@ import (
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 type AlertRequestResult struct {
@@ -209,7 +210,7 @@ func getPrometheusURLForOpenShift() string {
 	Eventually(func() error {
 		var stderr string
 		var err error
-		host, stderr, err = clientcmd.RunCommand(clientcmd.GetK8sCmdClient(), "-n", "openshift-monitoring", "get", "route", "prometheus-k8s", "--template", "{{.spec.host}}")
+		host, stderr, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), clientcmd.GetK8sCmdClient(), "-n", "openshift-monitoring", "get", "route", "prometheus-k8s", "--template", "{{.spec.host}}")
 		if err != nil {
 			return fmt.Errorf("error while getting route. err:'%v', stderr:'%v'", err, stderr)
 		}

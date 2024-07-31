@@ -28,13 +28,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k6sv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
@@ -43,10 +43,10 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -234,7 +234,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			// virt-handler is the only component that has the tools to add blackhole routes for testing healthz. Ideally we would test all component healthz endpoints.
 			componentName := "virt-handler"
 
-			getVirtHandler := func() *v1.DaemonSet {
+			getVirtHandler := func() *appsv1.DaemonSet {
 				daemonSet, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), componentName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).NotTo(HaveOccurred())
 				return daemonSet
@@ -270,8 +270,8 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 				By("changing a setting and ensuring that the config update watcher eventually resumes and picks it up")
 				migrationBandwidth := resource.MustParse("1Mi")
-				kv := util.GetCurrentKv(virtCli)
-				kv.Spec.Configuration.MigrationConfiguration = &k6sv1.MigrationConfiguration{
+				kv := libkubevirt.GetCurrentKv(virtCli)
+				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
 					BandwidthPerMigration: &migrationBandwidth,
 				}
 				kv = testsuite.UpdateKubeVirtConfigValue(kv.Spec.Configuration)

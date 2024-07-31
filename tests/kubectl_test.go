@@ -43,10 +43,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 	})
 
 	DescribeTable("[test_id:3812]explain vm/vmi", func(resource string) {
-		output, stderr, err := clientcmd.RunCommand(k8sClient, "explain", resource)
+		output, stderr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "explain", resource)
 		// kubectl will not find resource for the first time this command is issued
 		if err != nil {
-			output, _, err = clientcmd.RunCommand(k8sClient, "explain", resource)
+			output, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "explain", resource)
 		}
 		Expect(err).NotTo(HaveOccurred(), stderr)
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
@@ -67,9 +67,9 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 	)
 
 	It("[test_id:5182]vmipreset have validation", func() {
-		output, _, err := clientcmd.RunCommand(k8sClient, "explain", "vmipreset")
+		output, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "explain", "vmipreset")
 		if err != nil {
-			output, _, err = clientcmd.RunCommand(k8sClient, "explain", "vmipreset")
+			output, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "explain", "vmipreset")
 		}
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
@@ -82,9 +82,9 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 	})
 
 	It("[test_id:5183]vmirs have validation", func() {
-		output, _, err := clientcmd.RunCommand(k8sClient, "explain", "vmirs")
+		output, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "explain", "vmirs")
 		if err != nil {
-			output, _, err = clientcmd.RunCommand(k8sClient, "explain", "vmirs")
+			output, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "explain", "vmirs")
 		}
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
@@ -119,10 +119,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		})
 
 		DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {
-			result, _, err = clientcmd.RunCommand(k8sClient, verb, resource, vm.Name)
+			result, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, verb, resource, vm.Name)
 			// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 			if err != nil {
-				result, _, err = clientcmd.RunCommand(k8sClient, verb, resource, vm.Name)
+				result, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, verb, resource, vm.Name)
 			}
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeEmpty())
@@ -141,10 +141,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 
 		DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
 
-			result, _, err := clientcmd.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
+			result, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, verb, resource, vm.Name, "-o", option)
 			// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 			if err != nil {
-				result, _, err = clientcmd.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
+				result, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, verb, resource, vm.Name, "-o", option)
 			}
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeEmpty())
@@ -201,10 +201,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 				libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 				k8sClient := clientcmd.GetK8sCmdClient()
-				result, _, err := clientcmd.RunCommand(k8sClient, "get", "vmim", migration.Name)
+				result, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "get", "vmim", migration.Name)
 				// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 				if err != nil {
-					result, _, err = clientcmd.RunCommand(k8sClient, "get", "vmim", migration.Name)
+					result, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "get", "vmim", migration.Name)
 				}
 
 				expectedHeader := []string{"NAME", "PHASE", "VMI"}
@@ -241,7 +241,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 			k8sClient := clientcmd.GetK8sCmdClient()
 			pod, err := libpod.GetPodByVirtualMachineInstance(vm, vm.Namespace)
 			Expect(err).NotTo(HaveOccurred())
-			output, _, err := clientcmd.RunCommand(k8sClient, "logs", pod.Name)
+			output, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "logs", pod.Name)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(output).To(ContainSubstring("component"))

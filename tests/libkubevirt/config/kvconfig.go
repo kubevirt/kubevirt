@@ -17,7 +17,7 @@
  *
  */
 
-package libkvconfig
+package config
 
 import (
 	"context"
@@ -33,14 +33,13 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
 
 func RegisterKubevirtConfigChange(change func(c v1.KubeVirtConfiguration) ([]patch.PatchOperation, error)) error {
-	kv := util.GetCurrentKv(kubevirt.Client())
+	kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 	changePatch, err := change(kv.Spec.Configuration)
 	if err != nil {
 		return fmt.Errorf("failed changing the kubevirt configuration: %v", err)

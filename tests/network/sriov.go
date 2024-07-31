@@ -66,7 +66,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -105,7 +104,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 
 	Context("VMI connected to single SRIOV network", func() {
 		BeforeEach(func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).
+			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, testsuite.NamespaceTestDefault, sriovConfNAD)).
 				To(Succeed(), shouldCreateNetwork)
 		})
 
@@ -154,7 +153,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 					AlignedCPUs: alignedCPUsInt,
 				},
 			}
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -215,7 +214,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 					Tags:    []string{"specialNet"},
 				},
 			}
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -377,8 +376,8 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 
 	Context("VMI connected to two SRIOV networks", func() {
 		BeforeEach(func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, testsuite.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+			Expect(createSriovNetworkAttachmentDefinition(sriovnet2, testsuite.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
@@ -410,7 +409,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 		sriovNetworks := []string{sriovnet1, sriovnet2, sriovnet3, sriovnet4}
 		BeforeEach(func() {
 			for _, sriovNetwork := range sriovNetworks {
-				Expect(createSriovNetworkAttachmentDefinition(sriovNetwork, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				Expect(createSriovNetworkAttachmentDefinition(sriovNetwork, testsuite.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
 			}
 		})
 
@@ -448,7 +447,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		BeforeEach(func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, util.NamespaceTestDefault, sriovLinkEnableConfNAD)).
+			Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, testsuite.NamespaceTestDefault, sriovLinkEnableConfNAD)).
 				To(Succeed(), shouldCreateNetwork)
 		})
 
@@ -492,7 +491,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 				var err error
 				ipVlaned1, err = libnet.CidrToIP(cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(createSriovNetworkAttachmentDefinition(sriovnetVlanned, util.NamespaceTestDefault, sriovVlanConfNAD)).To(Succeed())
+				Expect(createSriovNetworkAttachmentDefinition(sriovnetVlanned, testsuite.NamespaceTestDefault, sriovVlanConfNAD)).To(Succeed())
 			})
 
 			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
@@ -674,7 +673,7 @@ func createVMIAndWait(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanc
 	virtClient := kubevirt.Client()
 
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}

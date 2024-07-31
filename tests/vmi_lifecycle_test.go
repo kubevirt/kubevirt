@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -53,7 +54,6 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -63,13 +63,13 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
@@ -681,7 +681,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				// Save virt-handler number of desired pods
 				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
 
-				kv := util.GetCurrentKv(kubevirt.Client())
+				kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 				kv.Spec.Workloads = &v1.ComponentConfig{
 					NodePlacement: &v1.NodePlacement{
 						Affinity: &k8sv1.Affinity{
@@ -891,7 +891,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				}
 				defaultCPUModel = supportedCpuModels[0]
 				vmiCPUModel = supportedCpuModels[1]
-				kv := util.GetCurrentKv(kubevirt.Client())
+				kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 				originalConfig = kv.Spec.Configuration
 			})
 

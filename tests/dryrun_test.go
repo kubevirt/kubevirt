@@ -24,11 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -48,10 +43,13 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() {
@@ -480,7 +478,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		resource := "kubevirts"
 
 		BeforeEach(func() {
-			kv = util.GetCurrentKv(virtClient)
+			kv = libkubevirt.GetCurrentKv(virtClient)
 		})
 
 		It("[Serial][test_id:7648]delete a KubeVirt CR", Serial, func() {

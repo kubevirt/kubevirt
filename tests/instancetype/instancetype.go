@@ -8,18 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libdv"
-	builder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
-
-	//nolint:all
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:all
 	. "github.com/onsi/gomega"
-	//nolint:all
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -36,17 +26,22 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
-	"kubevirt.io/kubevirt/pkg/libvmi"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences", decorators.SigCompute, func() {
@@ -188,7 +183,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 	Context("[Serial]with cluster memory overcommit being applied", Serial, func() {
 		BeforeEach(func() {
-			kv := util.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
 			config.DeveloperConfiguration.MemoryOvercommit = 200
@@ -220,7 +215,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -264,7 +259,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -324,7 +319,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -379,7 +374,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -484,7 +479,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -510,7 +505,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -737,7 +732,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 
-			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			By("Validating the VirtualMachineInstance")
 			var vmi *virtv1.VirtualMachineInstance
@@ -805,7 +800,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			}
 			sourceDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), sourceDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libstorage.EventuallyDV(sourceDV, 180, HaveSucceeded())
+			libstorage.EventuallyDV(sourceDV, 180, matcher.HaveSucceeded())
 
 			// This is the default but it should still be cleared
 			failurePolicy := virtv1.RejectInferFromVolumeFailure
@@ -930,7 +925,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					)
 					blankDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), blankDV, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					libstorage.EventuallyDV(sourceDV, 180, HaveSucceeded())
+					libstorage.EventuallyDV(sourceDV, 180, matcher.HaveSucceeded())
 
 					By("Creating a DataSource")
 					// TODO - Replace with libds?
@@ -1070,17 +1065,17 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("instancetype.kubevirt.io apiVersion compatibility", func() {
 		fetchVirtualMachineInstancetypev1alpha1 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
 		fetchVirtualMachineInstancetypev1alpha2 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
 		fetchVirtualMachineInstancetypev1beta1 := func(objName string) {
-			_, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			_, err := virtClient.VirtualMachineInstancetype(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -1100,17 +1095,17 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		}
 
 		fetchVirtualMachinePreferencev1alpha1 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
 		fetchVirtualMachinePreferencev1alpha2 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
 		fetchVirtualMachinePreferencev1beta1 := func(objName string) {
-			_, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			_, err := virtClient.VirtualMachinePreference(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -1138,7 +1133,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		},
 			Entry("VirtualMachineInstancetype v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1",
 				func() string {
-					createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachineInstancetype{
+					createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachineInstancetype{
 						TypeMeta: metav1.TypeMeta{
 							APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
 							Kind:       "VirtualMachineInstancetype",
@@ -1163,7 +1158,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineInstancetypev1beta1,
 			),
 			Entry("VirtualMachineInstancetype v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachineInstancetype{
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineInstancetype",
@@ -1188,7 +1183,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineInstancetypev1beta1,
 			),
 			Entry("VirtualMachineInstancetype v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachineInstancetype{
+				createdObj, err := virtClient.VirtualMachineInstancetype(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineInstancetype",
@@ -1288,7 +1283,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineClusterInstancetypev1beta1,
 			),
 			Entry("VirtualMachinePreference v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachinePreference{
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachinePreference",
@@ -1310,7 +1305,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachinePreferencev1beta1,
 			),
 			Entry("VirtualMachinePreference v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachinePreference{
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachinePreference",
@@ -1333,7 +1328,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachinePreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				preferredCPUTopology := instancetypev1beta1.Cores
-				createdObj, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachinePreference{
+				createdObj, err := virtClient.VirtualMachinePreference(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachinePreference",

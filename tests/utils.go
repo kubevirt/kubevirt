@@ -34,13 +34,10 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,21 +45,20 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
-	util2 "kubevirt.io/kubevirt/tests/util"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -265,7 +261,7 @@ func DisableFeatureGate(feature string) {
 	}
 	virtClient := kubevirt.Client()
 
-	kv := util2.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
 			FeatureGates: []string{},
@@ -294,7 +290,7 @@ func DisableFeatureGate(feature string) {
 func EnableFeatureGate(feature string) *v1.KubeVirt {
 	virtClient := kubevirt.Client()
 
-	kv := util2.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	if checks.HasFeature(feature) {
 		return kv
 	}

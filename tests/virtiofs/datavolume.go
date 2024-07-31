@@ -26,16 +26,10 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,17 +41,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -150,7 +148,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 		},
 			Entry("(privileged virtiofsd)", testsuite.NamespacePrivileged),
-			Entry("(unprivileged virtiofsd)", util.NamespaceTestDefault),
+			Entry("(unprivileged virtiofsd)", testsuite.NamespaceTestDefault),
 		)
 	})
 
@@ -161,7 +159,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 		)
 
 		BeforeEach(func() {
-			originalConfig = *util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+			originalConfig = *libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 		})
 
 		AfterEach(func() {
@@ -264,7 +262,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			}
 			Expect(foundContainer).To(BeTrue())
 		},
-			Entry("unprivileged virtiofsd", util.NamespaceTestDefault),
+			Entry("unprivileged virtiofsd", testsuite.NamespaceTestDefault),
 			Entry("privileged virtiofsd", testsuite.NamespacePrivileged),
 		)
 	})
@@ -356,7 +354,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 		},
-			Entry("unprivileged virtiofsd", util.NamespaceTestDefault),
+			Entry("unprivileged virtiofsd", testsuite.NamespaceTestDefault),
 			Entry("privileged virtiofsd", testsuite.NamespacePrivileged),
 		)
 	})

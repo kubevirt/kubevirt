@@ -30,55 +30,47 @@ import (
 	"time"
 	"unicode"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
-
-	"k8s.io/apimachinery/pkg/util/rand"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+
 	k8sv1 "k8s.io/api/core/v1"
-	kubev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util/cluster"
+	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-
-	"kubevirt.io/kubevirt/tests/util"
-
-	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
-
-	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
-	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util/cluster"
-	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -87,6 +79,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/storage"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
@@ -99,7 +92,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		cgroupV2MemoryUsagePath = "/sys/fs/cgroup/memory.current"
 	)
 
-	getPodMemoryUsage := func(pod *kubev1.Pod) (output string, err error) {
+	getPodMemoryUsage := func(pod *k8sv1.Pod) (output string, err error) {
 		output, err = exec.ExecuteCommandOnPod(
 			pod,
 			"compute",
@@ -167,7 +160,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi := libvmifact.NewAlpine()
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
-			Eventually(func() kubev1.PodQOSClass {
+			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.IsFinal()).To(BeFalse())
@@ -175,20 +168,20 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					return ""
 				}
 				return *vmi.Status.QOSClass
-			}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSBurstable))
+			}, 10*time.Second, 1*time.Second).Should(Equal(k8sv1.PodQOSBurstable))
 		})
 
 		It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", func() {
 			vmi := libvmifact.NewAlpine()
 			By("specifying identical limits and requests")
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-				Requests: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("1"),
-					kubev1.ResourceMemory: resource.MustParse("64M"),
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("1"),
+					k8sv1.ResourceMemory: resource.MustParse("64M"),
 				},
-				Limits: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("1"),
-					kubev1.ResourceMemory: resource.MustParse("64M"),
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("1"),
+					k8sv1.ResourceMemory: resource.MustParse("64M"),
 				},
 			}
 
@@ -196,7 +189,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
-			Eventually(func() kubev1.PodQOSClass {
+			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.IsFinal()).To(BeFalse())
@@ -204,17 +197,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					return ""
 				}
 				return *vmi.Status.QOSClass
-			}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSGuaranteed))
+			}, 10*time.Second, 1*time.Second).Should(Equal(k8sv1.PodQOSGuaranteed))
 		})
 
 		It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", func() {
 			vmi := libvmifact.NewAlpine()
 			By("specifying identical limits and requests")
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-				Requests: kubev1.ResourceList{},
-				Limits: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("1"),
-					kubev1.ResourceMemory: resource.MustParse("128Mi"),
+				Requests: k8sv1.ResourceList{},
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("1"),
+					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 			}
 
@@ -222,7 +215,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
-			Eventually(func() kubev1.PodQOSClass {
+			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.IsFinal()).To(BeFalse())
@@ -230,7 +223,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					return ""
 				}
 				return *vmi.Status.QOSClass
-			}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSGuaranteed))
+			}, 10*time.Second, 1*time.Second).Should(Equal(k8sv1.PodQOSGuaranteed))
 
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -311,8 +304,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					Cores: 3,
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("128Mi"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 
@@ -336,7 +329,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
-				var computeContainer *kubev1.Container
+				var computeContainer *k8sv1.Container
 				for _, container := range readyPod.Spec.Containers {
 					if container.Name == "compute" {
 						computeContainer = &container
@@ -352,8 +345,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 			It("[test_id:4624]should set a correct memory units", func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("128Mi"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 				expectedMemoryInKiB := 128 * 1024
@@ -375,8 +368,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					Cores:   2,
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("128Mi"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 
@@ -398,9 +391,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:1661]should report 2 sockets from spec.domain.resources.requests under guest OS ", func() {
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceCPU:    resource.MustParse("1200m"),
-						kubev1.ResourceMemory: resource.MustParse("128Mi"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("1200m"),
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 
@@ -422,11 +415,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:1662]should report 2 sockets from spec.domain.resources.limits under guest OS ", func() {
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("128Mi"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 					},
-					Limits: kubev1.ResourceList{
-						kubev1.ResourceCPU: resource.MustParse("1200m"),
+					Limits: k8sv1.ResourceList{
+						k8sv1.ResourceCPU: resource.MustParse("1200m"),
 					},
 				}
 
@@ -452,8 +445,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					Cores:   1,
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("128M"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 
@@ -475,9 +468,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[Serial][test_id:1664]should map cores to virtio block queues", Serial, func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("128Mi"),
-						kubev1.ResourceCPU:    resource.MustParse("3"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+						k8sv1.ResourceCPU:    resource.MustParse("3"),
 					},
 				}
 				vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
@@ -500,9 +493,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				_true := true
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("128Mi"),
-						kubev1.ResourceCPU:    resource.MustParse("3"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+						k8sv1.ResourceCPU:    resource.MustParse("3"),
 					},
 				}
 
@@ -524,8 +517,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("128Mi"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				}
 				vmi.Spec.Domain.Devices.BlockMultiQueue = &_false
@@ -552,7 +545,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		Context("[Serial][rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", Serial, func() {
 			BeforeEach(func() {
-				kv := util.GetCurrentKv(virtClient)
+				kv := libkubevirt.GetCurrentKv(virtClient)
 
 				config := kv.Spec.Configuration
 				config.DeveloperConfiguration.MemoryOvercommit = 200
@@ -578,8 +571,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				)
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("32M"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("32M"),
 					},
 				}
 
@@ -778,7 +771,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
-				var computeContainer *kubev1.Container
+				var computeContainer *k8sv1.Container
 				for _, container := range readyPod.Spec.Containers {
 					if container.Name == "compute" {
 						computeContainer = &container
@@ -1011,19 +1004,19 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		Context("with namespace different from provided", func() {
 			It("should fail admission", func() {
 				// create a namespace default limit
-				limitRangeObj := kubev1.LimitRange{
+				limitRangeObj := k8sv1.LimitRange{
 
 					ObjectMeta: metav1.ObjectMeta{Name: "abc1", Namespace: testsuite.GetTestNamespace(nil)},
-					Spec: kubev1.LimitRangeSpec{
-						Limits: []kubev1.LimitRangeItem{
+					Spec: k8sv1.LimitRangeSpec{
+						Limits: []k8sv1.LimitRangeItem{
 							{
-								Type: kubev1.LimitTypeContainer,
-								Default: kubev1.ResourceList{
-									kubev1.ResourceCPU:    resource.MustParse("2000m"),
-									kubev1.ResourceMemory: resource.MustParse("512M"),
+								Type: k8sv1.LimitTypeContainer,
+								Default: k8sv1.ResourceList{
+									k8sv1.ResourceCPU:    resource.MustParse("2000m"),
+									k8sv1.ResourceMemory: resource.MustParse("512M"),
 								},
-								DefaultRequest: kubev1.ResourceList{
-									kubev1.ResourceCPU: resource.MustParse("500m"),
+								DefaultRequest: k8sv1.ResourceList{
+									k8sv1.ResourceCPU: resource.MustParse("500m"),
 								},
 							},
 						},
@@ -1035,11 +1028,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi := libvmifact.NewAlpine()
 				vmi.Namespace = testsuite.NamespaceTestAlternative
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("128Mi"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 					},
-					Limits: kubev1.ResourceList{
-						kubev1.ResourceCPU: resource.MustParse("1000m"),
+					Limits: k8sv1.ResourceList{
+						k8sv1.ResourceCPU: resource.MustParse("1000m"),
 					},
 				}
 
@@ -1097,7 +1090,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				// Verify that the VM memory equals to a number of consumed hugepages
 				vmHugepagesConsumption := int64(totalHugepages-freeHugepages+resvHugepages) * hugepagesSize.Value()
-				vmMemory := hugepagesVmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory]
+				vmMemory := hugepagesVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
 				if hugepagesVmi.Spec.Domain.Memory != nil && hugepagesVmi.Spec.Domain.Memory.Guest != nil {
 					vmMemory = *hugepagesVmi.Spec.Domain.Memory.Guest
 				}
@@ -1112,7 +1105,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 
 			DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string) {
-				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
+				hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
 				v, err := cluster.GetKubernetesVersion()
 				Expect(err).ShouldNot(HaveOccurred())
 				if strings.Contains(v, "1.16") {
@@ -1127,20 +1120,20 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					Skip(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
 				}
 				// initialHugepages := nodeWithHugepages.Status.Capacity[resourceName]
-				hugepagesVmi.Spec.Affinity = &kubev1.Affinity{
-					NodeAffinity: &kubev1.NodeAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: &kubev1.NodeSelector{
-							NodeSelectorTerms: []kubev1.NodeSelectorTerm{
+				hugepagesVmi.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: &k8sv1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
 								{
-									MatchExpressions: []kubev1.NodeSelectorRequirement{
-										{Key: k8sv1.LabelHostname, Operator: kubev1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
+									MatchExpressions: []k8sv1.NodeSelectorRequirement{
+										{Key: k8sv1.LabelHostname, Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
 									},
 								},
 							},
 						},
 					},
 				}
-				hugepagesVmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse(memory)
+				hugepagesVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(memory)
 
 				hugepagesVmi.Spec.Domain.Memory = &v1.Memory{
 					Hugepages: &v1.Hugepages{PageSize: hugepageSize},
@@ -1168,14 +1161,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					hugepageType2Mi := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + "2Mi")
+					hugepageType2Mi := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + "2Mi")
 					for _, node := range nodes.Items {
 						if _, ok := node.Status.Capacity[hugepageType2Mi]; !ok {
 							Skip("No nodes with hugepages support")
 						}
 					}
 
-					hugepagesVmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("66Mi")
+					hugepagesVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("66Mi")
 
 					hugepagesVmi.Spec.Domain.Memory = &v1.Memory{
 						Hugepages: &v1.Hugepages{PageSize: "3Mi"},
@@ -1191,7 +1184,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						for _, cond := range vmi.Status.Conditions {
-							if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
+							if cond.Type == v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled) && cond.Status == k8sv1.ConditionFalse {
 								vmiCondition = cond
 								return true
 							}
@@ -1329,7 +1322,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			Context("[Serial]with cluster config changes", Serial, func() {
 				BeforeEach(func() {
-					kv := util.GetCurrentKv(virtClient)
+					kv := libkubevirt.GetCurrentKv(virtClient)
 
 					config := kv.Spec.Configuration
 					config.SupportedGuestAgentVersions = []string{"X.*"}
@@ -1648,7 +1641,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			It("should apply runtimeClassName to pod when set", func() {
 				By("Configuring a default runtime class")
-				config := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+				config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 				config.DefaultRuntimeClass = runtimeClassName
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
@@ -1667,7 +1660,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 		It("should not apply runtimeClassName to pod when not set", func() {
 			By("verifying no default runtime class name is set")
-			config := util.GetCurrentKv(virtClient).Spec.Configuration
+			config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration
 			Expect(config.DefaultRuntimeClass).To(BeEmpty())
 			By("Creating a VMI")
 			vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), 60)
@@ -1680,18 +1673,18 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		Context("[Serial]with geust-to-request memory ", Serial, func() {
 			setHeadroom := func(ratioStr string) {
-				kv := util.GetCurrentKv(virtClient)
+				kv := libkubevirt.GetCurrentKv(virtClient)
 
 				config := kv.Spec.Configuration
 				config.AdditionalGuestMemoryOverheadRatio = &ratioStr
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 			}
 
-			getComputeMemoryRequest := func(vmi *virtv1.VirtualMachineInstance) resource.Quantity {
+			getComputeMemoryRequest := func(vmi *v1.VirtualMachineInstance) resource.Quantity {
 				launcherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				computeContainer := libpod.LookupComputeContainer(launcherPod)
-				return computeContainer.Resources.Requests[kubev1.ResourceMemory]
+				return computeContainer.Resources.Requests[k8sv1.ResourceMemory]
 			}
 
 			It("should add guest-to-memory headroom", func() {
@@ -1874,7 +1867,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		testEmulatedMachines := []string{"q35*", "pc-q35*", "pc*"}
 
 		BeforeEach(func() {
-			kv := util.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
 			config.MachineType = ""
@@ -1926,7 +1919,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[Serial][test_id:3126]should set machine type from kubevirt-config", Serial, func() {
-			kv := util.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(virtClient)
 			testEmulatedMachines := []string{"pc"}
 
 			config := kv.Spec.Configuration
@@ -1974,7 +1967,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 			computeContainer := libpod.LookupComputeContainer(readyPod)
-			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
+			cpuRequest := computeContainer.Resources.Requests[k8sv1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("500m"))
 		})
 
@@ -1985,12 +1978,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 			computeContainer := libpod.LookupComputeContainer(readyPod)
-			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
+			cpuRequest := computeContainer.Resources.Requests[k8sv1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("100m"))
 		})
 
 		It("[Serial][test_id:3129]should set CPU request from kubevirt-config", Serial, func() {
-			kv := util.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
 			configureCPURequest := resource.MustParse("800m")
@@ -2003,7 +1996,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 			computeContainer := libpod.LookupComputeContainer(readyPod)
-			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
+			cpuRequest := computeContainer.Resources.Requests[k8sv1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("800m"))
 		})
 	})
@@ -2012,7 +2005,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		const autoCPULimitLabel = "autocpulimit"
 		BeforeEach(func() {
 			By("Adding a label selector to the CR for auto CPU limit")
-			kv := util.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
 			config.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{autoCPULimitLabel: "true"},
@@ -2028,7 +2021,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 			computeContainer := libpod.LookupComputeContainer(readyPod)
-			_, exists := computeContainer.Resources.Limits[kubev1.ResourceCPU]
+			_, exists := computeContainer.Resources.Limits[k8sv1.ResourceCPU]
 			Expect(exists).To(BeFalse(), "CPU limit set on the compute container when none was expected")
 		})
 		It("should set a CPU limit if the namespace matches the selector", func() {
@@ -2050,7 +2043,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 			computeContainer := libpod.LookupComputeContainer(readyPod)
-			limits, exists := computeContainer.Resources.Limits[kubev1.ResourceCPU]
+			limits, exists := computeContainer.Resources.Limits[k8sv1.ResourceCPU]
 			Expect(exists).To(BeTrue(), "expected CPU limit not set on the compute container")
 			Expect(limits.String()).To(Equal("1"))
 		})
@@ -2068,16 +2061,16 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				computeContainer := libpod.LookupComputeContainer(readyPod)
-				_, exists := computeContainer.Resources.Limits[kubev1.ResourceMemory]
+				_, exists := computeContainer.Resources.Limits[k8sv1.ResourceMemory]
 				Expect(exists).To(BeFalse(), "Memory limits set on the compute container when none was expected")
-				_, exists = computeContainer.Resources.Limits[kubev1.ResourceCPU]
+				_, exists = computeContainer.Resources.Limits[k8sv1.ResourceCPU]
 				Expect(exists).To(BeFalse(), "CPU limits set on the compute container when none was expected")
 			})
 		})
 
 		When("a ResourceQuota with memory and cpu limits is associated to the creation namespace", func() {
 			var (
-				vmi                       *virtv1.VirtualMachineInstance
+				vmi                       *v1.VirtualMachineInstance
 				expectedLauncherMemLimits *resource.Quantity
 				expectedLauncherCPULimits resource.Quantity
 				vmiRequest                resource.Quantity
@@ -2101,13 +2094,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				rqLimit := expectedLauncherMemLimits.DeepCopy()
 				rqLimit.Add(delta)
 				By("Creating a Resource Quota with memory limits")
-				rq := &kubev1.ResourceQuota{
+				rq := &k8sv1.ResourceQuota{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:    testsuite.GetTestNamespace(nil),
 						GenerateName: "test-quota",
 					},
 					Spec: k8sv1.ResourceQuotaSpec{
-						Hard: kubev1.ResourceList{
+						Hard: k8sv1.ResourceList{
 							k8sv1.ResourceLimitsMemory: resource.MustParse(rqLimit.String()),
 							k8sv1.ResourceLimitsCPU:    resource.MustParse("1500m"),
 						},
@@ -2125,10 +2118,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				computeContainer := libpod.LookupComputeContainer(readyPod)
-				memLimits, exists := computeContainer.Resources.Limits[kubev1.ResourceMemory]
+				memLimits, exists := computeContainer.Resources.Limits[k8sv1.ResourceMemory]
 				Expect(exists).To(BeTrue(), "expected memory limits set on the compute container")
 				Expect(memLimits.Value()).To(BeEquivalentTo(expectedLauncherMemLimits.Value()))
-				cpuLimits, exists := computeContainer.Resources.Limits[kubev1.ResourceCPU]
+				cpuLimits, exists := computeContainer.Resources.Limits[k8sv1.ResourceCPU]
 				Expect(exists).To(BeTrue(), "expected cpu limits set on the compute container")
 				Expect(cpuLimits.Value()).To(BeEquivalentTo(expectedLauncherCPULimits.Value()))
 			})
@@ -2515,7 +2508,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, cond := range vmi.Status.Conditions {
-					if cond.Type == v1.VirtualMachineInstanceConditionType(v1.VirtualMachineInstanceSynchronized) && cond.Status == kubev1.ConditionFalse {
+					if cond.Type == v1.VirtualMachineInstanceConditionType(v1.VirtualMachineInstanceSynchronized) && cond.Status == k8sv1.ConditionFalse {
 						vmiCondition = cond
 						return true
 					}
@@ -2528,7 +2521,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 	Describe("[rfe_id:897][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", func() {
-		var nodes *kubev1.NodeList
+		var nodes *k8sv1.NodeList
 
 		isNodeHasCPUManagerLabel := func(nodeName string) bool {
 			Expect(nodeName).ToNot(BeEmpty())
@@ -2607,7 +2600,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Get(context.Background(), cpuVmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.QOSClass).ToNot(BeNil())
-				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
+				Expect(*vmi.Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
 
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
@@ -2615,9 +2608,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(cpuVmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				podQos := readyPod.Status.QOSClass
-				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
+				Expect(podQos).To(Equal(k8sv1.PodQOSGuaranteed))
 
-				var computeContainer *kubev1.Container
+				var computeContainer *k8sv1.Container
 				for _, container := range readyPod.Spec.Containers {
 					if container.Name == "compute" {
 						computeContainer = &container
@@ -2661,8 +2654,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				guestMemory := resource.MustParse("64M")
 				cpuVmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("80M"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("80M"),
 					},
 				}
 
@@ -2675,7 +2668,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Get(context.Background(), cpuVmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.QOSClass).ToNot(BeNil())
-				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
+				Expect(*vmi.Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
 
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
@@ -2683,7 +2676,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(cpuVmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				podQos := readyPod.Status.QOSClass
-				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
+				Expect(podQos).To(Equal(k8sv1.PodQOSGuaranteed))
 
 				// -------------------------------------------------------------------
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -2728,7 +2721,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Get(context.Background(), cpuVmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.QOSClass).ToNot(BeNil())
-				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
+				Expect(*vmi.Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
 
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
@@ -2737,9 +2730,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				podQos := readyPod.Status.QOSClass
-				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
+				Expect(podQos).To(Equal(k8sv1.PodQOSGuaranteed))
 
-				var computeContainer *kubev1.Container
+				var computeContainer *k8sv1.Container
 				for _, container := range readyPod.Spec.Containers {
 					if container.Name == "compute" {
 						computeContainer = &container
@@ -2806,14 +2799,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				Expect(kvmpitmask).To(Equal(vcpuzeromask))
 			},
-				Entry(" with explicit resources set", &virtv1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceCPU:    resource.MustParse("2"),
-						kubev1.ResourceMemory: resource.MustParse("256Mi"),
+				Entry(" with explicit resources set", &v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("2"),
+						k8sv1.ResourceMemory: resource.MustParse("256Mi"),
 					},
-					Limits: kubev1.ResourceList{
-						kubev1.ResourceCPU:    resource.MustParse("2"),
-						kubev1.ResourceMemory: resource.MustParse("256Mi"),
+					Limits: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("2"),
+						k8sv1.ResourceMemory: resource.MustParse("256Mi"),
 					},
 				}),
 				Entry("without resource requirements set", nil),
@@ -2886,8 +2879,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Limits: kubev1.ResourceList{
-						kubev1.ResourceCPU: resource.MustParse("4"),
+					Limits: k8sv1.ResourceList{
+						k8sv1.ResourceCPU: resource.MustParse("4"),
 					},
 				}
 				By("Starting a VirtualMachineInstance")
@@ -2938,8 +2931,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					DedicatedCPUPlacement: true,
 				}
 				cpuvmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("512M"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("512M"),
 					},
 				}
 				cpuvmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
@@ -2948,8 +2941,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					Cores: 2,
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("512M"),
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("512M"),
 					},
 				}
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
@@ -3042,7 +3035,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:2751]test default SMBios", func() {
-			kv := util.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
 			// Clear SMBios values if already set in kubevirt-config, for testing default values.
@@ -3078,7 +3071,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:2752]test custom SMBios values", func() {
-			kv := util.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
 			// Set a custom test SMBios
 			test_smbios := &v1.SMBiosConfiguration{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
@@ -3194,7 +3187,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		BeforeEach(func() {
 			var bootOrder uint = 1
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1024M")
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 			vmi.Spec.Domain.Devices.Disks[0].BootOrder = &bootOrder
 		})
 

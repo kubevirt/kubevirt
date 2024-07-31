@@ -25,10 +25,6 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libstorage"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -44,6 +40,9 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -55,7 +54,7 @@ var (
 func AdjustKubeVirtResource() {
 	virtClient := kubevirt.Client()
 
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	originalKV = kv.DeepCopy()
 
 	KubeVirtDefaultConfig = originalKV.Spec.Configuration
@@ -167,7 +166,7 @@ func RestoreKubeVirtResource() {
 func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 	allowEmulation := false
 
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	if kv.Spec.Configuration.DeveloperConfiguration != nil {
 		allowEmulation = kv.Spec.Configuration.DeveloperConfiguration.UseEmulation
 	}
@@ -180,7 +179,7 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 
 	virtClient := kubevirt.Client()
 
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	old, err := json.Marshal(kv)
 	Expect(err).ToNot(HaveOccurred())
 

@@ -21,7 +21,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[sig-compute][virtctl]credentials", func() {
@@ -51,7 +51,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 		passwordSecretName = passwordSecretNamePrefix + rand.String(6)
 
 		vmi := libvmifact.NewFedora()
-		vmi.Namespace = util.NamespaceTestDefault
+		vmi.Namespace = testsuite.NamespaceTestDefault
 
 		vm = libvmi.NewVirtualMachine(vmi)
 
@@ -81,10 +81,10 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			},
 		}}
 
-		vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := cli.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			err := cli.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
+			err := cli.VirtualMachine(testsuite.NamespaceTestDefault).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 			Expect(err).To(Or(
 				Not(HaveOccurred()),
 				Satisfy(errors.IsNotFound),
@@ -99,10 +99,10 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			UID:        vm.UID,
 			Controller: pointer.Bool(true),
 		}}
-		keySecret, err = cli.CoreV1().Secrets(util.NamespaceTestDefault).Create(context.Background(), keySecret, metav1.CreateOptions{})
+		keySecret, err = cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Create(context.Background(), keySecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Delete(context.Background(), keySecret.Name, metav1.DeleteOptions{})
+			err := cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Delete(context.Background(), keySecret.Name, metav1.DeleteOptions{})
 			Expect(err).To(Or(
 				Not(HaveOccurred()),
 				Satisfy(errors.IsNotFound),
@@ -117,10 +117,10 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			UID:        vm.UID,
 			Controller: pointer.Bool(true),
 		}}
-		passwordSecret, err = cli.CoreV1().Secrets(util.NamespaceTestDefault).Create(context.Background(), passwordSecret, metav1.CreateOptions{})
+		passwordSecret, err = cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Create(context.Background(), passwordSecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Delete(context.Background(), passwordSecret.Name, metav1.DeleteOptions{})
+			err := cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Delete(context.Background(), passwordSecret.Name, metav1.DeleteOptions{})
 			Expect(err).To(Or(
 				Not(HaveOccurred()),
 				Satisfy(errors.IsNotFound),
@@ -134,12 +134,12 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 				"credentials", "add-ssh-key",
 				"--user", userName,
 				"--value", testKey2,
-				"--namespace", util.NamespaceTestDefault,
+				"--namespace", testsuite.NamespaceTestDefault,
 				vm.Name,
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(HaveLen(2))
@@ -154,12 +154,12 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 				"credentials", "add-ssh-key",
 				"--user", userName,
 				"--file", filename,
-				"--namespace", util.NamespaceTestDefault,
+				"--namespace", testsuite.NamespaceTestDefault,
 				vm.Name,
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(HaveLen(2))
@@ -174,12 +174,12 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 				"--user", newUser,
 				"--value", testKey2,
 				"--create-secret",
-				"--namespace", util.NamespaceTestDefault,
+				"--namespace", testsuite.NamespaceTestDefault,
 				vm.Name,
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			vm, err := cli.VirtualMachine(testsuite.NamespaceTestDefault).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			var newSecretName string
@@ -198,7 +198,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 
 			Expect(newSecretName).ToNot(BeEmpty())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), newSecretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Get(context.Background(), newSecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(HaveLen(1))
@@ -212,12 +212,12 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 				"credentials", "remove-ssh-key",
 				"--user", userName,
 				"--value", testKey1,
-				"--namespace", util.NamespaceTestDefault,
+				"--namespace", testsuite.NamespaceTestDefault,
 				vm.Name,
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(BeEmpty())
@@ -231,12 +231,12 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 				"credentials", "remove-ssh-key",
 				"--user", userName,
 				"--file", filename,
-				"--namespace", util.NamespaceTestDefault,
+				"--namespace", testsuite.NamespaceTestDefault,
 				vm.Name,
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(BeEmpty())
@@ -250,12 +250,12 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 				"credentials", "set-password",
 				"--user", userName,
 				"--password", newPassword,
-				"--namespace", util.NamespaceTestDefault,
+				"--namespace", testsuite.NamespaceTestDefault,
 				vm.Name,
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), passwordSecretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(testsuite.NamespaceTestDefault).Get(context.Background(), passwordSecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(HaveLen(1))

@@ -18,7 +18,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func() {
@@ -38,7 +37,7 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 		case *instancetypev1beta1.VirtualMachinePreference:
 			ExpectWithOffset(1, namespaced).To(BeTrue(), "expected VirtualMachinePreference to be created")
 			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachinePreference"))
-			preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), (*instancetypev1beta1.VirtualMachinePreference)(obj), metav1.CreateOptions{})
+			preference, err := virtClient.VirtualMachinePreference(testsuite.NamespaceTestDefault).Create(context.Background(), (*instancetypev1beta1.VirtualMachinePreference)(obj), metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			return &preference.Spec, nil
 		case *instancetypev1beta1.VirtualMachineClusterPreference:

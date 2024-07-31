@@ -23,10 +23,6 @@ import (
 	"context"
 	"fmt"
 
-	"kubevirt.io/kubevirt/tests/libnet/dns"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -41,11 +37,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/dns"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = SIGDescribe("Subdomain", func() {
@@ -71,7 +69,7 @@ var _ = SIGDescribe("Subdomain", func() {
 		BeforeEach(func() {
 			serviceName := subdomain
 			service := netservice.BuildHeadlessSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-			_, err := virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), service, k8smetav1.CreateOptions{})
+			_, err := virtClient.CoreV1().Services(testsuite.NamespaceTestDefault).Create(context.Background(), service, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -86,13 +84,13 @@ var _ = SIGDescribe("Subdomain", func() {
 				} else {
 					domain = vmiSpec.Name
 				}
-				expectedFQDN = fmt.Sprintf("%s.%s.%s.svc.cluster.local", domain, subdom, util.NamespaceTestDefault)
+				expectedFQDN = fmt.Sprintf("%s.%s.%s.svc.cluster.local", domain, subdom, testsuite.NamespaceTestDefault)
 			} else {
 				expectedFQDN = vmiSpec.Name
 			}
 			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -107,7 +105,7 @@ var _ = SIGDescribe("Subdomain", func() {
 		It("VMI with custom DNSPolicy should have the expected FQDN", func() {
 			vmiSpec := fedoraBridgeBindingVMI()
 			vmiSpec.Spec.Subdomain = subdomain
-			expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, util.NamespaceTestDefault)
+			expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, testsuite.NamespaceTestDefault)
 			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
 			dnsServerIP, err := dns.ClusterDNSServiceIP()
@@ -116,11 +114,11 @@ var _ = SIGDescribe("Subdomain", func() {
 			vmiSpec.Spec.DNSPolicy = "None"
 			vmiSpec.Spec.DNSConfig = &k8sv1.PodDNSConfig{
 				Nameservers: []string{dnsServerIP},
-				Searches: []string{util.NamespaceTestDefault + ".svc.cluster.local",
-					"svc.cluster.local", "cluster.local", util.NamespaceTestDefault + ".this.is.just.a.very.long.dummy"},
+				Searches: []string{testsuite.NamespaceTestDefault + ".svc.cluster.local",
+					"svc.cluster.local", "cluster.local", testsuite.NamespaceTestDefault + ".this.is.just.a.very.long.dummy"},
 			}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -131,7 +129,7 @@ var _ = SIGDescribe("Subdomain", func() {
 	It("VMI with custom DNSPolicy, a subdomain and no service entry, should not include the subdomain in the searchlist", func() {
 		vmiSpec := fedoraBridgeBindingVMI()
 		vmiSpec.Spec.Subdomain = subdomain
-		expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, util.NamespaceTestDefault)
+		expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, testsuite.NamespaceTestDefault)
 		vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
 		dnsServerIP, err := dns.ClusterDNSServiceIP()
@@ -143,7 +141,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			Searches:    []string{"example.com"},
 		}
 
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 

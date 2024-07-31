@@ -25,33 +25,29 @@ import (
 	"net/http"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libnet"
-
-	"kubevirt.io/kubevirt/tests/libmigration"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMonitoring, func() {
@@ -121,7 +117,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 
 	Context("System Alerts", func() {
 		disableVirtHandler := func() *v1.KubeVirt {
-			originalKv := util.GetCurrentKv(virtClient)
+			originalKv := libkubevirt.GetCurrentKv(virtClient)
 			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
@@ -156,7 +152,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 		}
 
 		restoreVirtHandler := func(kv *v1.KubeVirt) {
-			originalKv := util.GetCurrentKv(virtClient)
+			originalKv := libkubevirt.GetCurrentKv(virtClient)
 			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 

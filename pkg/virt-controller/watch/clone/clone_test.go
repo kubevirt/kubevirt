@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -203,7 +202,7 @@ var _ = Describe("Clone", func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 
-		testNamespace = util.NamespaceTestDefault
+		testNamespace = metav1.NamespaceDefault
 
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
@@ -228,7 +227,7 @@ var _ = Describe("Clone", func() {
 		runStrategy := virtv1.RunStrategyHalted
 		sourceVM.Spec.RunStrategy = &runStrategy
 
-		vmClone = kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
+		vmClone = kubecli.NewMinimalCloneWithNS("testclone", metav1.NamespaceDefault)
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
 			APIGroup: pointer.P(vmAPIGroup),
 			Kind:     "VirtualMachine",
@@ -266,10 +265,10 @@ var _ = Describe("Clone", func() {
 		client = kubevirtfake.NewSimpleClientset()
 
 		virtClient.EXPECT().VirtualMachine(testNamespace).Return(vmInterface).AnyTimes()
-		virtClient.EXPECT().VirtualMachineClone(util.NamespaceTestDefault).Return(client.CloneV1alpha1().VirtualMachineClones(util.NamespaceTestDefault)).AnyTimes()
-		virtClient.EXPECT().VirtualMachineSnapshot(util.NamespaceTestDefault).Return(client.SnapshotV1beta1().VirtualMachineSnapshots(util.NamespaceTestDefault)).AnyTimes()
-		virtClient.EXPECT().VirtualMachineRestore(util.NamespaceTestDefault).Return(client.SnapshotV1beta1().VirtualMachineRestores(util.NamespaceTestDefault)).AnyTimes()
-		virtClient.EXPECT().VirtualMachineSnapshotContent(util.NamespaceTestDefault).Return(client.SnapshotV1beta1().VirtualMachineSnapshotContents(util.NamespaceTestDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClone(metav1.NamespaceDefault).Return(client.CloneV1alpha1().VirtualMachineClones(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineSnapshot(metav1.NamespaceDefault).Return(client.SnapshotV1beta1().VirtualMachineSnapshots(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineRestore(metav1.NamespaceDefault).Return(client.SnapshotV1beta1().VirtualMachineRestores(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineSnapshotContent(metav1.NamespaceDefault).Return(client.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault)).AnyTimes()
 
 		k8sClient = k8sfake.NewSimpleClientset()
 		k8sClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {

@@ -4,23 +4,21 @@ import (
 	"context"
 	"fmt"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
-	"kubevirt.io/kubevirt/pkg/util/cluster"
-
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	v12 "k8s.io/api/core/v1"
+
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/onsi/ginkgo/v2"
-
-	kubev1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/util/cluster"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -119,7 +117,7 @@ func SkipTestIfNotSEVCapable() {
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
 
 	for _, node := range nodes.Items {
-		if IsSEVCapable(&node, kubev1.SEVLabel) {
+		if IsSEVCapable(&node, v1.SEVLabel) {
 			return
 		}
 	}
@@ -132,7 +130,7 @@ func SkipTestIfNotSEVESCapable() {
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
 
 	for _, node := range nodes.Items {
-		if IsSEVCapable(&node, kubev1.SEVESLabel) {
+		if IsSEVCapable(&node, v1.SEVESLabel) {
 			return
 		}
 	}
@@ -140,30 +138,30 @@ func SkipTestIfNotSEVESCapable() {
 }
 
 func SkipIfMissingRequiredImage(virtClient kubecli.KubevirtClient, imageName string) {
-	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, v1.GetOptions{})
-	if err != nil || windowsPv.Status.Phase == v12.VolumePending || windowsPv.Status.Phase == v12.VolumeFailed {
+	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, metav1.GetOptions{})
+	if err != nil || windowsPv.Status.Phase == k8sv1.VolumePending || windowsPv.Status.Phase == k8sv1.VolumeFailed {
 		ginkgo.Skip(fmt.Sprintf("Skip tests that requires PV %s", imageName))
-	} else if windowsPv.Status.Phase == v12.VolumeReleased {
+	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, v1.UpdateOptions{})
+		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 }
 
 func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
-	rhelPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), diskRhel, v1.GetOptions{})
-	if err != nil || rhelPv.Status.Phase == v12.VolumePending || rhelPv.Status.Phase == v12.VolumeFailed {
+	rhelPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), diskRhel, metav1.GetOptions{})
+	if err != nil || rhelPv.Status.Phase == k8sv1.VolumePending || rhelPv.Status.Phase == k8sv1.VolumeFailed {
 		ginkgo.Skip(fmt.Sprintf("Skip RHEL tests that requires PVC %s", diskRhel))
-	} else if rhelPv.Status.Phase == v12.VolumeReleased {
+	} else if rhelPv.Status.Phase == k8sv1.VolumeReleased {
 		rhelPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), rhelPv, v1.UpdateOptions{})
+		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), rhelPv, metav1.UpdateOptions{})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 }
 
 func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	labelSelector := "app=flannel"
-	flannelpod, err := virtClient.CoreV1().Pods(v1.NamespaceSystem).List(context.Background(), v1.ListOptions{LabelSelector: labelSelector})
+	flannelpod, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	if len(flannelpod.Items) > 0 {
 		ginkgo.Skip("Skip networkpolicy test for flannel network")
@@ -174,7 +172,7 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 	ext, err := clientset.NewForConfig(virtClient.Config())
 	util.PanicOnError(err)
 
-	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "prometheusrules.monitoring.coreos.com", v1.GetOptions{})
+	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "prometheusrules.monitoring.coreos.com", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		ginkgo.Skip("Skip monitoring tests when PrometheusRule CRD is not available in the cluster")
 	} else if err != nil {
@@ -183,14 +181,14 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 }
 
 func SkipIfSingleReplica(virtClient kubecli.KubevirtClient) {
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil && *(kv.Spec.Infra.Replicas) == 1 {
 		ginkgo.Skip("Skip multi-replica test on single-replica deployments")
 	}
 }
 
 func SkipIfMultiReplica(virtClient kubecli.KubevirtClient) {
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	if kv.Spec.Infra == nil || kv.Spec.Infra.Replicas == nil || *(kv.Spec.Infra.Replicas) > 1 {
 		ginkgo.Skip("Skip single-replica test on multi-replica deployments")
 	}

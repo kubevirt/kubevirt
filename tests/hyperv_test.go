@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, func() {
@@ -78,7 +77,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			It("should be able to migrate", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
@@ -93,7 +92,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			It("should have TSC frequency set up in label and domain", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
@@ -142,7 +141,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			It("should be able to start successfully", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 				Expect(console.LoginToAlpine(reEnlightenmentVMI)).To(Succeed())
@@ -151,13 +150,13 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			It("should be marked as non-migratable", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
 				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 				isNonMigratable := func() error {
-					reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), reEnlightenmentVMI.Name, metav1.GetOptions{})
+					reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), reEnlightenmentVMI.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					cond := conditionManager.GetCondition(reEnlightenmentVMI, v1.VirtualMachineInstanceIsMigratable)
@@ -237,7 +236,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 					Hyperv: &features,
 				}
 
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI when using %v", label)
 				libwait.WaitForSuccessfulVMIStart(vmi)
 

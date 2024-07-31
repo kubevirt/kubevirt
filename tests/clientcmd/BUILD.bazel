@@ -12,8 +12,6 @@ go_library(
         "//pkg/virtctl:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests/flags:go_default_library",
-        "//tests/testsuite:go_default_library",
-        "//tests/util:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
     ],

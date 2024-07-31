@@ -1109,7 +1109,7 @@ func (r *KubernetesReporter) logClusterOverview() {
 		return
 	}
 
-	stdout, stderr, err := clientcmd.RunCommandWithNS("", binary, "get", "all", "--all-namespaces", "-o", "wide")
+	stdout, stderr, err := clientcmd.RunCommand("", binary, "get", "all", "--all-namespaces", "-o", "wide")
 	if err != nil {
 		printError("failed to fetch cluster overview: %v, %s", err, stderr)
 		return

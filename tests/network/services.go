@@ -25,12 +25,8 @@ import (
 	"strconv"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/tests/util"
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -42,12 +38,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -78,7 +76,7 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithHostname("inbound"),
 			)
 			var err error
-			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
+			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
@@ -151,7 +149,7 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithHostname("inbound"),
 			)
 			var err error
-			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
+			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToFedora)
