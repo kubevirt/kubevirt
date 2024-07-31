@@ -35,7 +35,6 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -45,6 +44,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -65,7 +65,6 @@ var _ = Describe("Clone", func() {
 		ctrl          *gomock.Controller
 		vmInterface   *kubecli.MockVirtualMachineInterface
 		cloneInformer cache.SharedIndexInformer
-		cloneSource   *framework.FakeControllerSource
 		stop          chan struct{}
 
 		controller *VMCloneController
@@ -93,9 +92,10 @@ var _ = Describe("Clone", func() {
 		var err error
 		vmClone, err = client.CloneV1alpha1().VirtualMachineClones(testNamespace).Create(context.TODO(), vmClone, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		mockQueue.ExpectAdds(1)
-		cloneSource.Add(vmClone)
-		mockQueue.Wait()
+		controller.vmCloneIndexer.Add(vmClone)
+		key, err := kvcontroller.KeyFunc(vmClone)
+		Expect(err).To(Not(HaveOccurred()))
+		mockQueue.Add(key)
 	}
 
 	addSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot) {
@@ -229,7 +229,7 @@ var _ = Describe("Clone", func() {
 		vmInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
 		snapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
-		cloneInformer, cloneSource = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
+		cloneInformer, _ = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
 		snapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
