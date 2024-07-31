@@ -64,7 +64,6 @@ var _ = Describe("Clone", func() {
 	var (
 		ctrl                    *gomock.Controller
 		vmInterface             *kubecli.MockVirtualMachineInterface
-		vmInformer              cache.SharedIndexInformer
 		snapshotInformer        cache.SharedIndexInformer
 		restoreInformer         cache.SharedIndexInformer
 		snapshotContentInformer cache.SharedIndexInformer
@@ -85,16 +84,15 @@ var _ = Describe("Clone", func() {
 	)
 
 	syncCaches := func(stop chan struct{}) {
-		go vmInformer.Run(stop)
 		go snapshotInformer.Run(stop)
 		go restoreInformer.Run(stop)
 		go cloneInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, snapshotInformer.HasSynced,
+		Expect(cache.WaitForCacheSync(stop, snapshotInformer.HasSynced,
 			restoreInformer.HasSynced, cloneInformer.HasSynced)).To(BeTrue())
 	}
 
 	addVM := func(vm *virtv1.VirtualMachine) {
-		err := vmInformer.GetStore().Add(vm)
+		err := controller.vmStore.Add(vm)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
@@ -199,24 +197,6 @@ var _ = Describe("Clone", func() {
 		source.Name = snapshotName
 	}
 
-	setupInformers := func() {
-		stop = make(chan struct{})
-		ctrl = gomock.NewController(GinkgoT())
-
-		testNamespace = metav1.NamespaceDefault
-
-		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
-		vmInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
-		snapshotInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
-		restoreInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
-		cloneInformer, cloneSource = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
-		snapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
-		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-
-		recorder = record.NewFakeRecorder(100)
-		recorder.IncludeObject = true
-	}
-
 	setupResources := func() {
 		sourceVMI := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -247,7 +227,21 @@ var _ = Describe("Clone", func() {
 	}
 
 	BeforeEach(func() {
-		setupInformers()
+		stop = make(chan struct{})
+		ctrl = gomock.NewController(GinkgoT())
+
+		testNamespace = metav1.NamespaceDefault
+
+		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
+		vmInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
+		snapshotInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
+		restoreInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
+		cloneInformer, cloneSource = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
+		snapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
+		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+
+		recorder = record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		controller, _ = NewVmCloneController(
 			virtClient,
