@@ -20,6 +20,7 @@
 package clone
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -28,52 +29,52 @@ import (
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	k6tv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
-func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.VirtualMachineCloneSpec) (patches []string) {
+func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.VirtualMachineCloneSpec) ([]string, error) {
+	patchSet := patch.New()
+	addMacAddressPatches(patchSet, source.Spec.Template.Spec.Domain.Devices.Interfaces, cloneSpec.NewMacAddresses)
+	addSmbiosSerialPatches(patchSet, source.Spec.Template.Spec.Domain.Firmware, cloneSpec.NewSMBiosSerial)
+	addRemovePatchesFromFilter(patchSet, source.Labels, cloneSpec.LabelFilters, "/metadata/labels")
+	addAnnotationPatches(patchSet, source.Annotations, cloneSpec.AnnotationFilters)
+	addRemovePatchesFromFilter(patchSet, source.Spec.Template.ObjectMeta.Labels, cloneSpec.Template.LabelFilters, "/spec/template/metadata/labels")
+	addRemovePatchesFromFilter(patchSet, source.Spec.Template.ObjectMeta.Annotations, cloneSpec.Template.AnnotationFilters, "/spec/template/metadata/annotations")
+	addFirmwareUUIDPatches(patchSet, source.Spec.Template.Spec.Domain.Firmware)
 
-	macAddressPatches := generateMacAddressPatches(source.Spec.Template.Spec.Domain.Devices.Interfaces, cloneSpec.NewMacAddresses)
-	patches = append(patches, macAddressPatches...)
-
-	smBiosPatches := generateSmbiosSerialPatches(source.Spec.Template.Spec.Domain.Firmware, cloneSpec.NewSMBiosSerial)
-	patches = append(patches, smBiosPatches...)
-
-	labelsPatches := generateLabelPatches(source.Labels, cloneSpec.LabelFilters)
-	patches = append(patches, labelsPatches...)
-
-	annotationPatches := generateAnnotationPatches(source.Annotations, cloneSpec.AnnotationFilters)
-	patches = append(patches, annotationPatches...)
-
-	templateLabelsPatches := generateTemplateLabelPatches(source.Spec.Template.ObjectMeta.Labels, cloneSpec.Template.LabelFilters)
-	patches = append(patches, templateLabelsPatches...)
-
-	templateAnnotationPatches := generateTemplateAnnotationPatches(source.Spec.Template.ObjectMeta.Annotations, cloneSpec.Template.AnnotationFilters)
-	patches = append(patches, templateAnnotationPatches...)
-
-	firmwareUUIDPatches := generateFirmwareUUIDPatches(source.Spec.Template.Spec.Domain.Firmware)
-	patches = append(patches, firmwareUUIDPatches...)
+	patches, err := generateStringPatchOperations(patchSet)
+	if err != nil {
+		return nil, err
+	}
 
 	log.Log.V(defaultVerbosityLevel).Object(source).Infof("patches generated for vm %s clone: %v", source.Name, patches)
-	return patches
+	return patches, nil
 }
 
-func generateMacAddressPatches(interfaces []k6tv1.Interface, newMacAddresses map[string]string) (patches []string) {
-	const macAddressPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/%d/macAddress", "value": "%s"}`
+func generateStringPatchOperations(set *patch.PatchSet) ([]string, error) {
+	var patches []string
+	for _, patchOp := range set.GetPatches() {
+		payloadBytes, err := json.Marshal(patchOp)
+		if err != nil {
+			return nil, err
+		}
+		patches = append(patches, string(payloadBytes))
+	}
+	return patches, nil
+}
 
+func addMacAddressPatches(patchSet *patch.PatchSet, interfaces []k6tv1.Interface, newMacAddresses map[string]string) {
 	for idx, iface := range interfaces {
 		// If a new mac address is not specified for the current interface an empty mac address would be assigned.
 		// This is OK for clusters that have Kube Mac Pool enabled. For clusters that don't have KMP it is the users'
 		// responsibility to assign new mac address to every network interface.
 		newMac := newMacAddresses[iface.Name]
-		patches = append(patches, fmt.Sprintf(macAddressPatchPattern, idx, newMac))
+		patchSet.AddOption(patch.WithReplace(fmt.Sprintf("/spec/template/spec/domain/devices/interfaces/%d/macAddress", idx), newMac))
 	}
-
-	return patches
 }
 
-func generateSmbiosSerialPatches(firmware *k6tv1.Firmware, newSMBiosSerial *string) (patches []string) {
-	const smbiosSerialPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/firmware/serial", "value": "%s"}`
-
+func addSmbiosSerialPatches(patchSet *patch.PatchSet, firmware *k6tv1.Firmware, newSMBiosSerial *string) {
 	if firmware == nil {
 		return
 	}
@@ -83,42 +84,20 @@ func generateSmbiosSerialPatches(firmware *k6tv1.Firmware, newSMBiosSerial *stri
 		newSerial = *newSMBiosSerial
 	}
 
-	patch := fmt.Sprintf(smbiosSerialPatchPattern, newSerial)
-	return []string{patch}
+	patchSet.AddOption(patch.WithReplace("/spec/template/spec/domain/firmware/serial", newSerial))
 }
 
-func generateLabelPatches(labels map[string]string, filters []string) (patches []string) {
-	const basePath = "/metadata/labels"
-	return generateStrStrMapPatches(labels, filters, basePath)
-}
-
-func generateTemplateLabelPatches(labels map[string]string, filters []string) (patches []string) {
-	const basePath = "/spec/template/metadata/labels"
-	return generateStrStrMapPatches(labels, filters, basePath)
-}
-
-func generateAnnotationPatches(annotations map[string]string, filters []string) (patches []string) {
-	const basePath = "/metadata/annotations"
-	// Some keys are needed for restore functionality
+func addAnnotationPatches(patchSet *patch.PatchSet, annotations map[string]string, filters []string) {
+	// Some keys are needed for restore functionality.
+	// Deleting the item from the annotation list prevents
+	// from remove patch being generated
 	delete(annotations, "restore.kubevirt.io/lastRestoreUID")
-	return generateStrStrMapPatches(annotations, filters, basePath)
+	addRemovePatchesFromFilter(patchSet, annotations, filters, "/metadata/annotations")
 }
 
-func generateTemplateAnnotationPatches(annotations map[string]string, filters []string) (patches []string) {
-	const basePath = "/spec/template/metadata/annotations"
-	return generateStrStrMapPatches(annotations, filters, basePath)
-}
-
-func generateStrStrMapPatches(m map[string]string, filters []string, baseJSONPath string) (patches []string) {
-	appendRemovalPatch := func(key string) {
-		const patchPattern = `{"op": "remove", "path": "%s/%s"}`
-
-		key = addKeyEscapeCharacters(key)
-		patches = append(patches, fmt.Sprintf(patchPattern, baseJSONPath, key))
-	}
-
+func addRemovePatchesFromFilter(patchSet *patch.PatchSet, m map[string]string, filters []string, baseJSONPath string) {
 	if filters == nil {
-		return nil
+		return
 	}
 
 	var regularFilters, negationFilters []string
@@ -165,35 +144,15 @@ func generateStrStrMapPatches(m map[string]string, filters []string, baseJSONPat
 	// Appending removal patches
 	for originalKey := range m {
 		if _, isIncluded := includedKeys[originalKey]; !isIncluded {
-			appendRemovalPatch(originalKey)
+			patchSet.AddOption(patch.WithRemove(fmt.Sprintf("%s/%s", baseJSONPath, patch.EscapeJSONPointer(originalKey))))
 		}
 	}
-
-	return patches
 }
 
-// Replaces "/" and "~" chars with their escape characters. For more info: http://jsonpatch.com.
-func addKeyEscapeCharacters(key string) string {
-	const (
-		tilda           = "~"
-		slash           = "/"
-		tildaEscapeChar = "~0"
-		slashEscapeChar = "~1"
-	)
-
-	// Important to replace tilda first since slash's escape character also contains a tilda char
-	key = strings.ReplaceAll(key, tilda, tildaEscapeChar)
-	key = strings.ReplaceAll(key, slash, slashEscapeChar)
-
-	return key
-}
-
-func generateFirmwareUUIDPatches(firmware *k6tv1.Firmware) (patches []string) {
-	const firmwareUUIDPatch = `{"op": "replace", "path": "/spec/template/spec/domain/firmware/uuid", "value": ""}`
-
+func addFirmwareUUIDPatches(patchSet *patch.PatchSet, firmware *k6tv1.Firmware) {
 	if firmware == nil {
-		return nil
+		return
 	}
 
-	return []string{firmwareUUIDPatch}
+	patchSet.AddOption(patch.WithReplace("/spec/template/spec/domain/firmware/uuid", ""))
 }

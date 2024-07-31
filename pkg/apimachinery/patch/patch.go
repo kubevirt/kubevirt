@@ -77,6 +77,10 @@ func New(opts ...PatchOption) *PatchSet {
 	return p
 }
 
+func (p *PatchSet) GetPatches() []PatchOperation {
+	return p.patches
+}
+
 func (p *PatchSet) AddOption(opts ...PatchOption) {
 	for _, f := range opts {
 		f(p)
