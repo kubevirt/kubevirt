@@ -462,6 +462,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Sockets: 2,
 					Cores:   1,
 					Threads: 1,
+					Model:   "host-model",
 				}
 			})
 
