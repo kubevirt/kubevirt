@@ -78,7 +78,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/job"
@@ -878,7 +878,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				config := getCurrentKvConfig(virtClient)
 				allowAutoConverage := true
 				config.MigrationConfiguration.AllowAutoConverge = &allowAutoConverage
-				tests.UpdateKubeVirtConfigValueAndWait(config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
 			It("[test_id:3237]should complete a migration", func() {
@@ -1236,14 +1236,14 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			BeforeEach(func() {
 				clusterIsRoot = checks.HasFeature(virtconfig.Root)
 				if !clusterIsRoot {
-					config.EnableFeatureGate(virtconfig.Root)
+					kvconfig.EnableFeatureGate(virtconfig.Root)
 				}
 			})
 			AfterEach(func() {
 				if !clusterIsRoot {
-					config.DisableFeatureGate(virtconfig.Root)
+					kvconfig.DisableFeatureGate(virtconfig.Root)
 				} else {
-					config.EnableFeatureGate(virtconfig.Root)
+					kvconfig.EnableFeatureGate(virtconfig.Root)
 				}
 				libstorage.DeleteDataVolume(&dv)
 			})
@@ -1262,7 +1262,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("0"))
 
-				config.DisableFeatureGate(virtconfig.Root)
+				kvconfig.DisableFeatureGate(virtconfig.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1321,14 +1321,14 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			BeforeEach(func() {
 				clusterIsRoot = checks.HasFeature(virtconfig.Root)
 				if clusterIsRoot {
-					config.DisableFeatureGate(virtconfig.Root)
+					kvconfig.DisableFeatureGate(virtconfig.Root)
 				}
 			})
 			AfterEach(func() {
 				if clusterIsRoot {
-					config.EnableFeatureGate(virtconfig.Root)
+					kvconfig.EnableFeatureGate(virtconfig.Root)
 				} else {
-					config.DisableFeatureGate(virtconfig.Root)
+					kvconfig.DisableFeatureGate(virtconfig.Root)
 				}
 				if dv != nil {
 					libstorage.DeleteDataVolume(&dv)
@@ -1352,7 +1352,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("107"))
 
-				config.EnableFeatureGate(virtconfig.Root)
+				kvconfig.EnableFeatureGate(virtconfig.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1409,7 +1409,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				It("[test_id:6976] should be successfully migrated", func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
-					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
@@ -1431,7 +1431,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewQuantity(1, resource.BinarySI)
 					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
-					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -1609,7 +1609,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
 					CompletionTimeoutPerGiB: &timeout,
 				}
-				tests.UpdateKubeVirtConfigValueAndWait(cfg)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 			Context("without progress", func() {
 
@@ -1620,7 +1620,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 						CompletionTimeoutPerGiB: pointer.P(int64(5)),
 						BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
 					}
-					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 				})
 
 				It("[test_id:2227] should abort a vmi migration", func() {
@@ -2559,7 +2559,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Updating config to allow auto converge")
 				config := getCurrentKvConfig(virtClient)
 				config.MigrationConfiguration.AllowAutoConverge = pointer.P(true)
-				tests.UpdateKubeVirtConfigValueAndWait(config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -2607,7 +2607,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				kv := libkubevirt.GetCurrentKv(virtClient)
 				kvConfigurationCopy := kv.Spec.Configuration.DeepCopy()
 				kvConfigurationCopy.VirtualMachineOptions = nil
-				tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
 			})
 
 			It("should be able to migrate", func() {

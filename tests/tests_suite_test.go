@@ -29,8 +29,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/reporter"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -165,5 +165,5 @@ func resetToDefaultConfig() {
 		// we can just skip the restore step.
 		return
 	}
-	tests.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
+	config.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
 }

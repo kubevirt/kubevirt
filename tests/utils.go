@@ -21,18 +21,11 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/gomega"
@@ -41,19 +34,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -136,105 +125,6 @@ func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.Domai
 
 	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
 	return &runningVMISpec, err
-}
-
-// UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
-// and then waits  to allow the configuration events to be propagated to the consumers.
-func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
-
-	waitForConfigToBePropagated(kv.ResourceVersion)
-	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
-
-	return kv
-}
-
-type compare func(string, string) bool
-
-func ExpectResourceVersionToBeLessEqualThanConfigVersion(resourceVersion, configVersion string) bool {
-	rv, err := strconv.ParseInt(resourceVersion, 10, 32)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Resource version is unable to be parsed")
-		return false
-	}
-
-	crv, err := strconv.ParseInt(configVersion, 10, 32)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Config resource version is unable to be parsed")
-		return false
-	}
-
-	if rv > crv {
-		log.DefaultLogger().Errorf("Config is not in sync. Expected %s or greater, Got %s", resourceVersion, configVersion)
-		return false
-	}
-
-	return true
-}
-
-func waitForConfigToBePropagated(resourceVersion string) {
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
-}
-
-func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare, duration time.Duration) {
-	virtClient := kubevirt.Client()
-
-	errComponentInfo := fmt.Sprintf("component: \"%s\"", strings.TrimPrefix(podLabel, "kubevirt.io="))
-
-	EventuallyWithOffset(3, func() error {
-		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: podLabel})
-
-		if err != nil {
-			return fmt.Errorf("failed to fetch pods: %v, %s", err, errComponentInfo)
-		}
-		for _, pod := range pods.Items {
-			errAdditionalInfo := errComponentInfo + fmt.Sprintf(", pod: \"%s\"", pod.Name)
-
-			if pod.DeletionTimestamp != nil {
-				continue
-			}
-
-			body, err := callUrlOnPod(&pod, "8443", "/healthz")
-			if err != nil {
-				return fmt.Errorf("failed to call healthz endpoint: %v, %s", err, errAdditionalInfo)
-			}
-			result := map[string]interface{}{}
-			err = json.Unmarshal(body, &result)
-			if err != nil {
-				return fmt.Errorf("failed to parse response from healthz endpoint: %v, %s", err, errAdditionalInfo)
-			}
-
-			if configVersion := result["config-resource-version"].(string); !compareResourceVersions(resourceVersion, configVersion) {
-				return fmt.Errorf("resource & config versions (%s and %s respectively) are not as expected. %s ",
-					resourceVersion, configVersion, errAdditionalInfo)
-			}
-		}
-		return nil
-	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
-}
-
-func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
-	randPort := strconv.Itoa(4321 + rand.Intn(6000))
-	stopChan := make(chan struct{})
-	defer close(stopChan)
-	err := libpod.ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 5*time.Second)
-	if err != nil {
-		return nil, err
-	}
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true, VerifyPeerCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
-			return nil
-		}},
-	}
-	client := &http.Client{Transport: tr}
-	resp, err := client.Get(fmt.Sprintf("https://localhost:%s/%s", randPort, strings.TrimSuffix(url, "/")))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
 }
 
 func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {

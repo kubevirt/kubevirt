@@ -884,7 +884,7 @@ var _ = SIGDescribe("Storage", func() {
 					By("By configuring toleration")
 					cfg := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration
 					cfg.DeveloperConfiguration.LessPVCSpaceToleration = toleration
-					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+					config.UpdateKubeVirtConfigValueAndWait(cfg)
 				}
 
 				// Not a candidate for NFS test due to usage of host disk

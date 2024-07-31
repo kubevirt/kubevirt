@@ -33,10 +33,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libreplicaset"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -90,7 +90,7 @@ var _ = DescribeInfra("changes to the kubernetes client", func() {
 				},
 			},
 		}
-		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
+		config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 		By("starting a replicaset with reduced throughput")
 		start = time.Now()
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
@@ -130,7 +130,7 @@ var _ = DescribeInfra("changes to the kubernetes client", func() {
 				},
 			},
 		}
-		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
+		config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 
 		By("starting a replicaset with reduced throughput")
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
