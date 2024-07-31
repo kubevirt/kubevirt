@@ -111,11 +111,6 @@ func AdjustKubeVirtResource() {
 		virtconfig.VMLiveUpdateFeaturesGate,
 		virtconfig.AutoResourceLimitsGate,
 	)
-	if flags.DisableCustomSELinuxPolicy {
-		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			virtconfig.DisableCustomSELinuxPolicy,
-		)
-	}
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
 		testDefaultPermitSlirpInterface := true
