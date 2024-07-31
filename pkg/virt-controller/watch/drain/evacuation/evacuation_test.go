@@ -22,6 +22,8 @@ import (
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
@@ -31,7 +33,7 @@ var _ = Describe("Evacuation", func() {
 	var ctrl *gomock.Controller
 	var stop chan struct{}
 	var virtClient *kubecli.MockKubevirtClient
-	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
+	var fakeVirtClient *kubevirtfake.Clientset
 	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var nodeSource *framework.FakeControllerSource
@@ -68,11 +70,17 @@ var _ = Describe("Evacuation", func() {
 		mockQueue.Wait()
 	}
 
+	expectMigrationCreation := func() {
+		migrationList, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, migrationList.Items).To(HaveLen(1))
+	}
+
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
+		fakeVirtClient = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
 			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
@@ -94,7 +102,7 @@ var _ = Describe("Evacuation", func() {
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
 		// Set up mock client
-		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(migrationInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
@@ -154,10 +162,9 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
-
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 
 		It("should ignore VMIs which are not migratable", func() {
@@ -229,13 +236,9 @@ var _ = Describe("Evacuation", func() {
 			migration2.Status.Phase = v1.MigrationSucceeded
 			migrationFeeder.Modify(migration2)
 
-			migrationInterface.
-				EXPECT().
-				Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).
-				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
-
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 	})
 
@@ -248,9 +251,9 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.EvacuationNodeName = node.Name
 			vmiFeeder.Add(vmi)
-			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 
 		It("Should record a warning on a not migratable VMI", func() {
@@ -373,10 +376,9 @@ var _ = Describe("Evacuation", func() {
 
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
-
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 
 		It("should not evict the VMI with multiple pods active", func() {
@@ -416,10 +418,9 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
-
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 
 		It("should do nothing if EvictionStrategy is set in the cluster config but VMI opted-out", func() {
@@ -480,15 +481,11 @@ var _ = Describe("Evacuation", func() {
 			}
 
 			By(fmt.Sprintf("Expect only one new migration from node %s although cluster capacity allows more candidates", nodeName))
-			migrationInterface.
-				EXPECT().
-				Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).
-				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil).
-				Times(1)
 
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 
 		It("should treat pending migrations as non-running migrations", func() {
@@ -527,16 +524,10 @@ var _ = Describe("Evacuation", func() {
 			vmiName := fmt.Sprintf("testvmi%d", pendingMigrations+1)
 			vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
 
-			By("migration should be created for the candidate")
-			migrationInterface.
-				EXPECT().
-				Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).
-				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil).
-				Times(1)
-
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 
 		})
 	})
