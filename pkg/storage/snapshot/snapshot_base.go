@@ -434,7 +434,7 @@ func (ctrl *VMSnapshotController) handleVMSnapshotContent(obj interface{}) {
 		}
 
 		if content.Spec.VirtualMachineSnapshotName != nil {
-			k := cacheKeyFunc(content.Namespace, *content.Spec.VirtualMachineSnapshotName)
+			k := controller.NamespacedKey(content.Namespace, *content.Spec.VirtualMachineSnapshotName)
 			log.Log.V(5).Infof("enqueued vmsnapshot %q for sync", k)
 			ctrl.vmSnapshotQueue.Add(k)
 		}
@@ -674,7 +674,7 @@ func (ctrl *VMSnapshotController) GetVolumeSnapshot(namespace, name string) (*vs
 		return nil, nil
 	}
 
-	key := fmt.Sprintf("%s/%s", namespace, name)
+	key := controller.NamespacedKey(namespace, name)
 	obj, exists, err := di.informer.GetStore().GetByKey(key)
 	if !exists || err != nil {
 		return nil, err

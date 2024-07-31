@@ -44,10 +44,6 @@ func timeTrack(start time.Time, name string) {
 	log.Log.Infof("%s took %s", name, elapsed)
 }
 
-func cacheKeyFunc(namespace, name string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
-}
-
 func newReadyCondition(status corev1.ConditionStatus, reason string) snapshotv1.Condition {
 	return snapshotv1.Condition{
 		Type:               snapshotv1.ConditionReady,

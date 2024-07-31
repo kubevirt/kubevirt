@@ -18,6 +18,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 const (
@@ -279,7 +280,7 @@ func (s *SecretCertificateManager) ServerHealthy() bool {
 func NewSecretCertificateManager(name string, namespace string, store cache.Store) *SecretCertificateManager {
 	return &SecretCertificateManager{
 		store:     store,
-		secretKey: fmt.Sprintf("%s/%s", namespace, name),
+		secretKey: controller.NamespacedKey(namespace, name),
 		tlsCrt:    CertBytesValue,
 		tlsKey:    KeyBytesValue,
 		crtLock:   &sync.Mutex{},

@@ -17,6 +17,7 @@ import (
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 const (
@@ -28,10 +29,6 @@ const (
 var currentTime = func() *metav1.Time {
 	t := metav1.Now()
 	return &t
-}
-
-func getKey(name, namespace string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
 func generateNameWithRandomSuffix(names ...string) string {
@@ -141,7 +138,7 @@ func isOwnedByClone(obj metav1.Object) (isOwned bool, key string) {
 			continue
 		}
 
-		key = getKey(ownerRef.Name, obj.GetNamespace())
+		key = controller.NamespacedKey(obj.GetNamespace(), ownerRef.Name)
 		return true, key
 	}
 
