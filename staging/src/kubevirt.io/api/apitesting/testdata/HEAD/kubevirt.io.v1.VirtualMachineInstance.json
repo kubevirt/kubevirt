@@ -945,7 +945,8 @@
         "allowPostCopy": true,
         "disableTLS": true,
         "network": "networkValue",
-        "matchSELinuxLevelOnMigration": true
+        "matchSELinuxLevelOnMigration": true,
+        "unsafeBlockBackendStorageMigration": true
       },
       "targetCPUSet": [
         -12

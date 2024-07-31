@@ -20648,7 +20648,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"vmStateStorageClass": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode.",
+							Description: "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in the volume mode specified by the VMStateVolumeMode below. If not specified, for each VM, Kubevirt will use the one from this VM's main DV/PVC disk to create the PVC.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -21603,6 +21603,13 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 					"matchSELinuxLevelOnMigration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"unsafeBlockBackendStorageMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem corruption. By default, VMs that use block backend-storage are marked non-migratable. When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

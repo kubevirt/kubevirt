@@ -156,6 +156,7 @@ spec:
       parallelMigrationsPerCluster: 4294967268
       parallelOutboundMigrationsPerNode: 4294967263
       progressTimeout: -15
+      unsafeBlockBackendStorageMigration: true
       unsafeMigrationOverride: true
     minCPUModel: minCPUModelValue
     network:

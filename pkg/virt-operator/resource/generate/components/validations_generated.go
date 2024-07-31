@@ -1243,6 +1243,12 @@ var CRDsValidation map[string]string = map[string]string{
                     then considered stuck and therefore cancelled. Defaults to 150
                   format: int64
                   type: integer
+                unsafeBlockBackendStorageMigration:
+                  description: |-
+                    Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem
+                    corruption. By default, VMs that use block backend-storage are marked non-migratable.
+                    When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.
+                  type: boolean
                 unsafeMigrationOverride:
                   description: |-
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
@@ -1620,8 +1626,11 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             vmStateStorageClass:
               description: |-
-                VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-                The storage class must support RWX in filesystem mode.
+                VMStateStorageClass is the name of the storage class to use for the PVCs
+                created to preserve VM state, like TPM. The storage class must support
+                RWX in the volume mode specified by the VMStateVolumeMode below. If not
+                specified, for each VM, Kubevirt will use the one from this VM's main
+                DV/PVC disk to create the PVC.
               type: string
             webhookConfiguration:
               description: |-
@@ -13488,6 +13497,12 @@ var CRDsValidation map[string]string = map[string]string{
                     then considered stuck and therefore cancelled. Defaults to 150
                   format: int64
                   type: integer
+                unsafeBlockBackendStorageMigration:
+                  description: |-
+                    Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem
+                    corruption. By default, VMs that use block backend-storage are marked non-migratable.
+                    When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.
+                  type: boolean
                 unsafeMigrationOverride:
                   description: |-
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
@@ -13902,6 +13917,12 @@ var CRDsValidation map[string]string = map[string]string{
                     then considered stuck and therefore cancelled. Defaults to 150
                   format: int64
                   type: integer
+                unsafeBlockBackendStorageMigration:
+                  description: |-
+                    Migrating VMs that store their VM state (backend-storage) in a block PVC could in theory lead to filesystem
+                    corruption. By default, VMs that use block backend-storage are marked non-migratable.
+                    When set to true, UnsafeBlockBackendStorageMigration removes that condition and allows migrating.
+                  type: boolean
                 unsafeMigrationOverride:
                   description: |-
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check

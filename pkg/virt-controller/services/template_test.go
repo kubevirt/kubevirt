@@ -76,6 +76,9 @@ var _ = Describe("Template", func() {
 	var nonRootUser int64
 	resourceQuotaStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	namespaceStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	storageClassStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	storageProfileStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	pvcIndexer := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
@@ -128,7 +131,7 @@ var _ = Describe("Template", func() {
 				qemuGid,
 				"kubevirt/vmexport",
 				resourceQuotaStore,
-				namespaceStore,
+				namespaceStore, storageClassStore, pvcIndexer, storageProfileStore,
 				WithSidecarCreator(
 					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 						return hooks.UnmarshalHookSidecarList(vmi)
@@ -2927,7 +2930,7 @@ var _ = Describe("Template", func() {
 				qemuGid,
 				"kubevirt/vmexport",
 				resourceQuotaStore,
-				namespaceStore,
+				namespaceStore, storageClassStore, pvcIndexer, storageProfileStore,
 				WithSidecarCreator(testSidecarCreator),
 				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
 			)
