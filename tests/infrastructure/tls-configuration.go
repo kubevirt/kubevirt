@@ -36,11 +36,11 @@ import (
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
@@ -66,7 +66,7 @@ var _ = DescribeInfra("tls configuration", func() {
 			MinTLSVersion: v1.VersionTLS12,
 			Ciphers:       []string{cipher.Name},
 		}
-		tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+		config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 		newKv := libkubevirt.GetCurrentKv(virtClient)
 		Expect(newKv.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(BeEquivalentTo(v1.VersionTLS12))
 		Expect(newKv.Spec.Configuration.TLSConfiguration.Ciphers).To(BeEquivalentTo([]string{cipher.Name}))

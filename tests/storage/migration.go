@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -69,10 +68,10 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			[]string{virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration})
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
-		tests.WaitForConfigToBePropagatedToComponent(
+		config.WaitForConfigToBePropagatedToComponent(
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,
-			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 	})
 

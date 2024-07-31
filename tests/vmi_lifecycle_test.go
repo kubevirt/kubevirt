@@ -64,7 +64,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -898,13 +898,13 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			//replace new kubevirt-config with old config
 			AfterEach(func() {
-				tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			})
 
 			It("[test_id:3199]should set default cpu model when vmi doesn't have it set", func() {
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				vmi := libvmifact.NewCirros()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, startupTimeout)
@@ -917,7 +917,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				vmi := libvmifact.NewCirros()
 				vmi.Spec.Domain.CPU = &v1.CPU{
@@ -948,7 +948,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				defaultCPUModel := supportedCpuModels[0]
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				newVMI := libvmifact.NewCirros()
 				newVMI = tests.RunVMIAndExpectLaunch(newVMI, 90)
@@ -967,7 +967,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				defaultCPUModel := supportedCpuModels[0]
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				newVMI := libvmifact.NewCirros()
 				newVMI.Spec.Domain.CPU = &v1.CPU{
@@ -1015,7 +1015,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				}
 
-				config.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
+				kvconfig.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
 			})
 
 			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {

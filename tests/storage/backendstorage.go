@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
@@ -83,7 +84,7 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, func() {
 		By("Setting the VM storage class to it")
 		kv := libkubevirt.GetCurrentKv(virtClient)
 		kv.Spec.Configuration.VMStateStorageClass = storageClass
-		tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+		config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 		By("Creating a VMI with persistent TPM")
 		vmi := libvmifact.NewCirros(libnet.WithMasqueradeNetworking())

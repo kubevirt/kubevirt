@@ -2406,7 +2406,7 @@ spec:
 					VirtualMachineInstanceProfile: vmProfile,
 				}
 
-				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 			}
 
 			It("should install Kubevirt policy", func() {
@@ -2439,7 +2439,7 @@ spec:
 					kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{}
 				}
 				kv.Spec.Configuration.SeccompConfiguration.VirtualMachineInstanceProfile = virtualMachineProfile
-				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Checking launcher seccomp policy")
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})

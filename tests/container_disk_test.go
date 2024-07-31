@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -123,7 +124,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				kv.Spec.Configuration.DeveloperConfiguration.DiskVerification = &v1.DiskVerification{
 					MemoryLimit: resource.NewScaledQuantity(42, resource.Kilo),
 				}
-				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the VirtualMachineInstance")

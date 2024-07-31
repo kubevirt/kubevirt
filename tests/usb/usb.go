@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -83,7 +84,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 							}},
 					}},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Creating a Fedora VMI with the usb host device")
 			hostDevs := []v1.HostDevice{}

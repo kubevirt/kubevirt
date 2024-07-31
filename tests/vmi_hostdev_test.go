@@ -16,11 +16,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -49,7 +49,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 		config = kv.Spec.Configuration
 		config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 		config.PermittedHostDevices = &v1.PermittedHostDevices{}
-		tests.UpdateKubeVirtConfigValueAndWait(config)
+		kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 	})
 
 	Context("with ephemeral disk", func() {
@@ -75,7 +75,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 					DeviceName: deviceName,
 				})
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Creating a Fedora VMI with the sound card as a host device")
 			randomVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
