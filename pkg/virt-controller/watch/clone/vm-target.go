@@ -26,6 +26,8 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	k6tv1 "kubevirt.io/api/core/v1"
 )
@@ -53,7 +55,14 @@ func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.Virt
 	firmwareUUIDPatches := generateFirmwareUUIDPatches(source.Spec.Template.Spec.Domain.Firmware)
 	patches = append(patches, firmwareUUIDPatches...)
 
+	hostnamePatches, err := generateHostnamePatches(cloneSpec.Hostname)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to generate hostname patches")
+	}
+	patches = append(patches, hostnamePatches...)
+
 	log.Log.V(defaultVerbosityLevel).Object(source).Infof("patches generated for vm %s clone: %v", source.Name, patches)
+
 	return patches
 }
 
@@ -196,4 +205,22 @@ func generateFirmwareUUIDPatches(firmware *k6tv1.Firmware) (patches []string) {
 	}
 
 	return []string{firmwareUUIDPatch}
+}
+
+func generateHostnamePatches(cloneHostname *string) (patches []string, err error) {
+	if cloneHostname == nil {
+		return
+	}
+
+	patchSet := patch.New()
+	patchSet.AddOption(
+		patch.WithAdd("/spec/template/spec/hostname", *cloneHostname),
+	)
+
+	payload, err := patchSet.GeneratePayload()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate hostname patch payload: %w", err)
+	}
+
+	return []string{strings.Trim(string(payload), "[]")}, nil
 }
