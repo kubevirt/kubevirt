@@ -14,20 +14,15 @@ import (
 
 	instancetype "kubevirt.io/kubevirt/pkg/instancetype"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
 type PreferenceAdmitter struct{}
-
-var _ validating_webhooks.Admitter = &PreferenceAdmitter{}
 
 func (f *PreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitPreference(ar.Request, instancetypeapi.PluralPreferenceResourceName)
 }
 
 type ClusterPreferenceAdmitter struct{}
-
-var _ validating_webhooks.Admitter = &ClusterPreferenceAdmitter{}
 
 func (f *ClusterPreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitPreference(ar.Request, instancetypeapi.ClusterPluralPreferenceResourceName)

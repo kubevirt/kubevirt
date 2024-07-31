@@ -14,7 +14,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-type Admitter interface {
+type admitter interface {
 	Admit(*admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
 }
 
@@ -55,7 +55,7 @@ func NewAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionRespons
 	}
 }
 
-func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {
+func Serve(resp http.ResponseWriter, req *http.Request, admitter admitter) {
 	review, err := webhooks.GetAdmissionReview(req)
 	if err != nil {
 		resp.WriteHeader(http.StatusBadRequest)
