@@ -56,7 +56,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 	)
 
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
 	})
 
 	BeforeEach(func() {

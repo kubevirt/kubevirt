@@ -465,7 +465,7 @@ var istioTestsWithMasqueradeBinding = func() {
 
 var istioTestsWithPasstBinding = func() {
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
 	})
 
 	BeforeEach(func() {

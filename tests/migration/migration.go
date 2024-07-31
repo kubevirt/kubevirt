@@ -79,6 +79,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/job"
@@ -1219,14 +1220,14 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			BeforeEach(func() {
 				clusterIsRoot = checks.HasFeature(virtconfig.Root)
 				if !clusterIsRoot {
-					tests.EnableFeatureGate(virtconfig.Root)
+					config.EnableFeatureGate(virtconfig.Root)
 				}
 			})
 			AfterEach(func() {
 				if !clusterIsRoot {
-					tests.DisableFeatureGate(virtconfig.Root)
+					config.DisableFeatureGate(virtconfig.Root)
 				} else {
-					tests.EnableFeatureGate(virtconfig.Root)
+					config.EnableFeatureGate(virtconfig.Root)
 				}
 				libstorage.DeleteDataVolume(&dv)
 			})
@@ -1245,7 +1246,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("0"))
 
-				tests.DisableFeatureGate(virtconfig.Root)
+				config.DisableFeatureGate(virtconfig.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1304,14 +1305,14 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			BeforeEach(func() {
 				clusterIsRoot = checks.HasFeature(virtconfig.Root)
 				if clusterIsRoot {
-					tests.DisableFeatureGate(virtconfig.Root)
+					config.DisableFeatureGate(virtconfig.Root)
 				}
 			})
 			AfterEach(func() {
 				if clusterIsRoot {
-					tests.EnableFeatureGate(virtconfig.Root)
+					config.EnableFeatureGate(virtconfig.Root)
 				} else {
-					tests.DisableFeatureGate(virtconfig.Root)
+					config.DisableFeatureGate(virtconfig.Root)
 				}
 				if dv != nil {
 					libstorage.DeleteDataVolume(&dv)
@@ -1335,7 +1336,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("107"))
 
-				tests.EnableFeatureGate(virtconfig.Root)
+				config.EnableFeatureGate(virtconfig.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
