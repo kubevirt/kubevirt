@@ -315,12 +315,12 @@ var _ = Describe("Streamer", func() {
 	It("closes clientSocket when keepAliveClient cancels context", func() {
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToClientCalled <- struct{}{}
-			time.Sleep(defaultTestTimeout * 2)
+			_, _ = io.Copy(io.Discard, serverConn)
 			result <- nil
 		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToServerCalled <- struct{}{}
-			time.Sleep(defaultTestTimeout * 2)
+			_, _ = io.Copy(io.Discard, clientSocket.UnderlyingConn())
 			result <- nil
 		}
 		streamer.keepAliveClient = func(ctx context.Context, conn *websocket.Conn, cancel func()) {
@@ -400,7 +400,7 @@ var _ = Describe("Streamer", func() {
 		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToServerCalled <- struct{}{}
-			time.Sleep(defaultTestTimeout * 2)
+			_, _ = io.Copy(io.Discard, clientSocket.UnderlyingConn())
 			result <- nil
 		}
 		var wg sync.WaitGroup
@@ -421,7 +421,7 @@ var _ = Describe("Streamer", func() {
 		testErrStreamEnded := goerrors.New("stream ended")
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToClientCalled <- struct{}{}
-			time.Sleep(defaultTestTimeout * 2)
+			_, _ = io.Copy(io.Discard, serverConn)
 			result <- nil
 		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
