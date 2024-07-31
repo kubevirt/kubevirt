@@ -61,8 +61,6 @@ const (
 
 var _ = Describe("Clone", func() {
 	var (
-		vmInterface *kubecli.MockVirtualMachineInterface
-
 		controller *VMCloneController
 		recorder   *record.FakeRecorder
 		mockQueue  *testutils.MockWorkQueue
@@ -211,8 +209,6 @@ var _ = Describe("Clone", func() {
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-
-		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
 		snapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
@@ -239,7 +235,6 @@ var _ = Describe("Clone", func() {
 
 		client = kubevirtfake.NewSimpleClientset()
 
-		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 		virtClient.EXPECT().VirtualMachineClone(metav1.NamespaceDefault).Return(client.CloneV1alpha1().VirtualMachineClones(metav1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineSnapshot(metav1.NamespaceDefault).Return(client.SnapshotV1beta1().VirtualMachineSnapshots(metav1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineRestore(metav1.NamespaceDefault).Return(client.SnapshotV1beta1().VirtualMachineRestores(metav1.NamespaceDefault)).AnyTimes()
