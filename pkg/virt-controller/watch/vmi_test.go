@@ -3353,6 +3353,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should recycle the CID when the pods are deleted", func() {
+			alc := &fakeAllocator{}
+			controller.cidsMap = alc
+
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 			Expect(controller.cidsMap.Allocate(vmi)).To(Succeed())
@@ -3362,9 +3365,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(controller.vmiIndexer.Delete(vmi)).To(Succeed())
 			controller.Execute()
 
-			Expect(controller.cidsMap.cids).To(BeEmpty())
-			Expect(controller.cidsMap.reverse).To(BeEmpty())
+			Expect(alc.calls).To(ConsistOf([]string{"Allocate", "Remove"}))
 		})
+
 	})
 
 	Context("dynamic interface attachment", func() {
@@ -4186,4 +4189,21 @@ func newVMIWithGuestAgentInterface(vmi *virtv1.VirtualMachineInstance, ifaceName
 		InfoSource:    vmispec.InfoSourceGuestAgent,
 	})
 	return vmi
+}
+
+type fakeAllocator struct {
+	calls []string
+}
+
+func (alc *fakeAllocator) Sync(_ []*virtv1.VirtualMachineInstance) {
+	alc.calls = append(alc.calls, "Sync")
+}
+
+func (alc *fakeAllocator) Allocate(_ *virtv1.VirtualMachineInstance) error {
+	alc.calls = append(alc.calls, "Allocate")
+	return nil
+}
+
+func (alc *fakeAllocator) Remove(key string) {
+	alc.calls = append(alc.calls, "Remove")
 }
