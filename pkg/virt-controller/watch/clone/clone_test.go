@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -62,10 +61,8 @@ const (
 
 var _ = Describe("Clone", func() {
 	var (
-		ctrl          *gomock.Controller
-		vmInterface   *kubecli.MockVirtualMachineInterface
-		cloneInformer cache.SharedIndexInformer
-		stop          chan struct{}
+		ctrl        *gomock.Controller
+		vmInterface *kubecli.MockVirtualMachineInterface
 
 		controller *VMCloneController
 		recorder   *record.FakeRecorder
@@ -77,11 +74,6 @@ var _ = Describe("Clone", func() {
 		sourceVM      *virtv1.VirtualMachine
 		vmClone       *clonev1alpha1.VirtualMachineClone
 	)
-
-	syncCaches := func(stop chan struct{}) {
-		go cloneInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, cloneInformer.HasSynced)).To(BeTrue())
-	}
 
 	addVM := func(vm *virtv1.VirtualMachine) {
 		err := controller.vmStore.Add(vm)
@@ -220,7 +212,6 @@ var _ = Describe("Clone", func() {
 	}
 
 	BeforeEach(func() {
-		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 
 		testNamespace = metav1.NamespaceDefault
@@ -229,7 +220,7 @@ var _ = Describe("Clone", func() {
 		vmInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
 		snapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
-		cloneInformer, _ = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
+		cloneInformer, _ := testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
 		snapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
@@ -264,8 +255,6 @@ var _ = Describe("Clone", func() {
 			return true, nil, nil
 		})
 		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-
-		syncCaches(stop)
 	})
 
 	Context("basic controller operations", func() {
