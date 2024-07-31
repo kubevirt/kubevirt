@@ -228,13 +228,11 @@ var _ = Describe("Streamer", func() {
 		Eventually(call, defaultTestTimeout).Should(Receive())
 		wg.Wait()
 	})
-	It("does not call keepAliveClient if the client connection upgrade failed", func() {
-		call := make(chan struct{})
-		streamer.keepAliveClient = func(ctx context.Context, conn *websocket.Conn, _ func()) {
-			call <- struct{}{}
-		}
+	It("returns if the client connection upgrade failed", func() {
 		Expect(streamer.Handle(req, resp)).To(HaveOccurred())
-		Consistently(call, defaultTestTimeout).ShouldNot(Receive())
+		response, err := io.ReadAll(respRecorder.Body)
+		Expect(err).To(Not(HaveOccurred()))
+		Expect(string(response)).To(ContainSubstring("the client is not using the websocket protocol"))
 	})
 	It("does start streamToClient with connections", func() {
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
