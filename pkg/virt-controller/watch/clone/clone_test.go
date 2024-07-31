@@ -64,7 +64,6 @@ var _ = Describe("Clone", func() {
 	var (
 		ctrl          *gomock.Controller
 		vmInterface   *kubecli.MockVirtualMachineInterface
-		pvcInformer   cache.SharedIndexInformer
 		cloneInformer cache.SharedIndexInformer
 		cloneSource   *framework.FakeControllerSource
 		stop          chan struct{}
@@ -121,7 +120,7 @@ var _ = Describe("Clone", func() {
 	}
 
 	addPVC := func(pvc *k8sv1.PersistentVolumeClaim) {
-		err := pvcInformer.GetStore().Add(pvc)
+		err := controller.pvcStore.Add(pvc)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
@@ -232,7 +231,7 @@ var _ = Describe("Clone", func() {
 		restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		cloneInformer, cloneSource = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
 		snapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
-		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
