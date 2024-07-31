@@ -19,7 +19,6 @@
 package watch
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -94,8 +93,6 @@ var _ = Describe("Pool", func() {
 		var crInformer cache.SharedIndexInformer
 		var crSource *framework.FakeControllerSource
 
-		var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-
 		var vmiSource *framework.FakeControllerSource
 		var vmSource *framework.FakeControllerSource
 		var poolSource *framework.FakeControllerSource
@@ -146,7 +143,6 @@ var _ = Describe("Pool", func() {
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
-			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			poolInformer, poolSource = testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
@@ -179,7 +175,7 @@ var _ = Describe("Pool", func() {
 			client = kubevirtfake.NewSimpleClientset()
 
 			// Set up mock client
-			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
+			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(client.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(client.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
 			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(client.PoolV1alpha1().VirtualMachinePools(testNamespace)).AnyTimes()
@@ -319,9 +315,9 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(newPoolRevision)
 			expectVMUpdate(newPoolRevision.Name)
 
-			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(0)
-
 			controller.Execute()
+
+			Expect(testing2.FilterActions(&client.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
 		})
 
 		It("should delete controller revisions when pool is being deleted", func() {
@@ -378,12 +374,14 @@ var _ = Describe("Pool", func() {
 			addCR(newPoolRevision)
 
 			expectControllerRevisionCreation(newPoolRevision)
-
-			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			client.Fake.PrependReactor("delete", "virtualmachineinstances", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
 
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			Expect(testing2.FilterActions(&client.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
 		})
 
 		It("should do nothing", func() {
