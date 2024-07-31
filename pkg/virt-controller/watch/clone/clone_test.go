@@ -62,13 +62,12 @@ const (
 
 var _ = Describe("Clone", func() {
 	var (
-		ctrl                    *gomock.Controller
-		vmInterface             *kubecli.MockVirtualMachineInterface
-		snapshotContentInformer cache.SharedIndexInformer
-		pvcInformer             cache.SharedIndexInformer
-		cloneInformer           cache.SharedIndexInformer
-		cloneSource             *framework.FakeControllerSource
-		stop                    chan struct{}
+		ctrl          *gomock.Controller
+		vmInterface   *kubecli.MockVirtualMachineInterface
+		pvcInformer   cache.SharedIndexInformer
+		cloneInformer cache.SharedIndexInformer
+		cloneSource   *framework.FakeControllerSource
+		stop          chan struct{}
 
 		controller *VMCloneController
 		recorder   *record.FakeRecorder
@@ -109,7 +108,7 @@ var _ = Describe("Clone", func() {
 	}
 
 	addSnapshotContent := func(snapshotContent *snapshotv1.VirtualMachineSnapshotContent) {
-		err := snapshotContentInformer.GetStore().Add(snapshotContent)
+		err := controller.snapshotContentStore.Add(snapshotContent)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
@@ -232,7 +231,7 @@ var _ = Describe("Clone", func() {
 		snapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		cloneInformer, cloneSource = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
-		snapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
+		snapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
 		recorder = record.NewFakeRecorder(100)
