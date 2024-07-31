@@ -64,7 +64,6 @@ var _ = Describe("Clone", func() {
 	var (
 		ctrl                    *gomock.Controller
 		vmInterface             *kubecli.MockVirtualMachineInterface
-		snapshotInformer        cache.SharedIndexInformer
 		restoreInformer         cache.SharedIndexInformer
 		snapshotContentInformer cache.SharedIndexInformer
 		pvcInformer             cache.SharedIndexInformer
@@ -84,10 +83,9 @@ var _ = Describe("Clone", func() {
 	)
 
 	syncCaches := func(stop chan struct{}) {
-		go snapshotInformer.Run(stop)
 		go restoreInformer.Run(stop)
 		go cloneInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, snapshotInformer.HasSynced,
+		Expect(cache.WaitForCacheSync(stop,
 			restoreInformer.HasSynced, cloneInformer.HasSynced)).To(BeTrue())
 	}
 
@@ -109,7 +107,7 @@ var _ = Describe("Clone", func() {
 		var err error
 		snapshot, err = client.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace).Create(context.TODO(), snapshot, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		err = snapshotInformer.GetStore().Add(snapshot)
+		err = controller.snapshotStore.Add(snapshot)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -234,7 +232,7 @@ var _ = Describe("Clone", func() {
 
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
-		snapshotInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
+		snapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		restoreInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		cloneInformer, cloneSource = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
 		snapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
