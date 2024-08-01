@@ -88,19 +88,11 @@ var _ = Describe("Pool", func() {
 
 		var ctrl *gomock.Controller
 
-		var crInformer cache.SharedIndexInformer
-
-		var stop chan struct{}
 		var controller *PoolController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
 		var client *kubevirtfake.Clientset
 		var k8sClient *k8sfake.Clientset
-
-		syncCaches := func(stop chan struct{}) {
-			go crInformer.Run(stop)
-			Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
-		}
 
 		addCR := func(cr *appsv1.ControllerRevision) {
 			controller.revisionIndexer.Add(cr)
@@ -124,7 +116,6 @@ var _ = Describe("Pool", func() {
 		}
 
 		BeforeEach(func() {
-			stop = make(chan struct{})
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
@@ -134,7 +125,7 @@ var _ = Describe("Pool", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
+			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vmpool": func(obj interface{}) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
 					for _, ref := range cr.OwnerReferences {
@@ -176,8 +167,6 @@ var _ = Describe("Pool", func() {
 				return true, nil, nil
 			})
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-
-			syncCaches(stop)
 		})
 
 		addPool := func(pool *poolv1.VirtualMachinePool) {
