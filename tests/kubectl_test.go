@@ -28,8 +28,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-
-	"kubevirt.io/kubevirt/tests"
 )
 
 var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, func() {
@@ -112,7 +110,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 			))
 			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			tests.StartVirtualMachine(vm)
+			libvmops.StartVirtualMachine(vm)
 		})
 
 		AfterEach(func() {

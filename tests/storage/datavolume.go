@@ -486,7 +486,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisDVWith(vm.Namespace, dataVolume.Name), 60).Should(BeInPhase(cdiv1.ImportInProgress))
 
 				By("Stop VM")
-				tests.StopVirtualMachineWithTimeout(vm, time.Second*30)
+				libvmops.StopVirtualMachineWithTimeout(vm, time.Second*30)
 			})
 
 			It("[test_id:3190]should correctly handle invalid DataVolumes", func() {
@@ -690,14 +690,14 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm = tests.StartVirtualMachine(vm)
+				vm = libvmops.StartVirtualMachine(vm)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).ToNot(ContainSubstring("discard='unmap'"))
-				vm = tests.StopVirtualMachine(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})).To(Succeed())
 			})
 
@@ -714,7 +714,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				By("Starting and stopping the VirtualMachine number of times")
 				for i := 0; i < num; i++ {
 					By(fmt.Sprintf("Doing run: %d", i))
-					vm = tests.StartVirtualMachine(vm)
+					vm = libvmops.StartVirtualMachine(vm)
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
@@ -723,7 +723,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
-					vm = tests.StopVirtualMachine(vm)
+					vm = libvmops.StopVirtualMachine(vm)
 				}
 			})
 
@@ -818,7 +818,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 90*time.Second, 1*time.Second).Should(BeTrue())
 
 				// start vm and check dv clone succeeded
-				vm = tests.StartVirtualMachine(vm)
+				vm = libvmops.StartVirtualMachine(vm)
 				targetDVName := vm.Spec.DataVolumeTemplates[0].Name
 				libstorage.EventuallyDVWith(vm.Namespace, targetDVName, 90, HaveSucceeded())
 			}
@@ -1016,7 +1016,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				createVMSuccess()
 
 				// stop vm
-				vm = tests.StopVirtualMachine(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 			},
 				Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false, nil, false),
 				Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false, nil, false),
@@ -1055,7 +1055,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 			By(checkingVMInstanceConsoleExpectedOut)
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1075,7 +1075,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			libstorage.EventuallyDVWith(vm.Namespace, dvName, 100, BeNil())
 
-			vm = tests.StopVirtualMachine(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 		},
 			Entry("[test_id:8567]GC is enabled", pointer.P(int32(0)), pointer.P(int32(0)), ""),
 			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.P(int32(-1)), pointer.P(int32(0)), "true"),

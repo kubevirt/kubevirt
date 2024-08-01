@@ -45,7 +45,6 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -134,7 +133,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("Should be available for a running VM", func() {
 			By("Start the VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 
 			By("Checking that the VM metrics are available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
@@ -145,7 +144,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("Should be available for a paused VM", func() {
 			By("Start the VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 
 			By("Pausing the VM")
 			command := clientcmd.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_PAUSE, "vm", "--namespace", testsuite.GetTestNamespace(vm), vm.Name)
