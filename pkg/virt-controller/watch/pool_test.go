@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -93,7 +92,6 @@ var _ = Describe("Pool", func() {
 		var crInformer cache.SharedIndexInformer
 		var crSource *framework.FakeControllerSource
 
-		var vmiSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
 		var stop chan struct{}
 		var controller *PoolController
@@ -121,16 +119,11 @@ var _ = Describe("Pool", func() {
 			mockQueue.Add(key)
 		}
 
-		addVMI := func(vm *v1.VirtualMachineInstance, expectQueue bool) {
-			if expectQueue {
-				mockQueue.ExpectAdds(1)
-			}
-			vmiSource.Add(vm)
-			if expectQueue {
-				mockQueue.Wait()
-			} else {
-				time.Sleep(1 * time.Second)
-			}
+		addVMI := func(vm *v1.VirtualMachineInstance) {
+			controller.vmiStore.Add(vm)
+			key, err := virtcontroller.KeyFunc(vm)
+			Expect(err).To(Not(HaveOccurred()))
+			mockQueue.Add(key)
 		}
 
 		BeforeEach(func() {
@@ -138,7 +131,7 @@ var _ = Describe("Pool", func() {
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
-			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			poolInformer, _ := testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
 			recorder = record.NewFakeRecorder(100)
@@ -306,7 +299,7 @@ var _ = Describe("Pool", func() {
 			addVM(vm)
 			addCR(poolRevision)
 			// not expecting vmi to cause enqueue of pool because VMI and VM use the same pool revision
-			addVMI(vmi, false)
+			controller.vmiStore.Add(vm)
 
 			expectControllerRevisionCreation(newPoolRevision)
 			expectVMUpdate(newPoolRevision.Name)
@@ -365,7 +358,7 @@ var _ = Describe("Pool", func() {
 
 			addPool(pool)
 			addVM(vm)
-			addVMI(vmi, true)
+			addVMI(vmi)
 			addCR(oldPoolRevision)
 			addCR(newPoolRevision)
 
