@@ -165,7 +165,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				libvmops.StartVirtualMachine(vm)
+				vm = libvmops.StartVirtualMachine(vm)
 				vmi, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))

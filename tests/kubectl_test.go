@@ -110,7 +110,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 			))
 			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			libvmops.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 		})
 
 		AfterEach(func() {
