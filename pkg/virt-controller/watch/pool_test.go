@@ -94,7 +94,6 @@ var _ = Describe("Pool", func() {
 		var crSource *framework.FakeControllerSource
 
 		var vmiSource *framework.FakeControllerSource
-		var vmSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
 		var vmInformer cache.SharedIndexInformer
 		var stop chan struct{}
@@ -118,9 +117,10 @@ var _ = Describe("Pool", func() {
 		}
 
 		addVM := func(vm *v1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Add(vm)
-			mockQueue.Wait()
+			controller.vmIndexer.Add(vm)
+			key, err := virtcontroller.KeyFunc(vm)
+			Expect(err).To(Not(HaveOccurred()))
+			mockQueue.Add(key)
 		}
 
 		addVMI := func(vm *v1.VirtualMachineInstance, expectQueue bool) {
@@ -141,7 +141,7 @@ var _ = Describe("Pool", func() {
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
-			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+			vmInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			poolInformer, _ := testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -650,10 +650,7 @@ var _ = Describe("Pool", func() {
 			nonMatchingVM.Name = fmt.Sprintf("%s-1", pool.Name)
 			nonMatchingVM.Labels = map[string]string{"madeup": "value"}
 			nonMatchingVM.OwnerReferences = []metav1.OwnerReference{}
-			vmSource.Add(nonMatchingVM)
-
-			// allow for cache to catch up. This non matching vm won't cause key to be queued
-			time.Sleep(1 * time.Second)
+			controller.vmIndexer.Add(nonMatchingVM)
 
 			addPool(pool)
 
@@ -674,9 +671,7 @@ var _ = Describe("Pool", func() {
 			vm.OwnerReferences = []metav1.OwnerReference{}
 
 			// Orphaned VM won't cause key to enqueue
-			vmSource.Add(vm)
-			time.Sleep(1)
-
+			controller.vmIndexer.Add(vm)
 			addPool(pool)
 
 			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
