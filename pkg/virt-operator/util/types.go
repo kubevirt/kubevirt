@@ -51,6 +51,8 @@ type Stores struct {
 	PrometheusRuleCache           cache.Store
 	SecretCache                   cache.Store
 	ConfigMapCache                cache.Store
+	ClusterInstancetype           cache.Store
+	ClusterPreference             cache.Store
 	IsOnOpenshift                 bool
 	ServiceMonitorEnabled         bool
 	PrometheusRulesEnabled        bool
@@ -150,6 +152,8 @@ type Informers struct {
 	PrometheusRule           cache.SharedIndexInformer
 	Secrets                  cache.SharedIndexInformer
 	ConfigMap                cache.SharedIndexInformer
+	ClusterInstancetype      cache.SharedIndexInformer
+	ClusterPreference        cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {
