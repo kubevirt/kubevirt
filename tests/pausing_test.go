@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -207,7 +206,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm = libvmi.NewVirtualMachine(vmi)
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v12.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 		})
 
 		When("paused via API", func() {

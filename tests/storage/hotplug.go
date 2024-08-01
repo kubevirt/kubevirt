@@ -624,7 +624,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
 
 			By("Starting the VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -651,7 +651,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
 
 			By("Starting the VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1019,10 +1019,10 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(targets).To(HaveLen(1))
 
 				By("stopping VM")
-				vm = tests.StopVirtualMachine(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 
 				By("starting VM")
-				vm = tests.StartVirtualMachine(vm)
+				vm = libvmops.StartVirtualMachine(vm)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 

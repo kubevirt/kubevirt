@@ -43,7 +43,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -131,7 +130,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("Should be available for a running VM", func() {
 			By("Start the VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 
 			By("Checking that the VM metrics are available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
@@ -142,7 +141,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("Should be available for a paused VM", func() {
 			By("Start the VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 
 			By("Pausing the VM")
 			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})

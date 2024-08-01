@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -38,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -645,7 +645,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				if runStrategy == v1.RunStrategyAlways {
 					By("Stopping the VM")
-					vm = tests.StopVirtualMachine(vm)
+					vm = libvmops.StopVirtualMachine(vm)
 				}
 
 				By("Creating a VirtualMachineRestore")
@@ -936,7 +936,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				if !onlineSnapshot {
 					By(stoppingVM)
-					vm = tests.StopVirtualMachine(vm)
+					vm = libvmops.StopVirtualMachine(vm)
 				}
 
 				By(creatingSnapshot)
@@ -944,7 +944,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				if !onlineSnapshot {
 					By("Starting VM")
-					vm = tests.StartVirtualMachine(vm)
+					vm = libvmops.StartVirtualMachine(vm)
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -956,7 +956,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				By(stoppingVM)
-				vm = tests.StopVirtualMachine(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 
 				By("Restoring VM")
 				restore = createRestoreDefWithMacAddressPatch(vm, targetVMName, snapshot.Name)
@@ -975,7 +975,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), targetVMName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				targetVM = tests.StartVirtualMachine(targetVM)
+				targetVM = libvmops.StartVirtualMachine(targetVM)
 				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1084,7 +1084,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
 
 				By(stoppingVM)
-				vm = tests.StopVirtualMachine(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
@@ -1311,7 +1311,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
 
 				By(stoppingVM)
-				vm = tests.StopVirtualMachine(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
@@ -1393,7 +1393,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					return updatedVM.Status.RestoreInProgress == nil
 				}, 30*time.Second, 3*time.Second).Should(BeTrue())
 
-				vm = tests.StartVirtualMachine(vm)
+				vm = libvmops.StartVirtualMachine(vm)
 				deleteRestore(restore)
 			})
 
@@ -1510,13 +1510,13 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
-				newVM = tests.StopVirtualMachine(updatedVM)
-				newVM = tests.StartVirtualMachine(newVM)
+				newVM = libvmops.StopVirtualMachine(updatedVM)
+				newVM = libvmops.StartVirtualMachine(newVM)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(newMemory))
 
-				newVM = tests.StopVirtualMachine(newVM)
+				newVM = libvmops.StopVirtualMachine(newVM)
 
 				By("Restoring VM")
 				restore = createRestoreDefWithMacAddressPatch(vm, newVM.Name, snapshot.Name)
@@ -1525,7 +1525,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restore = waitRestoreComplete(restore, newVM.Name, &newVM.UID)
 				Expect(restore.Status.Restores).To(HaveLen(1))
 
-				tests.StartVirtualMachine(newVM)
+				libvmops.StartVirtualMachine(newVM)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
@@ -1542,9 +1542,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By(creatingSnapshot)
-				targetVM = tests.StartVirtualMachine(targetVM)
+				targetVM = libvmops.StartVirtualMachine(targetVM)
 				snapshot = createSnapshot(targetVM)
-				newVM = tests.StopVirtualMachine(targetVM)
+				newVM = libvmops.StopVirtualMachine(targetVM)
 
 				By("Restoring cloned VM")
 				restore = createRestoreDefWithMacAddressPatch(vm, newVM.Name, snapshot.Name)
