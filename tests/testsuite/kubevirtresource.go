@@ -37,6 +37,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	putil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -91,8 +92,13 @@ func AdjustKubeVirtResource() {
 			},
 		},
 	}
+	// Disable CPUManager Featuregate for s390x as it is not supported.
+	if putil.TranslateBuildArch() != "s390x" {
+		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+			virtconfig.CPUManager,
+		)
+	}
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-		virtconfig.CPUManager,
 		virtconfig.IgnitionGate,
 		virtconfig.SidecarGate,
 		virtconfig.SnapshotGate,

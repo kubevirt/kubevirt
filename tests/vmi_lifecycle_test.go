@@ -74,7 +74,7 @@ import (
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIlifecycle", decorators.SigCompute, decorators.VMIlifecycle, func() {
+var _ = Describe("[rfe_id:273][crit:high][arm64][s390x][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIlifecycle", decorators.SigCompute, decorators.VMIlifecycle, func() {
 
 	var err error
 
@@ -347,6 +347,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		Context("with boot order", func() {
 			DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
+				arch := testsuite.TranslateBuildArch()
+				checks.SkipIfS390X(arch, "skipping for s390x as this test requires both cirros and alpine.")
 				By("defining a VirtualMachineInstance with an Alpine disk")
 				vmi = libvmifact.NewAlpine(libvmi.WithContainerDisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 
@@ -567,7 +569,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("[Serial]when virt-handler is responsive", Serial, func() {
-			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
+			It("[test_id:1633]should indicate that a node is ready for vmis", decorators.WgS390x, func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
@@ -661,6 +663,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
+				arch := testsuite.TranslateBuildArch()
+				checks.SkipIfS390X(arch, "failing for s390x.")
 				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
 				// Note: we want VMI without any container
 				vmi = libvmifact.NewGuestless(libvmi.WithLogSerialConsole(false))
@@ -884,6 +888,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			BeforeEach(func() {
 				// arm64 does not support cpu model
 				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
+				checks.SkipIfS390X(testsuite.Arch, "the kubevirt support of s390x cpu model is not yet added.")
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				supportedCpuModels = libnode.GetSupportedCPUModels(*nodes)
@@ -993,6 +998,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			BeforeEach(func() {
 				// arm64 does not support cpu model
 				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
+				checks.SkipIfS390X(testsuite.Arch, "the kubevirt support of s390x cpu model is not yet added.")
 				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
@@ -1573,6 +1579,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 		Context("with grace period greater than 0", func() {
 			It("[test_id:1655]should run graceful shutdown", func() {
+				arch := testsuite.TranslateBuildArch()
+				checks.SkipIfS390X(arch, "failing for s390x.")
+
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
