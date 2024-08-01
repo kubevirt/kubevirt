@@ -60,16 +60,16 @@ import (
 
 var _ = Describe("Migration watcher", func() {
 
-	var ctrl *gomock.Controller
-	var controller *MigrationController
-	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
-	var virtClient *kubecli.MockKubevirtClient
-	var virtClientset *kubevirtfake.Clientset
-	var kubeClient *fake.Clientset
-	var networkClient *fakenetworkclient.Clientset
-	var qemuGid int64 = 107
-	var namespace k8sv1.Namespace
+	var (
+		controller    *MigrationController
+		recorder      *record.FakeRecorder
+		mockQueue     *testutils.MockWorkQueue
+		virtClientset *kubevirtfake.Clientset
+		kubeClient    *fake.Clientset
+		networkClient *fakenetworkclient.Clientset
+		namespace     k8sv1.Namespace
+	)
+	const qemuGid int64 = 107
 
 	expectMigrationFinalizerRemoved := func(namespace, name string) {
 		updatedVMIM, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(namespace).Get(context.Background(), name, metav1.GetOptions{})
@@ -229,8 +229,7 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
