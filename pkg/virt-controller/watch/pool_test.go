@@ -92,7 +92,6 @@ var _ = Describe("Pool", func() {
 		var crInformer cache.SharedIndexInformer
 		var crSource *framework.FakeControllerSource
 
-		var vmiInformer cache.SharedIndexInformer
 		var stop chan struct{}
 		var controller *PoolController
 		var recorder *record.FakeRecorder
@@ -101,9 +100,8 @@ var _ = Describe("Pool", func() {
 		var k8sClient *k8sfake.Clientset
 
 		syncCaches := func(stop chan struct{}) {
-			go vmiInformer.Run(stop)
 			go crInformer.Run(stop)
-			Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, crInformer.HasSynced)).To(BeTrue())
+			Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
 		}
 
 		addCR := func(cr *appsv1.ControllerRevision) {
@@ -131,7 +129,7 @@ var _ = Describe("Pool", func() {
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
-			vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			poolInformer, _ := testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
 			recorder = record.NewFakeRecorder(100)
