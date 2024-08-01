@@ -2083,6 +2083,24 @@ var _ = Describe("Converter", func() {
 			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
 		})
 
+		It("should assign correct number of queues with CPU hotplug topology", func() {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:      2,
+				Threads:    2,
+				Sockets:    2,
+				MaxSockets: 8,
+			}
+			expectedNumOfBlkQueues :=
+				vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads * vmi.Spec.Domain.CPU.Sockets
+
+			domain := vmiToDomain(vmi, &ConverterContext{AllowEmulation: true, SMBios: &cmdv1.SMBios{}})
+			Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
+			disk := domain.Spec.Devices.Disks[0]
+			Expect(disk.Driver.Queues).ToNot(BeNil())
+			Expect(*disk.Driver.Queues).To(Equal(uint(expectedNumOfBlkQueues)))
+		})
+
 		It("should honor multiQueue setting", func() {
 			var expectedQueues uint = 2
 			vmi.Spec.Domain.CPU = &v1.CPU{
