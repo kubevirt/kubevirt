@@ -97,7 +97,6 @@ var _ = Describe("Pool", func() {
 		var vmSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
 		var vmInformer cache.SharedIndexInformer
-		var poolInformer cache.SharedIndexInformer
 		var stop chan struct{}
 		var controller *PoolController
 		var recorder *record.FakeRecorder
@@ -108,9 +107,8 @@ var _ = Describe("Pool", func() {
 		syncCaches := func(stop chan struct{}) {
 			go vmiInformer.Run(stop)
 			go vmInformer.Run(stop)
-			go poolInformer.Run(stop)
 			go crInformer.Run(stop)
-			Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, vmInformer.HasSynced, poolInformer.HasSynced, crInformer.HasSynced)).To(BeTrue())
+			Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, vmInformer.HasSynced, crInformer.HasSynced)).To(BeTrue())
 		}
 
 		addCR := func(cr *appsv1.ControllerRevision) {
@@ -144,7 +142,7 @@ var _ = Describe("Pool", func() {
 
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
-			poolInformer, _ = testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
+			poolInformer, _ := testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
