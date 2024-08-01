@@ -125,11 +125,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 	createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 		var vmi *v1.VirtualMachineInstance
-
-		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		var gracePeriod int64 = 10
 		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
-
 		// sometimes it takes a bit for permission to actually be applied so eventually
 		Eventually(func() bool {
 			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -140,18 +137,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			return true
 		}, 90*time.Second, time.Second).Should(BeTrue())
 
-		vm, err := ThisVM(vm)()
+		vm = libvmops.StartVirtualMachine(vm)
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(func() bool {
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return false
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return vmi.Status.Phase == v1.Running
-		}, 360*time.Second, time.Second).Should(BeTrue())
-
 		return vm, vmi
 	}
 

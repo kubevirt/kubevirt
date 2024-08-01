@@ -75,6 +75,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -1139,38 +1140,9 @@ var _ = SIGDescribe("Export", func() {
 		return vm
 	}
 
-	stopVM := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
-		vmName := vm.Name
-		vmNamespace := vm.Namespace
-		var err error
-		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyHalted)
-			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-			return err
-		}, 15*time.Second, time.Second).Should(BeNil())
-		return vm
-	}
-
 	deleteVMI := func(vmi *v1.VirtualMachineInstance) {
 		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
-	}
-
-	startVM := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
-		vmName := vm.Name
-		vmNamespace := vm.Namespace
-		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
-			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-			return err
-		}, 15*time.Second, time.Second).Should(Succeed())
-		return vm
 	}
 
 	newSnapshot := func(vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
@@ -1278,13 +1250,13 @@ var _ = SIGDescribe("Export", func() {
 		}
 
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
+		vm = createVM(vm)
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+			vm = libvmops.StartVirtualMachine(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 		}
-		vm = createVM(vm)
-		stopVM(vm)
 		snapshot := createAndVerifyVMSnapshot(vm)
 		Expect(snapshot).ToNot(BeNil())
 		defer deleteSnapshot(snapshot)
@@ -1355,13 +1327,13 @@ var _ = SIGDescribe("Export", func() {
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
+		vm = createVM(vm)
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+			vm = libvmops.StartVirtualMachine(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 		}
-		vm = createVM(vm)
-		stopVM(vm)
 		snapshot := createAndVerifyVMSnapshot(vm)
 		Expect(snapshot).ToNot(BeNil())
 		defer deleteSnapshot(snapshot)
@@ -1441,13 +1413,13 @@ var _ = SIGDescribe("Export", func() {
 		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 
 		By("Stopping VM, we should get the export ready eventually")
-		vm = stopVM(vm)
+		vm = libvmops.StopVirtualMachine(vm)
 		export = waitForReadyExport(export)
 		checkExportSecretRef(export)
 		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
 		verifyKubevirtInternal(export, export.Name, export.Namespace, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		By("Starting VM, the export should return to pending")
-		vm = startVM(vm)
+		vm = libvmops.StartVirtualMachine(vm)
 		waitForExportPhase(export, exportv1.Pending)
 		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 	})
@@ -1748,7 +1720,7 @@ var _ = SIGDescribe("Export", func() {
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
-		vm = stopVM(vm)
+		vm = libvmops.StopVirtualMachine(vm)
 		token := createExportTokenSecret(vm.Name, vm.Namespace)
 		export := createVMExportObject(vm.Name, vm.Namespace, token)
 		Expect(export).ToNot(BeNil())
@@ -1784,7 +1756,7 @@ var _ = SIGDescribe("Export", func() {
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
-		vm = stopVM(vm)
+		vm = libvmops.StopVirtualMachine(vm)
 		snapshot := createAndVerifyVMSnapshot(vm)
 		export := createRunningVMSnapshotExport(snapshot)
 		Expect(export).ToNot(BeNil())
@@ -1860,7 +1832,7 @@ var _ = SIGDescribe("Export", func() {
 		delete(vm.Spec.Template.Spec.Domain.Resources.Requests, k8sv1.ResourceMemory)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
-		vm = stopVM(vm)
+		vm = libvmops.StopVirtualMachine(vm)
 		token := createExportTokenSecret(vm.Name, vm.Namespace)
 		export := createVMExportObject(vm.Name, vm.Namespace, token)
 		Expect(export).ToNot(BeNil())
@@ -1991,9 +1963,9 @@ var _ = SIGDescribe("Export", func() {
 			// start the VM which triggers the populating, and then it should become ready.
 			waitForExportPhase(export, exportv1.Pending)
 			waitForExportCondition(export, expectedPVCPopulatingCondition(vm.Name, vm.Namespace), "export should report PVCs in VM populating")
-			vm = startVM(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 			waitForDisksComplete(vm)
-			stopVM(vm)
+			libvmops.StopVirtualMachine(vm)
 			waitForExportPhase(export, exportv1.Ready)
 		} else {
 			// With non WFFC storage we expect the disk to populate immediately and thus the export to become ready
@@ -2139,13 +2111,13 @@ var _ = SIGDescribe("Export", func() {
 			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 			libstorage.AddDataVolumeTemplate(vm, blankDv)
 			addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
+			vm = createVM(vm)
 			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 				// In WFFC need to start the VM in order for the
 				// dv to get populated
-				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+				vm = libvmops.StartVirtualMachine(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 			}
-			vm = createVM(vm)
-			vm = stopVM(vm)
 			snapshot := createAndVerifyVMSnapshot(vm)
 			Expect(snapshot).ToNot(BeNil())
 			defer deleteSnapshot(snapshot)
@@ -2173,7 +2145,7 @@ var _ = SIGDescribe("Export", func() {
 			}, 180*time.Second, time.Second).Should(Equal(v1.Running))
 
 			By("Stopping VM, we should get the export ready eventually")
-			vm = stopVM(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 
 			// Run vmexport
 			By("Running vmexport command")
@@ -2287,13 +2259,13 @@ var _ = SIGDescribe("Export", func() {
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 				libstorage.AddDataVolumeTemplate(vm, blankDv)
 				addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
+				vm = createVM(vm)
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 					// In WFFC need to start the VM in order for the
 					// dv to get populated
-					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+					vm = libvmops.StartVirtualMachine(vm)
+					vm = libvmops.StopVirtualMachine(vm)
 				}
-				vm = createVM(vm)
-				vm = stopVM(vm)
 				snapshot := createAndVerifyVMSnapshot(vm)
 				Expect(snapshot).ToNot(BeNil())
 				defer deleteSnapshot(snapshot)
@@ -2346,7 +2318,7 @@ var _ = SIGDescribe("Export", func() {
 				}, 180*time.Second, time.Second).Should(Equal(v1.Running))
 
 				By("Stopping VM, we should get the export ready eventually")
-				vm = stopVM(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 
 				// Run vmexport
 				By("Running vmexport command")
@@ -2523,7 +2495,7 @@ var _ = SIGDescribe("Export", func() {
 				}, 180*time.Second, time.Second).Should(Equal(v1.Running))
 
 				By("Stopping VM, we should get the export ready eventually")
-				vm = stopVM(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 
 				// Run vmexport
 				By("Running vmexport create command")
