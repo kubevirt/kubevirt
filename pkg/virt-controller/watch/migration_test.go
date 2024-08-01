@@ -63,7 +63,6 @@ var _ = Describe("Migration watcher", func() {
 
 	var ctrl *gomock.Controller
 	var podInformer cache.SharedIndexInformer
-	var migrationInformer cache.SharedIndexInformer
 	var nodeInformer cache.SharedIndexInformer
 	var pdbInformer cache.SharedIndexInformer
 	var migrationPolicyInformer cache.SharedIndexInformer
@@ -235,7 +234,6 @@ var _ = Describe("Migration watcher", func() {
 
 	syncCaches := func(stop chan struct{}) {
 		go podInformer.Run(stop)
-		go migrationInformer.Run(stop)
 		go nodeInformer.Run(stop)
 		go pdbInformer.Run(stop)
 		go migrationPolicyInformer.Run(stop)
@@ -244,7 +242,6 @@ var _ = Describe("Migration watcher", func() {
 
 		Expect(cache.WaitForCacheSync(stop,
 			podInformer.HasSynced,
-			migrationInformer.HasSynced,
 			nodeInformer.HasSynced,
 			pdbInformer.HasSynced,
 			resourceQuotaInformer.HasSynced,
@@ -264,7 +261,7 @@ var _ = Describe("Migration watcher", func() {
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-		migrationInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		resourceQuotaInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
@@ -1017,7 +1014,7 @@ var _ = Describe("Migration watcher", func() {
 
 					mCopy.CreationTimestamp = metav1.Unix(int64(rand.Intn(100)), int64(0))
 
-					Expect(migrationInformer.GetStore().Add(mCopy)).To(Succeed())
+					Expect(controller.migrationIndexer.Add(mCopy)).To(Succeed())
 					_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(mCopy.Namespace).Create(context.Background(), mCopy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
@@ -1029,7 +1026,7 @@ var _ = Describe("Migration watcher", func() {
 					mCopy.Labels = map[string]string{"should-delete": "yes"}
 					mCopy.CreationTimestamp = metav1.Unix(int64(rand.Intn(100)), int64(0))
 
-					Expect(migrationInformer.GetStore().Add(mCopy)).To(Succeed())
+					Expect(controller.migrationIndexer.Add(mCopy)).To(Succeed())
 					_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(mCopy.Namespace).Create(context.Background(), mCopy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
