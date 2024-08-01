@@ -42,7 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -63,7 +62,6 @@ import (
 var _ = Describe("Migration watcher", func() {
 
 	var ctrl *gomock.Controller
-	var migrationSource *framework.FakeControllerSource
 	var podInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
 	var nodeInformer cache.SharedIndexInformer
@@ -266,7 +264,7 @@ var _ = Describe("Migration watcher", func() {
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		resourceQuotaInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
@@ -350,10 +348,11 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	addMigration := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		mockQueue.ExpectAdds(1)
-		migrationSource.Add(migration)
-		mockQueue.Wait()
-		_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+		controller.migrationIndexer.Add(migration)
+		key, err := virtcontroller.KeyFunc(migration)
+		Expect(err).To(Not(HaveOccurred()))
+		mockQueue.Add(key)
+		_, err = virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
