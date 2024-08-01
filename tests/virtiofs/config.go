@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -43,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/pkg/config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -84,7 +84,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			vmi := libvmifact.NewFedora(
 				libvmi.WithConfigMapFs(configMapName, configMapName),
 			)
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -142,7 +142,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			vmi := libvmifact.NewFedora(
 				libvmi.WithSecretFs(secretName, secretName),
 			)
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -185,7 +185,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			vmi := libvmifact.NewFedora(
 				libvmi.WithServiceAccountFs("default", serviceAccountVolumeName),
 			)
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -244,7 +244,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				libvmi.WithLabel(testLabelKey, testLabelVal),
 				libvmi.WithDownwardAPIFs(downwardAPIName),
 			)
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())

@@ -33,11 +33,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -54,7 +54,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 			libnet.WithMasqueradeNetworking(),
 			libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 		)
-		tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+		libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 		By("Opening PortForward Tunnel to SSH port")
 		var (

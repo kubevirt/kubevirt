@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -167,7 +168,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -325,7 +326,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 		AlignPolicyAndVmi(vmi, migrationPolicy)
 		migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
 	}
-	vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+	vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 	// Wait for cloud init to finish and start the agent inside the vmi.
 	Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))

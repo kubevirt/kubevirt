@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	expect "github.com/google/goexpect"
 	storagev1 "k8s.io/api/storage/v1"
@@ -141,7 +142,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace, libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 500)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -224,7 +225,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				libstorage.ChangeImgFilePermissionsToNonQEMU(pvc)
 
 				By("Starting the VirtualMachineInstance")
-				vmi := tests.RunVMIAndExpectLaunch(libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace), 120)
+				vmi := libvmops.RunVMIAndExpectLaunch(libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace), 120)
 
 				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())

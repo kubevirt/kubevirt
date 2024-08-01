@@ -42,14 +42,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
@@ -60,56 +58,17 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 const (
-	BinBash                = "/bin/bash"
-	waitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
+	BinBash = "/bin/bash"
 
 	CustomHostPath     = "custom-host-path"
 	DiskAlpineHostPath = "disk-alpine-host-path"
 	DiskWindowsSysprep = "disk-windows-sysprep"
 	DiskCustomHostPath = "disk-custom-host-path"
 )
-
-func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By(waitingVMInstanceStart)
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		libwait.WithTimeout(timeout),
-	)
-}
-
-func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By(waitingVMInstanceStart)
-	return libwait.WaitForSuccessfulVMIStart(vmi,
-		libwait.WithFailOnWarnings(false),
-		libwait.WithTimeout(timeout),
-	)
-}
-
-func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	wp := watcher.WarningsPolicy{FailOnWarnings: true}
-	return RunVMIAndExpectSchedulingWithWarningPolicy(vmi, timeout, wp)
-}
-
-func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By("Waiting until the VirtualMachineInstance will be scheduled")
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running},
-		libwait.WithWarningsPolicy(&wp),
-		libwait.WithTimeout(timeout),
-	)
-}
 
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
@@ -487,23 +446,4 @@ func MountCloudInitFunc(devName string) func(*v1.VirtualMachineInstance) {
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
 	}
-}
-
-func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
-	By("Starting the VirtualMachine")
-
-	p, err := patch.New(
-		patch.WithAdd("/spec/running", nil),
-		patch.WithAdd("/spec/runStrategy", &runStrategy),
-	).GeneratePayload()
-	Expect(err).NotTo(HaveOccurred())
-	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(Exist())
-
-	By("VMI has the running condition")
-	Eventually(ThisVM(updatedVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
-
-	return updatedVM
 }
