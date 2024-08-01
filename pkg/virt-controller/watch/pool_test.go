@@ -86,8 +86,6 @@ var _ = Describe("Pool", func() {
 			testNamespace = "default"
 		)
 
-		var ctrl *gomock.Controller
-
 		var controller *PoolController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
@@ -116,8 +114,7 @@ var _ = Describe("Pool", func() {
 		}
 
 		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
-			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 
 			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
