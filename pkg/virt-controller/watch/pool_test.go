@@ -95,7 +95,6 @@ var _ = Describe("Pool", func() {
 
 		var vmiSource *framework.FakeControllerSource
 		var vmSource *framework.FakeControllerSource
-		var poolSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
 		var vmInformer cache.SharedIndexInformer
 		var poolInformer cache.SharedIndexInformer
@@ -145,7 +144,7 @@ var _ = Describe("Pool", func() {
 
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
-			poolInformer, poolSource = testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
+			poolInformer, _ = testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
@@ -196,9 +195,10 @@ var _ = Describe("Pool", func() {
 		})
 
 		addPool := func(pool *poolv1.VirtualMachinePool) {
-			mockQueue.ExpectAdds(1)
-			poolSource.Add(pool)
-			mockQueue.Wait()
+			controller.poolIndexer.Add(pool)
+			key, err := virtcontroller.KeyFunc(pool)
+			Expect(err).To(Not(HaveOccurred()))
+			mockQueue.Add(key)
 		}
 
 		createPoolRevision := func(pool *poolv1.VirtualMachinePool) *appsv1.ControllerRevision {
