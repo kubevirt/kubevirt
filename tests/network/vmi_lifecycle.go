@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -48,7 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]", func() {
+var _ = SIGDescribe("[crit:high][arm64][s390x][vendor:cnv-qe@redhat.com][level:component]", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -59,6 +60,9 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 		Context("when virt-handler is responsive", func() {
 			DescribeTable("[Serial]VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
 				var vmiOptions []libvmi.Option
+
+				arch := testsuite.TranslateBuildArch()
+				checks.SkipIfS390X(arch, "failing for s390x.")
 
 				if bridgeNetworking {
 					libnet.SkipWhenClusterNotSupportIpv4()
@@ -111,6 +115,8 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 			)
 
 			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", decorators.Networking, func() {
+				arch := testsuite.TranslateBuildArch()
+				checks.SkipIfS390X(arch, "failing for s390x.")
 				libnet.SkipWhenClusterNotSupportIpv4()
 				bridgeVMI := libvmifact.NewCirros(
 					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),

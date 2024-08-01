@@ -77,6 +77,7 @@ func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	}
 	alpineOpts = append(alpineOpts, opts...)
 	return libvmi.New(alpineOpts...)
+
 }
 
 func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
