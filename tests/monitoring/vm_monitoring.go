@@ -86,7 +86,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 	Context("VMI metrics", func() {
 		It("should have kubevirt_vmi_phase_transition_time_seconds buckets correctly configured", func() {
 			vmi := libvmifact.NewGuestless()
-			tests.RunVMIAndExpectLaunch(vmi, 240)
+			libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
 			for _, bucket := range virtcontroller.PhaseTransitionTimeBuckets() {
 				labels := map[string]string{"le": strconv.FormatFloat(bucket, 'f', -1, 64)}
@@ -98,7 +98,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("should have kubevirt_rest_client_requests_total for the 'virtualmachineinstances' resource", func() {
 			vmi := libvmifact.NewGuestless()
-			tests.RunVMIAndExpectLaunch(vmi, 240)
+			libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
 			labels := map[string]string{"resource": "virtualmachineinstances"}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
