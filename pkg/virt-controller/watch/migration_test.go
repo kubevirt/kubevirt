@@ -41,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -62,13 +61,6 @@ import (
 var _ = Describe("Migration watcher", func() {
 
 	var ctrl *gomock.Controller
-	var podInformer cache.SharedIndexInformer
-	var nodeInformer cache.SharedIndexInformer
-	var pdbInformer cache.SharedIndexInformer
-	var migrationPolicyInformer cache.SharedIndexInformer
-	var resourceQuotaInformer cache.SharedIndexInformer
-	var namespaceInformer cache.SharedIndexInformer
-	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
@@ -76,7 +68,6 @@ var _ = Describe("Migration watcher", func() {
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
-	var pvcInformer cache.SharedIndexInformer
 	var qemuGid int64 = 107
 	var namespace k8sv1.Namespace
 
@@ -232,46 +223,28 @@ var _ = Describe("Migration watcher", func() {
 		))
 	}
 
-	syncCaches := func(stop chan struct{}) {
-		go podInformer.Run(stop)
-		go nodeInformer.Run(stop)
-		go pdbInformer.Run(stop)
-		go migrationPolicyInformer.Run(stop)
-		go resourceQuotaInformer.Run(stop)
-		go namespaceInformer.Run(stop)
-
-		Expect(cache.WaitForCacheSync(stop,
-			podInformer.HasSynced,
-			nodeInformer.HasSynced,
-			pdbInformer.HasSynced,
-			resourceQuotaInformer.HasSynced,
-			namespaceInformer.HasSynced,
-			migrationPolicyInformer.HasSynced)).To(BeTrue())
-	}
-
 	setConfig := func(kvConfig *virtv1.KubeVirtConfiguration) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
 		controller.clusterConfig = config
 	}
 
 	BeforeEach(func() {
-		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
 		migrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
-		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
-		resourceQuotaInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
-		namespaceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
-		migrationPolicyInformer, _ = testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
+		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		pdbInformer, _ := testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
+		resourceQuotaInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
+		namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+		migrationPolicyInformer, _ := testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
-		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
+		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 
-		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		controller, _ = NewMigrationController(
@@ -306,18 +279,15 @@ var _ = Describe("Migration watcher", func() {
 		networkClient = fakenetworkclient.NewSimpleClientset()
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 		virtClient.EXPECT().MigrationPolicy().Return(virtClientset.MigrationsV1alpha1().MigrationPolicies()).AnyTimes()
-
-		syncCaches(stop)
 	})
 
 	AfterEach(func() {
-		close(stop)
 		// Ensure that we add checks for expected events to every test
 		Expect(recorder.Events).To(BeEmpty())
 	})
 
 	addPod := func(pod *k8sv1.Pod) {
-		ExpectWithOffset(1, podInformer.GetStore().Add(pod)).To(Succeed())
+		ExpectWithOffset(1, controller.podIndexer.Add(pod)).To(Succeed())
 		_, err := kubeClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -354,14 +324,14 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	addNode := func(node *k8sv1.Node) {
-		err := nodeInformer.GetIndexer().Add(node)
+		err := controller.nodeStore.Add(node)
 		Expect(err).ShouldNot(HaveOccurred())
 		_, err = kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addPDB := func(pdb *policyv1.PodDisruptionBudget) {
-		err := pdbInformer.GetIndexer().Add(pdb)
+		err := controller.pdbIndexer.Add(pdb)
 		Expect(err).ShouldNot(HaveOccurred())
 		_, err = kubeClient.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Create(context.Background(), pdb, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -369,7 +339,7 @@ var _ = Describe("Migration watcher", func() {
 
 	addMigrationPolicies := func(policies ...migrationsv1.MigrationPolicy) {
 		for _, policy := range policies {
-			err := migrationPolicyInformer.GetIndexer().Add(&policy)
+			err := controller.migrationPolicyStore.Add(&policy)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, err = virtClientset.MigrationsV1alpha1().MigrationPolicies().Create(context.Background(), &policy, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1041,7 +1011,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(keyMigration)
 
 			sourcePod := newSourcePodForVirtualMachine(vmi)
-			Expect(podInformer.GetStore().Add(sourcePod)).To(Succeed())
+			Expect(controller.podIndexer.Add(sourcePod)).To(Succeed())
 			Expect(controller.vmiStore.Add(vmi)).To(Succeed())
 
 			controller.Execute()
