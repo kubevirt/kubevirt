@@ -64,7 +64,6 @@ var _ = Describe("Migration watcher", func() {
 
 	var ctrl *gomock.Controller
 	var migrationSource *framework.FakeControllerSource
-	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
@@ -286,7 +285,7 @@ var _ = Describe("Migration watcher", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
-		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
+		vmiInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
@@ -345,10 +344,11 @@ var _ = Describe("Migration watcher", func() {
 		if len(vmi.Labels) == 0 {
 			vmi.Labels = nil
 		}
-		mockQueue.ExpectAdds(1)
-		vmiSource.Add(vmi)
-		mockQueue.Wait()
-		_, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+		controller.vmiStore.Add(vmi)
+		key, err := virtcontroller.KeyFunc(vmi)
+		Expect(err).To(Not(HaveOccurred()))
+		mockQueue.Add(key)
+		_, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
