@@ -26,6 +26,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	instancetypebuilder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -191,7 +192,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 			It("[test_id:2265][posneg:negative] should return an error when VM has not been found but VMI is running", func() {
 				vmi := libvmifact.NewGuestless()
-				tests.RunVMIAndExpectLaunch(vmi, 60)
+				libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 				err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Restart(context.Background(), vmi.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())

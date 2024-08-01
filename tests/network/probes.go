@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -108,7 +109,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			} else {
 				By(specifyingVMReadinessProbe)
 				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(readinessProbe))
-				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -130,7 +131,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 			BeforeEach(func() {
 				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
-				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -156,7 +157,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		DescribeTable("should fail", func(readinessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By(specifyingVMReadinessProbe)
 			vmi = vmiFactory(withReadinessProbe(readinessProbe))
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is consistently non-ready")
 			Consistently(matcher.ThisVMI(vmi), 30*time.Second, 100*time.Millisecond).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
@@ -205,7 +206,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			} else {
 				By(specifyingVMLivenessProbe)
 				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(livenessProbe))
-				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -228,7 +229,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		Context("guest agent ping", func() {
 			BeforeEach(func() {
 				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
-				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -247,7 +248,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By("Specifying a VMI with a livenessProbe probe")
 			vmi = vmiFactory(withLivelinessProbe(livenessProbe))
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is in a final state after a while")
 			Eventually(func() bool {
@@ -288,13 +289,13 @@ func guestAgentOperation(vmi *v1.VirtualMachineInstance, startStopOperation stri
 
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
 	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), withReadinessProbe(probe))
-	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+	return libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
 func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
 	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), withLivelinessProbe(probe))
 
-	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+	return libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
 func createTCPProbe(period int32, initialSeconds int32, port int) *v1.Probe {

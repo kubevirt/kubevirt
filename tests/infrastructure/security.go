@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
 var _ = DescribeInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes, decorators.Kubernetes130, func() {
@@ -58,7 +59,7 @@ var _ = DescribeInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes
 		}
 
 		vmi := libvmifact.NewAlpine()
-		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 		node := vmi.Status.NodeName
 

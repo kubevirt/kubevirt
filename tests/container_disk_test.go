@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -64,7 +65,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy = policy
 
-		vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+		vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
 		Expect(vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy).To(Equal(expectedPolicy))
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).ToNot(HaveOccurred())
@@ -191,7 +192,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			})
 		})
 
@@ -203,7 +204,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithEphemeralCDRom("disk4", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskVirtio)),
 				)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("Checking whether the second disk really contains virtio drivers")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "expected alpine to login properly")
@@ -229,7 +230,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:4299]should not have world write permissions", func() {
 				vmi := libvmifact.NewAlpine()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("Ensuring VMI is running by logging in")
 				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)

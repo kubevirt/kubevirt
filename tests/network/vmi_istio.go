@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -358,7 +359,7 @@ var istioTests = func(vmType VmType) {
 					libvmi.WithNamespace(namespace),
 				)
 				By("Starting VirtualMachineInstance")
-				serverVMI = tests.RunVMIAndExpectLaunch(serverVMI, 240)
+				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, 240)
 
 				serverVMIService := netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
 				_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), serverVMIService, metav1.CreateOptions{})

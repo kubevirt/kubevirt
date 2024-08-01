@@ -76,6 +76,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/storage"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -124,7 +125,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
 			)
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: v1.VirtIO, Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -146,7 +147,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			)
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: v1.VirtIO, Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -158,7 +159,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", func() {
 			vmi := libvmifact.NewAlpine()
-			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -187,7 +188,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("adding a sidecar to ensure it gets limits assigned too")
 			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
-			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -213,7 +214,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("adding a sidecar to ensure it gets limits assigned too")
 			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
-			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -251,7 +252,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi := libvmi.New(vmiOptions...)
 
 			By("Starting a VirtualMachineInstance")
-			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			expectedMemoryInKiB := expectedGuestMemory * 1024
@@ -662,7 +663,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						SlicNameRef: volumeSlicSecretName,
 					},
 				}
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 360)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the guest ACPI SLIC table matches the one provided")
@@ -1532,7 +1533,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					},
 				}
 				By("Expecting the VirtualMachineInstance start")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking the TSC frequency on the VMI")
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -1649,7 +1650,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi := libvmifact.NewGuestless()
 				// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
 				wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
-				vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
+				vmi = libvmops.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
 
 				By("Checking for presence of runtimeClassName")
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1663,7 +1664,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration
 			Expect(config.DefaultRuntimeClass).To(BeEmpty())
 			By("Creating a VMI")
-			vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), 60)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), 60)
 
 			By("Checking for absence of runtimeClassName")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1699,14 +1700,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				)
 
 				By("Running a vmi without additional headroom")
-				vmiWithoutHeadroom := tests.RunVMIAndExpectScheduling(origVmiWithoutHeadroom, 60)
+				vmiWithoutHeadroom := libvmops.RunVMIAndExpectScheduling(origVmiWithoutHeadroom, 60)
 
 				By("Setting a headroom ratio in Kubevirt CR")
 				const ratio = "1.567"
 				setHeadroom(ratio)
 
 				By("Running a vmi with additional headroom")
-				vmiWithHeadroom := tests.RunVMIAndExpectScheduling(origVmiWithHeadroom, 60)
+				vmiWithHeadroom := libvmops.RunVMIAndExpectScheduling(origVmiWithHeadroom, 60)
 
 				requestWithoutHeadroom := getComputeMemoryRequest(vmiWithoutHeadroom)
 				requestWithHeadroom := getComputeMemoryRequest(vmiWithHeadroom)
@@ -1884,7 +1885,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 				withMachineType("pc"),
 			)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1897,7 +1898,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
 			vmi := libvmifact.NewGuestless()
 			vmi.Spec.Domain.Machine = nil
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1911,7 +1912,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				withMachineType(""),
 			)
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1934,7 +1935,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := libvmifact.NewGuestless()
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1948,7 +1949,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 				WithSchedulerName("my-custom-scheduler"),
 			)
-			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 			launcherPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(launcherPod.Spec.SchedulerName).To(Equal("my-custom-scheduler"))
@@ -1962,7 +1963,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 				libvmi.WithResourceCPU("500m"),
 			)
-			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
@@ -1973,7 +1974,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		It("[test_id:3128]should set CPU request when it is not provided", func() {
 			vmi := libvmifact.NewGuestless()
-			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
@@ -1991,7 +1992,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := libvmifact.NewGuestless()
-			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
@@ -2015,7 +2016,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		It("should not set a CPU limit if the namespace doesn't match the selector", func() {
 			By("Creating a running VMI")
 			vmi := libvmifact.NewGuestless()
-			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
 			By("Ensuring no CPU limit is set")
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
@@ -2037,7 +2038,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the VMI")
-			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
 			By("Ensuring the CPU limit is set to the correct value")
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
@@ -2055,7 +2056,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:11215]should not automatically set memory limits in the virt-launcher pod", func() {
 				vmi := libvmifact.NewCirros()
 				By("Creating a running VMI")
-				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+				runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
 				By("Ensuring no memory and cpu limits are set")
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
@@ -2112,7 +2113,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			It("[test_id:11214]should set cpu and memory limit in the virt-launcher pod", func() {
 				By("Starting the VMI")
-				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+				runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
 				By("Ensuring the memory and cpu limits are set to the correct values")
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
@@ -2179,7 +2180,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			// ephemeral-disk5
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -2242,7 +2243,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2319,7 +2320,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("initializing the VM")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2365,7 +2366,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("initializing the VM")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2419,7 +2420,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("initializing the VM")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -3356,7 +3357,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.TopologySpreadConstraints = tsc
 
 			By("Starting a VirtualMachineInstance")
-			vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
+			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
 			By("Ensuring that pod has expected topologySpreadConstraints")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)

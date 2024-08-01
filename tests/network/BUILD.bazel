@@ -66,6 +66,7 @@ go_library(
         "//tests/libpod:go_default_library",
         "//tests/libregistry:go_default_library",
         "//tests/libvmifact:go_default_library",
+        "//tests/libvmops:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/testsuite:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",

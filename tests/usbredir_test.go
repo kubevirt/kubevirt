@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/usbredir"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,7 +40,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
@@ -74,7 +74,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 		})
 
 		It("should fail to connect to VMI's usbredir socket", func() {
@@ -92,7 +92,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		BeforeEach(func() {
 			// A VMI for each test to have fresh stack on server side
 			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 			name = vmi.ObjectMeta.Name
 			namespace = vmi.ObjectMeta.Namespace
 		})

@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
 var _ = SIGDescribe("[Serial]Backend Storage", Serial, func() {
@@ -88,7 +89,7 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, func() {
 		By("Creating a VMI with persistent TPM")
 		vmi := libvmifact.NewCirros(libnet.WithMasqueradeNetworking())
 		vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
-		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Expecting the creation of a backend storage PVC with the right storage class")
 		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), backendstorage.PVCForVMI(vmi), metav1.GetOptions{})
