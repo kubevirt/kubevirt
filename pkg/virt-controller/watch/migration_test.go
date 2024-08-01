@@ -257,26 +257,9 @@ var _ = Describe("Migration watcher", func() {
 			migrationPolicyInformer.HasSynced)).To(BeTrue())
 	}
 
-	initController := func(kvConfig *virtv1.KubeVirtConfiguration) {
+	setConfig := func(kvConfig *virtv1.KubeVirtConfiguration) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
-
-		controller, _ = NewMigrationController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
-			vmiInformer,
-			podInformer,
-			migrationInformer,
-			nodeInformer,
-			pvcInformer,
-			pdbInformer,
-			migrationPolicyInformer,
-			resourceQuotaInformer,
-			recorder,
-			virtClient,
-			config,
-		)
-		// Wrap our workqueue to have a way to detect when we are done processing updates
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		controller.Queue = mockQueue
+		controller.clusterConfig = config
 	}
 
 	BeforeEach(func() {
@@ -298,7 +281,24 @@ var _ = Describe("Migration watcher", func() {
 
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
-		initController(&virtv1.KubeVirtConfiguration{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
+		controller, _ = NewMigrationController(
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+			vmiInformer,
+			podInformer,
+			migrationInformer,
+			nodeInformer,
+			pvcInformer,
+			pdbInformer,
+			migrationPolicyInformer,
+			resourceQuotaInformer,
+			recorder,
+			virtClient,
+			config,
+		)
+		// Wrap our workqueue to have a way to detect when we are done processing updates
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
+		controller.Queue = mockQueue
 
 		namespace = k8sv1.Namespace{
 			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
@@ -1703,7 +1703,7 @@ var _ = Describe("Migration watcher", func() {
 
 		Context("when cluster EvictionStrategy is set to 'LiveMigrate'", func() {
 			BeforeEach(func() {
-				initController(&virtv1.KubeVirtConfiguration{EvictionStrategy: pointer.P(virtv1.EvictionStrategyLiveMigrate)})
+				setConfig(&virtv1.KubeVirtConfiguration{EvictionStrategy: pointer.P(virtv1.EvictionStrategyLiveMigrate)})
 			})
 
 			It("should update PDB", func() {
@@ -2171,7 +2171,7 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		It("should not be forced to the SELinux level of the source if the CR option is set to false", func() {
-			initController(&virtv1.KubeVirtConfiguration{
+			setConfig(&virtv1.KubeVirtConfiguration{
 				MigrationConfiguration: &virtv1.MigrationConfiguration{
 					MatchSELinuxLevelOnMigration: pointer.P(false),
 				},
