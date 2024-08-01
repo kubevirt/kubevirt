@@ -413,9 +413,9 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					// Start VMs
-					libvmops.StartVirtualMachine(vm_evict1)
-					libvmops.StartVirtualMachine(vm_evict2)
-					libvmops.StartVirtualMachine(vm_noevict)
+					vm_evict1 = libvmops.StartVirtualMachine(vm_evict1)
+					vm_evict2 = libvmops.StartVirtualMachine(vm_evict2)
+					vm_noevict = libvmops.StartVirtualMachine(vm_noevict)
 
 					// Get VMIs
 					vmi_evict1, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(context.Background(), vmi_evict1.Name, metav1.GetOptions{})
