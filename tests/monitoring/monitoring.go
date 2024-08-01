@@ -31,10 +31,12 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -116,11 +118,9 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 	})
 
 	Context("System Alerts", func() {
-		disableVirtHandler := func() *v1.KubeVirt {
+		disableVirtHandler := func() {
 			originalKv := libkubevirt.GetCurrentKv(virtClient)
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
+			customizedComponents := v1.CustomizeComponents{
 				Patches: []v1.CustomizeComponentsPatch{
 					{
 						ResourceName: virtHandler.deploymentName,
@@ -131,48 +131,42 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 				},
 			}
 
-			Eventually(func() error {
-				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
-				return err
-			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			patchBytes, err := patch.New(patch.WithAdd("/spec/customizeComponents", customizedComponents)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() string {
 				vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vh.Spec.Template.Spec.NodeSelector[k8sv1.LabelHostname]
-			}, 90*time.Second, 5*time.Second).Should(Equal("does-not-exist"))
+			}).WithTimeout(90 * time.Second).WithPolling(5 * time.Second).Should(Equal("does-not-exist"))
 
 			Eventually(func() int {
 				vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return int(vh.Status.NumberAvailable + vh.Status.NumberUnavailable)
-			}, 90*time.Second, 5*time.Second).Should(Equal(0))
-
-			return kv
+			}).WithTimeout(90 * time.Second).WithPolling(5 * time.Second).Should(Equal(0))
 		}
 
-		restoreVirtHandler := func(kv *v1.KubeVirt) {
+		restoreVirtHandler := func() {
 			originalKv := libkubevirt.GetCurrentKv(virtClient)
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
+			patchBytes, err := patch.New(patch.WithRemove("/spec/customizeComponents")).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 
-			kv.Spec.CustomizeComponents = v1.CustomizeComponents{}
-
-			Eventually(func() error {
-				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
-				return err
-			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		It("KubeVirtNoAvailableNodesToRunVMs should be triggered when there are no available nodes in the cluster to run VMs", func() {
 			By("Scaling down virt-handler")
-			kv := disableVirtHandler()
+			disableVirtHandler()
 
 			By("Verifying KubeVirtNoAvailableNodesToRunVMs alert exists if emulation is disabled")
 			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
 
 			By("Restoring virt-handler")
-			restoreVirtHandler(kv)
+			restoreVirtHandler()
 			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, "KubeVirtNoAvailableNodesToRunVMs")
 		})
 	})
