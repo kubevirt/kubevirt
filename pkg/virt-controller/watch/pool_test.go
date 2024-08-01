@@ -34,7 +34,6 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -90,7 +89,6 @@ var _ = Describe("Pool", func() {
 		var ctrl *gomock.Controller
 
 		var crInformer cache.SharedIndexInformer
-		var crSource *framework.FakeControllerSource
 
 		var stop chan struct{}
 		var controller *PoolController
@@ -105,9 +103,10 @@ var _ = Describe("Pool", func() {
 		}
 
 		addCR := func(cr *appsv1.ControllerRevision) {
-			mockQueue.ExpectAdds(1)
-			crSource.Add(cr)
-			mockQueue.Wait()
+			controller.revisionIndexer.Add(cr)
+			key, err := virtcontroller.KeyFunc(cr)
+			Expect(err).To(Not(HaveOccurred()))
+			mockQueue.Add(key)
 		}
 
 		addVM := func(vm *v1.VirtualMachine) {
@@ -135,7 +134,7 @@ var _ = Describe("Pool", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
+			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vmpool": func(obj interface{}) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
 					for _, ref := range cr.OwnerReferences {
@@ -297,7 +296,7 @@ var _ = Describe("Pool", func() {
 			addVM(vm)
 			addCR(poolRevision)
 			// not expecting vmi to cause enqueue of pool because VMI and VM use the same pool revision
-			controller.vmiStore.Add(vm)
+			controller.vmiStore.Add(vmi)
 
 			expectControllerRevisionCreation(newPoolRevision)
 			expectVMUpdate(newPoolRevision.Name)
