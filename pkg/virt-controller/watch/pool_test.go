@@ -89,7 +89,7 @@ var _ = Describe("Pool", func() {
 		var controller *PoolController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
-		var client *kubevirtfake.Clientset
+		var fakeVirtClient *kubevirtfake.Clientset
 		var k8sClient *k8sfake.Clientset
 
 		addCR := func(cr *appsv1.ControllerRevision) {
@@ -145,15 +145,15 @@ var _ = Describe("Pool", func() {
 			mockQueue = testutils.NewMockWorkQueue(controller.queue)
 			controller.queue = mockQueue
 
-			client = kubevirtfake.NewSimpleClientset()
+			fakeVirtClient = kubevirtfake.NewSimpleClientset()
 
 			// Set up mock client
-			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(client.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
-			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(client.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
-			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(client.PoolV1alpha1().VirtualMachinePools(testNamespace)).AnyTimes()
+			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(fakeVirtClient.PoolV1alpha1().VirtualMachinePools(testNamespace)).AnyTimes()
 
-			client.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())
 				return true, nil, nil
 			})
@@ -213,7 +213,7 @@ var _ = Describe("Pool", func() {
 		}
 
 		expectVMCreation := func(nameMatcher types.GomegaMatcher) {
-			client.Fake.PrependReactor("create", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("create", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				created, ok := action.(k8stesting.CreateAction)
 				Expect(ok).To(BeTrue())
 				createObj := created.GetObject().(*v1.VirtualMachine)
@@ -224,7 +224,7 @@ var _ = Describe("Pool", func() {
 		}
 
 		expectVMUpdate := func(revisionName string) {
-			client.Fake.PrependReactor("update", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				created, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := created.GetObject().(*v1.VirtualMachine)
@@ -246,7 +246,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			Expect(testing.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
 		It("should update VM when VM template changes, but not VMI unless VMI template changes", func() {
@@ -289,7 +289,7 @@ var _ = Describe("Pool", func() {
 
 			controller.Execute()
 
-			Expect(testing.FilterActions(&client.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
 		})
 
 		It("should delete controller revisions when pool is being deleted", func() {
@@ -346,14 +346,14 @@ var _ = Describe("Pool", func() {
 			addCR(newPoolRevision)
 
 			expectControllerRevisionCreation(newPoolRevision)
-			client.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, nil
 			})
 
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
-			Expect(testing.FilterActions(&client.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
 		})
 
 		It("should do nothing", func() {
@@ -405,7 +405,7 @@ var _ = Describe("Pool", func() {
 			expectedPool.Status.Replicas = 0
 
 			// Expect pool to be updated with paused condition
-			client.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
@@ -420,7 +420,7 @@ var _ = Describe("Pool", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulPausedPoolReason)
 			// Expect pool to be updated with paused condition
-			Expect(testing.FilterActions(&client.Fake, "create", "virtualmachines")).To(BeEmpty())
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(BeEmpty())
 		})
 
 		It("should set failed condition when reconcile error occurs", func() {
@@ -431,12 +431,12 @@ var _ = Describe("Pool", func() {
 			expectedPool := pool.DeepCopy()
 			expectedPool.Status.Replicas = 0
 
-			client.Fake.PrependReactor("create", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("create", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, &v1.VirtualMachine{}, fmt.Errorf("error")
 			})
 
 			// Expect pool to be updated with paused condition
-			client.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
@@ -454,7 +454,7 @@ var _ = Describe("Pool", func() {
 
 			testutils.ExpectEvent(recorder, FailedCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, FailedScaleOutReason)
-			Expect(testing.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
 		It("should remove failed condition when no reconcile error occurs", func() {
@@ -475,7 +475,7 @@ var _ = Describe("Pool", func() {
 			expectedPool.Status.Replicas = 0
 
 			// Expect pool to be updated with paused condition
-			client.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
@@ -506,7 +506,7 @@ var _ = Describe("Pool", func() {
 			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
 			// Expect pool to be updated with paused condition
-			client.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
@@ -523,7 +523,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulResumePoolReason)
-			Expect(testing.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
 		It("should create missing VMs in batches of a maximum of burst replicas VMs at once", func() {
@@ -542,7 +542,7 @@ var _ = Describe("Pool", func() {
 				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			}
 			// Check if only 10 are created
-			Expect(testing.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(10))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(10))
 		})
 
 		It("should delete VMs in batches of a maximum of burst replicas", func() {
@@ -557,7 +557,7 @@ var _ = Describe("Pool", func() {
 				addVM(newVM)
 			}
 
-			client.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
@@ -565,7 +565,7 @@ var _ = Describe("Pool", func() {
 				return true, update.GetObject(), nil
 			})
 
-			client.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, nil
 			})
 
@@ -575,7 +575,7 @@ var _ = Describe("Pool", func() {
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			}
 			// Check if only 10 are deleted
-			Expect(testing.FilterActions(&client.Fake, "delete", "virtualmachines")).To(HaveLen(10))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(10))
 		})
 
 		It("should not delete vms which are already marked deleted", func() {
@@ -597,14 +597,14 @@ var _ = Describe("Pool", func() {
 				addVM(newVM)
 			}
 
-			client.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
 				Expect(updateObj.Status.Replicas).To(Equal(int32(10)))
 				return true, update.GetObject(), nil
 			})
-			client.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, nil
 			})
 			controller.Execute()
@@ -613,7 +613,7 @@ var _ = Describe("Pool", func() {
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			}
 			// Check if only 5 are deleted
-			Expect(testing.FilterActions(&client.Fake, "delete", "virtualmachines")).To(HaveLen(5))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(5))
 		})
 
 		It("should ignore and skip the name for non-matching VMs", func() {
@@ -637,7 +637,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			Expect(testing.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
 		It("should ignore orphaned VMs even when selector matches", func() {
@@ -650,7 +650,7 @@ var _ = Describe("Pool", func() {
 
 			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
-			client.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
@@ -675,7 +675,7 @@ var _ = Describe("Pool", func() {
 			addPool(pool)
 			addVM(vm)
 
-			client.Fake.PrependReactor("patch", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("patch", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				patchAction, ok := action.(k8stesting.PatchAction)
 				Expect(ok).To(BeTrue())
 				Expect(patchAction.GetName()).To(Equal(vm.Name))
@@ -683,7 +683,7 @@ var _ = Describe("Pool", func() {
 			})
 			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
-			client.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				return true, update.GetObject(), nil
@@ -696,7 +696,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			Expect(testing.FilterActions(&client.Fake, "create", "virtualmachines")).To(HaveLen(3))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 	})
 })
