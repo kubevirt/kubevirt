@@ -54,7 +54,9 @@ var _ = Describe("Streamer", func() {
 		streamToClientCalled = make(chan struct{}, 1)
 		streamToServerCalled = make(chan struct{}, 1)
 		serverConn, serverPipe = net.Pipe()
+
 		directDialer = NewDirectDialer(
+			// fake fetch vmi function
 			func(_, _ string) (*v1.VirtualMachineInstance, *errors.StatusError) {
 				fetchVMICalled = true
 				return testVMI, nil
@@ -104,6 +106,13 @@ var _ = Describe("Streamer", func() {
 		params := req.PathParameters()
 		params[definitions.NamespaceParamName] = testNamespace
 		params[definitions.NameParamName] = testName
+
+		streamer.dialer.fetchVMI = func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+			Expect(namespace).To(Equal(testNamespace))
+			Expect(name).To(Equal(testName))
+			fetchVMICalled = true
+			return nil, nil
+		}
 
 		streamer.Handle(req, resp)
 		Expect(fetchVMICalled).To(BeTrue())
@@ -219,13 +228,11 @@ var _ = Describe("Streamer", func() {
 		Eventually(call, defaultTestTimeout).Should(Receive())
 		wg.Wait()
 	})
-	It("does not call keepAliveClient if the client connection upgrade failed", func() {
-		call := make(chan struct{})
-		streamer.keepAliveClient = func(ctx context.Context, conn *websocket.Conn, _ func()) {
-			call <- struct{}{}
-		}
+	It("returns if the client connection upgrade failed", func() {
 		Expect(streamer.Handle(req, resp)).To(HaveOccurred())
-		Consistently(call, defaultTestTimeout).ShouldNot(Receive())
+		response, err := io.ReadAll(respRecorder.Body)
+		Expect(err).To(Not(HaveOccurred()))
+		Expect(string(response)).To(ContainSubstring("the client is not using the websocket protocol"))
 	})
 	It("does start streamToClient with connections", func() {
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
@@ -308,12 +315,12 @@ var _ = Describe("Streamer", func() {
 	It("closes clientSocket when keepAliveClient cancels context", func() {
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToClientCalled <- struct{}{}
-			time.Sleep(defaultTestTimeout * 2)
+			_, _ = io.Copy(io.Discard, serverConn)
 			result <- nil
 		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToServerCalled <- struct{}{}
-			time.Sleep(defaultTestTimeout * 2)
+			_, _ = io.Copy(io.Discard, clientSocket.UnderlyingConn())
 			result <- nil
 		}
 		streamer.keepAliveClient = func(ctx context.Context, conn *websocket.Conn, cancel func()) {
@@ -393,7 +400,7 @@ var _ = Describe("Streamer", func() {
 		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToServerCalled <- struct{}{}
-			time.Sleep(defaultTestTimeout * 2)
+			_, _ = io.Copy(io.Discard, clientSocket.UnderlyingConn())
 			result <- nil
 		}
 		var wg sync.WaitGroup
@@ -414,7 +421,7 @@ var _ = Describe("Streamer", func() {
 		testErrStreamEnded := goerrors.New("stream ended")
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToClientCalled <- struct{}{}
-			time.Sleep(defaultTestTimeout * 2)
+			_, _ = io.Copy(io.Discard, serverConn)
 			result <- nil
 		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
