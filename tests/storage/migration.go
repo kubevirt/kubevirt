@@ -365,6 +365,31 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitMigrationToNotExist(vm.Name, ns)
 		})
+
+		It("should differ the volumes in the spec from the one in the status if the VM is shutdown", func() {
+			volName := "volume"
+			dv := createDV()
+			vm := createVMWithDV(dv, volName)
+			// Create dest PVC
+			createUnschedulablePVC(destPVC, ns, size)
+			By("Update volumes")
+			updateVMWithPVC(vm.Name, volName, destPVC)
+			waitMigrationToExist(vm.Name, ns)
+			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
+			By("Stopping the VM during the volume migration")
+			stopOptions := &virtv1.StopOptions{GracePeriod: pointer.P(int64(0))}
+			err := virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOptions)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm.Status.VolumeMigration).NotTo(BeNil())
+			Expect(vm.Status.VolumeMigration.Volumes).Should(ContainElement(virtv1.Volume{
+				Name: volName,
+				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
+					Name:         dv.Name,
+					Hotpluggable: false,
+				}},
+			}), "the volumes in the status and in the spec should be different")
+		})
 	})
 })
 
