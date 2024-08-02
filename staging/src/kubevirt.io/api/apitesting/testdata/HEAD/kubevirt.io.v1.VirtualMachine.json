@@ -1246,6 +1246,112 @@
     },
     "observedGeneration": -18,
     "desiredGeneration": -17,
-    "runStrategy": "runStrategyValue"
+    "runStrategy": "runStrategyValue",
+    "volumeMigration": {
+      "volumes": [
+        {
+          "name": "nameValue",
+          "hostDisk": {
+            "path": "pathValue",
+            "type": "typeValue",
+            "capacity": "0",
+            "shared": true
+          },
+          "persistentVolumeClaim": {
+            "claimName": "claimNameValue",
+            "readOnly": true,
+            "hotpluggable": true
+          },
+          "cloudInitNoCloud": {
+            "secretRef": {
+              "name": "nameValue"
+            },
+            "userDataBase64": "userDataBase64Value",
+            "userData": "userDataValue",
+            "networkDataSecretRef": {
+              "name": "nameValue"
+            },
+            "networkDataBase64": "networkDataBase64Value",
+            "networkData": "networkDataValue"
+          },
+          "cloudInitConfigDrive": {
+            "secretRef": {
+              "name": "nameValue"
+            },
+            "userDataBase64": "userDataBase64Value",
+            "userData": "userDataValue",
+            "networkDataSecretRef": {
+              "name": "nameValue"
+            },
+            "networkDataBase64": "networkDataBase64Value",
+            "networkData": "networkDataValue"
+          },
+          "sysprep": {
+            "secret": {
+              "name": "nameValue"
+            },
+            "configMap": {
+              "name": "nameValue"
+            }
+          },
+          "containerDisk": {
+            "image": "imageValue",
+            "imagePullSecret": "imagePullSecretValue",
+            "path": "pathValue",
+            "imagePullPolicy": "imagePullPolicyValue"
+          },
+          "ephemeral": {
+            "persistentVolumeClaim": {
+              "claimName": "claimNameValue",
+              "readOnly": true
+            }
+          },
+          "emptyDisk": {
+            "capacity": "0"
+          },
+          "dataVolume": {
+            "name": "nameValue",
+            "hotpluggable": true
+          },
+          "configMap": {
+            "name": "nameValue",
+            "optional": true,
+            "volumeLabel": "volumeLabelValue"
+          },
+          "secret": {
+            "secretName": "secretNameValue",
+            "optional": true,
+            "volumeLabel": "volumeLabelValue"
+          },
+          "downwardAPI": {
+            "fields": [
+              {
+                "path": "pathValue",
+                "fieldRef": {
+                  "apiVersion": "apiVersionValue",
+                  "fieldPath": "fieldPathValue"
+                },
+                "resourceFieldRef": {
+                  "containerName": "containerNameValue",
+                  "resource": "resourceValue",
+                  "divisor": "0"
+                },
+                "mode": 4
+              }
+            ],
+            "volumeLabel": "volumeLabelValue"
+          },
+          "serviceAccount": {
+            "serviceAccountName": "serviceAccountNameValue"
+          },
+          "downwardMetrics": {},
+          "memoryDump": {
+            "claimName": "claimNameValue",
+            "readOnly": true,
+            "hotpluggable": true
+          }
+        }
+      ]
+    }
   }
 }

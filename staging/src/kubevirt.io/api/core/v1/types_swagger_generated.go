@@ -386,6 +386,12 @@ func (VirtualMachineStartFailure) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VolumeMigration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"volumes": "+listType=atomic",
+	}
+}
+
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                       "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",

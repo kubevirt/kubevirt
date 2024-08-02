@@ -804,6 +804,82 @@ status:
     data:
       dataKey: dataValue
     uid: uidValue
+  volumeMigration:
+    volumes:
+    - cloudInitConfigDrive:
+        networkData: networkDataValue
+        networkDataBase64: networkDataBase64Value
+        networkDataSecretRef:
+          name: nameValue
+        secretRef:
+          name: nameValue
+        userData: userDataValue
+        userDataBase64: userDataBase64Value
+      cloudInitNoCloud:
+        networkData: networkDataValue
+        networkDataBase64: networkDataBase64Value
+        networkDataSecretRef:
+          name: nameValue
+        secretRef:
+          name: nameValue
+        userData: userDataValue
+        userDataBase64: userDataBase64Value
+      configMap:
+        name: nameValue
+        optional: true
+        volumeLabel: volumeLabelValue
+      containerDisk:
+        image: imageValue
+        imagePullPolicy: imagePullPolicyValue
+        imagePullSecret: imagePullSecretValue
+        path: pathValue
+      dataVolume:
+        hotpluggable: true
+        name: nameValue
+      downwardAPI:
+        fields:
+        - fieldRef:
+            apiVersion: apiVersionValue
+            fieldPath: fieldPathValue
+          mode: 4
+          path: pathValue
+          resourceFieldRef:
+            containerName: containerNameValue
+            divisor: "0"
+            resource: resourceValue
+        volumeLabel: volumeLabelValue
+      downwardMetrics: {}
+      emptyDisk:
+        capacity: "0"
+      ephemeral:
+        persistentVolumeClaim:
+          claimName: claimNameValue
+          readOnly: true
+      hostDisk:
+        capacity: "0"
+        path: pathValue
+        shared: true
+        type: typeValue
+      memoryDump:
+        claimName: claimNameValue
+        hotpluggable: true
+        readOnly: true
+      name: nameValue
+      persistentVolumeClaim:
+        claimName: claimNameValue
+        hotpluggable: true
+        readOnly: true
+      secret:
+        optional: true
+        secretName: secretNameValue
+        volumeLabel: volumeLabelValue
+      serviceAccount:
+        serviceAccountName: serviceAccountNameValue
+      sysprep:
+        configMap:
+          name: nameValue
+        secret:
+          name: nameValue
   volumeRequests:
   - addVolumeOptions:
       disk:
