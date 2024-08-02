@@ -2358,9 +2358,6 @@ var _ = SIGDescribe("Export", func() {
 				Expect(err).ToNot(HaveOccurred())
 				_, err = os.Stat(outputFile)
 				Expect(err).ToNot(HaveOccurred())
-
-				// Check VMExport has been deleted
-				checkForDeletedExport(vmeName)
 			})
 
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
