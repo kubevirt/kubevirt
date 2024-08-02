@@ -373,3 +373,32 @@ func CanVolumesUpdateMigration(vmi *virtv1.VirtualMachineInstance) bool {
 	}
 	return true
 }
+
+func GenerateVolumeMigrationStatus(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) error {
+	volMig := &virtv1.VolumeMigration{}
+	oldVols := make(map[string]virtv1.Volume)
+	for _, v := range vmi.Spec.Volumes {
+		if pvcName := storagetypes.PVCNameFromVirtVolume(&v); pvcName != "" {
+			oldVols[v.Name] = v
+		}
+	}
+	for _, v := range vm.Spec.Template.Spec.Volumes {
+		claim := storagetypes.PVCNameFromVirtVolume(&v)
+		if claim == "" {
+			continue
+		}
+		oldVol, ok := oldVols[v.Name]
+		if !ok {
+			continue
+		}
+		if equality.Semantic.DeepEqual(oldVol, v) {
+			continue
+		}
+		volMig.Volumes = append(volMig.Volumes, oldVol)
+	}
+	if len(volMig.Volumes) == 0 {
+		return nil
+	}
+	vm.Status.VolumeMigration = volMig
+	return nil
+}
