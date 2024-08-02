@@ -1,9 +1,4 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 
-filters:
-  # examples:
-  #   pkg/api/types.go
-  #   pkg/api/*/register.go
-  "\\.go$":
-    labels:
-      - kind/api-change
+labels:
+  - kind/api-change
