@@ -18,10 +18,8 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -35,7 +33,6 @@ var _ = Describe("Disruptionbudget", func() {
 	var ctrl *gomock.Controller
 	var stop chan struct{}
 	var virtClient *kubecli.MockKubevirtClient
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var pdbInformer cache.SharedIndexInformer
@@ -113,7 +110,7 @@ var _ = Describe("Disruptionbudget", func() {
 			patches := patch.New(
 				patch.WithReplace("/spec/minAvailable", 1),
 				patch.WithRemove(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(
-					virtv1.MigrationNameLabel))),
+					v1.MigrationNameLabel))),
 			)
 			Expect(patches.GeneratePayload()).To(Equal(patchAction.GetPatch()))
 			return true, &policyv1.PodDisruptionBudget{}, nil
@@ -134,8 +131,6 @@ var _ = Describe("Disruptionbudget", func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		pdbInformer, pdbSource = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		vmimInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
@@ -145,7 +140,6 @@ var _ = Describe("Disruptionbudget", func() {
 		initController(&v1.KubeVirtConfiguration{})
 
 		// Set up mock client
-		virtClient.EXPECT().VirtualMachineInstance(corev1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
