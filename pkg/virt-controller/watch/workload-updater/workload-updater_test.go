@@ -17,6 +17,8 @@ import (
 
 	"kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -518,6 +520,28 @@ var _ = Describe("Workload Updater", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, FailedChangeAbortionReason)
+		})
+
+		It("shouldn't cancel the migration if the migration object is still in running phase but the domain is ready on the target", func() {
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Namespace = k8sv1.NamespaceDefault
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue})
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				StartTimestamp:                 pointer.P(metav1.Now()),
+				Completed:                      false,
+				Failed:                         false,
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+			}
+			// Ensure that the deletion operation isn't called. The test reproduces the race when the migration operation
+			// was completed, but the migration object was still in running phase and it was accidentally deleted.
+			migrationInterface.EXPECT().Delete(gomock.Any(), gomock.Any(), metav1.DeleteOptions{}).Return(nil).Times(0)
+			controller.vmiStore.Add(vmi)
+			createMig(vmi.Name, v1.MigrationRunning)
+			controller.Execute()
+			Expect(recorder.Events).To(BeEmpty())
+
 		})
 	})
 
