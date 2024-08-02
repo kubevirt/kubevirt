@@ -29,6 +29,16 @@ filters:
       - sig-compute-approvers
       - sig-network-approvers
 
+  # go.{mod,sum} files relate to go dependencies, and should be reviewed by the
+  # dep-approvers
+  "go\\.(mod|sum)$":
+    approvers:
+      - dep-approvers
+    required_reviewers:
+      - dep-approvers
+    labels:
+      - area/dependency
+
   "docs/metrics.md":
     reviewers:
       - sig-observability-reviewers
