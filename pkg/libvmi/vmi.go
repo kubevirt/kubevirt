@@ -78,6 +78,12 @@ func WithAnnotation(key, value string) Option {
 	}
 }
 
+func WithName(name string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Name = name
+	}
+}
+
 func WithNamespace(namespace string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Namespace = namespace
@@ -260,12 +266,6 @@ func WithoutSerialConsole() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		enabled := false
 		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &enabled
-	}
-}
-
-func WithStatus(status *v1.VirtualMachineInstanceStatus) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Status = *status
 	}
 }
 
