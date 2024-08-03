@@ -314,7 +314,7 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		It("should update conditions when failed creating DataVolume for virtualMachineInstance", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -352,7 +352,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should create missing DataVolume for VirtualMachineInstance", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -480,7 +480,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			DescribeTable("should hotplug a vm", func(isRunning bool) {
 
-				vm, vmi := DefaultVirtualMachine(isRunning)
+				vm, vmi := watchtesting.DefaultVirtualMachine(isRunning)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -527,7 +527,7 @@ var _ = Describe("VirtualMachine", func() {
 			Context("add volume request", func() {
 				It("should not be cleared when hotplug fails on Running VM", func() {
 					By("Running VM")
-					vm, vmi := DefaultVirtualMachine(true)
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
 					vm.Status.Created = true
 					vm.Status.Ready = true
 					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -563,7 +563,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should not be cleared when VM update fails on Running VM", func() {
 					By("Running VM")
-					vm, vmi := DefaultVirtualMachine(true)
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
 					vm.Status.Created = true
 					vm.Status.Ready = true
 					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -604,7 +604,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should be cleared when hotplug on Stopped VM", func() {
 					By("Stopped VM")
-					vm, _ := DefaultVirtualMachine(false)
+					vm, _ := watchtesting.DefaultVirtualMachine(false)
 					vm.Status.Created = false
 					vm.Status.Ready = false
 					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -635,7 +635,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should not be cleared when hotplug fails on Stopped VM", func() {
 					By("Stopped VM")
-					vm, _ := DefaultVirtualMachine(false)
+					vm, _ := watchtesting.DefaultVirtualMachine(false)
 					vm.Status.Created = false
 					vm.Status.Ready = false
 					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -669,7 +669,7 @@ var _ = Describe("VirtualMachine", func() {
 			Context("remove volume request", func() {
 				It("should not be cleared when hotplug fails on Running VM", func() {
 					By("Running VM with a disk and matching volume")
-					vm, vmi := DefaultVirtualMachine(true)
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
 					vm.Status.Created = true
 					vm.Status.Ready = true
 					volume := v1.Volume{
@@ -724,7 +724,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should be cleared when hotplug on Stopped VM", func() {
 					By("Stopped VM with a disk and matching volume")
-					vm, _ := DefaultVirtualMachine(false)
+					vm, _ := watchtesting.DefaultVirtualMachine(false)
 					vm.Status.Created = false
 					vm.Status.Ready = false
 
@@ -770,7 +770,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should not be cleared when hotplug fails on Stopped VM", func() {
 					By("Stopped VM with a disk and matching volume")
-					vm, _ := DefaultVirtualMachine(false)
+					vm, _ := watchtesting.DefaultVirtualMachine(false)
 					vm.Status.Created = false
 					vm.Status.Ready = false
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
@@ -818,7 +818,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("should unhotplug a vm", func(isRunning bool) {
-				vm, vmi := DefaultVirtualMachine(isRunning)
+				vm, vmi := watchtesting.DefaultVirtualMachine(isRunning)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -868,7 +868,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			DescribeTable("should clear VolumeRequests for added volumes that are satisfied", func(isRunning bool) {
-				vm, vmi := DefaultVirtualMachine(isRunning)
+				vm, vmi := watchtesting.DefaultVirtualMachine(isRunning)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -921,7 +921,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			DescribeTable("should clear VolumeRequests for removed volumes that are satisfied", func(isRunning bool) {
-				vm, vmi := DefaultVirtualMachine(isRunning)
+				vm, vmi := watchtesting.DefaultVirtualMachine(isRunning)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -962,7 +962,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should not delete failed DataVolume for VirtualMachineInstance", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1016,7 +1016,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should not delete failed DataVolume for VirtualMachineInstance unless deletion timestamp expires ", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1065,7 +1065,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should handle failed DataVolume without Annotations", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1117,7 +1117,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		DescribeTable("should start VMI once DataVolumes are complete", func(runStrategy v1.VirtualMachineRunStrategy) {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1184,7 +1184,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should start VMI once DataVolumes (not templates) are complete", func() {
 
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1226,7 +1226,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should start VMI once DataVolumes are complete or WaitForFirstConsumer", func() {
 			// WaitForFirstConsumer state can only be handled by VMI
 
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1266,7 +1266,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should Not delete Datavolumes when VMI is stopped", func() {
-			vm, vmi := DefaultVirtualMachine(false)
+			vm, vmi := watchtesting.DefaultVirtualMachine(false)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1305,7 +1305,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should create multiple DataVolumes for VirtualMachineInstance", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1348,7 +1348,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		DescribeTable("should properly handle PVC existing before DV created", func(annotations map[string]string, expectedCreations int, initFunc func()) {
-			vm, _ := DefaultVirtualMachine(false)
+			vm, _ := watchtesting.DefaultVirtualMachine(false)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1402,7 +1402,7 @@ var _ = Describe("VirtualMachine", func() {
 		)
 
 		DescribeTable("should properly set priority class", func(dvPriorityClass, vmPriorityClass, expectedPriorityClass string) {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -1443,7 +1443,7 @@ var _ = Describe("VirtualMachine", func() {
 		Context("crashloop backoff tests", func() {
 
 			It("should track start failures when VMIs fail without hitting running state", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.UID = "123"
 				vmi.Status.Phase = v1.Failed
 
@@ -1470,7 +1470,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should track a new start failures when a new VMI fails without hitting running state", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.UID = "456"
 				vmi.Status.Phase = v1.Failed
 
@@ -1507,7 +1507,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should clear start failures when VMI hits running state", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.UID = "456"
 				vmi.Status.Phase = v1.Running
 				vmi.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstancePhaseTransitionTimestamp{
@@ -1545,7 +1545,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("should clear existing start failures when runStrategy is halted or manual", func(runStrategy v1.VirtualMachineRunStrategy) {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.UID = "456"
 				vmi.Status.Phase = v1.Failed
 				vm.Spec.Running = nil
@@ -1731,7 +1731,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *v1.DataVolumeTemplateSpec, saVol *v1.Volume, ds *cdiv1.DataSource, fail, sourcePVC bool) {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
 					v1.Volume{
 						Name: "test1",
@@ -1853,7 +1853,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should create VMI with vmRevision", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Generation = 1
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -1879,7 +1879,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should delete older vmRevision and create VMI with new one", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Generation = 1
 			oldVMRevision := createVMRevision(vm)
 
@@ -1911,7 +1911,7 @@ var _ = Describe("VirtualMachine", func() {
 		Context("VM generation tests", func() {
 
 			DescribeTable("should add the generation annotation onto the VMI", func(startingAnnotations map[string]string, endAnnotations map[string]string) {
-				_, vmi := DefaultVirtualMachine(true)
+				_, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.ObjectMeta.Annotations = startingAnnotations
 
 				annotations := endAnnotations
@@ -1923,7 +1923,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			DescribeTable("should add generation annotation during VMI creation", func(runStrategy v1.VirtualMachineRunStrategy) {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategy
@@ -1962,7 +1962,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			It("should patch the generation annotation onto the vmi", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.ObjectMeta.Annotations = nil
 				addVirtualMachine(vm)
 
@@ -1979,7 +1979,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("should get the generation annotation from the vmi", func(annotations map[string]string, desiredGeneration *string, desiredErr error) {
-				_, vmi := DefaultVirtualMachine(true)
+				_, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.ObjectMeta.Annotations = annotations
 
 				gen, err := getGenerationAnnotation(vmi)
@@ -2017,11 +2017,11 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("conditionally bump generation tests", func() {
 				// Needed for the default values in each Entry(..)
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 				BeforeEach(func() {
 					// Reset every time
-					vm, vmi = DefaultVirtualMachine(true)
+					vm, vmi = watchtesting.DefaultVirtualMachine(true)
 				})
 
 				DescribeTable("should conditionally bump the generation annotation on the vmi", func(initialAnnotations map[string]string, desiredAnnotations map[string]string, revisionVmSpec v1.VirtualMachineSpec, newVMSpec v1.VirtualMachineSpec, vmGeneration int64, desiredErr error, expectPatch bool) {
@@ -2227,7 +2227,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("should sync the generation info", func(initialAnnotations map[string]string, desiredAnnotations map[string]string, revisionVmGeneration int64, vmGeneration int64, desiredErr error, expectPatch bool, desiredObservedGeneration int64, desiredDesiredGeneration int64) {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.ObjectMeta.Annotations = initialAnnotations
 				vm.Generation = revisionVmGeneration
 
@@ -2318,11 +2318,11 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("generation tests with Execute()", func() {
 				// Needed for the default values in each Entry(..)
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 				BeforeEach(func() {
 					// Reset every time
-					vm, vmi = DefaultVirtualMachine(true)
+					vm, vmi = watchtesting.DefaultVirtualMachine(true)
 				})
 
 				DescribeTable("should update annotations and sync during Execute()", func(initialAnnotations map[string]string, desiredAnnotations map[string]string, revisionVmSpec v1.VirtualMachineSpec, newVMSpec v1.VirtualMachineSpec, revisionVmGeneration int64, vmGeneration int64, desiredErr error, expectPatch bool, desiredObservedGeneration int64, desiredDesiredGeneration int64) {
@@ -2452,7 +2452,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		DescribeTable("should create missing VirtualMachineInstance", func(runStrategy v1.VirtualMachineRunStrategy) {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 
 			vm.Spec.Running = nil
 			vm.Spec.RunStrategy = &runStrategy
@@ -2487,7 +2487,7 @@ var _ = Describe("VirtualMachine", func() {
 		)
 
 		It("should ignore the name of a VirtualMachineInstance templates", func() {
-			vm, _ := DefaultVirtualMachineWithNames(true, "vmname", "vminame")
+			vm, _ := watchtesting.DefaultVirtualMachineWithNames(true, "vmname", "vminame")
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2509,7 +2509,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should update status to created if the vmi exists", func() {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 			vmi.Status.Phase = v1.Scheduled
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -2528,7 +2528,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should update status to created and ready when vmi is running and running", func() {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 			watchtesting.MarkAsReady(vmi)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -2547,23 +2547,23 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should have stable firmware UUIDs", func() {
-			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
 			vmi1 := controller.setupVMIFromVM(vm1)
 
 			// intentionally use the same names
-			vm2, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vm2, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
 			vmi2 := controller.setupVMIFromVM(vm2)
 			Expect(vmi1.Spec.Domain.Firmware.UUID).To(Equal(vmi2.Spec.Domain.Firmware.UUID))
 
 			// now we want different names
-			vm3, _ := DefaultVirtualMachineWithNames(true, "testvm3", "testvmi3")
+			vm3, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm3", "testvmi3")
 			vmi3 := controller.setupVMIFromVM(vm3)
 			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
 		})
 
 		It("should honour any firmware UUID present in the template", func() {
 			uid := uuid.NewString()
-			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
 			vm1.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: types.UID(uid)}
 
 			vmi1 := controller.setupVMIFromVM(vm1)
@@ -2571,7 +2571,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should delete VirtualMachineInstance when stopped", func() {
-			vm, vmi := DefaultVirtualMachine(false)
+			vm, vmi := watchtesting.DefaultVirtualMachine(false)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2589,7 +2589,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should add controller finalizer if VirtualMachine does not have it", func() {
-			vm, _ := DefaultVirtualMachine(false)
+			vm, _ := watchtesting.DefaultVirtualMachine(false)
 			vm.Finalizers = nil
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -2605,8 +2605,8 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should add controller finalizer only once", func() {
-			//DefaultVirtualMachine already set finalizer
-			vm, _ := DefaultVirtualMachine(false)
+			//watchtesting.DefaultVirtualMachine already set finalizer
+			vm, _ := watchtesting.DefaultVirtualMachine(false)
 			Expect(vm.Finalizers).To(HaveLen(1))
 			Expect(vm.Finalizers[0]).To(BeEquivalentTo(v1.VirtualMachineControllerFinalizer))
 
@@ -2619,7 +2619,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 			vm.DeletionTimestamp = pointer.P(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -2639,8 +2639,8 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should remove controller finalizer once VirtualMachineInstance is gone", func() {
-			//DefaultVirtualMachine already set finalizer
-			vm, _ := DefaultVirtualMachine(true)
+			//watchtesting.DefaultVirtualMachine already set finalizer
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.DeletionTimestamp = pointer.P(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -2655,7 +2655,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		DescribeTable("should not delete VirtualMachineInstance when vmi failed", func(runStrategy v1.VirtualMachineRunStrategy) {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 			vm.Spec.Running = nil
 			vm.Spec.RunStrategy = &runStrategy
@@ -2678,7 +2678,7 @@ var _ = Describe("VirtualMachine", func() {
 		)
 
 		It("should not delete the VirtualMachineInstance again if it is already marked for deletion", func() {
-			vm, vmi := DefaultVirtualMachine(false)
+			vm, vmi := watchtesting.DefaultVirtualMachine(false)
 			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -2690,7 +2690,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should ignore non-matching VMIs", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 
 			nonMatchingVMI := api.NewMinimalVMI("testvmi1")
 			nonMatchingVMI.ObjectMeta.Labels = map[string]string{"test": "test1"}
@@ -2713,7 +2713,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should detect that a VirtualMachineInstance already exists and adopt it", func() {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 			vmi.OwnerReferences = []metav1.OwnerReference{}
 
 			addVirtualMachine(vm)
@@ -2732,7 +2732,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should detect that a DataVolume already exists and adopt it", func() {
-			vm, _ := DefaultVirtualMachine(false)
+			vm, _ := watchtesting.DefaultVirtualMachine(false)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
 				VolumeSource: v1.VolumeSource{
@@ -2774,7 +2774,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should detect that it has nothing to do beside updating the status", func() {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2785,7 +2785,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should add a fail condition if start up fails", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2815,7 +2815,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should add a fail condition if deletion fails", func() {
-			vm, vmi := DefaultVirtualMachine(false)
+			vm, vmi := watchtesting.DefaultVirtualMachine(false)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2848,7 +2848,7 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		DescribeTable("should add ready condition when VMI exists", func(setup func(vmi *v1.VirtualMachineInstance), status k8sv1.ConditionStatus) {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -2879,7 +2879,7 @@ var _ = Describe("VirtualMachine", func() {
 		)
 
 		It("should sync VMI conditions", func() {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
 
 			cm := virtcontroller.NewVirtualMachineInstanceConditionManager()
@@ -2983,7 +2983,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should add ready condition when VMI doesn't exists", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -3009,7 +3009,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should add paused condition", func() {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
@@ -3038,7 +3038,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should remove paused condition", func() {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 			vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
 				Type:   v1.VirtualMachinePaused,
 				Status: k8sv1.ConditionTrue,
@@ -3063,7 +3063,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should back off if a sync error occurs", func() {
-			vm, vmi := DefaultVirtualMachine(false)
+			vm, vmi := watchtesting.DefaultVirtualMachine(false)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -3096,7 +3096,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should copy annotations from spec.template to vmi", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"test": "test"}
 			annotations := map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "0"}
 
@@ -3113,7 +3113,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should copy kubevirt ignitiondata annotation from spec.template to vmi", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"kubevirt.io/ignitiondata": "test"}
 			annotations := map[string]string{"kubevirt.io/ignitiondata": "test", v1.VirtualMachineGenerationAnnotation: "0"}
 
@@ -3130,7 +3130,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should copy kubernetes annotations from spec.template to vmi", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}
 			annotations := map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true", v1.VirtualMachineGenerationAnnotation: "0"}
 
@@ -3189,7 +3189,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			It("should add memory dump volume and update vmi volumes", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
@@ -3214,7 +3214,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should update memory dump phase to InProgress when memory dump in vm volumes", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
@@ -3245,7 +3245,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should change status to unmounting when memory dump timestamp updated", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
@@ -3292,7 +3292,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should update status to failed when memory dump failed", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
@@ -3336,7 +3336,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("should remove memory dump volume from vmi volumes and update pvc annotation", func(phase v1.MemoryDumpPhase, expectedAnnotation string) {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
@@ -3400,7 +3400,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			It("should update memory dump to complete once memory dump volume unmounted", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				now := metav1.Now()
@@ -3434,7 +3434,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should remove memory dump volume from vm volumes list when status is Dissociating", func() {
 				// No need to add vmi - can do this action even if vm not running
-				vm, _ := DefaultVirtualMachine(false)
+				vm, _ := watchtesting.DefaultVirtualMachine(false)
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: testPVCName,
 					Phase:     v1.MemoryDumpDissociating,
@@ -3454,7 +3454,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should dissociate memory dump request when status is Dissociating and not in vm volumes", func() {
 				// No need to add vmi - can do this action even if vm not running
-				vm, _ := DefaultVirtualMachine(false)
+				vm, _ := watchtesting.DefaultVirtualMachine(false)
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: testPVCName,
 					Phase:     v1.MemoryDumpDissociating,
@@ -3472,7 +3472,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("should not setup vmi with memory dump if memory dump", func(phase v1.MemoryDumpPhase) {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: testPVCName,
 					Phase:     phase,
@@ -3492,7 +3492,7 @@ var _ = Describe("VirtualMachine", func() {
 		Context("VM printableStatus", func() {
 
 			It("Should set a Stopped status when running=false and VMI doesn't exist", func() {
-				vm, _ := DefaultVirtualMachine(false)
+				vm, _ := watchtesting.DefaultVirtualMachine(false)
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
@@ -3506,7 +3506,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("should set a Stopped status when VMI exists but stopped", func(phase v1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time) {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = phase
 				vmi.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstancePhaseTransitionTimestamp{
@@ -3548,7 +3548,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			It("Should set a Starting status when running=true and VMI doesn't exist", func() {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
@@ -3564,7 +3564,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("Should set a Starting status when VMI is in a startup phase", func(phase v1.VirtualMachineInstancePhase) {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = phase
 
@@ -3586,7 +3586,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			DescribeTable("Should set a CrashLoop status when VMI is deleted and VM is in crash loop backoff", func(status v1.VirtualMachineStatus, runStrategy v1.VirtualMachineRunStrategy, hasVMI bool, expectCrashloop bool) {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategy
 				vm.Status = status
@@ -3688,7 +3688,7 @@ var _ = Describe("VirtualMachine", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					vm, vmi = DefaultVirtualMachine(true)
+					vm, vmi = watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "test1",
 						VolumeSource: v1.VolumeSource{
@@ -3880,7 +3880,7 @@ var _ = Describe("VirtualMachine", func() {
 				var vm *v1.VirtualMachine
 
 				BeforeEach(func() {
-					vm, _ = DefaultVirtualMachine(true)
+					vm, _ = watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "test1",
 						VolumeSource: v1.VolumeSource{
@@ -3922,7 +3922,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should set a Running status when VMI is running but not paused", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = v1.Running
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -3938,7 +3938,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should set a Paused status when VMI is running but is paused", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = v1.Running
 				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
@@ -3959,7 +3959,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("should set a Stopping status when VMI has a deletion timestamp set", func(phase v1.VirtualMachineInstancePhase, condType v1.VirtualMachineInstanceConditionType) {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 				vmi.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 				vmi.Status.Phase = phase
@@ -3993,7 +3993,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("should set a Terminating status when VM has a deletion timestamp set", func() {
 				DescribeTable("when VMI exists", func(phase v1.VirtualMachineInstancePhase, condType v1.VirtualMachineInstanceConditionType) {
-					vm, vmi := DefaultVirtualMachine(true)
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 					vm.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 					vmi.Status.Phase = phase
@@ -4032,7 +4032,7 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				It("when VMI exists and has a deletion timestamp set", func() {
-					vm, vmi := DefaultVirtualMachine(true)
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 					vm.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 					vmi.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
@@ -4051,7 +4051,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				DescribeTable("when VMI does not exist", func(running bool) {
-					vm, _ := DefaultVirtualMachine(running)
+					vm, _ := watchtesting.DefaultVirtualMachine(running)
 
 					vm.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 
@@ -4073,7 +4073,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should set a Migrating status when VMI is migrating", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = v1.Running
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -4093,7 +4093,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should set an Unknown status when VMI is in unknown phase", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = v1.Unknown
 
@@ -4112,7 +4112,7 @@ var _ = Describe("VirtualMachine", func() {
 			DescribeTable("should set a failure status in accordance to VMI condition",
 				func(status v1.VirtualMachinePrintableStatus, cond v1.VirtualMachineInstanceCondition) {
 
-					vm, vmi := DefaultVirtualMachine(true)
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
 					vmi.Status.Phase = v1.Scheduling
 					vmi.Status.Conditions = append(vmi.Status.Conditions, cond)
 
@@ -4145,7 +4145,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string) {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.Status.Phase = v1.Scheduling
 				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 					{
@@ -4193,7 +4193,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			BeforeEach(func() {
-				vm, _ = DefaultVirtualMachine(true)
+				vm, _ = watchtesting.DefaultVirtualMachine(true)
 
 				// We need to clear the domainSpec here to ensure the instancetype doesn't conflict
 				vm.Spec.Template.Spec.Domain = v1.DomainSpec{}
@@ -5477,7 +5477,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		DescribeTable("should add the default network interface",
 			func(iface string, field gstruct.Fields) {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 					Spec: v1.KubeVirtSpec{
@@ -5510,7 +5510,7 @@ var _ = Describe("VirtualMachine", func() {
 		)
 
 		It("should reject adding a default deprecated slirp interface", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
@@ -5534,7 +5534,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Domain.Devices.Interfaces = append([]v1.Interface{}, interfaces...)
 			vm.Spec.Template.Spec.Networks = append([]v1.Network{}, networks...)
 
@@ -5555,7 +5555,7 @@ var _ = Describe("VirtualMachine", func() {
 		)
 
 		DescribeTable("call to synchronizer", func(syncer testSynchronizer, expectCond v1.VirtualMachineCondition, expectCondCount int) {
-			vm, vmi := DefaultVirtualMachine(true)
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			addVirtualMachine(vm)
@@ -5602,7 +5602,7 @@ var _ = Describe("VirtualMachine", func() {
 		)
 
 		It("should add a missing volume disk", func() {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			presentVolumeName := "present-vol"
 			missingVolumeName := "missing-vol"
 			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
@@ -5635,7 +5635,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		DescribeTable("AutoattachInputDevice should ", func(autoAttach *bool, existingInputDevices []v1.Input, matcher gomegatypes.GomegaMatcher) {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = autoAttach
 			vm.Spec.Template.Spec.Domain.Devices.Inputs = existingInputDevices
 
@@ -5672,7 +5672,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("CPU", func() {
 				It("should honour the maximum CPU sockets from VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{MaxSockets: maxSocketsFromSpec}
 
 					vmi := controller.setupVMIFromVM(vm)
@@ -5680,7 +5680,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should prefer maximum CPU sockets from VM spec rather than from cluster config", func() {
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{MaxSockets: maxSocketsFromSpec}
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
@@ -5701,7 +5701,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				DescribeTable("should patch VMI when CPU hotplug is requested", func(resources v1.ResourceRequirements) {
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Resources = resources
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						Sockets: 2,
@@ -5767,7 +5767,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					}
 
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Resources = resources
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						Sockets: 2,
@@ -5813,7 +5813,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should set a restartRequired condition if NetworkInterfaceMultiQueue is enabled", func() {
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						Sockets: 2,
 					}
@@ -5840,7 +5840,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("Memory", func() {
 				It("should honour the max guest memory from VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					guestMemory := resource.MustParse("64Mi")
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
 						Guest:    &guestMemory,
@@ -5852,7 +5852,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should prefer maxGuest from VM spec rather than from cluster config", func() {
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					guestMemory := resource.MustParse("64Mi")
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
 						Guest:    &guestMemory,
@@ -5877,7 +5877,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				DescribeTable("should patch VMI when memory hotplug is requested", func(resources v1.ResourceRequirements) {
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					newMemory := resource.MustParse("2Gi")
 					vm.Spec.Template.Spec.Domain.Resources = resources
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
@@ -5933,7 +5933,7 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				It("should not patch VMI if memory hotplug is already in progress", func() {
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					newMemory := resource.MustParse("128Mi")
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
@@ -5964,7 +5964,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				It("should not patch VMI if a migration is in progress", func() {
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					newMemory := resource.MustParse("128Mi")
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
@@ -5995,7 +5995,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should not patch VMI if guest memory did not change", func() {
 					guestMemory := resource.MustParse("1Gi")
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
@@ -6020,7 +6020,7 @@ var _ = Describe("VirtualMachine", func() {
 				It("should set a restartRequired condition if the memory decreased from start", func() {
 					guestMemory := resource.MustParse("2Gi")
 					newMemory := resource.MustParse("1Gi")
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
@@ -6048,7 +6048,7 @@ var _ = Describe("VirtualMachine", func() {
 				It("should set a restartRequired condition if VM does not support memory hotplug", func() {
 					guestMemory := resource.MustParse("2Gi")
 					newMemory := resource.MustParse("4Gi")
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 
@@ -6092,7 +6092,7 @@ var _ = Describe("VirtualMachine", func() {
 				It("should set a restartRequired condition if memory hotplug failed", func() {
 					guestMemory := resource.MustParse("1Gi")
 					newMemory := resource.MustParse("2Gi")
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
@@ -6140,7 +6140,7 @@ var _ = Describe("VirtualMachine", func() {
 				It("should set a restartRequired condition if memory hotplug is incompatible with the VM configuration", func() {
 					guestMemory := resource.MustParse("1Gi")
 					newMemory := resource.MustParse("2Gi")
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 
@@ -6183,7 +6183,7 @@ var _ = Describe("VirtualMachine", func() {
 				It("should set a restartRequired condition if VM is not migratable", func() {
 					guestMemory := resource.MustParse("1Gi")
 					newMemory := resource.MustParse("2Gi")
-					vm, _ := DefaultVirtualMachine(true)
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
@@ -6238,7 +6238,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 
-					vm, vmi := DefaultVirtualMachine(true)
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
 					affinity := k8sv1.Affinity{
 						PodAffinity: &k8sv1.PodAffinity{
@@ -6290,7 +6290,7 @@ var _ = Describe("VirtualMachine", func() {
 							},
 						},
 					})
-					vm, vmi := DefaultVirtualMachine(true)
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.UpdateVolumesStrategy = strategy
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "vol1"})
@@ -6321,7 +6321,7 @@ var _ = Describe("VirtualMachine", func() {
 							},
 						},
 					})
-					vm, vmi := DefaultVirtualMachine(true)
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "vol1"})
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
@@ -6369,7 +6369,7 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				BeforeEach(func() {
-					originalVM, _ = DefaultVirtualMachine(true)
+					originalVM, _ = watchtesting.DefaultVirtualMachine(true)
 					originalVM.Spec.Template.Spec.Domain = v1.DomainSpec{}
 
 					controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
@@ -6488,7 +6488,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			BeforeEach(func() {
-				vm, vmi = DefaultVirtualMachine(true)
+				vm, vmi = watchtesting.DefaultVirtualMachine(true)
 				vm.ObjectMeta.UID = types.UID(uuid.NewString())
 				vmi.ObjectMeta.UID = vm.ObjectMeta.UID
 				vm.Generation = 1
@@ -6513,7 +6513,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should not call update if the condition is set", func() {
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.ObjectMeta.UID = types.UID(uuid.NewString())
 				vmi.ObjectMeta.UID = vm.ObjectMeta.UID
 				vm.Generation = 1
@@ -6737,7 +6737,7 @@ var _ = Describe("VirtualMachine", func() {
 		Context("RunStrategy", func() {
 
 			It("when starting a VM with RerunOnFailure the VM should get started", func() {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
 
@@ -6753,7 +6753,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("when starting a VM with Manual and DVs are not ready the start request should not get trimmed", func() {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
@@ -6803,7 +6803,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			DescribeTable("The VM should get started when switching to RerunOnFailure from", func(runStrategy v1.VirtualMachineRunStrategy) {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = pointer.P(runStrategy)
 
@@ -6834,7 +6834,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			PIt("The VM should get restarted when doing RerunOnFailure -> Halted -> RerunOnFailure", func() {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
 
@@ -6898,7 +6898,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			It("when issuing a restart a VM with Always should get restarted", func() {
-				vm, _ := DefaultVirtualMachine(true)
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
@@ -6986,7 +6986,7 @@ var _ = Describe("VirtualMachine", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vm, vmi = DefaultVirtualMachineWithNames(false, "test", "test")
+			vm, vmi = watchtesting.DefaultVirtualMachineWithNames(false, "test", "test")
 		})
 
 		It("should set ready to false when VMI is nil", func() {
@@ -7056,7 +7056,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 		}
 		DescribeTable("should be validated for volume updates", func(oldVols, newVols []v1.Volume, expectValid bool) {
-			oldVm, _ := DefaultVirtualMachine(true)
+			oldVm, _ := watchtesting.DefaultVirtualMachine(true)
 			newVm := oldVm.DeepCopy()
 			oldVm.Spec.Template.Spec.Volumes = oldVols
 			newVm.Spec.Template.Spec.Volumes = newVols
@@ -7077,7 +7077,7 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("for a removed hotpluggable pvc", []v1.Volume{createPVCVol("vol1", "test1", true)}, []v1.Volume{}, true),
 		)
 		DescribeTable("should be validated for disk updates", func(oldVols, newVols []v1.Volume, oldDisks, newDisks []v1.Disk, expectValid bool) {
-			oldVm, _ := DefaultVirtualMachine(true)
+			oldVm, _ := watchtesting.DefaultVirtualMachine(true)
 			newVm := oldVm.DeepCopy()
 			oldVm.Spec.Template.Spec.Volumes = oldVols
 			newVm.Spec.Template.Spec.Volumes = newVols
@@ -7107,30 +7107,6 @@ var _ = Describe("VirtualMachine", func() {
 		)
 	})
 })
-
-func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-	vmi := api.NewMinimalVMI(vmiName)
-	vmi.GenerateName = "prettyrandom"
-	vmi.Status.Phase = v1.Running
-	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineControllerFinalizer)
-	vm := watchtesting.VirtualMachineFromVMI(vmName, vmi, started)
-	vm.Finalizers = append(vm.Finalizers, v1.VirtualMachineControllerFinalizer)
-	vmi.OwnerReferences = []metav1.OwnerReference{{
-		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
-		Name:               vm.ObjectMeta.Name,
-		UID:                vm.ObjectMeta.UID,
-		Controller:         &t,
-		BlockOwnerDeletion: &t,
-	}}
-	virtcontroller.SetLatestApiVersionAnnotation(vmi)
-	virtcontroller.SetLatestApiVersionAnnotation(vm)
-	return vm, vmi
-}
-
-func DefaultVirtualMachine(started bool) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-	return DefaultVirtualMachineWithNames(started, "testvmi", "testvmi")
-}
 
 func failVMSpecUpdate(virtFakeClient *fake.Clientset) {
 	virtFakeClient.PrependReactor("update", "virtualmachines", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
