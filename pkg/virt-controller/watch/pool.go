@@ -543,11 +543,11 @@ func (c *PoolController) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.
 			err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
 			if err != nil {
 				c.expectations.DeletionObserved(poolKey, controller.VirtualMachineKey(vm))
-				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
+				c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
 				errChan <- err
 				return
 			}
-			c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted VM %s/%s with uid %v from pool", vm.Namespace, vm.Name, vm.ObjectMeta.UID)
+			c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Deleted VM %s/%s with uid %v from pool", vm.Namespace, vm.Name, vm.ObjectMeta.UID)
 			log.Log.Object(pool).Infof("Deleted vm %s/%s from pool", vm.Namespace, vm.Name)
 		}(i)
 	}
@@ -775,7 +775,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 				errChan <- err
 				return
 			}
-			c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Created VM %s/%s", vm.Namespace, vm.ObjectMeta.Name)
+			c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulCreateVirtualMachineReason, "Created VM %s/%s", vm.Namespace, vm.ObjectMeta.Name)
 			log.Log.Object(pool).Infof("Adding vm %s/%s to pool", pool.Namespace, name)
 		}(name)
 	}
@@ -784,7 +784,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 	select {
 	case err := <-errChan:
 		// Only return the first error which occurred. We log the rest
-		c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating VM: %v", err)
+		c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating VM: %v", err)
 		return err
 	default:
 	}
@@ -906,7 +906,7 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 					return
 				}
 				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vmi deletion", vm.Namespace, vm.Name)
-				c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
+				c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
 			case proactiveUpdateTypePatchRevisionLabel:
 				patchSet := patch.New()
 				vmiCopy := vmi.DeepCopy()

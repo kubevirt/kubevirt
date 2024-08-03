@@ -1312,7 +1312,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	preferenceSpec, err := c.applyDevicePreferences(vm, vmi)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
 		return vm, err
 	}
 
@@ -1328,7 +1328,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	err = c.applyInstancetypeToVmi(vm, vmi, preferenceSpec)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
 		return vm, err
 	}
 
@@ -1346,11 +1346,11 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s", controller.NamespacedKey(vmi.Namespace, vmi.Name))
 		c.expectations.CreationObserved(vmKey)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
 		return vm, err
 	}
 	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
-	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
+	c.recorder.Eventf(vm, k8score.EventTypeNormal, common.SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 
 	return vm, nil
 }
@@ -1626,7 +1626,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	if err != nil {
 		// We can't observe a delete if it was not accepted by the server
 		c.expectations.DeletionObserved(vmKey, controller.VirtualMachineInstanceKey(vmi))
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", vmi.ObjectMeta.Name, err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", vmi.ObjectMeta.Name, err)
 		return vm, err
 	}
 
@@ -1636,7 +1636,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		return vm, nil
 	}
 
-	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
+	c.recorder.Eventf(vm, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
 	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s with phase %s", controller.NamespacedKey(vmi.Namespace, vmi.Name), vmi.Status.Phase)
 
 	return vm, nil
@@ -3125,15 +3125,15 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	err = c.instancetypeMethods.StoreControllerRevisions(vm)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to store Instancetype ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
-		return vm, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), FailedCreateVirtualMachineReason), nil
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
+		return vm, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason), nil
 	}
 
 	// Once we have ControllerRevisions make sure they are fully up to date before proceeding
 	if err := c.instancetypeMethods.Upgrade(vm); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("failed to upgrade instancetype.kubevirt.io ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
-		return vm, common.NewSyncError(fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), FailedCreateVirtualMachineReason), nil
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
+		return vm, common.NewSyncError(fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason), nil
 	}
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default

@@ -34,6 +34,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -45,18 +47,7 @@ const failedRsKeyExtraction = "Failed to extract rsKey from replicaset."
 
 // Reasons for replicaset events
 const (
-	// FailedCreateVirtualMachineReason is added in an event and in a replica set condition
-	// when a virtual machine for a replica set is failed to be created.
-	FailedCreateVirtualMachineReason = "FailedCreate"
-	// SuccessfulCreateVirtualMachineReason is added in an event when a virtual machine for a replica set
-	// is successfully created.
-	SuccessfulCreateVirtualMachineReason = "SuccessfulCreate"
-	// FailedDeleteVirtualMachineReason is added in an event and in a replica set condition
-	// when a virtual machine for a replica set is failed to be deleted.
-	FailedDeleteVirtualMachineReason = "FailedDelete"
-	// SuccessfulDeleteVirtualMachineReason is added in an event when a virtual machine for a replica set
-	// is successfully deleted.
-	SuccessfulDeleteVirtualMachineReason = "SuccessfulDelete"
+
 	// SuccessfulPausedReplicaSetReason is added in an event when the replica set discovered that it
 	// should be paused. The event is triggered after it successfully managed to add the Paused Condition
 	// to itself.
@@ -287,11 +278,11 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 				if err != nil {
 					// We can't observe a delete if it was not accepted by the server
 					c.expectations.DeletionObserved(rsKey, controller.VirtualMachineInstanceKey(deleteCandidate))
-					c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", deleteCandidate.ObjectMeta.Name, err)
+					c.recorder.Eventf(rs, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", deleteCandidate.ObjectMeta.Name, err)
 					errChan <- err
 					return
 				}
-				c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", deleteCandidate.ObjectMeta.UID)
+				c.recorder.Eventf(rs, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", deleteCandidate.ObjectMeta.UID)
 			}(i)
 		}
 
@@ -314,11 +305,11 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 				vmi, err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				if err != nil {
 					c.expectations.CreationObserved(rsKey)
-					c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
+					c.recorder.Eventf(rs, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
 					errChan <- err
 					return
 				}
-				c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
+				c.recorder.Eventf(rs, k8score.EventTypeNormal, common.SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 			}()
 		}
 	}
@@ -820,11 +811,11 @@ func (c *VMIReplicaSet) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceRepli
 			if err != nil {
 				// We can't observe a delete if it was not accepted by the server
 				c.expectations.DeletionObserved(rsKey, controller.VirtualMachineInstanceKey(deleteCandidate))
-				c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting finished virtual machine %s: %v", deleteCandidate.ObjectMeta.Name, err)
+				c.recorder.Eventf(rs, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting finished virtual machine %s: %v", deleteCandidate.ObjectMeta.Name, err)
 				errChan <- err
 				return
 			}
-			c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted finished virtual machine: %v", deleteCandidate.ObjectMeta.UID)
+			c.recorder.Eventf(rs, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Deleted finished virtual machine: %v", deleteCandidate.ObjectMeta.UID)
 		}(i)
 	}
 	wg.Wait()

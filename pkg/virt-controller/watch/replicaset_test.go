@@ -31,6 +31,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 )
 
@@ -168,9 +169,9 @@ var _ = Describe("Replicaset", func() {
 
 			expectVMIReplicas(rs, HaveLen(3))
 			testutils.ExpectEvents(recorder,
-				SuccessfulCreateVirtualMachineReason,
-				SuccessfulCreateVirtualMachineReason,
-				SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
 			)
 		})
 
@@ -191,9 +192,9 @@ var _ = Describe("Replicaset", func() {
 			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
 			expectConditions(rs.Name, BeNil())
 			testutils.ExpectEvents(recorder,
-				SuccessfulCreateVirtualMachineReason,
-				SuccessfulCreateVirtualMachineReason,
-				SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
 				SuccessfulResumedReplicaSetReason,
 			)
 		})
@@ -227,7 +228,7 @@ var _ = Describe("Replicaset", func() {
 			expectVMIReplicas(rs, HaveLen(10))
 			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
 			for x := 0; x < 10; x++ {
-				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+				testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			}
 			// TODO test for missing 5
 		})
@@ -259,7 +260,7 @@ var _ = Describe("Replicaset", func() {
 			expectVMIReplicas(rs, HaveLen(13))
 			Expect(testing.FilterActions(&virtClientset.Fake, "create", "virtualmachineinstances")).To(HaveLen(7))
 			for x := 0; x < 7; x++ {
-				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+				testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			}
 		})
 
@@ -279,7 +280,7 @@ var _ = Describe("Replicaset", func() {
 
 			expectVMIReplicas(rs, HaveLen(5))
 			for x := 0; x < 10; x++ {
-				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			}
 			// TODO test for missing 5
 		})
@@ -312,7 +313,7 @@ var _ = Describe("Replicaset", func() {
 			expectVMIReplicas(rs, HaveLen(7))
 			Expect(testing.FilterActions(&virtClientset.Fake, "delete", "virtualmachineinstances")).To(HaveLen(2))
 			for x := 0; x < 2; x++ {
-				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			}
 		})
 
@@ -332,9 +333,9 @@ var _ = Describe("Replicaset", func() {
 			expectVMIReplicas(rs, HaveLen(3))
 			Expect(testing.FilterActions(&virtClientset.Fake, "create", "virtualmachineinstances")).To(HaveLen(3))
 			testutils.ExpectEvents(recorder,
-				SuccessfulCreateVirtualMachineReason,
-				SuccessfulCreateVirtualMachineReason,
-				SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
 			)
 		})
 
@@ -348,7 +349,7 @@ var _ = Describe("Replicaset", func() {
 
 			expectVMIReplicas(rs, BeEmpty())
 			expectReplicasAndReadyReplicas(rs.Name, 1, 0)
-			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 		})
 
 		It("should detect that a VirtualMachineInstance already exists and adopt it", func() {
@@ -432,7 +433,7 @@ var _ = Describe("Replicaset", func() {
 			Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			expectVMIReplicas(rs, HaveLen(1))
 			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
-			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvents(recorder, common.SuccessfulDeleteVirtualMachineReason, common.SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should be woken by a ready VirtualMachineInstance and update the readyReplicas counter", func() {
@@ -512,7 +513,7 @@ var _ = Describe("Replicaset", func() {
 
 			expectVMIReplicas(rs, HaveLen(1))
 			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should delete VirtualMachineInstance in the final state", func() {
@@ -544,8 +545,8 @@ var _ = Describe("Replicaset", func() {
 			expectVMIReplicas(rs, HaveLen(1))
 			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
 			testutils.ExpectEvents(recorder,
-				SuccessfulCreateVirtualMachineReason,
-				SuccessfulDeleteVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulDeleteVirtualMachineReason,
 			)
 		})
 
@@ -583,8 +584,8 @@ var _ = Describe("Replicaset", func() {
 			expectVMIReplicas(rs, HaveLen(1))
 			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
 			testutils.ExpectEvents(recorder,
-				SuccessfulCreateVirtualMachineReason,
-				SuccessfulDeleteVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulDeleteVirtualMachineReason,
 			)
 		})
 
@@ -606,7 +607,7 @@ var _ = Describe("Replicaset", func() {
 					"Status":  Equal(k8sv1.ConditionTrue)},
 				),
 			))
-			testutils.ExpectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
+			testutils.ExpectEvents(recorder, common.SuccessfulCreateVirtualMachineReason, common.FailedCreateVirtualMachineReason)
 		})
 
 		It("should add a fail condition if scaling down fails", func() {
@@ -631,8 +632,8 @@ var _ = Describe("Replicaset", func() {
 				),
 			))
 			testutils.ExpectEvents(recorder,
-				SuccessfulDeleteVirtualMachineReason,
-				FailedDeleteVirtualMachineReason,
+				common.SuccessfulDeleteVirtualMachineReason,
+				common.FailedDeleteVirtualMachineReason,
 			)
 		})
 
@@ -660,8 +661,8 @@ var _ = Describe("Replicaset", func() {
 				),
 			))
 			testutils.ExpectEvents(recorder,
-				SuccessfulDeleteVirtualMachineReason,
-				FailedDeleteVirtualMachineReason,
+				common.SuccessfulDeleteVirtualMachineReason,
+				common.FailedDeleteVirtualMachineReason,
 			)
 		})
 
@@ -690,8 +691,8 @@ var _ = Describe("Replicaset", func() {
 				),
 			))
 			testutils.ExpectEvents(recorder,
-				SuccessfulCreateVirtualMachineReason,
-				FailedCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.FailedCreateVirtualMachineReason,
 			)
 		})
 
@@ -713,8 +714,8 @@ var _ = Describe("Replicaset", func() {
 			expectReplicasAndReadyReplicas(rs.Name, 1, 0)
 			expectConditions(rs.Name, BeEmpty())
 			testutils.ExpectEvents(recorder,
-				SuccessfulCreateVirtualMachineReason,
-				SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
 			)
 		})
 	})

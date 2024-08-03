@@ -46,6 +46,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 )
 
@@ -244,9 +245,9 @@ var _ = Describe("Pool", func() {
 			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
@@ -353,7 +354,7 @@ var _ = Describe("Pool", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
 		})
 
@@ -453,7 +454,7 @@ var _ = Describe("Pool", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, FailedCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.FailedCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, FailedScaleOutReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
@@ -520,9 +521,9 @@ var _ = Describe("Pool", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulResumePoolReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
@@ -540,7 +541,7 @@ var _ = Describe("Pool", func() {
 			controller.Execute()
 
 			for x := 0; x < 10; x++ {
-				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+				testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			}
 			// Check if only 10 are created
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(10))
@@ -573,7 +574,7 @@ var _ = Describe("Pool", func() {
 			controller.Execute()
 
 			for x := 0; x < 10; x++ {
-				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			}
 			// Check if only 10 are deleted
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(10))
@@ -611,7 +612,7 @@ var _ = Describe("Pool", func() {
 			controller.Execute()
 
 			for x := 0; x < 5; x++ {
-				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			}
 			// Check if only 5 are deleted
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(5))
@@ -635,9 +636,9 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(poolRevision)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
@@ -663,8 +664,8 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(poolRevision)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 
 		})
 
@@ -694,9 +695,9 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(poolRevision)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 	})
