@@ -1,4 +1,4 @@
-package watch
+package vm
 
 import (
 	"context"
@@ -65,7 +65,7 @@ var _ = Describe("VirtualMachine", func() {
 
 	Context("One valid VirtualMachine controller given", func() {
 
-		var controller *VMController
+		var controller *Controller
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
 		var cdiClient *cdifake.Clientset
@@ -130,7 +130,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-			controller, _ = NewVMController(vmiInformer,
+			controller, _ = NewController(vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,
