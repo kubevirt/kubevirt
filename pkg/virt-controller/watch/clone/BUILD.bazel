@@ -44,6 +44,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
+        "//pkg/controller:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
@@ -63,8 +64,6 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
-        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-        "//vendor/k8s.io/client-go/tools/cache/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
     ],
 )
