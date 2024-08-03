@@ -24,6 +24,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -56,7 +57,72 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 	setGuestMemoryStatus(vmi)
 	setCurrentCPUTopologyStatus(vmi)
 	setupHotplug(clusterConfig, vmi)
+    setNodeSelectors(vmi)
+    setAnnotations(clusterConfig, vmi)
+    setVMIFinalizer(vmi)
+    setInitialVmiStatus(vmi)
+    setRootOrNonRoot(clusterConfig, vmi)
 	return nil
+}
+
+func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {
+	if vmi.Spec.NodeSelector == nil {
+		vmi.Spec.NodeSelector = map[string]string{}
+	}
+	vmi.Spec.NodeSelector[label] = ""
+}
+
+func setNodeSelectors(vmi *v1.VirtualMachineInstance) {
+    if vmi.IsRealtimeEnabled() {
+        log.Log.V(4).Info("Add realtime node label selector")
+        addNodeSelector(vmi, v1.RealtimeLabel)
+    }
+    if util.IsSEVVMI(vmi) {
+        log.Log.V(4).Info("Add SEV node label selector")
+        addNodeSelector(vmi, v1.SEVLabel)
+    }
+    if util.IsSEVESVMI(vmi) {
+        log.Log.V(4).Info("Add SEV-ES node label selector")
+        addNodeSelector(vmi, v1.SEVESLabel)
+    }
+}
+
+func setAnnotations(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance){
+
+    // In certain cases 
+    if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+        _, emulatorThreadCompleteToEvenParityAnnotationExists := clusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
+        if emulatorThreadCompleteToEvenParityAnnotationExists &&
+            clusterConfig.AlignCPUsEnabled() {
+            log.Log.V(4).Infof("Copy %s annotation from Kubevirt CR", v1.EmulatorThreadCompleteToEvenParity)
+            if vmi.Annotations == nil {
+                vmi.Annotations = map[string]string{}
+            }
+            vmi.Annotations[v1.EmulatorThreadCompleteToEvenParity] = ""
+        }
+    }
+}
+
+func setInitialVmiStatus(vmi *v1.VirtualMachineInstance) {
+    // Set the phase to pending to avoid blank status
+    vmi.Status.Phase = v1.Pending
+
+    now := metav1.NewTime(time.Now())
+    vmi.Status.PhaseTransitionTimestamps = append(vmi.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstancePhaseTransitionTimestamp{
+        Phase:  vmi.Status.Phase,
+        PhaseTransitionTimestamp: now,
+    })
+}
+
+func setVMIFinalizer(vmi *v1.VirtualMachineInstance) {
+		// Add foreground finalizer
+		vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
+}
+
+func setRootOrNonRoot(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
+    if !clusterConfig.RootEnabled() {
+        util.MarkAsNonroot(vmi)
+    }
 }
 
 func setupHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
