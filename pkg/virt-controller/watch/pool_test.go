@@ -301,8 +301,8 @@ var _ = Describe("Pool", func() {
 				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 				Name:               vm.ObjectMeta.Name,
 				UID:                vm.ObjectMeta.UID,
-				Controller:         &t,
-				BlockOwnerDeletion: &t,
+				Controller:         pointer.P(true),
+				BlockOwnerDeletion: pointer.P(true),
 			}}
 
 			markVmAsReady(vm)
@@ -362,8 +362,8 @@ var _ = Describe("Pool", func() {
 				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 				Name:               vm.ObjectMeta.Name,
 				UID:                vm.ObjectMeta.UID,
-				Controller:         &t,
-				BlockOwnerDeletion: &t,
+				Controller:         pointer.P(true),
+				BlockOwnerDeletion: pointer.P(true),
 			}}
 
 			vmi.Labels[v1.VirtualMachinePoolRevisionName] = oldPoolRevision.Name
