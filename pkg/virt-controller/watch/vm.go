@@ -1285,7 +1285,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	}
 
 	// start it
-	vmi := c.setupVMIFromVM(vm)
+	vmi := SetupVMIFromVM(vm)
 	vmRevisionName, err := c.createVMRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
@@ -1307,10 +1307,6 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
 		return vm, err
 	}
-
-	util.SetDefaultVolumeDisk(&vmi.Spec)
-
-	autoAttachInputDevice(vmi)
 
 	err = vmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
 	if err != nil {
@@ -1837,8 +1833,8 @@ func hasCompletedMemoryDump(vm *virtv1.VirtualMachine) bool {
 	return vm.Status.MemoryDumpRequest != nil && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpAssociating && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpInProgress
 }
 
-// setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
-func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
+// SetupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
+func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
 	vmi.ObjectMeta = *vm.Spec.Template.ObjectMeta.DeepCopy()
 	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
@@ -1863,6 +1859,10 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
 		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
+
+	util.SetDefaultVolumeDisk(&vmi.Spec)
+
+	autoAttachInputDevice(vmi)
 
 	return vmi
 }
