@@ -38,6 +38,7 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
@@ -165,7 +166,7 @@ type VirtControllerApp struct {
 	poolController *PoolController
 	poolInformer   cache.SharedIndexInformer
 
-	vmController *VMController
+	vmController *vm.Controller
 	vmInformer   cache.SharedIndexInformer
 
 	controllerRevisionInformer cache.SharedIndexInformer
@@ -721,7 +722,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		Clientset:                vca.clientSet,
 	}
 
-	vca.vmController, err = NewVMController(
+	vca.vmController, err = vm.NewController(
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,
