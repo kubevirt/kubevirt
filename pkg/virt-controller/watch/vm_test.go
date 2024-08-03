@@ -7162,10 +7162,6 @@ func DefaultVirtualMachine(started bool) (*v1.VirtualMachine, *v1.VirtualMachine
 	return DefaultVirtualMachineWithNames(started, "testvmi", "testvmi")
 }
 
-func markVmAsReady(vm *v1.VirtualMachine) {
-	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{Type: v1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
-}
-
 func failVMSpecUpdate(virtFakeClient *fake.Clientset) {
 	virtFakeClient.PrependReactor("update", "virtualmachines", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 		switch action := action.(type) {

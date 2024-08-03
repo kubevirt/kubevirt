@@ -741,3 +741,7 @@ func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine
 	virtcontroller.SetLatestApiVersionAnnotation(pool)
 	return pool, vm.DeepCopy()
 }
+
+func markVmAsReady(vm *v1.VirtualMachine) {
+	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{Type: v1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
+}
