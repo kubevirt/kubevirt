@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func MarkAsReady(vmi *v1.VirtualMachineInstance) {
@@ -75,4 +76,28 @@ func NewRunningVirtualMachine(vmiName string, node *k8sv1.Node) *v1.VirtualMachi
 		v1.NodeNameLabel: node.Name,
 	}
 	return vmi
+}
+
+func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+	vmi := api.NewMinimalVMI(vmiName)
+	vmi.GenerateName = "prettyrandom"
+	vmi.Status.Phase = v1.Running
+	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineControllerFinalizer)
+	vm := VirtualMachineFromVMI(vmName, vmi, started)
+	vm.Finalizers = append(vm.Finalizers, v1.VirtualMachineControllerFinalizer)
+	vmi.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+		Name:               vm.ObjectMeta.Name,
+		UID:                vm.ObjectMeta.UID,
+		Controller:         pointer.P(true),
+		BlockOwnerDeletion: pointer.P(true),
+	}}
+	controller.SetLatestApiVersionAnnotation(vmi)
+	controller.SetLatestApiVersionAnnotation(vm)
+	return vm, vmi
+}
+
+func DefaultVirtualMachine(started bool) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+	return DefaultVirtualMachineWithNames(started, "testvmi", "testvmi")
 }

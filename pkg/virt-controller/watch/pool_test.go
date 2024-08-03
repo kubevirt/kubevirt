@@ -59,7 +59,7 @@ var _ = Describe("Pool", func() {
 		vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 
 		for _, name := range existing {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Name = name
 			vm.Namespace = namespace
 			vm.GenerateName = ""
