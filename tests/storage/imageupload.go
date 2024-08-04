@@ -110,7 +110,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			}
 
 			By("Upload image")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
+			stdout, stderr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "virtctl", imageUploadCmd,
 				resource, targetName,
 				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--image-path", imagePath,
@@ -118,14 +118,16 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 				"--storage-class", sc,
 				"--force-bind",
 				"--volume-mode", "block",
-				insecureArg)
-			err := virtctlCmd()
+				insecureArg,
+			)
 			if err != nil {
 				fmt.Printf("UploadImage Error: %+v\n", err)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
 			validateFunc(targetName, sc)
+			Expect(stdout).To(MatchRegexp(`\d{1,3}\.?\d{1,2}%`), "progress missing from stdout")
+			Expect(stderr).To(BeEmpty())
 
 			if startVM {
 				By("Start VM")

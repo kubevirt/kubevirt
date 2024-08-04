@@ -461,6 +461,7 @@ func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) erro
 	}
 
 	bar := pb.Full.Start64(fi.Size())
+	bar.SetWriter(os.Stdout)
 	bar.Set(pb.Bytes, true)
 	reader := bar.NewProxyReader(file)
 
