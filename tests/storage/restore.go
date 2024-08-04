@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/api/core"
@@ -393,11 +392,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:5257]should reject restore if VM running", func() {
-				patch, err := patch.New(patch.WithReplace("/spec/runStrategy", v1.RunStrategyAlways)).GeneratePayload()
-				Expect(err).ToNot(HaveOccurred())
-
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})).To(Succeed())
 
 				restore := createRestoreDef(vm.Name, snapshot.Name)
 
@@ -1061,7 +1056,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				By("Creating VM clone")
 				vmClone := kubecli.NewMinimalCloneWithNS("testclone", testsuite.GetTestNamespace(nil))
 				cloneSourceRef := &corev1.TypedLocalObjectReference{
-					APIGroup: pointer.String(groupName),
+					APIGroup: virtpointer.P(groupName),
 					Kind:     "VirtualMachine",
 					Name:     sourceVMName,
 				}
@@ -1382,12 +1377,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						*updatedVM.Status.RestoreInProgress == restore.Name
 				}, 180*time.Second, 3*time.Second).Should(BeTrue())
 
-				patchSet := patch.New(patch.WithAdd("/spec/running", true))
-				patchData, err := patchSet.GeneratePayload()
-				Expect(err).NotTo(HaveOccurred())
-
-				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
-				Expect(err).To(HaveOccurred())
+				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot start VM until restore %q completes", restore.Name)))
 
 				deleteWebhook(webhook)
