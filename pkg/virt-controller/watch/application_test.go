@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
@@ -159,7 +160,7 @@ var _ = Describe("Application", func() {
 			config,
 			nil,
 		)
-		app.migrationController, _ = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			migrationInformer,

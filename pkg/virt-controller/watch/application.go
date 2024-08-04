@@ -38,6 +38,7 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 
@@ -177,7 +178,7 @@ type VirtControllerApp struct {
 	cdiInformer            cache.SharedIndexInformer
 	cdiConfigInformer      cache.SharedIndexInformer
 
-	migrationController *MigrationController
+	migrationController *migration.Controller
 	migrationInformer   cache.SharedIndexInformer
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
@@ -664,7 +665,7 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		panic(err)
 	}
-	vca.migrationController, err = NewMigrationController(
+	vca.migrationController, err = migration.NewController(
 		vca.templateService,
 		vca.vmiInformer,
 		vca.kvPodInformer,

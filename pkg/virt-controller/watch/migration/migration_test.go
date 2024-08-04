@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package migration
 
 import (
 	"context"
@@ -61,7 +61,7 @@ import (
 var _ = Describe("Migration watcher", func() {
 
 	var (
-		controller    *MigrationController
+		controller    *Controller
 		recorder      *record.FakeRecorder
 		mockQueue     *testutils.MockWorkQueue
 		virtClientset *kubevirtfake.Clientset
@@ -246,7 +246,7 @@ var _ = Describe("Migration watcher", func() {
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
-		controller, _ = NewMigrationController(
+		controller, _ = NewController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,
@@ -1719,7 +1719,7 @@ var _ = Describe("Migration watcher", func() {
 				}
 
 				policyList := kubecli.NewMinimalMigrationPolicyList(policies...)
-				actualMatchedPolicy := MatchPolicy(policyList, vmi, &namespace)
+				actualMatchedPolicy := matchPolicy(policyList, vmi, &namespace)
 
 				Expect(actualMatchedPolicy).ToNot(BeNil())
 				Expect(actualMatchedPolicy.Name).To(Equal(expectedMatchedPolicyName))
@@ -1744,13 +1744,13 @@ var _ = Describe("Migration watcher", func() {
 				policy.Spec.Selectors.VirtualMachineInstanceSelector[fmt.Sprintf(labelKeyFmt, policy.Name)] = "XYZ"
 				policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
 
-				matchedPolicy := MatchPolicy(policyList, vmi, &namespace)
+				matchedPolicy := matchPolicy(policyList, vmi, &namespace)
 				Expect(matchedPolicy).To(BeNil())
 			})
 
 			It("when no policies exist, MatchPolicy() should return nil", func() {
 				policyList := kubecli.NewMinimalMigrationPolicyList()
-				matchedPolicy := MatchPolicy(policyList, vmi, &namespace)
+				matchedPolicy := matchPolicy(policyList, vmi, &namespace)
 				Expect(matchedPolicy).To(BeNil())
 			})
 
@@ -1764,7 +1764,7 @@ var _ = Describe("Migration watcher", func() {
 				policyList := kubecli.NewMinimalMigrationPolicyList(*policyWithNSLabels, *policyWithVmiLabels)
 
 				By("Expecting VMI labels policy to be matched")
-				matchedPolicy := MatchPolicy(policyList, vmi, &namespace)
+				matchedPolicy := matchPolicy(policyList, vmi, &namespace)
 				Expect(matchedPolicy.Name).To(Equal(policyWithVmiLabels.Name), "policy with VMI labels should match")
 			})
 		})
