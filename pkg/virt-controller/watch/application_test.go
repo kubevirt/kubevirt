@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
@@ -129,7 +130,7 @@ var _ = Describe("Application", func() {
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
 		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
-		app.nodeController, _ = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
+		app.nodeController, _ = node.NewController(virtClient, nodeInformer, vmiInformer, recorder)
 		app.vmiController, _ = vmi.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			vmInformer,

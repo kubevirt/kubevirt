@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 
@@ -142,7 +143,7 @@ type VirtControllerApp struct {
 	kvPodInformer   cache.SharedIndexInformer
 
 	nodeInformer   cache.SharedIndexInformer
-	nodeController *NodeController
+	nodeController *node.Controller
 
 	vmiCache      cache.Store
 	vmiController *vmi.Controller
@@ -656,7 +657,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
-	vca.nodeController, err = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
+	vca.nodeController, err = node.NewController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
 	if err != nil {
 		panic(err)
 	}

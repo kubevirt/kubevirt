@@ -1,4 +1,4 @@
-package watch
+package node
 
 import (
 	"context"
@@ -31,8 +31,8 @@ const (
 	NodeUnresponsiveReason = "NodeUnresponsive"
 )
 
-// NodeController is the main NodeController struct.
-type NodeController struct {
+// Controller is the main Controller struct.
+type Controller struct {
 	clientset        kubecli.KubevirtClient
 	Queue            workqueue.RateLimitingInterface
 	nodeStore        cache.Store
@@ -43,9 +43,9 @@ type NodeController struct {
 	hasSynced        func() bool
 }
 
-// NewNodeController creates a new instance of the NodeController struct.
-func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*NodeController, error) {
-	c := &NodeController{
+// NewController creates a new instance of the NodeController struct.
+func NewController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*Controller, error) {
+	c := &Controller{
 		clientset:        clientset,
 		Queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
 		nodeStore:        nodeInformer.GetStore(),
@@ -80,19 +80,19 @@ func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.Shar
 	return c, nil
 }
 
-func (c *NodeController) addNode(obj interface{}) {
+func (c *Controller) addNode(obj interface{}) {
 	c.enqueueNode(obj)
 }
 
-func (c *NodeController) deleteNode(obj interface{}) {
+func (c *Controller) deleteNode(obj interface{}) {
 	c.enqueueNode(obj)
 }
 
-func (c *NodeController) updateNode(_, curr interface{}) {
+func (c *Controller) updateNode(_, curr interface{}) {
 	c.enqueueNode(curr)
 }
 
-func (c *NodeController) enqueueNode(obj interface{}) {
+func (c *Controller) enqueueNode(obj interface{}) {
 	logger := log.Log
 	node := obj.(*v1.Node)
 	key, err := controller.KeyFunc(node)
@@ -103,14 +103,14 @@ func (c *NodeController) enqueueNode(obj interface{}) {
 	c.Queue.Add(key)
 }
 
-func (c *NodeController) addVirtualMachine(obj interface{}) {
+func (c *Controller) addVirtualMachine(obj interface{}) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	if vmi.Status.NodeName != "" {
 		c.Queue.Add(vmi.Status.NodeName)
 	}
 }
 
-func (c *NodeController) updateVirtualMachine(_, curr interface{}) {
+func (c *Controller) updateVirtualMachine(_, curr interface{}) {
 	currVMI := curr.(*virtv1.VirtualMachineInstance)
 	if currVMI.Status.NodeName != "" {
 		c.Queue.Add(currVMI.Status.NodeName)
@@ -118,7 +118,7 @@ func (c *NodeController) updateVirtualMachine(_, curr interface{}) {
 }
 
 // Run runs the passed in NodeController.
-func (c *NodeController) Run(threadiness int, stopCh <-chan struct{}) {
+func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting node controller.")
@@ -135,7 +135,7 @@ func (c *NodeController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Stopping node controller.")
 }
 
-func (c *NodeController) runWorker() {
+func (c *Controller) runWorker() {
 	for c.Execute() {
 	}
 }
@@ -143,7 +143,7 @@ func (c *NodeController) runWorker() {
 // Execute runs commands from the controller queue, if there is
 // an error it requeues the command. Returns false if the queue
 // is empty.
-func (c *NodeController) Execute() bool {
+func (c *Controller) Execute() bool {
 	key, quit := c.Queue.Get()
 	if quit {
 		return false
@@ -161,7 +161,7 @@ func (c *NodeController) Execute() bool {
 	return true
 }
 
-func (c *NodeController) execute(key string) error {
+func (c *Controller) execute(key string) error {
 	logger := log.DefaultLogger()
 
 	obj, nodeExists, err := c.nodeStore.GetByKey(key)
@@ -220,7 +220,7 @@ func nodeIsSchedulable(node *v1.Node) bool {
 	return node.Labels[virtv1.NodeSchedulable] == "true"
 }
 
-func (c *NodeController) checkNodeForOrphanedAndErroredVMIs(nodeName string, node *v1.Node, logger *log.FilteredLogger) error {
+func (c *Controller) checkNodeForOrphanedAndErroredVMIs(nodeName string, node *v1.Node, logger *log.FilteredLogger) error {
 	vmis, err := lookup.ActiveVirtualMachinesOnNode(c.clientset, nodeName)
 	if err != nil {
 		logger.Reason(err).Error("Failed fetching vmis for node")
@@ -241,7 +241,7 @@ func (c *NodeController) checkNodeForOrphanedAndErroredVMIs(nodeName string, nod
 	return c.checkVirtLauncherPodsAndUpdateVMIStatus(nodeName, vmis, logger)
 }
 
-func (c *NodeController) checkVirtLauncherPodsAndUpdateVMIStatus(nodeName string, vmis []*virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+func (c *Controller) checkVirtLauncherPodsAndUpdateVMIStatus(nodeName string, vmis []*virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
 	pods, err := c.alivePodsOnNode(nodeName)
 	if err != nil {
 		logger.Reason(err).Error("Failed fetch pods for node")
@@ -253,7 +253,7 @@ func (c *NodeController) checkVirtLauncherPodsAndUpdateVMIStatus(nodeName string
 	return c.updateVMIWithFailedStatus(vmis, logger)
 }
 
-func (c *NodeController) updateVMIWithFailedStatus(vmis []*virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+func (c *Controller) updateVMIWithFailedStatus(vmis []*virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
 	errs := []string{}
 	// Do sequential updates, we don't want to create update storms in situations where something might already be wrong
 	for _, vmi := range vmis {
@@ -270,7 +270,7 @@ func (c *NodeController) updateVMIWithFailedStatus(vmis []*virtv1.VirtualMachine
 	return nil
 }
 
-func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+func (c *Controller) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
 	c.recorder.Event(vmi, v1.EventTypeNormal, NodeUnresponsiveReason, fmt.Sprintf("virt-handler on node %s is not responsive, marking VMI as failed", vmi.Status.NodeName))
 	logger.V(2).Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
 
@@ -288,7 +288,7 @@ func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv
 	return nil
 }
 
-func (c *NodeController) requeueIfExists(key string, node *v1.Node) {
+func (c *Controller) requeueIfExists(key string, node *v1.Node) {
 	if node == nil {
 		return
 	}
@@ -296,7 +296,7 @@ func (c *NodeController) requeueIfExists(key string, node *v1.Node) {
 	c.Queue.AddAfter(key, c.recheckInterval)
 }
 
-func (c *NodeController) markNodeAsUnresponsive(node *v1.Node, logger *log.FilteredLogger) error {
+func (c *Controller) markNodeAsUnresponsive(node *v1.Node, logger *log.FilteredLogger) error {
 	c.recorder.Event(node, v1.EventTypeNormal, NodeUnresponsiveReason, "virt-handler is not responsive, marking node as unresponsive")
 	logger.V(4).Infof("Marking node %s as unresponsive", node.Name)
 
@@ -310,7 +310,7 @@ func (c *NodeController) markNodeAsUnresponsive(node *v1.Node, logger *log.Filte
 	return nil
 }
 
-func (c *NodeController) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*virtv1.VirtualMachineInstance) error {
+func (c *Controller) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*virtv1.VirtualMachineInstance) error {
 	// node is not running any vmis so we don't need to check anything else
 	if len(vmis) == 0 || node == nil {
 		return nil
@@ -372,7 +372,7 @@ func checkDaemonSetStatus(clientset kubecli.KubevirtClient, selector fields.Sele
 	return true, nil
 }
 
-func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
+func (c *Controller) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
 	list, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		FieldSelector: handlerNodeSelector.String(),
