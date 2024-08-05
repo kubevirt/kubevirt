@@ -54,6 +54,7 @@ type DisruptionBudgetController struct {
 	migrationInformer               cache.SharedIndexInformer
 	recorder                        record.EventRecorder
 	podDisruptionBudgetExpectations *controller.UIDTrackingControllerExpectations
+	hasSynced                       func() bool
 }
 
 func NewDisruptionBudgetController(
@@ -78,7 +79,11 @@ func NewDisruptionBudgetController(
 		podDisruptionBudgetExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
-	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return vmiInformer.HasSynced() && pdbInformer.HasSynced() && podInformer.HasSynced() && migrationInformer.HasSynced()
+	}
+
+	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
@@ -87,7 +92,7 @@ func NewDisruptionBudgetController(
 		return nil, err
 	}
 
-	_, err = c.pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPodDisruptionBudget,
 		DeleteFunc: c.deletePodDisruptionBudget,
 		UpdateFunc: c.updatePodDisruptionBudget,
@@ -96,14 +101,14 @@ func NewDisruptionBudgetController(
 		return nil, err
 	}
 
-	_, err = c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePod,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateMigration,
 	})
 	if err != nil {
@@ -328,7 +333,7 @@ func (c *DisruptionBudgetController) Run(threadiness int, stopCh <-chan struct{}
 	log.Log.Info("Starting disruption budget controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(stopCh, c.pdbInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
