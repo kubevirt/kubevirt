@@ -64,7 +64,6 @@ type KubeVirtController struct {
 	clientset            kubecli.KubevirtClient
 	queue                workqueue.RateLimitingInterface
 	delayedQueueAdder    func(key interface{}, queue workqueue.RateLimitingInterface)
-	kubeVirtInformer     cache.SharedIndexInformer
 	recorder             record.EventRecorder
 	stores               util.Stores
 	informers            util.Informers
@@ -78,7 +77,6 @@ type KubeVirtController struct {
 func NewKubeVirtController(
 	clientset kubecli.KubevirtClient,
 	aggregatorClient install.APIServiceInterface,
-	informer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	stores util.Stores,
 	informers util.Informers,
@@ -94,7 +92,6 @@ func NewKubeVirtController(
 		clientset:        clientset,
 		aggregatorClient: aggregatorClient,
 		queue:            workqueue.NewNamedRateLimitingQueue(rl, VirtOperator),
-		kubeVirtInformer: informer,
 		recorder:         recorder,
 		stores:           stores,
 		informers:        informers,
@@ -131,7 +128,7 @@ func NewKubeVirtController(
 		},
 	}
 
-	_, err := c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.informers.KubeVirt.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addKubeVirt,
 		DeleteFunc: c.deleteKubeVirt,
 		UpdateFunc: c.updateKubeVirt,
@@ -545,7 +542,7 @@ func NewKubeVirtController(
 }
 
 func (c *KubeVirtController) getKubeVirtKey() (string, error) {
-	kvs := c.kubeVirtInformer.GetStore().List()
+	kvs := c.informers.KubeVirt.GetStore().List()
 	if len(kvs) > 1 {
 		log.Log.Errorf("More than one KubeVirt custom resource detected: %v", len(kvs))
 		return "", fmt.Errorf("more than one KubeVirt custom resource detected: %v", len(kvs))
@@ -692,7 +689,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting KubeVirt controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.kubeVirtInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.KubeVirt.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.ServiceAccount.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.ClusterRole.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.ClusterRoleBinding.HasSynced)
@@ -752,7 +749,7 @@ func (c *KubeVirtController) Execute() bool {
 func (c *KubeVirtController) execute(key string) error {
 
 	// Fetch the latest KubeVirt from cache
-	obj, exists, err := c.kubeVirtInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.informers.KubeVirt.GetStore().GetByKey(key)
 
 	if err != nil {
 		return err
@@ -938,7 +935,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 }
 
 func (c *KubeVirtController) checkForActiveInstall(kv *v1.KubeVirt) error {
-	if len(c.kubeVirtInformer.GetStore().List()) > 1 {
+	if len(c.informers.KubeVirt.GetStore().List()) > 1 {
 		return fmt.Errorf("More than one KubeVirt CR detected, ensure that KubeVirt is only installed once.")
 	}
 

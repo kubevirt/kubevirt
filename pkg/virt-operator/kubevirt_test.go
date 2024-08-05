@@ -98,7 +98,6 @@ type KubeVirtTestData struct {
 	ctrl             *gomock.Controller
 	kvInterface      *kubecli.MockKubeVirtInterface
 	kvSource         *framework.FakeControllerSource
-	kvInformer       cache.SharedIndexInformer
 	apiServiceClient *install.MockAPIServiceInterface
 
 	serviceAccountSource                   *framework.FakeControllerSource
@@ -182,10 +181,10 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.kvInterface = kubecli.NewMockKubeVirtInterface(k.ctrl)
 	k.apiServiceClient = install.NewMockAPIServiceInterface(k.ctrl)
 
-	k.kvInformer, k.kvSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 	k.recorder = record.NewFakeRecorder(100)
 	k.recorder.IncludeObject = true
 
+	k.informers.KubeVirt, k.kvSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 	k.informers.ServiceAccount, k.serviceAccountSource = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
 	k.stores.ServiceAccountCache = k.informers.ServiceAccount.GetStore()
 
@@ -275,7 +274,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 	k.stores.ClusterPreference = k.informers.ClusterPreference.GetStore()
 
-	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.kvInformer, k.recorder, k.stores, k.informers, NAMESPACE)
+	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, k.stores, k.informers, NAMESPACE)
 	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
 		// no delay to speed up tests
 		queue.Add(key)
@@ -378,7 +377,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 		return true, nil, nil
 	})
 
-	syncCaches(k.stop, k.kvInformer, k.informers)
+	syncCaches(k.stop, k.informers)
 
 	// add the privileged SCC without KubeVirt accounts
 	scc := getSCC()
@@ -422,12 +421,12 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 	patch.DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, _ ...string) (*v1.KubeVirt, error) {
 		Expect(pt).To(Equal(types.JSONPatchType))
 		finalizers := extractFinalizers(data)
-		obj, exists, err := k.kvInformer.GetStore().GetByKey(NAMESPACE + "/" + name)
+		obj, exists, err := k.informers.KubeVirt.GetStore().GetByKey(NAMESPACE + "/" + name)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeTrue())
 		kv := obj.(*v1.KubeVirt)
 		kv.Finalizers = finalizers
-		err = k.kvInformer.GetStore().Update(kv)
+		err = k.informers.KubeVirt.GetStore().Update(kv)
 		Expect(err).ToNot(HaveOccurred())
 		return kv, nil
 	}).Times(times)
@@ -436,7 +435,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
 	update := k.kvInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(kv *v1.KubeVirt) {
-		k.kvInformer.GetStore().Update(kv)
+		k.informers.KubeVirt.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
@@ -444,7 +443,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatus(times int) {
 	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
-		k.kvInformer.GetStore().Update(kv)
+		k.informers.KubeVirt.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
@@ -455,7 +454,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusVersion(times int, co
 
 		Expect(kv.Status.TargetKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
 		Expect(kv.Status.ObservedKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
-		k.kvInformer.GetStore().Update(kv)
+		k.informers.KubeVirt.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
@@ -465,7 +464,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reas
 	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
 		Expect(kv.Status.Conditions).To(HaveLen(1))
 		Expect(kv.Status.Conditions[0].Reason).To(Equal(reason))
-		k.kvInformer.GetStore().Update(kv)
+		k.informers.KubeVirt.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(1)
 }
@@ -477,7 +476,7 @@ func (k *KubeVirtTestData) addKubeVirt(kv *v1.KubeVirt) {
 }
 
 func (k *KubeVirtTestData) getLatestKubeVirt(kv *v1.KubeVirt) *v1.KubeVirt {
-	if obj, exists, _ := k.kvInformer.GetStore().GetByKey(kv.GetNamespace() + "/" + kv.GetName()); exists {
+	if obj, exists, _ := k.informers.KubeVirt.GetStore().GetByKey(kv.GetNamespace() + "/" + kv.GetName()); exists {
 		if kvLatest, ok := obj.(*v1.KubeVirt); ok {
 			return kvLatest
 		}
@@ -3175,8 +3174,8 @@ func getSCC() secv1.SecurityContextConstraints {
 	}
 }
 
-func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, informers util.Informers) {
-	go kvInformer.Run(stop)
+func syncCaches(stop chan struct{}, informers util.Informers) {
+	go informers.KubeVirt.Run(stop)
 	go informers.ServiceAccount.Run(stop)
 	go informers.ClusterRole.Run(stop)
 	go informers.ClusterRoleBinding.Run(stop)
@@ -3201,7 +3200,7 @@ func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, inform
 	go informers.ConfigMap.Run(stop)
 	go informers.Route.Run(stop)
 
-	Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
+	Expect(cache.WaitForCacheSync(stop, informers.KubeVirt.HasSynced)).To(BeTrue())
 
 	cache.WaitForCacheSync(stop, informers.ServiceAccount.HasSynced)
 	cache.WaitForCacheSync(stop, informers.ClusterRole.HasSynced)
