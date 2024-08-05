@@ -352,6 +352,9 @@ func (c *WorkloadUpdateController) shouldAbortMigration(vmi *virtv1.VirtualMachi
 	if isVolumesUpdateInProgress(vmi) {
 		return false
 	}
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
+		return false
+	}
 	return numMig > 0
 }
 
