@@ -201,8 +201,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.RoleBinding, k.roleBindingSource = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
 	k.stores.RoleBindingCache = k.informers.RoleBinding.GetStore()
 
-	k.informers.Crd, k.crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
-	k.stores.CrdCache = k.informers.Crd.GetStore()
+	k.informers.OperatorCrd, k.crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
+	k.stores.OperatorCrdCache = k.informers.OperatorCrd.GetStore()
 
 	k.informers.Service, k.serviceSource = testutils.NewFakeInformerFor(&k8sv1.Service{})
 	k.stores.ServiceCache = k.informers.Service.GetStore()
@@ -624,7 +624,7 @@ func (k *KubeVirtTestData) deleteRoleBinding(key string) {
 
 func (k *KubeVirtTestData) deleteCrd(key string) {
 	k.mockQueue.ExpectAdds(1)
-	if obj, exists, _ := k.informers.Crd.GetStore().GetByKey(key); exists {
+	if obj, exists, _ := k.informers.OperatorCrd.GetStore().GetByKey(key); exists {
 		k.crdSource.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Wait()
@@ -2540,7 +2540,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(7))
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
-			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(16))
+			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(HaveLen(16))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(BeEmpty())
@@ -3182,7 +3182,7 @@ func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, inform
 	go informers.ClusterRoleBinding.Run(stop)
 	go informers.Role.Run(stop)
 	go informers.RoleBinding.Run(stop)
-	go informers.Crd.Run(stop)
+	go informers.OperatorCrd.Run(stop)
 	go informers.Service.Run(stop)
 	go informers.Deployment.Run(stop)
 	go informers.DaemonSet.Run(stop)
@@ -3208,7 +3208,7 @@ func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, inform
 	cache.WaitForCacheSync(stop, informers.ClusterRoleBinding.HasSynced)
 	cache.WaitForCacheSync(stop, informers.Role.HasSynced)
 	cache.WaitForCacheSync(stop, informers.RoleBinding.HasSynced)
-	cache.WaitForCacheSync(stop, informers.Crd.HasSynced)
+	cache.WaitForCacheSync(stop, informers.OperatorCrd.HasSynced)
 	cache.WaitForCacheSync(stop, informers.Service.HasSynced)
 	cache.WaitForCacheSync(stop, informers.Deployment.HasSynced)
 	cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)

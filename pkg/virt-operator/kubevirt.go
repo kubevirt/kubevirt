@@ -104,7 +104,7 @@ func NewKubeVirtController(
 			ClusterRoleBinding:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding")),
 			Role:                             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role")),
 			RoleBinding:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding")),
-			Crd:                              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Crd")),
+			OperatorCrd:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("OperatorCrd")),
 			Service:                          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
 			Deployment:                       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
 			DaemonSet:                        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
@@ -226,15 +226,15 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.Crd.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.informers.OperatorCrd.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.genericAddHandler(obj, c.kubeVirtExpectations.Crd)
+			c.genericAddHandler(obj, c.kubeVirtExpectations.OperatorCrd)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.genericDeleteHandler(obj, c.kubeVirtExpectations.Crd)
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.OperatorCrd)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.Crd)
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.OperatorCrd)
 		},
 	})
 	if err != nil {
@@ -698,7 +698,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.ClusterRoleBinding.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Role.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.RoleBinding.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.Crd.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.OperatorCrd.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Service.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Deployment.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.DaemonSet.HasSynced)

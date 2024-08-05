@@ -433,7 +433,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	failurePolicy := admissionregistrationv1.Fail
 
 	for _, crd := range r.targetStrategy.CRDs() {
-		_, exists, _ := r.stores.CrdCache.Get(crd)
+		_, exists, _ := r.stores.OperatorCrdCache.Get(crd)
 		if exists {
 			// this CRD isn't new, it already exists in cache so we don't
 			// need a blocking admission webhook to wait until the new
@@ -1012,7 +1012,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	}
 
 	// remove unused crds
-	objects = r.stores.CrdCache.List()
+	objects = r.stores.OperatorCrdCache.List()
 	for _, obj := range objects {
 		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			found := false
@@ -1024,10 +1024,10 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			}
 			if !found {
 				if key, err := controller.KeyFunc(crd); err == nil {
-					r.expectations.Crd.AddExpectedDeletion(r.kvKey, key)
+					r.expectations.OperatorCrd.AddExpectedDeletion(r.kvKey, key)
 					err := client.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
 					if err != nil {
-						r.expectations.Crd.DeletionObserved(r.kvKey, key)
+						r.expectations.OperatorCrd.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
 						return err
 					}

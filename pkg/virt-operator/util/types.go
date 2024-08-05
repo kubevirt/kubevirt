@@ -33,7 +33,7 @@ type Stores struct {
 	ClusterRoleBindingCache                 cache.Store
 	RoleCache                               cache.Store
 	RoleBindingCache                        cache.Store
-	CrdCache                                cache.Store
+	OperatorCrdCache                        cache.Store
 	ServiceCache                            cache.Store
 	DeploymentCache                         cache.Store
 	DaemonSetCache                          cache.Store
@@ -68,7 +68,7 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.ClusterRoleBindingCache) &&
 		IsStoreEmpty(s.RoleCache) &&
 		IsStoreEmpty(s.RoleBindingCache) &&
-		IsStoreEmpty(s.CrdCache) &&
+		IsStoreEmpty(s.OperatorCrdCache) &&
 		IsStoreEmpty(s.ServiceCache) &&
 		IsStoreEmpty(s.DeploymentCache) &&
 		IsStoreEmpty(s.DaemonSetCache) &&
@@ -116,7 +116,7 @@ type Expectations struct {
 	ClusterRoleBinding               *controller.UIDTrackingControllerExpectations
 	Role                             *controller.UIDTrackingControllerExpectations
 	RoleBinding                      *controller.UIDTrackingControllerExpectations
-	Crd                              *controller.UIDTrackingControllerExpectations
+	OperatorCrd                      *controller.UIDTrackingControllerExpectations
 	Service                          *controller.UIDTrackingControllerExpectations
 	Deployment                       *controller.UIDTrackingControllerExpectations
 	DaemonSet                        *controller.UIDTrackingControllerExpectations
@@ -142,7 +142,7 @@ type Informers struct {
 	ClusterRoleBinding               cache.SharedIndexInformer
 	Role                             cache.SharedIndexInformer
 	RoleBinding                      cache.SharedIndexInformer
-	Crd                              cache.SharedIndexInformer
+	OperatorCrd                      cache.SharedIndexInformer
 	Service                          cache.SharedIndexInformer
 	Deployment                       cache.SharedIndexInformer
 	DaemonSet                        cache.SharedIndexInformer
@@ -172,7 +172,7 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.ClusterRoleBinding.DeleteExpectations(key)
 	e.Role.DeleteExpectations(key)
 	e.RoleBinding.DeleteExpectations(key)
-	e.Crd.DeleteExpectations(key)
+	e.OperatorCrd.DeleteExpectations(key)
 	e.Service.DeleteExpectations(key)
 	e.Deployment.DeleteExpectations(key)
 	e.DaemonSet.DeleteExpectations(key)
@@ -198,7 +198,7 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.ClusterRoleBinding.SetExpectations(key, 0, 0)
 	e.Role.SetExpectations(key, 0, 0)
 	e.RoleBinding.SetExpectations(key, 0, 0)
-	e.Crd.SetExpectations(key, 0, 0)
+	e.OperatorCrd.SetExpectations(key, 0, 0)
 	e.Service.SetExpectations(key, 0, 0)
 	e.Deployment.SetExpectations(key, 0, 0)
 	e.DaemonSet.SetExpectations(key, 0, 0)
@@ -224,7 +224,7 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.ClusterRoleBinding.SatisfiedExpectations(key) &&
 		e.Role.SatisfiedExpectations(key) &&
 		e.RoleBinding.SatisfiedExpectations(key) &&
-		e.Crd.SatisfiedExpectations(key) &&
+		e.OperatorCrd.SatisfiedExpectations(key) &&
 		e.Service.SatisfiedExpectations(key) &&
 		e.Deployment.SatisfiedExpectations(key) &&
 		e.DaemonSet.SatisfiedExpectations(key) &&
