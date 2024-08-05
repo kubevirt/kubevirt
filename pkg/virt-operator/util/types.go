@@ -137,6 +137,8 @@ type Expectations struct {
 }
 
 type Informers struct {
+	KubeVirt                         cache.SharedIndexInformer
+	CRD                              cache.SharedIndexInformer
 	ServiceAccount                   cache.SharedIndexInformer
 	ClusterRole                      cache.SharedIndexInformer
 	ClusterRoleBinding               cache.SharedIndexInformer
