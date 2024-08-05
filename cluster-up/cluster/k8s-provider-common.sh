@@ -69,8 +69,6 @@ function deploy_kwok() {
     if [[ ${KUBEVIRT_DEPLOY_KWOK} == "true" ]]; then
         $kubectl create -f /opt/kwok/kwok.yaml
         $kubectl create -f /opt/kwok/stage-fast.yaml
-
-        $kubectl apply -k /opt/kwok/kubevirt
     fi
 }
 
