@@ -26,19 +26,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	appsv1 "k8s.io/api/apps/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -53,6 +48,7 @@ import (
 
 type alerts struct {
 	deploymentName       string
+	crbName              string
 	downAlert            string
 	noReadyAlert         string
 	restErrorsBurtsAlert string
@@ -70,6 +66,7 @@ var (
 	}
 	virtController = alerts{
 		deploymentName:       "virt-controller",
+		crbName:              "kubevirt-controller",
 		downAlert:            "VirtControllerDown",
 		noReadyAlert:         "NoReadyVirtController",
 		restErrorsBurtsAlert: "VirtControllerRESTErrorsBurst",
@@ -78,11 +75,13 @@ var (
 	}
 	virtHandler = alerts{
 		deploymentName:       "virt-handler",
+		crbName:              "kubevirt-handler",
 		restErrorsBurtsAlert: "VirtHandlerRESTErrorsBurst",
 		restErrorsHighAlert:  "VirtHandlerRESTErrorsHigh",
 	}
 	virtOperator = alerts{
 		deploymentName:       "virt-operator",
+		crbName:              "kubevirt-operator",
 		downAlert:            "VirtOperatorDown",
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
@@ -169,19 +168,23 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 	})
 
 	Context("Errors metrics", func() {
-		var crb *rbacv1.ClusterRoleBinding
+		var crbBackups []*rbacv1.ClusterRoleBinding
 		const operatorRoleBindingName = "kubevirt-operator-rolebinding"
 		var operatorRoleBinding *rbacv1.RoleBinding
 
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
 
-			crb, err = virtClient.RbacV1().ClusterRoleBindings().Get(context.Background(), "kubevirt-operator", metav1.GetOptions{})
-			util.PanicOnError(err)
 			operatorRoleBinding, err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), operatorRoleBindingName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			increaseRateLimit()
+
+			for _, crb := range []string{virtOperator.crbName, virtController.crbName, virtHandler.crbName} {
+				crb, err := virtClient.RbacV1().ClusterRoleBindings().Get(context.Background(), crb, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				crbBackups = append(crbBackups, crb.DeepCopy())
+			}
 
 			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
 			scales.UpdateScale(virtOperator.deploymentName, int32(0))
@@ -190,11 +193,15 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 		})
 
 		AfterEach(func() {
-			crb.Annotations = nil
-			crb.ObjectMeta.ResourceVersion = ""
-			crb.ObjectMeta.UID = ""
-			_, err = virtClient.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
-			Expect(err).To(Or(Not(HaveOccurred()), MatchError(errors.IsAlreadyExists, "IsAlreadyExists")))
+			for _, crb := range crbBackups {
+				crb.Annotations = nil
+				crb.ObjectMeta.ResourceVersion = ""
+				crb.ObjectMeta.UID = ""
+				_, err = virtClient.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
 
 			operatorRoleBinding.Annotations = nil
 			operatorRoleBinding.ObjectMeta.ResourceVersion = ""
@@ -203,8 +210,13 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			Expect(err).To(Or(Not(HaveOccurred()), MatchError(errors.IsAlreadyExists, "IsAlreadyExists")))
 			scales.RestoreAllScales()
 
-			time.Sleep(10 * time.Second)
-			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtOperator.downAlert, virtApi.downAlert, virtController.downAlert, virtHandler.downAlert)
+			scales.RestoreScale(virtOperator.deploymentName)
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtOperator.downAlert,
+				virtApi.restErrorsBurtsAlert,
+				virtOperator.restErrorsBurtsAlert,
+				virtController.restErrorsBurtsAlert,
+				virtHandler.restErrorsBurtsAlert,
+			)
 		})
 
 		It("VirtApiRESTErrorsBurst and VirtApiRESTErrorsHigh should be triggered when requests to virt-api are failing", func() {
@@ -222,7 +234,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 
 		It("VirtOperatorRESTErrorsBurst and VirtOperatorRESTErrorsHigh should be triggered when requests to virt-operator are failing", func() {
 			scales.RestoreScale(virtOperator.deploymentName)
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, metav1.DeleteOptions{})
+			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), virtOperator.crbName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Delete(context.Background(), operatorRoleBindingName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -233,8 +245,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		PIt("VirtControllerRESTErrorsBurst and VirtControllerRESTErrorsHigh should be triggered when requests to virt-controller are failing", func() {
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
+		It("VirtControllerRESTErrorsBurst and VirtControllerRESTErrorsHigh should be triggered when requests to virt-controller are failing", func() {
+			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), virtController.crbName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libvmifact.NewGuestless()
@@ -248,8 +260,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		PIt("VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
+		It("VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
+			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), virtHandler.crbName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libvmifact.NewGuestless()
@@ -264,29 +276,3 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 		})
 	})
 })
-
-func updateDeploymentResourcesRequest(virtClient kubecli.KubevirtClient, deploymentName string, cpu, memory resource.Quantity) {
-	deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	deployment.Spec.Template.Spec.Containers[0].Resources.Requests = k8sv1.ResourceList{
-		k8sv1.ResourceCPU:    cpu,
-		k8sv1.ResourceMemory: memory,
-	}
-
-	patchDeployment(virtClient, deployment)
-}
-
-func patchDeployment(virtClient kubecli.KubevirtClient, deployment *appsv1.Deployment) {
-	patchOp := patch.PatchOperation{
-		Op:    "replace",
-		Path:  "/spec",
-		Value: deployment.Spec,
-	}
-
-	payload, err := patch.GeneratePatchPayload(patchOp)
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-}
