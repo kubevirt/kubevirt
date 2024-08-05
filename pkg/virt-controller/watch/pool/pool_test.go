@@ -16,7 +16,7 @@
  *
  */
 
-package watch
+package pool
 
 import (
 	"encoding/json"
@@ -102,7 +102,7 @@ var _ = Describe("Pool", func() {
 		var vmInformer cache.SharedIndexInformer
 		var poolInformer cache.SharedIndexInformer
 		var stop chan struct{}
-		var controller *PoolController
+		var controller *Controller
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
 		var client *kubevirtfake.Clientset
@@ -163,7 +163,7 @@ var _ = Describe("Pool", func() {
 				},
 			})
 
-			controller, _ = NewPoolController(virtClient,
+			controller, _ = NewController(virtClient,
 				vmiInformer,
 				vmInformer,
 				poolInformer,
