@@ -37,16 +37,6 @@ import (
 
 var _ = Describe("Replicaset", func() {
 
-	DescribeTable("Different replica diffs given", func(diff int, burstReplicas int, result int) {
-		Expect(limit(diff, uint(burstReplicas))).To(Equal(result))
-	},
-		Entry("should limit negative diff to negative burst maximum", -10, 5, -5),
-		Entry("should return negative diff if bigger than negative burst maximum", -4, 5, -4),
-		Entry("should limit positive diff to positive burst maximum", 10, 5, 5),
-		Entry("should return positive diff if less than positive burst maximum", 4, 5, 4),
-		Entry("should return 0 for zero diff", 0, 5, 0),
-	)
-
 	Context("One valid ReplicaSet controller given", func() {
 
 		var ctrl *gomock.Controller

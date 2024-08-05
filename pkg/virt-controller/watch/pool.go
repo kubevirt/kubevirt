@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"math"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -799,14 +800,14 @@ func (c *PoolController) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Vi
 		return nil, true
 	}
 
-	diff = limit(diff, c.burstReplicas)
+	maxDiff := int(math.Min(math.Abs(float64(diff)), float64(c.burstReplicas)))
 	if diff < 0 {
-		err := c.scaleOut(pool, abs(diff))
+		err := c.scaleOut(pool, maxDiff)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason), false
 		}
 	} else if diff > 0 {
-		err := c.scaleIn(pool, vms, diff)
+		err := c.scaleIn(pool, vms, maxDiff)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason), false
 		}

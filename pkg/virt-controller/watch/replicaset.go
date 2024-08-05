@@ -22,6 +22,7 @@ package watch
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -255,21 +256,21 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 	}
 
 	// Make sure that we don't overload the cluster
-	diff = limit(diff, c.burstReplicas)
+	maxDiff := int(math.Min(math.Abs(float64(diff)), float64(c.burstReplicas)))
 
 	// Every delete request can fail, give the channel enough room, to not block the go routines
-	errChan := make(chan error, abs(diff))
+	errChan := make(chan error, maxDiff)
 
 	var wg sync.WaitGroup
-	wg.Add(abs(diff))
+	wg.Add(maxDiff)
 
 	if diff > 0 {
 		log.Log.V(4).Object(rs).Info("Delete excess VM's")
 		// We have to delete VMIs, use a very simple selection strategy for now
 		// TODO: Possible deletion order: not yet running VMIs < migrating VMIs < other
-		deleteCandidates := vmis[0:diff]
+		deleteCandidates := vmis[0:maxDiff]
 		c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineInstanceKeys(deleteCandidates))
-		for i := 0; i < diff; i++ {
+		for i := 0; i < maxDiff; i++ {
 			go func(idx int) {
 				defer wg.Done()
 				deleteCandidate := vmis[idx]
@@ -289,9 +290,9 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 	} else if diff < 0 {
 		log.Log.V(4).Object(rs).Info("Add missing VM's")
 		// We have to create VMIs
-		c.expectations.ExpectCreations(rsKey, abs(diff))
+		c.expectations.ExpectCreations(rsKey, maxDiff)
 		basename := c.getVirtualMachineBaseName(rs)
-		for i := diff; i < 0; i++ {
+		for range maxDiff {
 			go func() {
 				defer wg.Done()
 				vmi := virtv1.NewVMIReferenceFromNameWithNS(rs.ObjectMeta.Namespace, "")
@@ -584,36 +585,6 @@ func (c *VMIReplicaSet) enqueueReplicaSet(obj interface{}) {
 	c.Queue.Add(key)
 }
 
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
-func min(x int, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func max(x int, y int) int {
-	if x > y {
-		return x
-	}
-	return y
-}
-
-// limit
-func limit(x int, burstReplicas uint) int {
-	replicas := int(burstReplicas)
-	if x <= 0 {
-		return max(x, -replicas)
-	}
-	return min(x, replicas)
-}
-
 func (c *VMIReplicaSet) hasCondition(rs *virtv1.VirtualMachineInstanceReplicaSet, cond virtv1.VirtualMachineInstanceReplicaSetConditionType) bool {
 	for _, c := range rs.Status.Conditions {
 		if c.Type == cond {
@@ -791,13 +762,13 @@ func (c *VMIReplicaSet) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceRepli
 		return nil
 	}
 
-	diff := limit(len(vmis), c.burstReplicas)
+	diff := int(math.Min(float64(len(vmis)), float64(c.burstReplicas)))
 
 	// Every delete request can fail, give the channel enough room, to not block the go routines
-	errChan := make(chan error, abs(diff))
+	errChan := make(chan error, diff)
 
 	var wg sync.WaitGroup
-	wg.Add(abs(diff))
+	wg.Add(diff)
 
 	log.Log.V(4).Object(rs).Info("Delete finished VM's")
 	deleteCandidates := vmis[0:diff]
