@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/pool"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/replicaset"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
@@ -166,7 +167,7 @@ type VirtControllerApp struct {
 	rsController *replicaset.Controller
 	rsInformer   cache.SharedIndexInformer
 
-	poolController *PoolController
+	poolController *pool.Controller
 	poolInformer   cache.SharedIndexInformer
 
 	vmController *vm.Controller
@@ -700,7 +701,7 @@ func (vca *VirtControllerApp) initReplicaSet() {
 func (vca *VirtControllerApp) initPool() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinepool-controller")
-	vca.poolController, err = NewPoolController(vca.clientSet,
+	vca.poolController, err = pool.NewController(vca.clientSet,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.poolInformer,
