@@ -91,7 +91,6 @@ type VirtOperatorApp struct {
 	operatorNamespace string
 
 	kubeVirtInformer cache.SharedIndexInformer
-	kubeVirtCache    cache.Store
 
 	crdInformer cache.SharedIndexInformer
 
@@ -174,7 +173,6 @@ func Execute() {
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.aggregatorClient, app.operatorNamespace)
 
 	app.kubeVirtInformer = app.informerFactory.KubeVirt()
-	app.kubeVirtCache = app.kubeVirtInformer.GetStore()
 
 	app.informers = util.Informers{
 		ServiceAccount:           app.informerFactory.OperatorServiceAccount(),
