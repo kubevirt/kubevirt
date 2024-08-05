@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/replicaset"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
@@ -146,7 +147,7 @@ var _ = Describe("Application", func() {
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
 		)
-		app.rsController, _ = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
+		app.rsController, _ = replicaset.NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController, _ = vm.NewController(vmiInformer,
 			vmInformer,
 			dataVolumeInformer,
