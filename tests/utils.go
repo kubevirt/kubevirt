@@ -39,7 +39,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -206,11 +205,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 
 	Expect(virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})).To(Succeed())
 
-	// Observe the VirtualMachineInstance deleted
-	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		return err
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The vmi did not disappear")
+	Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(timeout).WithPolling(time.Second).Should(BeGone(), "The vmi did not disappear")
 
 	By("VM has not the running condition")
 	var updatedVM *v1.VirtualMachine
@@ -234,11 +229,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 
 	Expect(virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})).To(Succeed())
 
-	// Observe the VirtualMachineInstance created
-	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		return err
-	}).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(Succeed())
+	Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(Exist())
 
 	By("VMI has the running condition")
 	var updatedVM *v1.VirtualMachine
@@ -509,11 +500,7 @@ func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	// Observe the VirtualMachineInstance created
-	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
-		return err
-	}, 300*time.Second, 1*time.Second).Should(Succeed())
+	Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(Exist())
 
 	By("VMI has the running condition")
 	Eventually(ThisVM(updatedVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
