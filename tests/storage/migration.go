@@ -293,6 +293,19 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitForMigrationToSucceed(vm.Name, ns)
+
+			Eventually(func() []virtv1.Volume {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vm.Status.VolumeMigration).NotTo(BeNil())
+				return vm.Status.VolumeMigration.Volumes
+			}, 120*time.Second, time.Second).Should(ContainElement(virtv1.Volume{
+				Name: volName,
+				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
+					Name:         destDV.Name,
+					Hotpluggable: false,
+				}},
+			}), "the volumes in the status and in the spec should match")
 		})
 
 		It("should migrate a PVC with a VM using a containerdisk", func() {
