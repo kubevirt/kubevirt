@@ -48,6 +48,7 @@ type EvacuationController struct {
 	migrationExpectations *controller.UIDTrackingControllerExpectations
 	nodeInformer          cache.SharedIndexInformer
 	clusterConfig         *virtconfig.ClusterConfig
+	hasSynced             func() bool
 }
 
 func NewEvacuationController(
@@ -72,7 +73,11 @@ func NewEvacuationController(
 		clusterConfig:         clusterConfig,
 	}
 
-	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return vmiInformer.HasSynced() && vmiPodInformer.HasSynced() && migrationInformer.HasSynced() && nodeInformer.HasSynced()
+	}
+
+	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
@@ -82,7 +87,7 @@ func NewEvacuationController(
 		return nil, err
 	}
 
-	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
@@ -91,7 +96,7 @@ func NewEvacuationController(
 	if err != nil {
 		return nil, err
 	}
-	_, err = c.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addNode,
 		DeleteFunc: c.deleteNode,
 		UpdateFunc: c.updateNode,
@@ -284,13 +289,7 @@ func (c *EvacuationController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting evacuation controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(
-		stopCh,
-		c.vmiInformer.HasSynced,
-		c.vmiPodInformer.HasSynced,
-		c.migrationInformer.HasSynced,
-		c.nodeInformer.HasSynced,
-	)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
