@@ -99,7 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	serviceAccountSource                   *framework.FakeControllerSource
 	clusterRoleSource                      *framework.FakeControllerSource
 	clusterRoleBindingSource               *framework.FakeControllerSource
 	roleSource                             *framework.FakeControllerSource
@@ -185,7 +184,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.KubeVirt, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 
-	k.informers.ServiceAccount, k.serviceAccountSource = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
+	k.informers.ServiceAccount, _ = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
 
 	k.informers.ClusterRole, k.clusterRoleSource = testutils.NewFakeInformerFor(&rbacv1.ClusterRole{})
 
@@ -556,11 +555,10 @@ func (k *KubeVirtTestData) deleteResource(resource string, key string) {
 }
 
 func (k *KubeVirtTestData) deleteServiceAccount(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.ServiceAccount.GetStore().GetByKey(key); exists {
-		k.serviceAccountSource.Delete(obj.(runtime.Object))
+		k.informers.ServiceAccount.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteClusterRole(key string) {
@@ -984,9 +982,10 @@ func (k *KubeVirtTestData) addResource(obj runtime.Object, config *util.KubeVirt
 }
 
 func (k *KubeVirtTestData) addServiceAccount(sa *k8sv1.ServiceAccount) {
-	k.mockQueue.ExpectAdds(1)
-	k.serviceAccountSource.Add(sa)
-	k.mockQueue.Wait()
+	k.informers.ServiceAccount.GetStore().Add(sa)
+	key, err := kubecontroller.KeyFunc(sa)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addClusterRole(cr *rbacv1.ClusterRole) {
