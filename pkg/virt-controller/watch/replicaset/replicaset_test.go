@@ -1,4 +1,4 @@
-package watch
+package replicaset
 
 import (
 	"context"
@@ -46,7 +46,7 @@ var _ = Describe("Replicaset", func() {
 		var vmiInformer cache.SharedIndexInformer
 		var rsInformer cache.SharedIndexInformer
 		var stop chan struct{}
-		var controller *VMIReplicaSet
+		var controller *Controller
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
 		var vmiFeeder *testutils.VirtualMachineFeeder
@@ -68,7 +68,7 @@ var _ = Describe("Replicaset", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			controller, _ = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
+			controller, _ = NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue

@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/replicaset"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 
@@ -162,7 +163,7 @@ type VirtControllerApp struct {
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
 
-	rsController *VMIReplicaSet
+	rsController *replicaset.Controller
 	rsInformer   cache.SharedIndexInformer
 
 	poolController *PoolController
@@ -690,7 +691,7 @@ func (vca *VirtControllerApp) initCommon() {
 func (vca *VirtControllerApp) initReplicaSet() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
-	vca.rsController, err = NewVMIReplicaSet(vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+	vca.rsController, err = replicaset.NewController(vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
 	if err != nil {
 		panic(err)
 	}
