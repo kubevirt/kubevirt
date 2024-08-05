@@ -1,10 +1,11 @@
-package watch
+package pool
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
+	"math"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/util/status"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
@@ -40,8 +42,8 @@ import (
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 )
 
-// PoolController is the main PoolController struct.
-type PoolController struct {
+// Controller is the main Controller struct.
+type Controller struct {
 	clientset       kubecli.KubevirtClient
 	queue           workqueue.RateLimitingInterface
 	vmIndexer       cache.Indexer
@@ -74,15 +76,15 @@ const (
 
 var virtControllerPoolWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
-// NewPoolController creates a new instance of the PoolController struct.
-func NewPoolController(clientset kubecli.KubevirtClient,
+// NewController creates a new instance of the PoolController struct.
+func NewController(clientset kubecli.KubevirtClient,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	poolInformer cache.SharedIndexInformer,
 	revisionInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	burstReplicas uint) (*PoolController, error) {
-	c := &PoolController{
+	burstReplicas uint) (*Controller, error) {
+	c := &Controller{
 		clientset:       clientset,
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-pool"),
 		poolIndexer:     poolInformer.GetIndexer(),
@@ -136,7 +138,7 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 	return c, nil
 }
 
-func (c *PoolController) resolveVMIControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachine {
+func (c *Controller) resolveVMIControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachine {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
@@ -158,7 +160,7 @@ func (c *PoolController) resolveVMIControllerRef(namespace string, controllerRef
 	return vm.(*virtv1.VirtualMachine)
 }
 
-func (c *PoolController) addVMIHandler(obj interface{}) {
+func (c *Controller) addVMIHandler(obj interface{}) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 
 	if vmi.DeletionTimestamp != nil {
@@ -200,12 +202,12 @@ func (c *PoolController) addVMIHandler(obj interface{}) {
 
 }
 
-func (c *PoolController) updateVMIHandler(old, cur interface{}) {
+func (c *Controller) updateVMIHandler(old, cur interface{}) {
 	c.addVMIHandler(cur)
 }
 
 // When a revision is created, enqueue the pool that manages it and update its expectations.
-func (c *PoolController) addRevisionHandler(obj interface{}) {
+func (c *Controller) addRevisionHandler(obj interface{}) {
 	cr := obj.(*appsv1.ControllerRevision)
 
 	// If it has a ControllerRef, that's all that matters.
@@ -224,7 +226,7 @@ func (c *PoolController) addRevisionHandler(obj interface{}) {
 	}
 }
 
-func (c *PoolController) updateRevisionHandler(old, cur interface{}) {
+func (c *Controller) updateRevisionHandler(old, cur interface{}) {
 	cr := cur.(*appsv1.ControllerRevision)
 
 	// If it has a ControllerRef, that's all that matters.
@@ -240,7 +242,7 @@ func (c *PoolController) updateRevisionHandler(old, cur interface{}) {
 }
 
 // When a vm is created, enqueue the pool that manages it and update its expectations.
-func (c *PoolController) addVMHandler(obj interface{}) {
+func (c *Controller) addVMHandler(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
 
 	if vm.DeletionTimestamp != nil {
@@ -270,7 +272,7 @@ func (c *PoolController) addVMHandler(obj interface{}) {
 // When a vm is updated, figure out what pool/s manage it and wake them
 // up. If the labels of the vm have changed we need to awaken both the old
 // and new pool. old and cur must be *metav1.VirtualMachine types.
-func (c *PoolController) updateVMHandler(old, cur interface{}) {
+func (c *Controller) updateVMHandler(old, cur interface{}) {
 	curVM := cur.(*virtv1.VirtualMachine)
 	oldVM := old.(*virtv1.VirtualMachine)
 	if curVM.ResourceVersion == oldVM.ResourceVersion {
@@ -310,7 +312,7 @@ func (c *PoolController) updateVMHandler(old, cur interface{}) {
 
 // When a vm is deleted, enqueue the pool that manages the vm and update its expectations.
 // obj could be an *metav1.VirtualMachine, or a DeletionFinalStateUnknown marker item.
-func (c *PoolController) deleteVMHandler(obj interface{}) {
+func (c *Controller) deleteVMHandler(obj interface{}) {
 	vm, ok := obj.(*virtv1.VirtualMachine)
 
 	// When a delete is dropped, the relist will notice a vm in the store not
@@ -346,19 +348,19 @@ func (c *PoolController) deleteVMHandler(obj interface{}) {
 	c.enqueuePool(pool)
 }
 
-func (c *PoolController) addPool(obj interface{}) {
+func (c *Controller) addPool(obj interface{}) {
 	c.enqueuePool(obj)
 }
 
-func (c *PoolController) deletePool(obj interface{}) {
+func (c *Controller) deletePool(obj interface{}) {
 	c.enqueuePool(obj)
 }
 
-func (c *PoolController) updatePool(_, curr interface{}) {
+func (c *Controller) updatePool(_, curr interface{}) {
 	c.enqueuePool(curr)
 }
 
-func (c *PoolController) enqueuePool(obj interface{}) {
+func (c *Controller) enqueuePool(obj interface{}) {
 	logger := log.Log
 	pool := obj.(*poolv1.VirtualMachinePool)
 	key, err := controller.KeyFunc(pool)
@@ -374,7 +376,7 @@ func (c *PoolController) enqueuePool(obj interface{}) {
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
-func (c *PoolController) resolveControllerRef(namespace string, controllerRef *metav1.OwnerReference) *poolv1.VirtualMachinePool {
+func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav1.OwnerReference) *poolv1.VirtualMachinePool {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
 	if controllerRef.Kind != poolv1.VirtualMachinePoolKind {
@@ -397,7 +399,7 @@ func (c *PoolController) resolveControllerRef(namespace string, controllerRef *m
 }
 
 // listControllerFromNamespace takes a namespace and returns all Pools from the Pool cache which run in this namespace
-func (c *PoolController) listControllerFromNamespace(namespace string) ([]*poolv1.VirtualMachinePool, error) {
+func (c *Controller) listControllerFromNamespace(namespace string) ([]*poolv1.VirtualMachinePool, error) {
 	objs, err := c.poolIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
@@ -412,7 +414,7 @@ func (c *PoolController) listControllerFromNamespace(namespace string) ([]*poolv
 
 // getMatchingController returns the first Pool which matches the labels of the VirtualMachine from the listener cache.
 // If there are no matching controllers, a NotFound error is returned.
-func (c *PoolController) getMatchingControllers(vm *virtv1.VirtualMachine) (pools []*poolv1.VirtualMachinePool) {
+func (c *Controller) getMatchingControllers(vm *virtv1.VirtualMachine) (pools []*poolv1.VirtualMachinePool) {
 	logger := log.Log
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
 	if err != nil {
@@ -435,7 +437,7 @@ func (c *PoolController) getMatchingControllers(vm *virtv1.VirtualMachine) (pool
 }
 
 // Run runs the passed in PoolController.
-func (c *PoolController) Run(threadiness int, stopCh <-chan struct{}) {
+func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.queue.ShutDown()
 	log.Log.Info("Starting pool controller.")
@@ -452,12 +454,12 @@ func (c *PoolController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Stopping pool controller.")
 }
 
-func (c *PoolController) runWorker() {
+func (c *Controller) runWorker() {
 	for c.Execute() {
 	}
 }
 
-func (c *PoolController) listVMsFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
+func (c *Controller) listVMsFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
 	objs, err := c.vmIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
@@ -469,7 +471,7 @@ func (c *PoolController) listVMsFromNamespace(namespace string) ([]*virtv1.Virtu
 	return vms, nil
 }
 
-func (c *PoolController) calcDiff(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) int {
+func (c *Controller) calcDiff(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) int {
 	wantedReplicas := int32(1)
 	if pool.Spec.Replicas != nil {
 		wantedReplicas = *pool.Spec.Replicas
@@ -490,7 +492,7 @@ func filterDeletingVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
 }
 
 // filterReadyVMs takes a list of VMs and returns all VMs which are in ready state.
-func (c *PoolController) filterReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
+func (c *Controller) filterReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
 	return filterVMs(vms, func(vm *virtv1.VirtualMachine) bool {
 		return controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(k8score.PodReady), k8score.ConditionTrue)
 	})
@@ -506,7 +508,7 @@ func filterVMs(vms []*virtv1.VirtualMachine, f func(vmi *virtv1.VirtualMachine) 
 	return filtered
 }
 
-func (c *PoolController) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
+func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
 
 	poolKey, err := controller.KeyFunc(pool)
 	if err != nil {
@@ -546,11 +548,11 @@ func (c *PoolController) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.
 			err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
 			if err != nil {
 				c.expectations.DeletionObserved(poolKey, controller.VirtualMachineKey(vm))
-				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
+				c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
 				errChan <- err
 				return
 			}
-			c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted VM %s/%s with uid %v from pool", vm.Namespace, vm.Name, vm.ObjectMeta.UID)
+			c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Deleted VM %s/%s with uid %v from pool", vm.Namespace, vm.Name, vm.ObjectMeta.UID)
 			log.Log.Object(pool).Infof("Deleted vm %s/%s from pool", vm.Namespace, vm.Name)
 		}(i)
 	}
@@ -665,7 +667,7 @@ func getRevisionName(pool *poolv1.VirtualMachinePool) string {
 	return fmt.Sprintf("%s-%d", pool.Name, pool.Generation)
 }
 
-func (c *PoolController) ensureControllerRevision(pool *poolv1.VirtualMachinePool) (string, error) {
+func (c *Controller) ensureControllerRevision(pool *poolv1.VirtualMachinePool) (string, error) {
 	poolKey, err := controller.KeyFunc(pool)
 	if err != nil {
 		return "", err
@@ -705,7 +707,7 @@ func (c *PoolController) ensureControllerRevision(pool *poolv1.VirtualMachinePoo
 	return cr.Name, nil
 }
 
-func (c *PoolController) getControllerRevision(namespace, name string) (*poolv1.VirtualMachinePoolSpec, bool, error) {
+func (c *Controller) getControllerRevision(namespace, name string) (*poolv1.VirtualMachinePoolSpec, bool, error) {
 
 	key := controller.NamespacedKey(namespace, name)
 
@@ -729,7 +731,7 @@ func (c *PoolController) getControllerRevision(namespace, name string) (*poolv1.
 
 }
 
-func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) error {
+func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error {
 
 	var wg sync.WaitGroup
 
@@ -778,7 +780,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 				errChan <- err
 				return
 			}
-			c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Created VM %s/%s", vm.Namespace, vm.ObjectMeta.Name)
+			c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulCreateVirtualMachineReason, "Created VM %s/%s", vm.Namespace, vm.ObjectMeta.Name)
 			log.Log.Object(pool).Infof("Adding vm %s/%s to pool", pool.Namespace, name)
 		}(name)
 	}
@@ -787,7 +789,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 	select {
 	case err := <-errChan:
 		// Only return the first error which occurred. We log the rest
-		c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating VM: %v", err)
+		c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating VM: %v", err)
 		return err
 	default:
 	}
@@ -795,30 +797,30 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 	return nil
 }
 
-func (c *PoolController) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (syncError, bool) {
+func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (common.SyncError, bool) {
 	diff := c.calcDiff(pool, vms)
 	if diff == 0 {
 		// nothing to do
 		return nil, true
 	}
 
-	diff = limit(diff, c.burstReplicas)
+	maxDiff := int(math.Min(math.Abs(float64(diff)), float64(c.burstReplicas)))
 	if diff < 0 {
-		err := c.scaleOut(pool, abs(diff))
+		err := c.scaleOut(pool, maxDiff)
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason}, false
+			return common.NewSyncError(fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason), false
 		}
 	} else if diff > 0 {
-		err := c.scaleIn(pool, vms, diff)
+		err := c.scaleIn(pool, vms, maxDiff)
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason}, false
+			return common.NewSyncError(fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason), false
 		}
 	}
 
 	return nil, false
 }
 
-func (c *PoolController) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutdatedList []*virtv1.VirtualMachine) error {
+func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutdatedList []*virtv1.VirtualMachine) error {
 	var wg sync.WaitGroup
 
 	if len(vmOutdatedList) == 0 {
@@ -873,7 +875,7 @@ func (c *PoolController) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vm
 	return nil
 }
 
-func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedList []*virtv1.VirtualMachine) error {
+func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedList []*virtv1.VirtualMachine) error {
 	var wg sync.WaitGroup
 	wg.Add(len(vmUpdatedList))
 	errChan := make(chan error, len(vmUpdatedList))
@@ -909,7 +911,7 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 					return
 				}
 				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vmi deletion", vm.Namespace, vm.Name)
-				c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
+				c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
 			case proactiveUpdateTypePatchRevisionLabel:
 				patchSet := patch.New()
 				vmiCopy := vmi.DeepCopy()
@@ -970,7 +972,7 @@ const (
 	proactiveUpdateTypeNone proactiveUpdateType = "no-update"
 )
 
-func (c *PoolController) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (proactiveUpdateType, error) {
+func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (proactiveUpdateType, error) {
 	// This function compares the pool revision (pool spec at a specific point in time) synced
 	// to the VM vs the one used to create the VMI. By comparing the pool spec revisions between
 	// the VM and VMI we can determine if the VM has mutated in a way that should result
@@ -1048,7 +1050,7 @@ func (c *PoolController) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 	return proactiveUpdateTypePatchRevisionLabel, nil
 }
 
-func (c *PoolController) isOutdatedVM(pool *poolv1.VirtualMachinePool, vm *virtv1.VirtualMachine) (bool, error) {
+func (c *Controller) isOutdatedVM(pool *poolv1.VirtualMachinePool, vm *virtv1.VirtualMachine) (bool, error) {
 
 	if vm.Labels == nil {
 		log.Log.Object(pool).Infof("Marking vm %s/%s for update due to missing labels ", vm.Namespace, vm.Name)
@@ -1078,12 +1080,12 @@ func (c *PoolController) isOutdatedVM(pool *poolv1.VirtualMachinePool, vm *virtv
 
 }
 
-func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) syncError {
+func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) common.SyncError {
 
 	keys, err := c.revisionIndexer.IndexKeys("vmpool", string(pool.UID))
 	if err != nil {
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason}
+			return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 		}
 	}
 
@@ -1123,14 +1125,14 @@ func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, v
 	for revisionName := range deletionMap {
 		err := c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, v1.DeleteOptions{})
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason}
+			return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 		}
 	}
 
 	return nil
 }
 
-func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (syncError, bool) {
+func (c *Controller) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (common.SyncError, bool) {
 	// List of VMs that need to be updated
 	vmOutdatedList := []*virtv1.VirtualMachine{}
 	// List of VMs that are up-to-date that need to be checked to see if VMI is up-to-date
@@ -1139,7 +1141,7 @@ func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.V
 	for _, vm := range vms {
 		outdated, err := c.isOutdatedVM(pool, vm)
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf("Error while detected outdated VMs: %v", err), FailedUpdateReason}, false
+			return common.NewSyncError(fmt.Errorf("Error while detected outdated VMs: %v", err), FailedUpdateReason), false
 		}
 
 		if outdated {
@@ -1151,12 +1153,12 @@ func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.V
 
 	err := c.opportunisticUpdate(pool, vmOutdatedList)
 	if err != nil {
-		return &syncErrorImpl{fmt.Errorf("Error during VM update: %v", err), FailedUpdateReason}, false
+		return common.NewSyncError(fmt.Errorf("Error during VM update: %v", err), FailedUpdateReason), false
 	}
 
 	err = c.proactiveUpdate(pool, vmUpdatedList)
 	if err != nil {
-		return &syncErrorImpl{fmt.Errorf("Error during VMI update: %v", err), FailedUpdateReason}, false
+		return common.NewSyncError(fmt.Errorf("Error during VMI update: %v", err), FailedUpdateReason), false
 	}
 
 	vmUpdateStable := false
@@ -1170,7 +1172,7 @@ func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.V
 // Execute runs commands from the controller queue, if there is
 // an error it requeues the command. Returns false if the queue
 // is empty.
-func (c *PoolController) Execute() bool {
+func (c *Controller) Execute() bool {
 	key, quit := c.queue.Get()
 	if quit {
 		return false
@@ -1192,7 +1194,7 @@ func (c *PoolController) Execute() bool {
 	return true
 }
 
-func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, syncErr syncError) error {
+func (c *Controller) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, syncErr common.SyncError) error {
 
 	key, err := controller.KeyFunc(origPool)
 	if err != nil {
@@ -1255,10 +1257,10 @@ func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms [
 
 }
 
-func (c *PoolController) execute(key string) error {
+func (c *Controller) execute(key string) error {
 	logger := log.DefaultLogger()
 
-	var syncErr syncError
+	var syncErr common.SyncError
 
 	obj, poolExists, err := c.poolIndexer.GetByKey(key)
 	if err != nil {

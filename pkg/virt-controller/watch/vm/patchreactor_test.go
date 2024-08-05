@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package vm
 
 import (
 	"encoding/json"

@@ -1,4 +1,4 @@
-package watch
+package migration
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
@@ -32,7 +32,7 @@ func (score migrationPolicyMatchScore) lessThan(otherScore migrationPolicyMatchS
 	return !score.equals(otherScore) && !score.greaterThan(otherScore)
 }
 
-// MatchPolicy returns the policy that is matched to the vmi, or nil of no policy is matched.
+// matchPolicy returns the policy that is matched to the vmi, or nil of no policy is matched.
 //
 // Since every policy can specify VMI and Namespace labels to match to, matching is done by returning the most
 // detailed policy, meaning the policy that matches the VMI and specifies the most labels that matched either
@@ -41,7 +41,7 @@ func (score migrationPolicyMatchScore) lessThan(otherScore migrationPolicyMatchS
 // If two policies are matched and have the same level of details (i.e. same number of matching labels) the matched
 // policy is chosen by policies' names ordered by lexicographic order. The reason is to create a rather arbitrary yet
 // deterministic way of matching policies.
-func MatchPolicy(policyList *v1alpha1.MigrationPolicyList, vmi *k6tv1.VirtualMachineInstance, vmiNamespace *k8sv1.Namespace) *v1alpha1.MigrationPolicy {
+func matchPolicy(policyList *v1alpha1.MigrationPolicyList, vmi *k6tv1.VirtualMachineInstance, vmiNamespace *k8sv1.Namespace) *v1alpha1.MigrationPolicy {
 	var mathingPolicies []v1alpha1.MigrationPolicy
 	bestScore := migrationPolicyMatchScore{}
 
