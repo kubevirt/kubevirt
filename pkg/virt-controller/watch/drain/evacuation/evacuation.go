@@ -41,12 +41,12 @@ const (
 type EvacuationController struct {
 	clientset             kubecli.KubevirtClient
 	Queue                 workqueue.RateLimitingInterface
-	vmiInformer           cache.SharedIndexInformer
-	vmiPodInformer        cache.SharedIndexInformer
-	migrationInformer     cache.SharedIndexInformer
+	vmiIndexer            cache.Indexer
+	vmiPodIndexer         cache.Indexer
+	migrationStore        cache.Store
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
-	nodeInformer          cache.SharedIndexInformer
+	nodeStore             cache.Store
 	clusterConfig         *virtconfig.ClusterConfig
 	hasSynced             func() bool
 }
@@ -63,10 +63,10 @@ func NewEvacuationController(
 
 	c := &EvacuationController{
 		Queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-evacuation"),
-		vmiInformer:           vmiInformer,
-		migrationInformer:     migrationInformer,
-		nodeInformer:          nodeInformer,
-		vmiPodInformer:        vmiPodInformer,
+		vmiIndexer:            vmiInformer.GetIndexer(),
+		migrationStore:        migrationInformer.GetStore(),
+		nodeStore:             nodeInformer.GetStore(),
+		vmiPodIndexer:         vmiPodInformer.GetIndexer(),
 		recorder:              recorder,
 		clientset:             clientset,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -201,7 +201,7 @@ func (c *EvacuationController) addMigration(obj interface{}) {
 		c.migrationExpectations.CreationObserved(key)
 		node = key
 	} else {
-		o, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		o, exists, err := c.vmiIndexer.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
 		if err != nil {
 			return
 		}
@@ -242,7 +242,7 @@ func (c *EvacuationController) enqueueMigration(obj interface{}) {
 			return
 		}
 	}
-	o, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+	o, exists, err := c.vmiIndexer.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
 	if err != nil {
 		return
 	}
@@ -271,7 +271,7 @@ func (c *EvacuationController) resolveControllerRef(namespace string, controller
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
 		return nil
 	}
-	vmi, exists, err := c.vmiInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	vmi, exists, err := c.vmiIndexer.GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
@@ -326,7 +326,7 @@ func (c *EvacuationController) Execute() bool {
 func (c *EvacuationController) execute(key string) error {
 
 	// Fetch the latest node state from cache
-	obj, exists, err := c.nodeInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.nodeStore.GetByKey(key)
 
 	if err != nil {
 		return err
@@ -348,7 +348,7 @@ func (c *EvacuationController) execute(key string) error {
 		return fmt.Errorf("failed to list VMIs on node: %v", err)
 	}
 
-	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer.GetStore())
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationStore)
 
 	return c.sync(node, vmis, migrations)
 }
@@ -483,7 +483,7 @@ func vmisToMigrate(node *k8sv1.Node, vmisOnNode []*virtv1.VirtualMachineInstance
 }
 
 func (c *EvacuationController) listVMIsOnNode(nodeName string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiInformer.GetIndexer().ByIndex("node", nodeName)
+	objs, err := c.vmiIndexer.ByIndex("node", nodeName)
 	if err != nil {
 		return nil, err
 	}
@@ -522,7 +522,7 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 			continue
 		}
 
-		if controller.VMIActivePodsCount(vmi, c.vmiPodInformer.GetIndexer()) > 1 {
+		if controller.VMIActivePodsCount(vmi, c.vmiPodIndexer) > 1 {
 			// waiting on target/source pods from a previous migration to terminate
 			//
 			// We only want to create a migration when num pods == 1 or else we run the
