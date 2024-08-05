@@ -97,7 +97,6 @@ const (
 type KubeVirtTestData struct {
 	ctrl             *gomock.Controller
 	kvInterface      *kubecli.MockKubeVirtInterface
-	kvSource         *framework.FakeControllerSource
 	apiServiceClient *install.MockAPIServiceInterface
 
 	serviceAccountSource                   *framework.FakeControllerSource
@@ -184,7 +183,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.recorder = record.NewFakeRecorder(100)
 	k.recorder.IncludeObject = true
 
-	k.informers.KubeVirt, k.kvSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
+	k.informers.KubeVirt, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 
 	k.informers.ServiceAccount, k.serviceAccountSource = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
 
@@ -444,9 +443,10 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reas
 }
 
 func (k *KubeVirtTestData) addKubeVirt(kv *v1.KubeVirt) {
-	k.mockQueue.ExpectAdds(1)
-	k.kvSource.Add(kv)
-	k.mockQueue.Wait()
+	k.informers.KubeVirt.GetStore().Add(kv)
+	key, err := kubecontroller.KeyFunc(kv)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) getLatestKubeVirt(kv *v1.KubeVirt) *v1.KubeVirt {
