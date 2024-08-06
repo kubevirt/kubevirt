@@ -80,13 +80,13 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 
 	crd = crd.DeepCopy()
 	injectOperatorMetadata(r.kv, &crd.ObjectMeta, version, imageRegistry, id, true)
-	obj, exists, _ := r.stores.CrdCache.Get(crd)
+	obj, exists, _ := r.stores.OperatorCrdCache.Get(crd)
 	if !exists {
 		// Create non existent
-		r.expectations.Crd.RaiseExpectations(r.kvKey, 1, 0)
+		r.expectations.OperatorCrd.RaiseExpectations(r.kvKey, 1, 0)
 		createdCRD, err := client.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), crd, metav1.CreateOptions{})
 		if err != nil {
-			r.expectations.Crd.LowerExpectations(r.kvKey, 1, 0)
+			r.expectations.OperatorCrd.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create crd %+v: %v", crd, err)
 		}
 
@@ -145,7 +145,7 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefi
 	var cachedCrd *extv1.CustomResourceDefinition
 
 	crd = crd.DeepCopy()
-	obj, exists, err := r.stores.CrdCache.Get(crd)
+	obj, exists, err := r.stores.OperatorCrdCache.Get(crd)
 	if !exists {
 		return err
 	}

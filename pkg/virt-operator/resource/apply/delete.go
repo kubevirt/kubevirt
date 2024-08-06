@@ -115,7 +115,7 @@ func DeleteAll(kv *v1.KubeVirt,
 		return err
 	}
 
-	if !util.IsStoreEmpty(stores.CrdCache) {
+	if !util.IsStoreEmpty(stores.OperatorCrdCache) {
 		// wait until CRDs are gone
 		return nil
 	}
@@ -613,7 +613,7 @@ func crdHandleDeletion(kvkey string,
 	expectations *util.Expectations) error {
 
 	ext := clientset.ExtensionsClient()
-	objects := stores.CrdCache.List()
+	objects := stores.OperatorCrdCache.List()
 
 	finalizerPath := "/metadata/finalizers"
 
@@ -652,10 +652,10 @@ func crdHandleDeletion(kvkey string,
 			return err
 		}
 
-		expectations.Crd.AddExpectedDeletion(kvkey, key)
+		expectations.OperatorCrd.AddExpectedDeletion(kvkey, key)
 		err = ext.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, metav1.DeleteOptions{})
 		if err != nil {
-			expectations.Crd.DeletionObserved(kvkey, key)
+			expectations.OperatorCrd.DeletionObserved(kvkey, key)
 			log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
 			return err
 		}

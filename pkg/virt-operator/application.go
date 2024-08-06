@@ -90,11 +90,6 @@ type VirtOperatorApp struct {
 
 	operatorNamespace string
 
-	kubeVirtInformer cache.SharedIndexInformer
-	kubeVirtCache    cache.Store
-
-	crdInformer cache.SharedIndexInformer
-
 	stores    util.Stores
 	informers util.Informers
 
@@ -173,16 +168,15 @@ func Execute() {
 
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.aggregatorClient, app.operatorNamespace)
 
-	app.kubeVirtInformer = app.informerFactory.KubeVirt()
-	app.kubeVirtCache = app.kubeVirtInformer.GetStore()
-
 	app.informers = util.Informers{
+		KubeVirt:                 app.informerFactory.KubeVirt(),
+		CRD:                      app.informerFactory.CRD(),
 		ServiceAccount:           app.informerFactory.OperatorServiceAccount(),
 		ClusterRole:              app.informerFactory.OperatorClusterRole(),
 		ClusterRoleBinding:       app.informerFactory.OperatorClusterRoleBinding(),
 		Role:                     app.informerFactory.OperatorRole(),
 		RoleBinding:              app.informerFactory.OperatorRoleBinding(),
-		Crd:                      app.informerFactory.OperatorCRD(),
+		OperatorCrd:              app.informerFactory.OperatorCRD(),
 		Service:                  app.informerFactory.OperatorService(),
 		Deployment:               app.informerFactory.OperatorDeployment(),
 		DaemonSet:                app.informerFactory.OperatorDaemonSet(),
@@ -206,7 +200,7 @@ func Execute() {
 		ClusterRoleBindingCache:       app.informerFactory.OperatorClusterRoleBinding().GetStore(),
 		RoleCache:                     app.informerFactory.OperatorRole().GetStore(),
 		RoleBindingCache:              app.informerFactory.OperatorRoleBinding().GetStore(),
-		CrdCache:                      app.informerFactory.OperatorCRD().GetStore(),
+		OperatorCrdCache:              app.informerFactory.OperatorCRD().GetStore(),
 		ServiceCache:                  app.informerFactory.OperatorService().GetStore(),
 		DeploymentCache:               app.informerFactory.OperatorDeployment().GetStore(),
 		DaemonSetCache:                app.informerFactory.OperatorDaemonSet().GetStore(),
@@ -223,8 +217,6 @@ func Execute() {
 		ClusterInstancetype:           app.informerFactory.VirtualMachineClusterInstancetype().GetStore(),
 		ClusterPreference:             app.informerFactory.VirtualMachineClusterPreference().GetStore(),
 	}
-
-	app.crdInformer = app.informerFactory.CRD()
 
 	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
 	if err != nil {
@@ -309,7 +301,7 @@ func Execute() {
 	app.prepareCertManagers()
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)
-	app.kubeVirtController, err = NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
+	app.kubeVirtController, err = NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
 	if err != nil {
 		panic(err)
 	}
@@ -403,7 +395,7 @@ func (app *VirtOperatorApp) Run() {
 	app.informerFactory.Start(stop)
 
 	stopChan := app.ctx.Done()
-	cache.WaitForCacheSync(stopChan, app.crdInformer.HasSynced, app.kubeVirtInformer.HasSynced)
+	cache.WaitForCacheSync(stopChan, app.informers.CRD.HasSynced, app.informers.KubeVirt.HasSynced)
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 
 	cache.WaitForCacheSync(stop, apiAuthConfig.HasSynced)

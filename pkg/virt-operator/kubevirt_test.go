@@ -98,7 +98,6 @@ type KubeVirtTestData struct {
 	ctrl             *gomock.Controller
 	kvInterface      *kubecli.MockKubeVirtInterface
 	kvSource         *framework.FakeControllerSource
-	kvInformer       cache.SharedIndexInformer
 	apiServiceClient *install.MockAPIServiceInterface
 
 	serviceAccountSource                   *framework.FakeControllerSource
@@ -182,10 +181,10 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.kvInterface = kubecli.NewMockKubeVirtInterface(k.ctrl)
 	k.apiServiceClient = install.NewMockAPIServiceInterface(k.ctrl)
 
-	k.kvInformer, k.kvSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 	k.recorder = record.NewFakeRecorder(100)
 	k.recorder.IncludeObject = true
 
+	k.informers.KubeVirt, k.kvSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 	k.informers.ServiceAccount, k.serviceAccountSource = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
 	k.stores.ServiceAccountCache = k.informers.ServiceAccount.GetStore()
 
@@ -201,8 +200,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.RoleBinding, k.roleBindingSource = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
 	k.stores.RoleBindingCache = k.informers.RoleBinding.GetStore()
 
-	k.informers.Crd, k.crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
-	k.stores.CrdCache = k.informers.Crd.GetStore()
+	k.informers.OperatorCrd, k.crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
+	k.stores.OperatorCrdCache = k.informers.OperatorCrd.GetStore()
 
 	k.informers.Service, k.serviceSource = testutils.NewFakeInformerFor(&k8sv1.Service{})
 	k.stores.ServiceCache = k.informers.Service.GetStore()
@@ -275,7 +274,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 	k.stores.ClusterPreference = k.informers.ClusterPreference.GetStore()
 
-	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.kvInformer, k.recorder, k.stores, k.informers, NAMESPACE)
+	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, k.stores, k.informers, NAMESPACE)
 	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
 		// no delay to speed up tests
 		queue.Add(key)
@@ -378,7 +377,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 		return true, nil, nil
 	})
 
-	syncCaches(k.stop, k.kvInformer, k.informers)
+	syncCaches(k.stop, k.informers)
 
 	// add the privileged SCC without KubeVirt accounts
 	scc := getSCC()
@@ -422,12 +421,12 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 	patch.DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, _ ...string) (*v1.KubeVirt, error) {
 		Expect(pt).To(Equal(types.JSONPatchType))
 		finalizers := extractFinalizers(data)
-		obj, exists, err := k.kvInformer.GetStore().GetByKey(NAMESPACE + "/" + name)
+		obj, exists, err := k.informers.KubeVirt.GetStore().GetByKey(NAMESPACE + "/" + name)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeTrue())
 		kv := obj.(*v1.KubeVirt)
 		kv.Finalizers = finalizers
-		err = k.kvInformer.GetStore().Update(kv)
+		err = k.informers.KubeVirt.GetStore().Update(kv)
 		Expect(err).ToNot(HaveOccurred())
 		return kv, nil
 	}).Times(times)
@@ -436,7 +435,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
 	update := k.kvInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(kv *v1.KubeVirt) {
-		k.kvInformer.GetStore().Update(kv)
+		k.informers.KubeVirt.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
@@ -444,7 +443,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatus(times int) {
 	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
-		k.kvInformer.GetStore().Update(kv)
+		k.informers.KubeVirt.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
@@ -455,7 +454,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusVersion(times int, co
 
 		Expect(kv.Status.TargetKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
 		Expect(kv.Status.ObservedKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
-		k.kvInformer.GetStore().Update(kv)
+		k.informers.KubeVirt.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
@@ -465,7 +464,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reas
 	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
 		Expect(kv.Status.Conditions).To(HaveLen(1))
 		Expect(kv.Status.Conditions[0].Reason).To(Equal(reason))
-		k.kvInformer.GetStore().Update(kv)
+		k.informers.KubeVirt.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(1)
 }
@@ -477,7 +476,7 @@ func (k *KubeVirtTestData) addKubeVirt(kv *v1.KubeVirt) {
 }
 
 func (k *KubeVirtTestData) getLatestKubeVirt(kv *v1.KubeVirt) *v1.KubeVirt {
-	if obj, exists, _ := k.kvInformer.GetStore().GetByKey(kv.GetNamespace() + "/" + kv.GetName()); exists {
+	if obj, exists, _ := k.informers.KubeVirt.GetStore().GetByKey(kv.GetNamespace() + "/" + kv.GetName()); exists {
 		if kvLatest, ok := obj.(*v1.KubeVirt); ok {
 			return kvLatest
 		}
@@ -624,7 +623,7 @@ func (k *KubeVirtTestData) deleteRoleBinding(key string) {
 
 func (k *KubeVirtTestData) deleteCrd(key string) {
 	k.mockQueue.ExpectAdds(1)
-	if obj, exists, _ := k.informers.Crd.GetStore().GetByKey(key); exists {
+	if obj, exists, _ := k.informers.OperatorCrd.GetStore().GetByKey(key); exists {
 		k.crdSource.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Wait()
@@ -2540,7 +2539,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(7))
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
-			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(16))
+			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(HaveLen(16))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(BeEmpty())
@@ -3175,14 +3174,14 @@ func getSCC() secv1.SecurityContextConstraints {
 	}
 }
 
-func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, informers util.Informers) {
-	go kvInformer.Run(stop)
+func syncCaches(stop chan struct{}, informers util.Informers) {
+	go informers.KubeVirt.Run(stop)
 	go informers.ServiceAccount.Run(stop)
 	go informers.ClusterRole.Run(stop)
 	go informers.ClusterRoleBinding.Run(stop)
 	go informers.Role.Run(stop)
 	go informers.RoleBinding.Run(stop)
-	go informers.Crd.Run(stop)
+	go informers.OperatorCrd.Run(stop)
 	go informers.Service.Run(stop)
 	go informers.Deployment.Run(stop)
 	go informers.DaemonSet.Run(stop)
@@ -3201,14 +3200,14 @@ func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, inform
 	go informers.ConfigMap.Run(stop)
 	go informers.Route.Run(stop)
 
-	Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
+	Expect(cache.WaitForCacheSync(stop, informers.KubeVirt.HasSynced)).To(BeTrue())
 
 	cache.WaitForCacheSync(stop, informers.ServiceAccount.HasSynced)
 	cache.WaitForCacheSync(stop, informers.ClusterRole.HasSynced)
 	cache.WaitForCacheSync(stop, informers.ClusterRoleBinding.HasSynced)
 	cache.WaitForCacheSync(stop, informers.Role.HasSynced)
 	cache.WaitForCacheSync(stop, informers.RoleBinding.HasSynced)
-	cache.WaitForCacheSync(stop, informers.Crd.HasSynced)
+	cache.WaitForCacheSync(stop, informers.OperatorCrd.HasSynced)
 	cache.WaitForCacheSync(stop, informers.Service.HasSynced)
 	cache.WaitForCacheSync(stop, informers.Deployment.HasSynced)
 	cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
