@@ -48,12 +48,13 @@ type DisruptionBudgetController struct {
 	clientset                       kubecli.KubevirtClient
 	clusterConfig                   *virtconfig.ClusterConfig
 	Queue                           workqueue.RateLimitingInterface
-	vmiInformer                     cache.SharedIndexInformer
-	pdbInformer                     cache.SharedIndexInformer
-	podInformer                     cache.SharedIndexInformer
-	migrationInformer               cache.SharedIndexInformer
+	vmiStore                        cache.Store
+	pdbIndexer                      cache.Indexer
+	podIndexer                      cache.Indexer
+	migrationIndexer                cache.Indexer
 	recorder                        record.EventRecorder
 	podDisruptionBudgetExpectations *controller.UIDTrackingControllerExpectations
+	hasSynced                       func() bool
 }
 
 func NewDisruptionBudgetController(
@@ -68,17 +69,21 @@ func NewDisruptionBudgetController(
 
 	c := &DisruptionBudgetController{
 		Queue:                           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-disruption-budget"),
-		vmiInformer:                     vmiInformer,
-		pdbInformer:                     pdbInformer,
-		podInformer:                     podInformer,
-		migrationInformer:               migrationInformer,
+		vmiStore:                        vmiInformer.GetStore(),
+		pdbIndexer:                      pdbInformer.GetIndexer(),
+		podIndexer:                      podInformer.GetIndexer(),
+		migrationIndexer:                migrationInformer.GetIndexer(),
 		recorder:                        recorder,
 		clientset:                       clientset,
 		clusterConfig:                   clusterConfig,
 		podDisruptionBudgetExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
-	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return vmiInformer.HasSynced() && pdbInformer.HasSynced() && podInformer.HasSynced() && migrationInformer.HasSynced()
+	}
+
+	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
@@ -87,7 +92,7 @@ func NewDisruptionBudgetController(
 		return nil, err
 	}
 
-	_, err = c.pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPodDisruptionBudget,
 		DeleteFunc: c.deletePodDisruptionBudget,
 		UpdateFunc: c.updatePodDisruptionBudget,
@@ -96,14 +101,14 @@ func NewDisruptionBudgetController(
 		return nil, err
 	}
 
-	_, err = c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePod,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateMigration,
 	})
 	if err != nil {
@@ -328,7 +333,7 @@ func (c *DisruptionBudgetController) Run(threadiness int, stopCh <-chan struct{}
 	log.Log.Info("Starting disruption budget controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(stopCh, c.pdbInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -369,7 +374,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Fetch the latest Vm state from cache
-	obj, vmiExists, err := c.vmiInformer.GetStore().GetByKey(key)
+	obj, vmiExists, err := c.vmiStore.GetByKey(key)
 
 	if err != nil {
 		return err
@@ -389,7 +394,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Only consider pdbs which belong to this vmi
-	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer.GetIndexer())
+	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbIndexer)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to fetch pod disruption budgets for namespace from cache.")
 		// If the situation does not change there is no benefit in retrying
@@ -409,7 +414,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 }
 
 func (c *DisruptionBudgetController) isMigrationComplete(vmi *virtv1.VirtualMachineInstance, migrationName string) (bool, error) {
-	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return false, err
 	}
@@ -430,7 +435,7 @@ func (c *DisruptionBudgetController) isMigrationComplete(vmi *virtv1.VirtualMach
 		return false, nil
 	}
 
-	runningPods := controller.VMIActivePodsCount(vmi, c.podInformer.GetIndexer())
+	runningPods := controller.VMIActivePodsCount(vmi, c.podIndexer)
 	return runningPods == 1, nil
 }
 
