@@ -597,6 +597,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			SchedulerName:                 vmi.Spec.SchedulerName,
 			Tolerations:                   vmi.Spec.Tolerations,
 			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
+			ResourceClaims:                resourceRenderer.PodResourceClaims(),
 		},
 	}
 
@@ -807,7 +808,6 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, ne
 	if err := validatePermittedHostDevices(&vmi.Spec, t.clusterConfig); err != nil {
 		return nil, err
 	}
-
 	options := append(baseOptions, t.VMIResourcePredicates(vmi, networkToResourceMap).Apply()...)
 	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...), nil
 }
@@ -1473,6 +1473,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(util.IsHostDevVMI, WithHostDevices(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
+			NewVMIResourceRule(util.IsHostDevClaimVMI, WithHostDevicesWithResourceClaims(vmi.Spec.Domain.Devices.HostDevices)),
 		},
 	}
 }
