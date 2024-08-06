@@ -48,6 +48,7 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -95,9 +96,6 @@ const (
 const LibvirtStartupDelay = 10
 
 const IntelVendorName = "Intel"
-
-// Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
-const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
 
 const VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION = "pre.hook.backup.velero.io/container"
 const VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION = "pre.hook.backup.velero.io/command"
@@ -268,7 +266,7 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 
 	if namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
 		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
-		multusNetworksAnnotation, err := network.GenerateMultusCNIAnnotationFromNameScheme(
+		multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
 			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme, t.clusterConfig)
 		if err != nil {
 			return nil, err
@@ -1342,7 +1340,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := network.GenerateMultusCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
+	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
 	if err != nil {
 		return nil, err
 	}
@@ -1351,11 +1349,11 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	}
 
 	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
-		annotationsSet[network.MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION] = multusDefaultNetwork
+		annotationsSet[multus.DefaultNetworkCNIAnnotation] = multusDefaultNetwork
 	}
 
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
-		annotationsSet[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
+		annotationsSet[istio.ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
 	annotationsSet[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
 	annotationsSet[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(

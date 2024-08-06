@@ -13,15 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright 2024 Red Hat, Inc.
  *
  */
 
-package istio
+package multus
 
-const (
-	ISTIO_INJECT_ANNOTATION = "sidecar.istio.io/inject"
+import (
+	"strings"
 
-	// Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
-	ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
+	"kubevirt.io/client-go/precond"
 )
+
+func GetNamespaceAndNetworkName(namespace string, fullNetworkName string) (string, string) {
+	if strings.Contains(fullNetworkName, "/") {
+		res := strings.SplitN(fullNetworkName, "/", 2)
+		return res[0], res[1]
+	}
+	return precond.MustNotBeEmpty(namespace), fullNetworkName
+}

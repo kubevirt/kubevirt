@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -2158,7 +2159,7 @@ func (c *VMIController) updateMultusAnnotation(namespace string, interfaces []vi
 
 	indexedMultusStatusIfaces := network.NonDefaultMultusNetworksIndexedByIfaceName(pod)
 	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, indexedMultusStatusIfaces)
-	multusAnnotations, err := network.GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap, c.clusterConfig)
+	multusAnnotations, err := multus.GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap, c.clusterConfig)
 	if err != nil {
 		return err
 	}
