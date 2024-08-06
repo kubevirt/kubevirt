@@ -25,6 +25,7 @@ import (
 
 const diskRhel = "disk-rhel"
 
+// Deprecated: SkipTestIfNoCPUManager should be converted to check & fail
 func SkipTestIfNoCPUManager() {
 	if !HasFeature(virtconfig.CPUManager) {
 		ginkgo.Skip("the CPUManager feature gate is not enabled.")
@@ -41,12 +42,14 @@ func SkipTestIfNoCPUManager() {
 	ginkgo.Skip("no node with CPUManager detected", 1)
 }
 
+// Deprecated: SkipTestIfNoFeatureGate should be converted to check & fail
 func SkipTestIfNoFeatureGate(featureGate string) {
 	if !HasFeature(featureGate) {
 		ginkgo.Skip(fmt.Sprintf("the %v feature gate is not enabled.", featureGate))
 	}
 }
 
+// Deprecated: SkipTestIfNotEnoughNodesWithCPUManager should be converted to check & fail
 func SkipTestIfNotEnoughNodesWithCPUManager(nodeCount int) {
 	if !HasFeature(virtconfig.CPUManager) {
 		ginkgo.Skip("the CPUManager feature gate is not enabled.")
@@ -72,6 +75,7 @@ func SkipTestIfNotEnoughNodesWithCPUManager(nodeCount int) {
 	}
 }
 
+// Deprecated: SkipTestIfNotEnoughNodesWith2MiHugepages should be converted to check & fail
 func SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount int) {
 	virtClient := kubevirt.Client()
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
@@ -93,11 +97,13 @@ func SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount int) {
 	}
 }
 
+// Deprecated: SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages should be converted to check & fail
 func SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(nodeCount int) {
 	SkipTestIfNotEnoughNodesWithCPUManager(nodeCount)
 	SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount)
 }
 
+// Deprecated: SkipTestIfNotRealtimeCapable should be converted to check & fail
 func SkipTestIfNotRealtimeCapable() {
 
 	virtClient := kubevirt.Client()
@@ -112,6 +118,7 @@ func SkipTestIfNotRealtimeCapable() {
 
 }
 
+// Deprecated: SkipTestIfNotSEVCapable should be converted to check & fail
 func SkipTestIfNotSEVCapable() {
 	virtClient := kubevirt.Client()
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
@@ -124,6 +131,7 @@ func SkipTestIfNotSEVCapable() {
 	ginkgo.Skip("no node capable of running SEV workloads detected", 1)
 }
 
+// Deprecated: SkipTestIfNotSEVESCapable should be converted to check & fail
 func SkipTestIfNotSEVESCapable() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
@@ -137,6 +145,7 @@ func SkipTestIfNotSEVESCapable() {
 	ginkgo.Skip("no node capable of running SEV-ES workloads detected", 1)
 }
 
+// Deprecated: SkipIfMissingRequiredImage should be converted to check & fail
 func SkipIfMissingRequiredImage(virtClient kubecli.KubevirtClient, imageName string) {
 	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, metav1.GetOptions{})
 	if err != nil || windowsPv.Status.Phase == k8sv1.VolumePending || windowsPv.Status.Phase == k8sv1.VolumeFailed {
@@ -148,6 +157,7 @@ func SkipIfMissingRequiredImage(virtClient kubecli.KubevirtClient, imageName str
 	}
 }
 
+// Deprecated: SkipIfNoRhelImage should be converted to check & fail
 func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
 	rhelPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), diskRhel, metav1.GetOptions{})
 	if err != nil || rhelPv.Status.Phase == k8sv1.VolumePending || rhelPv.Status.Phase == k8sv1.VolumeFailed {
@@ -159,6 +169,7 @@ func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+// Deprecated: SkipIfUseFlannel should be converted to check & fail
 func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	labelSelector := "app=flannel"
 	flannelpod, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
@@ -168,6 +179,7 @@ func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+// Deprecated: SkipIfPrometheusRuleIsNotEnabled should be converted to check & fail
 func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 	ext, err := clientset.NewForConfig(virtClient.Config())
 	util.PanicOnError(err)
@@ -180,6 +192,7 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+// Deprecated: SkipIfSingleReplica should be converted to check & fail
 func SkipIfSingleReplica(virtClient kubecli.KubevirtClient) {
 	kv := libkubevirt.GetCurrentKv(virtClient)
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil && *(kv.Spec.Infra.Replicas) == 1 {
@@ -187,6 +200,7 @@ func SkipIfSingleReplica(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+// Deprecated: SkipIfMultiReplica should be converted to check & fail
 func SkipIfMultiReplica(virtClient kubecli.KubevirtClient) {
 	kv := libkubevirt.GetCurrentKv(virtClient)
 	if kv.Spec.Infra == nil || kv.Spec.Infra.Replicas == nil || *(kv.Spec.Infra.Replicas) > 1 {
@@ -194,12 +208,14 @@ func SkipIfMultiReplica(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+// Deprecated: SkipIfOpenShift should be converted to check & fail
 func SkipIfOpenShift(message string) {
 	if IsOpenShift() {
 		ginkgo.Skip("Openshift detected: " + message)
 	}
 }
 
+// Deprecated: SkipIfOpenShift4 should be converted to check & fail
 func SkipIfOpenShift4(message string) {
 	virtClient := kubevirt.Client()
 
@@ -210,24 +226,28 @@ func SkipIfOpenShift4(message string) {
 	}
 }
 
+// Deprecated: SkipIfMigrationIsNotPossible should be converted to check & fail
 func SkipIfMigrationIsNotPossible() {
 	if !HasAtLeastTwoNodes() {
 		ginkgo.Skip("Migration tests require at least 2 nodes")
 	}
 }
 
+// Deprecated: SkipIfARM64 should be converted to check & fail
 func SkipIfARM64(arch string, message string) {
 	if IsARM64(arch) {
 		ginkgo.Skip("Skip test on arm64: " + message)
 	}
 }
 
+// Deprecated: SkipIfS390X should be converted to check & fail
 func SkipIfS390X(arch string, message string) {
 	if IsS390X(arch) {
 		ginkgo.Skip("Skip test on s390x: " + message)
 	}
 }
 
+// Deprecated: SkipIfRunningOnKindInfra should be converted to check & fail
 func SkipIfRunningOnKindInfra(message string) {
 	if IsRunningOnKindInfra() {
 		ginkgo.Skip("Skip test on kind infra: " + message)
