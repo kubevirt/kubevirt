@@ -22,6 +22,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -40,6 +41,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
 
 	"kubevirt.io/kubevirt/tests"
@@ -77,6 +79,28 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			}
 
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", 5)
+		})
+	})
+
+	Context("VMI metrics", func() {
+		It("should have kubevirt_vmi_phase_transition_time_seconds buckets correctly configured", func() {
+			vmi := libvmifact.NewGuestless()
+			tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			for _, bucket := range virtcontroller.PhaseTransitionTimeBuckets() {
+				labels := map[string]string{"le": strconv.FormatFloat(bucket, 'f', -1, 64)}
+
+				GinkgoLogr.Info("Checking bucket", "labels", labels)
+				libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_phase_transition_time_seconds_bucket", labels, 0, ">=", 0)
+			}
+		})
+
+		It("should have kubevirt_rest_client_requests_total for the 'virtualmachineinstances' resource", func() {
+			vmi := libvmifact.NewGuestless()
+			tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			labels := map[string]string{"resource": "virtualmachineinstances"}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
 		})
 	})
 

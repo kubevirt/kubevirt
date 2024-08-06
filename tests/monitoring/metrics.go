@@ -21,7 +21,6 @@ package monitoring
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +28,6 @@ import (
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/onsi/gomega/types"
-	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -37,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtapi "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	virthandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	virtoperator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -54,7 +53,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		setupVM(virtClient)
+		basicVMLifecycle(virtClient)
 		metrics = fetchPrometheusMetrics(virtClient)
 	})
 
@@ -68,7 +67,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_console_active_connections":                true,
 			"kubevirt_vmi_last_api_connection_timestamp_seconds": true,
 
-			// virt-controller
+			// migration metrics
 			// needs a migration - ignoring since already tested in - VM Monitoring, VM migration metrics
 			"kubevirt_vmi_migration_phase_transition_time_from_creation_seconds": true,
 			"kubevirt_vmi_migrations_in_pending_phase":                           true,
@@ -76,6 +75,10 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migrations_in_running_phase":                           true,
 			"kubevirt_vmi_migration_succeeded":                                   true,
 			"kubevirt_vmi_migration_failed":                                      true,
+			"kubevirt_vmi_migration_data_remaining_bytes":                        true,
+			"kubevirt_vmi_migration_data_processed_bytes":                        true,
+			"kubevirt_vmi_migration_dirty_memory_rate_bytes":                     true,
+			"kubevirt_vmi_migration_disk_transfer_rate_bytes":                    true,
 		}
 
 		It("should contain virt components metrics", func() {
@@ -94,6 +97,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err = virtcontroller.RegisterLeaderMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
+			err = virthandler.SetupMetrics("", "", 0, nil)
+			Expect(err).ToNot(HaveOccurred())
+
 			for _, metric := range operatormetrics.ListMetrics() {
 				if excludedMetrics[metric.GetOpts().Name] {
 					continue
@@ -101,31 +107,6 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 				Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, nil)))
 			}
-		})
-
-		It("should have kubevirt_vmi_phase_transition_time_seconds buckets correctly configured", func() {
-			buckets := virtcontroller.PhaseTransitionTimeBuckets()
-
-			for _, bucket := range buckets {
-				labels := map[string]string{"le": strconv.FormatFloat(bucket, 'f', -1, 64)}
-
-				metric := operatormetrics.NewHistogram(
-					operatormetrics.MetricOpts{Name: "kubevirt_vmi_phase_transition_time_from_deletion_seconds"},
-					prometheus.HistogramOpts{},
-				)
-
-				Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
-			}
-		})
-
-		It("should have kubevirt_rest_client_requests_total for the 'virtualmachineinstances' resource", func() {
-			metric := operatormetrics.NewCounter(
-				operatormetrics.MetricOpts{Name: "kubevirt_rest_client_requests_total"},
-			)
-
-			labels := map[string]string{"resource": "virtualmachineinstances"}
-
-			Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
 		})
 	})
 })
@@ -141,19 +122,26 @@ func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient) *libmonitoring.Qu
 	return metrics
 }
 
-func setupVM(virtClient kubecli.KubevirtClient) {
-	vm := createRunningVM(virtClient)
+func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
+	By("Creating and running a VM")
+	vm := createAndRunVM(virtClient)
+
+	By("Waiting for the VM to be reported")
 	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", 1)
+
+	By("Waiting for the VM domainstats metrics to be reported")
+	libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_filesystem_capacity_bytes", map[string]string{"namespace": vm.Namespace, "name": vm.Name}, 0, ">", 0)
 
 	By("Deleting the VirtualMachine")
 	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
+	By("Waiting for the VM deletion to be reported")
 	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", -1)
 }
 
-func createRunningVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
-	vmi := libvmifact.NewGuestless(libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
+func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
+	vmi := libvmifact.NewFedora(libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
 	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
