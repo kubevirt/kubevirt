@@ -99,8 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	clusterRoleSource                      *framework.FakeControllerSource
-	clusterRoleBindingSource               *framework.FakeControllerSource
 	roleSource                             *framework.FakeControllerSource
 	roleBindingSource                      *framework.FakeControllerSource
 	crdSource                              *framework.FakeControllerSource
@@ -186,9 +184,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.ServiceAccount, _ = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
 
-	k.informers.ClusterRole, k.clusterRoleSource = testutils.NewFakeInformerFor(&rbacv1.ClusterRole{})
+	k.informers.ClusterRole, _ = testutils.NewFakeInformerFor(&rbacv1.ClusterRole{})
 
-	k.informers.ClusterRoleBinding, k.clusterRoleBindingSource = testutils.NewFakeInformerFor(&rbacv1.ClusterRoleBinding{})
+	k.informers.ClusterRoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.ClusterRoleBinding{})
 
 	k.informers.Role, k.roleSource = testutils.NewFakeInformerFor(&rbacv1.Role{})
 
@@ -562,19 +560,17 @@ func (k *KubeVirtTestData) deleteServiceAccount(key string) {
 }
 
 func (k *KubeVirtTestData) deleteClusterRole(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.ClusterRole.GetStore().GetByKey(key); exists {
-		k.clusterRoleSource.Delete(obj.(runtime.Object))
+		k.informers.ClusterRole.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteClusterRoleBinding(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.ClusterRoleBinding.GetStore().GetByKey(key); exists {
-		k.clusterRoleBindingSource.Delete(obj.(runtime.Object))
+		k.informers.ClusterRoleBinding.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteRole(key string) {
@@ -989,15 +985,17 @@ func (k *KubeVirtTestData) addServiceAccount(sa *k8sv1.ServiceAccount) {
 }
 
 func (k *KubeVirtTestData) addClusterRole(cr *rbacv1.ClusterRole) {
-	k.mockQueue.ExpectAdds(1)
-	k.clusterRoleSource.Add(cr)
-	k.mockQueue.Wait()
+	k.informers.ClusterRole.GetStore().Add(cr)
+	key, err := kubecontroller.KeyFunc(cr)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addClusterRoleBinding(crb *rbacv1.ClusterRoleBinding) {
-	k.mockQueue.ExpectAdds(1)
-	k.clusterRoleBindingSource.Add(crb)
-	k.mockQueue.Wait()
+	k.informers.ClusterRoleBinding.GetStore().Add(crb)
+	key, err := kubecontroller.KeyFunc(crb)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addRole(role *rbacv1.Role) {
