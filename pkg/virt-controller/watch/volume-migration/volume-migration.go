@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	k8sv1 "k8s.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -237,11 +238,7 @@ func IsVolumeMigrating(vmi *virtv1.VirtualMachineInstance) bool {
 		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue)
 }
 
-// PatchVMIStatusWithMigratedVolumes patches the VMI status with the source and destination volume information during the volume migration
-func PatchVMIStatusWithMigratedVolumes(clientset kubecli.KubevirtClient, pvcStore cache.Store, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) error {
-	if len(vmi.Status.MigratedVolumes) > 0 {
-		return nil
-	}
+func GenerateMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) ([]v1.StorageMigratedVolumeInfo, error) {
 	var migVolsInfo []virtv1.StorageMigratedVolumeInfo
 	oldVols := make(map[string]string)
 	for _, v := range vmi.Spec.Volumes {
@@ -263,11 +260,11 @@ func PatchVMIStatusWithMigratedVolumes(clientset kubecli.KubevirtClient, pvcStor
 		}
 		oldPvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vmi.Namespace, oldClaim, pvcStore)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vmi.Namespace, claim, pvcStore)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		var oldVolMode *k8sv1.PersistentVolumeMode
 		var volMode *k8sv1.PersistentVolumeMode
@@ -288,6 +285,19 @@ func PatchVMIStatusWithMigratedVolumes(clientset kubecli.KubevirtClient, pvcStor
 				VolumeMode: oldVolMode,
 			},
 		})
+	}
+
+	return migVolsInfo, nil
+}
+
+// PatchVMIStatusWithMigratedVolumes patches the VMI status with the source and destination volume information during the volume migration
+func PatchVMIStatusWithMigratedVolumes(clientset kubecli.KubevirtClient, pvcStore cache.Store, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) error {
+	if len(vmi.Status.MigratedVolumes) > 0 {
+		return nil
+	}
+	migVolsInfo, err := GenerateMigratedVolumes(pvcStore, vmi, vm)
+	if err != nil {
+		return err
 	}
 	if equality.Semantic.DeepEqual(migVolsInfo, vmi.Status.MigratedVolumes) {
 		return nil

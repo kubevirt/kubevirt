@@ -403,6 +403,13 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
 		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
 		"runStrategy":            "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
+		"volumeMigration":        "VolumeMigration tracks the information related to the volume migration",
+	}
+}
+
+func (VolumeMigration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"migratedVolumes": "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
 	}
 }
 

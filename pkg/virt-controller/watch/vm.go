@@ -41,6 +41,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -976,12 +977,28 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 			setRestartRequired(vm, err.Error())
 			return nil
 		}
-
+		migVols, err := volumemig.GenerateMigratedVolumes(c.pvcStore, vmi, vm)
+		if err != nil {
+			log.Log.Object(vm).Errorf("failed to generate the migrating volumes for vm: %v", err)
+			return err
+		}
+		if vm.Status.VolumeMigration == nil {
+			vm.Status.VolumeMigration = &virtv1.VolumeMigration{}
+		}
+		now := metav1.Now()
+		controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VMVolumeMigrationConditionStarted,
+			Status:             k8sv1.ConditionTrue,
+			LastTransitionTime: now,
+			Reason:             virtv1.VMVolumeMigrationReasonStarted,
+		})
+		vm.Status.VolumeMigration.MigratedVolumes = migVols
+		fmt.Printf("XXX Set volume mig and condition")
 		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, c.pvcStore, vmi, vm); err != nil {
 			log.Log.Object(vm).Errorf("failed to update migrating volumes for vmi:%v", err)
 			return err
 		}
-		log.Log.Object(vm).Infof("Updated migrating volumes in the status")
+		log.Log.Object(vm).Infof("Updated migrating volumes in the VMI status")
 		if _, err := volumemig.PatchVMIVolumes(c.clientset, vmi, vm); err != nil {
 			log.Log.Object(vm).Errorf("failed to update volumes for vmi:%v", err)
 			return err
@@ -1578,6 +1595,47 @@ func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			RetryAfterTimestamp:  &retryAfter,
 			ConsecutiveFailCount: count,
 		}
+	}
+}
+
+func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	vmCond := controller.NewVirtualMachineConditionManager()
+	vmiCond := controller.NewVirtualMachineInstanceConditionManager()
+	now := metav1.Now()
+	// Something went wrong with the VMI while the volume migration was in progress
+	if vmi == nil && vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8sv1.ConditionTrue) {
+		vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VMVolumeMigrationConditionCompleted,
+			Status:             k8sv1.ConditionFalse,
+			LastTransitionTime: now,
+			Reason:             virtv1.VMVolumeMigrationReasonVMICrashed,
+		})
+
+	}
+	if vmi == nil {
+		return
+	}
+	if vmiCond.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionFalse) {
+		cond := vmiCond.GetCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
+		vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VMVolumeMigrationConditionCompleted,
+			Status:             k8sv1.ConditionTrue,
+			LastTransitionTime: now,
+			Reason:             virtv1.VMVolumeMigrationReasonFailed,
+			Message:            cond.Message,
+		})
+	}
+
+	if vmCond.HasCondition(vm, virtv1.VMVolumeMigrationConditionStarted) &&
+		!vmiCond.HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange) {
+		now := metav1.Now()
+		vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VMVolumeMigrationConditionCompleted,
+			Status:             k8sv1.ConditionTrue,
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+			Reason:             virtv1.VMVolumeMigrationReasonSucceeded,
+		})
 	}
 }
 
@@ -2435,6 +2493,7 @@ func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virt
 
 	syncStartFailureStatus(vm, vmi)
 	syncConditions(vm, vmi, syncErr)
+	syncVolumeMigration(vm, vmi)
 	c.setPrintableStatus(vm, vmi)
 
 	// only update if necessary
@@ -2682,9 +2741,11 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 
 	// sync VMI conditions, ignore list represents conditions that are not synced generically
 	syncIgnoreMap := map[string]interface{}{
-		string(virtv1.VirtualMachineReady):           nil,
-		string(virtv1.VirtualMachineFailure):         nil,
-		string(virtv1.VirtualMachineRestartRequired): nil,
+		string(virtv1.VirtualMachineReady):                 nil,
+		string(virtv1.VirtualMachineFailure):               nil,
+		string(virtv1.VirtualMachineRestartRequired):       nil,
+		string(virtv1.VMVolumeMigrationConditionStarted):   nil,
+		string(virtv1.VMVolumeMigrationConditionCompleted): nil,
 	}
 	vmiCondMap := make(map[string]interface{})
 

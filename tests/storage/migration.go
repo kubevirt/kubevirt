@@ -31,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -246,6 +245,45 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Expect(vm.Spec.Template.Spec.Volumes[replacedIndex].VolumeSource.DataVolume.Name).To(Equal(name))
 		}
 
+		checkMigratedVolumesOnVM := func(vm *virtv1.VirtualMachine, volName, src, dst string, succeded bool) {
+			var msg string
+			var cond k8sv1.ConditionStatus
+			if succeded {
+				cond = k8sv1.ConditionTrue
+				msg = "The volume migration should be set as succeeded in the VM status"
+			} else {
+				cond = k8sv1.ConditionFalse
+				msg = "The volume migration should not be set as succeeded in the VM status"
+			}
+			Eventually(func() []virtv1.StorageMigratedVolumeInfo {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if vm.Status.VolumeMigration == nil {
+					return nil
+				}
+				return vm.Status.VolumeMigration.MigratedVolumes
+			}).WithTimeout(120*time.Second).WithPolling(time.Second).Should(
+				ContainElement(virtv1.StorageMigratedVolumeInfo{
+					VolumeName: volName,
+					SourcePVCInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName:  src,
+						VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					},
+					DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName:  dst,
+						VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					},
+				}), "The volumes migrated should be set",
+			)
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return controller.NewVirtualMachineConditionManager().HasConditionWithStatus(
+					vm, virtv1.VMVolumeMigrationConditionCompleted, cond)
+			}).WithTimeout(120*time.Second).WithPolling(time.Second).Should(Equal(succeded), msg)
+
+		}
+
 		BeforeEach(func() {
 			ns = testsuite.GetTestNamespace(nil)
 			destPVC = "dest-" + rand.String(5)
@@ -281,7 +319,8 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 
 		It("should migrate the source volume from a source DV to a destination DV", func() {
 			volName := "disk0"
-			vm := createVMWithDV(createDV(), volName)
+			dv := createDV()
+			vm := createVMWithDV(dv, volName)
 			destDV := createBlankDV()
 			By("Update volumes")
 			updateVMWithDV(vm.Name, volName, destDV.Name)
@@ -293,6 +332,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitForMigrationToSucceed(vm.Name, ns)
+			checkMigratedVolumesOnVM(vm, volName, dv.Name, destDV.Name, true)
 		})
 
 		It("should migrate a PVC with a VM using a containerdisk", func() {
@@ -364,6 +404,23 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				return c.Status == k8sv1.ConditionFalse
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitMigrationToNotExist(vm.Name, ns)
+		})
+
+		It("should keep the migrated volumes information in the VM status if the VM is shutdown", func() {
+			volName := "volume"
+			dv := createDV()
+			vm := createVMWithDV(dv, volName)
+			// Create dest PVC
+			createUnschedulablePVC(destPVC, ns, size)
+			By("Update volumes")
+			updateVMWithPVC(vm.Name, volName, destPVC)
+			waitMigrationToExist(vm.Name, ns)
+			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
+			By("Stopping the VM during the volume migration")
+			stopOptions := &virtv1.StopOptions{GracePeriod: pointer.P(int64(0))}
+			err := virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOptions)
+			Expect(err).ToNot(HaveOccurred())
+			checkMigratedVolumesOnVM(vm, volName, dv.Name, destPVC, false)
 		})
 	})
 })
