@@ -72,6 +72,7 @@ type KubeVirtController struct {
 	operatorNamespace    string
 	aggregatorClient     install.APIServiceInterface
 	statusUpdater        *status.KVStatusUpdater
+	hasSynced            func() bool
 }
 
 func NewKubeVirtController(
@@ -126,6 +127,32 @@ func NewKubeVirtController(
 		delayedQueueAdder: func(key interface{}, queue workqueue.RateLimitingInterface) {
 			queue.AddAfter(key, defaultAddDelay)
 		},
+	}
+	c.hasSynced = func() bool {
+		return c.informers.KubeVirt.HasSynced() &&
+			c.informers.ServiceAccount.HasSynced() &&
+			c.informers.ClusterRole.HasSynced() &&
+			c.informers.ClusterRoleBinding.HasSynced() &&
+			c.informers.Role.HasSynced() &&
+			c.informers.RoleBinding.HasSynced() &&
+			c.informers.OperatorCrd.HasSynced() &&
+			c.informers.Service.HasSynced() &&
+			c.informers.Deployment.HasSynced() &&
+			c.informers.DaemonSet.HasSynced() &&
+			c.informers.ValidationWebhook.HasSynced() &&
+			c.informers.SCC.HasSynced() &&
+			c.informers.Route.HasSynced() &&
+			c.informers.InstallStrategyConfigMap.HasSynced() &&
+			c.informers.InstallStrategyJob.HasSynced() &&
+			c.informers.InfrastructurePod.HasSynced() &&
+			c.informers.PodDisruptionBudget.HasSynced() &&
+			c.informers.ServiceMonitor.HasSynced() &&
+			c.informers.Namespace.HasSynced() &&
+			c.informers.PrometheusRule.HasSynced() &&
+			c.informers.Secrets.HasSynced() &&
+			c.informers.ConfigMap.HasSynced() &&
+			c.informers.ValidatingAdmissionPolicyBinding.HasSynced() &&
+			c.informers.ValidatingAdmissionPolicy.HasSynced()
 	}
 
 	_, err := c.informers.KubeVirt.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -689,30 +716,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting KubeVirt controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.informers.KubeVirt.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.ServiceAccount.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.ClusterRole.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.ClusterRoleBinding.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.Role.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.RoleBinding.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.OperatorCrd.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.Service.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.Deployment.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.DaemonSet.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.ValidationWebhook.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.SCC.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.Route.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.InstallStrategyConfigMap.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.InstallStrategyJob.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.InfrastructurePod.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.PodDisruptionBudget.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.ServiceMonitor.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.Namespace.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.PrometheusRule.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.Secrets.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.ConfigMap.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.ValidatingAdmissionPolicyBinding.HasSynced)
-	cache.WaitForCacheSync(stopCh, c.informers.ValidatingAdmissionPolicy.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
