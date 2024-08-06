@@ -469,6 +469,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Realtime":                                                           schema_kubevirtio_api_core_v1_Realtime(ref),
 		"kubevirt.io/api/core/v1.ReloadableComponentConfiguration":                                   schema_kubevirtio_api_core_v1_ReloadableComponentConfiguration(ref),
 		"kubevirt.io/api/core/v1.RemoveVolumeOptions":                                                schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref),
+		"kubevirt.io/api/core/v1.ResourceClaim":                                                      schema_kubevirtio_api_core_v1_ResourceClaim(ref),
+		"kubevirt.io/api/core/v1.ResourceClaimSource":                                                schema_kubevirtio_api_core_v1_ResourceClaimSource(ref),
 		"kubevirt.io/api/core/v1.ResourceRequirements":                                               schema_kubevirtio_api_core_v1_ResourceRequirements(ref),
 		"kubevirt.io/api/core/v1.RestartOptions":                                                     schema_kubevirtio_api_core_v1_RestartOptions(ref),
 		"kubevirt.io/api/core/v1.Rng":                                                                schema_kubevirtio_api_core_v1_Rng(ref),
@@ -19573,10 +19575,18 @@ func schema_kubevirtio_api_core_v1_HostDevice(ref common.ReferenceCallback) comm
 							Format:      "",
 						},
 					},
+					"resourceClaim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the ResourceName of the host device will be provisioned using DRA driver . which will not require the deviceName field",
+							Ref:         ref("kubevirt.io/api/core/v1.ResourceClaim"),
+						},
+					},
 				},
 				Required: []string{"name", "deviceName"},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.ResourceClaim"},
 	}
 }
 
@@ -22694,6 +22704,67 @@ func schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref common.ReferenceCallb
 					},
 				},
 				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ResourceClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceClaim represents a resource claim to be used by the virtual machine",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the resource claim",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source represents the source of the resource claim",
+							Default:     map[string]interface{}{},
+							Ref:         ref("kubevirt.io/api/core/v1.ResourceClaimSource"),
+						},
+					},
+				},
+				Required: []string{"name", "source"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.ResourceClaimSource"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ResourceClaimSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceClaimSource represents the source of a resource claim",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceClaimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceClaimName is the name of the resource claim",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resourceClaimTemplateName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceClaimTemplateName is the name of the resource claim template\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"resourceClaimName", "resourceClaimTemplateName"},
 			},
 		},
 	}

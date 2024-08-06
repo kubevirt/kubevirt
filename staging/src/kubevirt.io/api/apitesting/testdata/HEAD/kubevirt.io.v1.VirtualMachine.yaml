@@ -479,6 +479,11 @@ spec:
           hostDevices:
           - deviceName: deviceNameValue
             name: nameValue
+            resourceClaim:
+              name: nameValue
+              source:
+                resourceClaimName: resourceClaimNameValue
+                resourceClaimTemplateName: resourceClaimTemplateNameValue
             tag: tagValue
           inputs:
           - bus: busValue
