@@ -95,7 +95,8 @@ var _ = Describe("Node-labeller config", func() {
 		err := nlController.loadDomCapabilities()
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(nlController.loadHostSupportedFeatures()).To(Succeed())
+		err = nlController.loadHostSupportedFeatures()
+		Expect(err).ToNot(HaveOccurred())
 
 		cpuModels := nlController.getSupportedCpuModels(nlController.clusterConfig.GetObsoleteCPUModels())
 		cpuFeatures := nlController.getSupportedCpuFeatures()
