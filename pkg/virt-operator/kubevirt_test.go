@@ -99,10 +99,8 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	infrastructurePodSource   *framework.FakeControllerSource
-	podDisruptionBudgetSource *framework.FakeControllerSource
-	serviceMonitorSource      *framework.FakeControllerSource
-	prometheusRuleSource      *framework.FakeControllerSource
+	serviceMonitorSource *framework.FakeControllerSource
+	prometheusRuleSource *framework.FakeControllerSource
 
 	stop       chan struct{}
 	controller *KubeVirtController
@@ -194,9 +192,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.InstallStrategyJob, _ = testutils.NewFakeInformerFor(&batchv1.Job{})
 
-	k.informers.InfrastructurePod, k.infrastructurePodSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+	k.informers.InfrastructurePod, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
-	k.informers.PodDisruptionBudget, k.podDisruptionBudgetSource = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
+	k.informers.PodDisruptionBudget, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 
 	k.informers.Namespace, _ = testutils.NewFakeInformerWithIndexersFor(
 		&k8sv1.Namespace{}, cache.Indexers{
@@ -626,11 +624,10 @@ func (k *KubeVirtTestData) deleteInstallStrategyJob(key string) {
 }
 
 func (k *KubeVirtTestData) deletePodDisruptionBudget(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.PodDisruptionBudget.GetStore().GetByKey(key); exists {
-		k.podDisruptionBudgetSource.Delete(obj.(runtime.Object))
+		k.informers.PodDisruptionBudget.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteSecret(key string) {
@@ -1038,19 +1035,20 @@ func (k *KubeVirtTestData) addInstallStrategyJob(job *batchv1.Job) {
 }
 
 func (k *KubeVirtTestData) addPod(pod *k8sv1.Pod) {
-	k.mockQueue.ExpectAdds(1)
-	k.infrastructurePodSource.Add(pod)
-	k.mockQueue.Wait()
+	k.informers.InfrastructurePod.GetStore().Add(pod)
+	key, err := kubecontroller.KeyFunc(pod)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addPodDisruptionBudget(podDisruptionBudget *policyv1.PodDisruptionBudget, kv *v1.KubeVirt) {
-	k.mockQueue.ExpectAdds(1)
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 	}
-
-	k.podDisruptionBudgetSource.Add(podDisruptionBudget)
-	k.mockQueue.Wait()
+	k.informers.PodDisruptionBudget.GetStore().Add(podDisruptionBudget)
+	key, err := kubecontroller.KeyFunc(podDisruptionBudget)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addSecret(secret *k8sv1.Secret) {
