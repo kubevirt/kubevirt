@@ -91,7 +91,6 @@ type VirtOperatorApp struct {
 	operatorNamespace string
 
 	config    util.OperatorConfig
-	stores    util.Stores
 	informers util.Informers
 
 	LeaderElection      leaderelectionconfig.Configuration
@@ -196,31 +195,6 @@ func Execute() {
 		ClusterPreference:        app.informerFactory.VirtualMachineClusterPreference(),
 	}
 
-	app.stores = util.Stores{
-		KubeVirtCache:                 app.informerFactory.KubeVirt().GetStore(),
-		ServiceAccountCache:           app.informerFactory.OperatorServiceAccount().GetStore(),
-		ClusterRoleCache:              app.informerFactory.OperatorClusterRole().GetStore(),
-		ClusterRoleBindingCache:       app.informerFactory.OperatorClusterRoleBinding().GetStore(),
-		RoleCache:                     app.informerFactory.OperatorRole().GetStore(),
-		RoleBindingCache:              app.informerFactory.OperatorRoleBinding().GetStore(),
-		OperatorCrdCache:              app.informerFactory.OperatorCRD().GetStore(),
-		ServiceCache:                  app.informerFactory.OperatorService().GetStore(),
-		DeploymentCache:               app.informerFactory.OperatorDeployment().GetStore(),
-		DaemonSetCache:                app.informerFactory.OperatorDaemonSet().GetStore(),
-		ValidationWebhookCache:        app.informerFactory.OperatorValidationWebhook().GetStore(),
-		MutatingWebhookCache:          app.informerFactory.OperatorMutatingWebhook().GetStore(),
-		APIServiceCache:               app.informerFactory.OperatorAPIService().GetStore(),
-		InstallStrategyConfigMapCache: app.informerFactory.OperatorInstallStrategyConfigMaps().GetStore(),
-		InstallStrategyJobCache:       app.informerFactory.OperatorInstallStrategyJob().GetStore(),
-		InfrastructurePodCache:        app.informerFactory.OperatorPod().GetStore(),
-		PodDisruptionBudgetCache:      app.informerFactory.OperatorPodDisruptionBudget().GetStore(),
-		NamespaceCache:                app.informerFactory.Namespace().GetStore(),
-		SecretCache:                   app.informerFactory.Secrets().GetStore(),
-		ConfigMapCache:                app.informerFactory.OperatorConfigMap().GetStore(),
-		ClusterInstancetype:           app.informerFactory.VirtualMachineClusterInstancetype().GetStore(),
-		ClusterPreference:             app.informerFactory.VirtualMachineClusterPreference().GetStore(),
-	}
-
 	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
 	if err != nil {
 		golog.Fatalf("Error determining cluster type: %v", err)
@@ -228,16 +202,12 @@ func Execute() {
 	if onOpenShift {
 		log.Log.Info("we are on openshift")
 		app.informers.SCC = app.informerFactory.OperatorSCC()
-		app.stores.SCCCache = app.informerFactory.OperatorSCC().GetStore()
 		app.informers.Route = app.informerFactory.OperatorRoute()
-		app.stores.RouteCache = app.informerFactory.OperatorRoute().GetStore()
 		app.config.IsOnOpenshift = true
 	} else {
 		log.Log.Info("we are on kubernetes")
 		app.informers.SCC = app.informerFactory.DummyOperatorSCC()
-		app.stores.SCCCache = app.informerFactory.DummyOperatorSCC().GetStore()
 		app.informers.Route = app.informerFactory.DummyOperatorRoute()
-		app.stores.RouteCache = app.informerFactory.DummyOperatorRoute().GetStore()
 	}
 
 	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(app.clientSet)
@@ -247,13 +217,11 @@ func Execute() {
 	if serviceMonitorEnabled {
 		log.Log.Info("servicemonitor is defined")
 		app.informers.ServiceMonitor = app.informerFactory.OperatorServiceMonitor()
-		app.stores.ServiceMonitorCache = app.informerFactory.OperatorServiceMonitor().GetStore()
 
 		app.config.ServiceMonitorEnabled = true
 	} else {
 		log.Log.Info("servicemonitor is not defined")
 		app.informers.ServiceMonitor = app.informerFactory.DummyOperatorServiceMonitor()
-		app.stores.ServiceMonitorCache = app.informerFactory.DummyOperatorServiceMonitor().GetStore()
 	}
 
 	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(app.clientSet)
@@ -263,12 +231,10 @@ func Execute() {
 	if prometheusRuleEnabled {
 		log.Log.Info("prometheusrule is defined")
 		app.informers.PrometheusRule = app.informerFactory.OperatorPrometheusRule()
-		app.stores.PrometheusRuleCache = app.informerFactory.OperatorPrometheusRule().GetStore()
 		app.config.PrometheusRulesEnabled = true
 	} else {
 		log.Log.Info("prometheusrule is not defined")
 		app.informers.PrometheusRule = app.informerFactory.DummyOperatorPrometheusRule()
-		app.stores.PrometheusRuleCache = app.informerFactory.DummyOperatorPrometheusRule().GetStore()
 	}
 
 	validatingAdmissionPolicyBindingEnabled, err := util.IsValidatingAdmissionPolicyBindingEnabled(app.clientSet)
@@ -278,12 +244,10 @@ func Execute() {
 	if validatingAdmissionPolicyBindingEnabled {
 		log.Log.Info("validatingAdmissionPolicyBindingEnabled is defined")
 		app.informers.ValidatingAdmissionPolicyBinding = app.informerFactory.OperatorValidatingAdmissionPolicyBinding()
-		app.stores.ValidatingAdmissionPolicyBindingCache = app.informerFactory.OperatorValidatingAdmissionPolicyBinding().GetStore()
 		app.config.ValidatingAdmissionPolicyBindingEnabled = true
 	} else {
 		log.Log.Info("validatingAdmissionPolicyBindingEnabled is not defined")
 		app.informers.ValidatingAdmissionPolicyBinding = app.informerFactory.DummyOperatorValidatingAdmissionPolicyBinding()
-		app.stores.ValidatingAdmissionPolicyBindingCache = app.informerFactory.DummyOperatorValidatingAdmissionPolicyBinding().GetStore()
 	}
 
 	validatingAdmissionPolicyEnabled, err := util.IsValidatingAdmissionPolicyEnabled(app.clientSet)
@@ -293,18 +257,16 @@ func Execute() {
 	if validatingAdmissionPolicyEnabled {
 		log.Log.Info("validatingAdmissionPolicyEnabled is defined")
 		app.informers.ValidatingAdmissionPolicy = app.informerFactory.OperatorValidatingAdmissionPolicy()
-		app.stores.ValidatingAdmissionPolicyCache = app.informerFactory.OperatorValidatingAdmissionPolicy().GetStore()
 		app.config.ValidatingAdmissionPolicyEnabled = true
 	} else {
 		log.Log.Info("validatingAdmissionPolicyEnabled is not defined")
 		app.informers.ValidatingAdmissionPolicy = app.informerFactory.DummyOperatorValidatingAdmissionPolicy()
-		app.stores.ValidatingAdmissionPolicyCache = app.informerFactory.DummyOperatorValidatingAdmissionPolicy().GetStore()
 	}
 
 	app.prepareCertManagers()
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)
-	app.kubeVirtController, err = NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtRecorder, app.config, app.stores, app.informers, app.operatorNamespace)
+	app.kubeVirtController, err = NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtRecorder, app.config, app.informers, app.operatorNamespace)
 	if err != nil {
 		panic(err)
 	}
