@@ -99,7 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	apiserviceSource                       *framework.FakeControllerSource
 	sccSource                              *framework.FakeControllerSource
 	routeSource                            *framework.FakeControllerSource
 	installStrategyConfigMapSource         *framework.FakeControllerSource
@@ -194,7 +193,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.ValidationWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
 	k.informers.MutatingWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
-	k.informers.APIService, k.apiserviceSource = testutils.NewFakeInformerFor(&apiregv1.APIService{})
+	k.informers.APIService, _ = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 
 	k.informers.SCC, k.sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 
@@ -622,11 +621,10 @@ func (k *KubeVirtTestData) deleteMutatingWebhook(key string) {
 }
 
 func (k *KubeVirtTestData) deleteAPIService(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.APIService.GetStore().GetByKey(key); exists {
-		k.apiserviceSource.Delete(obj.(runtime.Object))
+		k.informers.APIService.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteInstallStrategyJob(key string) {
@@ -1043,10 +1041,11 @@ func (k *KubeVirtTestData) addMutatingWebhook(wh *admissionregistrationv1.Mutati
 	k.mockQueue.Add(key)
 }
 
-func (k *KubeVirtTestData) addAPIService(wh *apiregv1.APIService) {
-	k.mockQueue.ExpectAdds(1)
-	k.apiserviceSource.Add(wh)
-	k.mockQueue.Wait()
+func (k *KubeVirtTestData) addAPIService(as *apiregv1.APIService) {
+	k.informers.APIService.GetStore().Add(as)
+	key, err := kubecontroller.KeyFunc(as)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addInstallStrategyJob(job *batchv1.Job) {
