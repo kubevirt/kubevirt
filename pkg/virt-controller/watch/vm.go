@@ -977,6 +977,12 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 			return nil
 		}
 
+		if err := volumemig.GenerateVolumeMigrationStatus(c.clientset, vmi, vm); err != nil {
+			log.Log.Object(vm).Errorf("failed to update the volume migration info for vm:%v", err)
+			return err
+		}
+		log.Log.Object(vm).Infof("Updated volume migration information in the VM status")
+
 		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, c.pvcStore, vmi, vm); err != nil {
 			log.Log.Object(vm).Errorf("failed to update migrating volumes for vmi:%v", err)
 			return err
@@ -2434,6 +2440,7 @@ func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virt
 	}
 
 	syncStartFailureStatus(vm, vmi)
+	syncVolumeMigration(vm, vmi)
 	syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
 
@@ -2665,6 +2672,23 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 			LastProbeTime:      vmiReadyCond.LastProbeTime,
 			LastTransitionTime: vmiReadyCond.LastTransitionTime,
 		})
+	}
+}
+
+func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	if vm.Status.VolumeMigration == nil {
+		return
+	}
+	vmCond := controller.NewVirtualMachineConditionManager()
+	vmiCond := controller.NewVirtualMachineInstanceConditionManager()
+	if !vmiCond.HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange) &&
+		vmCond.HasCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange)) {
+		volsByName := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
+		for i, oldVol := range vm.Status.VolumeMigration.Volumes {
+			if v, ok := volsByName[oldVol.Name]; ok {
+				vm.Status.VolumeMigration.Volumes[i] = *v
+			}
+		}
 	}
 }
 

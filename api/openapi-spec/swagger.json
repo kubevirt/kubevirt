@@ -17651,6 +17651,9 @@
        "$ref": "#/definitions/v1.VirtualMachineStateChangeRequest"
       }
      },
+     "volumeMigration": {
+      "$ref": "#/definitions/v1.VolumeMigration"
+     },
      "volumeRequests": {
       "description": "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.",
       "type": "array",
@@ -17754,6 +17757,19 @@
      "sysprep": {
       "description": "Represents a Sysprep volume source.",
       "$ref": "#/definitions/v1.SysprepSource"
+     }
+    }
+   },
+   "v1.VolumeMigration": {
+    "type": "object",
+    "properties": {
+     "volumes": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.Volume"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },

@@ -1613,6 +1613,11 @@ type VirtualMachineStartFailure struct {
 	RetryAfterTimestamp  *metav1.Time `json:"retryAfterTimestamp,omitempty"`
 }
 
+type VolumeMigration struct {
+	// +listType=atomic
+	Volumes []Volume `json:"volumes,omitempty"`
+}
+
 // VirtualMachineStatus represents the status returned by the
 // controller to describe how the VirtualMachine is doing
 type VirtualMachineStatus struct {
@@ -1668,6 +1673,8 @@ type VirtualMachineStatus struct {
 	// RunStrategy tracks the last recorded RunStrategy used by the VM.
 	// This is needed to correctly process the next strategy (for now only the RerunOnFailure)
 	RunStrategy VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
+
+	VolumeMigration *VolumeMigration `json:"volumeMigration,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {
