@@ -22,7 +22,7 @@ import (
 
 const socketDialTimeout = 5
 
-type DomainWatcher struct {
+type domainWatcher struct {
 	lock                     sync.Mutex
 	wg                       sync.WaitGroup
 	stopChan                 chan struct{}
@@ -39,7 +39,7 @@ type DomainWatcher struct {
 }
 
 func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.ListerWatcher {
-	d := &DomainWatcher{
+	d := &domainWatcher{
 		backgroundWatcherStarted: false,
 		virtShareDir:             virtShareDir,
 		watchdogTimeout:          watchdogTimeout,
@@ -52,7 +52,7 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 	return d
 }
 
-func (d *DomainWatcher) startBackground() error {
+func (d *domainWatcher) startBackground() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -107,7 +107,7 @@ func (d *DomainWatcher) startBackground() error {
 	return nil
 }
 
-func (d *DomainWatcher) handleResync() {
+func (d *domainWatcher) handleResync() {
 	socketFiles, err := listSockets()
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
@@ -141,7 +141,7 @@ func (d *DomainWatcher) handleResync() {
 	}
 }
 
-func (d *DomainWatcher) handleStaleSocketConnections() error {
+func (d *domainWatcher) handleStaleSocketConnections() error {
 	var unresponsive []string
 
 	socketFiles, err := listSockets()
@@ -218,7 +218,7 @@ func (d *DomainWatcher) handleStaleSocketConnections() error {
 	return nil
 }
 
-func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
+func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
 	socketFiles, err := listSockets()
@@ -274,7 +274,7 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	return domains, nil
 }
 
-func (d *DomainWatcher) List(_ metav1.ListOptions) (runtime.Object, error) {
+func (d *domainWatcher) List(_ metav1.ListOptions) (runtime.Object, error) {
 
 	log.Log.V(3).Info("Synchronizing domains")
 	err := d.startBackground()
@@ -297,11 +297,11 @@ func (d *DomainWatcher) List(_ metav1.ListOptions) (runtime.Object, error) {
 	return &list, nil
 }
 
-func (d *DomainWatcher) Watch(_ metav1.ListOptions) (watch.Interface, error) {
+func (d *domainWatcher) Watch(_ metav1.ListOptions) (watch.Interface, error) {
 	return d, nil
 }
 
-func (d *DomainWatcher) Stop() {
+func (d *domainWatcher) Stop() {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -314,6 +314,6 @@ func (d *DomainWatcher) Stop() {
 	close(d.eventChan)
 }
 
-func (d *DomainWatcher) ResultChan() <-chan watch.Event {
+func (d *domainWatcher) ResultChan() <-chan watch.Event {
 	return d.eventChan
 }
