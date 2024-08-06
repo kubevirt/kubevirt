@@ -111,8 +111,6 @@ type KubeVirtTestData struct {
 	promClient     *promclientfake.Clientset
 	routeClient    *routev1fake.FakeRouteV1
 
-	config util.OperatorConfig
-
 	totalAdds       int
 	totalUpdates    int
 	totalPatches    int
@@ -152,79 +150,52 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.recorder = record.NewFakeRecorder(100)
 	k.recorder.IncludeObject = true
+
 	informers := util.Informers{}
-
 	informers.KubeVirt, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
-
 	informers.ServiceAccount, _ = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
-
 	informers.ServiceAccount, _ = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
-
 	informers.ClusterRole, _ = testutils.NewFakeInformerFor(&rbacv1.ClusterRole{})
-
 	informers.ClusterRoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.ClusterRoleBinding{})
-
 	informers.Role, _ = testutils.NewFakeInformerFor(&rbacv1.Role{})
-
 	informers.RoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
-
 	informers.OperatorCrd, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
-
 	informers.Service, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
-
 	informers.Deployment, _ = testutils.NewFakeInformerFor(&appsv1.Deployment{})
-
 	informers.DaemonSet, _ = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
-
 	informers.ValidationWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
-
 	informers.MutatingWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
-
 	informers.APIService, _ = testutils.NewFakeInformerFor(&apiregv1.APIService{})
-
 	informers.SCC, _ = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
-
 	informers.Route, _ = testutils.NewFakeInformerFor(&routev1.Route{})
-
 	informers.InstallStrategyConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
-
 	informers.InstallStrategyJob, _ = testutils.NewFakeInformerFor(&batchv1.Job{})
-
 	informers.InfrastructurePod, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-
 	informers.PodDisruptionBudget, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
-
 	informers.Namespace, _ = testutils.NewFakeInformerWithIndexersFor(
 		&k8sv1.Namespace{}, cache.Indexers{
 			"namespace_name": func(obj interface{}) ([]string, error) {
 				return []string{obj.(*k8sv1.Namespace).GetName()}, nil
 			},
 		})
-
-	// test OpenShift components
-	k.config.IsOnOpenshift = true
-
 	informers.ServiceMonitor, _ = testutils.NewFakeInformerFor(&promv1.ServiceMonitor{Spec: promv1.ServiceMonitorSpec{}})
-	k.config.ServiceMonitorEnabled = true
-
 	informers.PrometheusRule, _ = testutils.NewFakeInformerFor(&promv1.PrometheusRule{Spec: promv1.PrometheusRuleSpec{}})
-	k.config.PrometheusRulesEnabled = true
-
 	informers.Secrets, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
-
 	informers.ConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
-
 	informers.ValidatingAdmissionPolicyBinding, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
-	k.config.ValidatingAdmissionPolicyBindingEnabled = true
-
 	informers.ValidatingAdmissionPolicy, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
-	k.config.ValidatingAdmissionPolicyEnabled = true
-
 	informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
-
 	informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 
-	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, k.config, informers, NAMESPACE)
+	// test OpenShift components
+	config := util.OperatorConfig{
+		IsOnOpenshift:                           true,
+		ServiceMonitorEnabled:                   true,
+		PrometheusRulesEnabled:                  true,
+		ValidatingAdmissionPolicyBindingEnabled: true,
+		ValidatingAdmissionPolicyEnabled:        true,
+	}
+	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, config, informers, NAMESPACE)
 	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
 		// no delay to speed up tests
 		queue.Add(key)
