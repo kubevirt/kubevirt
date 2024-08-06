@@ -55,7 +55,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -98,9 +97,6 @@ type KubeVirtTestData struct {
 	ctrl             *gomock.Controller
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
-
-	serviceMonitorSource *framework.FakeControllerSource
-	prometheusRuleSource *framework.FakeControllerSource
 
 	stop       chan struct{}
 	controller *KubeVirtController
@@ -206,10 +202,10 @@ func (k *KubeVirtTestData) BeforeTest() {
 	// test OpenShift components
 	k.config.IsOnOpenshift = true
 
-	k.informers.ServiceMonitor, k.serviceMonitorSource = testutils.NewFakeInformerFor(&promv1.ServiceMonitor{Spec: promv1.ServiceMonitorSpec{}})
+	k.informers.ServiceMonitor, _ = testutils.NewFakeInformerFor(&promv1.ServiceMonitor{Spec: promv1.ServiceMonitorSpec{}})
 	k.config.ServiceMonitorEnabled = true
 
-	k.informers.PrometheusRule, k.prometheusRuleSource = testutils.NewFakeInformerFor(&promv1.PrometheusRule{Spec: promv1.PrometheusRuleSpec{}})
+	k.informers.PrometheusRule, _ = testutils.NewFakeInformerFor(&promv1.PrometheusRule{Spec: promv1.PrometheusRuleSpec{}})
 	k.config.PrometheusRulesEnabled = true
 
 	k.informers.Secrets, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
@@ -677,19 +673,17 @@ func (k *KubeVirtTestData) deleteRoute(key string) {
 }
 
 func (k *KubeVirtTestData) deleteServiceMonitor(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.ServiceMonitor.GetStore().GetByKey(key); exists {
-		k.serviceMonitorSource.Delete(obj.(runtime.Object))
+		k.informers.ServiceMonitor.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deletePrometheusRule(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.PrometheusRule.GetStore().GetByKey(key); exists {
-		k.prometheusRuleSource.Delete(obj.(runtime.Object))
+		k.informers.PrometheusRule.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) shouldExpectPatchesAndUpdates(kv *v1.KubeVirt) {
@@ -1098,15 +1092,17 @@ func (k *KubeVirtTestData) addRoute(route *routev1.Route) {
 }
 
 func (k *KubeVirtTestData) addServiceMonitor(serviceMonitor *promv1.ServiceMonitor) {
-	k.mockQueue.ExpectAdds(1)
-	k.serviceMonitorSource.Add(serviceMonitor)
-	k.mockQueue.Wait()
+	k.informers.ServiceMonitor.GetStore().Add(serviceMonitor)
+	key, err := kubecontroller.KeyFunc(serviceMonitor)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addPrometheusRule(prometheusRule *promv1.PrometheusRule) {
-	k.mockQueue.ExpectAdds(1)
-	k.prometheusRuleSource.Add(prometheusRule)
-	k.mockQueue.Wait()
+	k.informers.PrometheusRule.GetStore().Add(prometheusRule)
+	key, err := kubecontroller.KeyFunc(prometheusRule)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) generateRandomResources() int {
@@ -1803,7 +1799,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.ObjectMeta.Finalizers).To(BeEmpty())
 		})
 
-		FIt("should observe custom image tag in status during deploy", func() {
+		It("should observe custom image tag in status during deploy", func() {
 			defer GinkgoRecover()
 
 			kvTestData := KubeVirtTestData{}
