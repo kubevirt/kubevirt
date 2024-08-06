@@ -251,8 +251,7 @@ func listSockets() ([]string, error) {
 	return sockets, nil
 }
 
-func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) (cache.SharedInformer, error) {
+func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
 	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore, resyncPeriod)
-	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
-	return informer, nil
+	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }
