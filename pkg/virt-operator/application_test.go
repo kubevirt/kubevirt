@@ -42,8 +42,8 @@ var _ = Describe("Reinitialization conditions", func() {
 		clusterConfig, crdInformer, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		app.clusterConfig = clusterConfig
 		app.reInitChan = make(chan string, 10)
-		app.stores.ServiceMonitorEnabled = hasServiceMonitor
-		app.stores.PrometheusRulesEnabled = hasPrometheusRules
+		app.config.ServiceMonitorEnabled = hasServiceMonitor
+		app.config.PrometheusRulesEnabled = hasPrometheusRules
 
 		if addServiceMonitorCrd {
 			testutils.AddServiceMonitorAPI(crdInformer)

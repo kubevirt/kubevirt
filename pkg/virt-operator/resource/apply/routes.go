@@ -18,7 +18,7 @@ import (
 )
 
 func (r *Reconciler) createOrUpdateRoutes(caBundle []byte) error {
-	if !r.stores.IsOnOpenshift {
+	if !r.config.IsOnOpenshift {
 		return nil
 	}
 
