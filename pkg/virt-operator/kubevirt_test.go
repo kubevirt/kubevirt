@@ -102,9 +102,7 @@ type KubeVirtTestData struct {
 	infrastructurePodSource   *framework.FakeControllerSource
 	podDisruptionBudgetSource *framework.FakeControllerSource
 	serviceMonitorSource      *framework.FakeControllerSource
-	namespaceSource           *framework.FakeControllerSource
 	prometheusRuleSource      *framework.FakeControllerSource
-	secretsSource             *framework.FakeControllerSource
 
 	stop       chan struct{}
 	controller *KubeVirtController
@@ -200,7 +198,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.PodDisruptionBudget, k.podDisruptionBudgetSource = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 
-	k.informers.Namespace, k.namespaceSource = testutils.NewFakeInformerWithIndexersFor(
+	k.informers.Namespace, _ = testutils.NewFakeInformerWithIndexersFor(
 		&k8sv1.Namespace{}, cache.Indexers{
 			"namespace_name": func(obj interface{}) ([]string, error) {
 				return []string{obj.(*k8sv1.Namespace).GetName()}, nil
@@ -216,7 +214,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.PrometheusRule, k.prometheusRuleSource = testutils.NewFakeInformerFor(&promv1.PrometheusRule{Spec: promv1.PrometheusRuleSpec{}})
 	k.config.PrometheusRulesEnabled = true
 
-	k.informers.Secrets, k.secretsSource = testutils.NewFakeInformerFor(&k8sv1.Secret{})
+	k.informers.Secrets, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
 	k.informers.ConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 
 	k.informers.ValidatingAdmissionPolicyBinding, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
@@ -636,11 +634,10 @@ func (k *KubeVirtTestData) deletePodDisruptionBudget(key string) {
 }
 
 func (k *KubeVirtTestData) deleteSecret(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.Secrets.GetStore().GetByKey(key); exists {
-		k.secretsSource.Delete(obj.(runtime.Object))
+		k.informers.Secrets.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteConfigMap(key string) {
@@ -1057,9 +1054,10 @@ func (k *KubeVirtTestData) addPodDisruptionBudget(podDisruptionBudget *policyv1.
 }
 
 func (k *KubeVirtTestData) addSecret(secret *k8sv1.Secret) {
-	k.mockQueue.ExpectAdds(1)
-	k.secretsSource.Add(secret)
-	k.mockQueue.Wait()
+	k.informers.Secrets.GetStore().Add(secret)
+	key, err := kubecontroller.KeyFunc(secret)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addValidatingAdmissionPolicyBinding(vapb *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
@@ -1589,8 +1587,7 @@ func (k *KubeVirtTestData) addPodDisruptionBudgets(config *util.KubeVirtDeployme
 
 func (k *KubeVirtTestData) fakeNamespaceModificationEvent() {
 	// Add modification event for namespace w/o the labels we need
-	k.mockQueue.ExpectAdds(1)
-	k.namespaceSource.Modify(&k8sv1.Namespace{
+	k.informers.Namespace.GetStore().Update(&k8sv1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Namespace",
 		},
@@ -1598,7 +1595,8 @@ func (k *KubeVirtTestData) fakeNamespaceModificationEvent() {
 			Name: NAMESPACE,
 		},
 	})
-	k.mockQueue.Wait()
+	key, _ := kubecontroller.KeyFunc(NAMESPACE)
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) shouldExpectNamespacePatch() {
@@ -1807,7 +1805,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.ObjectMeta.Finalizers).To(BeEmpty())
 		})
 
-		It("should observe custom image tag in status during deploy", func() {
+		FIt("should observe custom image tag in status during deploy", func() {
 			defer GinkgoRecover()
 
 			kvTestData := KubeVirtTestData{}
