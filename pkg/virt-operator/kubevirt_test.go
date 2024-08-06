@@ -99,8 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	validatingWebhookSource                *framework.FakeControllerSource
-	mutatingWebhookSource                  *framework.FakeControllerSource
 	apiserviceSource                       *framework.FakeControllerSource
 	sccSource                              *framework.FakeControllerSource
 	routeSource                            *framework.FakeControllerSource
@@ -194,8 +192,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.DaemonSet, _ = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 
-	k.informers.ValidationWebhook, k.validatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
-	k.informers.MutatingWebhook, k.mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
+	k.informers.ValidationWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
+	k.informers.MutatingWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
 	k.informers.APIService, k.apiserviceSource = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 
 	k.informers.SCC, k.sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
@@ -610,19 +608,17 @@ func (k *KubeVirtTestData) deleteDaemonset(key string) {
 }
 
 func (k *KubeVirtTestData) deleteValidationWebhook(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.ValidationWebhook.GetStore().GetByKey(key); exists {
-		k.validatingWebhookSource.Delete(obj.(runtime.Object))
+		k.informers.ValidationWebhook.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteMutatingWebhook(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.MutatingWebhook.GetStore().GetByKey(key); exists {
-		k.mutatingWebhookSource.Delete(obj.(runtime.Object))
+		k.informers.MutatingWebhook.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteAPIService(key string) {
@@ -1038,13 +1034,13 @@ func (k *KubeVirtTestData) addDaemonset(ds *appsv1.DaemonSet, kv *v1.KubeVirt) {
 }
 
 func (k *KubeVirtTestData) addMutatingWebhook(wh *admissionregistrationv1.MutatingWebhookConfiguration, kv *v1.KubeVirt) {
-	k.mockQueue.ExpectAdds(1)
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, wh)
 	}
-
-	k.mutatingWebhookSource.Add(wh)
-	k.mockQueue.Wait()
+	k.informers.MutatingWebhook.GetStore().Add(wh)
+	key, err := kubecontroller.KeyFunc(wh)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addAPIService(wh *apiregv1.APIService) {
@@ -1562,13 +1558,13 @@ func (k *KubeVirtTestData) addDummyValidationWebhook() {
 }
 
 func (k *KubeVirtTestData) addValidatingWebhook(wh *admissionregistrationv1.ValidatingWebhookConfiguration, kv *v1.KubeVirt) {
-	k.mockQueue.ExpectAdds(1)
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, wh)
 	}
-
-	k.validatingWebhookSource.Add(wh)
-	k.mockQueue.Wait()
+	k.informers.ValidationWebhook.GetStore().Add(wh)
+	key, err := kubecontroller.KeyFunc(wh)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentConfig) {
