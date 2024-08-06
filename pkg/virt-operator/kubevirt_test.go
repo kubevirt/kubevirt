@@ -99,15 +99,12 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	installStrategyConfigMapSource         *framework.FakeControllerSource
-	installStrategyJobSource               *framework.FakeControllerSource
 	infrastructurePodSource                *framework.FakeControllerSource
 	podDisruptionBudgetSource              *framework.FakeControllerSource
 	serviceMonitorSource                   *framework.FakeControllerSource
 	namespaceSource                        *framework.FakeControllerSource
 	prometheusRuleSource                   *framework.FakeControllerSource
 	secretsSource                          *framework.FakeControllerSource
-	configMapSource                        *framework.FakeControllerSource
 	ValidatingAdmissionPolicyBindingSource *framework.FakeControllerSource
 	ValidatingAdmissionPolicySource        *framework.FakeControllerSource
 
@@ -197,9 +194,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.Route, _ = testutils.NewFakeInformerFor(&routev1.Route{})
 
-	k.informers.InstallStrategyConfigMap, k.installStrategyConfigMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+	k.informers.InstallStrategyConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 
-	k.informers.InstallStrategyJob, k.installStrategyJobSource = testutils.NewFakeInformerFor(&batchv1.Job{})
+	k.informers.InstallStrategyJob, _ = testutils.NewFakeInformerFor(&batchv1.Job{})
 
 	k.informers.InfrastructurePod, k.infrastructurePodSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
@@ -222,7 +219,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.config.PrometheusRulesEnabled = true
 
 	k.informers.Secrets, k.secretsSource = testutils.NewFakeInformerFor(&k8sv1.Secret{})
-	k.informers.ConfigMap, k.configMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+	k.informers.ConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 
 	k.informers.ValidatingAdmissionPolicyBinding, k.ValidatingAdmissionPolicyBindingSource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
 	k.config.ValidatingAdmissionPolicyBindingEnabled = true
@@ -626,11 +623,10 @@ func (k *KubeVirtTestData) deleteAPIService(key string) {
 }
 
 func (k *KubeVirtTestData) deleteInstallStrategyJob(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.InstallStrategyJob.GetStore().GetByKey(key); exists {
-		k.installStrategyJobSource.Delete(obj.(runtime.Object))
+		k.informers.InstallStrategyJob.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deletePodDisruptionBudget(key string) {
@@ -650,15 +646,14 @@ func (k *KubeVirtTestData) deleteSecret(key string) {
 }
 
 func (k *KubeVirtTestData) deleteConfigMap(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.ConfigMap.GetStore().GetByKey(key); exists {
 		configMap := obj.(*k8sv1.ConfigMap)
-		k.configMapSource.Delete(configMap)
+		k.informers.ConfigMap.GetStore().Delete(configMap)
 	} else if obj, exists, _ := k.informers.InstallStrategyConfigMap.GetStore().GetByKey(key); exists {
 		configMap := obj.(*k8sv1.ConfigMap)
-		k.installStrategyConfigMapSource.Delete(configMap)
+		k.informers.InstallStrategyConfigMap.GetStore().Delete(configMap)
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteValidatingAdmissionPolicyBinding(key string) {
@@ -1045,9 +1040,10 @@ func (k *KubeVirtTestData) addAPIService(as *apiregv1.APIService) {
 }
 
 func (k *KubeVirtTestData) addInstallStrategyJob(job *batchv1.Job) {
-	k.mockQueue.ExpectAdds(1)
-	k.installStrategyJobSource.Add(job)
-	k.mockQueue.Wait()
+	k.informers.InstallStrategyJob.GetStore().Add(job)
+	key, err := kubecontroller.KeyFunc(job)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addPod(pod *k8sv1.Pod) {
@@ -1085,13 +1081,14 @@ func (k *KubeVirtTestData) addValidatingAdmissionPolicy(validatingAdmissionPolic
 }
 
 func (k *KubeVirtTestData) addConfigMap(configMap *k8sv1.ConfigMap) {
-	k.mockQueue.ExpectAdds(1)
 	if _, ok := configMap.Labels[v1.InstallStrategyLabel]; ok {
-		k.installStrategyConfigMapSource.Add(configMap)
+		k.informers.InstallStrategyConfigMap.GetStore().Add(configMap)
 	} else {
-		k.configMapSource.Add(configMap)
+		k.informers.ConfigMap.GetStore().Add(configMap)
 	}
-	k.mockQueue.Wait()
+	key, err := kubecontroller.KeyFunc(configMap)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addSCC(scc *secv1.SecurityContextConstraints) {
