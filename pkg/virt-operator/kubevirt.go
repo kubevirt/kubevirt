@@ -65,6 +65,7 @@ type KubeVirtController struct {
 	queue                workqueue.RateLimitingInterface
 	delayedQueueAdder    func(key interface{}, queue workqueue.RateLimitingInterface)
 	recorder             record.EventRecorder
+	config               util.OperatorConfig
 	stores               util.Stores
 	kubeVirtExpectations util.Expectations
 	latestStrategy       atomic.Value
@@ -78,6 +79,7 @@ func NewKubeVirtController(
 	clientset kubecli.KubevirtClient,
 	aggregatorClient install.APIServiceInterface,
 	recorder record.EventRecorder,
+	config util.OperatorConfig,
 	stores util.Stores,
 	informers util.Informers,
 	operatorNamespace string,
@@ -93,6 +95,7 @@ func NewKubeVirtController(
 		aggregatorClient: aggregatorClient,
 		queue:            workqueue.NewNamedRateLimitingQueue(rl, VirtOperator),
 		recorder:         recorder,
+		config:           config,
 		stores:           stores,
 		kubeVirtExpectations: util.Expectations{
 			ServiceAccount:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
@@ -1021,7 +1024,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 		return err
 	}
 
-	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder)
+	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.config, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder)
 	if err != nil {
 		// deployment failed
 		util.UpdateConditionsFailedError(kv, err)

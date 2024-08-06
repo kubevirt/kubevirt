@@ -90,6 +90,7 @@ type VirtOperatorApp struct {
 
 	operatorNamespace string
 
+	config    util.OperatorConfig
 	stores    util.Stores
 	informers util.Informers
 
@@ -166,8 +167,9 @@ func Execute() {
 		os.Exit(0)
 	}
 
-	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.aggregatorClient, app.operatorNamespace)
+	app.config = util.OperatorConfig{}
 
+	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.aggregatorClient, app.operatorNamespace)
 	app.informers = util.Informers{
 		KubeVirt:                 app.informerFactory.KubeVirt(),
 		CRD:                      app.informerFactory.CRD(),
@@ -229,7 +231,7 @@ func Execute() {
 		app.stores.SCCCache = app.informerFactory.OperatorSCC().GetStore()
 		app.informers.Route = app.informerFactory.OperatorRoute()
 		app.stores.RouteCache = app.informerFactory.OperatorRoute().GetStore()
-		app.stores.IsOnOpenshift = true
+		app.config.IsOnOpenshift = true
 	} else {
 		log.Log.Info("we are on kubernetes")
 		app.informers.SCC = app.informerFactory.DummyOperatorSCC()
@@ -247,7 +249,7 @@ func Execute() {
 		app.informers.ServiceMonitor = app.informerFactory.OperatorServiceMonitor()
 		app.stores.ServiceMonitorCache = app.informerFactory.OperatorServiceMonitor().GetStore()
 
-		app.stores.ServiceMonitorEnabled = true
+		app.config.ServiceMonitorEnabled = true
 	} else {
 		log.Log.Info("servicemonitor is not defined")
 		app.informers.ServiceMonitor = app.informerFactory.DummyOperatorServiceMonitor()
@@ -262,7 +264,7 @@ func Execute() {
 		log.Log.Info("prometheusrule is defined")
 		app.informers.PrometheusRule = app.informerFactory.OperatorPrometheusRule()
 		app.stores.PrometheusRuleCache = app.informerFactory.OperatorPrometheusRule().GetStore()
-		app.stores.PrometheusRulesEnabled = true
+		app.config.PrometheusRulesEnabled = true
 	} else {
 		log.Log.Info("prometheusrule is not defined")
 		app.informers.PrometheusRule = app.informerFactory.DummyOperatorPrometheusRule()
@@ -277,7 +279,7 @@ func Execute() {
 		log.Log.Info("validatingAdmissionPolicyBindingEnabled is defined")
 		app.informers.ValidatingAdmissionPolicyBinding = app.informerFactory.OperatorValidatingAdmissionPolicyBinding()
 		app.stores.ValidatingAdmissionPolicyBindingCache = app.informerFactory.OperatorValidatingAdmissionPolicyBinding().GetStore()
-		app.stores.ValidatingAdmissionPolicyBindingEnabled = true
+		app.config.ValidatingAdmissionPolicyBindingEnabled = true
 	} else {
 		log.Log.Info("validatingAdmissionPolicyBindingEnabled is not defined")
 		app.informers.ValidatingAdmissionPolicyBinding = app.informerFactory.DummyOperatorValidatingAdmissionPolicyBinding()
@@ -292,7 +294,7 @@ func Execute() {
 		log.Log.Info("validatingAdmissionPolicyEnabled is defined")
 		app.informers.ValidatingAdmissionPolicy = app.informerFactory.OperatorValidatingAdmissionPolicy()
 		app.stores.ValidatingAdmissionPolicyCache = app.informerFactory.OperatorValidatingAdmissionPolicy().GetStore()
-		app.stores.ValidatingAdmissionPolicyEnabled = true
+		app.config.ValidatingAdmissionPolicyEnabled = true
 	} else {
 		log.Log.Info("validatingAdmissionPolicyEnabled is not defined")
 		app.informers.ValidatingAdmissionPolicy = app.informerFactory.DummyOperatorValidatingAdmissionPolicy()
@@ -302,7 +304,7 @@ func Execute() {
 	app.prepareCertManagers()
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)
-	app.kubeVirtController, err = NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
+	app.kubeVirtController, err = NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtRecorder, app.config, app.stores, app.informers, app.operatorNamespace)
 	if err != nil {
 		panic(err)
 	}
@@ -472,8 +474,8 @@ func (app *VirtOperatorApp) configModificationCallback() {
 	msgf := "Reinitialize virt-operator, %s has been %s"
 
 	smEnabled := app.clusterConfig.HasServiceMonitorAPI()
-	if app.stores.ServiceMonitorEnabled != smEnabled {
-		if !app.stores.ServiceMonitorEnabled && smEnabled {
+	if app.config.ServiceMonitorEnabled != smEnabled {
+		if !app.config.ServiceMonitorEnabled && smEnabled {
 			log.Log.Infof(msgf, "ServiceMonitor", "introduced")
 		} else {
 			log.Log.Infof(msgf, "ServiceMonitor", "removed")
@@ -483,8 +485,8 @@ func (app *VirtOperatorApp) configModificationCallback() {
 	}
 
 	prEnabled := app.clusterConfig.HasPrometheusRuleAPI()
-	if app.stores.PrometheusRulesEnabled != prEnabled {
-		if !app.stores.PrometheusRulesEnabled && prEnabled {
+	if app.config.PrometheusRulesEnabled != prEnabled {
+		if !app.config.PrometheusRulesEnabled && prEnabled {
 			log.Log.Infof(msgf, "PrometheusRule", "introduced")
 		} else {
 			log.Log.Infof(msgf, "PrometheusRule", "removed")

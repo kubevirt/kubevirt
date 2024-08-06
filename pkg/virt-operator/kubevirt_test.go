@@ -142,6 +142,7 @@ type KubeVirtTestData struct {
 
 	informers util.Informers
 	stores    util.Stores
+	config    util.OperatorConfig
 
 	totalAdds       int
 	totalUpdates    int
@@ -248,15 +249,15 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.stores.NamespaceCache = k.informers.Namespace.GetStore()
 
 	// test OpenShift components
-	k.stores.IsOnOpenshift = true
+	k.config.IsOnOpenshift = true
 
 	k.informers.ServiceMonitor, k.serviceMonitorSource = testutils.NewFakeInformerFor(&promv1.ServiceMonitor{Spec: promv1.ServiceMonitorSpec{}})
 	k.stores.ServiceMonitorCache = k.informers.ServiceMonitor.GetStore()
-	k.stores.ServiceMonitorEnabled = true
+	k.config.ServiceMonitorEnabled = true
 
 	k.informers.PrometheusRule, k.prometheusRuleSource = testutils.NewFakeInformerFor(&promv1.PrometheusRule{Spec: promv1.PrometheusRuleSpec{}})
 	k.stores.PrometheusRuleCache = k.informers.PrometheusRule.GetStore()
-	k.stores.PrometheusRulesEnabled = true
+	k.config.PrometheusRulesEnabled = true
 
 	k.informers.Secrets, k.secretsSource = testutils.NewFakeInformerFor(&k8sv1.Secret{})
 	k.stores.SecretCache = k.informers.Secrets.GetStore()
@@ -265,10 +266,10 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.ValidatingAdmissionPolicyBinding, k.ValidatingAdmissionPolicyBindingSource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
 	k.stores.ValidatingAdmissionPolicyBindingCache = k.informers.ValidatingAdmissionPolicyBinding.GetStore()
-	k.stores.ValidatingAdmissionPolicyBindingEnabled = true
+	k.config.ValidatingAdmissionPolicyBindingEnabled = true
 	k.informers.ValidatingAdmissionPolicy, k.ValidatingAdmissionPolicySource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
 	k.stores.ValidatingAdmissionPolicyCache = k.informers.ValidatingAdmissionPolicy.GetStore()
-	k.stores.ValidatingAdmissionPolicyEnabled = true
+	k.config.ValidatingAdmissionPolicyEnabled = true
 
 	k.informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
 	k.stores.ClusterInstancetype = k.informers.ClusterInstancetype.GetStore()
@@ -276,7 +277,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 	k.stores.ClusterPreference = k.informers.ClusterPreference.GetStore()
 
-	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, k.stores, k.informers, NAMESPACE)
+	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, k.config, k.stores, k.informers, NAMESPACE)
 	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
 		// no delay to speed up tests
 		queue.Add(key)
