@@ -99,7 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	deploymentSource                       *framework.FakeControllerSource
 	daemonSetSource                        *framework.FakeControllerSource
 	validatingWebhookSource                *framework.FakeControllerSource
 	mutatingWebhookSource                  *framework.FakeControllerSource
@@ -192,7 +191,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.Service, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
 
-	k.informers.Deployment, k.deploymentSource = testutils.NewFakeInformerFor(&appsv1.Deployment{})
+	k.informers.Deployment, _ = testutils.NewFakeInformerFor(&appsv1.Deployment{})
 
 	k.informers.DaemonSet, k.daemonSetSource = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 
@@ -598,11 +597,10 @@ func (k *KubeVirtTestData) deleteService(key string) {
 }
 
 func (k *KubeVirtTestData) deleteDeployment(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.Deployment.GetStore().GetByKey(key); exists {
-		k.deploymentSource.Delete(obj.(runtime.Object))
+		k.informers.Deployment.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteDaemonset(key string) {
@@ -1022,13 +1020,13 @@ func (k *KubeVirtTestData) addService(svc *k8sv1.Service) {
 }
 
 func (k *KubeVirtTestData) addDeployment(depl *appsv1.Deployment, kv *v1.KubeVirt) {
-	k.mockQueue.ExpectAdds(1)
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, depl)
 	}
-
-	k.deploymentSource.Add(depl)
-	k.mockQueue.Wait()
+	k.informers.Deployment.GetStore().Add(depl)
+	key, err := kubecontroller.KeyFunc(depl)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addDaemonset(ds *appsv1.DaemonSet, kv *v1.KubeVirt) {
@@ -1486,9 +1484,10 @@ func (k *KubeVirtTestData) makeDeploymentsReady(kv *v1.KubeVirt) {
 		}
 		deplNew.Status.Replicas = replicas
 		deplNew.Status.ReadyReplicas = replicas
-		k.mockQueue.ExpectAdds(1)
-		k.deploymentSource.Modify(deplNew)
-		k.mockQueue.Wait()
+		k.informers.Deployment.GetStore().Update(deplNew)
+		key, err := kubecontroller.KeyFunc(deplNew)
+		Expect(err).To(Not(HaveOccurred()))
+		k.mockQueue.Add(key)
 	}
 
 	deployments := []string{"/virt-api", "/virt-controller"}
