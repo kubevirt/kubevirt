@@ -99,7 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	daemonSetSource                        *framework.FakeControllerSource
 	validatingWebhookSource                *framework.FakeControllerSource
 	mutatingWebhookSource                  *framework.FakeControllerSource
 	apiserviceSource                       *framework.FakeControllerSource
@@ -193,7 +192,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.Deployment, _ = testutils.NewFakeInformerFor(&appsv1.Deployment{})
 
-	k.informers.DaemonSet, k.daemonSetSource = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
+	k.informers.DaemonSet, _ = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 
 	k.informers.ValidationWebhook, k.validatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
 	k.informers.MutatingWebhook, k.mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
@@ -604,11 +603,10 @@ func (k *KubeVirtTestData) deleteDeployment(key string) {
 }
 
 func (k *KubeVirtTestData) deleteDaemonset(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.DaemonSet.GetStore().GetByKey(key); exists {
-		k.daemonSetSource.Delete(obj.(runtime.Object))
+		k.informers.DaemonSet.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteValidationWebhook(key string) {
@@ -1030,13 +1028,13 @@ func (k *KubeVirtTestData) addDeployment(depl *appsv1.Deployment, kv *v1.KubeVir
 }
 
 func (k *KubeVirtTestData) addDaemonset(ds *appsv1.DaemonSet, kv *v1.KubeVirt) {
-	k.mockQueue.ExpectAdds(1)
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, ds)
 	}
-
-	k.daemonSetSource.Add(ds)
-	k.mockQueue.Wait()
+	k.informers.DaemonSet.GetStore().Add(ds)
+	key, err := kubecontroller.KeyFunc(ds)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addMutatingWebhook(wh *admissionregistrationv1.MutatingWebhookConfiguration, kv *v1.KubeVirt) {
@@ -1540,9 +1538,10 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 			handlerNew.Status.DesiredNumberScheduled = 1
 			handlerNew.Status.NumberReady = 1
 			handlerNew.Status.UpdatedNumberScheduled = 1
-			k.mockQueue.ExpectAdds(1)
-			k.daemonSetSource.Modify(handlerNew)
-			k.mockQueue.Wait()
+			k.informers.DaemonSet.GetStore().Update(handlerNew)
+			key, err := kubecontroller.KeyFunc(handlerNew)
+			Expect(err).To(Not(HaveOccurred()))
+			k.mockQueue.Add(key)
 		}
 	}
 }
