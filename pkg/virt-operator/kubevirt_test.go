@@ -99,7 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	serviceSource                          *framework.FakeControllerSource
 	deploymentSource                       *framework.FakeControllerSource
 	daemonSetSource                        *framework.FakeControllerSource
 	validatingWebhookSource                *framework.FakeControllerSource
@@ -191,7 +190,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.OperatorCrd, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 
-	k.informers.Service, k.serviceSource = testutils.NewFakeInformerFor(&k8sv1.Service{})
+	k.informers.Service, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
 
 	k.informers.Deployment, k.deploymentSource = testutils.NewFakeInformerFor(&appsv1.Deployment{})
 
@@ -592,11 +591,10 @@ func (k *KubeVirtTestData) deleteCrd(key string) {
 }
 
 func (k *KubeVirtTestData) deleteService(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.Service.GetStore().GetByKey(key); exists {
-		k.serviceSource.Delete(obj.(runtime.Object))
+		k.informers.Service.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteDeployment(key string) {
@@ -1017,9 +1015,10 @@ func (k *KubeVirtTestData) addCrd(crd *extv1.CustomResourceDefinition, kv *v1.Ku
 }
 
 func (k *KubeVirtTestData) addService(svc *k8sv1.Service) {
-	k.mockQueue.ExpectAdds(1)
-	k.serviceSource.Add(svc)
-	k.mockQueue.Wait()
+	k.informers.Service.GetStore().Add(svc)
+	key, err := kubecontroller.KeyFunc(svc)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addDeployment(depl *appsv1.Deployment, kv *v1.KubeVirt) {
