@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/network/link"
+
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -105,6 +107,10 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 	}
 
 	if newCauses := validateTarget(vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := validateNewMacAddresses(vmClone); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -251,6 +257,24 @@ func validateTarget(vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusC
 			Message: "Target name cannot be equal to source name when both are VirtualMachines",
 			Field:   k8sfield.NewPath("spec").Child("target").Child("name").String(),
 		})
+	}
+
+	return causes
+}
+
+func validateNewMacAddresses(vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	for ifaceName, ifaceMac := range vmClone.Spec.NewMacAddresses {
+		if ifaceMac != "" {
+			if err := link.ValidateMacAddress(ifaceMac); err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("interface %s has malformed MAC address (%s).", ifaceName, ifaceMac),
+					Field:   k8sfield.NewPath("spec").Child("newMacAddresses").Child(ifaceName).String(),
+				})
+			}
+		}
 	}
 
 	return causes

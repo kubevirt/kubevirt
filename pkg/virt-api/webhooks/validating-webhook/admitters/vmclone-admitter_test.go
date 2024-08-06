@@ -377,6 +377,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Entry("negation in the beginning", "!mykey/something"),
 		)
 	})
+
 	Context("Template Annotations and labels filters", func() {
 		testFilter := func(filter string, expectAllowed bool) {
 			vmClone.Spec.Template.LabelFilters = []string{filter}
@@ -403,6 +404,16 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Entry("templateFilter negation in the beginning", "!mykey/something"),
 		)
 	})
+
+	DescribeTable("newMacAddresses", func(mac string, expectAllowed bool) {
+		vmClone.Spec.NewMacAddresses = map[string]string{
+			"default": mac,
+		}
+		admitter.admitAndExpect(vmClone, expectAllowed)
+	},
+		Entry("valid mac address", "00:00:00:00:00:00", true),
+		Entry("invalid mac address", "00:00:00:00:00", false),
+	)
 
 })
 
