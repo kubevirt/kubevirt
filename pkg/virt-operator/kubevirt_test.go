@@ -99,8 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	sccSource                              *framework.FakeControllerSource
-	routeSource                            *framework.FakeControllerSource
 	installStrategyConfigMapSource         *framework.FakeControllerSource
 	installStrategyJobSource               *framework.FakeControllerSource
 	infrastructurePodSource                *framework.FakeControllerSource
@@ -195,9 +193,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.MutatingWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
 	k.informers.APIService, _ = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 
-	k.informers.SCC, k.sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
+	k.informers.SCC, _ = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 
-	k.informers.Route, k.routeSource = testutils.NewFakeInformerFor(&routev1.Route{})
+	k.informers.Route, _ = testutils.NewFakeInformerFor(&routev1.Route{})
 
 	k.informers.InstallStrategyConfigMap, k.installStrategyConfigMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 
@@ -342,7 +340,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	// add the privileged SCC without KubeVirt accounts
 	scc := getSCC()
-	k.sccSource.Add(&scc)
+	k.informers.SCC.GetStore().Add(&scc)
 
 	k.deleteFromCache = true
 	k.addToCache = true
@@ -682,19 +680,17 @@ func (k *KubeVirtTestData) deleteValidatingAdmissionPolicy(key string) {
 }
 
 func (k *KubeVirtTestData) deleteSCC(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.SCC.GetStore().GetByKey(key); exists {
-		k.sccSource.Delete(obj.(runtime.Object))
+		k.informers.SCC.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteRoute(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.Route.GetStore().GetByKey(key); exists {
-		k.routeSource.Delete(obj.(runtime.Object))
+		k.informers.Route.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteServiceMonitor(key string) {
@@ -1099,15 +1095,17 @@ func (k *KubeVirtTestData) addConfigMap(configMap *k8sv1.ConfigMap) {
 }
 
 func (k *KubeVirtTestData) addSCC(scc *secv1.SecurityContextConstraints) {
-	k.mockQueue.ExpectAdds(1)
-	k.sccSource.Add(scc)
-	k.mockQueue.Wait()
+	k.informers.SCC.GetStore().Add(scc)
+	key, err := kubecontroller.KeyFunc(scc)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addRoute(route *routev1.Route) {
-	k.mockQueue.ExpectAdds(1)
-	k.routeSource.Add(route)
-	k.mockQueue.Wait()
+	k.informers.Route.GetStore().Add(route)
+	key, err := kubecontroller.KeyFunc(route)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addServiceMonitor(serviceMonitor *promv1.ServiceMonitor) {
