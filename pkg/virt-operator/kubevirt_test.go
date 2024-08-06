@@ -98,7 +98,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	stop       chan struct{}
 	controller *KubeVirtController
 
 	recorder *record.FakeRecorder
@@ -112,8 +111,7 @@ type KubeVirtTestData struct {
 	promClient     *promclientfake.Clientset
 	routeClient    *routev1fake.FakeRouteV1
 
-	informers util.Informers
-	config    util.OperatorConfig
+	config util.OperatorConfig
 
 	totalAdds       int
 	totalUpdates    int
@@ -147,7 +145,6 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.deleteFromCache = true
 	k.addToCache = true
 
-	k.stop = make(chan struct{})
 	k.ctrl = gomock.NewController(GinkgoT())
 	k.virtClient = kubecli.NewMockKubevirtClient(k.ctrl)
 	k.kvInterface = kubecli.NewMockKubeVirtInterface(k.ctrl)
@@ -155,44 +152,49 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.recorder = record.NewFakeRecorder(100)
 	k.recorder.IncludeObject = true
+	informers := util.Informers{}
 
-	k.informers.KubeVirt, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
+	informers.KubeVirt, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 
-	k.informers.ServiceAccount, _ = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
+	informers.ServiceAccount, _ = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
 
-	k.informers.ClusterRole, _ = testutils.NewFakeInformerFor(&rbacv1.ClusterRole{})
+	informers.ServiceAccount, _ = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
 
-	k.informers.ClusterRoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.ClusterRoleBinding{})
+	informers.ClusterRole, _ = testutils.NewFakeInformerFor(&rbacv1.ClusterRole{})
 
-	k.informers.Role, _ = testutils.NewFakeInformerFor(&rbacv1.Role{})
+	informers.ClusterRoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.ClusterRoleBinding{})
 
-	k.informers.RoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
+	informers.Role, _ = testutils.NewFakeInformerFor(&rbacv1.Role{})
 
-	k.informers.OperatorCrd, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
+	informers.RoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
 
-	k.informers.Service, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
+	informers.OperatorCrd, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 
-	k.informers.Deployment, _ = testutils.NewFakeInformerFor(&appsv1.Deployment{})
+	informers.Service, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
 
-	k.informers.DaemonSet, _ = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
+	informers.Deployment, _ = testutils.NewFakeInformerFor(&appsv1.Deployment{})
 
-	k.informers.ValidationWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
-	k.informers.MutatingWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
-	k.informers.APIService, _ = testutils.NewFakeInformerFor(&apiregv1.APIService{})
+	informers.DaemonSet, _ = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 
-	k.informers.SCC, _ = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
+	informers.ValidationWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
 
-	k.informers.Route, _ = testutils.NewFakeInformerFor(&routev1.Route{})
+	informers.MutatingWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
 
-	k.informers.InstallStrategyConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+	informers.APIService, _ = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 
-	k.informers.InstallStrategyJob, _ = testutils.NewFakeInformerFor(&batchv1.Job{})
+	informers.SCC, _ = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 
-	k.informers.InfrastructurePod, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+	informers.Route, _ = testutils.NewFakeInformerFor(&routev1.Route{})
 
-	k.informers.PodDisruptionBudget, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
+	informers.InstallStrategyConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 
-	k.informers.Namespace, _ = testutils.NewFakeInformerWithIndexersFor(
+	informers.InstallStrategyJob, _ = testutils.NewFakeInformerFor(&batchv1.Job{})
+
+	informers.InfrastructurePod, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+
+	informers.PodDisruptionBudget, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
+
+	informers.Namespace, _ = testutils.NewFakeInformerWithIndexersFor(
 		&k8sv1.Namespace{}, cache.Indexers{
 			"namespace_name": func(obj interface{}) ([]string, error) {
 				return []string{obj.(*k8sv1.Namespace).GetName()}, nil
@@ -202,25 +204,27 @@ func (k *KubeVirtTestData) BeforeTest() {
 	// test OpenShift components
 	k.config.IsOnOpenshift = true
 
-	k.informers.ServiceMonitor, _ = testutils.NewFakeInformerFor(&promv1.ServiceMonitor{Spec: promv1.ServiceMonitorSpec{}})
+	informers.ServiceMonitor, _ = testutils.NewFakeInformerFor(&promv1.ServiceMonitor{Spec: promv1.ServiceMonitorSpec{}})
 	k.config.ServiceMonitorEnabled = true
 
-	k.informers.PrometheusRule, _ = testutils.NewFakeInformerFor(&promv1.PrometheusRule{Spec: promv1.PrometheusRuleSpec{}})
+	informers.PrometheusRule, _ = testutils.NewFakeInformerFor(&promv1.PrometheusRule{Spec: promv1.PrometheusRuleSpec{}})
 	k.config.PrometheusRulesEnabled = true
 
-	k.informers.Secrets, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
-	k.informers.ConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+	informers.Secrets, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
 
-	k.informers.ValidatingAdmissionPolicyBinding, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
+	informers.ConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+
+	informers.ValidatingAdmissionPolicyBinding, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
 	k.config.ValidatingAdmissionPolicyBindingEnabled = true
-	k.informers.ValidatingAdmissionPolicy, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
+
+	informers.ValidatingAdmissionPolicy, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
 	k.config.ValidatingAdmissionPolicyEnabled = true
 
-	k.informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+	informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
 
-	k.informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+	informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 
-	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, k.config, k.informers, NAMESPACE)
+	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, k.config, informers, NAMESPACE)
 	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
 		// no delay to speed up tests
 		queue.Add(key)
@@ -323,11 +327,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 		return true, nil, nil
 	})
 
-	syncCaches(k.stop, k.informers)
-
 	// add the privileged SCC without KubeVirt accounts
 	scc := getSCC()
-	k.informers.SCC.GetStore().Add(&scc)
+	k.controller.stores.SCCCache.Add(&scc)
 
 	k.deleteFromCache = true
 	k.addToCache = true
@@ -337,8 +339,6 @@ func (k *KubeVirtTestData) BeforeTest() {
 }
 
 func (k *KubeVirtTestData) AfterTest() {
-	close(k.stop)
-
 	util.DefaultEnvVarManager = nil
 
 	// Ensure that we add checks for expected events to every test
@@ -416,7 +416,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reas
 }
 
 func (k *KubeVirtTestData) addKubeVirt(kv *v1.KubeVirt) {
-	k.informers.KubeVirt.GetStore().Add(kv)
+	k.controller.stores.KubeVirtCache.Add(kv)
 	key, err := kubecontroller.KeyFunc(kv)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -529,159 +529,159 @@ func (k *KubeVirtTestData) deleteResource(resource string, key string) {
 }
 
 func (k *KubeVirtTestData) deleteServiceAccount(key string) {
-	if obj, exists, _ := k.informers.ServiceAccount.GetStore().GetByKey(key); exists {
-		k.informers.ServiceAccount.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.ServiceAccountCache.GetByKey(key); exists {
+		k.controller.stores.ServiceAccountCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteClusterRole(key string) {
-	if obj, exists, _ := k.informers.ClusterRole.GetStore().GetByKey(key); exists {
-		k.informers.ClusterRole.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.ClusterRoleCache.GetByKey(key); exists {
+		k.controller.stores.ClusterRoleCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteClusterRoleBinding(key string) {
-	if obj, exists, _ := k.informers.ClusterRoleBinding.GetStore().GetByKey(key); exists {
-		k.informers.ClusterRoleBinding.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.ClusterRoleBindingCache.GetByKey(key); exists {
+		k.controller.stores.ClusterRoleBindingCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteRole(key string) {
-	if obj, exists, _ := k.informers.Role.GetStore().GetByKey(key); exists {
-		k.informers.Role.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.RoleCache.GetByKey(key); exists {
+		k.controller.stores.RoleCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteRoleBinding(key string) {
-	if obj, exists, _ := k.informers.RoleBinding.GetStore().GetByKey(key); exists {
-		k.informers.RoleBinding.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.RoleBindingCache.GetByKey(key); exists {
+		k.controller.stores.RoleBindingCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteCrd(key string) {
-	if obj, exists, _ := k.informers.OperatorCrd.GetStore().GetByKey(key); exists {
-		k.informers.OperatorCrd.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.OperatorCrdCache.GetByKey(key); exists {
+		k.controller.stores.OperatorCrdCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteService(key string) {
-	if obj, exists, _ := k.informers.Service.GetStore().GetByKey(key); exists {
-		k.informers.Service.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.ServiceCache.GetByKey(key); exists {
+		k.controller.stores.ServiceCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteDeployment(key string) {
-	if obj, exists, _ := k.informers.Deployment.GetStore().GetByKey(key); exists {
-		k.informers.Deployment.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.DeploymentCache.GetByKey(key); exists {
+		k.controller.stores.DeploymentCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteDaemonset(key string) {
-	if obj, exists, _ := k.informers.DaemonSet.GetStore().GetByKey(key); exists {
-		k.informers.DaemonSet.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.DaemonSetCache.GetByKey(key); exists {
+		k.controller.stores.DaemonSetCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteValidationWebhook(key string) {
-	if obj, exists, _ := k.informers.ValidationWebhook.GetStore().GetByKey(key); exists {
-		k.informers.ValidationWebhook.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.ValidationWebhookCache.GetByKey(key); exists {
+		k.controller.stores.ValidationWebhookCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteMutatingWebhook(key string) {
-	if obj, exists, _ := k.informers.MutatingWebhook.GetStore().GetByKey(key); exists {
-		k.informers.MutatingWebhook.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.MutatingWebhookCache.GetByKey(key); exists {
+		k.controller.stores.MutatingWebhookCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteAPIService(key string) {
-	if obj, exists, _ := k.informers.APIService.GetStore().GetByKey(key); exists {
-		k.informers.APIService.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.APIServiceCache.GetByKey(key); exists {
+		k.controller.stores.APIServiceCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteInstallStrategyJob(key string) {
-	if obj, exists, _ := k.informers.InstallStrategyJob.GetStore().GetByKey(key); exists {
-		k.informers.InstallStrategyJob.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.InstallStrategyJobCache.GetByKey(key); exists {
+		k.controller.stores.InstallStrategyJobCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deletePodDisruptionBudget(key string) {
-	if obj, exists, _ := k.informers.PodDisruptionBudget.GetStore().GetByKey(key); exists {
-		k.informers.PodDisruptionBudget.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.PodDisruptionBudgetCache.GetByKey(key); exists {
+		k.controller.stores.PodDisruptionBudgetCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteSecret(key string) {
-	if obj, exists, _ := k.informers.Secrets.GetStore().GetByKey(key); exists {
-		k.informers.Secrets.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.SecretCache.GetByKey(key); exists {
+		k.controller.stores.SecretCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteConfigMap(key string) {
-	if obj, exists, _ := k.informers.ConfigMap.GetStore().GetByKey(key); exists {
+	if obj, exists, _ := k.controller.stores.ConfigMapCache.GetByKey(key); exists {
 		configMap := obj.(*k8sv1.ConfigMap)
-		k.informers.ConfigMap.GetStore().Delete(configMap)
-	} else if obj, exists, _ := k.informers.InstallStrategyConfigMap.GetStore().GetByKey(key); exists {
+		k.controller.stores.ConfigMapCache.Delete(configMap)
+	} else if obj, exists, _ := k.controller.stores.InstallStrategyConfigMapCache.GetByKey(key); exists {
 		configMap := obj.(*k8sv1.ConfigMap)
-		k.informers.InstallStrategyConfigMap.GetStore().Delete(configMap)
+		k.controller.stores.InstallStrategyConfigMapCache.Delete(configMap)
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteValidatingAdmissionPolicyBinding(key string) {
-	if obj, exists, _ := k.informers.ValidatingAdmissionPolicyBinding.GetStore().GetByKey(key); exists {
-		k.informers.ValidatingAdmissionPolicyBinding.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.ValidatingAdmissionPolicyBindingCache.GetByKey(key); exists {
+		k.controller.stores.ValidatingAdmissionPolicyBindingCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteValidatingAdmissionPolicy(key string) {
-	if obj, exists, _ := k.informers.ValidatingAdmissionPolicy.GetStore().GetByKey(key); exists {
-		k.informers.ValidatingAdmissionPolicy.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.ValidatingAdmissionPolicyCache.GetByKey(key); exists {
+		k.controller.stores.ValidatingAdmissionPolicyCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteSCC(key string) {
-	if obj, exists, _ := k.informers.SCC.GetStore().GetByKey(key); exists {
-		k.informers.SCC.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.SCCCache.GetByKey(key); exists {
+		k.controller.stores.SCCCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteRoute(key string) {
-	if obj, exists, _ := k.informers.Route.GetStore().GetByKey(key); exists {
-		k.informers.Route.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.RouteCache.GetByKey(key); exists {
+		k.controller.stores.RouteCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteServiceMonitor(key string) {
-	if obj, exists, _ := k.informers.ServiceMonitor.GetStore().GetByKey(key); exists {
-		k.informers.ServiceMonitor.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.ServiceMonitorCache.GetByKey(key); exists {
+		k.controller.stores.ServiceMonitorCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deletePrometheusRule(key string) {
-	if obj, exists, _ := k.informers.PrometheusRule.GetStore().GetByKey(key); exists {
-		k.informers.PrometheusRule.GetStore().Delete(obj.(runtime.Object))
+	if obj, exists, _ := k.controller.stores.PrometheusRuleCache.GetByKey(key); exists {
+		k.controller.stores.PrometheusRuleCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
@@ -933,35 +933,35 @@ func (k *KubeVirtTestData) addResource(obj runtime.Object, config *util.KubeVirt
 }
 
 func (k *KubeVirtTestData) addServiceAccount(sa *k8sv1.ServiceAccount) {
-	k.informers.ServiceAccount.GetStore().Add(sa)
+	k.controller.stores.ServiceAccountCache.Add(sa)
 	key, err := kubecontroller.KeyFunc(sa)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addClusterRole(cr *rbacv1.ClusterRole) {
-	k.informers.ClusterRole.GetStore().Add(cr)
+	k.controller.stores.ClusterRoleCache.Add(cr)
 	key, err := kubecontroller.KeyFunc(cr)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addClusterRoleBinding(crb *rbacv1.ClusterRoleBinding) {
-	k.informers.ClusterRoleBinding.GetStore().Add(crb)
+	k.controller.stores.ClusterRoleBindingCache.Add(crb)
 	key, err := kubecontroller.KeyFunc(crb)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addRole(role *rbacv1.Role) {
-	k.informers.Role.GetStore().Add(role)
+	k.controller.stores.RoleCache.Add(role)
 	key, err := kubecontroller.KeyFunc(role)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addRoleBinding(rb *rbacv1.RoleBinding) {
-	k.informers.RoleBinding.GetStore().Add(rb)
+	k.controller.stores.RoleBindingCache.Add(rb)
 	key, err := kubecontroller.KeyFunc(rb)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -971,14 +971,14 @@ func (k *KubeVirtTestData) addCrd(crd *extv1.CustomResourceDefinition, kv *v1.Ku
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, crd)
 	}
-	k.informers.OperatorCrd.GetStore().Add(crd)
+	k.controller.stores.OperatorCrdCache.Add(crd)
 	key, err := kubecontroller.KeyFunc(crd)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addService(svc *k8sv1.Service) {
-	k.informers.Service.GetStore().Add(svc)
+	k.controller.stores.ServiceCache.Add(svc)
 	key, err := kubecontroller.KeyFunc(svc)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -988,7 +988,7 @@ func (k *KubeVirtTestData) addDeployment(depl *appsv1.Deployment, kv *v1.KubeVir
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, depl)
 	}
-	k.informers.Deployment.GetStore().Add(depl)
+	k.controller.stores.DeploymentCache.Add(depl)
 	key, err := kubecontroller.KeyFunc(depl)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -998,7 +998,7 @@ func (k *KubeVirtTestData) addDaemonset(ds *appsv1.DaemonSet, kv *v1.KubeVirt) {
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, ds)
 	}
-	k.informers.DaemonSet.GetStore().Add(ds)
+	k.controller.stores.DaemonSetCache.Add(ds)
 	key, err := kubecontroller.KeyFunc(ds)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -1008,28 +1008,28 @@ func (k *KubeVirtTestData) addMutatingWebhook(wh *admissionregistrationv1.Mutati
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, wh)
 	}
-	k.informers.MutatingWebhook.GetStore().Add(wh)
+	k.controller.stores.MutatingWebhookCache.Add(wh)
 	key, err := kubecontroller.KeyFunc(wh)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addAPIService(as *apiregv1.APIService) {
-	k.informers.APIService.GetStore().Add(as)
+	k.controller.stores.APIServiceCache.Add(as)
 	key, err := kubecontroller.KeyFunc(as)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addInstallStrategyJob(job *batchv1.Job) {
-	k.informers.InstallStrategyJob.GetStore().Add(job)
+	k.controller.stores.InstallStrategyJobCache.Add(job)
 	key, err := kubecontroller.KeyFunc(job)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addPod(pod *k8sv1.Pod) {
-	k.informers.InfrastructurePod.GetStore().Add(pod)
+	k.controller.stores.InfrastructurePodCache.Add(pod)
 	key, err := kubecontroller.KeyFunc(pod)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -1039,28 +1039,28 @@ func (k *KubeVirtTestData) addPodDisruptionBudget(podDisruptionBudget *policyv1.
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 	}
-	k.informers.PodDisruptionBudget.GetStore().Add(podDisruptionBudget)
+	k.controller.stores.PodDisruptionBudgetCache.Add(podDisruptionBudget)
 	key, err := kubecontroller.KeyFunc(podDisruptionBudget)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addSecret(secret *k8sv1.Secret) {
-	k.informers.Secrets.GetStore().Add(secret)
+	k.controller.stores.SecretCache.Add(secret)
 	key, err := kubecontroller.KeyFunc(secret)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addValidatingAdmissionPolicyBinding(vapb *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
-	k.informers.ValidatingAdmissionPolicyBinding.GetStore().Add(vapb)
+	k.controller.stores.ValidatingAdmissionPolicyBindingCache.Add(vapb)
 	key, err := kubecontroller.KeyFunc(vapb)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addValidatingAdmissionPolicy(vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
-	k.informers.ValidatingAdmissionPolicy.GetStore().Add(vap)
+	k.controller.stores.ValidatingAdmissionPolicyCache.Add(vap)
 	key, err := kubecontroller.KeyFunc(vap)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -1068,9 +1068,9 @@ func (k *KubeVirtTestData) addValidatingAdmissionPolicy(vap *admissionregistrati
 
 func (k *KubeVirtTestData) addConfigMap(configMap *k8sv1.ConfigMap) {
 	if _, ok := configMap.Labels[v1.InstallStrategyLabel]; ok {
-		k.informers.InstallStrategyConfigMap.GetStore().Add(configMap)
+		k.controller.stores.InstallStrategyConfigMapCache.Add(configMap)
 	} else {
-		k.informers.ConfigMap.GetStore().Add(configMap)
+		k.controller.stores.ConfigMapCache.Add(configMap)
 	}
 	key, err := kubecontroller.KeyFunc(configMap)
 	Expect(err).To(Not(HaveOccurred()))
@@ -1078,28 +1078,28 @@ func (k *KubeVirtTestData) addConfigMap(configMap *k8sv1.ConfigMap) {
 }
 
 func (k *KubeVirtTestData) addSCC(scc *secv1.SecurityContextConstraints) {
-	k.informers.SCC.GetStore().Add(scc)
+	k.controller.stores.SCCCache.Add(scc)
 	key, err := kubecontroller.KeyFunc(scc)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addRoute(route *routev1.Route) {
-	k.informers.Route.GetStore().Add(route)
+	k.controller.stores.RouteCache.Add(route)
 	key, err := kubecontroller.KeyFunc(route)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addServiceMonitor(serviceMonitor *promv1.ServiceMonitor) {
-	k.informers.ServiceMonitor.GetStore().Add(serviceMonitor)
+	k.controller.stores.ServiceMonitorCache.Add(serviceMonitor)
 	key, err := kubecontroller.KeyFunc(serviceMonitor)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addPrometheusRule(prometheusRule *promv1.PrometheusRule) {
-	k.informers.PrometheusRule.GetStore().Add(prometheusRule)
+	k.controller.stores.PrometheusRuleCache.Add(prometheusRule)
 	key, err := kubecontroller.KeyFunc(prometheusRule)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -1460,7 +1460,7 @@ func (k *KubeVirtTestData) makeDeploymentsReady(kv *v1.KubeVirt) {
 		}
 		deplNew.Status.Replicas = replicas
 		deplNew.Status.ReadyReplicas = replicas
-		k.informers.Deployment.GetStore().Update(deplNew)
+		k.controller.stores.DeploymentCache.Update(deplNew)
 		key, err := kubecontroller.KeyFunc(deplNew)
 		Expect(err).To(Not(HaveOccurred()))
 		k.mockQueue.Add(key)
@@ -1516,7 +1516,7 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 			handlerNew.Status.DesiredNumberScheduled = 1
 			handlerNew.Status.NumberReady = 1
 			handlerNew.Status.UpdatedNumberScheduled = 1
-			k.informers.DaemonSet.GetStore().Update(handlerNew)
+			k.controller.stores.DaemonSetCache.Update(handlerNew)
 			key, err := kubecontroller.KeyFunc(handlerNew)
 			Expect(err).To(Not(HaveOccurred()))
 			k.mockQueue.Add(key)
@@ -1543,7 +1543,7 @@ func (k *KubeVirtTestData) addValidatingWebhook(wh *admissionregistrationv1.Vali
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, wh)
 	}
-	k.informers.ValidationWebhook.GetStore().Add(wh)
+	k.controller.stores.ValidationWebhookCache.Add(wh)
 	key, err := kubecontroller.KeyFunc(wh)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -1581,7 +1581,7 @@ func (k *KubeVirtTestData) addPodDisruptionBudgets(config *util.KubeVirtDeployme
 
 func (k *KubeVirtTestData) fakeNamespaceModificationEvent() {
 	// Add modification event for namespace w/o the labels we need
-	k.informers.Namespace.GetStore().Update(&k8sv1.Namespace{
+	k.controller.stores.NamespaceCache.Update(&k8sv1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Namespace",
 		},
@@ -3115,59 +3115,6 @@ func getSCC() secv1.SecurityContextConstraints {
 			"someUser",
 		},
 	}
-}
-
-func syncCaches(stop chan struct{}, informers util.Informers) {
-	go informers.KubeVirt.Run(stop)
-	go informers.ServiceAccount.Run(stop)
-	go informers.ClusterRole.Run(stop)
-	go informers.ClusterRoleBinding.Run(stop)
-	go informers.Role.Run(stop)
-	go informers.RoleBinding.Run(stop)
-	go informers.OperatorCrd.Run(stop)
-	go informers.Service.Run(stop)
-	go informers.Deployment.Run(stop)
-	go informers.DaemonSet.Run(stop)
-	go informers.ValidationWebhook.Run(stop)
-	go informers.MutatingWebhook.Run(stop)
-	go informers.APIService.Run(stop)
-	go informers.SCC.Run(stop)
-	go informers.InstallStrategyJob.Run(stop)
-	go informers.InstallStrategyConfigMap.Run(stop)
-	go informers.InfrastructurePod.Run(stop)
-	go informers.PodDisruptionBudget.Run(stop)
-	go informers.ServiceMonitor.Run(stop)
-	go informers.Namespace.Run(stop)
-	go informers.PrometheusRule.Run(stop)
-	go informers.Secrets.Run(stop)
-	go informers.ConfigMap.Run(stop)
-	go informers.Route.Run(stop)
-
-	Expect(cache.WaitForCacheSync(stop, informers.KubeVirt.HasSynced)).To(BeTrue())
-
-	cache.WaitForCacheSync(stop, informers.ServiceAccount.HasSynced)
-	cache.WaitForCacheSync(stop, informers.ClusterRole.HasSynced)
-	cache.WaitForCacheSync(stop, informers.ClusterRoleBinding.HasSynced)
-	cache.WaitForCacheSync(stop, informers.Role.HasSynced)
-	cache.WaitForCacheSync(stop, informers.RoleBinding.HasSynced)
-	cache.WaitForCacheSync(stop, informers.OperatorCrd.HasSynced)
-	cache.WaitForCacheSync(stop, informers.Service.HasSynced)
-	cache.WaitForCacheSync(stop, informers.Deployment.HasSynced)
-	cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
-	cache.WaitForCacheSync(stop, informers.ValidationWebhook.HasSynced)
-	cache.WaitForCacheSync(stop, informers.MutatingWebhook.HasSynced)
-	cache.WaitForCacheSync(stop, informers.APIService.HasSynced)
-	cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
-	cache.WaitForCacheSync(stop, informers.InstallStrategyJob.HasSynced)
-	cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)
-	cache.WaitForCacheSync(stop, informers.InfrastructurePod.HasSynced)
-	cache.WaitForCacheSync(stop, informers.PodDisruptionBudget.HasSynced)
-	cache.WaitForCacheSync(stop, informers.ServiceMonitor.HasSynced)
-	cache.WaitForCacheSync(stop, informers.Namespace.HasSynced)
-	cache.WaitForCacheSync(stop, informers.PrometheusRule.HasSynced)
-	cache.WaitForCacheSync(stop, informers.Secrets.HasSynced)
-	cache.WaitForCacheSync(stop, informers.ConfigMap.HasSynced)
-	cache.WaitForCacheSync(stop, informers.Route.HasSynced)
 }
 
 func injectMetadata(objectMeta *metav1.ObjectMeta, config *util.KubeVirtDeploymentConfig) {
