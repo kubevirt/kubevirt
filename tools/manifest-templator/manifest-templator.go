@@ -77,6 +77,7 @@ type templateData struct {
 	PriorityClassSpec      string
 	FeatureGates           []string
 	InfraReplicas          uint8
+	TestImageReplicas      string
 	GeneratedManifests     map[string]string
 	VirtOperatorImage      string
 	VirtApiImage           string
@@ -120,6 +121,7 @@ func main() {
 	runbookURLTemplate := flag.String("runbook-url-template", "", "")
 	featureGates := flag.String("feature-gates", "", "")
 	infraReplicas := flag.Uint("infra-replicas", 0, "")
+	testImageReplicas := flag.String("test-image-replicas", "0", "")
 	virtOperatorImage := flag.String("virt-operator-image", "", "custom image for virt-operator")
 	virtApiImage := flag.String("virt-api-image", "", "custom image for virt-api. "+customImageExample)
 	virtControllerImage := flag.String("virt-controller-image", "", "custom image for virt-controller. "+customImageExample)
@@ -158,6 +160,7 @@ func main() {
 		data.ImagePrefix = *imagePrefix
 		data.ImagePullPolicy = *imagePullPolicy
 		data.Verbosity = fmt.Sprintf("\"%s\"", *verbosity)
+		data.TestImageReplicas = fmt.Sprintf("\"%s\"", *testImageReplicas)
 		data.CsvVersion = *csvVersion
 		data.QuayRepository = *quayRepository
 		data.VirtOperatorSha = *virtOperatorSha
@@ -204,6 +207,7 @@ func main() {
 		data.ImagePrefix = "{{.ImagePrefix}}"
 		data.ImagePullPolicy = "{{.ImagePullPolicy}}"
 		data.Verbosity = "{{.Verbosity}}"
+		data.TestImageReplicas = "{{.TestImageReplicas}}"
 		data.CsvVersion = "{{.CsvVersion}}"
 		data.QuayRepository = "{{.QuayRepository}}"
 		data.VirtOperatorSha = "{{.VirtOperatorSha}}"

@@ -87,6 +87,7 @@ for arg in $args; do
         --image-prefix=${image_prefix} \
         --image-pull-policy=${image_pull_policy} \
         --infra-replicas=${infra_replicas} \
+        --test-image-replicas=${test_image_replicas} \
         --input-file=${infile} \
         --kubevirt-logo-path=${kubevirt_logo_path} \
         --namespace=${namespace} \
