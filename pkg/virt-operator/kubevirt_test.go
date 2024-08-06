@@ -99,14 +99,12 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	infrastructurePodSource                *framework.FakeControllerSource
-	podDisruptionBudgetSource              *framework.FakeControllerSource
-	serviceMonitorSource                   *framework.FakeControllerSource
-	namespaceSource                        *framework.FakeControllerSource
-	prometheusRuleSource                   *framework.FakeControllerSource
-	secretsSource                          *framework.FakeControllerSource
-	ValidatingAdmissionPolicyBindingSource *framework.FakeControllerSource
-	ValidatingAdmissionPolicySource        *framework.FakeControllerSource
+	infrastructurePodSource   *framework.FakeControllerSource
+	podDisruptionBudgetSource *framework.FakeControllerSource
+	serviceMonitorSource      *framework.FakeControllerSource
+	namespaceSource           *framework.FakeControllerSource
+	prometheusRuleSource      *framework.FakeControllerSource
+	secretsSource             *framework.FakeControllerSource
 
 	stop       chan struct{}
 	controller *KubeVirtController
@@ -221,9 +219,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.Secrets, k.secretsSource = testutils.NewFakeInformerFor(&k8sv1.Secret{})
 	k.informers.ConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 
-	k.informers.ValidatingAdmissionPolicyBinding, k.ValidatingAdmissionPolicyBindingSource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
+	k.informers.ValidatingAdmissionPolicyBinding, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
 	k.config.ValidatingAdmissionPolicyBindingEnabled = true
-	k.informers.ValidatingAdmissionPolicy, k.ValidatingAdmissionPolicySource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
+	k.informers.ValidatingAdmissionPolicy, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
 	k.config.ValidatingAdmissionPolicyEnabled = true
 
 	k.informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
@@ -657,21 +655,17 @@ func (k *KubeVirtTestData) deleteConfigMap(key string) {
 }
 
 func (k *KubeVirtTestData) deleteValidatingAdmissionPolicyBinding(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.ValidatingAdmissionPolicyBinding.GetStore().GetByKey(key); exists {
-		validatingAdmissionPolicyBinding := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
-		k.ValidatingAdmissionPolicyBindingSource.Delete(validatingAdmissionPolicyBinding)
+		k.informers.ValidatingAdmissionPolicyBinding.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteValidatingAdmissionPolicy(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.ValidatingAdmissionPolicy.GetStore().GetByKey(key); exists {
-		validatingAdmissionPolicy := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
-		k.ValidatingAdmissionPolicySource.Delete(validatingAdmissionPolicy)
+		k.informers.ValidatingAdmissionPolicy.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteSCC(key string) {
@@ -1068,16 +1062,18 @@ func (k *KubeVirtTestData) addSecret(secret *k8sv1.Secret) {
 	k.mockQueue.Wait()
 }
 
-func (k *KubeVirtTestData) addValidatingAdmissionPolicyBinding(validatingAdmissionPolicyBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
-	k.mockQueue.ExpectAdds(1)
-	k.ValidatingAdmissionPolicyBindingSource.Add(validatingAdmissionPolicyBinding)
-	k.mockQueue.Wait()
+func (k *KubeVirtTestData) addValidatingAdmissionPolicyBinding(vapb *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
+	k.informers.ValidatingAdmissionPolicyBinding.GetStore().Add(vapb)
+	key, err := kubecontroller.KeyFunc(vapb)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
-func (k *KubeVirtTestData) addValidatingAdmissionPolicy(validatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy) {
-	k.mockQueue.ExpectAdds(1)
-	k.ValidatingAdmissionPolicySource.Add(validatingAdmissionPolicy)
-	k.mockQueue.Wait()
+func (k *KubeVirtTestData) addValidatingAdmissionPolicy(vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+	k.informers.ValidatingAdmissionPolicy.GetStore().Add(vap)
+	key, err := kubecontroller.KeyFunc(vap)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addConfigMap(configMap *k8sv1.ConfigMap) {
