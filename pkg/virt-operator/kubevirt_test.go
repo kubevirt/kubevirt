@@ -99,8 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	roleSource                             *framework.FakeControllerSource
-	roleBindingSource                      *framework.FakeControllerSource
 	crdSource                              *framework.FakeControllerSource
 	serviceSource                          *framework.FakeControllerSource
 	deploymentSource                       *framework.FakeControllerSource
@@ -188,9 +186,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.ClusterRoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.ClusterRoleBinding{})
 
-	k.informers.Role, k.roleSource = testutils.NewFakeInformerFor(&rbacv1.Role{})
+	k.informers.Role, _ = testutils.NewFakeInformerFor(&rbacv1.Role{})
 
-	k.informers.RoleBinding, k.roleBindingSource = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
+	k.informers.RoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
 
 	k.informers.OperatorCrd, k.crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 
@@ -574,19 +572,17 @@ func (k *KubeVirtTestData) deleteClusterRoleBinding(key string) {
 }
 
 func (k *KubeVirtTestData) deleteRole(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.Role.GetStore().GetByKey(key); exists {
-		k.roleSource.Delete(obj.(runtime.Object))
+		k.informers.Role.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteRoleBinding(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.RoleBinding.GetStore().GetByKey(key); exists {
-		k.roleBindingSource.Delete(obj.(runtime.Object))
+		k.informers.RoleBinding.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteCrd(key string) {
@@ -999,15 +995,17 @@ func (k *KubeVirtTestData) addClusterRoleBinding(crb *rbacv1.ClusterRoleBinding)
 }
 
 func (k *KubeVirtTestData) addRole(role *rbacv1.Role) {
-	k.mockQueue.ExpectAdds(1)
-	k.roleSource.Add(role)
-	k.mockQueue.Wait()
+	k.informers.Role.GetStore().Add(role)
+	key, err := kubecontroller.KeyFunc(role)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addRoleBinding(rb *rbacv1.RoleBinding) {
-	k.mockQueue.ExpectAdds(1)
-	k.roleBindingSource.Add(rb)
-	k.mockQueue.Wait()
+	k.informers.RoleBinding.GetStore().Add(rb)
+	key, err := kubecontroller.KeyFunc(rb)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addCrd(crd *extv1.CustomResourceDefinition, kv *v1.KubeVirt) {
