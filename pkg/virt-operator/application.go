@@ -195,6 +195,7 @@ func Execute() {
 	}
 
 	app.stores = util.Stores{
+		KubeVirtCache:                 app.informerFactory.KubeVirt().GetStore(),
 		ServiceAccountCache:           app.informerFactory.OperatorServiceAccount().GetStore(),
 		ClusterRoleCache:              app.informerFactory.OperatorClusterRole().GetStore(),
 		ClusterRoleBindingCache:       app.informerFactory.OperatorClusterRoleBinding().GetStore(),
