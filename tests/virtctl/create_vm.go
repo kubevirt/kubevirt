@@ -19,14 +19,12 @@ import (
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
-
-	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 )
 
 const (
@@ -53,7 +51,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM)()
 
 			Expect(err).ToNot(HaveOccurred())
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
+			vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).ToNot(BeEmpty())
@@ -161,7 +159,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			instancetype := createInstancetype(virtClient)
 			preference := createPreference(virtClient)
 			dataSource := createAnnotatedDataSource(virtClient, "something", "something")
-			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, size, nil)
+			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), testsuite.NamespaceTestDefault, size, nil)
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
@@ -179,7 +177,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			)()
 
 			Expect(err).ToNot(HaveOccurred())
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
+			vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).To(Equal(vmName))
@@ -290,7 +288,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			)()
 
 			Expect(err).ToNot(HaveOccurred())
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
+			vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).To(Equal(vmName))
@@ -427,7 +425,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 		)()
 
 		Expect(err).ToNot(HaveOccurred())
-		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
+		vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(vm.Name).To(Equal(vmName))
@@ -494,7 +492,7 @@ func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.
 	instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-instancetype-",
-			Namespace:    util.NamespaceTestDefault,
+			Namespace:    testsuite.NamespaceTestDefault,
 		},
 		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 			CPU: instancetypev1beta1.CPUInstancetype{
@@ -505,7 +503,7 @@ func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.
 			},
 		},
 	}
-	instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+	instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return instancetype
 }
@@ -515,7 +513,7 @@ func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1beta1.Vi
 	preference := &instancetypev1beta1.VirtualMachinePreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-preference-",
-			Namespace:    util.NamespaceTestDefault,
+			Namespace:    testsuite.NamespaceTestDefault,
 		},
 		Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 			CPU: &instancetypev1beta1.CPUPreferences{
@@ -523,7 +521,7 @@ func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1beta1.Vi
 			},
 		},
 	}
-	preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+	preference, err := virtClient.VirtualMachinePreference(testsuite.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return preference
 }
@@ -543,7 +541,7 @@ func createAnnotatedDataSource(virtClient kubecli.KubevirtClient, instancetypeNa
 			Source: v1beta1.DataSourceSource{},
 		},
 	}
-	dataSource, err := virtClient.CdiClient().CdiV1beta1().DataSources(util.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
+	dataSource, err := virtClient.CdiClient().CdiV1beta1().DataSources(testsuite.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return dataSource
 }
@@ -555,7 +553,7 @@ func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.Pe
 		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
 		apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
 	}
-	pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, size, pvcLabels)
+	pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), testsuite.NamespaceTestDefault, size, pvcLabels)
 	return pvc
 }
 

@@ -34,8 +34,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -71,11 +69,7 @@ func SkipIfNoCmd(cmdName string) {
 	}
 }
 
-func RunCommand(cmdName string, args ...string) (string, string, error) {
-	return RunCommandWithNS(testsuite.GetTestNamespace(nil), cmdName, args...)
-}
-
-func RunCommandWithNS(namespace string, cmdName string, args ...string) (string, string, error) {
+func RunCommand(namespace string, cmdName string, args ...string) (string, string, error) {
 	return RunCommandWithNSAndInput(namespace, nil, cmdName, args...)
 }
 
@@ -155,11 +149,7 @@ func CreateCommandWithNS(namespace string, cmdName string, args ...string) (stri
 	return commandString(), cmd, nil
 }
 
-func RunCommandPipe(commands ...[]string) (string, string, error) {
-	return RunCommandPipeWithNS(util.NamespaceTestDefault, commands...)
-}
-
-func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, string, error) {
+func RunCommandPipe(namespace string, commands ...[]string) (string, string, error) {
 	commandPipeString := func() string {
 		commandStrings := []string{}
 		for _, command := range commands {

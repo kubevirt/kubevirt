@@ -43,9 +43,9 @@ package libvirt
 
 
 typedef int
-(*virConnectListAllNodeDevicesType)(virConnectPtr conn,
-                                    virNodeDevicePtr ** devices,
-                                    unsigned int flags);
+(*virConnectListAllNodeDevicesFuncType)(virConnectPtr conn,
+                                        virNodeDevicePtr ** devices,
+                                        unsigned int flags);
 
 int
 virConnectListAllNodeDevicesWrapper(virConnectPtr conn,
@@ -54,7 +54,7 @@ virConnectListAllNodeDevicesWrapper(virConnectPtr conn,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListAllNodeDevicesType virConnectListAllNodeDevicesSymbol;
+    static virConnectListAllNodeDevicesFuncType virConnectListAllNodeDevicesSymbol;
     static bool once;
     static bool success;
 
@@ -75,8 +75,8 @@ virConnectListAllNodeDevicesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNodeDeviceEventDeregisterAnyType)(virConnectPtr conn,
-                                              int callbackID);
+(*virConnectNodeDeviceEventDeregisterAnyFuncType)(virConnectPtr conn,
+                                                  int callbackID);
 
 int
 virConnectNodeDeviceEventDeregisterAnyWrapper(virConnectPtr conn,
@@ -84,7 +84,7 @@ virConnectNodeDeviceEventDeregisterAnyWrapper(virConnectPtr conn,
                                               virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNodeDeviceEventDeregisterAnyType virConnectNodeDeviceEventDeregisterAnySymbol;
+    static virConnectNodeDeviceEventDeregisterAnyFuncType virConnectNodeDeviceEventDeregisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -104,12 +104,12 @@ virConnectNodeDeviceEventDeregisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNodeDeviceEventRegisterAnyType)(virConnectPtr conn,
-                                            virNodeDevicePtr dev,
-                                            int eventID,
-                                            virConnectNodeDeviceEventGenericCallback cb,
-                                            void * opaque,
-                                            virFreeCallback freecb);
+(*virConnectNodeDeviceEventRegisterAnyFuncType)(virConnectPtr conn,
+                                                virNodeDevicePtr dev,
+                                                int eventID,
+                                                virConnectNodeDeviceEventGenericCallback cb,
+                                                void * opaque,
+                                                virFreeCallback freecb);
 
 int
 virConnectNodeDeviceEventRegisterAnyWrapper(virConnectPtr conn,
@@ -121,7 +121,7 @@ virConnectNodeDeviceEventRegisterAnyWrapper(virConnectPtr conn,
                                             virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNodeDeviceEventRegisterAnyType virConnectNodeDeviceEventRegisterAnySymbol;
+    static virConnectNodeDeviceEventRegisterAnyFuncType virConnectNodeDeviceEventRegisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -145,8 +145,8 @@ virConnectNodeDeviceEventRegisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeDeviceCreateType)(virNodeDevicePtr dev,
-                           unsigned int flags);
+(*virNodeDeviceCreateFuncType)(virNodeDevicePtr dev,
+                               unsigned int flags);
 
 int
 virNodeDeviceCreateWrapper(virNodeDevicePtr dev,
@@ -154,7 +154,7 @@ virNodeDeviceCreateWrapper(virNodeDevicePtr dev,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceCreateType virNodeDeviceCreateSymbol;
+    static virNodeDeviceCreateFuncType virNodeDeviceCreateSymbol;
     static bool once;
     static bool success;
 
@@ -174,9 +174,9 @@ virNodeDeviceCreateWrapper(virNodeDevicePtr dev,
 }
 
 typedef virNodeDevicePtr
-(*virNodeDeviceCreateXMLType)(virConnectPtr conn,
-                              const char * xmlDesc,
-                              unsigned int flags);
+(*virNodeDeviceCreateXMLFuncType)(virConnectPtr conn,
+                                  const char * xmlDesc,
+                                  unsigned int flags);
 
 virNodeDevicePtr
 virNodeDeviceCreateXMLWrapper(virConnectPtr conn,
@@ -185,7 +185,7 @@ virNodeDeviceCreateXMLWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     virNodeDevicePtr ret = NULL;
-    static virNodeDeviceCreateXMLType virNodeDeviceCreateXMLSymbol;
+    static virNodeDeviceCreateXMLFuncType virNodeDeviceCreateXMLSymbol;
     static bool once;
     static bool success;
 
@@ -206,9 +206,9 @@ virNodeDeviceCreateXMLWrapper(virConnectPtr conn,
 }
 
 typedef virNodeDevicePtr
-(*virNodeDeviceDefineXMLType)(virConnectPtr conn,
-                              const char * xmlDesc,
-                              unsigned int flags);
+(*virNodeDeviceDefineXMLFuncType)(virConnectPtr conn,
+                                  const char * xmlDesc,
+                                  unsigned int flags);
 
 virNodeDevicePtr
 virNodeDeviceDefineXMLWrapper(virConnectPtr conn,
@@ -217,7 +217,7 @@ virNodeDeviceDefineXMLWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     virNodeDevicePtr ret = NULL;
-    static virNodeDeviceDefineXMLType virNodeDeviceDefineXMLSymbol;
+    static virNodeDeviceDefineXMLFuncType virNodeDeviceDefineXMLSymbol;
     static bool once;
     static bool success;
 
@@ -238,14 +238,14 @@ virNodeDeviceDefineXMLWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeDeviceDestroyType)(virNodeDevicePtr dev);
+(*virNodeDeviceDestroyFuncType)(virNodeDevicePtr dev);
 
 int
 virNodeDeviceDestroyWrapper(virNodeDevicePtr dev,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceDestroyType virNodeDeviceDestroySymbol;
+    static virNodeDeviceDestroyFuncType virNodeDeviceDestroySymbol;
     static bool once;
     static bool success;
 
@@ -264,9 +264,9 @@ virNodeDeviceDestroyWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceDetachFlagsType)(virNodeDevicePtr dev,
-                                const char * driverName,
-                                unsigned int flags);
+(*virNodeDeviceDetachFlagsFuncType)(virNodeDevicePtr dev,
+                                    const char * driverName,
+                                    unsigned int flags);
 
 int
 virNodeDeviceDetachFlagsWrapper(virNodeDevicePtr dev,
@@ -275,7 +275,7 @@ virNodeDeviceDetachFlagsWrapper(virNodeDevicePtr dev,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceDetachFlagsType virNodeDeviceDetachFlagsSymbol;
+    static virNodeDeviceDetachFlagsFuncType virNodeDeviceDetachFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -296,14 +296,14 @@ virNodeDeviceDetachFlagsWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceDettachType)(virNodeDevicePtr dev);
+(*virNodeDeviceDettachFuncType)(virNodeDevicePtr dev);
 
 int
 virNodeDeviceDettachWrapper(virNodeDevicePtr dev,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceDettachType virNodeDeviceDettachSymbol;
+    static virNodeDeviceDettachFuncType virNodeDeviceDettachSymbol;
     static bool once;
     static bool success;
 
@@ -322,14 +322,14 @@ virNodeDeviceDettachWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceFreeType)(virNodeDevicePtr dev);
+(*virNodeDeviceFreeFuncType)(virNodeDevicePtr dev);
 
 int
 virNodeDeviceFreeWrapper(virNodeDevicePtr dev,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceFreeType virNodeDeviceFreeSymbol;
+    static virNodeDeviceFreeFuncType virNodeDeviceFreeSymbol;
     static bool once;
     static bool success;
 
@@ -348,8 +348,8 @@ virNodeDeviceFreeWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceGetAutostartType)(virNodeDevicePtr dev,
-                                 int * autostart);
+(*virNodeDeviceGetAutostartFuncType)(virNodeDevicePtr dev,
+                                     int * autostart);
 
 int
 virNodeDeviceGetAutostartWrapper(virNodeDevicePtr dev,
@@ -357,7 +357,7 @@ virNodeDeviceGetAutostartWrapper(virNodeDevicePtr dev,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceGetAutostartType virNodeDeviceGetAutostartSymbol;
+    static virNodeDeviceGetAutostartFuncType virNodeDeviceGetAutostartSymbol;
     static bool once;
     static bool success;
 
@@ -377,14 +377,14 @@ virNodeDeviceGetAutostartWrapper(virNodeDevicePtr dev,
 }
 
 typedef const char *
-(*virNodeDeviceGetNameType)(virNodeDevicePtr dev);
+(*virNodeDeviceGetNameFuncType)(virNodeDevicePtr dev);
 
 const char *
 virNodeDeviceGetNameWrapper(virNodeDevicePtr dev,
                             virErrorPtr err)
 {
     const char * ret = NULL;
-    static virNodeDeviceGetNameType virNodeDeviceGetNameSymbol;
+    static virNodeDeviceGetNameFuncType virNodeDeviceGetNameSymbol;
     static bool once;
     static bool success;
 
@@ -403,14 +403,14 @@ virNodeDeviceGetNameWrapper(virNodeDevicePtr dev,
 }
 
 typedef const char *
-(*virNodeDeviceGetParentType)(virNodeDevicePtr dev);
+(*virNodeDeviceGetParentFuncType)(virNodeDevicePtr dev);
 
 const char *
 virNodeDeviceGetParentWrapper(virNodeDevicePtr dev,
                               virErrorPtr err)
 {
     const char * ret = NULL;
-    static virNodeDeviceGetParentType virNodeDeviceGetParentSymbol;
+    static virNodeDeviceGetParentFuncType virNodeDeviceGetParentSymbol;
     static bool once;
     static bool success;
 
@@ -429,8 +429,8 @@ virNodeDeviceGetParentWrapper(virNodeDevicePtr dev,
 }
 
 typedef char *
-(*virNodeDeviceGetXMLDescType)(virNodeDevicePtr dev,
-                               unsigned int flags);
+(*virNodeDeviceGetXMLDescFuncType)(virNodeDevicePtr dev,
+                                   unsigned int flags);
 
 char *
 virNodeDeviceGetXMLDescWrapper(virNodeDevicePtr dev,
@@ -438,7 +438,7 @@ virNodeDeviceGetXMLDescWrapper(virNodeDevicePtr dev,
                                virErrorPtr err)
 {
     char * ret = NULL;
-    static virNodeDeviceGetXMLDescType virNodeDeviceGetXMLDescSymbol;
+    static virNodeDeviceGetXMLDescFuncType virNodeDeviceGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -458,14 +458,14 @@ virNodeDeviceGetXMLDescWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceIsActiveType)(virNodeDevicePtr dev);
+(*virNodeDeviceIsActiveFuncType)(virNodeDevicePtr dev);
 
 int
 virNodeDeviceIsActiveWrapper(virNodeDevicePtr dev,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceIsActiveType virNodeDeviceIsActiveSymbol;
+    static virNodeDeviceIsActiveFuncType virNodeDeviceIsActiveSymbol;
     static bool once;
     static bool success;
 
@@ -484,14 +484,14 @@ virNodeDeviceIsActiveWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceIsPersistentType)(virNodeDevicePtr dev);
+(*virNodeDeviceIsPersistentFuncType)(virNodeDevicePtr dev);
 
 int
 virNodeDeviceIsPersistentWrapper(virNodeDevicePtr dev,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceIsPersistentType virNodeDeviceIsPersistentSymbol;
+    static virNodeDeviceIsPersistentFuncType virNodeDeviceIsPersistentSymbol;
     static bool once;
     static bool success;
 
@@ -510,9 +510,9 @@ virNodeDeviceIsPersistentWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceListCapsType)(virNodeDevicePtr dev,
-                             char ** const names,
-                             int maxnames);
+(*virNodeDeviceListCapsFuncType)(virNodeDevicePtr dev,
+                                 char ** const names,
+                                 int maxnames);
 
 int
 virNodeDeviceListCapsWrapper(virNodeDevicePtr dev,
@@ -521,7 +521,7 @@ virNodeDeviceListCapsWrapper(virNodeDevicePtr dev,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceListCapsType virNodeDeviceListCapsSymbol;
+    static virNodeDeviceListCapsFuncType virNodeDeviceListCapsSymbol;
     static bool once;
     static bool success;
 
@@ -542,8 +542,8 @@ virNodeDeviceListCapsWrapper(virNodeDevicePtr dev,
 }
 
 typedef virNodeDevicePtr
-(*virNodeDeviceLookupByNameType)(virConnectPtr conn,
-                                 const char * name);
+(*virNodeDeviceLookupByNameFuncType)(virConnectPtr conn,
+                                     const char * name);
 
 virNodeDevicePtr
 virNodeDeviceLookupByNameWrapper(virConnectPtr conn,
@@ -551,7 +551,7 @@ virNodeDeviceLookupByNameWrapper(virConnectPtr conn,
                                  virErrorPtr err)
 {
     virNodeDevicePtr ret = NULL;
-    static virNodeDeviceLookupByNameType virNodeDeviceLookupByNameSymbol;
+    static virNodeDeviceLookupByNameFuncType virNodeDeviceLookupByNameSymbol;
     static bool once;
     static bool success;
 
@@ -571,10 +571,10 @@ virNodeDeviceLookupByNameWrapper(virConnectPtr conn,
 }
 
 typedef virNodeDevicePtr
-(*virNodeDeviceLookupSCSIHostByWWNType)(virConnectPtr conn,
-                                        const char * wwnn,
-                                        const char * wwpn,
-                                        unsigned int flags);
+(*virNodeDeviceLookupSCSIHostByWWNFuncType)(virConnectPtr conn,
+                                            const char * wwnn,
+                                            const char * wwpn,
+                                            unsigned int flags);
 
 virNodeDevicePtr
 virNodeDeviceLookupSCSIHostByWWNWrapper(virConnectPtr conn,
@@ -584,7 +584,7 @@ virNodeDeviceLookupSCSIHostByWWNWrapper(virConnectPtr conn,
                                         virErrorPtr err)
 {
     virNodeDevicePtr ret = NULL;
-    static virNodeDeviceLookupSCSIHostByWWNType virNodeDeviceLookupSCSIHostByWWNSymbol;
+    static virNodeDeviceLookupSCSIHostByWWNFuncType virNodeDeviceLookupSCSIHostByWWNSymbol;
     static bool once;
     static bool success;
 
@@ -606,14 +606,14 @@ virNodeDeviceLookupSCSIHostByWWNWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeDeviceNumOfCapsType)(virNodeDevicePtr dev);
+(*virNodeDeviceNumOfCapsFuncType)(virNodeDevicePtr dev);
 
 int
 virNodeDeviceNumOfCapsWrapper(virNodeDevicePtr dev,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceNumOfCapsType virNodeDeviceNumOfCapsSymbol;
+    static virNodeDeviceNumOfCapsFuncType virNodeDeviceNumOfCapsSymbol;
     static bool once;
     static bool success;
 
@@ -632,14 +632,14 @@ virNodeDeviceNumOfCapsWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceReAttachType)(virNodeDevicePtr dev);
+(*virNodeDeviceReAttachFuncType)(virNodeDevicePtr dev);
 
 int
 virNodeDeviceReAttachWrapper(virNodeDevicePtr dev,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceReAttachType virNodeDeviceReAttachSymbol;
+    static virNodeDeviceReAttachFuncType virNodeDeviceReAttachSymbol;
     static bool once;
     static bool success;
 
@@ -658,14 +658,14 @@ virNodeDeviceReAttachWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceRefType)(virNodeDevicePtr dev);
+(*virNodeDeviceRefFuncType)(virNodeDevicePtr dev);
 
 int
 virNodeDeviceRefWrapper(virNodeDevicePtr dev,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceRefType virNodeDeviceRefSymbol;
+    static virNodeDeviceRefFuncType virNodeDeviceRefSymbol;
     static bool once;
     static bool success;
 
@@ -684,14 +684,14 @@ virNodeDeviceRefWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceResetType)(virNodeDevicePtr dev);
+(*virNodeDeviceResetFuncType)(virNodeDevicePtr dev);
 
 int
 virNodeDeviceResetWrapper(virNodeDevicePtr dev,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceResetType virNodeDeviceResetSymbol;
+    static virNodeDeviceResetFuncType virNodeDeviceResetSymbol;
     static bool once;
     static bool success;
 
@@ -710,8 +710,8 @@ virNodeDeviceResetWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceSetAutostartType)(virNodeDevicePtr dev,
-                                 int autostart);
+(*virNodeDeviceSetAutostartFuncType)(virNodeDevicePtr dev,
+                                     int autostart);
 
 int
 virNodeDeviceSetAutostartWrapper(virNodeDevicePtr dev,
@@ -719,7 +719,7 @@ virNodeDeviceSetAutostartWrapper(virNodeDevicePtr dev,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceSetAutostartType virNodeDeviceSetAutostartSymbol;
+    static virNodeDeviceSetAutostartFuncType virNodeDeviceSetAutostartSymbol;
     static bool once;
     static bool success;
 
@@ -739,8 +739,8 @@ virNodeDeviceSetAutostartWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeDeviceUndefineType)(virNodeDevicePtr dev,
-                             unsigned int flags);
+(*virNodeDeviceUndefineFuncType)(virNodeDevicePtr dev,
+                                 unsigned int flags);
 
 int
 virNodeDeviceUndefineWrapper(virNodeDevicePtr dev,
@@ -748,7 +748,7 @@ virNodeDeviceUndefineWrapper(virNodeDevicePtr dev,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virNodeDeviceUndefineType virNodeDeviceUndefineSymbol;
+    static virNodeDeviceUndefineFuncType virNodeDeviceUndefineSymbol;
     static bool once;
     static bool success;
 
@@ -768,11 +768,43 @@ virNodeDeviceUndefineWrapper(virNodeDevicePtr dev,
 }
 
 typedef int
-(*virNodeListDevicesType)(virConnectPtr conn,
-                          const char * cap,
-                          char ** const names,
-                          int maxnames,
-                          unsigned int flags);
+(*virNodeDeviceUpdateFuncType)(virNodeDevicePtr dev,
+                               const char * xmlDesc,
+                               unsigned int flags);
+
+int
+virNodeDeviceUpdateWrapper(virNodeDevicePtr dev,
+                           const char * xmlDesc,
+                           unsigned int flags,
+                           virErrorPtr err)
+{
+    int ret = -1;
+    static virNodeDeviceUpdateFuncType virNodeDeviceUpdateSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virNodeDeviceUpdate",
+                       (void**)&virNodeDeviceUpdateSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virNodeDeviceUpdateSymbol(dev,
+                                    xmlDesc,
+                                    flags);
+    if (ret < 0) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
+typedef int
+(*virNodeListDevicesFuncType)(virConnectPtr conn,
+                              const char * cap,
+                              char ** const names,
+                              int maxnames,
+                              unsigned int flags);
 
 int
 virNodeListDevicesWrapper(virConnectPtr conn,
@@ -783,7 +815,7 @@ virNodeListDevicesWrapper(virConnectPtr conn,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virNodeListDevicesType virNodeListDevicesSymbol;
+    static virNodeListDevicesFuncType virNodeListDevicesSymbol;
     static bool once;
     static bool success;
 
@@ -806,9 +838,9 @@ virNodeListDevicesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeNumOfDevicesType)(virConnectPtr conn,
-                           const char * cap,
-                           unsigned int flags);
+(*virNodeNumOfDevicesFuncType)(virConnectPtr conn,
+                               const char * cap,
+                               unsigned int flags);
 
 int
 virNodeNumOfDevicesWrapper(virConnectPtr conn,
@@ -817,7 +849,7 @@ virNodeNumOfDevicesWrapper(virConnectPtr conn,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virNodeNumOfDevicesType virNodeNumOfDevicesSymbol;
+    static virNodeNumOfDevicesFuncType virNodeNumOfDevicesSymbol;
     static bool once;
     static bool success;
 

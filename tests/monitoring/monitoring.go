@@ -25,33 +25,31 @@ import (
 	"net/http"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libnet"
-
-	"kubevirt.io/kubevirt/tests/libmigration"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMonitoring, func() {
@@ -120,11 +118,9 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 	})
 
 	Context("System Alerts", func() {
-		disableVirtHandler := func() *v1.KubeVirt {
-			originalKv := util.GetCurrentKv(virtClient)
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
+		disableVirtHandler := func() {
+			originalKv := libkubevirt.GetCurrentKv(virtClient)
+			customizedComponents := v1.CustomizeComponents{
 				Patches: []v1.CustomizeComponentsPatch{
 					{
 						ResourceName: virtHandler.deploymentName,
@@ -135,48 +131,42 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 				},
 			}
 
-			Eventually(func() error {
-				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
-				return err
-			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			patchBytes, err := patch.New(patch.WithAdd("/spec/customizeComponents", customizedComponents)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() string {
 				vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vh.Spec.Template.Spec.NodeSelector[k8sv1.LabelHostname]
-			}, 90*time.Second, 5*time.Second).Should(Equal("does-not-exist"))
+			}).WithTimeout(90 * time.Second).WithPolling(5 * time.Second).Should(Equal("does-not-exist"))
 
 			Eventually(func() int {
 				vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return int(vh.Status.NumberAvailable + vh.Status.NumberUnavailable)
-			}, 90*time.Second, 5*time.Second).Should(Equal(0))
-
-			return kv
+			}).WithTimeout(90 * time.Second).WithPolling(5 * time.Second).Should(Equal(0))
 		}
 
-		restoreVirtHandler := func(kv *v1.KubeVirt) {
-			originalKv := util.GetCurrentKv(virtClient)
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
+		restoreVirtHandler := func() {
+			originalKv := libkubevirt.GetCurrentKv(virtClient)
+			patchBytes, err := patch.New(patch.WithRemove("/spec/customizeComponents")).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 
-			kv.Spec.CustomizeComponents = v1.CustomizeComponents{}
-
-			Eventually(func() error {
-				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
-				return err
-			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		It("KubeVirtNoAvailableNodesToRunVMs should be triggered when there are no available nodes in the cluster to run VMs", func() {
 			By("Scaling down virt-handler")
-			kv := disableVirtHandler()
+			disableVirtHandler()
 
 			By("Verifying KubeVirtNoAvailableNodesToRunVMs alert exists if emulation is disabled")
 			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
 
 			By("Restoring virt-handler")
-			restoreVirtHandler(kv)
+			restoreVirtHandler()
 			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, "KubeVirtNoAvailableNodesToRunVMs")
 		})
 	})
@@ -205,8 +195,8 @@ func checkRequiredAnnotations(rule promv1.Rule) {
 		"%s summary is missing or empty", rule.Alert)
 	ExpectWithOffset(1, rule.Annotations).To(HaveKey("runbook_url"),
 		"%s runbook_url is missing", rule.Alert)
-	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("runbook_url", HaveSuffix(rule.Alert)),
-		"%s runbook_url is not equal to alert name", rule.Alert)
+	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("runbook_url", ContainSubstring(rule.Alert)),
+		"%s runbook_url doesn't include alert name", rule.Alert)
 
 	resp, err := http.Head(rule.Annotations["runbook_url"])
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook is not available", rule.Alert))

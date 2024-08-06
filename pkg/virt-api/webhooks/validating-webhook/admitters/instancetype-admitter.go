@@ -15,7 +15,6 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
 const percentValueMustBeInRangeMessagePattern = "%s '%d': must be in range between 0 and 100."
@@ -27,8 +26,6 @@ var supportedInstancetypeVersions = []string{
 }
 
 type InstancetypeAdmitter struct{}
-
-var _ validating_webhooks.Admitter = &InstancetypeAdmitter{}
 
 func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitInstancetype(ar.Request, instancetype.PluralResourceName)
@@ -69,8 +66,6 @@ func validateMemoryOvercommitPercentNoHugepages(field *k8sfield.Path, spec *inst
 }
 
 type ClusterInstancetypeAdmitter struct{}
-
-var _ validating_webhooks.Admitter = &ClusterInstancetypeAdmitter{}
 
 func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitInstancetype(ar.Request, instancetype.ClusterPluralResourceName)

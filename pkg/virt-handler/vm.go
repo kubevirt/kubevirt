@@ -71,7 +71,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
-	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 
@@ -217,6 +216,9 @@ func NewController(
 	downwardMetricsManager downwardMetricsManager,
 	capabilities *nodelabellerapi.Capabilities,
 	hostCpuModel string,
+	netConf netconf,
+	netStat netstat,
+	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-vm")
@@ -232,27 +234,30 @@ func NewController(
 	}
 
 	c := &VirtualMachineController{
-		queue:                       queue,
-		recorder:                    recorder,
-		clientset:                   clientset,
-		host:                        host,
-		migrationIpAddress:          migrationIpAddress,
-		virtShareDir:                virtShareDir,
-		vmiSourceStore:              vmiSourceInformer.GetStore(),
-		vmiTargetStore:              vmiTargetInformer.GetStore(),
-		domainStore:                 domainInformer.GetStore(),
-		heartBeatInterval:           1 * time.Minute,
-		migrationProxy:              migrationProxy,
-		podIsolationDetector:        podIsolationDetector,
-		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
-		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
-		clusterConfig:               clusterConfig,
-		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
-		capabilities:                capabilities,
-		hostCpuModel:                hostCpuModel,
-		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
-		ioErrorRetryManager:         NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
+		queue:                            queue,
+		recorder:                         recorder,
+		clientset:                        clientset,
+		host:                             host,
+		migrationIpAddress:               migrationIpAddress,
+		virtShareDir:                     virtShareDir,
+		vmiSourceStore:                   vmiSourceInformer.GetStore(),
+		vmiTargetStore:                   vmiTargetInformer.GetStore(),
+		domainStore:                      domainInformer.GetStore(),
+		heartBeatInterval:                1 * time.Minute,
+		migrationProxy:                   migrationProxy,
+		podIsolationDetector:             podIsolationDetector,
+		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
+		clusterConfig:                    clusterConfig,
+		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
+		capabilities:                     capabilities,
+		hostCpuModel:                     hostCpuModel,
+		vmiExpectations:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		sriovHotplugExecutorPool:         executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
+		ioErrorRetryManager:              NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
+		netConf:                          netConf,
+		netStat:                          netStat,
+		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 	}
 
 	c.hasSynced = func() bool {
@@ -288,9 +293,6 @@ func NewController(
 
 	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
 
-	c.netConf = netsetup.NewNetConf()
-	c.netStat = netsetup.NewNetStat()
-
 	c.downwardMetricsManager = downwardMetricsManager
 
 	c.domainNotifyPipes = make(map[string]string)
@@ -319,6 +321,10 @@ func NewController(
 	return c, nil
 }
 
+type netBindingPluginMemoryCalculator interface {
+	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
+}
+
 type VirtualMachineController struct {
 	recorder                 record.EventRecorder
 	clientset                kubecli.KubevirtClient
@@ -341,8 +347,9 @@ type VirtualMachineController struct {
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	downwardMetricsManager   downwardMetricsManager
 
-	netConf netconf
-	netStat netstat
+	netConf                          netconf
+	netStat                          netstat
+	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 
 	domainNotifyPipes           map[string]string
 	virtLauncherFSRunDirPattern string
@@ -3628,6 +3635,10 @@ func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 
 	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
 	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
+	requiredMemory.Add(
+		d.netBindingPluginMemoryCalculator.Calculate(vmi, d.clusterConfig.GetNetworkBindings()),
+	)
+
 	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 
 	if podMemReq.Cmp(requiredMemory) < 0 {

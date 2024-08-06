@@ -134,8 +134,9 @@ func (v *VMNetController) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInst
 		return false, err
 	}
 	if pod == nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to find VMI pod in cache.")
-		return false, err
+		// Pod may not exist yet, therefore assume the most conservative option:
+		// This is an old virt-launcher that uses ordinal network interface names.
+		return true, nil
 	}
 	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(NonDefaultMultusNetworksIndexedByIfaceName(pod))
 	return hasOrdinalIfaces, nil

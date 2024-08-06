@@ -27,30 +27,26 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libinfra"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
-	"kubevirt.io/kubevirt/tests/events"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = DescribeInfra("Node-labeller", func() {
@@ -203,7 +199,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 		})
 
 		It("[test_id:6247] should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config", func() {
-			kvConfig := util.GetCurrentKv(virtClient)
+			kvConfig := libkubevirt.GetCurrentKv(virtClient)
 			kvConfig.Spec.Configuration.ObsoleteCPUModels = nil
 			tests.UpdateKubeVirtConfigValueAndWait(kvConfig.Spec.Configuration)
 			node := nodesWithKVM[0]
@@ -237,7 +233,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 		var originalKubeVirt *v1.KubeVirt
 
 		BeforeEach(func() {
-			originalKubeVirt = util.GetCurrentKv(virtClient)
+			originalKubeVirt = libkubevirt.GetCurrentKv(virtClient)
 		})
 
 		AfterEach(func() {
@@ -330,7 +326,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 			obsoleteModel = libnode.GetNodeHostModel(node)
 
 			By("Updating Kubevirt CR , this should wake node-labeller ")
-			kvConfig = util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+			kvConfig = libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 			if kvConfig.ObsoleteCPUModels == nil {
 				kvConfig.ObsoleteCPUModels = make(map[string]bool)
 			}

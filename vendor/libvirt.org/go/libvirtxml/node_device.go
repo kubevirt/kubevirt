@@ -318,6 +318,7 @@ type NodeDeviceMDevCapability struct {
 	Type       *NodeDeviceMDevCapabilityType   `xml:"type"`
 	IOMMUGroup *NodeDeviceIOMMUGroup           `xml:"iommuGroup"`
 	UUID       string                          `xml:"uuid,omitempty"`
+	ParentAddr string                          `xml:"parent_addr,omitempty"`
 	Attrs      []NodeDeviceMDevCapabilityAttrs `xml:"attr,omitempty"`
 }
 

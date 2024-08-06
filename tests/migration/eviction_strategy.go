@@ -24,22 +24,9 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/cleanup"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/util"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -47,15 +34,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"kubevirt.io/kubevirt/tests/libwait"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = SIGMigrationDescribe("Live Migration", func() {
@@ -251,34 +247,6 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					nodeAffinityTerm k8sv1.PreferredSchedulingTerm
 				)
 
-				// temporaryNodeDrain also sets the `NoSchedule` taint on the node.
-				// nodes with this taint will be reset to their original state on each
-				// test teardown by the test framework. Check `libnode.CleanNodes`.
-				// TODO: move this function in `libnode` package. First resolve cycle in dependency graph
-				//  .-> //tests/testsuite:go_default_library
-				//  |   //tests/libnode:go_default_library
-				//  |   //tests/clientcmd:go_default_library
-				//  `-- //tests/testsuite:go_default_library
-				temporaryNodeDrain := func(nodeName string) {
-					By("taining the node with `NoExecute`, the framework will reset the node's taints and un-schedulable properties on test teardown")
-					libnode.Taint(nodeName, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
-
-					By(fmt.Sprintf("Draining node %s", nodeName))
-					// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
-					// time that we call it.
-					vmiSelector := v1.AppLabel + "=virt-launcher"
-					k8sClient := clientcmd.GetK8sCmdClient()
-					if k8sClient == "oc" {
-						_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
-							"--ignore-daemonsets=true", "--force", "--timeout=180s")
-						Expect(err).ToNot(HaveOccurred())
-					} else {
-						_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
-							"--ignore-daemonsets=true", "--force", "--timeout=180s")
-						Expect(err).ToNot(HaveOccurred())
-					}
-				}
-
 				expectVMIMigratedToAnotherNode := func(vmiName, sourceNodeName string) {
 					EventuallyWithOffset(1, func() error {
 						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
@@ -336,7 +304,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					node := vmi.Status.NodeName
-					temporaryNodeDrain(node)
+					libnode.TemporaryNodeDrain(node)
 					expectVMIMigratedToAnotherNode(vmi.Name, node)
 
 					Consistently(func() error {
@@ -368,7 +336,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
 					node := vmi.Status.NodeName
-					temporaryNodeDrain(node)
+					libnode.TemporaryNodeDrain(node)
 					expectVMIMigratedToAnotherNode(vmi.Name, node)
 				})
 
@@ -386,7 +354,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 					node := vmi.Status.NodeName
-					temporaryNodeDrain(node)
+					libnode.TemporaryNodeDrain(node)
 					expectVMIMigratedToAnotherNode(vmi.Name, node)
 				})
 
@@ -458,7 +426,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_noevict.Status.NodeName))
 
 					node := vmi_evict1.Status.NodeName
-					temporaryNodeDrain(node)
+					libnode.TemporaryNodeDrain(node)
 
 					By("Verify expected vmis migrated after node drain completes")
 					// verify migrated where expected to migrate.
@@ -580,7 +548,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 		var originalKV *v1.KubeVirt
 
 		BeforeEach(func() {
-			kv := util.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(virtClient)
 			originalKV = kv.DeepCopy()
 
 			evictionStrategy := v1.EvictionStrategyLiveMigrate

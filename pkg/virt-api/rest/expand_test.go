@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -26,13 +27,17 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 var _ = Describe("Instancetype expansion subresources", func() {
 	const (
 		vmName      = "test-vm"
 		vmNamespace = "test-namespace"
+		volumeName  = "volumeName"
 	)
 
 	var (
@@ -57,8 +62,25 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 		instancetypeMethods = testutils.NewMockInstancetypeMethods()
 
+		kv := &v1.KubeVirt{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{},
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: v1.KubeVirtPhaseDeployed,
+			},
+		}
+
 		app = NewSubresourceAPIApp(virtClient, 0, nil, nil)
 		app.instancetypeMethods = instancetypeMethods
+		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+		app.clusterConfig = config
 
 		request = restful.NewRequest(&http.Request{})
 		recorder = httptest.NewRecorder()
@@ -75,6 +97,9 @@ var _ = Describe("Instancetype expansion subresources", func() {
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{},
+						Volumes: []v1.Volume{{
+							Name: volumeName,
+						}},
 					},
 				},
 			},
@@ -143,6 +168,17 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			}
 
 			expectedVm := vm.DeepCopy()
+
+			Expect(webhooks.SetDefaultVirtualMachine(app.clusterConfig, expectedVm)).To(Succeed())
+
+			util.SetDefaultVolumeDisk(&expectedVm.Spec.Template.Spec)
+			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volumeName))
+
+			Expect(vmispec.SetDefaultNetworkInterface(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
+			Expect(expectedVm.Spec.Template.Spec.Networks).To(HaveLen(1))
+			Expect(expectedVm.Spec.Template.Spec.Networks[0].Name).To(Equal("default"))
+
 			expectedVm.Spec.Template.Spec.Domain.CPU = cpu
 			expectedVm.Spec.Template.ObjectMeta.Annotations = annotations
 
@@ -170,6 +206,16 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			}
 
 			expectedVm := vm.DeepCopy()
+
+			Expect(webhooks.SetDefaultVirtualMachine(app.clusterConfig, expectedVm)).To(Succeed())
+
+			util.SetDefaultVolumeDisk(&expectedVm.Spec.Template.Spec)
+			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volumeName))
+
+			Expect(vmispec.SetDefaultNetworkInterface(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
+			Expect(expectedVm.Spec.Template.Spec.Networks).To(HaveLen(1))
+			Expect(expectedVm.Spec.Template.Spec.Networks[0].Name).To(Equal("default"))
 			expectedVm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 
 			recorder := callExpandSpecApi(vm)

@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,6 +45,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -52,7 +54,6 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -62,13 +63,13 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
@@ -346,9 +347,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		Context("with boot order", func() {
 			DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
 				By("defining a VirtualMachineInstance with an Alpine disk")
-				vmi = libvmifact.NewAlpine()
-				By("adding a Cirros Disk")
-				tests.AddEphemeralDisk(vmi, "disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi = libvmifact.NewAlpine(libvmi.WithContainerDisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 
 				By("setting boot order")
 				vmi = addBootOrderToDisk(vmi, "disk0", &alpineBootOrder)
@@ -661,9 +660,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
-
 				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
-				vmi = libvmifact.NewCirros()
+				// Note: we want VMI without any container
+				vmi = libvmifact.NewGuestless(libvmi.WithLogSerialConsole(false))
 				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 
@@ -682,7 +681,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				// Save virt-handler number of desired pods
 				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
 
-				kv := util.GetCurrentKv(kubevirt.Client())
+				kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 				kv.Spec.Workloads = &v1.ComponentConfig{
 					NodePlacement: &v1.NodePlacement{
 						Affinity: &k8sv1.Affinity{
@@ -709,41 +708,44 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("[test_id:1634]the node controller should mark the node as unschedulable when the virt-handler heartbeat has timedout", func() {
 				// Update virt-handler heartbeat, to trigger a timeout
-				data := []byte(fmt.Sprintf(`{"metadata": { "labels": { "%s": "true" }, "annotations": {"%s": "%s"}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, nowAsJSONWithOffset(-10*time.Minute)))
-				_, err = kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+				node, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should get node successfully")
+
+				Expect(node.Annotations).To(HaveKey(v1.VirtHandlerHeartbeat))
+				lastHeartBeat := node.Annotations[v1.VirtHandlerHeartbeat]
+				timestamp := &metav1.Time{}
+				Expect(json.Unmarshal([]byte(`"`+lastHeartBeat+`"`), &timestamp)).To(Succeed())
+				timeToSet := metav1.NewTime(timestamp.Add(-10 * time.Minute))
+				patchBytes, err := patch.New(
+					patch.WithReplace(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(v1.NodeSchedulable)), "true"),
+					patch.WithReplace(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(v1.VirtHandlerHeartbeat)), timeToSet),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred(), "Should generate patches")
+
+				_, err = kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
-				// Delete vmi pod
-				pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
-					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
-				})
-				Expect(err).ToNot(HaveOccurred(), "Should list pods successfully")
-				Expect(pods.Items).To(HaveLen(1), "There should be only one VMI pod")
-				var gracePeriod int64 = 0
-				Expect(kubevirt.Client().CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pods.Items[0].Name, metav1.DeleteOptions{
-					GracePeriodSeconds: &gracePeriod,
-				})).To(Succeed(), "The vmi pod should be deleted successfully")
+				// Note we cannot remove the Pod as the vmi controller also moves the VMI to Failed if Pod disappears
+				// This leads to race condition, killing the process gives us exactly what we want
+				By("killing the virt-launcher")
+				vmiKiller, err := pkillAllLaunchers(kubevirt.Client(), nodeName)
+				Expect(err).ToNot(HaveOccurred(), "Should create vmi-killer pod to kill virt-launcher successfully")
+				watcher.New(vmiKiller).SinceWatchedObjectResourceVersion().Timeout(20*time.Second).WaitFor(context.Background(), watcher.NormalEvent, v1.Started)
 
 				// it will take at least 45 seconds until the vmi is gone, check the schedulable state in the meantime
 				By("marking the node as not schedulable")
-				Eventually(func() string {
+				Eventually(func() map[string]string {
 					node, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get node successfully")
-					return node.Labels[v1.NodeSchedulable]
-				}, 20*time.Second, 1*time.Second).Should(Equal("false"), "The node should not be schedulable")
+					return node.Labels
+				}, 10*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.NodeSchedulable, "false"), "The node should not be schedulable")
 
 				By("moving stuck vmis to failed state")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					failedVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
-					return failedVMI.Status.Phase
-				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Failed))
 
-				Eventually(func() string {
-					failedVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
-					return failedVMI.Status.Reason
-				}, 180*time.Second, 1*time.Second).Should(Equal(watch.NodeUnresponsiveReason))
+				failedVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
+				Expect(failedVMI.Status.Reason).To(Equal(watch.NodeUnresponsiveReason))
 
 				err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -889,7 +891,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				}
 				defaultCPUModel = supportedCpuModels[0]
 				vmiCPUModel = supportedCpuModels[1]
-				kv := util.GetCurrentKv(kubevirt.Client())
+				kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 				originalConfig = kv.Spec.Configuration
 			})
 

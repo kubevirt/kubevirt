@@ -117,3 +117,10 @@ linters:
   # - testpackage
   # - revive
   # - wsl
+
+issues:
+  exclude-rules:
+    # We should steer users towards RunStrategy
+    - text: 'SA1019: libvmi.WithRunning'
+      linters:
+        - staticcheck

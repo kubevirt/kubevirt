@@ -43,10 +43,10 @@ package libvirt
 
 
 typedef char *
-(*virConnectFindStoragePoolSourcesType)(virConnectPtr conn,
-                                        const char * type,
-                                        const char * srcSpec,
-                                        unsigned int flags);
+(*virConnectFindStoragePoolSourcesFuncType)(virConnectPtr conn,
+                                            const char * type,
+                                            const char * srcSpec,
+                                            unsigned int flags);
 
 char *
 virConnectFindStoragePoolSourcesWrapper(virConnectPtr conn,
@@ -56,7 +56,7 @@ virConnectFindStoragePoolSourcesWrapper(virConnectPtr conn,
                                         virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectFindStoragePoolSourcesType virConnectFindStoragePoolSourcesSymbol;
+    static virConnectFindStoragePoolSourcesFuncType virConnectFindStoragePoolSourcesSymbol;
     static bool once;
     static bool success;
 
@@ -78,8 +78,8 @@ virConnectFindStoragePoolSourcesWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virConnectGetStoragePoolCapabilitiesType)(virConnectPtr conn,
-                                            unsigned int flags);
+(*virConnectGetStoragePoolCapabilitiesFuncType)(virConnectPtr conn,
+                                                unsigned int flags);
 
 char *
 virConnectGetStoragePoolCapabilitiesWrapper(virConnectPtr conn,
@@ -87,7 +87,7 @@ virConnectGetStoragePoolCapabilitiesWrapper(virConnectPtr conn,
                                             virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectGetStoragePoolCapabilitiesType virConnectGetStoragePoolCapabilitiesSymbol;
+    static virConnectGetStoragePoolCapabilitiesFuncType virConnectGetStoragePoolCapabilitiesSymbol;
     static bool once;
     static bool success;
 
@@ -107,9 +107,9 @@ virConnectGetStoragePoolCapabilitiesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListAllStoragePoolsType)(virConnectPtr conn,
-                                     virStoragePoolPtr ** pools,
-                                     unsigned int flags);
+(*virConnectListAllStoragePoolsFuncType)(virConnectPtr conn,
+                                         virStoragePoolPtr ** pools,
+                                         unsigned int flags);
 
 int
 virConnectListAllStoragePoolsWrapper(virConnectPtr conn,
@@ -118,7 +118,7 @@ virConnectListAllStoragePoolsWrapper(virConnectPtr conn,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListAllStoragePoolsType virConnectListAllStoragePoolsSymbol;
+    static virConnectListAllStoragePoolsFuncType virConnectListAllStoragePoolsSymbol;
     static bool once;
     static bool success;
 
@@ -139,9 +139,9 @@ virConnectListAllStoragePoolsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListDefinedStoragePoolsType)(virConnectPtr conn,
-                                         char ** const names,
-                                         int maxnames);
+(*virConnectListDefinedStoragePoolsFuncType)(virConnectPtr conn,
+                                             char ** const names,
+                                             int maxnames);
 
 int
 virConnectListDefinedStoragePoolsWrapper(virConnectPtr conn,
@@ -150,7 +150,7 @@ virConnectListDefinedStoragePoolsWrapper(virConnectPtr conn,
                                          virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListDefinedStoragePoolsType virConnectListDefinedStoragePoolsSymbol;
+    static virConnectListDefinedStoragePoolsFuncType virConnectListDefinedStoragePoolsSymbol;
     static bool once;
     static bool success;
 
@@ -171,9 +171,9 @@ virConnectListDefinedStoragePoolsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListStoragePoolsType)(virConnectPtr conn,
-                                  char ** const names,
-                                  int maxnames);
+(*virConnectListStoragePoolsFuncType)(virConnectPtr conn,
+                                      char ** const names,
+                                      int maxnames);
 
 int
 virConnectListStoragePoolsWrapper(virConnectPtr conn,
@@ -182,7 +182,7 @@ virConnectListStoragePoolsWrapper(virConnectPtr conn,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListStoragePoolsType virConnectListStoragePoolsSymbol;
+    static virConnectListStoragePoolsFuncType virConnectListStoragePoolsSymbol;
     static bool once;
     static bool success;
 
@@ -203,14 +203,14 @@ virConnectListStoragePoolsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfDefinedStoragePoolsType)(virConnectPtr conn);
+(*virConnectNumOfDefinedStoragePoolsFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfDefinedStoragePoolsWrapper(virConnectPtr conn,
                                           virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfDefinedStoragePoolsType virConnectNumOfDefinedStoragePoolsSymbol;
+    static virConnectNumOfDefinedStoragePoolsFuncType virConnectNumOfDefinedStoragePoolsSymbol;
     static bool once;
     static bool success;
 
@@ -229,14 +229,14 @@ virConnectNumOfDefinedStoragePoolsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfStoragePoolsType)(virConnectPtr conn);
+(*virConnectNumOfStoragePoolsFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfStoragePoolsWrapper(virConnectPtr conn,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfStoragePoolsType virConnectNumOfStoragePoolsSymbol;
+    static virConnectNumOfStoragePoolsFuncType virConnectNumOfStoragePoolsSymbol;
     static bool once;
     static bool success;
 
@@ -255,8 +255,8 @@ virConnectNumOfStoragePoolsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectStoragePoolEventDeregisterAnyType)(virConnectPtr conn,
-                                               int callbackID);
+(*virConnectStoragePoolEventDeregisterAnyFuncType)(virConnectPtr conn,
+                                                   int callbackID);
 
 int
 virConnectStoragePoolEventDeregisterAnyWrapper(virConnectPtr conn,
@@ -264,7 +264,7 @@ virConnectStoragePoolEventDeregisterAnyWrapper(virConnectPtr conn,
                                                virErrorPtr err)
 {
     int ret = -1;
-    static virConnectStoragePoolEventDeregisterAnyType virConnectStoragePoolEventDeregisterAnySymbol;
+    static virConnectStoragePoolEventDeregisterAnyFuncType virConnectStoragePoolEventDeregisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -284,12 +284,12 @@ virConnectStoragePoolEventDeregisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectStoragePoolEventRegisterAnyType)(virConnectPtr conn,
-                                             virStoragePoolPtr pool,
-                                             int eventID,
-                                             virConnectStoragePoolEventGenericCallback cb,
-                                             void * opaque,
-                                             virFreeCallback freecb);
+(*virConnectStoragePoolEventRegisterAnyFuncType)(virConnectPtr conn,
+                                                 virStoragePoolPtr pool,
+                                                 int eventID,
+                                                 virConnectStoragePoolEventGenericCallback cb,
+                                                 void * opaque,
+                                                 virFreeCallback freecb);
 
 int
 virConnectStoragePoolEventRegisterAnyWrapper(virConnectPtr conn,
@@ -301,7 +301,7 @@ virConnectStoragePoolEventRegisterAnyWrapper(virConnectPtr conn,
                                              virErrorPtr err)
 {
     int ret = -1;
-    static virConnectStoragePoolEventRegisterAnyType virConnectStoragePoolEventRegisterAnySymbol;
+    static virConnectStoragePoolEventRegisterAnyFuncType virConnectStoragePoolEventRegisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -325,8 +325,8 @@ virConnectStoragePoolEventRegisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virStoragePoolBuildType)(virStoragePoolPtr pool,
-                           unsigned int flags);
+(*virStoragePoolBuildFuncType)(virStoragePoolPtr pool,
+                               unsigned int flags);
 
 int
 virStoragePoolBuildWrapper(virStoragePoolPtr pool,
@@ -334,7 +334,7 @@ virStoragePoolBuildWrapper(virStoragePoolPtr pool,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolBuildType virStoragePoolBuildSymbol;
+    static virStoragePoolBuildFuncType virStoragePoolBuildSymbol;
     static bool once;
     static bool success;
 
@@ -354,8 +354,8 @@ virStoragePoolBuildWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolCreateType)(virStoragePoolPtr pool,
-                            unsigned int flags);
+(*virStoragePoolCreateFuncType)(virStoragePoolPtr pool,
+                                unsigned int flags);
 
 int
 virStoragePoolCreateWrapper(virStoragePoolPtr pool,
@@ -363,7 +363,7 @@ virStoragePoolCreateWrapper(virStoragePoolPtr pool,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolCreateType virStoragePoolCreateSymbol;
+    static virStoragePoolCreateFuncType virStoragePoolCreateSymbol;
     static bool once;
     static bool success;
 
@@ -383,9 +383,9 @@ virStoragePoolCreateWrapper(virStoragePoolPtr pool,
 }
 
 typedef virStoragePoolPtr
-(*virStoragePoolCreateXMLType)(virConnectPtr conn,
-                               const char * xmlDesc,
-                               unsigned int flags);
+(*virStoragePoolCreateXMLFuncType)(virConnectPtr conn,
+                                   const char * xmlDesc,
+                                   unsigned int flags);
 
 virStoragePoolPtr
 virStoragePoolCreateXMLWrapper(virConnectPtr conn,
@@ -394,7 +394,7 @@ virStoragePoolCreateXMLWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     virStoragePoolPtr ret = NULL;
-    static virStoragePoolCreateXMLType virStoragePoolCreateXMLSymbol;
+    static virStoragePoolCreateXMLFuncType virStoragePoolCreateXMLSymbol;
     static bool once;
     static bool success;
 
@@ -415,9 +415,9 @@ virStoragePoolCreateXMLWrapper(virConnectPtr conn,
 }
 
 typedef virStoragePoolPtr
-(*virStoragePoolDefineXMLType)(virConnectPtr conn,
-                               const char * xml,
-                               unsigned int flags);
+(*virStoragePoolDefineXMLFuncType)(virConnectPtr conn,
+                                   const char * xml,
+                                   unsigned int flags);
 
 virStoragePoolPtr
 virStoragePoolDefineXMLWrapper(virConnectPtr conn,
@@ -426,7 +426,7 @@ virStoragePoolDefineXMLWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     virStoragePoolPtr ret = NULL;
-    static virStoragePoolDefineXMLType virStoragePoolDefineXMLSymbol;
+    static virStoragePoolDefineXMLFuncType virStoragePoolDefineXMLSymbol;
     static bool once;
     static bool success;
 
@@ -447,8 +447,8 @@ virStoragePoolDefineXMLWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virStoragePoolDeleteType)(virStoragePoolPtr pool,
-                            unsigned int flags);
+(*virStoragePoolDeleteFuncType)(virStoragePoolPtr pool,
+                                unsigned int flags);
 
 int
 virStoragePoolDeleteWrapper(virStoragePoolPtr pool,
@@ -456,7 +456,7 @@ virStoragePoolDeleteWrapper(virStoragePoolPtr pool,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolDeleteType virStoragePoolDeleteSymbol;
+    static virStoragePoolDeleteFuncType virStoragePoolDeleteSymbol;
     static bool once;
     static bool success;
 
@@ -476,14 +476,14 @@ virStoragePoolDeleteWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolDestroyType)(virStoragePoolPtr pool);
+(*virStoragePoolDestroyFuncType)(virStoragePoolPtr pool);
 
 int
 virStoragePoolDestroyWrapper(virStoragePoolPtr pool,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolDestroyType virStoragePoolDestroySymbol;
+    static virStoragePoolDestroyFuncType virStoragePoolDestroySymbol;
     static bool once;
     static bool success;
 
@@ -502,14 +502,14 @@ virStoragePoolDestroyWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolFreeType)(virStoragePoolPtr pool);
+(*virStoragePoolFreeFuncType)(virStoragePoolPtr pool);
 
 int
 virStoragePoolFreeWrapper(virStoragePoolPtr pool,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolFreeType virStoragePoolFreeSymbol;
+    static virStoragePoolFreeFuncType virStoragePoolFreeSymbol;
     static bool once;
     static bool success;
 
@@ -528,8 +528,8 @@ virStoragePoolFreeWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolGetAutostartType)(virStoragePoolPtr pool,
-                                  int * autostart);
+(*virStoragePoolGetAutostartFuncType)(virStoragePoolPtr pool,
+                                      int * autostart);
 
 int
 virStoragePoolGetAutostartWrapper(virStoragePoolPtr pool,
@@ -537,7 +537,7 @@ virStoragePoolGetAutostartWrapper(virStoragePoolPtr pool,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolGetAutostartType virStoragePoolGetAutostartSymbol;
+    static virStoragePoolGetAutostartFuncType virStoragePoolGetAutostartSymbol;
     static bool once;
     static bool success;
 
@@ -557,14 +557,14 @@ virStoragePoolGetAutostartWrapper(virStoragePoolPtr pool,
 }
 
 typedef virConnectPtr
-(*virStoragePoolGetConnectType)(virStoragePoolPtr pool);
+(*virStoragePoolGetConnectFuncType)(virStoragePoolPtr pool);
 
 virConnectPtr
 virStoragePoolGetConnectWrapper(virStoragePoolPtr pool,
                                 virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virStoragePoolGetConnectType virStoragePoolGetConnectSymbol;
+    static virStoragePoolGetConnectFuncType virStoragePoolGetConnectSymbol;
     static bool once;
     static bool success;
 
@@ -583,8 +583,8 @@ virStoragePoolGetConnectWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolGetInfoType)(virStoragePoolPtr pool,
-                             virStoragePoolInfoPtr info);
+(*virStoragePoolGetInfoFuncType)(virStoragePoolPtr pool,
+                                 virStoragePoolInfoPtr info);
 
 int
 virStoragePoolGetInfoWrapper(virStoragePoolPtr pool,
@@ -592,7 +592,7 @@ virStoragePoolGetInfoWrapper(virStoragePoolPtr pool,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolGetInfoType virStoragePoolGetInfoSymbol;
+    static virStoragePoolGetInfoFuncType virStoragePoolGetInfoSymbol;
     static bool once;
     static bool success;
 
@@ -612,14 +612,14 @@ virStoragePoolGetInfoWrapper(virStoragePoolPtr pool,
 }
 
 typedef const char *
-(*virStoragePoolGetNameType)(virStoragePoolPtr pool);
+(*virStoragePoolGetNameFuncType)(virStoragePoolPtr pool);
 
 const char *
 virStoragePoolGetNameWrapper(virStoragePoolPtr pool,
                              virErrorPtr err)
 {
     const char * ret = NULL;
-    static virStoragePoolGetNameType virStoragePoolGetNameSymbol;
+    static virStoragePoolGetNameFuncType virStoragePoolGetNameSymbol;
     static bool once;
     static bool success;
 
@@ -638,8 +638,8 @@ virStoragePoolGetNameWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolGetUUIDType)(virStoragePoolPtr pool,
-                             unsigned char * uuid);
+(*virStoragePoolGetUUIDFuncType)(virStoragePoolPtr pool,
+                                 unsigned char * uuid);
 
 int
 virStoragePoolGetUUIDWrapper(virStoragePoolPtr pool,
@@ -647,7 +647,7 @@ virStoragePoolGetUUIDWrapper(virStoragePoolPtr pool,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolGetUUIDType virStoragePoolGetUUIDSymbol;
+    static virStoragePoolGetUUIDFuncType virStoragePoolGetUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -667,8 +667,8 @@ virStoragePoolGetUUIDWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolGetUUIDStringType)(virStoragePoolPtr pool,
-                                   char * buf);
+(*virStoragePoolGetUUIDStringFuncType)(virStoragePoolPtr pool,
+                                       char * buf);
 
 int
 virStoragePoolGetUUIDStringWrapper(virStoragePoolPtr pool,
@@ -676,7 +676,7 @@ virStoragePoolGetUUIDStringWrapper(virStoragePoolPtr pool,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolGetUUIDStringType virStoragePoolGetUUIDStringSymbol;
+    static virStoragePoolGetUUIDStringFuncType virStoragePoolGetUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -696,8 +696,8 @@ virStoragePoolGetUUIDStringWrapper(virStoragePoolPtr pool,
 }
 
 typedef char *
-(*virStoragePoolGetXMLDescType)(virStoragePoolPtr pool,
-                                unsigned int flags);
+(*virStoragePoolGetXMLDescFuncType)(virStoragePoolPtr pool,
+                                    unsigned int flags);
 
 char *
 virStoragePoolGetXMLDescWrapper(virStoragePoolPtr pool,
@@ -705,7 +705,7 @@ virStoragePoolGetXMLDescWrapper(virStoragePoolPtr pool,
                                 virErrorPtr err)
 {
     char * ret = NULL;
-    static virStoragePoolGetXMLDescType virStoragePoolGetXMLDescSymbol;
+    static virStoragePoolGetXMLDescFuncType virStoragePoolGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -725,14 +725,14 @@ virStoragePoolGetXMLDescWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolIsActiveType)(virStoragePoolPtr pool);
+(*virStoragePoolIsActiveFuncType)(virStoragePoolPtr pool);
 
 int
 virStoragePoolIsActiveWrapper(virStoragePoolPtr pool,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolIsActiveType virStoragePoolIsActiveSymbol;
+    static virStoragePoolIsActiveFuncType virStoragePoolIsActiveSymbol;
     static bool once;
     static bool success;
 
@@ -751,14 +751,14 @@ virStoragePoolIsActiveWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolIsPersistentType)(virStoragePoolPtr pool);
+(*virStoragePoolIsPersistentFuncType)(virStoragePoolPtr pool);
 
 int
 virStoragePoolIsPersistentWrapper(virStoragePoolPtr pool,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolIsPersistentType virStoragePoolIsPersistentSymbol;
+    static virStoragePoolIsPersistentFuncType virStoragePoolIsPersistentSymbol;
     static bool once;
     static bool success;
 
@@ -777,9 +777,9 @@ virStoragePoolIsPersistentWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolListAllVolumesType)(virStoragePoolPtr pool,
-                                    virStorageVolPtr ** vols,
-                                    unsigned int flags);
+(*virStoragePoolListAllVolumesFuncType)(virStoragePoolPtr pool,
+                                        virStorageVolPtr ** vols,
+                                        unsigned int flags);
 
 int
 virStoragePoolListAllVolumesWrapper(virStoragePoolPtr pool,
@@ -788,7 +788,7 @@ virStoragePoolListAllVolumesWrapper(virStoragePoolPtr pool,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolListAllVolumesType virStoragePoolListAllVolumesSymbol;
+    static virStoragePoolListAllVolumesFuncType virStoragePoolListAllVolumesSymbol;
     static bool once;
     static bool success;
 
@@ -809,9 +809,9 @@ virStoragePoolListAllVolumesWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolListVolumesType)(virStoragePoolPtr pool,
-                                 char ** const names,
-                                 int maxnames);
+(*virStoragePoolListVolumesFuncType)(virStoragePoolPtr pool,
+                                     char ** const names,
+                                     int maxnames);
 
 int
 virStoragePoolListVolumesWrapper(virStoragePoolPtr pool,
@@ -820,7 +820,7 @@ virStoragePoolListVolumesWrapper(virStoragePoolPtr pool,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolListVolumesType virStoragePoolListVolumesSymbol;
+    static virStoragePoolListVolumesFuncType virStoragePoolListVolumesSymbol;
     static bool once;
     static bool success;
 
@@ -841,8 +841,8 @@ virStoragePoolListVolumesWrapper(virStoragePoolPtr pool,
 }
 
 typedef virStoragePoolPtr
-(*virStoragePoolLookupByNameType)(virConnectPtr conn,
-                                  const char * name);
+(*virStoragePoolLookupByNameFuncType)(virConnectPtr conn,
+                                      const char * name);
 
 virStoragePoolPtr
 virStoragePoolLookupByNameWrapper(virConnectPtr conn,
@@ -850,7 +850,7 @@ virStoragePoolLookupByNameWrapper(virConnectPtr conn,
                                   virErrorPtr err)
 {
     virStoragePoolPtr ret = NULL;
-    static virStoragePoolLookupByNameType virStoragePoolLookupByNameSymbol;
+    static virStoragePoolLookupByNameFuncType virStoragePoolLookupByNameSymbol;
     static bool once;
     static bool success;
 
@@ -870,8 +870,8 @@ virStoragePoolLookupByNameWrapper(virConnectPtr conn,
 }
 
 typedef virStoragePoolPtr
-(*virStoragePoolLookupByTargetPathType)(virConnectPtr conn,
-                                        const char * path);
+(*virStoragePoolLookupByTargetPathFuncType)(virConnectPtr conn,
+                                            const char * path);
 
 virStoragePoolPtr
 virStoragePoolLookupByTargetPathWrapper(virConnectPtr conn,
@@ -879,7 +879,7 @@ virStoragePoolLookupByTargetPathWrapper(virConnectPtr conn,
                                         virErrorPtr err)
 {
     virStoragePoolPtr ret = NULL;
-    static virStoragePoolLookupByTargetPathType virStoragePoolLookupByTargetPathSymbol;
+    static virStoragePoolLookupByTargetPathFuncType virStoragePoolLookupByTargetPathSymbol;
     static bool once;
     static bool success;
 
@@ -899,8 +899,8 @@ virStoragePoolLookupByTargetPathWrapper(virConnectPtr conn,
 }
 
 typedef virStoragePoolPtr
-(*virStoragePoolLookupByUUIDType)(virConnectPtr conn,
-                                  const unsigned char * uuid);
+(*virStoragePoolLookupByUUIDFuncType)(virConnectPtr conn,
+                                      const unsigned char * uuid);
 
 virStoragePoolPtr
 virStoragePoolLookupByUUIDWrapper(virConnectPtr conn,
@@ -908,7 +908,7 @@ virStoragePoolLookupByUUIDWrapper(virConnectPtr conn,
                                   virErrorPtr err)
 {
     virStoragePoolPtr ret = NULL;
-    static virStoragePoolLookupByUUIDType virStoragePoolLookupByUUIDSymbol;
+    static virStoragePoolLookupByUUIDFuncType virStoragePoolLookupByUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -928,8 +928,8 @@ virStoragePoolLookupByUUIDWrapper(virConnectPtr conn,
 }
 
 typedef virStoragePoolPtr
-(*virStoragePoolLookupByUUIDStringType)(virConnectPtr conn,
-                                        const char * uuidstr);
+(*virStoragePoolLookupByUUIDStringFuncType)(virConnectPtr conn,
+                                            const char * uuidstr);
 
 virStoragePoolPtr
 virStoragePoolLookupByUUIDStringWrapper(virConnectPtr conn,
@@ -937,7 +937,7 @@ virStoragePoolLookupByUUIDStringWrapper(virConnectPtr conn,
                                         virErrorPtr err)
 {
     virStoragePoolPtr ret = NULL;
-    static virStoragePoolLookupByUUIDStringType virStoragePoolLookupByUUIDStringSymbol;
+    static virStoragePoolLookupByUUIDStringFuncType virStoragePoolLookupByUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -957,14 +957,14 @@ virStoragePoolLookupByUUIDStringWrapper(virConnectPtr conn,
 }
 
 typedef virStoragePoolPtr
-(*virStoragePoolLookupByVolumeType)(virStorageVolPtr vol);
+(*virStoragePoolLookupByVolumeFuncType)(virStorageVolPtr vol);
 
 virStoragePoolPtr
 virStoragePoolLookupByVolumeWrapper(virStorageVolPtr vol,
                                     virErrorPtr err)
 {
     virStoragePoolPtr ret = NULL;
-    static virStoragePoolLookupByVolumeType virStoragePoolLookupByVolumeSymbol;
+    static virStoragePoolLookupByVolumeFuncType virStoragePoolLookupByVolumeSymbol;
     static bool once;
     static bool success;
 
@@ -983,14 +983,14 @@ virStoragePoolLookupByVolumeWrapper(virStorageVolPtr vol,
 }
 
 typedef int
-(*virStoragePoolNumOfVolumesType)(virStoragePoolPtr pool);
+(*virStoragePoolNumOfVolumesFuncType)(virStoragePoolPtr pool);
 
 int
 virStoragePoolNumOfVolumesWrapper(virStoragePoolPtr pool,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolNumOfVolumesType virStoragePoolNumOfVolumesSymbol;
+    static virStoragePoolNumOfVolumesFuncType virStoragePoolNumOfVolumesSymbol;
     static bool once;
     static bool success;
 
@@ -1009,14 +1009,14 @@ virStoragePoolNumOfVolumesWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolRefType)(virStoragePoolPtr pool);
+(*virStoragePoolRefFuncType)(virStoragePoolPtr pool);
 
 int
 virStoragePoolRefWrapper(virStoragePoolPtr pool,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolRefType virStoragePoolRefSymbol;
+    static virStoragePoolRefFuncType virStoragePoolRefSymbol;
     static bool once;
     static bool success;
 
@@ -1035,8 +1035,8 @@ virStoragePoolRefWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolRefreshType)(virStoragePoolPtr pool,
-                             unsigned int flags);
+(*virStoragePoolRefreshFuncType)(virStoragePoolPtr pool,
+                                 unsigned int flags);
 
 int
 virStoragePoolRefreshWrapper(virStoragePoolPtr pool,
@@ -1044,7 +1044,7 @@ virStoragePoolRefreshWrapper(virStoragePoolPtr pool,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolRefreshType virStoragePoolRefreshSymbol;
+    static virStoragePoolRefreshFuncType virStoragePoolRefreshSymbol;
     static bool once;
     static bool success;
 
@@ -1064,8 +1064,8 @@ virStoragePoolRefreshWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolSetAutostartType)(virStoragePoolPtr pool,
-                                  int autostart);
+(*virStoragePoolSetAutostartFuncType)(virStoragePoolPtr pool,
+                                      int autostart);
 
 int
 virStoragePoolSetAutostartWrapper(virStoragePoolPtr pool,
@@ -1073,7 +1073,7 @@ virStoragePoolSetAutostartWrapper(virStoragePoolPtr pool,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolSetAutostartType virStoragePoolSetAutostartSymbol;
+    static virStoragePoolSetAutostartFuncType virStoragePoolSetAutostartSymbol;
     static bool once;
     static bool success;
 
@@ -1093,14 +1093,14 @@ virStoragePoolSetAutostartWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStoragePoolUndefineType)(virStoragePoolPtr pool);
+(*virStoragePoolUndefineFuncType)(virStoragePoolPtr pool);
 
 int
 virStoragePoolUndefineWrapper(virStoragePoolPtr pool,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virStoragePoolUndefineType virStoragePoolUndefineSymbol;
+    static virStoragePoolUndefineFuncType virStoragePoolUndefineSymbol;
     static bool once;
     static bool success;
 
@@ -1119,9 +1119,9 @@ virStoragePoolUndefineWrapper(virStoragePoolPtr pool,
 }
 
 typedef virStorageVolPtr
-(*virStorageVolCreateXMLType)(virStoragePoolPtr pool,
-                              const char * xmlDesc,
-                              unsigned int flags);
+(*virStorageVolCreateXMLFuncType)(virStoragePoolPtr pool,
+                                  const char * xmlDesc,
+                                  unsigned int flags);
 
 virStorageVolPtr
 virStorageVolCreateXMLWrapper(virStoragePoolPtr pool,
@@ -1130,7 +1130,7 @@ virStorageVolCreateXMLWrapper(virStoragePoolPtr pool,
                               virErrorPtr err)
 {
     virStorageVolPtr ret = NULL;
-    static virStorageVolCreateXMLType virStorageVolCreateXMLSymbol;
+    static virStorageVolCreateXMLFuncType virStorageVolCreateXMLSymbol;
     static bool once;
     static bool success;
 
@@ -1151,10 +1151,10 @@ virStorageVolCreateXMLWrapper(virStoragePoolPtr pool,
 }
 
 typedef virStorageVolPtr
-(*virStorageVolCreateXMLFromType)(virStoragePoolPtr pool,
-                                  const char * xmlDesc,
-                                  virStorageVolPtr clonevol,
-                                  unsigned int flags);
+(*virStorageVolCreateXMLFromFuncType)(virStoragePoolPtr pool,
+                                      const char * xmlDesc,
+                                      virStorageVolPtr clonevol,
+                                      unsigned int flags);
 
 virStorageVolPtr
 virStorageVolCreateXMLFromWrapper(virStoragePoolPtr pool,
@@ -1164,7 +1164,7 @@ virStorageVolCreateXMLFromWrapper(virStoragePoolPtr pool,
                                   virErrorPtr err)
 {
     virStorageVolPtr ret = NULL;
-    static virStorageVolCreateXMLFromType virStorageVolCreateXMLFromSymbol;
+    static virStorageVolCreateXMLFromFuncType virStorageVolCreateXMLFromSymbol;
     static bool once;
     static bool success;
 
@@ -1186,8 +1186,8 @@ virStorageVolCreateXMLFromWrapper(virStoragePoolPtr pool,
 }
 
 typedef int
-(*virStorageVolDeleteType)(virStorageVolPtr vol,
-                           unsigned int flags);
+(*virStorageVolDeleteFuncType)(virStorageVolPtr vol,
+                               unsigned int flags);
 
 int
 virStorageVolDeleteWrapper(virStorageVolPtr vol,
@@ -1195,7 +1195,7 @@ virStorageVolDeleteWrapper(virStorageVolPtr vol,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolDeleteType virStorageVolDeleteSymbol;
+    static virStorageVolDeleteFuncType virStorageVolDeleteSymbol;
     static bool once;
     static bool success;
 
@@ -1215,11 +1215,11 @@ virStorageVolDeleteWrapper(virStorageVolPtr vol,
 }
 
 typedef int
-(*virStorageVolDownloadType)(virStorageVolPtr vol,
-                             virStreamPtr stream,
-                             unsigned long long offset,
-                             unsigned long long length,
-                             unsigned int flags);
+(*virStorageVolDownloadFuncType)(virStorageVolPtr vol,
+                                 virStreamPtr stream,
+                                 unsigned long long offset,
+                                 unsigned long long length,
+                                 unsigned int flags);
 
 int
 virStorageVolDownloadWrapper(virStorageVolPtr vol,
@@ -1230,7 +1230,7 @@ virStorageVolDownloadWrapper(virStorageVolPtr vol,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolDownloadType virStorageVolDownloadSymbol;
+    static virStorageVolDownloadFuncType virStorageVolDownloadSymbol;
     static bool once;
     static bool success;
 
@@ -1253,14 +1253,14 @@ virStorageVolDownloadWrapper(virStorageVolPtr vol,
 }
 
 typedef int
-(*virStorageVolFreeType)(virStorageVolPtr vol);
+(*virStorageVolFreeFuncType)(virStorageVolPtr vol);
 
 int
 virStorageVolFreeWrapper(virStorageVolPtr vol,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolFreeType virStorageVolFreeSymbol;
+    static virStorageVolFreeFuncType virStorageVolFreeSymbol;
     static bool once;
     static bool success;
 
@@ -1279,14 +1279,14 @@ virStorageVolFreeWrapper(virStorageVolPtr vol,
 }
 
 typedef virConnectPtr
-(*virStorageVolGetConnectType)(virStorageVolPtr vol);
+(*virStorageVolGetConnectFuncType)(virStorageVolPtr vol);
 
 virConnectPtr
 virStorageVolGetConnectWrapper(virStorageVolPtr vol,
                                virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virStorageVolGetConnectType virStorageVolGetConnectSymbol;
+    static virStorageVolGetConnectFuncType virStorageVolGetConnectSymbol;
     static bool once;
     static bool success;
 
@@ -1305,8 +1305,8 @@ virStorageVolGetConnectWrapper(virStorageVolPtr vol,
 }
 
 typedef int
-(*virStorageVolGetInfoType)(virStorageVolPtr vol,
-                            virStorageVolInfoPtr info);
+(*virStorageVolGetInfoFuncType)(virStorageVolPtr vol,
+                                virStorageVolInfoPtr info);
 
 int
 virStorageVolGetInfoWrapper(virStorageVolPtr vol,
@@ -1314,7 +1314,7 @@ virStorageVolGetInfoWrapper(virStorageVolPtr vol,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolGetInfoType virStorageVolGetInfoSymbol;
+    static virStorageVolGetInfoFuncType virStorageVolGetInfoSymbol;
     static bool once;
     static bool success;
 
@@ -1334,9 +1334,9 @@ virStorageVolGetInfoWrapper(virStorageVolPtr vol,
 }
 
 typedef int
-(*virStorageVolGetInfoFlagsType)(virStorageVolPtr vol,
-                                 virStorageVolInfoPtr info,
-                                 unsigned int flags);
+(*virStorageVolGetInfoFlagsFuncType)(virStorageVolPtr vol,
+                                     virStorageVolInfoPtr info,
+                                     unsigned int flags);
 
 int
 virStorageVolGetInfoFlagsWrapper(virStorageVolPtr vol,
@@ -1345,7 +1345,7 @@ virStorageVolGetInfoFlagsWrapper(virStorageVolPtr vol,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolGetInfoFlagsType virStorageVolGetInfoFlagsSymbol;
+    static virStorageVolGetInfoFlagsFuncType virStorageVolGetInfoFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -1366,14 +1366,14 @@ virStorageVolGetInfoFlagsWrapper(virStorageVolPtr vol,
 }
 
 typedef const char *
-(*virStorageVolGetKeyType)(virStorageVolPtr vol);
+(*virStorageVolGetKeyFuncType)(virStorageVolPtr vol);
 
 const char *
 virStorageVolGetKeyWrapper(virStorageVolPtr vol,
                            virErrorPtr err)
 {
     const char * ret = NULL;
-    static virStorageVolGetKeyType virStorageVolGetKeySymbol;
+    static virStorageVolGetKeyFuncType virStorageVolGetKeySymbol;
     static bool once;
     static bool success;
 
@@ -1392,14 +1392,14 @@ virStorageVolGetKeyWrapper(virStorageVolPtr vol,
 }
 
 typedef const char *
-(*virStorageVolGetNameType)(virStorageVolPtr vol);
+(*virStorageVolGetNameFuncType)(virStorageVolPtr vol);
 
 const char *
 virStorageVolGetNameWrapper(virStorageVolPtr vol,
                             virErrorPtr err)
 {
     const char * ret = NULL;
-    static virStorageVolGetNameType virStorageVolGetNameSymbol;
+    static virStorageVolGetNameFuncType virStorageVolGetNameSymbol;
     static bool once;
     static bool success;
 
@@ -1418,14 +1418,14 @@ virStorageVolGetNameWrapper(virStorageVolPtr vol,
 }
 
 typedef char *
-(*virStorageVolGetPathType)(virStorageVolPtr vol);
+(*virStorageVolGetPathFuncType)(virStorageVolPtr vol);
 
 char *
 virStorageVolGetPathWrapper(virStorageVolPtr vol,
                             virErrorPtr err)
 {
     char * ret = NULL;
-    static virStorageVolGetPathType virStorageVolGetPathSymbol;
+    static virStorageVolGetPathFuncType virStorageVolGetPathSymbol;
     static bool once;
     static bool success;
 
@@ -1444,8 +1444,8 @@ virStorageVolGetPathWrapper(virStorageVolPtr vol,
 }
 
 typedef char *
-(*virStorageVolGetXMLDescType)(virStorageVolPtr vol,
-                               unsigned int flags);
+(*virStorageVolGetXMLDescFuncType)(virStorageVolPtr vol,
+                                   unsigned int flags);
 
 char *
 virStorageVolGetXMLDescWrapper(virStorageVolPtr vol,
@@ -1453,7 +1453,7 @@ virStorageVolGetXMLDescWrapper(virStorageVolPtr vol,
                                virErrorPtr err)
 {
     char * ret = NULL;
-    static virStorageVolGetXMLDescType virStorageVolGetXMLDescSymbol;
+    static virStorageVolGetXMLDescFuncType virStorageVolGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -1473,8 +1473,8 @@ virStorageVolGetXMLDescWrapper(virStorageVolPtr vol,
 }
 
 typedef virStorageVolPtr
-(*virStorageVolLookupByKeyType)(virConnectPtr conn,
-                                const char * key);
+(*virStorageVolLookupByKeyFuncType)(virConnectPtr conn,
+                                    const char * key);
 
 virStorageVolPtr
 virStorageVolLookupByKeyWrapper(virConnectPtr conn,
@@ -1482,7 +1482,7 @@ virStorageVolLookupByKeyWrapper(virConnectPtr conn,
                                 virErrorPtr err)
 {
     virStorageVolPtr ret = NULL;
-    static virStorageVolLookupByKeyType virStorageVolLookupByKeySymbol;
+    static virStorageVolLookupByKeyFuncType virStorageVolLookupByKeySymbol;
     static bool once;
     static bool success;
 
@@ -1502,8 +1502,8 @@ virStorageVolLookupByKeyWrapper(virConnectPtr conn,
 }
 
 typedef virStorageVolPtr
-(*virStorageVolLookupByNameType)(virStoragePoolPtr pool,
-                                 const char * name);
+(*virStorageVolLookupByNameFuncType)(virStoragePoolPtr pool,
+                                     const char * name);
 
 virStorageVolPtr
 virStorageVolLookupByNameWrapper(virStoragePoolPtr pool,
@@ -1511,7 +1511,7 @@ virStorageVolLookupByNameWrapper(virStoragePoolPtr pool,
                                  virErrorPtr err)
 {
     virStorageVolPtr ret = NULL;
-    static virStorageVolLookupByNameType virStorageVolLookupByNameSymbol;
+    static virStorageVolLookupByNameFuncType virStorageVolLookupByNameSymbol;
     static bool once;
     static bool success;
 
@@ -1531,8 +1531,8 @@ virStorageVolLookupByNameWrapper(virStoragePoolPtr pool,
 }
 
 typedef virStorageVolPtr
-(*virStorageVolLookupByPathType)(virConnectPtr conn,
-                                 const char * path);
+(*virStorageVolLookupByPathFuncType)(virConnectPtr conn,
+                                     const char * path);
 
 virStorageVolPtr
 virStorageVolLookupByPathWrapper(virConnectPtr conn,
@@ -1540,7 +1540,7 @@ virStorageVolLookupByPathWrapper(virConnectPtr conn,
                                  virErrorPtr err)
 {
     virStorageVolPtr ret = NULL;
-    static virStorageVolLookupByPathType virStorageVolLookupByPathSymbol;
+    static virStorageVolLookupByPathFuncType virStorageVolLookupByPathSymbol;
     static bool once;
     static bool success;
 
@@ -1560,14 +1560,14 @@ virStorageVolLookupByPathWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virStorageVolRefType)(virStorageVolPtr vol);
+(*virStorageVolRefFuncType)(virStorageVolPtr vol);
 
 int
 virStorageVolRefWrapper(virStorageVolPtr vol,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolRefType virStorageVolRefSymbol;
+    static virStorageVolRefFuncType virStorageVolRefSymbol;
     static bool once;
     static bool success;
 
@@ -1586,9 +1586,9 @@ virStorageVolRefWrapper(virStorageVolPtr vol,
 }
 
 typedef int
-(*virStorageVolResizeType)(virStorageVolPtr vol,
-                           unsigned long long capacity,
-                           unsigned int flags);
+(*virStorageVolResizeFuncType)(virStorageVolPtr vol,
+                               unsigned long long capacity,
+                               unsigned int flags);
 
 int
 virStorageVolResizeWrapper(virStorageVolPtr vol,
@@ -1597,7 +1597,7 @@ virStorageVolResizeWrapper(virStorageVolPtr vol,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolResizeType virStorageVolResizeSymbol;
+    static virStorageVolResizeFuncType virStorageVolResizeSymbol;
     static bool once;
     static bool success;
 
@@ -1618,11 +1618,11 @@ virStorageVolResizeWrapper(virStorageVolPtr vol,
 }
 
 typedef int
-(*virStorageVolUploadType)(virStorageVolPtr vol,
-                           virStreamPtr stream,
-                           unsigned long long offset,
-                           unsigned long long length,
-                           unsigned int flags);
+(*virStorageVolUploadFuncType)(virStorageVolPtr vol,
+                               virStreamPtr stream,
+                               unsigned long long offset,
+                               unsigned long long length,
+                               unsigned int flags);
 
 int
 virStorageVolUploadWrapper(virStorageVolPtr vol,
@@ -1633,7 +1633,7 @@ virStorageVolUploadWrapper(virStorageVolPtr vol,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolUploadType virStorageVolUploadSymbol;
+    static virStorageVolUploadFuncType virStorageVolUploadSymbol;
     static bool once;
     static bool success;
 
@@ -1656,8 +1656,8 @@ virStorageVolUploadWrapper(virStorageVolPtr vol,
 }
 
 typedef int
-(*virStorageVolWipeType)(virStorageVolPtr vol,
-                         unsigned int flags);
+(*virStorageVolWipeFuncType)(virStorageVolPtr vol,
+                             unsigned int flags);
 
 int
 virStorageVolWipeWrapper(virStorageVolPtr vol,
@@ -1665,7 +1665,7 @@ virStorageVolWipeWrapper(virStorageVolPtr vol,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolWipeType virStorageVolWipeSymbol;
+    static virStorageVolWipeFuncType virStorageVolWipeSymbol;
     static bool once;
     static bool success;
 
@@ -1685,9 +1685,9 @@ virStorageVolWipeWrapper(virStorageVolPtr vol,
 }
 
 typedef int
-(*virStorageVolWipePatternType)(virStorageVolPtr vol,
-                                unsigned int algorithm,
-                                unsigned int flags);
+(*virStorageVolWipePatternFuncType)(virStorageVolPtr vol,
+                                    unsigned int algorithm,
+                                    unsigned int flags);
 
 int
 virStorageVolWipePatternWrapper(virStorageVolPtr vol,
@@ -1696,7 +1696,7 @@ virStorageVolWipePatternWrapper(virStorageVolPtr vol,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virStorageVolWipePatternType virStorageVolWipePatternSymbol;
+    static virStorageVolWipePatternFuncType virStorageVolWipePatternSymbol;
     static bool once;
     static bool success;
 

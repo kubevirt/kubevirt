@@ -938,6 +938,7 @@ func (InterfaceBindingPlugin) SwaggerDoc() map[string]string {
 		"domainAttachmentType":        "DomainAttachmentType is a standard domain network attachment method kubevirt supports.\nSupported values: \"tap\".\nThe standard domain attachment can be used instead or in addition to the sidecarImage.\nversion: 1alphav1",
 		"migration":                   "Migration means the VM using the plugin can be safely migrated\nversion: 1alphav1",
 		"downwardAPI":                 "DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar.\nSupported values: \"device-info\"\nversion: v1alphav1\n+optional",
+		"computeResourceOverhead":     "ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding.\nversion: v1alphav1\n+optional",
 	}
 }
 
@@ -987,27 +988,11 @@ func (PreferenceMatcher) SwaggerDoc() map[string]string {
 	}
 }
 
-func (LiveUpdateAffinity) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (LiveUpdateCPU) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"maxSockets": "The maximum amount of sockets that can be hot-plugged to the Virtual Machine",
-	}
-}
-
 func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"maxHotplugRatio": "MaxHotplugRatio is the ratio used to define the max amount\nof a hotplug resource that can be made available to a VM\nwhen the specific Max* setting is not defined (MaxCpuSockets, MaxGuest)\nExample: VM is configured with 512Mi of guest memory, if MaxGuest is not\ndefined and MaxHotplugRatio is 2 then MaxGuest = 1Gi\ndefaults to 4",
 		"maxCpuSockets":   "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
 		"maxGuest":        "MaxGuest defines the maximum amount memory that can be allocated\nto the guest using hotplug.",
-	}
-}
-
-func (LiveUpdateMemory) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"maxGuest": "MaxGuest defines the maximum amount memory that can be allocated for the VM.\n+optional",
 	}
 }
 

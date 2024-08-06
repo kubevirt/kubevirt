@@ -196,6 +196,8 @@ func Execute() {
 		Namespace:                app.informerFactory.Namespace(),
 		Secrets:                  app.informerFactory.Secrets(),
 		ConfigMap:                app.informerFactory.OperatorConfigMap(),
+		ClusterInstancetype:      app.informerFactory.VirtualMachineClusterInstancetype(),
+		ClusterPreference:        app.informerFactory.VirtualMachineClusterPreference(),
 	}
 
 	app.stores = util.Stores{
@@ -218,6 +220,8 @@ func Execute() {
 		NamespaceCache:                app.informerFactory.Namespace().GetStore(),
 		SecretCache:                   app.informerFactory.Secrets().GetStore(),
 		ConfigMapCache:                app.informerFactory.OperatorConfigMap().GetStore(),
+		ClusterInstancetype:           app.informerFactory.VirtualMachineClusterInstancetype().GetStore(),
+		ClusterPreference:             app.informerFactory.VirtualMachineClusterPreference().GetStore(),
 	}
 
 	app.crdInformer = app.informerFactory.CRD()
@@ -416,15 +420,15 @@ func (app *VirtOperatorApp) Run() {
 	}
 
 	var mux http.ServeMux
-	mux.HandleFunc("/kubevirt-validate-delete", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/kubevirt-validate-delete", func(w http.ResponseWriter, r *http.Request) {
 		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtDeletionAdmitter(app.clientSet))
-	}))
-	mux.HandleFunc(components.KubeVirtUpdateValidatePath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc(components.KubeVirtUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtUpdateAdmitter(app.clientSet, app.clusterConfig))
-	}))
-	mux.HandleFunc(components.KubeVirtCreateValidatePath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc(components.KubeVirtCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtCreateAdmitter(app.clientSet))
-	}))
+	})
 	webhookServer.Handler = &mux
 	go func() {
 		err := webhookServer.ListenAndServeTLS("", "")
@@ -441,6 +445,9 @@ func (app *VirtOperatorApp) Run() {
 			RetryPeriod:   app.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(ctx context.Context) {
+					if err := metrics.RegisterLeaderMetrics(); err != nil {
+						golog.Fatalf("failed to register leader metrics: %v", err)
+					}
 					metrics.SetLeader(true)
 					log.Log.Infof("Started leading")
 

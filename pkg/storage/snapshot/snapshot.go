@@ -630,6 +630,8 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 		return pvc, nil
 	}
 
+	log.Log.Warningf("No VolumeSnapshotClass for %s", *pvc.Spec.StorageClassName)
+
 	return nil, nil
 }
 
@@ -650,7 +652,7 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string
 	}
 
 	if len(matches) == 0 {
-		log.Log.Warningf("No VolumeSnapshotClass for %s", storageClassName)
+		log.Log.V(3).Infof("No VolumeSnapshotClass for %s", storageClassName)
 		return "", nil
 	}
 
@@ -777,7 +779,6 @@ func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication
 
 		if ga {
 			indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
-
 		} else {
 			indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
 		}

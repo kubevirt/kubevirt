@@ -10,15 +10,15 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-func InitNFS(targetImage, nodeName string) *k8sv1.Pod {
+func InitNFS(targetImage, nodeName string) (*k8sv1.Pod, error) {
 	nfsPod := renderNFSServer("nfsserver", targetImage)
 	nfsPod.Spec.NodeName = nodeName
-	return tests.RunPodInNamespace(nfsPod, testsuite.NamespacePrivileged)
+	return libpod.Run(nfsPod, testsuite.NamespacePrivileged)
 }
 
 func renderNFSServer(generateName string, hostPath string) *k8sv1.Pod {

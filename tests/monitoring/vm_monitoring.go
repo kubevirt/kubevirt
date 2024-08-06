@@ -22,6 +22,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -40,6 +41,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
 
 	"kubevirt.io/kubevirt/tests"
@@ -57,7 +59,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
@@ -78,6 +79,28 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			}
 
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", 5)
+		})
+	})
+
+	Context("VMI metrics", func() {
+		It("should have kubevirt_vmi_phase_transition_time_seconds buckets correctly configured", func() {
+			vmi := libvmifact.NewGuestless()
+			tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			for _, bucket := range virtcontroller.PhaseTransitionTimeBuckets() {
+				labels := map[string]string{"le": strconv.FormatFloat(bucket, 'f', -1, 64)}
+
+				GinkgoLogr.Info("Checking bucket", "labels", labels)
+				libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_phase_transition_time_seconds_bucket", labels, 0, ">=", 0)
+			}
+		})
+
+		It("should have kubevirt_rest_client_requests_total for the 'virtualmachineinstances' resource", func() {
+			vmi := libvmifact.NewGuestless()
+			tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			labels := map[string]string{"resource": "virtualmachineinstances"}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
 		})
 	})
 
@@ -215,12 +238,12 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		quantity, _ := resource.ParseQuantity("500Mi")
 
 		createSimplePVCWithRestoreLabels := func(name string) {
-			_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
+			_, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: name,
 					Labels: map[string]string{
 						"restore.kubevirt.io/source-vm-name":      "simple-vm",
-						"restore.kubevirt.io/source-vm-namespace": util.NamespaceTestDefault,
+						"restore.kubevirt.io/source-vm-namespace": testsuite.NamespaceTestDefault,
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
@@ -236,8 +259,8 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		}
 
 		It("[test_id:8639]Number of disks restored and total restored bytes metric values should be correct", func() {
-			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
-			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
+			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
+			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
 			numPVCs := 2.0
 
 			for i := 1.0; i < numPVCs+1; i++ {
@@ -271,19 +294,27 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 	Context("Metrics that are based on VMI connections", func() {
 		It("should have kubevirt_vmi_last_api_connection_timestamp_seconds correctly configured", func() {
-
 			By("Starting a VirtualMachineInstance")
 			vmi := libvmifact.NewAlpine()
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
-			By("Validating the metric gets updated with the last connection timestamp")
+			By("Validating the metric gets updated with the first connection timestamp")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			initialMetricValue := validateLastConnectionMetricValue(vmi, 0)
 
-			time.Sleep(1 * time.Minute)
+			By("Deleting the VirtualMachineInstance")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
+			By("Starting the same VirtualMachineInstance")
+			vmi = libvmifact.NewAlpine()
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("Validating the metric gets updated with the last connection timestamp")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			validateLastConnectionMetricValue(vmi, initialMetricValue)
 		})

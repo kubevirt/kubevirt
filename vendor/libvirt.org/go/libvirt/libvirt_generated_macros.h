@@ -29,7 +29,7 @@
 #pragma once
 
 #if !LIBVIR_CHECK_VERSION(0, 0, 1)
-#  define LIBVIR_VERSION_NUMBER 10000000
+#  define LIBVIR_VERSION_NUMBER 10005000
 #endif
 
 #if !LIBVIR_CHECK_VERSION(5, 8, 0)
@@ -462,6 +462,10 @@
 
 #if !LIBVIR_CHECK_VERSION(8, 0, 0)
 #  define VIR_DOMAIN_LAUNCH_SECURITY_SEV_SECRET_SET_ADDRESS "sev-secret-set-address"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(10, 5, 0)
+#  define VIR_DOMAIN_LAUNCH_SECURITY_SEV_SNP_POLICY "sev-snp-policy"
 #endif
 
 #if !LIBVIR_CHECK_VERSION(0, 8, 5)

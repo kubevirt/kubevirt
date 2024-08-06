@@ -97,6 +97,12 @@ func WithDownwardAPIFs(name string) Option {
 	}
 }
 
+func WithLogSerialConsole(enable bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.LogSerialConsole = &enable
+	}
+}
+
 func newSecretVolume(secretName, volumeName, label string) v1.Volume {
 	return v1.Volume{
 		Name: volumeName,

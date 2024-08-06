@@ -43,9 +43,9 @@ package libvirt
 
 
 typedef int
-(*virConnectListAllInterfacesType)(virConnectPtr conn,
-                                   virInterfacePtr ** ifaces,
-                                   unsigned int flags);
+(*virConnectListAllInterfacesFuncType)(virConnectPtr conn,
+                                       virInterfacePtr ** ifaces,
+                                       unsigned int flags);
 
 int
 virConnectListAllInterfacesWrapper(virConnectPtr conn,
@@ -54,7 +54,7 @@ virConnectListAllInterfacesWrapper(virConnectPtr conn,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListAllInterfacesType virConnectListAllInterfacesSymbol;
+    static virConnectListAllInterfacesFuncType virConnectListAllInterfacesSymbol;
     static bool once;
     static bool success;
 
@@ -75,9 +75,9 @@ virConnectListAllInterfacesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListDefinedInterfacesType)(virConnectPtr conn,
-                                       char ** const names,
-                                       int maxnames);
+(*virConnectListDefinedInterfacesFuncType)(virConnectPtr conn,
+                                           char ** const names,
+                                           int maxnames);
 
 int
 virConnectListDefinedInterfacesWrapper(virConnectPtr conn,
@@ -86,7 +86,7 @@ virConnectListDefinedInterfacesWrapper(virConnectPtr conn,
                                        virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListDefinedInterfacesType virConnectListDefinedInterfacesSymbol;
+    static virConnectListDefinedInterfacesFuncType virConnectListDefinedInterfacesSymbol;
     static bool once;
     static bool success;
 
@@ -107,9 +107,9 @@ virConnectListDefinedInterfacesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListInterfacesType)(virConnectPtr conn,
-                                char ** const names,
-                                int maxnames);
+(*virConnectListInterfacesFuncType)(virConnectPtr conn,
+                                    char ** const names,
+                                    int maxnames);
 
 int
 virConnectListInterfacesWrapper(virConnectPtr conn,
@@ -118,7 +118,7 @@ virConnectListInterfacesWrapper(virConnectPtr conn,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListInterfacesType virConnectListInterfacesSymbol;
+    static virConnectListInterfacesFuncType virConnectListInterfacesSymbol;
     static bool once;
     static bool success;
 
@@ -139,14 +139,14 @@ virConnectListInterfacesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfDefinedInterfacesType)(virConnectPtr conn);
+(*virConnectNumOfDefinedInterfacesFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfDefinedInterfacesWrapper(virConnectPtr conn,
                                         virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfDefinedInterfacesType virConnectNumOfDefinedInterfacesSymbol;
+    static virConnectNumOfDefinedInterfacesFuncType virConnectNumOfDefinedInterfacesSymbol;
     static bool once;
     static bool success;
 
@@ -165,14 +165,14 @@ virConnectNumOfDefinedInterfacesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfInterfacesType)(virConnectPtr conn);
+(*virConnectNumOfInterfacesFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfInterfacesWrapper(virConnectPtr conn,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfInterfacesType virConnectNumOfInterfacesSymbol;
+    static virConnectNumOfInterfacesFuncType virConnectNumOfInterfacesSymbol;
     static bool once;
     static bool success;
 
@@ -191,8 +191,8 @@ virConnectNumOfInterfacesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virInterfaceChangeBeginType)(virConnectPtr conn,
-                               unsigned int flags);
+(*virInterfaceChangeBeginFuncType)(virConnectPtr conn,
+                                   unsigned int flags);
 
 int
 virInterfaceChangeBeginWrapper(virConnectPtr conn,
@@ -200,7 +200,7 @@ virInterfaceChangeBeginWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virInterfaceChangeBeginType virInterfaceChangeBeginSymbol;
+    static virInterfaceChangeBeginFuncType virInterfaceChangeBeginSymbol;
     static bool once;
     static bool success;
 
@@ -220,8 +220,8 @@ virInterfaceChangeBeginWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virInterfaceChangeCommitType)(virConnectPtr conn,
-                                unsigned int flags);
+(*virInterfaceChangeCommitFuncType)(virConnectPtr conn,
+                                    unsigned int flags);
 
 int
 virInterfaceChangeCommitWrapper(virConnectPtr conn,
@@ -229,7 +229,7 @@ virInterfaceChangeCommitWrapper(virConnectPtr conn,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virInterfaceChangeCommitType virInterfaceChangeCommitSymbol;
+    static virInterfaceChangeCommitFuncType virInterfaceChangeCommitSymbol;
     static bool once;
     static bool success;
 
@@ -249,8 +249,8 @@ virInterfaceChangeCommitWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virInterfaceChangeRollbackType)(virConnectPtr conn,
-                                  unsigned int flags);
+(*virInterfaceChangeRollbackFuncType)(virConnectPtr conn,
+                                      unsigned int flags);
 
 int
 virInterfaceChangeRollbackWrapper(virConnectPtr conn,
@@ -258,7 +258,7 @@ virInterfaceChangeRollbackWrapper(virConnectPtr conn,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virInterfaceChangeRollbackType virInterfaceChangeRollbackSymbol;
+    static virInterfaceChangeRollbackFuncType virInterfaceChangeRollbackSymbol;
     static bool once;
     static bool success;
 
@@ -278,8 +278,8 @@ virInterfaceChangeRollbackWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virInterfaceCreateType)(virInterfacePtr iface,
-                          unsigned int flags);
+(*virInterfaceCreateFuncType)(virInterfacePtr iface,
+                              unsigned int flags);
 
 int
 virInterfaceCreateWrapper(virInterfacePtr iface,
@@ -287,7 +287,7 @@ virInterfaceCreateWrapper(virInterfacePtr iface,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virInterfaceCreateType virInterfaceCreateSymbol;
+    static virInterfaceCreateFuncType virInterfaceCreateSymbol;
     static bool once;
     static bool success;
 
@@ -307,9 +307,9 @@ virInterfaceCreateWrapper(virInterfacePtr iface,
 }
 
 typedef virInterfacePtr
-(*virInterfaceDefineXMLType)(virConnectPtr conn,
-                             const char * xml,
-                             unsigned int flags);
+(*virInterfaceDefineXMLFuncType)(virConnectPtr conn,
+                                 const char * xml,
+                                 unsigned int flags);
 
 virInterfacePtr
 virInterfaceDefineXMLWrapper(virConnectPtr conn,
@@ -318,7 +318,7 @@ virInterfaceDefineXMLWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     virInterfacePtr ret = NULL;
-    static virInterfaceDefineXMLType virInterfaceDefineXMLSymbol;
+    static virInterfaceDefineXMLFuncType virInterfaceDefineXMLSymbol;
     static bool once;
     static bool success;
 
@@ -339,8 +339,8 @@ virInterfaceDefineXMLWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virInterfaceDestroyType)(virInterfacePtr iface,
-                           unsigned int flags);
+(*virInterfaceDestroyFuncType)(virInterfacePtr iface,
+                               unsigned int flags);
 
 int
 virInterfaceDestroyWrapper(virInterfacePtr iface,
@@ -348,7 +348,7 @@ virInterfaceDestroyWrapper(virInterfacePtr iface,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virInterfaceDestroyType virInterfaceDestroySymbol;
+    static virInterfaceDestroyFuncType virInterfaceDestroySymbol;
     static bool once;
     static bool success;
 
@@ -368,14 +368,14 @@ virInterfaceDestroyWrapper(virInterfacePtr iface,
 }
 
 typedef int
-(*virInterfaceFreeType)(virInterfacePtr iface);
+(*virInterfaceFreeFuncType)(virInterfacePtr iface);
 
 int
 virInterfaceFreeWrapper(virInterfacePtr iface,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virInterfaceFreeType virInterfaceFreeSymbol;
+    static virInterfaceFreeFuncType virInterfaceFreeSymbol;
     static bool once;
     static bool success;
 
@@ -394,14 +394,14 @@ virInterfaceFreeWrapper(virInterfacePtr iface,
 }
 
 typedef virConnectPtr
-(*virInterfaceGetConnectType)(virInterfacePtr iface);
+(*virInterfaceGetConnectFuncType)(virInterfacePtr iface);
 
 virConnectPtr
 virInterfaceGetConnectWrapper(virInterfacePtr iface,
                               virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virInterfaceGetConnectType virInterfaceGetConnectSymbol;
+    static virInterfaceGetConnectFuncType virInterfaceGetConnectSymbol;
     static bool once;
     static bool success;
 
@@ -420,14 +420,14 @@ virInterfaceGetConnectWrapper(virInterfacePtr iface,
 }
 
 typedef const char *
-(*virInterfaceGetMACStringType)(virInterfacePtr iface);
+(*virInterfaceGetMACStringFuncType)(virInterfacePtr iface);
 
 const char *
 virInterfaceGetMACStringWrapper(virInterfacePtr iface,
                                 virErrorPtr err)
 {
     const char * ret = NULL;
-    static virInterfaceGetMACStringType virInterfaceGetMACStringSymbol;
+    static virInterfaceGetMACStringFuncType virInterfaceGetMACStringSymbol;
     static bool once;
     static bool success;
 
@@ -446,14 +446,14 @@ virInterfaceGetMACStringWrapper(virInterfacePtr iface,
 }
 
 typedef const char *
-(*virInterfaceGetNameType)(virInterfacePtr iface);
+(*virInterfaceGetNameFuncType)(virInterfacePtr iface);
 
 const char *
 virInterfaceGetNameWrapper(virInterfacePtr iface,
                            virErrorPtr err)
 {
     const char * ret = NULL;
-    static virInterfaceGetNameType virInterfaceGetNameSymbol;
+    static virInterfaceGetNameFuncType virInterfaceGetNameSymbol;
     static bool once;
     static bool success;
 
@@ -472,8 +472,8 @@ virInterfaceGetNameWrapper(virInterfacePtr iface,
 }
 
 typedef char *
-(*virInterfaceGetXMLDescType)(virInterfacePtr iface,
-                              unsigned int flags);
+(*virInterfaceGetXMLDescFuncType)(virInterfacePtr iface,
+                                  unsigned int flags);
 
 char *
 virInterfaceGetXMLDescWrapper(virInterfacePtr iface,
@@ -481,7 +481,7 @@ virInterfaceGetXMLDescWrapper(virInterfacePtr iface,
                               virErrorPtr err)
 {
     char * ret = NULL;
-    static virInterfaceGetXMLDescType virInterfaceGetXMLDescSymbol;
+    static virInterfaceGetXMLDescFuncType virInterfaceGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -501,14 +501,14 @@ virInterfaceGetXMLDescWrapper(virInterfacePtr iface,
 }
 
 typedef int
-(*virInterfaceIsActiveType)(virInterfacePtr iface);
+(*virInterfaceIsActiveFuncType)(virInterfacePtr iface);
 
 int
 virInterfaceIsActiveWrapper(virInterfacePtr iface,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virInterfaceIsActiveType virInterfaceIsActiveSymbol;
+    static virInterfaceIsActiveFuncType virInterfaceIsActiveSymbol;
     static bool once;
     static bool success;
 
@@ -527,8 +527,8 @@ virInterfaceIsActiveWrapper(virInterfacePtr iface,
 }
 
 typedef virInterfacePtr
-(*virInterfaceLookupByMACStringType)(virConnectPtr conn,
-                                     const char * macstr);
+(*virInterfaceLookupByMACStringFuncType)(virConnectPtr conn,
+                                         const char * macstr);
 
 virInterfacePtr
 virInterfaceLookupByMACStringWrapper(virConnectPtr conn,
@@ -536,7 +536,7 @@ virInterfaceLookupByMACStringWrapper(virConnectPtr conn,
                                      virErrorPtr err)
 {
     virInterfacePtr ret = NULL;
-    static virInterfaceLookupByMACStringType virInterfaceLookupByMACStringSymbol;
+    static virInterfaceLookupByMACStringFuncType virInterfaceLookupByMACStringSymbol;
     static bool once;
     static bool success;
 
@@ -556,8 +556,8 @@ virInterfaceLookupByMACStringWrapper(virConnectPtr conn,
 }
 
 typedef virInterfacePtr
-(*virInterfaceLookupByNameType)(virConnectPtr conn,
-                                const char * name);
+(*virInterfaceLookupByNameFuncType)(virConnectPtr conn,
+                                    const char * name);
 
 virInterfacePtr
 virInterfaceLookupByNameWrapper(virConnectPtr conn,
@@ -565,7 +565,7 @@ virInterfaceLookupByNameWrapper(virConnectPtr conn,
                                 virErrorPtr err)
 {
     virInterfacePtr ret = NULL;
-    static virInterfaceLookupByNameType virInterfaceLookupByNameSymbol;
+    static virInterfaceLookupByNameFuncType virInterfaceLookupByNameSymbol;
     static bool once;
     static bool success;
 
@@ -585,14 +585,14 @@ virInterfaceLookupByNameWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virInterfaceRefType)(virInterfacePtr iface);
+(*virInterfaceRefFuncType)(virInterfacePtr iface);
 
 int
 virInterfaceRefWrapper(virInterfacePtr iface,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virInterfaceRefType virInterfaceRefSymbol;
+    static virInterfaceRefFuncType virInterfaceRefSymbol;
     static bool once;
     static bool success;
 
@@ -611,14 +611,14 @@ virInterfaceRefWrapper(virInterfacePtr iface,
 }
 
 typedef int
-(*virInterfaceUndefineType)(virInterfacePtr iface);
+(*virInterfaceUndefineFuncType)(virInterfacePtr iface);
 
 int
 virInterfaceUndefineWrapper(virInterfacePtr iface,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virInterfaceUndefineType virInterfaceUndefineSymbol;
+    static virInterfaceUndefineFuncType virInterfaceUndefineSymbol;
     static bool once;
     static bool success;
 

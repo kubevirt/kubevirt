@@ -104,11 +104,12 @@ const (
 )
 
 const (
-	VmCirros           = "vm-cirros"
-	VmAlpineMultiPvc   = "vm-alpine-multipvc"
-	VmAlpineDataVolume = "vm-alpine-datavolume"
-	VMPriorityClass    = "vm-priorityclass"
-	VmCirrosSata       = "vm-cirros-sata"
+	VmCirros                         = "vm-cirros"
+	VmAlpineMultiPvc                 = "vm-alpine-multipvc"
+	VmAlpineDataVolume               = "vm-alpine-datavolume"
+	VMPriorityClass                  = "vm-priorityclass"
+	VmCirrosSata                     = "vm-cirros-sata"
+	VmCirrosWithHookSidecarConfigMap = "vm-cirros-with-sidecar-hook-configmap"
 )
 
 const VmiReplicaSetCirros = "vmi-replicaset-cirros"
@@ -758,6 +759,23 @@ func GetVMCirros() *v1.VirtualMachine {
 	return vm
 }
 
+func GetVMCirrosWithHookSidecarConfigMap() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosWithHookSidecarConfigMap, map[string]string{
+		kubevirtIoVM: VmCirrosWithHookSidecarConfigMap,
+	})
+
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+
+	if vm.Spec.Template.ObjectMeta.Annotations == nil {
+		vm.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+	}
+	vm.Spec.Template.ObjectMeta.Annotations["hooks.kubevirt.io/hookSidecars"] = `[{"args": ["--version", "v1alpha2"], "configMap": {"name": "my-config-map",` +
+		`"key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`
+
+	return vm
+}
+
 func GetVMCirrosSata() *v1.VirtualMachine {
 	vm := getBaseVM(VmCirrosSata, map[string]string{
 		kubevirtIoVM: VmCirrosSata,
@@ -1183,8 +1201,7 @@ func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 
-	annotation := `[{"args": ["--version", "v1alpha2"], "image":` +
-		`"registry:5000/kubevirt/sidecar-shim:devel", "configMap": {"name": "my-config-map",` +
+	annotation := `[{"args": ["--version", "v1alpha2"], "configMap": {"name": "my-config-map",` +
 		`"key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`
 
 	vmi.ObjectMeta.Annotations = map[string]string{

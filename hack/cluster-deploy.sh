@@ -59,8 +59,6 @@ function _ensure_cdi_deployment() {
     if [[ $CDI_DV_GC != $CDI_DV_GC_DEFAULT ]]; then
         _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
     fi
-
-    _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec":{"config":{"podResourceRequirements": {"limits": {"cpu": "750m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "60M"}}}}}'
 }
 
 function configure_prometheus() {

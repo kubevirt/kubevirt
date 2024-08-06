@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 // The SCSI persistent reservation tests require to run serially because of the
@@ -89,7 +88,8 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		libstorage.CreateFSPVC(pvc, testsuite.NamespacePrivileged, diskSize, nil)
 		// Create targetcli container
 		By("Create targetcli pod")
-		pod := tests.RunPodInNamespace(libpod.RenderTargetcliPod(podName, pvc), testsuite.NamespacePrivileged)
+		pod, err := libpod.Run(libpod.RenderTargetcliPod(podName, pvc), testsuite.NamespacePrivileged)
+		Expect(err).ToNot(HaveOccurred())
 		node = pod.Spec.NodeName
 		// The vm-killer image is built with bazel and the /etc/ld.so.cache isn't built
 		// at the package installation. The targetcli utility relies on ctype python package that
@@ -211,7 +211,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 			device = findSCSIdisk(targetCliPod, backendDisk)
 			Expect(device).ToNot(BeEmpty())
 			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
-			pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(node, device, util.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
+			pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(node, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
 			Expect(err).ToNot(HaveOccurred())
 			waitForVirtHandlerWithPrHelperReadyOnNode(node)
 			// Switching the PersistentReservation feature gate on/off
@@ -233,7 +233,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		It("Should successfully start a VM with persistent reservation", func() {
 			By("Create VMI with the SCSI disk")
 			vmi := libvmifact.NewFedora(
-				libvmi.WithNamespace(util.NamespaceTestDefault),
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)
@@ -262,7 +262,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		It("Should successfully start 2 VMs with persistent reservation on the same LUN", func() {
 			By("Create 2 VMs with the SCSI disk")
 			vmi := libvmifact.NewFedora(
-				libvmi.WithNamespace(util.NamespaceTestDefault),
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)
@@ -274,7 +274,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 			)
 
 			vmi2 := libvmifact.NewFedora(
-				libvmi.WithNamespace(util.NamespaceTestDefault),
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)

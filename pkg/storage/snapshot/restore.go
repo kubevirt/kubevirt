@@ -981,6 +981,7 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 	if volumeBackup == nil || volumeBackup.VolumeSnapshotName == nil {
 		return nil, fmt.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
 	}
+	apiGroup := vsv1.GroupName
 	sourcePVC := volumeBackup.PersistentVolumeClaim.DeepCopy()
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -988,7 +989,22 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 			Labels:      sourcePVC.Labels,
 			Annotations: sourcePVC.Annotations,
 		},
-		Spec: sourcePVC.Spec,
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes:      sourcePVC.Spec.AccessModes,
+			Resources:        sourcePVC.Spec.Resources,
+			StorageClassName: sourcePVC.Spec.StorageClassName,
+			VolumeMode:       sourcePVC.Spec.VolumeMode,
+			DataSource: &corev1.TypedLocalObjectReference{
+				APIGroup: &apiGroup,
+				Kind:     "VolumeSnapshot",
+				Name:     *volumeBackup.VolumeSnapshotName,
+			},
+			DataSourceRef: &corev1.TypedObjectReference{
+				APIGroup: &apiGroup,
+				Kind:     "VolumeSnapshot",
+				Name:     *volumeBackup.VolumeSnapshotName,
+			},
+		},
 	}
 
 	if volumeSnapshot == nil {
@@ -1010,23 +1026,6 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 		}
 	}
 
-	apiGroup := vsv1.GroupName
-	dataSource := corev1.TypedLocalObjectReference{
-		APIGroup: &apiGroup,
-		Kind:     "VolumeSnapshot",
-		Name:     *volumeBackup.VolumeSnapshotName,
-	}
-	dataSourceRef := corev1.TypedObjectReference{
-		APIGroup: &apiGroup,
-		Kind:     "VolumeSnapshot",
-		Name:     *volumeBackup.VolumeSnapshotName,
-	}
-
-	// We need to overwrite both dataSource and dataSourceRef to avoid incompatibilities between the two
-	pvc.Spec.DataSource = &dataSource
-	pvc.Spec.DataSourceRef = &dataSourceRef
-
-	pvc.Spec.VolumeName = ""
 	return pvc, nil
 }
 

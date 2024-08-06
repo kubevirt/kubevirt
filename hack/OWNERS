@@ -1,17 +1,6 @@
-filters:
-
-  ".*":
-    reviewers:
-    - sig-buildsystem-reviewers
-    approvers:
-    - sig-buildsystem-approvers
-    labels:
-    - sig/buildsystem
-
-  ".*perf.*":
-    reviewers:
-      - sig-scale-reviewers
-    approvers:
-      - sig-scale-approvers
-    labels:
-      - sig/scale
+reviewers:
+- sig-buildsystem-reviewers
+approvers:
+- sig-buildsystem-approvers
+labels:
+- sig/buildsystem

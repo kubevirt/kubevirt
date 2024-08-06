@@ -1,0 +1,17 @@
+filters:
+
+  "^kind-(ovn|sriov)\\/.*$":
+    reviewers:
+    - sig-network-reviewers
+    approvers:
+    - sig-network-approvers
+    labels:
+    - sig/network
+
+  "^(kind-[0-9\\.]+-vgpu)\\/.*$":
+    reviewers:
+    - sig-compute-reviewers
+    approvers:
+    - sig-compute-approvers
+    labels:
+    - sig/compute

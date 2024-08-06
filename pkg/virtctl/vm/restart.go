@@ -52,6 +52,7 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func (o *Command) restartRun(args []string, cmd *cobra.Command) error {
 	vmiName := args[0]
+	errorFmt := "error restarting VirtualMachine: %v"
 
 	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
 	if err != nil {
@@ -65,16 +66,15 @@ func (o *Command) restartRun(args []string, cmd *cobra.Command) error {
 		return fmt.Errorf("Must both use --force=true and set --grace-period.")
 	}
 
+	restartOpts := &v1.RestartOptions{DryRun: dryRunOption}
 	if forceRestart {
-		err = virtClient.VirtualMachine(namespace).ForceRestart(context.Background(), vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
-		if err != nil {
-			return fmt.Errorf("Error force restarting VirtualMachine, %v", err)
-		}
-	} else {
-		err = virtClient.VirtualMachine(namespace).Restart(context.Background(), vmiName, &v1.RestartOptions{DryRun: dryRunOption})
-		if err != nil {
-			return fmt.Errorf("Error restarting VirtualMachine %v", err)
-		}
+		restartOpts.GracePeriodSeconds = &gracePeriod
+		errorFmt = "error force restarting VirtualMachine: %v"
+	}
+
+	err = virtClient.VirtualMachine(namespace).Restart(context.Background(), vmiName, restartOpts)
+	if err != nil {
+		return fmt.Errorf(errorFmt, err)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)

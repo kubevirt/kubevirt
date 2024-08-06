@@ -4,18 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+
 	v1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
-	util2 "kubevirt.io/kubevirt/tests/util"
-
-	. "github.com/onsi/gomega"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 // If matchingNSLabels is zero, namespace parameter is being ignored and can be nil
@@ -37,7 +38,7 @@ func PreparePolicyAndVMIWithNSAndVMILabelsWithPreexistingPolicy(vmi *v1.VirtualM
 	if policy.Labels == nil {
 		policy.Labels = map[string]string{}
 	}
-	policy.Labels[cleanup.TestLabelForNamespace(util2.NamespaceTestDefault)] = ""
+	policy.Labels[cleanup.TestLabelForNamespace(testsuite.NamespaceTestDefault)] = ""
 
 	var namespaceLabels map[string]string
 	if namespace != nil {

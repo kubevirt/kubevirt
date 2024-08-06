@@ -9,7 +9,7 @@ stages:
 # merge requests are submitted
 check-dco:
   stage: prebuild
-  image: registry.gitlab.com/libvirt/libvirt-ci/check-dco:master
+  image: registry.gitlab.com/libvirt/libvirt-ci/check-dco:latest
   script:
     - /check-dco
   except:
@@ -18,7 +18,7 @@ check-dco:
 
 go-fmt:
   stage: prebuild
-  image: registry.gitlab.com/libvirt/libvirt-ci/go-fmt:master
+  image: registry.gitlab.com/libvirt/libvirt-ci/go-fmt:latest
   script:
     - /go-fmt
   artifacts:

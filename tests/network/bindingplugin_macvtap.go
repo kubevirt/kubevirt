@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -36,13 +35,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libkvconfig"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -63,7 +61,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 	BeforeEach(func() {
 		const macvtapBindingName = "macvtap"
-		err := libkvconfig.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{
+		err := config.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{
 			DomainAttachmentType: v1.Tap,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -151,7 +149,6 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 		Context("with live traffic", func() {
 			var serverVMI *v1.VirtualMachineInstance
-			var serverVMIPodName string
 			var serverIP string
 
 			const macvtapIfaceIPReportTimeout = 4 * time.Minute
@@ -170,7 +167,6 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
-				serverVMIPodName = tests.GetVmPodName(kubevirt.Client(), serverVMI)
 
 				serverIP, err = waitVMMacvtapIfaceIPReport(serverVMI, serverMAC, macvtapIfaceIPReportTimeout)
 				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
@@ -184,6 +180,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 			It("should keep connectivity after a migration", func() {
 				const containerCompletionWaitTime = 60
+				serverVMIPodName := tests.GetVmPodName(kubevirt.Client(), serverVMI)
 				migration := libmigration.New(serverVMI.Name, serverVMI.GetNamespace())
 				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
@@ -198,7 +195,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 })
 
 func waitForPodCompleted(podNamespace string, podName string) error {
-	pod, err := kubevirt.Client().CoreV1().Pods(podNamespace).Get(context.Background(), podName, k8smetav1.GetOptions{})
+	pod, err := kubevirt.Client().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -211,7 +208,7 @@ func waitForPodCompleted(podNamespace string, podName string) error {
 func waitVMMacvtapIfaceIPReport(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
 	var vmiIP string
 	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

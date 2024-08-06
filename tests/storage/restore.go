@@ -37,7 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -63,8 +63,6 @@ const (
 
 	macAddressCloningPatchPattern   = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
 	firmwareUUIDCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/firmware/uuid", "value": "%s"}`
-
-	bashHelloScript = "#!/bin/bash\necho 'hello'\n"
 
 	onlineSnapshot = true
 	offlineSnaphot = false
@@ -129,8 +127,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 		var vmi *v1.VirtualMachineInstance
 
-		t := true
-		vm.Spec.Running = &t
+		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		var gracePeriod int64 = 10
 		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
 
@@ -186,7 +183,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	}
 
 	deleteVM := func(vm *v1.VirtualMachine) {
-		err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
+		err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			err = nil
 		}
@@ -251,7 +248,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		return r
 	}
 
-	createVMWithCloudInit := func(containerDisk cd.ContainerDisk, storageClass string) *v1.VirtualMachine {
+	createVMWithCloudInit := func(containerDisk cd.ContainerDisk, storageClass string, opts ...libvmi.Option) *v1.VirtualMachine {
+		defaultOpts := []libvmi.Option{
+			libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+		}
+		opts = append(defaultOpts, opts...)
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(containerDisk)),
 			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -261,7 +262,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			),
 		)
 		return libvmi.NewVirtualMachine(
-			libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript))),
+			libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, opts...),
 			libvmi.WithDataVolumeTemplate(dv),
 		)
 	}
@@ -271,7 +272,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 		expectNewVMCreation := func(vmName string) (createdVM *v1.VirtualMachine) {
 			Eventually(func() error {
-				createdVM, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+				createdVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vmName, metav1.GetOptions{})
 				return err
 			}, 90*time.Second, 5*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("new VM (%s) is not being created", vmName))
 			return createdVM
@@ -392,7 +393,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:5257]should reject restore if VM running", func() {
-				patch, err := patch.New(patch.WithReplace("/spec/running", true)).GeneratePayload()
+				patch, err := patch.New(patch.WithReplace("/spec/runStrategy", v1.RunStrategyAlways)).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
 
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
@@ -402,7 +403,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is not stopped", vm.Name)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vm.Name, v1.RunStrategyHalted)))
 			})
 
 			It("[test_id:5258]should reject restore if another in progress", func() {
@@ -624,31 +625,28 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Name: preference.Name,
 					Kind: "VirtualMachinePreference",
 				}
+			})
 
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			DescribeTable("should use existing ControllerRevisions for an existing VM restore", Label("instancetype", "preference", "restore"), func(runStrategy v1.VirtualMachineRunStrategy) {
+				libvmi.WithRunStrategy(runStrategy)(vm)
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until the VM has instancetype and preference RevisionNames")
 				libinstancetype.WaitForVMInstanceTypeRevisionNames(vm.Name, virtClient)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				originalVMInstancetypeRevisionName := vm.Spec.Instancetype.RevisionName
+				originalVMPreferenceRevisionName := vm.Spec.Preference.RevisionName
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, HaveSucceeded())
-				}
-			})
-
-			DescribeTable("should use existing ControllerRevisions for an existing VM restore", Label("instancetype", "preference", "restore"), func(toRunSourceVM bool) {
-				originalVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				if toRunSourceVM {
-					By("Starting the VM and expecting it to run")
-					vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
 				}
 
 				By("Creating a VirtualMachineSnapshot")
 				snapshot = createSnapshot(vm)
 
-				if toRunSourceVM {
+				if runStrategy == v1.RunStrategyAlways {
 					By("Stopping the VM")
 					vm = tests.StopVirtualMachine(vm)
 				}
@@ -663,29 +661,29 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
 
 				By("Asserting that the restored VM has the same instancetype and preference controllerRevisions")
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				currVm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalVM.Spec.Instancetype.RevisionName))
-				Expect(vm.Spec.Preference.RevisionName).To(Equal(originalVM.Spec.Preference.RevisionName))
+				Expect(currVm.Spec.Instancetype.RevisionName).To(Equal(originalVMInstancetypeRevisionName))
+				Expect(currVm.Spec.Preference.RevisionName).To(Equal(originalVMPreferenceRevisionName))
 			},
-				Entry("with a running VM", true),
-				Entry("with a stopped VM", false),
+				Entry("with a running VM", v1.RunStrategyAlways),
+				Entry("with a stopped VM", v1.RunStrategyHalted),
 			)
 
-			DescribeTable("should create new ControllerRevisions for newly restored VM", Label("instancetype", "preference", "restore"), func(toRunSourceVM bool) {
-				if toRunSourceVM {
-					By("Starting the VM and expecting it to run")
-					vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
+			DescribeTable("should create new ControllerRevisions for newly restored VM", Label("instancetype", "preference", "restore"), func(runStrategy v1.VirtualMachineRunStrategy) {
+				libvmi.WithRunStrategy(runStrategy)(vm)
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting until the VM has instancetype and preference RevisionNames")
+				libinstancetype.WaitForVMInstanceTypeRevisionNames(vm.Name, virtClient)
+
+				for _, dvt := range vm.Spec.DataVolumeTemplates {
+					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, HaveSucceeded())
 				}
 
 				By("Creating a VirtualMachineSnapshot")
 				snapshot = createSnapshot(vm)
-
-				if toRunSourceVM {
-					By("Stopping the VM")
-					vm = tests.StopVirtualMachine(vm)
-				}
 
 				By("Creating a VirtualMachineRestore")
 				restoreVMName := vm.Name + "-new"
@@ -713,8 +711,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, restoreVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
 				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, restoreVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
 			},
-				Entry("with a running VM", true),
-				Entry("with a stopped VM", false),
+				Entry("with a running VM", v1.RunStrategyAlways),
+				Entry("with a stopped VM", v1.RunStrategyHalted),
 			)
 		})
 	})
@@ -1208,7 +1206,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					memory = "256Mi"
 				}
 				vmi = libstorage.RenderVMIWithDataVolume(originalPVCName, testsuite.GetTestNamespace(nil),
-					libvmi.WithResourceMemory(memory), libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript)))
+					libvmi.WithResourceMemory(memory), libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
 				vm, vmi = createAndStartVM(libvmi.NewVirtualMachine(vmi))
 
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
@@ -1486,7 +1484,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
+				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithResourceMemory("512Mi")))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1499,7 +1497,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			It("should restore vm spec at startup without new changes", func() {
-				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
+				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithResourceMemory("512Mi")))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1764,7 +1762,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					)
 
 					return libvmi.NewVirtualMachine(
-						libstorage.RenderVMIWithDataVolume(dataVolume.Name, sourceDV.Namespace, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript))),
+						libstorage.RenderVMIWithDataVolume(dataVolume.Name, sourceDV.Namespace, libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot())),
 						libvmi.WithDataVolumeTemplate(dataVolume),
 					)
 				}

@@ -27,30 +27,15 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libmigration"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libnet/job"
-
-	"kubevirt.io/kubevirt/tests/libnode"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
-	"k8s.io/utils/pointer"
-
-	kvutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -58,17 +43,26 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
+	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -80,7 +74,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var currentConfiguration v1.KubeVirtConfiguration
 
 	const (
 		testPort                   = 1500
@@ -90,9 +83,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		kv := util.GetCurrentKv(virtClient)
-		currentConfiguration = kv.Spec.Configuration
 	})
 
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string) {
@@ -116,18 +106,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	}
 
 	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
-		output := tests.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0-nic/brport/learning"})
+		output := libpod.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0-nic/brport/learning"})
 		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
-	}
-
-	setBridgeEnabled := func(enable bool) {
-		if currentConfiguration.NetworkConfiguration == nil {
-			currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
-		}
-
-		currentConfiguration.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = pointer.BoolPtr(enable)
-		kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
-		currentConfiguration = kv.Spec.Configuration
 	}
 
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
@@ -299,40 +279,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					checkNetworkVendor(networkVMI, virtio_vid)
 				}
 			})
-
-			Context("VirtualMachineInstance with unsupported interface model", func() {
-				It("[test_id:1551]should reject the creation of virtual machine with unsupported interface model", func() {
-					// Create a virtual machine with an unsupported interface model
-					masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-					masqIface.Model = "gibberish"
-					customIfVMI := libvmifact.NewCirros(
-						libvmi.WithInterface(masqIface),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), customIfVMI, metav1.CreateOptions{})
-					Expect(err).To(HaveOccurred())
-				})
-			})
-		})
-	})
-
-	Context("VirtualMachineInstance with default settings", func() {
-		It("[test_id:1542]should be able to reach the internet", func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			outboundVMI := libvmifact.NewCirros()
-			outboundVMI = runVMI(outboundVMI)
-			libwait.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
-
-			By("checking the VirtualMachineInstance can fetch via HTTP")
-			err := console.SafeExpectBatch(outboundVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: console.EchoLastReturnValue},
-				&expect.BExp{R: console.RetValue("0")},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -392,22 +338,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			libwait.WaitUntilVMIReady(beafdeadVMI, console.LoginToCirros)
 			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad")
-		})
-	})
-
-	Context("VirtualMachineInstance with invalid MAC address", func() {
-		It("[test_id:700]should failed to start with invalid MAC address", func() {
-			By("Start VMI")
-			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-			masqIface.MacAddress = "de:00c:00c:00:00:de:abc"
-			beafdeadVMI := libvmifact.NewAlpine(
-				libvmi.WithInterface(masqIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), beafdeadVMI, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-			testErr := err.(*errors.StatusError)
-			Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
 		})
 	})
 
@@ -1042,26 +972,11 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-			output := tests.RunCommandOnVmiPod(
+			output := libpod.RunCommandOnVmiPod(
 				vmi,
 				[]string{"/bin/bash", "-c", "/usr/sbin/ethtool -k k6t-eth0|grep tx-checksumming|awk '{ printf $2 }'"},
 			)
 			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("off"))
-		})
-	})
-
-	Context("[Serial]vmi with default bridge interface on pod network", Serial, func() {
-		BeforeEach(func() {
-			setBridgeEnabled(false)
-		})
-		AfterEach(func() {
-			setBridgeEnabled(true)
-		})
-		It("[test_id:2964]should reject VMIs with bridge interface when it's not permitted on pod network", func() {
-			vmi := libvmifact.NewCirros()
-
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err.Error()).To(ContainSubstring("bridge interface is not enabled in kubevirt-config"))
 		})
 	})
 })

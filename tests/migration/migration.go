@@ -31,78 +31,68 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libmigration"
-
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libnet/job"
-	"kubevirt.io/kubevirt/tests/libnet/service"
-	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
-	"kubevirt.io/kubevirt/tests/events"
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libconfigmap"
-	"kubevirt.io/kubevirt/tests/libinfra"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-
-	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util/hardware"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
-	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/libdv"
-	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/util"
-	"kubevirt.io/kubevirt/tools/vms-generator/utils"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/libwait"
-
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
+	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/job"
+	"kubevirt.io/kubevirt/tests/libnet/service"
+	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/watcher"
+	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
 const (
@@ -194,7 +184,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		const subdomain = "mysub"
 
 		AfterEach(func() {
-			err := virtClient.CoreV1().Services(util.NamespaceTestDefault).Delete(context.Background(), subdomain, metav1.DeleteOptions{})
+			err := virtClient.CoreV1().Services(testsuite.NamespaceTestDefault).Delete(context.Background(), subdomain, metav1.DeleteOptions{})
 			if !errors.IsNotFound(err) {
 				Expect(err).NotTo(HaveOccurred())
 			}
@@ -233,7 +223,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By(msg)
 				tcpJob := job.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
 				tcpJob.Spec.BackoffLimit = pointer.P(int32(3))
-				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
+				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				err = job.WaitForJobToSucceed(tcpJob, 90*time.Second)
@@ -925,7 +915,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
-				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Checking that the migrated VirtualMachineInstance has an updated time")
@@ -936,7 +926,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Waiting for the agent to set the right time")
 				Eventually(func() error {
 					// get current time on the node
-					output := tests.RunCommandOnVmiPod(vmi, []string{"date", "+%H:%M"})
+					output := libpod.RunCommandOnVmiPod(vmi, []string{"date", "+%H:%M"})
 					expectedTime := strings.TrimSpace(output)
 					log.DefaultLogger().Infof("expoected time: %v", expectedTime)
 
@@ -1070,9 +1060,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
 				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
-				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
 				image := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
-				tests.AddEphemeralDisk(vmi, "myephemeral", v1.VirtIO, image)
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc, libvmi.WithContainerDisk("myephemeral", image))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
@@ -1104,7 +1093,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskCirros, k8sv1.ReadWriteMany, sc, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")))
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskCirros, k8sv1.ReadWriteMany, sc, libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
@@ -1172,7 +1161,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
 					libvmi.WithResourceMemory(fedoraVMSize),
 					libvmi.WithRng(),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\n echo hello\n")),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
 
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
@@ -2015,7 +2004,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
 					libvmi.WithResourceMemory("1Gi"),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\n echo hello\n")),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
 				return vmi
 			}
@@ -2565,7 +2554,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		Context("[Serial] with freePageReporting", Serial, func() {
 
 			BeforeEach(func() {
-				kv := util.GetCurrentKv(virtClient)
+				kv := libkubevirt.GetCurrentKv(virtClient)
 				kvConfigurationCopy := kv.Spec.Configuration.DeepCopy()
 				kvConfigurationCopy.VirtualMachineOptions = nil
 				tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
@@ -2880,8 +2869,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			for _, line := range cpuLines {
 				lineSplits := strings.Fields(line)
+				// Range will be found when there are disabled/not plugged cpus
+				if strings.Contains(lineSplits[1], "-") {
+					continue
+				}
 				cpu, err := strconv.Atoi(lineSplits[1])
-				Expect(err).ToNot(HaveOccurred(), "cpu id is non string in vcpupin output")
+				Expect(err).ToNot(HaveOccurred(), "cpu id is non string in vcpupin output", vcpuPinOutput)
 
 				cpuSet = append(cpuSet, cpu)
 			}
@@ -3023,12 +3016,17 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))
 
 			By("reserving the cores used by the VMI on the second node with a paused pod")
-			var pods []*k8sv1.Pod
-			var pausedPod *k8sv1.Pod
 			libnode.AddLabelToNode(nodes[1].Name, testLabel2, "true")
-			for pausedPod = tests.RunPod(pausePod); !hasCommonCores(vmi, pausedPod); pausedPod = tests.RunPod(pausePod) {
-				pods = append(pods, pausedPod)
+
+			var pods []*k8sv1.Pod
+			ns := testsuite.GetTestNamespace(pausePod)
+			pausedPod, err := libpod.Run(pausePod, ns)
+			Expect(err).ToNot(HaveOccurred())
+			for !hasCommonCores(vmi, pausedPod) {
 				By("creating another paused pod since last didn't have common cores with the VMI")
+				pods = append(pods, pausedPod)
+				pausedPod, err = libpod.Run(pausePod, ns)
+				Expect(err).ToNot(HaveOccurred())
 			}
 
 			By("deleting the paused pods that don't have cores in common with the VMI")
@@ -3305,7 +3303,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Checking that no backoff event occurred")
 				events.ExpectNoEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
-				events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				events, err := virtClient.CoreV1().Events(testsuite.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, ev := range events.Items {
 					Expect(ev.Reason).ToNot(Equal(controller.MigrationBackoffReason))
@@ -3459,7 +3457,7 @@ func getPodsCgroupVersion(pod *k8sv1.Pod) cgroup.CgroupVersion {
 }
 
 func getCurrentKvConfig(virtClient kubecli.KubevirtClient) v1.KubeVirtConfiguration {
-	kvc := util.GetCurrentKv(virtClient)
+	kvc := libkubevirt.GetCurrentKv(virtClient)
 
 	if kvc.Spec.Configuration.MigrationConfiguration == nil {
 		kvc.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{}

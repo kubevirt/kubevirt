@@ -40,6 +40,14 @@ func WithContainerDisk(diskName, imageName string) Option {
 	}
 }
 
+// WithContainerSATADisk specifies the disk name and the name of the container image to be used.
+func WithContainerSATADisk(diskName, imageName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, v1.DiskBusSATA))
+		addVolume(vmi, newContainerVolume(diskName, imageName))
+	}
+}
+
 // WithPersistentVolumeClaim specifies the name of the PersistentVolumeClaim to be used.
 func WithPersistentVolumeClaim(diskName, pvcName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
@@ -115,6 +123,13 @@ func WithHostDisk(diskName, path string, diskType v1.HostDiskType) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
 		addVolume(vmi, newHostDisk(diskName, path, diskType))
+	}
+}
+
+// WithIOThreadsPolicy sets the WithIOThreadPolicy parameter
+func WithIOThreadsPolicy(policy v1.IOThreadsPolicy) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.IOThreadsPolicy = &policy
 	}
 }
 

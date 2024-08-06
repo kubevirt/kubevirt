@@ -74,6 +74,8 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	metricshandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/handler"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -346,6 +348,9 @@ func (app *virtHandlerApp) Run() {
 		downwardMetricsManager,
 		capabilities,
 		hostCpuModel,
+		netsetup.NewNetConf(),
+		netsetup.NewNetStat(),
+		netbinding.MemoryCalculator{},
 	)
 	if err != nil {
 		panic(err)

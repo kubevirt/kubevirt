@@ -20,6 +20,8 @@
 package libvmifact
 
 import (
+	"encoding/base64"
+
 	kvirtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -59,7 +61,7 @@ func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 
 	// Supplied with no user data, Cirros image takes 230s to allow login
 	if libvmi.GetCloudInitVolume(vmi) == nil {
-		withNonEmptyUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
+		withNonEmptyUserData := libvmi.WithCloudInitNoCloud(WithDummyCloudForFastBoot())
 		withNonEmptyUserData(vmi)
 	}
 	return vmi
@@ -89,7 +91,7 @@ func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInst
 
 	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
 	if libvmi.GetCloudInitVolume(vmi) == nil {
-		withNonEmptyUserData := libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho hello\n"))
+		withNonEmptyUserData := libvmi.WithCloudInitNoCloud(WithDummyCloudForFastBoot())
 		withNonEmptyUserData(vmi)
 	}
 	return vmi
@@ -153,4 +155,10 @@ func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	}
 	vmi.Spec.Domain.Firmware = &kvirtv1.Firmware{UUID: WindowsFirmware}
 	return vmi
+}
+
+func WithDummyCloudForFastBoot() libvmici.NoCloudOption {
+	return func(source *kvirtv1.CloudInitNoCloudSource) {
+		source.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte("#!/bin/bash\necho 'hello'\n"))
+	}
 }

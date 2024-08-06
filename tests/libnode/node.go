@@ -28,13 +28,6 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
-	"kubevirt.io/kubevirt/pkg/util/nodes"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -46,13 +39,17 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/util/nodes"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
 
 const workerLabel = "node-role.kubernetes.io/worker"
@@ -116,12 +113,33 @@ func CleanNodes() {
 func GetNodeDrainKey() string {
 	virtClient := kubevirt.Client()
 
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	if kv.Spec.Configuration.MigrationConfiguration != nil && kv.Spec.Configuration.MigrationConfiguration.NodeDrainTaintKey != nil {
 		return *kv.Spec.Configuration.MigrationConfiguration.NodeDrainTaintKey
 	}
 
 	return virtconfig.NodeDrainTaintDefaultKey
+}
+
+// TemporaryNodeDrain also sets the `NoSchedule` taint on the node.
+// nodes with this taint will be reset to their original state on each
+// test teardown by the test framework. Check `libnode.CleanNodes`.
+func TemporaryNodeDrain(nodeName string) {
+	Taint(nodeName, GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
+
+	// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
+	// time that we call it.
+	vmiSelector := v1.AppLabel + "=virt-launcher"
+	k8sClient := clientcmd.GetK8sCmdClient()
+	if k8sClient == "oc" {
+		_, _, err := clientcmd.RunCommand("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			"--ignore-daemonsets=true", "--force", "--timeout=180s")
+		Expect(err).ToNot(HaveOccurred())
+	} else {
+		_, _, err := clientcmd.RunCommand("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			"--ignore-daemonsets=true", "--force", "--timeout=180s")
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
 type mapType string

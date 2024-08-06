@@ -6,15 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 
-	"kubevirt.io/kubevirt/tests/libssh"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -23,10 +19,12 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
@@ -38,7 +36,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 		Expect(clientcmd.NewRepeatableVirtctlCommand(
 			"ssh",
 			"--local-ssh=false",
-			"--namespace", util.NamespaceTestDefault,
+			"--namespace", testsuite.NamespaceTestDefault,
 			"--username", "root",
 			"--identity-file", keyFile,
 			"--known-hosts=",
@@ -50,7 +48,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 		return func(vmiName string) {
 			args := []string{
 				"ssh",
-				"--namespace", util.NamespaceTestDefault,
+				"--namespace", testsuite.NamespaceTestDefault,
 				"--username", "root",
 				"--identity-file", keyFile,
 				"-t", "-o StrictHostKeyChecking=no",
@@ -62,7 +60,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 			}
 			args = append(args, vmiName)
 
-			_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", args...)
+			_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", args...)
 			Expect(err).ToNot(HaveOccurred())
 
 			out, err := cmd.CombinedOutput()
@@ -87,7 +85,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))))
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
@@ -101,7 +99,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 	)
 
 	It("local-ssh flag should be unavailable in virtctl binary", decorators.ExcludeNativeSsh, func() {
-		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", "ssh", "--local-ssh=false")
+		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "ssh", "--local-ssh=false")
 		Expect(err).ToNot(HaveOccurred())
 		out, err := cmd.CombinedOutput()
 		Expect(err).To(HaveOccurred(), "out[%s]", string(out))

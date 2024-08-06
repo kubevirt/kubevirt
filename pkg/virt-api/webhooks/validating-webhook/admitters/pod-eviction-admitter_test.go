@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -52,10 +53,14 @@ var _ = Describe("Pod eviction admitter", func() {
 	const (
 		testNamespace = "test-ns"
 		testNodeName  = "node01"
-		testVMIName   = "my-vmi"
 	)
 
 	const isDryRun = true
+
+	var defaultVMIOptions = []libvmi.Option{
+		libvmi.WithNamespace(testNamespace),
+		withStatusNodeName(testNodeName),
+	}
 
 	It("should allow the request when it refers to a non virt-launcher pod", func() {
 		virtClient := kubevirtfake.NewSimpleClientset()
@@ -103,8 +108,35 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Fake.Actions()).To(BeEmpty())
 	})
 
-	DescribeTable("should trigger VMI Evacuation and deny the request", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
-		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+	DescribeTable("should allow the request when it refers to a virt-launcher pod", func(podPhase k8sv1.PodPhase) {
+		vmi := libvmi.New(defaultVMIOptions...)
+		virtClient := kubevirtfake.NewSimpleClientset(vmi)
+
+		pod := newVirtLauncherPodWithPhase(vmi.Namespace, vmi.Name, vmi.Status.NodeName, podPhase)
+		kubeClient := fake.NewSimpleClientset(pod)
+
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			kubeClient,
+			virtClient,
+		)
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(pod.Namespace, pod.Name, !isDryRun),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		Expect(virtClient.Fake.Actions()).To(BeEmpty())
+	},
+		Entry("in failed phase", k8sv1.PodFailed),
+		Entry("in succeeded phase", k8sv1.PodSucceeded),
+	)
+
+	DescribeTable("should trigger VMI Evacuation and deny the request", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, additionalVMIOptions ...libvmi.Option) {
+		vmiOptions := append(defaultVMIOptions, additionalVMIOptions...)
+
+		vmi := libvmi.New(vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(vmi)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
@@ -133,46 +165,44 @@ var _ = Describe("Pod eviction admitter", func() {
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrate)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrateIfPossible and VMI is migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrateIfPossible),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is External and VMI is not migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyExternal)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyExternal),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is External and VMI is migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyExternal)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyExternal),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrate, VMI eviction strategy is missing and VMI is migratable",
 			pointer.P(virtv1.EvictionStrategyLiveMigrate),
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrateIfPossible, VMI eviction strategy is missing and VMI is migratable",
 			pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible),
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is External, VMI eviction strategy is missing and VMI is not migratable",
 			pointer.P(virtv1.EvictionStrategyExternal),
-			withEvictionStrategy(nil),
 		),
 		Entry("When cluster-wide eviction strategy is External, VMI eviction strategy is missing and VMI is migratable",
 			pointer.P(virtv1.EvictionStrategyExternal),
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 	)
 
-	DescribeTable("should allow the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
-		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+	DescribeTable("should allow the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, additionalVMIOptions ...libvmi.Option) {
+		vmiOptions := append(defaultVMIOptions, additionalVMIOptions...)
+
+		vmi := libvmi.New(vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(vmi)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
@@ -194,43 +224,40 @@ var _ = Describe("Pod eviction admitter", func() {
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is missing and VMI is not migratable",
 			nil,
-			withEvictionStrategy(nil),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is missing and VMI is migratable",
 			nil,
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is None and VMI is not migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyNone)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyNone),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is None and VMI is migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyNone)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyNone),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrateIfPossible and VMI is not migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrateIfPossible),
 		),
 		Entry("When cluster-wide eviction strategy is None, VMI eviction strategy is missing and VMI is not migratable",
 			pointer.P(virtv1.EvictionStrategyNone),
-			withEvictionStrategy(nil),
 		),
 		Entry("When cluster-wide eviction strategy is None, VMI eviction strategy is missing and VMI is migratable",
 			pointer.P(virtv1.EvictionStrategyNone),
-			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrateIfPossible, VMI eviction strategy is missing and VMI is not migratable",
 			pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible),
-			withEvictionStrategy(nil),
 		),
 	)
 
-	DescribeTable("should deny the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
-		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+	DescribeTable("should deny the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, additionalVMIOptions ...libvmi.Option) {
+		vmiOptions := append(defaultVMIOptions, additionalVMIOptions...)
+
+		vmi := libvmi.New(vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(vmi)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
@@ -256,16 +283,15 @@ var _ = Describe("Pod eviction admitter", func() {
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is not migratable",
 			nil,
-			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrate)),
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrate, VMI eviction strategy is missing and VMI is not migratable",
 			pointer.P(virtv1.EvictionStrategyLiveMigrate),
-			withEvictionStrategy(nil),
 		),
 	)
 
 	It("should deny the request when the admitter fails to fetch the VMI", func() {
-		vmi := newVMI(testNamespace, testVMIName, testNodeName)
+		vmi := libvmi.New(defaultVMIOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(vmi)
 
 		expectedError := errors.New("some error")
@@ -296,10 +322,12 @@ var _ = Describe("Pod eviction admitter", func() {
 	})
 
 	It("should deny the request when the admitter fails to patch the VMI", func() {
-		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
-		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition()}
+		vmiOptions := append(defaultVMIOptions,
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
+			withLiveMigratableCondition(),
+		)
 
-		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+		migratableVMI := libvmi.New(vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
 
 		expectedError := errors.New("some error")
@@ -333,10 +361,13 @@ var _ = Describe("Pod eviction admitter", func() {
 	})
 
 	It("should allow the request and not mark the VMI again when the VMI is already marked for evacuation", func() {
-		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
-		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition(), withEvacuationNodeName(testNodeName)}
+		vmiOptions := append(defaultVMIOptions,
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
+			withLiveMigratableCondition(),
+			withEvacuationNodeName(testNodeName),
+		)
 
-		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+		migratableVMI := libvmi.New(vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
@@ -358,10 +389,12 @@ var _ = Describe("Pod eviction admitter", func() {
 	})
 
 	It("should deny the request and perform a dryRun patch on the VMI when the request is a dry run", func() {
-		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
-		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition()}
+		vmiOptions := append(defaultVMIOptions,
+			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
+			withLiveMigratableCondition(),
+		)
 
-		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+		migratableVMI := libvmi.New(vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
@@ -430,6 +463,12 @@ func newVirtLauncherPod(namespace, vmiName, nodeName string) *k8sv1.Pod {
 	}
 
 	return virtLauncher
+}
+
+func newVirtLauncherPodWithPhase(namespace, vmiName, nodeName string, phase k8sv1.PodPhase) *k8sv1.Pod {
+	pod := newVirtLauncherPod(namespace, vmiName, nodeName)
+	pod.Status.Phase = phase
+	return pod
 }
 
 func newAdmissionReview(evictedPodNamespace, evictedPodName string, isDryRun bool) *admissionv1.AdmissionReview {
@@ -511,33 +550,13 @@ func newExpectedJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, expectedJSONP
 	}
 }
 
-type vmiOption func(vmi *virtv1.VirtualMachineInstance)
-
-func newVMI(namespace, name, nodeName string, options ...vmiOption) *virtv1.VirtualMachineInstance {
-	vmi := &virtv1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Status: virtv1.VirtualMachineInstanceStatus{
-			NodeName: nodeName,
-		},
-	}
-
-	for _, optionFunc := range options {
-		optionFunc(vmi)
-	}
-
-	return vmi
-}
-
-func withEvictionStrategy(evictionStrategy *virtv1.EvictionStrategy) vmiOption {
+func withStatusNodeName(nodeName string) libvmi.Option {
 	return func(vmi *virtv1.VirtualMachineInstance) {
-		vmi.Spec.EvictionStrategy = evictionStrategy
+		vmi.Status.NodeName = nodeName
 	}
 }
 
-func withLiveMigratableCondition() vmiOption {
+func withLiveMigratableCondition() libvmi.Option {
 	return func(vmi *virtv1.VirtualMachineInstance) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
 			Type:   virtv1.VirtualMachineInstanceIsMigratable,
@@ -546,7 +565,7 @@ func withLiveMigratableCondition() vmiOption {
 	}
 }
 
-func withEvacuationNodeName(evacuationNodeName string) vmiOption {
+func withEvacuationNodeName(evacuationNodeName string) libvmi.Option {
 	return func(vmi *virtv1.VirtualMachineInstance) {
 		vmi.Status.EvacuationNodeName = evacuationNodeName
 	}

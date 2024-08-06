@@ -41,36 +41,42 @@ const (
 )
 
 type VMCloneController struct {
-	client                  kubecli.KubevirtClient
-	vmCloneInformer         cache.SharedIndexInformer
-	snapshotInformer        cache.SharedIndexInformer
-	restoreInformer         cache.SharedIndexInformer
-	vmInformer              cache.SharedIndexInformer
-	snapshotContentInformer cache.SharedIndexInformer
-	pvcInformer             cache.SharedIndexInformer
-	recorder                record.EventRecorder
+	client               kubecli.KubevirtClient
+	vmCloneIndexer       cache.Indexer
+	snapshotStore        cache.Store
+	restoreStore         cache.Store
+	vmStore              cache.Store
+	snapshotContentStore cache.Store
+	pvcStore             cache.Store
+	recorder             record.EventRecorder
 
 	vmCloneQueue       workqueue.RateLimitingInterface
 	vmStatusUpdater    *status.VMStatusUpdater
 	cloneStatusUpdater *status.CloneStatusUpdater
+	hasSynced          func() bool
 }
 
 func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer, snapshotContentInformer, pvcInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*VMCloneController, error) {
 	ctrl := VMCloneController{
-		client:                  client,
-		vmCloneInformer:         vmCloneInformer,
-		snapshotInformer:        snapshotInformer,
-		restoreInformer:         restoreInformer,
-		vmInformer:              vmInformer,
-		snapshotContentInformer: snapshotContentInformer,
-		pvcInformer:             pvcInformer,
-		recorder:                recorder,
-		vmCloneQueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
-		vmStatusUpdater:         status.NewVMStatusUpdater(client),
-		cloneStatusUpdater:      status.NewCloneStatusUpdater(client),
+		client:               client,
+		vmCloneIndexer:       vmCloneInformer.GetIndexer(),
+		snapshotStore:        snapshotInformer.GetStore(),
+		restoreStore:         restoreInformer.GetStore(),
+		vmStore:              vmInformer.GetStore(),
+		snapshotContentStore: snapshotContentInformer.GetStore(),
+		pvcStore:             pvcInformer.GetStore(),
+		recorder:             recorder,
+		vmCloneQueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
+		vmStatusUpdater:      status.NewVMStatusUpdater(client),
+		cloneStatusUpdater:   status.NewCloneStatusUpdater(client),
 	}
 
-	_, err := ctrl.vmCloneInformer.AddEventHandler(
+	ctrl.hasSynced = func() bool {
+		return vmCloneInformer.HasSynced() && snapshotInformer.HasSynced() && restoreInformer.HasSynced() &&
+			vmInformer.HasSynced() && snapshotInformer.HasSynced() && pvcInformer.HasSynced()
+	}
+
+	_, err := vmCloneInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMClone,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMClone(newObj) },
@@ -82,7 +88,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		return nil, err
 	}
 
-	_, err = ctrl.snapshotInformer.AddEventHandler(
+	_, err = snapshotInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleSnapshot(newObj) },
@@ -94,7 +100,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		return nil, err
 	}
 
-	_, err = ctrl.restoreInformer.AddEventHandler(
+	_, err = restoreInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleRestore,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleRestore(newObj) },
@@ -106,7 +112,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		return nil, err
 	}
 
-	_, err = ctrl.pvcInformer.AddEventHandler(
+	_, err = pvcInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
@@ -118,7 +124,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		return nil, err
 	}
 
-	_, err = ctrl.vmInformer.AddEventHandler(
+	_, err = vmInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			DeleteFunc: ctrl.handleDeleteVM,
 		},
@@ -172,13 +178,13 @@ func (ctrl *VMCloneController) handleSnapshot(obj interface{}) {
 		return
 	}
 
-	snapshotSourceKeys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys("snapshotSource", snapshotKey)
+	snapshotSourceKeys, err := ctrl.vmCloneIndexer.IndexKeys("snapshotSource", snapshotKey)
 	if err != nil {
 		log.Log.Object(snapshot).Reason(err).Error("cannot get clone snapshotSourceKeys from snapshotSource indexer")
 		return
 	}
 
-	snapshotWaitingKeys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys(string(clonev1alpha1.SnapshotInProgress), snapshotKey)
+	snapshotWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clonev1alpha1.SnapshotInProgress), snapshotKey)
 	if err != nil {
 		log.Log.Object(snapshot).Reason(err).Error("cannot get clone snapshotWaitingKeys from " + string(clonev1alpha1.SnapshotInProgress) + " indexer")
 		return
@@ -210,7 +216,7 @@ func (ctrl *VMCloneController) handleRestore(obj interface{}) {
 		return
 	}
 
-	restoreWaitingKeys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys(string(clonev1alpha1.RestoreInProgress), restoreKey)
+	restoreWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clonev1alpha1.RestoreInProgress), restoreKey)
 	if err != nil {
 		log.Log.Object(restore).Reason(err).Error("cannot get clone restoreWaitingKeys from " + string(clonev1alpha1.RestoreInProgress) + " indexer")
 		return
@@ -247,7 +253,7 @@ func (ctrl *VMCloneController) handlePVC(obj interface{}) {
 
 	restoreKey := getKey(restoreName, pvc.Namespace)
 
-	succeededWaitingKeys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys(string(clonev1alpha1.Succeeded), restoreKey)
+	succeededWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clonev1alpha1.Succeeded), restoreKey)
 	if err != nil {
 		log.Log.Object(pvc).Reason(err).Error("cannot get clone succeededWaitingKeys from " + string(clonev1alpha1.Succeeded) + " indexer")
 		return
@@ -303,10 +309,7 @@ func (ctrl *VMCloneController) Run(threadiness int, stopCh <-chan struct{}) erro
 
 	if !cache.WaitForCacheSync(
 		stopCh,
-		ctrl.vmCloneInformer.HasSynced,
-		ctrl.snapshotInformer.HasSynced,
-		ctrl.restoreInformer.HasSynced,
-		ctrl.vmInformer.HasSynced,
+		ctrl.hasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -351,7 +354,7 @@ func (ctrl *VMCloneController) listVmCloneMatchingVM(namespace, name string) ([]
 }
 
 func (ctrl *VMCloneController) filterVmClone(namespace string, filter func(*clonev1alpha1.VirtualMachineClone) bool) ([]*clonev1alpha1.VirtualMachineClone, error) {
-	objs, err := ctrl.vmCloneInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := ctrl.vmCloneIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}

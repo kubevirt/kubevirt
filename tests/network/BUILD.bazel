@@ -53,7 +53,7 @@ go_library(
         "//tests/framework/checks:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
-        "//tests/libkvconfig:go_default_library",
+        "//tests/libkubevirt/config:go_default_library",
         "//tests/libmigration:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnet/cloudinit:go_default_library",
@@ -68,7 +68,6 @@ go_library(
         "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/testsuite:go_default_library",
-        "//tests/util:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
@@ -86,6 +85,5 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
     ],
 )

@@ -15,25 +15,23 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
-	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/status"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 )
 
 const (
@@ -65,17 +63,19 @@ const defaultBatchDeletionCount = 10
 type WorkloadUpdateController struct {
 	clientset             kubecli.KubevirtClient
 	queue                 workqueue.RateLimitingInterface
-	vmiInformer           cache.SharedIndexInformer
-	podInformer           cache.SharedIndexInformer
-	migrationInformer     cache.SharedIndexInformer
+	vmiStore              cache.Store
+	podIndexer            cache.Indexer
+	migrationStore        cache.Store
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
-	kubeVirtInformer      cache.SharedIndexInformer
+	kubeVirtStore         cache.Store
 	clusterConfig         *virtconfig.ClusterConfig
 	statusUpdater         *status.KVStatusUpdater
 	launcherImage         string
 
 	lastDeletionBatch time.Time
+
+	hasSynced func() bool
 }
 
 type updateData struct {
@@ -105,26 +105,29 @@ func NewWorkloadUpdateController(
 
 	c := &WorkloadUpdateController{
 		queue:                 workqueue.NewNamedRateLimitingQueue(rl, "virt-controller-workload-update"),
-		vmiInformer:           vmiInformer,
-		podInformer:           podInformer,
-		migrationInformer:     migrationInformer,
-		kubeVirtInformer:      kubeVirtInformer,
+		vmiStore:              vmiInformer.GetStore(),
+		podIndexer:            podInformer.GetIndexer(),
+		migrationStore:        migrationInformer.GetStore(),
+		kubeVirtStore:         kubeVirtInformer.GetStore(),
 		recorder:              recorder,
 		clientset:             clientset,
 		statusUpdater:         status.NewKubeVirtStatusUpdater(clientset),
 		launcherImage:         launcherImage,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
+		hasSynced: func() bool {
+			return migrationInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && kubeVirtInformer.HasSynced()
+		},
 	}
 
-	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateVmi,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addKubeVirt,
 		DeleteFunc: c.deleteKubeVirt,
 		UpdateFunc: c.updateKubeVirt,
@@ -133,7 +136,7 @@ func NewWorkloadUpdateController(
 		return nil, err
 	}
 
-	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
@@ -146,7 +149,7 @@ func NewWorkloadUpdateController(
 }
 
 func (c *WorkloadUpdateController) getKubeVirtKey() (string, error) {
-	kvs := c.kubeVirtInformer.GetStore().List()
+	kvs := c.kubeVirtStore.List()
 	if len(kvs) > 1 {
 		log.Log.Errorf("More than one KubeVirt custom resource detected: %v", len(kvs))
 		return "", fmt.Errorf("more than one KubeVirt custom resource detected: %v", len(kvs))
@@ -260,7 +263,7 @@ func (c *WorkloadUpdateController) Run(stopCh <-chan struct{}) {
 	threadiness := 1
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.migrationInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.kubeVirtInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -342,7 +345,7 @@ func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachi
 }
 
 func (c *WorkloadUpdateController) shouldAbortMigration(vmi *virtv1.VirtualMachineInstance) bool {
-	numMig := len(migrationutils.ListWorkloadUpdateMigrations(c.migrationInformer.GetStore(), vmi.Name, vmi.Namespace))
+	numMig := len(migrationutils.ListWorkloadUpdateMigrations(c.migrationStore, vmi.Name, vmi.Namespace))
 	if metav1.HasAnnotation(vmi.ObjectMeta, virtv1.WorkloadUpdateMigrationAbortionAnnotation) {
 		return numMig > 0
 	}
@@ -350,6 +353,9 @@ func (c *WorkloadUpdateController) shouldAbortMigration(vmi *virtv1.VirtualMachi
 		return false
 	}
 	if isVolumesUpdateInProgress(vmi) {
+		return false
+	}
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
 		return false
 	}
 	return numMig > 0
@@ -360,7 +366,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 
 	lookup := make(map[string]bool)
 
-	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer.GetStore())
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationStore)
 
 	for _, migration := range migrations {
 		lookup[migration.Namespace+"/"+migration.Spec.VMIName] = true
@@ -380,7 +386,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 	runningMigrations := migrationutils.FilterRunningMigrations(migrations)
 	data.numActiveMigrations = len(runningMigrations)
 
-	objs := c.vmiInformer.GetStore().List()
+	objs := c.vmiStore.List()
 	for _, obj := range objs {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
 		switch {
@@ -417,7 +423,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 }
 
 func (c *WorkloadUpdateController) execute(key string) error {
-	obj, exists, err := c.kubeVirtInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.kubeVirtStore.GetByKey(key)
 
 	if err != nil {
 		return err
@@ -461,28 +467,20 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		l := len(data.allOutdatedVMIs)
 		kvCopy := kv.DeepCopy()
 		kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads = &l
-
-		oldJson, err := json.Marshal(kv.Status.OutdatedVirtualMachineInstanceWorkloads)
-		if err != nil {
-			return err
-		}
-
-		newJson, err := json.Marshal(kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads)
-		if err != nil {
-			return err
-		}
-
-		patch := ""
+		patchSet := patch.New()
 		if kv.Status.OutdatedVirtualMachineInstanceWorkloads == nil {
-			update := fmt.Sprintf(`{ "op": "add", "path": "/status/outdatedVirtualMachineInstanceWorkloads", "value": %s}`, string(newJson))
-			patch = fmt.Sprintf("[%s]", update)
+			patchSet.AddOption(patch.WithAdd("/status/outdatedVirtualMachineInstanceWorkloads", kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads))
 		} else {
-			test := fmt.Sprintf(`{ "op": "test", "path": "/status/outdatedVirtualMachineInstanceWorkloads", "value": %s}`, string(oldJson))
-			update := fmt.Sprintf(`{ "op": "replace", "path": "/status/outdatedVirtualMachineInstanceWorkloads", "value": %s}`, string(newJson))
-			patch = fmt.Sprintf("[%s, %s]", test, update)
+			patchSet.AddOption(
+				patch.WithTest("/status/outdatedVirtualMachineInstanceWorkloads", kv.Status.OutdatedVirtualMachineInstanceWorkloads),
+				patch.WithReplace("/status/outdatedVirtualMachineInstanceWorkloads", kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads),
+			)
 		}
-
-		err = c.statusUpdater.PatchStatus(kv, types.JSONPatchType, []byte(patch))
+		patchBytes, err := patchSet.GeneratePayload()
+		if err != nil {
+			return err
+		}
+		err = c.statusUpdater.PatchStatus(kv, types.JSONPatchType, patchBytes)
 		if err != nil {
 			return fmt.Errorf("unable to patch kubevirt obj status to update the outdatedVirtualMachineInstanceWorkloads valued: %v", err)
 		}
@@ -588,7 +586,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
 
-			pod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
+			pod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
 			if err != nil {
 
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to detect active pod for vmi during workload update")
@@ -619,7 +617,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	for _, vmi := range data.abortChangeVMIs {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			migList := migrationutils.ListWorkloadUpdateMigrations(c.migrationInformer.GetStore(), vmi.Name, vmi.Namespace)
+			migList := migrationutils.ListWorkloadUpdateMigrations(c.migrationStore, vmi.Name, vmi.Namespace)
 			for _, mig := range migList {
 				err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
 				if err != nil && !errors.IsNotFound(err) {

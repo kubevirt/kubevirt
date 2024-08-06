@@ -125,6 +125,10 @@ const (
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
 )
 
+type netBindingPluginMemoryCalculator interface {
+	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
+}
+
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -155,7 +159,8 @@ type templateService struct {
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
 
-	sidecarCreators []SidecarCreatorFunc
+	sidecarCreators                  []SidecarCreatorFunc
+	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -1456,6 +1461,13 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 		vmiCPUArch = t.clusterConfig.GetClusterCPUArch()
 	}
 	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+
+	if t.netBindingPluginMemoryCalculator != nil {
+		memoryOverhead.Add(
+			t.netBindingPluginMemoryCalculator.Calculate(vmi, t.clusterConfig.GetNetworkBindings()),
+		)
+	}
+
 	metrics.SetVmiLaucherMemoryOverhead(vmi, memoryOverhead)
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
 	return VMIResourcePredicates{
@@ -1528,5 +1540,11 @@ func readinessGates() []k8sv1.PodReadinessGate {
 		{
 			ConditionType: v1.VirtualMachineUnpaused,
 		},
+	}
+}
+
+func WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator) templateServiceOption {
+	return func(service *templateService) {
+		service.netBindingPluginMemoryCalculator = netBindingPluginMemoryCalculator
 	}
 }

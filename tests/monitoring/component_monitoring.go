@@ -44,8 +44,10 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -109,7 +111,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 				},
 			},
 		}
-		originalKubeVirt := util.GetCurrentKv(virtClient)
+		originalKubeVirt := libkubevirt.GetCurrentKv(virtClient)
 		originalKubeVirt.Spec.Configuration.ControllerConfiguration = rateLimitConfig
 		originalKubeVirt.Spec.Configuration.HandlerConfiguration = rateLimitConfig
 		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
@@ -238,8 +240,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			vmi := libvmifact.NewGuestless()
 
 			Eventually(func(g Gomega) {
-				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+				_, _ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				_ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtController.restErrorsBurtsAlert)).To(BeTrue())
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtController.restErrorsHighAlert)).To(BeTrue())
@@ -253,8 +255,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			vmi := libvmifact.NewGuestless()
 
 			Eventually(func(g Gomega) {
-				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+				_, _ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				_ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsBurtsAlert)).To(BeTrue())
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsHighAlert)).To(BeTrue())

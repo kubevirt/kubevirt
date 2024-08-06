@@ -47,7 +47,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("Validating VirtualMachineClone Admitter", func() {
@@ -144,18 +143,18 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		kubevirtClient = fake.NewSimpleClientset()
 		virtClient.
 			EXPECT().
-			VirtualMachine(util.NamespaceTestDefault).
+			VirtualMachine(metav1.NamespaceDefault).
 			Return(vmInterface).
 			AnyTimes()
 		virtClient.
 			EXPECT().
-			VirtualMachineSnapshot(util.NamespaceTestDefault).
-			Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshots(util.NamespaceTestDefault)).
+			VirtualMachineSnapshot(metav1.NamespaceDefault).
+			Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshots(metav1.NamespaceDefault)).
 			AnyTimes()
 		virtClient.
 			EXPECT().
-			VirtualMachineSnapshotContent(util.NamespaceTestDefault).
-			Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshotContents(util.NamespaceTestDefault)).
+			VirtualMachineSnapshotContent(metav1.NamespaceDefault).
+			Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault)).
 			AnyTimes()
 
 		admitter = &VirtualMachineCloneAdmitter{Config: config, Client: virtClient}
@@ -172,7 +171,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			snapshot := &snapshotv1.VirtualMachineSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-snapshot",
-					Namespace: util.NamespaceTestDefault,
+					Namespace: metav1.NamespaceDefault,
 				},
 				Status: &snapshotv1.VirtualMachineSnapshotStatus{
 					VirtualMachineSnapshotContentName: pointer.String("snapshot-contents"),
@@ -433,7 +432,7 @@ func (admitter *VirtualMachineCloneAdmitter) admitAndExpect(clone *clonev1lpha1.
 }
 
 func newValidClone() *clonev1lpha1.VirtualMachineClone {
-	vmClone := kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
+	vmClone := kubecli.NewMinimalCloneWithNS("testclone", metav1.NamespaceDefault)
 	vmClone.Spec.Source = newValidObjReference()
 	vmClone.Spec.Target = newValidObjReference()
 	vmClone.Spec.Target.Name = "clone-target-vm"

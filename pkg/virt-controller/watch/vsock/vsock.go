@@ -1,4 +1,4 @@
-package watch
+package vsock
 
 import (
 	"fmt"
@@ -11,6 +11,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
+type Allocator interface {
+	Sync(vmis []*virtv1.VirtualMachineInstance)
+	Allocate(vmi *virtv1.VirtualMachineInstance) error
+	Remove(key string)
+}
+
 type randCIDFunc func() uint32
 type nextCIDFunc func(uint32) uint32
 
@@ -22,7 +28,7 @@ type cidsMap struct {
 	nextCID nextCIDFunc
 }
 
-func newCIDsMap() *cidsMap {
+func NewCIDsMap() *cidsMap {
 	return &cidsMap{
 		cids:    make(map[string]uint32),
 		reverse: make(map[uint32]string),

@@ -531,6 +531,10 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
 			vca.disruptionBudgetControllerThreads)
 
+		if err := metrics.RegisterLeaderMetrics(); err != nil {
+			golog.Fatalf("failed to register leader metrics: %v", err)
+		}
+
 		if err := metrics.AddVMIPhaseTransitionHandlers(vca.vmiInformer); err != nil {
 			golog.Fatalf("failed to add vmi phase transition handler: %v", err)
 		}
@@ -617,6 +621,7 @@ func (vca *VirtControllerApp) initCommon() {
 				return hooks.UnmarshalHookSidecarList(vmi)
 			}),
 		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
+		services.WithNetBindingPluginMemoryCalculator(netbinding.MemoryCalculator{}),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)

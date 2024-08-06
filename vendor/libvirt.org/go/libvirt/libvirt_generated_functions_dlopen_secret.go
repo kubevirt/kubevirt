@@ -43,9 +43,9 @@ package libvirt
 
 
 typedef int
-(*virConnectListAllSecretsType)(virConnectPtr conn,
-                                virSecretPtr ** secrets,
-                                unsigned int flags);
+(*virConnectListAllSecretsFuncType)(virConnectPtr conn,
+                                    virSecretPtr ** secrets,
+                                    unsigned int flags);
 
 int
 virConnectListAllSecretsWrapper(virConnectPtr conn,
@@ -54,7 +54,7 @@ virConnectListAllSecretsWrapper(virConnectPtr conn,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListAllSecretsType virConnectListAllSecretsSymbol;
+    static virConnectListAllSecretsFuncType virConnectListAllSecretsSymbol;
     static bool once;
     static bool success;
 
@@ -75,9 +75,9 @@ virConnectListAllSecretsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListSecretsType)(virConnectPtr conn,
-                             char ** uuids,
-                             int maxuuids);
+(*virConnectListSecretsFuncType)(virConnectPtr conn,
+                                 char ** uuids,
+                                 int maxuuids);
 
 int
 virConnectListSecretsWrapper(virConnectPtr conn,
@@ -86,7 +86,7 @@ virConnectListSecretsWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListSecretsType virConnectListSecretsSymbol;
+    static virConnectListSecretsFuncType virConnectListSecretsSymbol;
     static bool once;
     static bool success;
 
@@ -107,14 +107,14 @@ virConnectListSecretsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfSecretsType)(virConnectPtr conn);
+(*virConnectNumOfSecretsFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfSecretsWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfSecretsType virConnectNumOfSecretsSymbol;
+    static virConnectNumOfSecretsFuncType virConnectNumOfSecretsSymbol;
     static bool once;
     static bool success;
 
@@ -133,8 +133,8 @@ virConnectNumOfSecretsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectSecretEventDeregisterAnyType)(virConnectPtr conn,
-                                          int callbackID);
+(*virConnectSecretEventDeregisterAnyFuncType)(virConnectPtr conn,
+                                              int callbackID);
 
 int
 virConnectSecretEventDeregisterAnyWrapper(virConnectPtr conn,
@@ -142,7 +142,7 @@ virConnectSecretEventDeregisterAnyWrapper(virConnectPtr conn,
                                           virErrorPtr err)
 {
     int ret = -1;
-    static virConnectSecretEventDeregisterAnyType virConnectSecretEventDeregisterAnySymbol;
+    static virConnectSecretEventDeregisterAnyFuncType virConnectSecretEventDeregisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -162,12 +162,12 @@ virConnectSecretEventDeregisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectSecretEventRegisterAnyType)(virConnectPtr conn,
-                                        virSecretPtr secret,
-                                        int eventID,
-                                        virConnectSecretEventGenericCallback cb,
-                                        void * opaque,
-                                        virFreeCallback freecb);
+(*virConnectSecretEventRegisterAnyFuncType)(virConnectPtr conn,
+                                            virSecretPtr secret,
+                                            int eventID,
+                                            virConnectSecretEventGenericCallback cb,
+                                            void * opaque,
+                                            virFreeCallback freecb);
 
 int
 virConnectSecretEventRegisterAnyWrapper(virConnectPtr conn,
@@ -179,7 +179,7 @@ virConnectSecretEventRegisterAnyWrapper(virConnectPtr conn,
                                         virErrorPtr err)
 {
     int ret = -1;
-    static virConnectSecretEventRegisterAnyType virConnectSecretEventRegisterAnySymbol;
+    static virConnectSecretEventRegisterAnyFuncType virConnectSecretEventRegisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -203,9 +203,9 @@ virConnectSecretEventRegisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef virSecretPtr
-(*virSecretDefineXMLType)(virConnectPtr conn,
-                          const char * xml,
-                          unsigned int flags);
+(*virSecretDefineXMLFuncType)(virConnectPtr conn,
+                              const char * xml,
+                              unsigned int flags);
 
 virSecretPtr
 virSecretDefineXMLWrapper(virConnectPtr conn,
@@ -214,7 +214,7 @@ virSecretDefineXMLWrapper(virConnectPtr conn,
                           virErrorPtr err)
 {
     virSecretPtr ret = NULL;
-    static virSecretDefineXMLType virSecretDefineXMLSymbol;
+    static virSecretDefineXMLFuncType virSecretDefineXMLSymbol;
     static bool once;
     static bool success;
 
@@ -235,14 +235,14 @@ virSecretDefineXMLWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virSecretFreeType)(virSecretPtr secret);
+(*virSecretFreeFuncType)(virSecretPtr secret);
 
 int
 virSecretFreeWrapper(virSecretPtr secret,
                      virErrorPtr err)
 {
     int ret = -1;
-    static virSecretFreeType virSecretFreeSymbol;
+    static virSecretFreeFuncType virSecretFreeSymbol;
     static bool once;
     static bool success;
 
@@ -261,14 +261,14 @@ virSecretFreeWrapper(virSecretPtr secret,
 }
 
 typedef virConnectPtr
-(*virSecretGetConnectType)(virSecretPtr secret);
+(*virSecretGetConnectFuncType)(virSecretPtr secret);
 
 virConnectPtr
 virSecretGetConnectWrapper(virSecretPtr secret,
                            virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virSecretGetConnectType virSecretGetConnectSymbol;
+    static virSecretGetConnectFuncType virSecretGetConnectSymbol;
     static bool once;
     static bool success;
 
@@ -287,8 +287,8 @@ virSecretGetConnectWrapper(virSecretPtr secret,
 }
 
 typedef int
-(*virSecretGetUUIDType)(virSecretPtr secret,
-                        unsigned char * uuid);
+(*virSecretGetUUIDFuncType)(virSecretPtr secret,
+                            unsigned char * uuid);
 
 int
 virSecretGetUUIDWrapper(virSecretPtr secret,
@@ -296,7 +296,7 @@ virSecretGetUUIDWrapper(virSecretPtr secret,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virSecretGetUUIDType virSecretGetUUIDSymbol;
+    static virSecretGetUUIDFuncType virSecretGetUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -316,8 +316,8 @@ virSecretGetUUIDWrapper(virSecretPtr secret,
 }
 
 typedef int
-(*virSecretGetUUIDStringType)(virSecretPtr secret,
-                              char * buf);
+(*virSecretGetUUIDStringFuncType)(virSecretPtr secret,
+                                  char * buf);
 
 int
 virSecretGetUUIDStringWrapper(virSecretPtr secret,
@@ -325,7 +325,7 @@ virSecretGetUUIDStringWrapper(virSecretPtr secret,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virSecretGetUUIDStringType virSecretGetUUIDStringSymbol;
+    static virSecretGetUUIDStringFuncType virSecretGetUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -345,14 +345,14 @@ virSecretGetUUIDStringWrapper(virSecretPtr secret,
 }
 
 typedef const char *
-(*virSecretGetUsageIDType)(virSecretPtr secret);
+(*virSecretGetUsageIDFuncType)(virSecretPtr secret);
 
 const char *
 virSecretGetUsageIDWrapper(virSecretPtr secret,
                            virErrorPtr err)
 {
     const char * ret = NULL;
-    static virSecretGetUsageIDType virSecretGetUsageIDSymbol;
+    static virSecretGetUsageIDFuncType virSecretGetUsageIDSymbol;
     static bool once;
     static bool success;
 
@@ -371,14 +371,14 @@ virSecretGetUsageIDWrapper(virSecretPtr secret,
 }
 
 typedef int
-(*virSecretGetUsageTypeType)(virSecretPtr secret);
+(*virSecretGetUsageTypeFuncType)(virSecretPtr secret);
 
 int
 virSecretGetUsageTypeWrapper(virSecretPtr secret,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virSecretGetUsageTypeType virSecretGetUsageTypeSymbol;
+    static virSecretGetUsageTypeFuncType virSecretGetUsageTypeSymbol;
     static bool once;
     static bool success;
 
@@ -397,9 +397,9 @@ virSecretGetUsageTypeWrapper(virSecretPtr secret,
 }
 
 typedef unsigned char *
-(*virSecretGetValueType)(virSecretPtr secret,
-                         size_t * value_size,
-                         unsigned int flags);
+(*virSecretGetValueFuncType)(virSecretPtr secret,
+                             size_t * value_size,
+                             unsigned int flags);
 
 unsigned char *
 virSecretGetValueWrapper(virSecretPtr secret,
@@ -408,7 +408,7 @@ virSecretGetValueWrapper(virSecretPtr secret,
                          virErrorPtr err)
 {
     unsigned char * ret = NULL;
-    static virSecretGetValueType virSecretGetValueSymbol;
+    static virSecretGetValueFuncType virSecretGetValueSymbol;
     static bool once;
     static bool success;
 
@@ -429,8 +429,8 @@ virSecretGetValueWrapper(virSecretPtr secret,
 }
 
 typedef char *
-(*virSecretGetXMLDescType)(virSecretPtr secret,
-                           unsigned int flags);
+(*virSecretGetXMLDescFuncType)(virSecretPtr secret,
+                               unsigned int flags);
 
 char *
 virSecretGetXMLDescWrapper(virSecretPtr secret,
@@ -438,7 +438,7 @@ virSecretGetXMLDescWrapper(virSecretPtr secret,
                            virErrorPtr err)
 {
     char * ret = NULL;
-    static virSecretGetXMLDescType virSecretGetXMLDescSymbol;
+    static virSecretGetXMLDescFuncType virSecretGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -458,8 +458,8 @@ virSecretGetXMLDescWrapper(virSecretPtr secret,
 }
 
 typedef virSecretPtr
-(*virSecretLookupByUUIDType)(virConnectPtr conn,
-                             const unsigned char * uuid);
+(*virSecretLookupByUUIDFuncType)(virConnectPtr conn,
+                                 const unsigned char * uuid);
 
 virSecretPtr
 virSecretLookupByUUIDWrapper(virConnectPtr conn,
@@ -467,7 +467,7 @@ virSecretLookupByUUIDWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     virSecretPtr ret = NULL;
-    static virSecretLookupByUUIDType virSecretLookupByUUIDSymbol;
+    static virSecretLookupByUUIDFuncType virSecretLookupByUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -487,8 +487,8 @@ virSecretLookupByUUIDWrapper(virConnectPtr conn,
 }
 
 typedef virSecretPtr
-(*virSecretLookupByUUIDStringType)(virConnectPtr conn,
-                                   const char * uuidstr);
+(*virSecretLookupByUUIDStringFuncType)(virConnectPtr conn,
+                                       const char * uuidstr);
 
 virSecretPtr
 virSecretLookupByUUIDStringWrapper(virConnectPtr conn,
@@ -496,7 +496,7 @@ virSecretLookupByUUIDStringWrapper(virConnectPtr conn,
                                    virErrorPtr err)
 {
     virSecretPtr ret = NULL;
-    static virSecretLookupByUUIDStringType virSecretLookupByUUIDStringSymbol;
+    static virSecretLookupByUUIDStringFuncType virSecretLookupByUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -516,9 +516,9 @@ virSecretLookupByUUIDStringWrapper(virConnectPtr conn,
 }
 
 typedef virSecretPtr
-(*virSecretLookupByUsageType)(virConnectPtr conn,
-                              int usageType,
-                              const char * usageID);
+(*virSecretLookupByUsageFuncType)(virConnectPtr conn,
+                                  int usageType,
+                                  const char * usageID);
 
 virSecretPtr
 virSecretLookupByUsageWrapper(virConnectPtr conn,
@@ -527,7 +527,7 @@ virSecretLookupByUsageWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     virSecretPtr ret = NULL;
-    static virSecretLookupByUsageType virSecretLookupByUsageSymbol;
+    static virSecretLookupByUsageFuncType virSecretLookupByUsageSymbol;
     static bool once;
     static bool success;
 
@@ -548,14 +548,14 @@ virSecretLookupByUsageWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virSecretRefType)(virSecretPtr secret);
+(*virSecretRefFuncType)(virSecretPtr secret);
 
 int
 virSecretRefWrapper(virSecretPtr secret,
                     virErrorPtr err)
 {
     int ret = -1;
-    static virSecretRefType virSecretRefSymbol;
+    static virSecretRefFuncType virSecretRefSymbol;
     static bool once;
     static bool success;
 
@@ -574,10 +574,10 @@ virSecretRefWrapper(virSecretPtr secret,
 }
 
 typedef int
-(*virSecretSetValueType)(virSecretPtr secret,
-                         const unsigned char * value,
-                         size_t value_size,
-                         unsigned int flags);
+(*virSecretSetValueFuncType)(virSecretPtr secret,
+                             const unsigned char * value,
+                             size_t value_size,
+                             unsigned int flags);
 
 int
 virSecretSetValueWrapper(virSecretPtr secret,
@@ -587,7 +587,7 @@ virSecretSetValueWrapper(virSecretPtr secret,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virSecretSetValueType virSecretSetValueSymbol;
+    static virSecretSetValueFuncType virSecretSetValueSymbol;
     static bool once;
     static bool success;
 
@@ -609,14 +609,14 @@ virSecretSetValueWrapper(virSecretPtr secret,
 }
 
 typedef int
-(*virSecretUndefineType)(virSecretPtr secret);
+(*virSecretUndefineFuncType)(virSecretPtr secret);
 
 int
 virSecretUndefineWrapper(virSecretPtr secret,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virSecretUndefineType virSecretUndefineSymbol;
+    static virSecretUndefineFuncType virSecretUndefineSymbol;
     static bool once;
     static bool success;
 

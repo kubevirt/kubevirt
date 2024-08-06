@@ -4,7 +4,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
 
 var (
@@ -16,7 +16,7 @@ type RunConfiguration struct {
 }
 
 func initRunConfiguration(virtClient kubecli.KubevirtClient) {
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	runConfig := RunConfiguration{}
 	if kv.Spec.Configuration.EvictionStrategy != nil &&
 		*kv.Spec.Configuration.EvictionStrategy == v1.EvictionStrategyLiveMigrate {

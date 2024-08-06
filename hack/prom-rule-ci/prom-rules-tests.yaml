@@ -265,6 +265,8 @@ tests:
     input_series:
       - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
         values: "stale stale stale stale stale stale stale stale stale stale"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "stale stale stale stale stale stale stale stale stale stale"
 
     alert_rule_test:
       # no alert before 10 minutes
@@ -287,7 +289,9 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
-        values: "0 0 0 0 0 0 0 0 0 0 0"
+        values: "0x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "0x10"
 
     alert_rule_test:
       # no alert before 10 minutes
@@ -305,6 +309,71 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+
+  # All virt operators are not ready, according to kubevirt_virt_operator_ready_status
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "0x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "1x10"
+
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-operator was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # All virt operators are not ready, according to kube_pod_status_ready
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "1x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
+        values: "0x10"
+
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-operator was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # virt operator is ready, according to both metrics
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "1x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
+        values: "1x10"
+
+    alert_rule_test:
+      # no alert at 10 minutes
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+
 
   # Burst REST errors
   # values: '0+10x20' == values: "0 10 20 30 40 ... 190"
@@ -742,6 +811,41 @@ tests:
       - eval_time: 30h
         alertname: KubeVirtVMIExcessiveMigrations
         exp_alerts: []
+
+  - interval: 1h
+    input_series:
+    # the same migration is being reported by different virt-controllers
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1"}'
+        # time:  0 1 2 3 4 5  6
+        values: "_ 1 2 3 8 10 10" # total: 10
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1", vmim="same-migration", pod="virt-controller-1"}'
+        # time:  0 1 2 3 4 5 6
+        values: "_ _ _ 1 1 1 2"
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1", vmim="same-migration", pod="virt-controller-2"}'
+        # time:  0 1 2 3 4 5 6
+        values: "_ _ _ 1 1 1 2"
+    alert_rule_test:
+      # at 5h, there are total of 11 different migrations made on a single VMI, so the alert should not be fired.
+      # the two reports by virt-controller-1 and virt-controller-2 for the same migration are being considered as one.
+      - eval_time: 5h
+        alertname: KubeVirtVMIExcessiveMigrations
+        exp_alerts: []
+      # at 6h, there are total of 13 different migrations made on a single VMI, so the alert is expected to be fired.
+      - eval_time: 6h
+        alertname: KubeVirtVMIExcessiveMigrations
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachineInstance vmi-example-1 in namespace namespace-example-1 has been migrated more than 12 times during the last 24 hours"
+              summary: "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMIExcessiveMigrations"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              vmi: vmi-example-1
+              namespace: namespace-example-1
+
 
   # No nodes are available to host VMs
   - interval: 1m

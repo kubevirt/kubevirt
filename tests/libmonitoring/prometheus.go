@@ -30,6 +30,7 @@ import (
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 type AlertRequestResult struct {
@@ -80,6 +81,16 @@ func WaitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, 
 		}
 		return i
 	}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
+}
+
+func WaitForMetricValueWithLabelsToBe(client kubecli.KubevirtClient, metric string, labels map[string]string, offset int, comparator string, expectedValue float64) {
+	EventuallyWithOffset(offset, func() float64 {
+		i, err := GetMetricValueWithLabels(client, metric, labels)
+		if err != nil {
+			return -1
+		}
+		return i
+	}, 3*time.Minute, 1*time.Second).Should(BeNumerically(comparator, expectedValue))
 }
 
 func GetMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (float64, error) {
@@ -209,7 +220,7 @@ func getPrometheusURLForOpenShift() string {
 	Eventually(func() error {
 		var stderr string
 		var err error
-		host, stderr, err = clientcmd.RunCommand(clientcmd.GetK8sCmdClient(), "-n", "openshift-monitoring", "get", "route", "prometheus-k8s", "--template", "{{.spec.host}}")
+		host, stderr, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), clientcmd.GetK8sCmdClient(), "-n", "openshift-monitoring", "get", "route", "prometheus-k8s", "--template", "{{.spec.host}}")
 		if err != nil {
 			return fmt.Errorf("error while getting route. err:'%v', stderr:'%v'", err, stderr)
 		}

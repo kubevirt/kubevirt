@@ -1257,6 +1257,63 @@ var CRDsValidation map[string]string = map[string]string{
                 binding:
                   additionalProperties:
                     properties:
+                      computeResourceOverhead:
+                        description: |-
+                          ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding.
+                          version: v1alphav1
+                        properties:
+                          claims:
+                            description: |-
+                              Claims lists the names of resources, defined in spec.resourceClaims,
+                              that are used by this container.
+
+
+                              This is an alpha field and requires enabling the
+                              DynamicResourceAllocation feature gate.
+
+
+                              This field is immutable. It can only be set for containers.
+                            items:
+                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                              properties:
+                                name:
+                                  description: |-
+                                    Name must match the name of one entry in pod.spec.resourceClaims of
+                                    the Pod where this field is used. It makes that resource available
+                                    inside a container.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          limits:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: |-
+                              Limits describes the maximum amount of compute resources allowed.
+                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                            type: object
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: |-
+                              Requests describes the minimum amount of compute resources required.
+                              If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                              otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                            type: object
+                        type: object
                       domainAttachmentType:
                         description: |-
                           DomainAttachmentType is a standard domain network attachment method kubevirt supports.
@@ -6384,7 +6441,7 @@ var CRDsValidation map[string]string = map[string]string{
                               model:
                                 description: |-
                                   Interface model.
-                                  One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+                                  One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
                                   TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                                 type: string
@@ -11505,7 +11562,7 @@ var CRDsValidation map[string]string = map[string]string{
                       model:
                         description: |-
                           Interface model.
-                          One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+                          One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
                           TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                         type: string
@@ -14678,7 +14735,7 @@ var CRDsValidation map[string]string = map[string]string{
                       model:
                         description: |-
                           Interface model.
-                          One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+                          One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
                           TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                         type: string
@@ -17117,7 +17174,7 @@ var CRDsValidation map[string]string = map[string]string{
                               model:
                                 description: |-
                                   Interface model.
-                                  One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+                                  One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
                                   TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                                 type: string
@@ -21674,7 +21731,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       model:
                                         description: |-
                                           Interface model.
-                                          One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+                                          One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                           Defaults to virtio.
                                           TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                                         type: string
@@ -26878,7 +26935,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           model:
                                             description: |-
                                               Interface model.
-                                              One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+                                              One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                               Defaults to virtio.
                                               TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                                             type: string

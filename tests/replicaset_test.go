@@ -469,7 +469,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
-		result, _, _ := clientcmd.RunCommand(k8sClient, "get", "virtualmachineinstancereplicaset")
+		result, _, _ := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "get", "virtualmachineinstancereplicaset")
 		Expect(result).ToNot(BeNil())
 		resultFields := strings.Fields(result)
 		expectedHeader := []string{"NAME", "DESIRED", "CURRENT", "READY", "AGE"}

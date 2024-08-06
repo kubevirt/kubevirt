@@ -27,23 +27,13 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
-
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -54,19 +44,25 @@ import (
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -80,10 +76,6 @@ const (
 	startingVMInstance           = "Starting VirtualMachineInstance"
 	hostDiskName                 = "host-disk"
 	diskImgName                  = "disk.img"
-
-	// Without cloud init user data Cirros takes long time to boot,
-	// so provide this dummy data to make it boot faster
-	cirrosUserData = "#!/bin/bash\necho 'hello'\n"
 )
 
 const (
@@ -169,7 +161,6 @@ var _ = SIGDescribe("Storage", func() {
 			BeforeEach(func() {
 				nodeName = tests.NodeNameWithHandler()
 				address, device = tests.CreateErrorDisk(nodeName)
-				var err error
 				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 			})
@@ -284,7 +275,8 @@ var _ = SIGDescribe("Storage", func() {
 						if !imageOwnedByQEMU {
 							targetImagePath, nodeName = copyAlpineWithNonQEMUPermissions()
 						}
-						nfsPod = storageframework.InitNFS(targetImagePath, nodeName)
+						nfsPod, err = storageframework.InitNFS(targetImagePath, nodeName)
+						Expect(err).ToNot(HaveOccurred())
 						pvName = createNFSPvAndPvc(family, nfsPod)
 					} else {
 						pvName = tests.DiskAlpineHostPath
@@ -445,7 +437,8 @@ var _ = SIGDescribe("Storage", func() {
 
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
-						nfsPod = storageframework.InitNFS(testsuite.HostPathAlpine, "")
+						nfsPod, err = storageframework.InitNFS(testsuite.HostPathAlpine, "")
+						Expect(err).ToNot(HaveOccurred())
 						pvName = createNFSPvAndPvc(family, nfsPod)
 					} else {
 						pvName = tests.DiskAlpineHostPath
@@ -603,7 +596,7 @@ var _ = SIGDescribe("Storage", func() {
 				var nodeName string
 
 				BeforeEach(func() {
-					hostDiskDir = tests.RandTmpDir()
+					hostDiskDir = RandHostDiskDir()
 					nodeName = ""
 				})
 
@@ -616,7 +609,7 @@ var _ = SIGDescribe("Storage", func() {
 						Eventually(ThisVMI(vmi), 30).Should(Or(BeGone(), BeInPhase(v1.Failed), BeInPhase(v1.Succeeded)))
 					}
 					if nodeName != "" {
-						tests.RemoveHostDiskImage(hostDiskDir, nodeName)
+						Expect(RemoveHostDisk(hostDiskDir, nodeName)).To(Succeed())
 					}
 				})
 
@@ -704,12 +697,12 @@ var _ = SIGDescribe("Storage", func() {
 						diskName = fmt.Sprintf("disk-%s.img", uuid.NewString())
 						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
-						job := CreateDiskOnHost(diskPath)
-						job, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), job, metav1.CreateOptions{})
+						pod := CreateHostDisk(diskPath)
+						pod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						Eventually(ThisPod(job), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
-						pod, err := ThisPod(job)()
+						Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+						pod, err = ThisPod(pod)()
 						Expect(err).NotTo(HaveOccurred())
 						nodeName = pod.Spec.NodeName
 					})
@@ -840,7 +833,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				BeforeEach(func() {
 					By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
-					tmpDir := tests.RandTmpDir()
+					tmpDir := RandHostDiskDir()
 					mountDir = filepath.Join(tmpDir, "mount")
 					diskPath = filepath.Join(mountDir, diskImgName)
 					srcDir := filepath.Join(tmpDir, "src")
@@ -884,7 +877,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				configureToleration := func(toleration int) {
 					By("By configuring toleration")
-					cfg := util.GetCurrentKv(virtClient).Spec.Configuration
+					cfg := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration
 					cfg.DeveloperConfiguration.LessPVCSpaceToleration = toleration
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 				}
@@ -947,15 +940,21 @@ var _ = SIGDescribe("Storage", func() {
 
 		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component][storage-req] With Cirros BlockMode PVC", decorators.StorageReq, func() {
 			var dataVolume *cdiv1.DataVolume
+			var err error
 
 			BeforeEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
-				dataVolume, err = createBlockDataVolume(virtClient)
-				Expect(err).ToNot(HaveOccurred())
-				if dataVolume == nil {
+				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+				if !foundSC {
 					Skip("Skip test when Block storage is not present")
 				}
 
+				dataVolume = libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
+				)
+				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 			})
 
@@ -970,7 +969,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithResourceMemory("256Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(cirrosUserData)),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
@@ -1106,14 +1105,20 @@ var _ = SIGDescribe("Storage", func() {
 
 		Context("[storage-req] With a volumeMode block backed ephemeral disk", decorators.StorageReq, func() {
 			var dataVolume *cdiv1.DataVolume
+			var err error
 
 			BeforeEach(func() {
-				dataVolume, err = createBlockDataVolume(virtClient)
-				Expect(err).ToNot(HaveOccurred())
-				if dataVolume == nil {
+				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+				if !foundSC {
 					Skip("Skip test when Block storage is not present")
 				}
 
+				dataVolume = libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
+				)
+				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 				vmi = nil
 			})
@@ -1439,20 +1444,6 @@ func waitForPodToDisappearWithTimeout(podName string, seconds int) {
 		_, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Get(context.Background(), podName, metav1.GetOptions{})
 		return err
 	}, seconds, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-}
-
-func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
-	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-	if !foundSC {
-		return nil, nil
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
-	)
-
-	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 }
 
 func checkResultShellCommandOnVmi(vmi *v1.VirtualMachineInstance, cmd, output string, timeout int) {

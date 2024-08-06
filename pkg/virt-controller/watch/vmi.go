@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
@@ -105,7 +106,7 @@ func NewVMIController(templateService services.TemplateService,
 		cdiConfigStore:    cdiConfigInformer.GetStore(),
 		clusterConfig:     clusterConfig,
 		topologyHinter:    topologyHinter,
-		cidsMap:           newCIDsMap(),
+		cidsMap:           vsock.NewCIDsMap(),
 		backendStorage:    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 	}
 
@@ -204,7 +205,6 @@ type VMIController struct {
 	vmStore           cache.Store
 	podIndexer        cache.Indexer
 	pvcIndexer        cache.Indexer
-	storageClassStore cache.Store
 	topologyHinter    topology.Hinter
 	recorder          record.EventRecorder
 	podExpectations   *controller.UIDTrackingControllerExpectations
@@ -213,7 +213,7 @@ type VMIController struct {
 	cdiStore          cache.Store
 	cdiConfigStore    cache.Store
 	clusterConfig     *virtconfig.ClusterConfig
-	cidsMap           *cidsMap
+	cidsMap           vsock.Allocator
 	backendStorage    *backendstorage.BackendStorage
 	hasSynced         func() bool
 }
@@ -687,7 +687,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		if !vmiPodExists {
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
-		break
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
 	}
@@ -956,22 +955,6 @@ func checkForContainerImageError(pod *k8sv1.Pod) syncError {
 	}
 
 	return nil
-}
-
-func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) (bool, syncError) {
-	if controller.VMIHasHotplugVolumes(vmi) {
-		hotplugAttachmentPods, err := controller.AttachmentPods(virtLauncherPod, c.podIndexer)
-		if err != nil {
-			return false, &syncErrorImpl{fmt.Errorf("failed to get attachment pods: %v", err), controller.FailedHotplugSyncReason}
-		}
-		for _, attachmentPod := range hotplugAttachmentPods {
-			if controller.IsPodReady(attachmentPod) && attachmentPod.DeletionTimestamp == nil && attachmentPod.Spec.NodeName == virtLauncherPod.Spec.NodeName {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-	return true, nil
 }
 
 func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) syncError {
@@ -1343,7 +1326,6 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 	}
 	log.Log.V(4).Object(curPod).Infof("Pod updated")
 	c.enqueueVirtualMachine(vmi)
-	return
 }
 
 // When a pod is deleted, enqueue the vmi that manages the pod and update its podExpectations.
