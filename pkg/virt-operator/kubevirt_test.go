@@ -99,7 +99,6 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	crdSource                              *framework.FakeControllerSource
 	serviceSource                          *framework.FakeControllerSource
 	deploymentSource                       *framework.FakeControllerSource
 	daemonSetSource                        *framework.FakeControllerSource
@@ -190,7 +189,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.informers.RoleBinding, _ = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
 
-	k.informers.OperatorCrd, k.crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
+	k.informers.OperatorCrd, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 
 	k.informers.Service, k.serviceSource = testutils.NewFakeInformerFor(&k8sv1.Service{})
 
@@ -586,11 +585,10 @@ func (k *KubeVirtTestData) deleteRoleBinding(key string) {
 }
 
 func (k *KubeVirtTestData) deleteCrd(key string) {
-	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.OperatorCrd.GetStore().GetByKey(key); exists {
-		k.crdSource.Delete(obj.(runtime.Object))
+		k.informers.OperatorCrd.GetStore().Delete(obj.(runtime.Object))
 	}
-	k.mockQueue.Wait()
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) deleteService(key string) {
@@ -1009,12 +1007,13 @@ func (k *KubeVirtTestData) addRoleBinding(rb *rbacv1.RoleBinding) {
 }
 
 func (k *KubeVirtTestData) addCrd(crd *extv1.CustomResourceDefinition, kv *v1.KubeVirt) {
-	k.mockQueue.ExpectAdds(1)
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, crd)
 	}
-	k.crdSource.Add(crd)
-	k.mockQueue.Wait()
+	k.informers.OperatorCrd.GetStore().Add(crd)
+	key, err := kubecontroller.KeyFunc(crd)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
 }
 
 func (k *KubeVirtTestData) addService(svc *k8sv1.Service) {
