@@ -289,8 +289,8 @@ var _ = Describe("[rfe_id:273][crit:high][[arm64]][s390x][vendor:cnv-qe@redhat.c
 			Expect(err).ToNot(HaveOccurred(), "Result should be unmarshallable")
 
 			Expect(reviewResponse.Details.Causes).To(HaveLen(2), "There should be 2 thing wrong in response")
-			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[1].name"))
-			Expect(reviewResponse.Details.Causes[1].Field).To(Equal("spec.domain.devices.disks[2].name"))
+			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[2].name"))
+			Expect(reviewResponse.Details.Causes[1].Field).To(Equal("spec.domain.devices.disks[3].name"))
 		})
 
 		It("[test_id:1624]should reject PATCH if schema is invalid", func() {
