@@ -66,7 +66,6 @@ type KubeVirtController struct {
 	delayedQueueAdder    func(key interface{}, queue workqueue.RateLimitingInterface)
 	recorder             record.EventRecorder
 	stores               util.Stores
-	informers            util.Informers
 	kubeVirtExpectations util.Expectations
 	latestStrategy       atomic.Value
 	operatorNamespace    string
@@ -95,7 +94,6 @@ func NewKubeVirtController(
 		queue:            workqueue.NewNamedRateLimitingQueue(rl, VirtOperator),
 		recorder:         recorder,
 		stores:           stores,
-		informers:        informers,
 		kubeVirtExpectations: util.Expectations{
 			ServiceAccount:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
 			ClusterRole:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
@@ -129,33 +127,33 @@ func NewKubeVirtController(
 		},
 	}
 	c.hasSynced = func() bool {
-		return c.informers.KubeVirt.HasSynced() &&
-			c.informers.ServiceAccount.HasSynced() &&
-			c.informers.ClusterRole.HasSynced() &&
-			c.informers.ClusterRoleBinding.HasSynced() &&
-			c.informers.Role.HasSynced() &&
-			c.informers.RoleBinding.HasSynced() &&
-			c.informers.OperatorCrd.HasSynced() &&
-			c.informers.Service.HasSynced() &&
-			c.informers.Deployment.HasSynced() &&
-			c.informers.DaemonSet.HasSynced() &&
-			c.informers.ValidationWebhook.HasSynced() &&
-			c.informers.SCC.HasSynced() &&
-			c.informers.Route.HasSynced() &&
-			c.informers.InstallStrategyConfigMap.HasSynced() &&
-			c.informers.InstallStrategyJob.HasSynced() &&
-			c.informers.InfrastructurePod.HasSynced() &&
-			c.informers.PodDisruptionBudget.HasSynced() &&
-			c.informers.ServiceMonitor.HasSynced() &&
-			c.informers.Namespace.HasSynced() &&
-			c.informers.PrometheusRule.HasSynced() &&
-			c.informers.Secrets.HasSynced() &&
-			c.informers.ConfigMap.HasSynced() &&
-			c.informers.ValidatingAdmissionPolicyBinding.HasSynced() &&
-			c.informers.ValidatingAdmissionPolicy.HasSynced()
+		return informers.KubeVirt.HasSynced() &&
+			informers.ServiceAccount.HasSynced() &&
+			informers.ClusterRole.HasSynced() &&
+			informers.ClusterRoleBinding.HasSynced() &&
+			informers.Role.HasSynced() &&
+			informers.RoleBinding.HasSynced() &&
+			informers.OperatorCrd.HasSynced() &&
+			informers.Service.HasSynced() &&
+			informers.Deployment.HasSynced() &&
+			informers.DaemonSet.HasSynced() &&
+			informers.ValidationWebhook.HasSynced() &&
+			informers.SCC.HasSynced() &&
+			informers.Route.HasSynced() &&
+			informers.InstallStrategyConfigMap.HasSynced() &&
+			informers.InstallStrategyJob.HasSynced() &&
+			informers.InfrastructurePod.HasSynced() &&
+			informers.PodDisruptionBudget.HasSynced() &&
+			informers.ServiceMonitor.HasSynced() &&
+			informers.Namespace.HasSynced() &&
+			informers.PrometheusRule.HasSynced() &&
+			informers.Secrets.HasSynced() &&
+			informers.ConfigMap.HasSynced() &&
+			informers.ValidatingAdmissionPolicyBinding.HasSynced() &&
+			informers.ValidatingAdmissionPolicy.HasSynced()
 	}
 
-	_, err := c.informers.KubeVirt.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informers.KubeVirt.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addKubeVirt,
 		DeleteFunc: c.deleteKubeVirt,
 		UpdateFunc: c.updateKubeVirt,
@@ -164,7 +162,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.Namespace.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.Namespace.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, nil)
 		},
@@ -175,7 +173,7 @@ func NewKubeVirtController(
 	if err != nil {
 		return nil, err
 	}
-	_, err = c.informers.ServiceAccount.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ServiceAccount.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.ServiceAccount)
 		},
@@ -190,7 +188,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.ClusterRole.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ClusterRole.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.ClusterRole)
 		},
@@ -205,7 +203,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.ClusterRoleBinding.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ClusterRoleBinding.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.ClusterRoleBinding)
 		},
@@ -220,7 +218,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.Role.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.Role.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.Role)
 		},
@@ -235,7 +233,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.RoleBinding.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.RoleBinding.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.RoleBinding)
 		},
@@ -250,7 +248,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.OperatorCrd.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.OperatorCrd.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.OperatorCrd)
 		},
@@ -265,7 +263,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.Service.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.Service.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.Service)
 		},
@@ -280,7 +278,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.Deployment.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.Deployment.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.Deployment)
 		},
@@ -295,7 +293,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.DaemonSet.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.DaemonSet.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.DaemonSet)
 		},
@@ -310,7 +308,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.ValidationWebhook.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ValidationWebhook.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.ValidationWebhook)
 		},
@@ -325,7 +323,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.MutatingWebhook.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.MutatingWebhook.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.MutatingWebhook)
 		},
@@ -340,7 +338,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.APIService.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.APIService.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.APIService)
 		},
@@ -355,7 +353,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.SCC.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.SCC.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.sccAddHandler(obj, c.kubeVirtExpectations.SCC)
 		},
@@ -370,7 +368,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.Route.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.Route.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.Route)
 		},
@@ -385,7 +383,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.InstallStrategyConfigMap.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.InstallStrategyConfigMap.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategyConfigMap)
 		},
@@ -400,7 +398,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.InstallStrategyJob.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.InstallStrategyJob.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategyJob)
 		},
@@ -415,7 +413,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.InfrastructurePod.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.InfrastructurePod.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, nil)
 		},
@@ -430,7 +428,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.PodDisruptionBudget.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.PodDisruptionBudget.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.PodDisruptionBudget)
 		},
@@ -445,7 +443,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.ServiceMonitor.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ServiceMonitor.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.ServiceMonitor)
 		},
@@ -460,7 +458,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.PrometheusRule.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.PrometheusRule.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.PrometheusRule)
 		},
@@ -475,7 +473,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.Secrets.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.Secrets.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.Secrets)
 		},
@@ -490,7 +488,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.ConfigMap.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ConfigMap.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.ConfigMap)
 		},
@@ -505,7 +503,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.ValidatingAdmissionPolicyBinding.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ValidatingAdmissionPolicyBinding.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.ValidatingAdmissionPolicyBinding)
 		},
@@ -520,7 +518,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.ValidatingAdmissionPolicy.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ValidatingAdmissionPolicy.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.ValidatingAdmissionPolicy)
 		},
@@ -535,7 +533,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.ClusterInstancetype.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ClusterInstancetype.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, nil)
 		},
@@ -550,7 +548,7 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
-	_, err = c.informers.ClusterPreference.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.ClusterPreference.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, nil)
 		},
@@ -569,7 +567,7 @@ func NewKubeVirtController(
 }
 
 func (c *KubeVirtController) getKubeVirtKey() (string, error) {
-	kvs := c.informers.KubeVirt.GetStore().List()
+	kvs := c.stores.KubeVirtCache.List()
 	if len(kvs) > 1 {
 		log.Log.Errorf("More than one KubeVirt custom resource detected: %v", len(kvs))
 		return "", fmt.Errorf("more than one KubeVirt custom resource detected: %v", len(kvs))
@@ -753,7 +751,7 @@ func (c *KubeVirtController) Execute() bool {
 func (c *KubeVirtController) execute(key string) error {
 
 	// Fetch the latest KubeVirt from cache
-	obj, exists, err := c.informers.KubeVirt.GetStore().GetByKey(key)
+	obj, exists, err := c.stores.KubeVirtCache.GetByKey(key)
 
 	if err != nil {
 		return err
@@ -939,7 +937,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 }
 
 func (c *KubeVirtController) checkForActiveInstall(kv *v1.KubeVirt) error {
-	if len(c.informers.KubeVirt.GetStore().List()) > 1 {
+	if len(c.stores.KubeVirtCache.List()) > 1 {
 		return fmt.Errorf("More than one KubeVirt CR detected, ensure that KubeVirt is only installed once.")
 	}
 

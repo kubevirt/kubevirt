@@ -423,12 +423,12 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 	patch.DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, _ ...string) (*v1.KubeVirt, error) {
 		Expect(pt).To(Equal(types.JSONPatchType))
 		finalizers := extractFinalizers(data)
-		obj, exists, err := k.informers.KubeVirt.GetStore().GetByKey(NAMESPACE + "/" + name)
+		obj, exists, err := k.controller.stores.KubeVirtCache.GetByKey(NAMESPACE + "/" + name)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(BeTrue())
 		kv := obj.(*v1.KubeVirt)
 		kv.Finalizers = finalizers
-		err = k.informers.KubeVirt.GetStore().Update(kv)
+		err = k.controller.stores.KubeVirtCache.Update(kv)
 		Expect(err).ToNot(HaveOccurred())
 		return kv, nil
 	}).Times(times)
@@ -437,7 +437,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
 	update := k.kvInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(kv *v1.KubeVirt) {
-		k.informers.KubeVirt.GetStore().Update(kv)
+		k.controller.stores.KubeVirtCache.Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
@@ -445,7 +445,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatus(times int) {
 	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
-		k.informers.KubeVirt.GetStore().Update(kv)
+		k.controller.stores.KubeVirtCache.Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
@@ -456,7 +456,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusVersion(times int, co
 
 		Expect(kv.Status.TargetKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
 		Expect(kv.Status.ObservedKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
-		k.informers.KubeVirt.GetStore().Update(kv)
+		k.controller.stores.KubeVirtCache.Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
@@ -466,7 +466,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reas
 	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
 		Expect(kv.Status.Conditions).To(HaveLen(1))
 		Expect(kv.Status.Conditions[0].Reason).To(Equal(reason))
-		k.informers.KubeVirt.GetStore().Update(kv)
+		k.controller.stores.KubeVirtCache.Update(kv)
 		update.Return(kv, nil)
 	}).Times(1)
 }
@@ -478,7 +478,7 @@ func (k *KubeVirtTestData) addKubeVirt(kv *v1.KubeVirt) {
 }
 
 func (k *KubeVirtTestData) getLatestKubeVirt(kv *v1.KubeVirt) *v1.KubeVirt {
-	if obj, exists, _ := k.informers.KubeVirt.GetStore().GetByKey(kv.GetNamespace() + "/" + kv.GetName()); exists {
+	if obj, exists, _ := k.controller.stores.KubeVirtCache.GetByKey(kv.GetNamespace() + "/" + kv.GetName()); exists {
 		if kvLatest, ok := obj.(*v1.KubeVirt); ok {
 			return kvLatest
 		}
@@ -1787,7 +1787,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			defer kvTestData.AfterTest()
 
 			// Add fake namespace with labels predefined
-			err := kvTestData.informers.Namespace.GetStore().Add(&k8sv1.Namespace{
+			err := kvTestData.controller.stores.NamespaceCache.Add(&k8sv1.Namespace{
 				TypeMeta: metav1.TypeMeta{
 					Kind: "Namespace",
 				},
@@ -1977,7 +1977,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// create old servicemonitor (should be deleted)
 
-			err := kvTestData.informers.Namespace.GetStore().Add(&k8sv1.Namespace{
+			err := kvTestData.controller.stores.NamespaceCache.Add(&k8sv1.Namespace{
 				TypeMeta: metav1.TypeMeta{
 					Kind: "Namespace",
 				},
@@ -1989,7 +1989,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			err = kvTestData.informers.ServiceMonitor.GetStore().Add(&promv1.ServiceMonitor{
+			err = kvTestData.controller.stores.ServiceMonitorCache.Add(&promv1.ServiceMonitor{
 				TypeMeta: metav1.TypeMeta{
 					Kind: "ServiceMonitor",
 				},
