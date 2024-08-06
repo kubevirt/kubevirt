@@ -185,6 +185,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.recorder.IncludeObject = true
 
 	k.informers.KubeVirt, k.kvSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
+	k.stores.KubeVirtCache = k.informers.KubeVirt.GetStore()
+
 	k.informers.ServiceAccount, k.serviceAccountSource = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
 	k.stores.ServiceAccountCache = k.informers.ServiceAccount.GetStore()
 

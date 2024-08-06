@@ -28,6 +28,7 @@ import (
 )
 
 type Stores struct {
+	KubeVirtCache                           cache.Store
 	ServiceAccountCache                     cache.Store
 	ClusterRoleCache                        cache.Store
 	ClusterRoleBindingCache                 cache.Store
