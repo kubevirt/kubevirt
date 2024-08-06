@@ -70,6 +70,45 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 	return d
 }
 
+func (d *domainWatcher) worker() {
+	defer d.wg.Done()
+
+	resyncTicker := time.NewTicker(d.resyncPeriod)
+	resyncTickerChan := resyncTicker.C
+	defer resyncTicker.Stop()
+
+	// Divide the watchdogTimeout by 3 for our ticker.
+	// This ensures we always have at least 2 response failures
+	// in a row before we mark the socket as unavailable (which results in shutdown of VMI)
+	expiredWatchdogTicker := time.NewTicker(time.Duration((d.watchdogTimeout/3)+1) * time.Second)
+	defer expiredWatchdogTicker.Stop()
+
+	expiredWatchdogTickerChan := expiredWatchdogTicker.C
+
+	srvErr := make(chan error)
+	go func() {
+		defer close(srvErr)
+		err := notifyserver.RunServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
+		srvErr <- err
+	}()
+
+	for {
+		select {
+		case <-resyncTickerChan:
+			d.handleResync()
+		case <-expiredWatchdogTickerChan:
+			d.handleStaleSocketConnections()
+		case err := <-srvErr:
+			if err != nil {
+				log.Log.Reason(err).Errorf("Unexpected err encountered with Domain Notify aggregation server")
+			}
+
+			// server exitted so this goroutine is done.
+			return
+		}
+	}
+}
+
 func (d *domainWatcher) startBackground() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -82,44 +121,7 @@ func (d *domainWatcher) startBackground() error {
 	d.eventChan = make(chan watch.Event, 100)
 
 	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
-
-		resyncTicker := time.NewTicker(d.resyncPeriod)
-		resyncTickerChan := resyncTicker.C
-		defer resyncTicker.Stop()
-
-		// Divide the watchdogTimeout by 3 for our ticker.
-		// This ensures we always have at least 2 response failures
-		// in a row before we mark the socket as unavailable (which results in shutdown of VMI)
-		expiredWatchdogTicker := time.NewTicker(time.Duration((d.watchdogTimeout/3)+1) * time.Second)
-		defer expiredWatchdogTicker.Stop()
-
-		expiredWatchdogTickerChan := expiredWatchdogTicker.C
-
-		srvErr := make(chan error)
-		go func() {
-			defer close(srvErr)
-			err := notifyserver.RunServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
-			srvErr <- err
-		}()
-
-		for {
-			select {
-			case <-resyncTickerChan:
-				d.handleResync()
-			case <-expiredWatchdogTickerChan:
-				d.handleStaleSocketConnections()
-			case err := <-srvErr:
-				if err != nil {
-					log.Log.Reason(err).Errorf("Unexpected err encountered with Domain Notify aggregation server")
-				}
-
-				// server exitted so this goroutine is done.
-				return
-			}
-		}
-	}()
+	go d.worker()
 
 	d.backgroundWatcherStarted = true
 	return nil
