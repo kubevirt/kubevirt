@@ -408,7 +408,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with dhcp options", func() {
 		It("[test_id:1778]should offer extra dhcp options to pod iface", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-			dhcpVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("1024M"))
+			dhcpVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 
 			// This IPv4 address tests backwards compatibility of the "DHCPOptions.NTPServers" field.
 			// The leading zero is intentional.
