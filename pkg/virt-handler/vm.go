@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	goerror "errors"
@@ -1122,7 +1123,8 @@ func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 			vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		}
 	}
-
+	storageLiveMigCond := d.calculateLiveStorageMigrationCondition(vmi)
+	condManager.UpdateCondition(vmi, storageLiveMigCond)
 	evictable := migrations.VMIMigratableOnEviction(d.clusterConfig, vmi)
 	if evictable && liveMigrationCondition.Status == k8sv1.ConditionFalse {
 		d.recorder.Eventf(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "EvictionStrategy is set but vmi is not migratable; %s", liveMigrationCondition.Message)
@@ -1651,6 +1653,86 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 
 func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) bool {
 	return len(vmi.Spec.Domain.Devices.HostDevices) > 0 || len(vmi.Spec.Domain.Devices.GPUs) > 0
+}
+
+type multipleNonMigratableCondition struct {
+	reasons []string
+	msgs    []string
+}
+
+func newMultipleNonMigratableCondition() *multipleNonMigratableCondition {
+	return &multipleNonMigratableCondition{}
+}
+
+func (cond *multipleNonMigratableCondition) addNonMigratableCondition(reason, msg string) {
+	cond.reasons = append(cond.reasons, reason)
+	cond.msgs = append(cond.msgs, msg)
+}
+
+func (cond *multipleNonMigratableCondition) String() string {
+	var buffer bytes.Buffer
+	for i, c := range cond.reasons {
+		if i > 0 {
+			buffer.WriteString(", ")
+		}
+		buffer.WriteString(fmt.Sprintf("%s: %s", c, cond.msgs[i]))
+	}
+	return buffer.String()
+}
+
+func (cond *multipleNonMigratableCondition) generateStorageLiveMigrationCondition() *v1.VirtualMachineInstanceCondition {
+	switch len(cond.reasons) {
+	case 0:
+		return &v1.VirtualMachineInstanceCondition{
+			Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+			Status: k8sv1.ConditionTrue,
+		}
+	default:
+		return &v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceIsStorageLiveMigratable,
+			Status:  k8sv1.ConditionFalse,
+			Message: cond.String(),
+			Reason:  v1.VirtualMachineInstanceReasonNotMigratable,
+		}
+	}
+}
+
+func (d *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceCondition {
+	multiCond := newMultipleNonMigratableCondition()
+
+	if err := d.checkNetworkInterfacesForMigration(vmi); err != nil {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonInterfaceNotMigratable, err.Error())
+	}
+
+	if err := d.isHostModelMigratable(vmi); err != nil {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCPUModeNotMigratable, err.Error())
+	}
+
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable, "VMI uses virtiofs")
+	}
+
+	if vmiContainsPCIHostDevice(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, "VMI uses a PCI host devices")
+	}
+
+	if util.IsSEVVMI(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonSEVNotMigratable, "VMI uses SEV")
+	}
+
+	if reservation.HasVMIPersistentReservation(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonPRNotMigratable, "VMI uses SCSI persitent reservation")
+	}
+
+	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable, tscRequirement.Reason)
+	}
+
+	if vmiFeatures := vmi.Spec.Domain.Features; vmiFeatures != nil && vmiFeatures.HypervPassthrough != nil && *vmiFeatures.HypervPassthrough.Enabled {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable, "VMI uses hyperv passthrough")
+	}
+
+	return multiCond.generateStorageLiveMigrationCondition()
 }
 
 func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
