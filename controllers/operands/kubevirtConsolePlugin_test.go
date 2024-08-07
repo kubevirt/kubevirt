@@ -686,6 +686,94 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				Entry("plugin deployment", hcoutil.AppComponentUIPlugin, NewKvUIPluginDeployment, newKvUIPluginDeploymentHandler),
 				Entry("proxy deployment", hcoutil.AppComponentUIProxy, NewKvUIProxyDeployment, newKvUIProxyDeploymentHandler),
 			)
+
+			DescribeTable("apply PodAntiAffinity and two replicas if HighlyAvailable", func(ctx context.Context, appComponent hcoutil.AppComponent,
+				deploymentManifestor func(converged *hcov1beta1.HyperConverged) *appsv1.Deployment, handlerFunc GetHandler) {
+
+				originalGetClusterInfo := hcoutil.GetClusterInfo
+				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+					return &commontestutils.ClusterInfoMock{}
+				}
+
+				defer func() {
+					hcoutil.GetClusterInfo = originalGetClusterInfo
+				}()
+
+				existingResource := deploymentManifestor(hco)
+
+				hco.Spec.Infra.NodePlacement = nil
+				existingResource.Spec.Template.Spec.Affinity = nil
+				existingResource.Spec.Replicas = ptr.To(int32(1))
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+
+				Expect(err).ToNot(HaveOccurred())
+				res := handlers[0].ensure(req)
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &appsv1.Deployment{}
+				Expect(
+					cl.Get(ctx,
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(Succeed())
+
+				Expect(existingResource.Spec.Template.Spec.Affinity).To(BeNil())
+				Expect(*existingResource.Spec.Replicas).To(Equal(int32(1)))
+
+				expectedAffinity := expectedPodAntiAffinity(appComponent)
+				Expect(foundResource.Spec.Template.Spec.Affinity).To(BeEquivalentTo(expectedAffinity))
+				Expect(*foundResource.Spec.Replicas).To(Equal(int32(2)))
+			},
+				Entry("plugin deployment", hcoutil.AppComponentUIPlugin, NewKvUIPluginDeployment, newKvUIPluginDeploymentHandler),
+				Entry("proxy deployment", hcoutil.AppComponentUIProxy, NewKvUIProxyDeployment, newKvUIProxyDeploymentHandler),
+			)
+
+			DescribeTable("use one replica on SNO", func(ctx context.Context, appComponent hcoutil.AppComponent,
+				deploymentManifestor func(converged *hcov1beta1.HyperConverged) *appsv1.Deployment, handlerFunc GetHandler) {
+
+				originalGetClusterInfo := hcoutil.GetClusterInfo
+				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+					return &commontestutils.ClusterInfoSNOMock{}
+				}
+
+				defer func() {
+					hcoutil.GetClusterInfo = originalGetClusterInfo
+				}()
+
+				existingResource := deploymentManifestor(hco)
+				existingResource.Spec.Replicas = ptr.To(int32(3))
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+
+				Expect(err).ToNot(HaveOccurred())
+				res := handlers[0].ensure(req)
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &appsv1.Deployment{}
+				Expect(
+					cl.Get(ctx,
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(Succeed())
+
+				Expect(existingResource.Spec.Template.Spec.Affinity).To(BeNil())
+				Expect(foundResource.Spec.Template.Spec.Affinity).To(BeNil())
+				Expect(*foundResource.Spec.Replicas).To(Equal(int32(1)))
+			},
+				Entry("plugin deployment", hcoutil.AppComponentUIPlugin, NewKvUIPluginDeployment, newKvUIPluginDeploymentHandler),
+				Entry("proxy deployment", hcoutil.AppComponentUIProxy, NewKvUIProxyDeployment, newKvUIProxyDeploymentHandler),
+			)
 		})
 	})
 
@@ -797,3 +885,24 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 	})
 
 })
+
+func expectedPodAntiAffinity(appComponent hcoutil.AppComponent) *v1.Affinity {
+	return &v1.Affinity{
+		PodAntiAffinity: &v1.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []v1.PodAffinityTerm{
+				{
+					LabelSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      hcoutil.AppLabelComponent,
+								Operator: metav1.LabelSelectorOpIn,
+								Values:   []string{string(appComponent)},
+							},
+						},
+					},
+					TopologyKey: v1.LabelHostname,
+				},
+			},
+		},
+	}
+}

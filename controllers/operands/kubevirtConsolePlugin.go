@@ -108,6 +108,15 @@ func NewKvUIProxyDeployment(hc *hcov1beta1.HyperConverged) *appsv1.Deployment {
 func getKvUIDeployment(hc *hcov1beta1.HyperConverged, deploymentName string, image string,
 	servingCertName string, servingCertPath string, port int32, componentName hcoutil.AppComponent) *appsv1.Deployment {
 	labels := getLabels(hc, componentName)
+	infrastructureHighlyAvailable := hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable()
+	var replicas int32
+	if infrastructureHighlyAvailable {
+		replicas = int32(2)
+	} else {
+		replicas = int32(1)
+	}
+
+	affinity := getPodAntiAffinity(labels[hcoutil.AppLabelComponent], infrastructureHighlyAvailable)
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -116,7 +125,7 @@ func getKvUIDeployment(hc *hcov1beta1.HyperConverged, deploymentName string, ima
 			Namespace: hc.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To(int32(1)),
+			Replicas: ptr.To(replicas),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -184,7 +193,7 @@ func getKvUIDeployment(hc *hcov1beta1.HyperConverged, deploymentName string, ima
 		if hc.Spec.Infra.NodePlacement.Affinity != nil {
 			deployment.Spec.Template.Spec.Affinity = hc.Spec.Infra.NodePlacement.Affinity.DeepCopy()
 		} else {
-			deployment.Spec.Template.Spec.Affinity = nil
+			deployment.Spec.Template.Spec.Affinity = affinity
 		}
 
 		if hc.Spec.Infra.NodePlacement.Tolerations != nil {
@@ -195,10 +204,35 @@ func getKvUIDeployment(hc *hcov1beta1.HyperConverged, deploymentName string, ima
 		}
 	} else {
 		deployment.Spec.Template.Spec.NodeSelector = nil
-		deployment.Spec.Template.Spec.Affinity = nil
+		deployment.Spec.Template.Spec.Affinity = affinity
 		deployment.Spec.Template.Spec.Tolerations = nil
 	}
 	return deployment
+}
+
+func getPodAntiAffinity(componentLabel string, infrastructureHighlyAvailable bool) *corev1.Affinity {
+	if infrastructureHighlyAvailable {
+		return &corev1.Affinity{
+			PodAntiAffinity: &corev1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      hcoutil.AppLabelComponent,
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{componentLabel},
+								},
+							},
+						},
+						TopologyKey: corev1.LabelHostname,
+					},
+				},
+			},
+		}
+	}
+
+	return nil
 }
 
 func NewKvUIPluginSvc(hc *hcov1beta1.HyperConverged) *corev1.Service {

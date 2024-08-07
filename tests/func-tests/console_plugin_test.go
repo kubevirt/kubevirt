@@ -177,6 +177,70 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 			WithContext(ctx).
 			Should(Succeed())
 	})
+
+	It("console-plugin and apiserver-proxy Deployments should have 2 replicas in Highly Available clusters", Label(tests.HighlyAvailableClusterLabel), func(ctx context.Context) {
+		Eventually(func(g Gomega, ctx context.Context) {
+			consoleUIDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      string(hcoutil.AppComponentUIPlugin),
+					Namespace: tests.InstallNamespace,
+				},
+			}
+
+			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(consoleUIDeployment), consoleUIDeployment)).To(Succeed())
+
+			g.Expect(consoleUIDeployment.Spec.Replicas).To(HaveValue(Equal(int32(2))))
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(100 * time.Millisecond).
+			WithContext(ctx).
+			Should(Succeed())
+
+		Eventually(func(g Gomega, ctx context.Context) {
+			proxyUIDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      string(hcoutil.AppComponentUIProxy),
+					Namespace: tests.InstallNamespace,
+				},
+			}
+			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(proxyUIDeployment), proxyUIDeployment)).To(Succeed())
+			g.Expect(proxyUIDeployment.Spec.Replicas).To(HaveValue(Equal(int32(2))))
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(100 * time.Millisecond).
+			WithContext(ctx).
+			Should(Succeed())
+	})
+
+	It("console-plugin and apiserver-proxy Deployments should have 1 replica in single node clusters", Label(tests.SingleNodeLabel), func(ctx context.Context) {
+		Eventually(func(g Gomega, ctx context.Context) {
+			consoleUIDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      string(hcoutil.AppComponentUIPlugin),
+					Namespace: tests.InstallNamespace,
+				},
+			}
+
+			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(consoleUIDeployment), consoleUIDeployment)).To(Succeed())
+
+			g.Expect(consoleUIDeployment.Spec.Replicas).To(HaveValue(Equal(int32(1))))
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(100 * time.Millisecond).
+			WithContext(ctx).
+			Should(Succeed())
+
+		Eventually(func(g Gomega, ctx context.Context) {
+			proxyUIDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      string(hcoutil.AppComponentUIProxy),
+					Namespace: tests.InstallNamespace,
+				},
+			}
+			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(proxyUIDeployment), proxyUIDeployment)).To(Succeed())
+			g.Expect(proxyUIDeployment.Spec.Replicas).To(HaveValue(Equal(int32(1))))
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(100 * time.Millisecond).
+			WithContext(ctx).
+			Should(Succeed())
+	})
 })
 
 func executeCommandOnPod(ctx context.Context, k8scli *kubernetes.Clientset, pod *corev1.Pod, command string) (string, string, error) {
