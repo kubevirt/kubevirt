@@ -1092,6 +1092,10 @@ const (
 	// VolumesUpdateMigration indicates that the migration copies and update
 	// the volumes
 	VolumesUpdateMigration string = "kubevirt.io/volume-update-migration"
+
+	// ImmediateDataVolumeCreation indicates that the data volumes should be created immediately
+	// Even if the VM is halted
+	ImmediateDataVolumeCreation string = "kubevirt.io/immediate-data-volume-creation"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
