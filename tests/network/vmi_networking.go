@@ -32,7 +32,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
 
@@ -695,21 +694,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				checks.SkipIfMigrationIsNotPossible()
-			})
-
-			AfterEach(func() {
-				if vmi != nil {
-					By("Delete VMI")
-					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-
-					Eventually(func() error {
-						_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-						return err
-					}, time.Minute, time.Second).Should(
-						SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
-						"The VMI should be gone within the given timeout",
-					)
-				}
 			})
 
 			DescribeTable("[Conformance] preserves connectivity - IPv4", func(ports []v1.Port) {
