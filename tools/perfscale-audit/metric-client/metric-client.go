@@ -52,13 +52,13 @@ const (
 	vmiPhaseCount                 = `sum by (phase) (kubevirt_vmi_phase_count{})`
 	avgVirtAPICPUUsage            = `avg(sum(rate(container_cpu_usage_seconds_total{namespace="kubevirt",pod=~"virt-api.*", container!="",container!="POD"}[%ds]))by (pod))`
 	avgVirtAPIMemUsageInMB        = `avg(avg_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[%ds]))/1024/1024`
-	minVirtAPIMemUsageInMB        = `min_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[%ds])/1024/1024`
-	maxVirtAPIMemUsageInMB        = `max_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[%ds])/1024/1024`
-	avgVirtControllerCPUUsage     = `avg(sum(rate(container_cpu_usage_seconds_total{namespace="kubevirt",pod=~"virt-controller.*", container!="",container!="POD"}[%ds])) by (pod))`
+	minVirtAPIMemUsageInMB        = `avg(min_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[%ds]))/1024/1024`
+	maxVirtAPIMemUsageInMB        = `avg(max_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[%ds]))/1024/1024`
 	avgVirtControllerMemUsageInMB = `max(avg_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[%ds]))/1024/1024`
 	//  Finding the max value to get only the leader virt-controller pod data
-	minVirtControllerMemUsageInMB = `max(min by (pod)(min_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[%ds])/1024/1024))`
-	maxVirtControllerMemUsageInMB = `max(max by (pod)(max_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[%ds])/1024/1024))`
+	minVirtControllerMemUsageInMB = `max(min_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[%ds]))/1024/1024`
+	maxVirtControllerMemUsageInMB = `max(max_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[%ds]))/1024/1024`
+	virtControllerCPUUsage        = `max(rate(container_cpu_usage_seconds_total{namespace="kubevirt",pod=~"virt-controller.*", container!="",container!="POD"}[%ds]))`
 )
 
 type metricUsage struct {
@@ -382,7 +382,7 @@ func (m *MetricClient) getCPUAndMemoryUsageOfComponents(r *audit_api.Result, ran
 			t:     audit_api.ResultTypeAvgVirtAPIMemoryUsageInMB,
 		},
 		{
-			query: fmt.Sprintf(avgVirtControllerCPUUsage, int(rangeVector.Seconds())),
+			query: fmt.Sprintf(virtControllerCPUUsage, int(rangeVector.Seconds())),
 			t:     audit_api.ResultTypeAvgVirtControllerCPUUsage,
 		},
 		{
