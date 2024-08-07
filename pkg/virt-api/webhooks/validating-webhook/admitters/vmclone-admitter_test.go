@@ -405,11 +405,11 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		)
 	})
 
-	DescribeTable("newMacAddresses", func(mac string, expectAllowed bool) {
+	DescribeTable("newMacAddresses", func(ctx context.Context, mac string, expectAllowed bool) {
 		vmClone.Spec.NewMacAddresses = map[string]string{
 			"default": mac,
 		}
-		admitter.admitAndExpect(vmClone, expectAllowed)
+		admitter.admitAndExpect(ctx, vmClone, expectAllowed)
 	},
 		Entry("valid mac address", "00:00:00:00:00:00", true),
 		Entry("invalid mac address", "00:00:00:00:00", false),
