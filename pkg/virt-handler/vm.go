@@ -2581,7 +2581,7 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	volumeStatusMap := make(map[string]v1.VolumeStatus)
 
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.Name == backendstorage.PVCForVMI(vmi) && volumeStatus.PersistentVolumeClaimInfo != nil &&
+		if strings.HasPrefix(volumeStatus.Name, backendstorage.BasePVC(vmi)) && volumeStatus.PersistentVolumeClaimInfo != nil &&
 			!pvctypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) {
 			return true, fmt.Errorf("cannot migrate VMI: Backend storage PVC is not RWX")
 		}

@@ -53,7 +53,6 @@ go_test(
         "//pkg/controller:go_default_library",
         "//pkg/network/multus:go_default_library",
         "//pkg/pointer:go_default_library",
-        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",

@@ -33,7 +33,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -89,8 +88,12 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, decorators.RequiresRWXFil
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Expecting the creation of a backend storage PVC with the right storage class")
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), backendstorage.PVCForVMI(vmi), metav1.GetOptions{})
+		pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: "persistent-state-for=" + vmi.Name,
+		})
 		Expect(err).NotTo(HaveOccurred())
+		Expect(pvcs.Items).To(HaveLen(1))
+		pvc := pvcs.Items[0]
 		Expect(pvc.Spec.StorageClassName).NotTo(BeNil())
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 		Expect(pvc.Status.AccessModes).To(HaveLen(1))

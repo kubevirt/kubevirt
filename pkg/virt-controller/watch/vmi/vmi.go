@@ -965,7 +965,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		// do not return; just log the error
 	}
 
-	err := c.backendStorage.CreateIfNeededAndUpdateVolumeStatus(vmi)
+	backendStoragePVCName, err := c.backendStorage.CreateIfNeededAndUpdateVolumeStatus(vmi)
 	if err != nil {
 		return common.NewSyncError(err, controller.FailedBackendStorageCreateReason), pod
 	}
@@ -994,7 +994,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 
 		// Ensure the backend storage PVC is ready
 		var backendStorageReady bool
-		backendStorageReady, err = c.backendStorage.IsPVCReady(vmi)
+		backendStorageReady, err = c.backendStorage.IsPVCReady(vmi, backendStoragePVCName)
 		if err != nil {
 			return common.NewSyncError(err, controller.FailedBackendStorageProbeReason), pod
 		}
@@ -1972,8 +1972,11 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 
 	newStatus := make([]virtv1.VolumeStatus, 0)
 
-	if backendStorage, ok := oldStatusMap[backendstorage.PVCForVMI(vmi)]; ok {
-		newStatus = append(newStatus, backendStorage)
+	backendStoragePVC := backendstorage.PVCForVMI(c.pvcIndexer, vmi)
+	if backendStoragePVC != nil {
+		if backendStorage, ok := oldStatusMap[backendStoragePVC.Name]; ok {
+			newStatus = append(newStatus, backendStorage)
+		}
 	}
 
 	for i, volume := range vmi.Spec.Volumes {

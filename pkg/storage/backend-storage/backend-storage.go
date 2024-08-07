@@ -30,8 +30,6 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -41,12 +39,34 @@ import (
 )
 
 const (
-	PVCPrefix = "persistent-state-for-"
+	PVCPrefix = "persistent-state-for"
 	PVCSize   = "10Mi"
 )
 
-func PVCForVMI(vmi *corev1.VirtualMachineInstance) string {
-	return PVCPrefix + vmi.Name
+func BasePVC(vmi *corev1.VirtualMachineInstance) string {
+	return PVCPrefix + "-" + vmi.Name
+}
+
+func PVCForVMI(pvcIndexer cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
+	var legacyPVC *v1.PersistentVolumeClaim
+
+	objs := pvcIndexer.List()
+	for _, obj := range objs {
+		pvc := obj.(*v1.PersistentVolumeClaim)
+		vmName, found := pvc.Labels[PVCPrefix]
+		if found && vmName == vmi.Name {
+			return pvc
+		}
+		if pvc.Name == BasePVC(vmi) && pvc.Namespace == vmi.Namespace {
+			legacyPVC = pvc
+		}
+	}
+
+	if legacyPVC != nil {
+		return legacyPVC
+	}
+
+	return nil
 }
 
 func HasPersistentTPMDevice(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
@@ -79,16 +99,16 @@ type BackendStorage struct {
 	clusterConfig *virtconfig.ClusterConfig
 	scStore       cache.Store
 	spStore       cache.Store
-	pvcIndexer    cache.Indexer
+	pvcStore      cache.Store
 }
 
-func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, scStore cache.Store, spStore cache.Store, pvcIndexer cache.Indexer) *BackendStorage {
+func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, scStore cache.Store, spStore cache.Store, pvcStore cache.Store) *BackendStorage {
 	return &BackendStorage{
 		client:        client,
 		clusterConfig: clusterConfig,
 		scStore:       scStore,
 		spStore:       spStore,
-		pvcIndexer:    pvcIndexer,
+		pvcStore:      pvcStore,
 	}
 }
 
@@ -165,48 +185,43 @@ func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentV
 	return accessMode
 }
 
-func updateVolumeStatus(vmi *corev1.VirtualMachineInstance, accessMode v1.PersistentVolumeAccessMode) {
+func (bs *BackendStorage) updateVolumeStatus(vmi *corev1.VirtualMachineInstance, pvc *v1.PersistentVolumeClaim) {
 	if vmi.Status.VolumeStatus == nil {
 		vmi.Status.VolumeStatus = []corev1.VolumeStatus{}
 	}
-	name := PVCForVMI(vmi)
 	for i := range vmi.Status.VolumeStatus {
-		if vmi.Status.VolumeStatus[i].Name == name {
+		if vmi.Status.VolumeStatus[i].Name == pvc.Name {
 			if vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo == nil {
 				vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo = &corev1.PersistentVolumeClaimInfo{}
 			}
-			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.ClaimName = name
-			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.AccessModes = []v1.PersistentVolumeAccessMode{accessMode}
+			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.ClaimName = pvc.Name
+			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.AccessModes = pvc.Spec.AccessModes
 			return
 		}
 	}
 	vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, corev1.VolumeStatus{
-		Name: name,
+		Name: pvc.Name,
 		PersistentVolumeClaimInfo: &corev1.PersistentVolumeClaimInfo{
-			ClaimName:   name,
-			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
+			ClaimName:   pvc.Name,
+			AccessModes: pvc.Spec.AccessModes,
 		},
 	})
 }
 
-func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.VirtualMachineInstance) error {
+func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.VirtualMachineInstance) (string, error) {
 	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
-		return nil
+		return "", nil
 	}
 
-	obj, exists, err := bs.pvcIndexer.GetByKey(vmi.Namespace + "/" + PVCForVMI(vmi))
-	if err != nil {
-		return err
-	}
-	if exists {
-		pvc := obj.(*v1.PersistentVolumeClaim)
-		updateVolumeStatus(vmi, pvc.Spec.AccessModes[0])
-		return nil
+	pvc := PVCForVMI(bs.pvcStore, vmi)
+	if pvc != nil {
+		bs.updateVolumeStatus(vmi, pvc)
+		return pvc.Name, nil
 	}
 
 	storageClass, err := bs.getStorageClass()
 	if err != nil {
-		return err
+		return "", err
 	}
 	mode := v1.PersistentVolumeFilesystem
 	accessMode := bs.getAccessMode(storageClass, mode)
@@ -220,10 +235,11 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
 		}
 	}
-	pvc := &v1.PersistentVolumeClaim{
+	pvc = &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            PVCForVMI(vmi),
+			GenerateName:    BasePVC(vmi) + "-",
 			OwnerReferences: ownerReferences,
+			Labels:          map[string]string{PVCPrefix: vmi.Name},
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
 			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
@@ -235,29 +251,33 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 		},
 	}
 
-	updateVolumeStatus(vmi, accessMode)
-
 	pvc, err = bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
-	if errors.IsAlreadyExists(err) {
-		return nil
+	if err != nil {
+		return "", err
 	}
 
-	return err
+	bs.updateVolumeStatus(vmi, pvc)
+
+	return pvc.Name, nil
 }
 
 // IsPVCReady returns true if either:
 // - No PVC is needed for the VMI since it doesn't use backend storage
 // - The backend storage PVC is bound
 // - The backend storage PVC is pending uses a WaitForFirstConsumer storage class
-func (bs *BackendStorage) IsPVCReady(vmi *corev1.VirtualMachineInstance) (bool, error) {
+func (bs *BackendStorage) IsPVCReady(vmi *corev1.VirtualMachineInstance, pvcName string) (bool, error) {
 	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
 		return true, nil
 	}
 
-	pvc, err := bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), PVCForVMI(vmi), metav1.GetOptions{})
+	obj, exists, err := bs.pvcStore.GetByKey(vmi.Namespace + "/" + pvcName)
 	if err != nil {
 		return false, err
 	}
+	if !exists {
+		return false, fmt.Errorf("pvc %s not found in namespace %s", pvcName, vmi.Namespace)
+	}
+	pvc := obj.(*v1.PersistentVolumeClaim)
 
 	switch pvc.Status.Phase {
 	case v1.ClaimBound:

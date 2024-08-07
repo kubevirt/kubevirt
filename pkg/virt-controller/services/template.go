@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -261,12 +262,21 @@ func (t *templateService) GetLauncherImage() string {
 }
 
 func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-	return t.renderLaunchManifest(vmi, nil, true)
+	backendStoragePVCName := ""
+	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
+		backendStoragePVCName = backendStoragePVC.Name
+	}
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true)
 }
 
 func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
 	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
-	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, false)
+	backendStoragePVCName := ""
+	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) && vmi.Status.MigrationState != nil {
+		backendStoragePVCName = vmi.Status.MigrationState.TargetPersistentStatePVCName
+	}
+	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, backendStoragePVCName, false)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +294,12 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-	return t.renderLaunchManifest(vmi, nil, false)
+	backendStoragePVCName := ""
+	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
+		backendStoragePVCName = backendStoragePVC.Name
+	}
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false)
 }
 
 func (t *templateService) IsPPC64() bool {
@@ -323,7 +338,7 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 	return psc
 }
 
-func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, backendStoragePVCName string, tempPod bool) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
@@ -414,7 +429,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--simulate-crash")
 	}
 
-	volumeRenderer, err := t.newVolumeRenderer(vmi, namespace, requestedHookSidecarList)
+	volumeRenderer, err := t.newVolumeRenderer(vmi, namespace, requestedHookSidecarList, backendStoragePVCName)
 	if err != nil {
 		return nil, err
 	}
@@ -761,12 +776,12 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	return containerRenderer
 }
 
-func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList) (*VolumeRenderer, error) {
+func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
 		withAccessCredentials(vmi.Spec.AccessCredentials),
-		withBackendStorage(vmi),
+		withBackendStorage(vmi, backendStoragePVCName),
 	}
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))

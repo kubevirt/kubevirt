@@ -29,6 +29,8 @@ import (
 	"sync"
 	"time"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+
 	"github.com/opencontainers/selinux/go-selinux"
 
 	"kubevirt.io/api/migrations/v1alpha1"
@@ -99,6 +101,8 @@ type Controller struct {
 	migrationIndexer     cache.Indexer
 	nodeStore            cache.Store
 	pvcStore             cache.Store
+	storageClassStore    cache.Store
+	storageProfileStore  cache.Store
 	pdbIndexer           cache.Indexer
 	migrationPolicyStore cache.Store
 	resourceQuotaIndexer cache.Indexer
@@ -123,6 +127,8 @@ func NewController(templateService services.TemplateService,
 	migrationInformer cache.SharedIndexInformer,
 	nodeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	storageClassInformer cache.SharedIndexInformer,
+	storageProfileInformer cache.SharedIndexInformer,
 	pdbInformer cache.SharedIndexInformer,
 	migrationPolicyInformer cache.SharedIndexInformer,
 	resourceQuotaInformer cache.SharedIndexInformer,
@@ -139,6 +145,8 @@ func NewController(templateService services.TemplateService,
 		migrationIndexer:     migrationInformer.GetIndexer(),
 		nodeStore:            nodeInformer.GetStore(),
 		pvcStore:             pvcInformer.GetStore(),
+		storageClassStore:    storageClassInformer.GetStore(),
+		storageProfileStore:  storageProfileInformer.GetStore(),
 		pdbIndexer:           pdbInformer.GetIndexer(),
 		resourceQuotaIndexer: resourceQuotaInformer.GetIndexer(),
 		migrationPolicyStore: migrationPolicyInformer.GetStore(),
@@ -645,7 +653,7 @@ func setTargetPodSELinuxLevel(pod *k8sv1.Pod, vmiSeContext string) error {
 	return nil
 }
 
-func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
+func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod, backendStoragePVCName string) error {
 	templatePod, err := c.templateService.RenderMigrationManifest(vmi, sourcePod)
 	if err != nil {
 		return fmt.Errorf("failed to render launch manifest: %v", err)
@@ -1060,7 +1068,12 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 				return nil
 			}
 		}
-		return c.createTargetPod(migration, vmi, sourcePod)
+		bs := backendstorage.NewBackendStorage(c.clientset, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
+		backendStoragePVCName, err := bs.CreateIfNeededAndUpdateVolumeStatus(vmi)
+		if err != nil {
+			return err
+		}
+		return c.createTargetPod(migration, vmi, sourcePod, backendStoragePVCName)
 	}
 	return nil
 }
