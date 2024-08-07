@@ -464,6 +464,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Type:   v1.VirtualMachineInstanceIsMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 			}
 
 			vmiFeeder.Add(vmi)
@@ -612,10 +616,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updatedVMI.Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
 			Expect(updatedVMI.Status.Phase).To(Equal(v1.Running))
-			Expect(updatedVMI.Status.Conditions).To(ConsistOf(v1.VirtualMachineInstanceCondition{
-				Type:   v1.VirtualMachineInstanceIsMigratable,
-				Status: k8sv1.ConditionTrue,
-			}))
+			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
+				v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			))
 			Expect(updatedVMI.Status.MigrationMethod).To(Equal(v1.LiveMigration))
 			Expect(updatedVMI.Status.Interfaces).To(BeEmpty())
 		})
@@ -667,6 +677,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceUnsupportedAgent),
+					"Status": Equal(k8sv1.ConditionTrue)},
+				),
+				MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
 					"Status": Equal(k8sv1.ConditionTrue)},
 				),
 			))
@@ -774,6 +788,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
 					"Status": Equal(k8sv1.ConditionTrue)},
 				),
+				MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
+					"Status": Equal(k8sv1.ConditionTrue)},
+				),
 			))
 		})
 
@@ -811,6 +829,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
+					"Status": Equal(k8sv1.ConditionTrue)},
+				),
+				MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
 					"Status": Equal(k8sv1.ConditionTrue)},
 				),
 			))
@@ -901,6 +923,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					"Status":  Equal(k8sv1.ConditionFalse),
 					"Message": Equal("some message")},
 				),
+				MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
+					"Status": Equal(k8sv1.ConditionTrue)},
+				),
 			))
 		})
 
@@ -938,6 +964,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					"Type":   Equal(v1.VirtualMachineInstancePaused),
 					"Status": Equal(k8sv1.ConditionTrue)},
 				),
+				MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
+					"Status": Equal(k8sv1.ConditionTrue)},
+				),
 			))
 
 			By("unpausing domain")
@@ -958,6 +988,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
+					"Status": Equal(k8sv1.ConditionTrue)},
+				),
+				MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
 					"Status": Equal(k8sv1.ConditionTrue)},
 				),
 			))
@@ -1050,7 +1084,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updatedVMI.Status.MigrationMethod).To(Equal(v1.LiveMigration))
-			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
+			Expect(updatedVMI.Status.Conditions).To(ContainElement(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
 					"Status": Equal(k8sv1.ConditionTrue)},
