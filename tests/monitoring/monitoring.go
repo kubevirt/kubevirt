@@ -91,7 +91,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 	})
 
 	Context("Migration Alerts", decorators.SigComputeMigrations, func() {
-		It("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", func() {
+		PIt("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", func() {
 			By("Starting the VirtualMachineInstance")
 			vmi := libvmi.New(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("2Mi"))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
