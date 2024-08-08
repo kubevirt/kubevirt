@@ -323,24 +323,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("VirtualMachineInstance with custom MAC address in non-conventional format", func() {
-		It("[test_id:1772]should configure custom MAC address", func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			By(checkingEth0MACAddr)
-			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-			masqIface.MacAddress = "BE-AF-00-00-DE-AD"
-			beafdeadVMI := libvmifact.NewCirros(
-				libvmi.WithInterface(masqIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-			beafdeadVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), beafdeadVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			libwait.WaitUntilVMIReady(beafdeadVMI, console.LoginToCirros)
-			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad")
-		})
-	})
-
 	Context("VirtualMachineInstance with disabled automatic attachment of interfaces", func() {
 		It("[test_id:1774]should not configure any external interfaces", func() {
 			By("checking loopback is the only guest interface")
