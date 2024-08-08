@@ -168,7 +168,7 @@ func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache
 		return nil, fmt.Errorf("error converting object to PersistentVolumeClaim: object is of type %T", obj)
 	}
 
-	return pvc, nil
+	return pvc.DeepCopy(), nil
 }
 
 func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcInformer cache.SharedInformer) bool {

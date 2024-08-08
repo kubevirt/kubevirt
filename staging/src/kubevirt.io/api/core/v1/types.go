@@ -1051,6 +1051,10 @@ const (
 
 	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
 	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
+
+	// ImmediateDataVolumeCreation indicates that the data volumes should be created immediately
+	// Even if the VM is halted
+	ImmediateDataVolumeCreation string = "kubevirt.io/immediate-data-volume-creation"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
