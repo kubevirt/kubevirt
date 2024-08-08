@@ -1039,35 +1039,7 @@ var _ = Describe("Template", func() {
 				),
 			)
 		})
-		Context("with masquerade interface", func() {
-			It("should add the istio annotation", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
-								Interfaces: []v1.Interface{
-									{Name: "default",
-										InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
-								},
-							},
-						},
-					},
-				}
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations[istio.KubeVirtTrafficAnnotation]
-				Expect(ok).To(BeTrue())
-				Expect(value).To(Equal("k6t-eth0"))
-			})
-		})
 		Context("With Istio sidecar.istio.io/inject annotation", func() {
 			var (
 				vmi v1.VirtualMachineInstance

@@ -1178,16 +1178,6 @@ func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) bool {
 	return false
 }
 
-func HaveMasqueradeInterface(interfaces []v1.Interface) bool {
-	for _, iface := range interfaces {
-		if iface.Masquerade != nil {
-			return true
-		}
-	}
-
-	return false
-}
-
 func HaveContainerDiskVolume(volumes []v1.Volume) bool {
 	for _, volume := range volumes {
 		if volume.ContainerDisk != nil {
@@ -1337,9 +1327,6 @@ func (t *templateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance)
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
-	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
-		annotationsSet[istio.KubeVirtTrafficAnnotation] = "k6t-eth0"
-	}
 	annotationsSet[velero.PreBackupHookContainerAnnotation] = "compute"
 	annotationsSet[velero.PreBackupHookCommandAnnotation] = fmt.Sprintf(
 		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",

@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -37,6 +38,20 @@ import (
 )
 
 var _ = Describe("Annotations Generator", func() {
+	var clusterConfig *virtconfig.ClusterConfig
+
+	BeforeEach(func() {
+		const (
+			kubevirtCRName    = "kubevirt"
+			kubevirtNamespace = "kubevirt"
+		)
+
+		kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+		kv.Namespace = kubevirtNamespace
+
+		clusterConfig = newClusterConfig(kv)
+	})
+
 	Context("Multus", func() {
 		const (
 			testNamespace = "default"
@@ -49,20 +64,6 @@ var _ = Describe("Annotations Generator", func() {
 			networkAttachmentDefinitionName1       = "test1"
 			networkAttachmentDefinitionName2       = "other-namespace/test1"
 		)
-
-		var clusterConfig *virtconfig.ClusterConfig
-
-		BeforeEach(func() {
-			const (
-				kubevirtCRName    = "kubevirt"
-				kubevirtNamespace = "kubevirt"
-			)
-
-			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
-			kv.Namespace = kubevirtNamespace
-
-			clusterConfig = newClusterConfig(kv)
-		})
 
 		It("should generate the Multus networks annotation", func() {
 			vmi := libvmi.New(
@@ -131,6 +132,37 @@ var _ = Describe("Annotations Generator", func() {
 
 			Expect(annotations).To(HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, expectedValue))
 		})
+	})
+
+	Context("Istio annotations", func() {
+		It("should generate Istio annotation when VMI is connected to pod network using masquerade binding", func() {
+			vmi := libvmi.New(
+				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations, err := generator.Generate(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(annotations).To(HaveKeyWithValue(istio.KubeVirtTrafficAnnotation, "k6t-eth0"))
+		})
+
+		DescribeTable("should not generate Istio annotation", func(vmi *v1.VirtualMachineInstance) {
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations, err := generator.Generate(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(annotations).To(Not(HaveKey(istio.KubeVirtTrafficAnnotation)))
+		},
+			Entry("when VMI is not connected any network", libvmi.New()),
+			Entry("when VMI is connected to pod network and not using masquerade binding",
+				libvmi.New(
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				),
+			),
+		)
 	})
 })
 
