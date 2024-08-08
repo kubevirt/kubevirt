@@ -123,6 +123,10 @@ type netBindingPluginMemoryCalculator interface {
 	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
 }
 
+type annotationsGenerator interface {
+	Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error)
+}
+
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -155,6 +159,7 @@ type templateService struct {
 
 	sidecarCreators                  []SidecarCreatorFunc
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
+	annotationsGenerators            []annotationsGenerator
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -516,7 +521,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, sidecarContainer)
 	}
 
-	podAnnotations, err := generatePodAnnotations(vmi, t.clusterConfig)
+	podAnnotations, err := t.generatePodAnnotations(vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -1324,7 +1329,7 @@ func generateContainerSecurityContext(selinuxType string, container *k8sv1.Conta
 	container.SecurityContext.SELinuxOptions.Level = "s0"
 }
 
-func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) (map[string]string, error) {
+func (t *templateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 	annotationsSet := map[string]string{
 		v1.DomainAnnotation: vmi.GetObjectMeta().GetName(),
 	}
@@ -1336,7 +1341,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
+	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, t.clusterConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -1366,6 +1371,15 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	// unix sockets as a transport for migration
 	annotationsSet[v1.MigrationTransportUnixAnnotation] = "true"
 	annotationsSet[descheduler.EvictOnlyAnnotation] = ""
+
+	for _, generator := range t.annotationsGenerators {
+		annotations, err := generator.Generate(vmi)
+		if err != nil {
+			return nil, err
+		}
+
+		maps.Copy(annotationsSet, annotations)
+	}
 
 	return annotationsSet, nil
 }
@@ -1539,5 +1553,11 @@ func readinessGates() []k8sv1.PodReadinessGate {
 func WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator) templateServiceOption {
 	return func(service *templateService) {
 		service.netBindingPluginMemoryCalculator = netBindingPluginMemoryCalculator
+	}
+}
+
+func WithAnnotationsGenerators(generators ...annotationsGenerator) templateServiceOption {
+	return func(service *templateService) {
+		service.annotationsGenerators = append(service.annotationsGenerators, generators...)
 	}
 }

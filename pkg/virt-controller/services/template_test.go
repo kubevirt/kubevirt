@@ -20,6 +20,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -5100,6 +5101,163 @@ var _ = Describe("Template", func() {
 			Expect(netBindingPluginMemoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
 		})
 	})
+
+	Context("Custom annotations Generation", func() {
+		const (
+			testNamespace = "default"
+
+			generator1Key1   = "generator1Key1"
+			generator1Value1 = "generator1Value1"
+			generator1Key2   = "generator1Key2"
+			generator1Value2 = "generator1Value2"
+
+			generator2Key1   = "generator2Key1"
+			generator2Value1 = "generator2Value1"
+			generator2Key2   = "generator2Key2"
+			generator2Value2 = "generator2Value2"
+		)
+
+		var (
+			generator1Annotations map[string]string
+			generator2Annotations map[string]string
+
+			generator1Err = errors.New("generator1 failed")
+			generator2Err = errors.New("generator2 failed")
+		)
+
+		BeforeEach(func() {
+			generator1Annotations = map[string]string{
+				generator1Key1: generator1Value1,
+				generator1Key2: generator1Value2,
+			}
+
+			generator2Annotations = map[string]string{
+				generator2Key1: generator2Value1,
+				generator2Key2: generator2Value2,
+			}
+		})
+
+		It("Should call all registered annotation generators", func() {
+			generator1 := stubAnnotationsGenerator{annotations: generator1Annotations}
+			generator2 := stubAnnotationsGenerator{annotations: generator2Annotations}
+
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithAnnotationsGenerators(generator1, generator2),
+			)
+
+			vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Annotations).To(HaveKeyWithValue(generator1Key1, generator1Value1))
+			Expect(pod.Annotations).To(HaveKeyWithValue(generator1Key1, generator1Value1))
+			Expect(pod.Annotations).To(HaveKeyWithValue(generator2Key1, generator2Value1))
+			Expect(pod.Annotations).To(HaveKeyWithValue(generator2Key2, generator2Value2))
+		})
+
+		DescribeTable("Should fail when the first generator failure is encountered", func(generator1, generator2 stubAnnotationsGenerator, expectedErr error) {
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithAnnotationsGenerators(generator1, generator2),
+			)
+
+			vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
+
+			_, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).To(MatchError(expectedErr))
+		},
+			Entry("When the last generator fails",
+				stubAnnotationsGenerator{
+					annotations: generator1Annotations,
+				},
+				stubAnnotationsGenerator{
+					annotations:   generator2Annotations,
+					generationErr: generator2Err,
+				},
+				generator2Err,
+			),
+			Entry("When all generators fail",
+				stubAnnotationsGenerator{
+					annotations:   generator1Annotations,
+					generationErr: generator1Err,
+				},
+				stubAnnotationsGenerator{
+					annotations:   generator2Annotations,
+					generationErr: generator2Err,
+				},
+				generator1Err,
+			),
+		)
+
+		It("Last generator overrides previously generated key/value pairs", func() {
+			const (
+				sharedKey = "sharedKey"
+				val1      = "val1"
+				val2      = "val2"
+			)
+
+			generator1 := stubAnnotationsGenerator{
+				annotations: map[string]string{sharedKey: val1},
+			}
+
+			generator2 := stubAnnotationsGenerator{
+				annotations: map[string]string{sharedKey: val2},
+			}
+
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithAnnotationsGenerators(generator1, generator2),
+			)
+
+			vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Annotations).To(HaveKeyWithValue(sharedKey, val2))
+		})
+	})
 })
 
 func networkInfoAnnotVolume() k8sv1.Volume {
@@ -5234,4 +5392,13 @@ func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineI
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}
+}
+
+type stubAnnotationsGenerator struct {
+	annotations   map[string]string
+	generationErr error
+}
+
+func (sag stubAnnotationsGenerator) Generate(_ *v1.VirtualMachineInstance) (map[string]string, error) {
+	return sag.annotations, sag.generationErr
 }
