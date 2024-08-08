@@ -1337,22 +1337,6 @@ func (t *templateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance)
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
-	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.State != v1.InterfaceStateAbsent
-	})
-	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, t.clusterConfig)
-	if err != nil {
-		return nil, err
-	}
-	if multusAnnotation != "" {
-		annotationsSet[networkv1.NetworkAttachmentAnnot] = multusAnnotation
-	}
-
-	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
-		annotationsSet[multus.DefaultNetworkCNIAnnotation] = multusDefaultNetwork
-	}
-
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
 		annotationsSet[istio.KubeVirtTrafficAnnotation] = "k6t-eth0"
 	}
@@ -1382,15 +1366,6 @@ func (t *templateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance)
 	}
 
 	return annotationsSet, nil
-}
-
-func lookupMultusDefaultNetworkName(networks []v1.Network) string {
-	for _, network := range networks {
-		if network.Multus != nil && network.Multus.Default {
-			return network.Multus.NetworkName
-		}
-	}
-	return ""
 }
 
 func filterVMIAnnotationsForPod(vmiAnnotations map[string]string) map[string]string {
