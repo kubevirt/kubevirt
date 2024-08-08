@@ -510,7 +510,10 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (bool, error) {
 	if vmeInfo.ShouldCreate {
 		if err := CreateVirtualMachineExport(client, vmeInfo); err != nil {
-			if !errExportAlreadyExists(err) {
+			if errExportAlreadyExists(err) {
+				// Don't delete VMExports that already exist unless specified explicitely
+				vmeInfo.KeepVme = true
+			} else {
 				return false, err
 			}
 		}
