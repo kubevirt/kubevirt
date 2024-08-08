@@ -12,9 +12,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: alpine
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
@@ -35,11 +37,14 @@ metadata:
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
     tags: hidden,kubevirt,linux,centos-stream
   labels:
+    instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: centos.7
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
@@ -60,11 +65,14 @@ metadata:
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
     tags: hidden,kubevirt,linux,centos-stream
   labels:
+    instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: centos.7.desktop
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
@@ -82,7 +90,7 @@ kind: VirtualMachineClusterPreference
 metadata:
   annotations:
     iconClass: icon-centos
-    openshift.io/display-name: CentOS Stream 8
+    openshift.io/display-name: CentOS Stream 10
     openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
     openshift.io/provider-display-name: KubeVirt
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
@@ -90,9 +98,73 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: centos.stream10
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredDiskDedicatedIoThread: true
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 1.5Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-centos
+    openshift.io/display-name: CentOS Stream 10
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,linux,centos-stream
+  labels:
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: centos.stream10.desktop
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredAutoattachInputDevice: true
+    preferredDiskBus: virtio
+    preferredDiskDedicatedIoThread: true
+    preferredInputBus: virtio
+    preferredInputType: tablet
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 1.5Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-centos
+    openshift.io/display-name: CentOS Stream 8
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,linux,centos-stream
+  labels:
+    instancetype.kubevirt.io/deprecated: "true"
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: centos.stream8
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
@@ -113,11 +185,14 @@ metadata:
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
     tags: hidden,kubevirt,linux,centos-stream
   labels:
+    instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: centos.stream8.desktop
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
@@ -141,13 +216,19 @@ metadata:
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
     tags: hidden,kubevirt,linux,centos-stream,dpdk
   labels:
+    instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: centos.stream8.dpdk
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: preferSpread
+    spreadOptions:
+      across: SocketsCoresThreads
+      ratio: 4
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
@@ -171,9 +252,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: centos.stream9
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredDiskDedicatedIoThread: true
@@ -198,9 +281,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: centos.stream9.desktop
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
@@ -228,11 +313,16 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: centos.stream9.dpdk
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: preferSpread
+    spreadOptions:
+      across: SocketsCoresThreads
+      ratio: 4
   devices:
     preferredDiskBus: virtio
     preferredDiskDedicatedIoThread: true
@@ -258,9 +348,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: cirros
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
@@ -275,20 +367,24 @@ kind: VirtualMachineClusterPreference
 metadata:
   annotations:
     iconClass: icon-fedora
-    openshift.io/display-name: Fedora
+    openshift.io/display-name: Fedora (amd64)
     openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
     openshift.io/provider-display-name: KubeVirt
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
     tags: hidden,kubevirt,fedora
   labels:
+    instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: fedora
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
+    preferredNetworkInterfaceMultiQueue: true
     preferredRng: {}
   features:
     preferredSmm: {}
@@ -305,6 +401,155 @@ apiVersion: instancetype.kubevirt.io/v1beta1
 kind: VirtualMachineClusterPreference
 metadata:
   annotations:
+    iconClass: icon-fedora
+    openshift.io/display-name: Fedora (arm64)
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,fedora
+  labels:
+    instancetype.kubevirt.io/arch: arm64
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: fedora.arm64
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio
+    preferredNetworkInterfaceMultiQueue: true
+    preferredRng: {}
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 2Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-opensuse-leap
+    openshift.io/display-name: OpenSUSE Leap
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,opensuse.leap
+  labels:
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: opensuse.leap
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 2Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-opensuse-tumbleweed
+    openshift.io/display-name: OpenSUSE Tumbleweed
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,opensuse.tumbleweed
+  labels:
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: opensuse.tumbleweed
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 2Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-rhel
+    openshift.io/display-name: Red Hat Enterprise Linux 10 Beta (amd64)
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,linux,rhel
+  labels:
+    instancetype.kubevirt.io/arch: amd64
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: rhel.10
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredDiskDedicatedIoThread: true
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: false
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 1.5Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-rhel
+    openshift.io/display-name: Red Hat Enterprise Linux 10 Beta (arm64)
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,linux,rhel
+  labels:
+    instancetype.kubevirt.io/arch: arm64
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: rhel.10.arm64
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredDiskDedicatedIoThread: true
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 1.5Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
     iconClass: icon-rhel
     openshift.io/display-name: Red Hat Enterprise Linux 7
     openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
@@ -314,9 +559,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: rhel.7
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
@@ -339,9 +586,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: rhel.7.desktop
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
@@ -367,9 +616,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: rhel.8
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
@@ -392,9 +643,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: rhel.8.desktop
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
@@ -420,11 +673,16 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: rhel.8.dpdk
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: preferSpread
+    spreadOptions:
+      across: SocketsCoresThreads
+      ratio: 4
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
@@ -440,17 +698,20 @@ kind: VirtualMachineClusterPreference
 metadata:
   annotations:
     iconClass: icon-rhel
-    openshift.io/display-name: Red Hat Enterprise Linux 9
+    openshift.io/display-name: Red Hat Enterprise Linux 9 (amd64)
     openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
     openshift.io/provider-display-name: KubeVirt
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
     tags: hidden,kubevirt,linux,rhel
   labels:
+    instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: rhel.9
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredDiskDedicatedIoThread: true
@@ -472,17 +733,50 @@ kind: VirtualMachineClusterPreference
 metadata:
   annotations:
     iconClass: icon-rhel
-    openshift.io/display-name: Red Hat Enterprise Linux 9
+    openshift.io/display-name: Red Hat Enterprise Linux 9 (arm64)
     openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
     openshift.io/provider-display-name: KubeVirt
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
     tags: hidden,kubevirt,linux,rhel
   labels:
+    instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: rhel.9.arm64
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredDiskDedicatedIoThread: true
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 1.5Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-rhel
+    openshift.io/display-name: Red Hat Enterprise Linux 9 Desktop (amd64)
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,linux,rhel
+  labels:
+    instancetype.kubevirt.io/arch: amd64
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: rhel.9.desktop
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
@@ -507,19 +801,25 @@ kind: VirtualMachineClusterPreference
 metadata:
   annotations:
     iconClass: icon-rhel
-    openshift.io/display-name: Red Hat Enterprise Linux 9
+    openshift.io/display-name: Red Hat Enterprise Linux 9 DPDK (amd64)
     openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
     openshift.io/provider-display-name: KubeVirt
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
     tags: hidden,kubevirt,linux,rhel,dpdk
   labels:
+    instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: rhel.9.dpdk
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: preferSpread
+    spreadOptions:
+      across: SocketsCoresThreads
+      ratio: 4
   devices:
     preferredDiskBus: virtio
     preferredDiskDedicatedIoThread: true
@@ -536,6 +836,77 @@ spec:
       guest: 2
     memory:
       guest: 1.5Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-rhel
+    openshift.io/display-name: Red Hat Enterprise Linux 9 (amd64)
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,linux,rhel,realtime
+  labels:
+    instancetype.kubevirt.io/arch: amd64
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: rhel.9.realtime
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  cpu:
+    preferredCPUTopology: preferSpread
+    spreadOptions:
+      across: SocketsCoresThreads
+  devices:
+    preferredAutoattachGraphicsDevice: false
+    preferredAutoattachMemBalloon: false
+    preferredAutoattachSerialConsole: true
+    preferredDiskBus: virtio
+    preferredDiskDedicatedIoThread: true
+    preferredInterfaceModel: virtio
+    preferredNetworkInterfaceMultiQueue: true
+    preferredRng: {}
+  features:
+    preferredSmm: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 1.5Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-sles
+    openshift.io/display-name: SUSE Linux Enterprise Server
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,sles
+  labels:
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+  name: sles
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 2Gi
 ---
 apiVersion: instancetype.kubevirt.io/v1beta1
 kind: VirtualMachineClusterPreference
@@ -550,9 +921,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: ubuntu
 spec:
+  annotations:
+    vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
@@ -576,9 +949,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.10
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -638,9 +1013,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.10.virtio
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -702,9 +1079,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.11
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -765,9 +1144,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.11.virtio
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -831,9 +1212,11 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.2k12
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -894,9 +1277,11 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.2k12.virtio
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -958,9 +1343,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.2k16
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -1020,9 +1407,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.2k16.virtio
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -1084,9 +1473,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.2k19
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -1146,9 +1537,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.2k19.virtio
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -1210,9 +1603,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.2k22
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
@@ -1273,9 +1668,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.0.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
   name: windows.2k22.virtio
 spec:
+  annotations:
+    vm.kubevirt.io/os: windows
   clock:
     preferredClockOffset:
       utc: {}
