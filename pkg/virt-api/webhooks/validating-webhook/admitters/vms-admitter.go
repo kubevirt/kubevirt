@@ -83,7 +83,7 @@ func (p *authProxy) GetNamespace(name string) (*corev1.Namespace, error) {
 	if err != nil {
 		return nil, err
 	} else if !exists {
-		return nil, fmt.Errorf("namespace %s does not exist", name)
+		return nil, errors.NewNotFound(corev1.Resource("namespace"), name)
 	}
 
 	ns := obj.(*corev1.Namespace).DeepCopy()
@@ -96,7 +96,7 @@ func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, er
 	if err != nil {
 		return nil, err
 	} else if !exists {
-		return nil, fmt.Errorf("dataSource %s does not exist", key)
+		return nil, errors.NewNotFound(cdiv1.Resource("datasource"), key)
 	}
 
 	ds := obj.(*cdiv1.DataSource).DeepCopy()
