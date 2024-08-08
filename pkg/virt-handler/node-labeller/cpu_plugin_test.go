@@ -1,4 +1,4 @@
-//go:build amd64
+//go:build amd64 || s390x
 
 /*
  * This file is part of the KubeVirt project
@@ -22,6 +22,7 @@
 package nodelabeller
 
 import (
+	"runtime"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -62,6 +63,7 @@ var _ = Describe("Node-labeller config", func() {
 			volumePath:              "testdata",
 			domCapabilitiesFileName: "virsh_domcapabilities.xml",
 			hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
+			arch:                    runtime.GOARCH,
 		}
 	})
 
@@ -93,7 +95,8 @@ var _ = Describe("Node-labeller config", func() {
 		err := nlController.loadDomCapabilities()
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(nlController.loadHostSupportedFeatures()).To(Succeed())
+		err = nlController.loadHostSupportedFeatures()
+		Expect(err).ToNot(HaveOccurred())
 
 		cpuModels := nlController.getSupportedCpuModels(nlController.clusterConfig.GetObsoleteCPUModels())
 		cpuFeatures := nlController.getSupportedCpuFeatures()
@@ -101,6 +104,39 @@ var _ = Describe("Node-labeller config", func() {
 		Expect(cpuModels).To(BeEmpty(), "no CPU models are expected to be supported")
 
 		Expect(cpuFeatures).To(HaveLen(4), "number of features doesn't match")
+	})
+
+	It("Should return the cpu features on s390x even without policy='require' property", func() {
+		nlController.arch = "s390x"
+		nlController.volumePath = "testdata/s390x"
+
+		err := nlController.loadHostSupportedFeatures()
+		Expect(err).ToNot(HaveOccurred())
+
+		cpuFeatures := nlController.getSupportedCpuFeatures()
+
+		Expect(cpuFeatures).To(HaveLen(89), "number of features doesn't match")
+	})
+	It("Should return the cpu features on amd64 only with policy='require' property", func() {
+		nlController.arch = "amd64"
+		nlController.volumePath = "testdata/s390x"
+
+		err := nlController.loadHostSupportedFeatures()
+		Expect(err).ToNot(HaveOccurred())
+
+		cpuFeatures := nlController.getSupportedCpuFeatures()
+
+		Expect(cpuFeatures).To(BeEmpty(), "number of features doesn't match")
+	})
+
+	It("Should default to IBM as CPU Vendor on s390x if none is given", func() {
+		nlController.arch = "s390x"
+		nlController.volumePath = "testdata/s390x"
+
+		err := nlController.loadDomCapabilities()
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(nlController.cpuModelVendor).To(Equal("IBM"), "CPU Vendor should be IBM")
 	})
 
 	Context("should return correct host cpu", func() {

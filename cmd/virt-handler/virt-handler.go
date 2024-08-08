@@ -315,8 +315,8 @@ func (app *virtHandlerApp) Run() {
 	}
 	capabilities = nodeLabellerController.HostCapabilities()
 
-	// Node labelling is only relevant on x86_64 arch.
-	if virtconfig.IsAMD64(runtime.GOARCH) {
+	// Node labelling is only relevant on x86_64 and s390x arches.
+	if virtconfig.IsAMD64(runtime.GOARCH) || virtconfig.IsS390X(runtime.GOARCH) {
 		hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
 		go nodeLabellerController.Run(10, stop)
