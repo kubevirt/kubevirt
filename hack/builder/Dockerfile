@@ -5,7 +5,6 @@ ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION=5.3.1
 ENV GIMME_GO_VERSION=1.19.12
-ENV GRADLE_VERSION=6.6
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
 ENV GOLANGCI_LINT_VERSION=v1.46.2
@@ -51,20 +50,16 @@ COPY nsswitch.conf /etc/nsswitch.conf
 # Necessary for generation of HTML-formatted API docs (.adoc)
 RUN gem install asciidoctor
 
+# Generates Asciidoc files from swagger.json
+ADD https://storage.googleapis.com/builddeps/swagger2markup-cli-1.3.3.jar /opt/swagger2markup-cli/swagger2markup-cli-1.3.3.jar
+
 # Necessary for Bazel to find Python inside the container
 #
 # https://github.com/bazelbuild/bazel/issues/8665
 # https://github.com/bazelbuild/bazel/issues/11554
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
-# install gradle (required for swagger)
-RUN wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip && \
-    mkdir /opt/gradle && \
-    unzip -d /opt/gradle gradle-${GRADLE_VERSION}-bin.zip && \
-    rm gradle-${GRADLE_VERSION}-bin.zip
-
-ENV PATH=$PATH:/opt/gradle/gradle-${GRADLE_VERSION}/bin \
-    JAVA_HOME=/usr/lib/jvm/java-11
+ENV JAVA_HOME=/usr/lib/jvm/java-11
 
 # reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
