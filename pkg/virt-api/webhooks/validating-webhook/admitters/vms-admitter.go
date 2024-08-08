@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -61,6 +62,7 @@ type VMsAdmitter struct {
 	VirtClient          kubecli.KubevirtClient
 	DataSourceInformer  cache.SharedIndexInformer
 	NamespaceInformer   cache.SharedIndexInformer
+	DataVolumeInformer  cache.SharedIndexInformer
 	InstancetypeMethods instancetype.Methods
 	ClusterConfig       *virtconfig.ClusterConfig
 	cloneAuthFunc       CloneAuthFunc
@@ -106,6 +108,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 		VirtClient:          client,
 		DataSourceInformer:  informers.DataSourceInformer,
 		NamespaceInformer:   informers.NamespaceInformer,
+		DataVolumeInformer:  informers.DataVolumeInformer,
 		InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: client},
 		ClusterConfig:       clusterConfig,
 		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
@@ -354,12 +357,24 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.Admissi
 			}
 		}
 
-		proxy := &authProxy{client: admitter.VirtClient, dataSourceInformer: admitter.DataSourceInformer, namespaceInformer: admitter.NamespaceInformer}
-		dv := &cdiv1.DataVolume{
+		dv, err := storagetypes.GetDataVolumeFromCache(targetNamespace, dataVolume.Name, admitter.DataVolumeInformer.GetStore())
+		if err != nil {
+			return nil, err
+		}
+		if dv != nil {
+			continue
+		}
+
+		dv = &cdiv1.DataVolume{
 			ObjectMeta: dataVolume.ObjectMeta,
 			Spec:       dataVolume.Spec,
 		}
 		dv.Namespace = targetNamespace
+		proxy := &authProxy{
+			client:             admitter.VirtClient,
+			dataSourceInformer: admitter.DataSourceInformer,
+			namespaceInformer:  admitter.NamespaceInformer,
+		}
 		allowed, message, err := admitter.cloneAuthFunc(dv, ar.Namespace, ar.Name, proxy, targetNamespace, serviceAccountName)
 		if err != nil && err != cdiv1.ErrNoTokenOkay {
 			return nil, err
