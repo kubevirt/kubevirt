@@ -24,6 +24,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -62,5 +63,17 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 		annotations[multus.DefaultNetworkCNIAnnotation] = defaultMultusNetworks[0].Multus.NetworkName
 	}
 
+	if shouldAddIstioKubeVirtAnnotation(vmi) {
+		annotations[istio.KubeVirtTrafficAnnotation] = "k6t-eth0"
+	}
+
 	return annotations, nil
+}
+
+func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
+	interfacesWithMasqueradeBinding := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.Masquerade != nil
+	})
+
+	return len(interfacesWithMasqueradeBinding) > 0
 }
