@@ -95,16 +95,21 @@ var _ = Describe("Common Methods", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(mac).To(BeNil())
 		})
-		It("Should return the spec parsed MAC address", func() {
-			macString := "de-ad-00-00-be-af"
+
+		DescribeTable("Should return the spec parsed MAC address", func(rawMACAddress string) {
 			iface := &v1.Interface{
-				MacAddress: macString,
+				MacAddress: rawMACAddress,
 			}
 			mac, err := RetrieveMacAddressFromVMISpecIface(iface)
 			Expect(err).ToNot(HaveOccurred())
-			expectedMac, _ := net.ParseMAC(macString)
+			expectedMac, _ := net.ParseMAC(rawMACAddress)
 			Expect(mac).To(Equal(&expectedMac))
-		})
+		},
+			Entry("lowercase and colon separated", "de:ad:00:00:be:af"),
+			Entry("uppercase and colon separated", "DE:AD:00:00:BE:AF"),
+			Entry("lowercase and dash separated", "de-ad-00-00-be-af"),
+			Entry("uppercase and dash separated", "DE-AD-00-00-BE-AF"),
+		)
 	})
 	Context("GetFakeBridgeIP function", func() {
 		It("Should return empty string when interface name is not in the interface list", func() {
