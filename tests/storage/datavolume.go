@@ -1067,6 +1067,30 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Entry("with explicit role (all namespaces) snapshot clone", explicitCloneRole, true, false, snapshotCloneMutateFunc, false),
 				Entry("with explicit role (one namespace) snapshot clone", explicitCloneRole, false, true, snapshotCloneMutateFunc, false),
 			)
+
+			It("should skip authorization when DataVolume already exists", func() {
+				cloneRole, cloneRoleBinding = addClonePermission(
+					virtClient,
+					explicitCloneRole,
+					"",
+					"",
+					testsuite.NamespaceTestAlternative,
+				)
+
+				dv := &cdiv1.DataVolume{
+					ObjectMeta: vm.Spec.DataVolumeTemplates[0].ObjectMeta,
+					Spec:       vm.Spec.DataVolumeTemplates[0].Spec,
+				}
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libstorage.EventuallyDV(dv, 90, HaveSucceeded())
+
+				err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				cloneRoleBinding = nil
+
+				createVMSuccess()
+			})
 		})
 	})
 
