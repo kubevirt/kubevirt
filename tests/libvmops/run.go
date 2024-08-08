@@ -21,55 +21,19 @@ package libvmops
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/watcher"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/client-go/kubecli"
 )
-
-func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
-	By("Starting the VirtualMachine")
-	vm, err := updateVMRunningStatus(virtClient, vm, runStrategy)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	By("Waiting for VMI to be running")
-	EventuallyWithOffset(1, ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).Should(BeRunning())
-
-	By("Waiting for VM to be ready")
-	EventuallyWithOffset(1, ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-
-	vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	return vm
-}
-
-func updateVMRunningStatus(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) (*v1.VirtualMachine, error) {
-	patches := patch.New(
-		patch.WithAdd("/spec/running", nil),
-		patch.WithAdd("/spec/runStrategy", string(runStrategy)),
-	)
-	patchData, err := patches.GeneratePayload()
-	if err != nil {
-		return nil, err
-	}
-
-	return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
-}
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	return runVMI(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, watcher.WarningsPolicy{FailOnWarnings: true}, timeout)
