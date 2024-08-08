@@ -546,7 +546,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Expect(newVMInterfaces[0].MacAddress).ToNot(Equal(oldVMInterfaces[0].MacAddress))
 
 					By("Making sure new VM is runnable")
-					libvmops.RunVMAndExpectLaunchWithRunStrategy(virtClient, newVM, v1.RunStrategyAlways)
+					Expect(libvmops.StartVirtualMachine(newVM)).ToNot(BeNil())
 				})
 
 			})
