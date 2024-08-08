@@ -5100,6 +5100,50 @@ var _ = Describe("Template", func() {
 			Expect(netBindingPluginMemoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
 		})
 	})
+
+	Context("Custom annotations Generation", func() {
+		It("Should call annotation generators", func() {
+			const (
+				generator1Key   = "generator1Key"
+				generator1Value = "generator1Value"
+				generator2Key   = "generator2Key"
+				generator2Value = "generator2Value"
+			)
+			testAnnotationGenerator1 := &stubAnnotationGenerator{
+				annotations: map[string]string{generator1Key: generator1Value},
+			}
+			testAnnotationGenerator2 := &stubAnnotationGenerator{
+				annotations: map[string]string{generator2Key: generator2Value},
+			}
+
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithAnnotationsGenerator(testAnnotationGenerator1),
+				WithAnnotationsGenerator(testAnnotationGenerator2),
+			)
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Annotations).To(HaveKeyWithValue(generator1Key, generator1Value))
+			Expect(pod.Annotations).To(HaveKeyWithValue(generator2Key, generator2Value))
+		})
+	})
 })
 
 func networkInfoAnnotVolume() k8sv1.Volume {
@@ -5234,4 +5278,12 @@ func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineI
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}
+}
+
+type stubAnnotationGenerator struct {
+	annotations map[string]string
+}
+
+func (sag stubAnnotationGenerator) Generate(_ *v1.VirtualMachineInstance) (map[string]string, error) {
+	return sag.annotations, nil
 }
