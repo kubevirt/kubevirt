@@ -46,6 +46,7 @@ import (
 
 	cdiClientset "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 
@@ -114,6 +115,7 @@ var (
 	noCreate          bool
 	createPVC         bool
 	forceBind         bool
+	dataSource        bool
 	archiveUpload     bool
 )
 
@@ -168,6 +170,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
 	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", 300, "Seconds to wait for upload pod to start.")
 	cmd.Flags().BoolVar(&forceBind, "force-bind", false, "Force bind the PVC, ignoring the WaitForFirstConsumer logic.")
+	cmd.Flags().BoolVar(&dataSource, "data-source", false, "Create a new DataSource after creating a new DataVolume/PVC.")
 	cmd.Flags().StringVar(&defaultInstancetype, "default-instancetype", "", "The default instance type to associate with the image.")
 	cmd.Flags().StringVar(&defaultInstancetypeKind, "default-instancetype-kind", "", "The default instance type kind to associate with the image.")
 	cmd.Flags().StringVar(&defaultPreference, "default-preference", "", "The default preference to associate with the image.")
@@ -181,25 +184,25 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func usage() string {
 	usage := `  # Upload a local disk image to a newly created DataVolume:
-  {{ProgramName}} image-upload dv fedora-dv --size=10Gi --image-path=/images/fedora30.qcow2
-
-  # Upload a local disk image to an existing DataVolume
-  {{ProgramName}} image-upload dv fedora-dv --no-create --image-path=/images/fedora30.qcow2
-
-  # Upload a local disk image to a newly created PersistentVolumeClaim
-  {{ProgramName}} image-upload pvc fedora-pvc --size=10Gi --image-path=/images/fedora30.qcow2
-
-  # Upload a local disk image to a newly created PersistentVolumeClaim and label it with a default instance type and preference
-  {{ProgramName}} image-upload pvc fedora-pvc --size=10Gi --image-path=/images/fedora30.qcow2 --default-instancetype=n1.medium --default-preference=fedora
-
-  # Upload a local disk image to an existing PersistentVolumeClaim
-  {{ProgramName}} image-upload pvc fedora-pvc --no-create --image-path=/images/fedora30.qcow2
-
-  # Upload to a DataVolume with explicit URL to CDI Upload Proxy
-  {{ProgramName}} image-upload dv fedora-dv --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2
-
-  # Upload a local disk archive to a newly created DataVolume:
-  {{ProgramName}} image-upload dv fedora-dv --size=10Gi --archive-path=/images/fedora30.tar`
+   {{ProgramName}} image-upload dv fedora-dv --size=10Gi --image-path=/images/fedora30.qcow2
+ 
+   # Upload a local disk image to an existing DataVolume
+   {{ProgramName}} image-upload dv fedora-dv --no-create --image-path=/images/fedora30.qcow2
+ 
+   # Upload a local disk image to a newly created PersistentVolumeClaim
+   {{ProgramName}} image-upload pvc fedora-pvc --size=10Gi --image-path=/images/fedora30.qcow2
+ 
+   # Upload a local disk image to a newly created PersistentVolumeClaim and label it with a default instance type and preference
+   {{ProgramName}} image-upload pvc fedora-pvc --size=10Gi --image-path=/images/fedora30.qcow2 --default-instancetype=n1.medium --default-preference=fedora
+ 
+   # Upload a local disk image to an existing PersistentVolumeClaim
+   {{ProgramName}} image-upload pvc fedora-pvc --no-create --image-path=/images/fedora30.qcow2
+ 
+   # Upload to a DataVolume with explicit URL to CDI Upload Proxy
+   {{ProgramName}} image-upload dv fedora-dv --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2
+ 
+   # Upload a local disk archive to a newly created DataVolume:
+   {{ProgramName}} image-upload dv fedora-dv --size=10Gi --archive-path=/images/fedora30.tar`
 	return usage
 }
 
@@ -392,6 +395,13 @@ func (c *command) run(args []string) error {
 		fmt.Printf("Timed out waiting for post upload processing to complete, please check upload pod status for progress\n")
 	} else {
 		fmt.Printf("Uploading %s completed successfully\n", imagePath)
+	}
+
+	if dataSource {
+		err = createDataSource(virtClient, name, namespace)
+		if err != nil {
+			return err
+		}
 	}
 
 	return err
@@ -922,6 +932,37 @@ func handleEventErrors(client kubecli.KubevirtClient, pvcName, dvName, namespace
 				return fmt.Errorf("Claim not valid: %s", event.Message)
 			}
 		}
+	}
+
+	return nil
+}
+
+func createDataSource(client kubecli.KubevirtClient, name, namespace string) error {
+	if defaultPreference == "" {
+		return fmt.Errorf("Failed to create DataSource %s/%s. Set default preference.", namespace, name)
+	}
+
+	ds := &v1beta1.DataSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				instancetypeapi.DefaultInstancetypeLabel: defaultInstancetype,
+				instancetypeapi.DefaultPreferenceLabel:   defaultPreference,
+			},
+		},
+		Spec: v1beta1.DataSourceSpec{
+			Source: v1beta1.DataSourceSource{
+				PVC: &v1beta1.DataVolumeSourcePVC{
+					Name:      name,
+					Namespace: namespace,
+				},
+			},
+		},
+	}
+	_, err := client.CdiClient().CdiV1beta1().DataSources(namespace).Create(context.Background(), ds, metav1.CreateOptions{})
+	if err != nil {
+		return err
 	}
 
 	return nil
