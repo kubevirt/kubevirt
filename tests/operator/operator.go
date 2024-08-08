@@ -662,23 +662,22 @@ spec:
 			Entry("[test_id:6254] deployments",
 
 				func() {
-
-					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+					patchBytes, err := patch.New(
+						patch.WithAdd(
+							"/spec/template/spec/containers/0/env/-",
+							k8sv1.EnvVar{
+								Name:  envVarDeploymentKeyToUpdate,
+								Value: "value",
+							}),
+					).GeneratePayload()
 					Expect(err).ToNot(HaveOccurred())
 
-					vc.Spec.Template.Spec.Containers[0].Env = []k8sv1.EnvVar{
-						{
-							Name:  envVarDeploymentKeyToUpdate,
-							Value: "value",
-						},
-					}
-
-					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
-						return err
-					})
+					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Patch(context.Background(), deploymentName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarDeploymentKeyToUpdate))
+					Expect(vc.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{
+						Name:  envVarDeploymentKeyToUpdate,
+						Value: "value",
+					}))
 				},
 
 				func() runtime.Object {
