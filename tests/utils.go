@@ -42,14 +42,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
@@ -487,23 +485,4 @@ func MountCloudInitFunc(devName string) func(*v1.VirtualMachineInstance) {
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
 	}
-}
-
-func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
-	By("Starting the VirtualMachine")
-
-	p, err := patch.New(
-		patch.WithAdd("/spec/running", nil),
-		patch.WithAdd("/spec/runStrategy", &runStrategy),
-	).GeneratePayload()
-	Expect(err).NotTo(HaveOccurred())
-	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(Exist())
-
-	By("VMI has the running condition")
-	Eventually(ThisVM(updatedVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
-
-	return updatedVM
 }
