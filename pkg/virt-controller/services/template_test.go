@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/network/multus"
+	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -135,6 +135,7 @@ var _ = Describe("Template", func() {
 						return hooks.UnmarshalHookSidecarList(vmi)
 					}),
 				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
+				WithAnnotationsGenerator(netannotations.NewGenerator(config)),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -964,133 +965,6 @@ var _ = Describe("Template", func() {
 			})
 		})
 		Context("with multus annotation", func() {
-			It("should add multus networks in the pod annotation", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
-								Interfaces:     []v1.Interface{{Name: "default"}, {Name: "test1"}, {Name: "other-test1"}},
-							},
-						},
-						Networks: []v1.Network{
-							{Name: "default",
-								NetworkSource: v1.NetworkSource{
-									Multus: &v1.MultusNetwork{NetworkName: "default"},
-								}},
-							{Name: "test1",
-								NetworkSource: v1.NetworkSource{
-									Multus: &v1.MultusNetwork{NetworkName: "test1"},
-								}},
-							{Name: "other-test1",
-								NetworkSource: v1.NetworkSource{
-									Multus: &v1.MultusNetwork{NetworkName: "other-namespace/test1"},
-								}},
-						},
-					},
-				}
-
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations[networkv1.NetworkAttachmentAnnot]
-				Expect(ok).To(BeTrue())
-				expectedIfaces := "[" +
-					"{\"name\":\"default\",\"namespace\":\"default\",\"interface\":\"pod37a8eec1ce1\"}," +
-					"{\"name\":\"test1\",\"namespace\":\"default\",\"interface\":\"pod1b4f0e98519\"}," +
-					"{\"name\":\"test1\",\"namespace\":\"other-namespace\",\"interface\":\"pod49dba5c72f0\"}" +
-					"]"
-				Expect(value).To(Equal(expectedIfaces))
-			})
-			It("should add default multus networks in the multus default-network annotation", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
-								Interfaces:     []v1.Interface{{Name: "default"}, {Name: "test1"}},
-							},
-						},
-						Networks: []v1.Network{
-							{Name: "default",
-								NetworkSource: v1.NetworkSource{
-									Multus: &v1.MultusNetwork{NetworkName: "default", Default: true},
-								}},
-							{Name: "test1",
-								NetworkSource: v1.NetworkSource{
-									Multus: &v1.MultusNetwork{NetworkName: "test1"},
-								}},
-						},
-					},
-				}
-
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations[multus.DefaultNetworkCNIAnnotation]
-				Expect(ok).To(BeTrue())
-				Expect(value).To(Equal("default"))
-				value, ok = pod.Annotations[networkv1.NetworkAttachmentAnnot]
-				Expect(ok).To(BeTrue())
-				Expect(value).To(Equal("[{\"name\":\"test1\",\"namespace\":\"default\",\"interface\":\"pod1b4f0e98519\"}]"))
-			})
-			It("should add MAC address in the pod annotation", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
-								Interfaces: []v1.Interface{
-									{Name: "default"},
-									{
-										Name: "test1",
-										InterfaceBindingMethod: v1.InterfaceBindingMethod{
-											SRIOV: &v1.InterfaceSRIOV{},
-										},
-										MacAddress: "de:ad:00:00:be:af",
-									},
-								},
-							},
-						},
-						Networks: []v1.Network{
-							{Name: "default",
-								NetworkSource: v1.NetworkSource{
-									Multus: &v1.MultusNetwork{NetworkName: "default"},
-								}},
-							{Name: "test1",
-								NetworkSource: v1.NetworkSource{
-									Multus: &v1.MultusNetwork{NetworkName: "test1"},
-								}},
-						},
-					},
-				}
-
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations[networkv1.NetworkAttachmentAnnot]
-				Expect(ok).To(BeTrue())
-				expectedIfaces := "[" +
-					"{\"name\":\"default\",\"namespace\":\"default\",\"interface\":\"pod37a8eec1ce1\"}," +
-					"{\"name\":\"test1\",\"namespace\":\"default\",\"mac\":\"de:ad:00:00:be:af\",\"interface\":\"pod1b4f0e98519\"}" +
-					"]"
-				Expect(value).To(Equal(expectedIfaces))
-			})
 			DescribeTable("should add Multus networks annotation to the migration target pod with interface name scheme similar to the migration source pod",
 				func(migrationSourcePodNetworksAnnotation, expectedTargetPodMultusNetworksAnnotation map[string]string) {
 					config, kvStore, svc = configFactory(defaultArch)
@@ -1164,35 +1038,7 @@ var _ = Describe("Template", func() {
 				),
 			)
 		})
-		Context("with masquerade interface", func() {
-			It("should add the istio annotation", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
-								Interfaces: []v1.Interface{
-									{Name: "default",
-										InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
-								},
-							},
-						},
-					},
-				}
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations[istio.KubeVirtTrafficAnnotation]
-				Expect(ok).To(BeTrue())
-				Expect(value).To(Equal("k6t-eth0"))
-			})
-		})
 		Context("With Istio sidecar.istio.io/inject annotation", func() {
 			var (
 				vmi v1.VirtualMachineInstance
@@ -5100,6 +4946,50 @@ var _ = Describe("Template", func() {
 			Expect(netBindingPluginMemoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
 		})
 	})
+
+	Context("Custom annotations Generation", func() {
+		It("Should call annotation generators", func() {
+			const (
+				generator1Key   = "generator1Key"
+				generator1Value = "generator1Value"
+				generator2Key   = "generator2Key"
+				generator2Value = "generator2Value"
+			)
+			testAnnotationGenerator1 := &stubAnnotationGenerator{
+				annotations: map[string]string{generator1Key: generator1Value},
+			}
+			testAnnotationGenerator2 := &stubAnnotationGenerator{
+				annotations: map[string]string{generator2Key: generator2Value},
+			}
+
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithAnnotationsGenerator(testAnnotationGenerator1),
+				WithAnnotationsGenerator(testAnnotationGenerator2),
+			)
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Annotations).To(HaveKeyWithValue(generator1Key, generator1Value))
+			Expect(pod.Annotations).To(HaveKeyWithValue(generator2Key, generator2Value))
+		})
+	})
 })
 
 func networkInfoAnnotVolume() k8sv1.Volume {
@@ -5234,4 +5124,12 @@ func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineI
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}
+}
+
+type stubAnnotationGenerator struct {
+	annotations map[string]string
+}
+
+func (sag stubAnnotationGenerator) Generate(_ *v1.VirtualMachineInstance) (map[string]string, error) {
+	return sag.annotations, nil
 }
