@@ -1089,6 +1089,12 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 			State: boolToOnOff(source.Pvspinlock.Enabled, true),
 		}
 	}
+	features.PMU = &api.FeatureState{
+		State: "off",
+	}
+	features.VMPort = &api.FeatureState{
+		State: "off",
+	}
 	return nil
 }
 

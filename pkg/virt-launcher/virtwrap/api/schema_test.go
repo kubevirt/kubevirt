@@ -161,6 +161,7 @@ var _ = ginkgo.Describe("Schema", func() {
 			},
 			PVSpinlock: &FeaturePVSpinlock{State: "off"},
 			PMU:        &FeatureState{State: "off"},
+			VMPort:     &FeatureState{State: "off"},
 		}
 		exampleDomain.Spec.SysInfo = &SysInfo{
 			Type: "smbios",
