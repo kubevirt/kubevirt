@@ -166,5 +166,10 @@ func resetToDefaultConfig() {
 		// we can just skip the restore step.
 		return
 	}
+	if ok, _ := CurrentSpecReport().MatchesLabelFilter("kvmanualreset"); ok {
+		// Some expensive tests (especially ordered containers) rely on restoring state themselves
+		// And not have it reverted mid-run
+		return
+	}
 	tests.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
 }
