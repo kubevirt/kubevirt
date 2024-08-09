@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -41,7 +42,7 @@ type VMIRSAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
 
-func (admitter *VMIRSAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *VMIRSAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource.Group, webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource.Resource)
 		return webhookutils.ToAdmissionResponseError(err)

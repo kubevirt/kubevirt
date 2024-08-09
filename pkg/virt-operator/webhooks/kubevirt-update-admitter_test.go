@@ -20,6 +20,7 @@
 package webhooks
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -172,7 +173,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			admitter = NewKubeVirtUpdateAdmitter(nil, clusterConfig)
 		})
 
-		admit := func(kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
+		admit := func(ctx context.Context, kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
 			kvBytes, err := json.Marshal(kubevirt)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -188,13 +189,13 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 					Operation: admissionv1.Update,
 				},
 			}
-			return admitter.Admit(request)
+			return admitter.Admit(ctx, request)
 		}
 
 		const warn = true
 		const warnNotExpected = false
 
-		DescribeTable("usage of mediatedDevicesTypes", func(shouldWarn bool, conf *v1.MediatedDevicesConfiguration) {
+		DescribeTable("usage of mediatedDevicesTypes", func(ctx context.Context, shouldWarn bool, conf *v1.MediatedDevicesConfiguration) {
 			kvObject := v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -206,7 +207,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(kvObject)
+			response := admit(ctx, kvObject)
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
@@ -229,7 +230,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("should not warn if configuration is nil", warnNotExpected, nil),
 		)
 
-		DescribeTable("usage of nodeMediatedDeviceTypes.mediatedDevicesTypes", func(shouldWarn bool, conf *v1.MediatedDevicesConfiguration) {
+		DescribeTable("usage of nodeMediatedDeviceTypes.mediatedDevicesTypes", func(ctx context.Context, shouldWarn bool, conf *v1.MediatedDevicesConfiguration) {
 			kvObject := v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -241,7 +242,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(kvObject)
+			response := admit(ctx, kvObject)
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
@@ -280,7 +281,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("should not warn if configuration nil", warnNotExpected, nil),
 		)
 
-		DescribeTable("should raise warning when a deprecated feature-gate is enabled", func(featureGate, expectedWarning string) {
+		DescribeTable("should raise warning when a deprecated feature-gate is enabled", func(ctx context.Context, featureGate, expectedWarning string) {
 			kv := v1.KubeVirt{}
 			kvBytes, err := json.Marshal(kv)
 			Expect(err).ToNot(HaveOccurred())
@@ -298,7 +299,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			Expect(admitter.Admit(request)).To(Equal(&admissionv1.AdmissionResponse{
+			Expect(admitter.Admit(ctx, request)).To(Equal(&admissionv1.AdmissionResponse{
 				Allowed: true,
 				Warnings: []string{
 					expectedWarning,

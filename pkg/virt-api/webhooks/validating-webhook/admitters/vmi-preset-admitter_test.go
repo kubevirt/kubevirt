@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -38,7 +39,7 @@ import (
 var _ = Describe("Validating VMIPreset Admitter", func() {
 	vmiPresetAdmitter := &VMIPresetAdmitter{}
 
-	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(ctx context.Context, data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -50,7 +51,7 @@ var _ = Describe("Validating VMIPreset Admitter", func() {
 				},
 			},
 		}
-		resp := review(ar)
+		resp := review(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
@@ -61,7 +62,7 @@ var _ = Describe("Validating VMIPreset Admitter", func() {
 			vmiPresetAdmitter.Admit,
 		),
 	)
-	It("reject invalid VirtualMachineInstance spec", func() {
+	It("reject invalid VirtualMachineInstance spec", func(ctx context.Context) {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmiPDomain := &v1.DomainSpec{}
 		vmiDomainByte, _ := json.Marshal(vmi.Spec.Domain)
@@ -90,12 +91,12 @@ var _ = Describe("Validating VMIPreset Admitter", func() {
 			},
 		}
 
-		resp := vmiPresetAdmitter.Admit(ar)
+		resp := vmiPresetAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0]"))
 	})
-	It("should accept valid vmi spec", func() {
+	It("should accept valid vmi spec", func(ctx context.Context) {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
@@ -117,7 +118,7 @@ var _ = Describe("Validating VMIPreset Admitter", func() {
 			},
 		}
 
-		resp := vmiPresetAdmitter.Admit(ar)
+		resp := vmiPresetAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })

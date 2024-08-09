@@ -1,12 +1,12 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,9 +34,9 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		}
 	})
 
-	DescribeTable("should accept valid instancetype", func(version string) {
+	DescribeTable("should accept valid instancetype", func(ctx context.Context, version string) {
 		ar := createInstancetypeAdmissionReview(instancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(ctx, ar)
 
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	},
@@ -45,15 +45,15 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 	)
 
-	It("should reject unsupported version", func() {
+	It("should reject unsupported version", func(ctx context.Context) {
 		ar := createInstancetypeAdmissionReview(instancetypeObj, "unsupportedversion")
-		response := admitter.Admit(ar)
+		response := admitter.Admit(ctx, ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
 	})
 
-	DescribeTable("should reject negative and over 100% memory overcommit values", func(percent int) {
+	DescribeTable("should reject negative and over 100% memory overcommit values", func(ctx context.Context, percent int) {
 		version := instancetypev1beta1.SchemeGroupVersion.Version
 		instancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
 			CPU: instancetypev1beta1.CPUInstancetype{
@@ -65,7 +65,7 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 			},
 		}
 		ar := createInstancetypeAdmissionReview(instancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(ctx, ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 	},
@@ -73,7 +73,7 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		Entry("over 100 percent overcommit", int(150)),
 	)
 
-	It("should reject specs with memory overcommit and hugepages", func() {
+	It("should reject specs with memory overcommit and hugepages", func(ctx context.Context) {
 		version := instancetypev1beta1.SchemeGroupVersion.Version
 		instancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
 			CPU: instancetypev1beta1.CPUInstancetype{
@@ -88,7 +88,7 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 			},
 		}
 		ar := createInstancetypeAdmissionReview(instancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(ctx, ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
@@ -112,9 +112,9 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		}
 	})
 
-	DescribeTable("should accept valid instancetype", func(version string) {
+	DescribeTable("should accept valid instancetype", func(ctx context.Context, version string) {
 		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(ctx, ar)
 
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	},
@@ -122,7 +122,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		Entry("with v1alpha2 version", instancetypev1beta1.SchemeGroupVersion.Version),
 		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 	)
-	It("should reject specs with memory overcommit and hugepages", func() {
+	It("should reject specs with memory overcommit and hugepages", func(ctx context.Context) {
 		version := instancetypev1beta1.SchemeGroupVersion.Version
 		clusterInstancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
 			CPU: instancetypev1beta1.CPUInstancetype{
@@ -137,15 +137,15 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 			},
 		}
 		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(ctx, ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
 	})
 
-	It("should reject unsupported version", func() {
+	It("should reject unsupported version", func(ctx context.Context) {
 		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, "unsupportedversion")
-		response := admitter.Admit(ar)
+		response := admitter.Admit(ctx, ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")

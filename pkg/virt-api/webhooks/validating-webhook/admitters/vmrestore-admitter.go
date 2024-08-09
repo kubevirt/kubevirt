@@ -60,7 +60,7 @@ func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kubev
 }
 
 // Admit validates an AdmissionReview
-func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if ar.Request.Resource.Group != snapshotv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinerestores" {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
@@ -98,7 +98,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			case core.GroupName:
 				switch vmRestore.Spec.Target.Kind {
 				case "VirtualMachine":
-					causes, targetUID, targetVMExists, err = admitter.validateCreateVM(k8sfield.NewPath("spec"), vmRestore)
+					causes, targetUID, targetVMExists, err = admitter.validateCreateVM(ctx, k8sfield.NewPath("spec"), vmRestore)
 					if err != nil {
 						return webhookutils.ToAdmissionResponseError(err)
 					}
@@ -123,6 +123,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 		}
 
 		snapshotCauses, err := admitter.validateSnapshot(
+			ctx,
 			k8sfield.NewPath("spec", "virtualMachineSnapshotName"),
 			ar.Request.Namespace,
 			vmRestore.Spec.VirtualMachineSnapshotName,
@@ -183,13 +184,13 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
-func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, uid *types.UID, targetVMExists bool, err error) {
+func (admitter *VMRestoreAdmitter) validateCreateVM(ctx context.Context, field *k8sfield.Path, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, uid *types.UID, targetVMExists bool, err error) {
 	vmName := vmRestore.Spec.Target.Name
 	namespace := vmRestore.Namespace
 
 	causes = admitter.validatePatches(vmRestore.Spec.Patches, field.Child("patches"))
 
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+	vm, err := admitter.Client.VirtualMachine(namespace).Get(ctx, vmName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// If the target VM does not exist it would be automatically created by the restore controller
 		return nil, nil, false, nil
@@ -263,8 +264,8 @@ func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sf
 	return causes
 }
 
-func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namespace, name string, targetUID *types.UID, targetVMExists bool) ([]metav1.StatusCause, error) {
-	snapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (admitter *VMRestoreAdmitter) validateSnapshot(ctx context.Context, field *k8sfield.Path, namespace, name string, targetUID *types.UID, targetVMExists bool) ([]metav1.StatusCause, error) {
+	snapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(ctx, name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
 			{

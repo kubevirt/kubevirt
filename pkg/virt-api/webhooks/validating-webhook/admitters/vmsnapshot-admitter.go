@@ -56,7 +56,7 @@ func NewVMSnapshotAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kube
 }
 
 // Admit validates an AdmissionReview
-func (admitter *VMSnapshotAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if ar.Request.Resource.Group != snapshotv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinesnapshots" {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
@@ -94,7 +94,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 		case core.GroupName:
 			switch vmSnapshot.Spec.Source.Kind {
 			case "VirtualMachine":
-				causes, err = admitter.validateCreateVM(sourceField.Child("name"), ar.Request.Namespace, vmSnapshot.Spec.Source.Name)
+				causes, err = admitter.validateCreateVM(ctx, sourceField.Child("name"), ar.Request.Namespace, vmSnapshot.Spec.Source.Name)
 				if err != nil {
 					return webhookutils.ToAdmissionResponseError(err)
 				}
@@ -147,8 +147,8 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 	return &reviewResponse
 }
 
-func (admitter *VMSnapshotAdmitter) validateCreateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (admitter *VMSnapshotAdmitter) validateCreateVM(ctx context.Context, field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
+	vm, err := admitter.Client.VirtualMachine(namespace).Get(ctx, name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
 			{

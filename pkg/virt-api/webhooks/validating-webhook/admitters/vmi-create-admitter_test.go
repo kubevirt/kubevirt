@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -98,7 +99,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		disableFeatureGates()
 	})
 
-	It("should reject invalid VirtualMachineInstance spec on create", func() {
+	It("should reject invalid VirtualMachineInstance spec on create", func(ctx context.Context) {
 		vmi := newBaseVmi()
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
@@ -114,12 +115,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			},
 		}
 
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].name"))
 	})
-	It("should reject VMIs without memory after presets were applied", func() {
+	It("should reject VMIs without memory after presets were applied", func(ctx context.Context) {
 		vmi := newBaseVmi()
 		vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 		vmiBytes, _ := json.Marshal(&vmi)
@@ -132,13 +133,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 	})
 
-	It("should allow Clock without Timer", func() {
+	It("should allow Clock without Timer", func(ctx context.Context) {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Clock = &v1.Clock{
 			ClockOffset: v1.ClockOffset{
@@ -157,7 +158,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
@@ -217,7 +218,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	Context("with probes given", func() {
-		It("should reject probes with no probe action configured", func() {
+		It("should reject probes with no probe action configured", func(ctx context.Context) {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.ReadinessProbe = &v1.Probe{InitialDelaySeconds: 2}
 			vmi.Spec.LivenessProbe = &v1.Probe{InitialDelaySeconds: 2}
@@ -234,11 +235,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket, spec.readinessProbe.exec or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket, spec.livenessProbe.exec or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
 		})
-		It("should reject probes with more than one action per probe configured", func() {
+		It("should reject probes with more than one action per probe configured", func(ctx context.Context) {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.ReadinessProbe = &v1.Probe{
 				InitialDelaySeconds: 2,
@@ -270,11 +271,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`spec.readinessProbe must have exactly one probe type set, spec.livenessProbe must have exactly one probe type set`))
 		})
-		It("should accept properly configured readiness and liveness probes", func() {
+		It("should accept properly configured readiness and liveness probes", func(ctx context.Context) {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.ReadinessProbe = &v1.Probe{
 				InitialDelaySeconds: 2,
@@ -301,10 +302,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
-		It("should reject properly configured network-based readiness and liveness probes if no Pod Network is present", func() {
+		It("should reject properly configured network-based readiness and liveness probes if no Pod Network is present", func(ctx context.Context) {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.ReadinessProbe = &v1.Probe{
 				InitialDelaySeconds: 2,
@@ -329,13 +330,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`spec.readinessProbe.tcpSocket is only allowed if the Pod Network is attached, spec.livenessProbe.httpGet is only allowed if the Pod Network is attached`))
 		})
 	})
 
-	It("should accept valid vmi spec on create", func() {
+	It("should accept valid vmi spec on create", func(ctx context.Context) {
 		vmi := newBaseVmi(libvmi.WithContainerDisk("testdisk", "testimage"))
 		vmiBytes, _ := json.Marshal(&vmi)
 
@@ -347,11 +348,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
-	It("should allow unknown fields in the status to allow updates", func() {
+	It("should allow unknown fields in the status to allow updates", func(ctx context.Context) {
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
@@ -360,12 +361,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`))
 	})
 
-	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(ctx context.Context, data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -377,7 +378,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := review(ar)
+		resp := review(ctx, ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
@@ -392,7 +393,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with VirtualMachineInstance metadata", func() {
 		DescribeTable(
 			"Should allow VMI creation with kubevirt.io/ labels only for kubevirt service accounts",
-			func(vmiLabels map[string]string, userAccount string, positive bool) {
+			func(ctx context.Context, vmiLabels map[string]string, userAccount string, positive bool) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Labels = vmiLabels
 				vmiBytes, _ := json.Marshal(&vmi)
@@ -406,7 +407,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						},
 					},
 				}
-				resp := vmiCreateAdmitter.Admit(ar)
+				resp := vmiCreateAdmitter.Admit(ctx, ar)
 				if positive {
 					Expect(resp.Allowed).To(BeTrue())
 				} else {
@@ -1132,7 +1133,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should raise a warning when Deprecated API is used", func() {
+		It("should raise a warning when Deprecated API is used", func(ctx context.Context) {
 			const testsFGName = "test-deprecated"
 			deprecation.RegisterFeatureGate(deprecation.FeatureGate{
 				Name:        testsFGName,
@@ -1151,7 +1152,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Object: runtime.RawExtension{
 						Raw: vmiJSON}}}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 			Expect(resp.Result).To(BeNil())
 			Expect(resp.Warnings).To(HaveLen(1))
@@ -3099,7 +3100,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi = api.NewMinimalVMI("testvmi")
 			vmi.Spec.Affinity = &k8sv1.Affinity{}
 		})
-		It("Allow to create when spec.affinity set to nil", func() {
+		It("Allow to create when spec.affinity set to nil", func(ctx context.Context) {
 			vmi.Spec.Affinity = nil
 			vmiBytes, _ := json.Marshal(&vmi)
 
@@ -3112,11 +3113,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(PodAffinity) Allowed PreferredDuringSchedulingIgnoredDuringExecution and RequiredDuringSchedulingIgnoredDuringExecution both are not set", func() {
+		It("(PodAffinity) Allowed PreferredDuringSchedulingIgnoredDuringExecution and RequiredDuringSchedulingIgnoredDuringExecution both are not set", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: nil,
 				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
@@ -3132,11 +3133,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(PodAffinity) Should reject when validation failed due to TopologyKey is set to empty", func() {
+		It("(PodAffinity) Should reject when validation failed due to TopologyKey is set to empty", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3163,7 +3164,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(3))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
@@ -3174,7 +3175,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[2].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(PodAffinity) Should reject when validation failed due to first element of Values slice is set to empty as well as TopologyKey", func() {
+		It("(PodAffinity) Should reject when validation failed due to first element of Values slice is set to empty as well as TopologyKey", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3202,7 +3203,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(3))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
@@ -3213,7 +3214,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[2].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(PodAffinity) Should reject when validation failed due to values of MatchExpressions is set to empty and TopologyKey value is not valid", func() {
+		It("(PodAffinity) Should reject when validation failed due to values of MatchExpressions is set to empty and TopologyKey value is not valid", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3241,7 +3242,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(2))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
@@ -3250,7 +3251,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"hostname=host1\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(PodAffinity) Should reject when validation failed due to values of MatchExpressions and TopologyKey are both set to empty", func() {
+		It("(PodAffinity) Should reject when validation failed due to values of MatchExpressions and TopologyKey are both set to empty", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3278,7 +3279,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(4))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
@@ -3291,7 +3292,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[3].Message).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(PodAffinity) Should reject when affinity.PodAffinity validation failed due to value of weight is not valid", func() {
+		It("(PodAffinity) Should reject when affinity.PodAffinity validation failed due to value of weight is not valid", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.WeightedPodAffinityTerm{
 					{
@@ -3314,14 +3315,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight"))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight: Invalid value: 255: must be in the range 1-100"))
 		})
 
-		It("(PodAntiAffinity) Allowed both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
+		It("(PodAntiAffinity) Allowed both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: nil,
 				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
@@ -3337,11 +3338,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(PodAntiAffinity) Should reject when scheduler validation failed due to TopologyKey is empty", func() {
+		It("(PodAntiAffinity) Should reject when scheduler validation failed due to TopologyKey is empty", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3369,7 +3370,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(3))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
@@ -3380,7 +3381,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[2].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(PodAntiAffinity) Should be ok with only PreferredDuringSchedulingIgnoredDuringExecution set with proper values", func() {
+		It("(PodAntiAffinity) Should be ok with only PreferredDuringSchedulingIgnoredDuringExecution set with proper values", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.WeightedPodAffinityTerm{
 					{
@@ -3411,11 +3412,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(PodAntiAffinity) Should reject when validation failed due to values of MatchExpressions is set to empty and TopologyKey is not valid", func() {
+		It("(PodAntiAffinity) Should reject when validation failed due to values of MatchExpressions is set to empty and TopologyKey is not valid", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3443,7 +3444,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(2))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
@@ -3452,7 +3453,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"hostname=host1\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(PodAntiAffinity) Should reject when scheduler validation failed due to values of MatchExpressions and TopologyKey are both set to empty", func() {
+		It("(PodAntiAffinity) Should reject when scheduler validation failed due to values of MatchExpressions and TopologyKey are both set to empty", func(ctx context.Context) {
 			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 					{
@@ -3480,7 +3481,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(4))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
@@ -3493,7 +3494,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[3].Message).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey: Invalid value: \"\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("(NodeAffinity) Allowed both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func() {
+		It("(NodeAffinity) Allowed both RequiredDuringSchedulingIgnoredDuringExecution and PreferredDuringSchedulingIgnoredDuringExecution are set to empty", func(ctx context.Context) {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
 				PreferredDuringSchedulingIgnoredDuringExecution: nil,
@@ -3509,11 +3510,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(NodeAffinity) Should reject when scheduler validation failed due to NodeSelectorTerms set to empty", func() {
+		It("(NodeAffinity) Should reject when scheduler validation failed due to NodeSelectorTerms set to empty", func(ctx context.Context) {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 					NodeSelectorTerms: nil,
@@ -3530,7 +3531,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			// webhookutils.ValidateSchema will take over so result will be only a message
@@ -3538,7 +3539,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms in body must be of type array: \"null\""))
 		})
 
-		It("(NodeAffinity) Allowed both MatchExpressions and MatchFields are set to empty", func() {
+		It("(NodeAffinity) Allowed both MatchExpressions and MatchFields are set to empty", func(ctx context.Context) {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -3560,11 +3561,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(NodeAffinity) Should be ok with only MatchExpressions set", func() {
+		It("(NodeAffinity) Should be ok with only MatchExpressions set", func(ctx context.Context) {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -3591,11 +3592,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("(NodeAffinity) Should reject when scheduler validation failed due to NodeSelectorTerms value of key is not valid", func() {
+		It("(NodeAffinity) Should reject when scheduler validation failed due to NodeSelectorTerms value of key is not valid", func(ctx context.Context) {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -3622,13 +3623,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].key"))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].key: Invalid value: \"key\": not a valid field selector key"))
 		})
 
-		It("(NodeAffinity) Should reject when scheduler validation failed due no element in Values slice", func() {
+		It("(NodeAffinity) Should reject when scheduler validation failed due no element in Values slice", func(ctx context.Context) {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -3655,14 +3656,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].values[0]"))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].values[0]: Invalid value: \"\": a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')"))
 		})
 
-		It("(NodeAffinity) Should be ok with only PreferredDuringSchedulingIgnoredDuringExecution set with proper values", func() {
+		It("(NodeAffinity) Should be ok with only PreferredDuringSchedulingIgnoredDuringExecution set with proper values", func(ctx context.Context) {
 			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
 					{
@@ -3690,7 +3691,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3715,14 +3716,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi = api.NewMinimalVMI("testvmi")
 			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{}
 		})
-		It("Allow to create when spec.topologySpreadConstraints set to nil", func() {
+		It("Allow to create when spec.topologySpreadConstraints set to nil", func(ctx context.Context) {
 			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, nil)
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("Allowed LabelSelector is not set", func() {
+		It("Allowed LabelSelector is not set", func(ctx context.Context) {
 			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
@@ -3732,11 +3733,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("Allowed with valid LabelSelector is set", func() {
+		It("Allowed with valid LabelSelector is set", func(ctx context.Context) {
 			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
@@ -3754,11 +3755,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("Should reject when TopologyKey is empty", func() {
+		It("Should reject when TopologyKey is empty", func(ctx context.Context) {
 			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
@@ -3768,14 +3769,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints[0].topologyKey"))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.topologySpreadConstraints[0].topologyKey: Required value: can not be empty"))
 		})
 
-		It("Should reject when TopologyKey is not valid", func() {
+		It("Should reject when TopologyKey is not valid", func(ctx context.Context) {
 			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
@@ -3785,14 +3786,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints[0].topologyKey"))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.topologySpreadConstraints[0].topologyKey: Invalid value: \"hostname=host1\": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"))
 		})
 
-		It("Should reject MaxSkew is not valid", func() {
+		It("Should reject MaxSkew is not valid", func(ctx context.Context) {
 			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           -1,
@@ -3802,14 +3803,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints[0].maxSkew"))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.topologySpreadConstraints[0].maxSkew: Invalid value: -1: must be greater than zero"))
 		})
 
-		It("Should reject when validation failed due to values of MatchExpressions is set to nil", func() {
+		It("Should reject when validation failed due to values of MatchExpressions is set to nil", func(ctx context.Context) {
 			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
@@ -3827,7 +3828,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints.labelSelector.matchExpressions[0].values"))
@@ -3947,7 +3948,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("with CPU hotplug", func() {
 		When("number of sockets higher than maxSockets", func() {
-			It("deny VMI creation", func() {
+			It("deny VMI creation", func(ctx context.Context) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					MaxSockets: 8,
@@ -3965,7 +3966,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				}
 
-				resp := vmiCreateAdmitter.Admit(ar)
+				resp := vmiCreateAdmitter.Admit(ctx, ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.cpu.sockets"))
@@ -3979,7 +3980,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		const useExplicitHyperV, useHyperVPassthrough = true, true
 		const doNotUseExplicitHyperV, doNotUseHyperVPassthrough = false, false
 
-		DescribeTable("Use of hyperV combined with hyperV passthrough is forbidden", func(explicitHyperv, hypervPassthrough, expectValid bool) {
+		DescribeTable("Use of hyperV combined with hyperV passthrough is forbidden", func(ctx context.Context, explicitHyperv, hypervPassthrough, expectValid bool) {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Features = &v1.Features{}
 
@@ -3999,7 +4000,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(ctx, ar)
 
 			if expectValid {
 				Expect(resp.Allowed).To(BeTrue())

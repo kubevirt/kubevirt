@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -47,13 +48,13 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		policyName = "test-policy"
 	})
 
-	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
+	DescribeTable("should reject migration policy with", func(ctx context.Context, policySpec migrationsv1.MigrationPolicySpec) {
 		By("Setting up a new policy")
 		policy := kubecli.NewMinimalMigrationPolicy(policyName)
 		policy.Spec = policySpec
 
 		By("Expecting admitter would not allow it")
-		admitter.admitAndExpect(policy, false)
+		admitter.admitAndExpect(ctx, policy, false)
 	},
 		Entry("negative BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(-123, 1)},
@@ -64,13 +65,13 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		),
 	)
 
-	DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
+	DescribeTable("should accept migration policy with", func(ctx context.Context, policySpec migrationsv1.MigrationPolicySpec) {
 		By("Setting up a new policy")
 		policy := kubecli.NewMinimalMigrationPolicy(policyName)
 		policy.Spec = policySpec
 
 		By("Expecting admitter would allow it")
-		admitter.admitAndExpect(policy, true)
+		admitter.admitAndExpect(ctx, policy, true)
 	},
 		Entry("greater than zero BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(1, 1)},
@@ -114,8 +115,8 @@ func createPolicyAdmissionReview(policy *migrationsv1.MigrationPolicy, namespace
 	return ar
 }
 
-func (admitter *MigrationPolicyAdmitter) admitAndExpect(policy *migrationsv1.MigrationPolicy, expectAllowed bool) {
+func (admitter *MigrationPolicyAdmitter) admitAndExpect(ctx context.Context, policy *migrationsv1.MigrationPolicy, expectAllowed bool) {
 	ar := createPolicyAdmissionReview(policy, policy.Namespace)
-	resp := admitter.Admit(ar)
+	resp := admitter.Admit(ctx, ar)
 	Expect(resp.Allowed).To(Equal(expectAllowed))
 }
