@@ -50,6 +50,7 @@ var _ = Describe("Authorizer", func() {
 			req.Request.Header[userHeader] = []string{"user"}
 			req.Request.Header[groupHeader] = []string{"userGroup"}
 			req.Request.Header[userExtraHeaderPrefix+"test"] = []string{"userExtraValue"}
+			req.Request.Header[userExtraHeaderPrefix+"test%2fencoded"] = []string{"encodedUserExtraValue"}
 
 			server = ghttp.NewServer()
 			config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
