@@ -132,6 +132,67 @@ func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) 
 	return rs
 }
 
+func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
+	virtClient := kubevirt.Client()
+
+	var err error
+	pod, err = virtClient.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(ThisPod(pod), 180).Should(BeInPhase(k8sv1.PodRunning))
+
+	pod, err = ThisPod(pod)()
+	Expect(err).ToNot(HaveOccurred())
+	return pod
+}
+
+func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
+	return RunPodInNamespace(pod, testsuite.GetTestNamespace(pod))
+}
+
+func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
+	virtClient := kubevirt.Client()
+
+	var err error
+	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+
+	pod, err = ThisPod(pod)()
+	Expect(err).ToNot(HaveOccurred())
+	return pod
+}
+
+func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
+	args := []string{fmt.Sprintf(`chmod 640 %s && chown root:root %s && sync`, filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"))}
+
+	By("changing disk.img permissions to non qemu")
+	pod := libstorage.RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
+
+	// overwrite securityContext
+	rootUser := int64(0)
+	pod.Spec.Containers[0].SecurityContext = &k8sv1.SecurityContext{
+		Capabilities: &k8sv1.Capabilities{
+			Drop: []k8sv1.Capability{"ALL"},
+		},
+		Privileged:   pointer.P(true),
+		RunAsUser:    &rootUser,
+		RunAsNonRoot: pointer.P(false),
+	}
+
+	RunPodAndExpectCompletion(pod)
+}
+
+func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
+	dstPath = testsuite.HostPathAlpine + "-nopriv"
+	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
+
+	By("creating an image with without qemu permissions")
+	pod := libpod.RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
+
+	nodeName = RunPodAndExpectCompletion(pod).Spec.NodeName
+	return
+}
+
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
 	// get current vmi
 	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
