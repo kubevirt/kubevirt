@@ -25,6 +25,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
@@ -115,13 +116,25 @@ func (a *authorizor) getUserName(header http.Header) (string, error) {
 	return "", fmt.Errorf("a valid user header is required for authorization")
 }
 
+func hasPrefixIgnoreCase(s, prefix string) bool {
+	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
+}
+
+func unescapeExtraKey(encodedKey string) string {
+	key, err := url.PathUnescape(encodedKey) // Decode %-encoded bytes.
+	if err != nil {
+		return encodedKey // Always record extra strings, even if malformed/unencoded.
+	}
+	return key
+}
+
 func (a *authorizor) getUserExtras(header http.Header) map[string]authv1.ExtraValue {
 	extras := map[string]authv1.ExtraValue{}
 
 	for _, prefix := range a.userExtraHeaderPrefixes {
 		for k, v := range header {
-			if strings.HasPrefix(k, prefix) {
-				extraKey := strings.TrimPrefix(k, prefix)
+			if hasPrefixIgnoreCase(k, prefix) {
+				extraKey := unescapeExtraKey(strings.ToLower(k[len(prefix):]))
 				extras[extraKey] = v
 			}
 		}
