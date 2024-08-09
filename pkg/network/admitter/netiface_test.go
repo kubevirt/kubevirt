@@ -195,8 +195,10 @@ var _ = Describe("Validating VMI network spec", func() {
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	},
-		Entry("valid address", "de:ad:00:00:be:af"),
-		Entry("valid address with '-'", "de-ad-00-00-be-af"),
+		Entry("valid address in lowercase and colon separated", "de:ad:00:00:be:af"),
+		Entry("valid address in uppercase and colon separated", "DE:AD:00:00:BE:AF"),
+		Entry("valid address in lowercase and dash separated", "de-ad-00-00-be-af"),
+		Entry("valid address in uppercase and dash separated", "DE-AD-00-00-BE-AF"),
 	)
 
 	DescribeTable("should reject invalid PCI addresses", func(pciAddress string) {
