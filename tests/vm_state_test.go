@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -42,25 +43,11 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 	})
 
 	Context("with persistent TPM VM option enabled", func() {
-		stopVM := func(vm *v1.VirtualMachine) {
-			By("Stopping the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			EventuallyWithOffset(1, func() error {
-				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
-				return err
-			}, 300*time.Second, 1*time.Second).ShouldNot(Succeed())
-		}
 		startVM := func(vm *v1.VirtualMachine) {
 			By("Starting the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			var vmi *v1.VirtualMachineInstance
-			EventuallyWithOffset(1, func() error {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
-				return err
-			}, 300*time.Second, 1*time.Second).Should(Succeed())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vm = libvmops.StartVirtualMachine(vm)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the firmware is done so we don't send any keystroke to it")
 			err = console.LinuxExpecter(vmi)
@@ -160,7 +147,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				case "migrate":
 					migrateVMI(vmi)
 				case "restart":
-					stopVM(vm)
+					vm = libvmops.StopVirtualMachine(vm)
 					startVM(vm)
 				}
 				if withTPM {

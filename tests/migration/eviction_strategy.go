@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -75,7 +76,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 			})
 
 			It("[test_id:3242]should block the eviction api and migrate", func() {
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 				vmiNodeOrig := vmi.Status.NodeName
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -189,7 +190,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				vmi = fedoraVMIWithEvictionStrategy()
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -299,7 +300,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -325,7 +326,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -351,7 +352,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 
 					node := vmi.Status.NodeName
 					libnode.TemporaryNodeDrain(node)
@@ -412,9 +413,9 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					// Start VMs
-					tests.StartVirtualMachine(vm_evict1)
-					tests.StartVirtualMachine(vm_evict2)
-					tests.StartVirtualMachine(vm_noevict)
+					vm_evict1 = libvmops.StartVirtualMachine(vm_evict1)
+					vm_evict2 = libvmops.StartVirtualMachine(vm_evict2)
+					vm_noevict = libvmops.StartVirtualMachine(vm_noevict)
 
 					// Get VMIs
 					vmi_evict1, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(context.Background(), vmi_evict1.Name, metav1.GetOptions{})
@@ -569,7 +570,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
 
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 					vmiNodeOrig := vmi.Status.NodeName
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
@@ -610,7 +611,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
 					)
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
 					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})

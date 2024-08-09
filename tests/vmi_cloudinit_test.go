@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
@@ -142,7 +143,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(userData)),
 				)
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -181,7 +182,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := libvmifact.NewCirros(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveUserData(userData)))
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
@@ -243,7 +244,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(vm.Namespace).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
-				vm = tests.StartVirtualMachine(vm)
+				vm = libvmops.StartVirtualMachine(vm)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -254,8 +255,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(instanceId).ToNot(BeEmpty())
 
 				By("Restart VM")
-				vm = tests.StopVirtualMachine(vm)
-				tests.StartVirtualMachine(vm)
+				vm = libvmops.StopVirtualMachine(vm)
+				vm = libvmops.StartVirtualMachine(vm)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -273,7 +274,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 
 			runTest := func(vmi *v1.VirtualMachineInstance, dsType cloudinit.DataSourceType) {
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("waiting until login appears")
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -318,7 +319,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			runningVMI := tests.RunVMIAndExpectLaunch(vmi, 60)
+			runningVMI := libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMI = libwait.WaitUntilVMIReady(runningVMI, console.LoginToCirros)
 
 			CheckCloudInitIsoSize(runningVMI, cloudinit.DataSourceNoCloud)

@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/client-go/log"
 
@@ -50,7 +51,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
@@ -97,21 +97,10 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	createAndStartVM := func() *v1.VirtualMachine {
 		By("Creating VirtualMachine")
-		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 		vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(func() bool {
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return false
-			}
-			Expect(err).ToNot(HaveOccurred())
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return vm.Status.Ready && vmi.Status.Phase == v1.Running
-		}, 180*time.Second, time.Second).Should(BeTrue())
-
-		return vm
+		return libvmops.StartVirtualMachine(vm)
 	}
 
 	waitDeleted := func(deleteFunc func() error) {
@@ -468,7 +457,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			previousOutput := verifyMemoryDumpOutput(memoryDumpPVC, "", false)
 
 			By("Stopping VM")
-			vm = tests.StopVirtualMachine(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 
 			// verify the output is still the same even when vm is stopped
 			waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
@@ -486,9 +475,9 @@ var _ = SIGDescribe("Memory dump", func() {
 			previousOutput := verifyMemoryDumpOutput(memoryDumpPVC, "", false)
 
 			By("Stopping VM")
-			vm = tests.StopVirtualMachine(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 			By("Starting VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 
 			waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
 			// verify memory dump didnt reappeared in the VMI
