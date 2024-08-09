@@ -21,6 +21,7 @@ package watcher
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -110,6 +111,12 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 	Expect(w.startType).ToNot(Equal(invalidWatch))
 	resourceVersion := ""
 
+	if w.timeout != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, *w.timeout)
+		defer cancel()
+	}
+
 	switch w.startType {
 	case watchSinceNow:
 		resourceVersion = ""
@@ -122,45 +129,6 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 	}
 
 	cli := kubevirt.Client()
-
-	f := processFunc
-
-	objectRefOption := func(obj *v1.ObjectReference) []interface{} {
-		logParams := make([]interface{}, 0)
-		if obj == nil {
-			return logParams
-		}
-
-		if obj.Namespace != "" {
-			logParams = append(logParams, "namespace", obj.Namespace)
-		}
-		logParams = append(logParams, "name", obj.Name)
-		logParams = append(logParams, "kind", obj.Kind)
-		logParams = append(logParams, "uid", obj.UID)
-
-		return logParams
-	}
-
-	if w.warningPolicy.FailOnWarnings {
-		f = func(event *v1.Event) bool {
-			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
-			if !w.warningPolicy.shouldIgnoreWarning(event) {
-				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
-			}
-			log.Log.With(objectRefOption(&event.InvolvedObject)).Info(msg)
-
-			return processFunc(event)
-		}
-	} else {
-		f = func(event *v1.Event) bool {
-			if event.Type == string(WarningEvent) {
-				log.Log.With(objectRefOption(&event.InvolvedObject)).Reason(fmt.Errorf("warning event received")).Error(event.Message)
-			} else {
-				log.Log.With(objectRefOption(&event.InvolvedObject)).Infof(event.Message)
-			}
-			return processFunc(event)
-		}
-	}
 
 	var selector []string
 	objectMeta := w.object.(metav1.ObjectMetaAccessor)
@@ -177,7 +145,7 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 	}
 
 	eventWatcher, err := cli.CoreV1().Events(v1.NamespaceAll).
-		Watch(context.Background(), metav1.ListOptions{
+		Watch(ctx, metav1.ListOptions{
 			FieldSelector:   fields.ParseSelectorOrDie(strings.Join(selector, ",")).String(),
 			ResourceVersion: resourceVersion,
 		})
@@ -192,14 +160,13 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		for watchEvent := range eventWatcher.ResultChan() {
 			if watchEvent.Type != watch.Error {
 				event := watchEvent.Object.(*v1.Event)
-				if f(event) {
+				if w.checkEvent(event, processFunc) {
 					close(done)
 					break
 				}
 			} else {
-				switch watchEvent.Object.(type) {
+				switch status := watchEvent.Object.(type) {
 				case *metav1.Status:
-					status := watchEvent.Object.(*metav1.Status)
 					//api server sometimes closes connections to Watch() client command
 					//ignore this error, because it will reconnect automatically
 					if status.Message != "an error on the server (\"unable to decode an event from the watch stream: http2: response body closed\") has prevented the request from succeeding" {
@@ -212,19 +179,11 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		}
 	}()
 
-	if w.timeout != nil {
-		select {
-		case <-done:
-		case <-ctx.Done():
-		case <-time.After(*w.timeout):
-			if !w.dontFailOnMissingEvent {
-				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event: %s", w.timeout.Seconds(), watchedDescription), 1)
-			}
-		}
-	} else {
-		select {
-		case <-ctx.Done():
-		case <-done:
+	select {
+	case <-done:
+	case <-ctx.Done():
+		if goerrors.Is(ctx.Err(), context.DeadlineExceeded) && !w.dontFailOnMissingEvent {
+			Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event: %s", w.timeout.Seconds(), watchedDescription), 1)
 		}
 	}
 }
@@ -240,7 +199,7 @@ func (w *ObjectEventWatcher) WaitFor(ctx context.Context, eventType EventType, r
 	return
 }
 
-func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType, reason interface{}) (e *v1.Event) {
+func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType, reason any) (e *v1.Event) {
 	w.dontFailOnMissingEvent = true
 	w.Watch(ctx, func(event *v1.Event) bool {
 		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
@@ -290,3 +249,46 @@ const (
 	// Watch since the resourceVersion passed in to the builder
 	watchSinceResourceVersion startType = "watchSinceResourceVersion"
 )
+
+func objectRefOption(obj *v1.ObjectReference) []any {
+	logParams := make([]interface{}, 0)
+	if obj == nil {
+		return logParams
+	}
+
+	if obj.Namespace != "" {
+		logParams = append(logParams, "namespace", obj.Namespace)
+	}
+	logParams = append(logParams, "name", obj.Name)
+	logParams = append(logParams, "kind", obj.Kind)
+	logParams = append(logParams, "uid", obj.UID)
+
+	return logParams
+}
+
+func (w *ObjectEventWatcher) checkEventFailOnWarnings(event *v1.Event, processFunc ProcessFunc) bool {
+	msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
+	if !w.warningPolicy.shouldIgnoreWarning(event) {
+		ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
+	}
+	log.Log.With(objectRefOption(&event.InvolvedObject)).Info(msg)
+
+	return processFunc(event)
+}
+
+func (w *ObjectEventWatcher) checkEventIgnoreWarnings(event *v1.Event, processFunc ProcessFunc) bool {
+	if event.Type == string(WarningEvent) {
+		log.Log.With(objectRefOption(&event.InvolvedObject)).Reason(fmt.Errorf("warning event received")).Error(event.Message)
+	} else {
+		log.Log.With(objectRefOption(&event.InvolvedObject)).Info(event.Message)
+	}
+	return processFunc(event)
+}
+
+func (w *ObjectEventWatcher) checkEvent(event *v1.Event, processFunc ProcessFunc) bool {
+	if w.warningPolicy.FailOnWarnings {
+		return w.checkEventFailOnWarnings(event, processFunc)
+	} else {
+		return w.checkEventIgnoreWarnings(event, processFunc)
+	}
+}
