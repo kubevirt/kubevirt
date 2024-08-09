@@ -78,7 +78,6 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 
 	Context("should start the realtime VM", func() {
 		BeforeEach(func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 			checks.SkipTestIfNoFeatureGate(virtconfig.CPUManager)
 			checks.SkipTestIfNotRealtimeCapable()
 		})

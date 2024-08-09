@@ -18,7 +18,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -55,7 +54,6 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 	BeforeEach(func() {
 		skipIfNoRealtimePerformanceTests()
 		virtClient = kubevirt.Client()
-		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 	})
 

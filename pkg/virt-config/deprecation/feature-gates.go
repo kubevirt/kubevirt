@@ -43,6 +43,7 @@ const (
 	NonRoot                = "NonRoot"            // GA
 	PSA                    = "PSA"                // GA
 	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
+	NUMAFeatureGate        = "NUMA"               // GA
 	PasstGate              = "Passt"              // Deprecated
 	MacvtapGate            = "Macvtap"            // Deprecated
 )
@@ -62,6 +63,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: NUMAFeatureGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
