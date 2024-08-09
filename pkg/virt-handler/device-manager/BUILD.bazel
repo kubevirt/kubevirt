@@ -45,7 +45,6 @@ go_test(
     srcs = [
         "device_controller_test.go",
         "device_manager_suite_test.go",
-        "generic_device_test.go",
         "mediated_device_test.go",
         "mediated_devices_types_test.go",
         "pci_device_test.go",
