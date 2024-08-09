@@ -56,12 +56,13 @@ import (
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, func() {
+var _ = Describe("[rfe_id:127][crit:medium][arm64][s390x][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, func() {
 
 	var vmi *v1.VirtualMachineInstance
 
@@ -69,6 +70,8 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 		BeforeEach(func() {
 			var err error
 			vmi = libvmifact.NewGuestless()
+			arch := testsuite.TranslateBuildArch()
+			vmi, _ = testsuite.GetVMGuestByArchitecture(arch, vmi, nil)
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
@@ -346,8 +349,16 @@ func (h ResolutionMatcher) NegatedFailureMessage(actual interface{}) (message st
 func getResolution(domain *launcherApi.DomainSpec) (X, Y int) {
 	videoType := domain.Devices.Video[0].Model.Type
 	if videoType == "virtio" {
-		X = 1280
-		Y = 800
+		arch := testsuite.TranslateBuildArch()
+		// Use different resolution for s390x.
+		if checks.IsS390X(arch) {
+			X = 640
+			Y = 480
+		} else {
+			X = 1280
+			Y = 800
+		}
+
 	} else {
 		X = 720
 		Y = 400
