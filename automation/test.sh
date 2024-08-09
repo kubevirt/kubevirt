@@ -90,6 +90,7 @@ elif [[ $TARGET =~ sig-compute-parallel ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
+  export KUBEVIRT_STORAGE="rook-ceph-default"
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
   export KUBEVIRT_WITH_CNAO=true
