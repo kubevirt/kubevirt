@@ -158,6 +158,25 @@ func WithLimitCPU(value string) Option {
 	}
 }
 
+func WithNodeSelector(key, value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.NodeSelector == nil {
+			vmi.Spec.NodeSelector = map[string]string{}
+		}
+		vmi.Spec.NodeSelector[key] = value
+	}
+}
+
+func WithTolerations(tolerations []k8sv1.Toleration) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Tolerations == nil {
+			vmi.Spec.Tolerations = make([]k8sv1.Toleration, 0)
+		}
+
+		vmi.Spec.Tolerations = append(vmi.Spec.Tolerations, tolerations...)
+	}
+}
+
 func WithDownwardMetricsVolume(volumeName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{

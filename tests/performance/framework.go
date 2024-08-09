@@ -32,12 +32,17 @@ var (
 	cyclicTestDurationInSeconds uint
 	RunPerfRealtime             bool
 	realtimeThreshold           uint
+	RunKWOKPerfTests            bool
 )
 
 func init() {
 	flag.BoolVar(&RunPerfTests, "performance-test", false, "run performance tests. If false, all performance tests will be skiped.")
 	if ptest, _ := strconv.ParseBool(os.Getenv("KUBEVIRT_E2E_PERF_TEST")); ptest {
 		RunPerfTests = true
+	}
+	flag.BoolVar(&RunKWOKPerfTests, "kwok-performance-test", false, "run kwok performance tests. If false, all performance tests will be skiped.")
+	if ptest, _ := strconv.ParseBool(os.Getenv("KUBEVIRT_E2E_KWOK_PERF_TEST")); ptest {
+		RunKWOKPerfTests = true
 	}
 	flag.BoolVar(&RunPerfRealtime, "realtime-test", false, "run realtime performance tests only.")
 	if run, _ := strconv.ParseBool(os.Getenv("KUBEVIRT_E2E_REALTIME_PERF_TEST")); run {
@@ -64,6 +69,12 @@ func FSIGDescribe(text string, args ...interface{}) bool {
 func skipIfNoPerformanceTests() {
 	if !RunPerfTests {
 		Skip("Performance tests are not enabled.")
+	}
+}
+
+func skipIfNoKWOKPerformanceTests() {
+	if !RunKWOKPerfTests {
+		Skip("KWOK performance tests are not enabled")
 	}
 }
 

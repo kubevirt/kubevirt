@@ -145,6 +145,9 @@ var _ = ReportBeforeSuite(func(report Report) {
 })
 
 var _ = JustAfterEach(func() {
+	if os.Getenv("KUBEVIRT_E2E_KWOK_PERF_TEST") == "true" {
+		return
+	}
 	k8sReporter.ReportSpec(CurrentSpecReport())
 })
 
