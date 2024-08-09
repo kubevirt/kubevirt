@@ -1,19 +1,87 @@
 package downwardmetrics
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Hostmetrics", func() {
 
-	It("should interpret the proc files as expected", func() {
+	var (
+		tempSysDir string
+	)
+
+	BeforeEach(func() {
+		tempSysDir = GinkgoT().TempDir()
+
+		type topology struct {
+			coreId             string
+			physicalPackageId  string
+			coreSiblingsList   string
+			threadSiblingsList string
+		}
+
+		for i, cpuTopology := range []topology{{
+			coreId:             "0",
+			physicalPackageId:  "0",
+			coreSiblingsList:   "0-5",
+			threadSiblingsList: "0,4",
+		}, {
+			coreId:             "1",
+			physicalPackageId:  "0",
+			coreSiblingsList:   "0-5",
+			threadSiblingsList: "1,5",
+		}, {
+			coreId:             "2",
+			physicalPackageId:  "0",
+			coreSiblingsList:   "0-5",
+			threadSiblingsList: "2",
+		}, {
+			coreId:             "3",
+			physicalPackageId:  "0",
+			coreSiblingsList:   "0-5",
+			threadSiblingsList: "3",
+		}, {
+			coreId:             "0",
+			physicalPackageId:  "0",
+			coreSiblingsList:   "0-5",
+			threadSiblingsList: "1,4",
+		}, {
+			coreId:             "1",
+			physicalPackageId:  "0",
+			coreSiblingsList:   "0-5",
+			threadSiblingsList: "2,5",
+		}, {
+			coreId:             "2",
+			physicalPackageId:  "1",
+			coreSiblingsList:   "6",
+			threadSiblingsList: "6",
+		}, {
+			coreId:             "3",
+			physicalPackageId:  "2",
+			coreSiblingsList:   "7",
+			threadSiblingsList: "7",
+		}} {
+			topologyDir := filepath.Join(tempSysDir, "devices", "system", "cpu",
+				fmt.Sprintf("cpu%d", i), "topology")
+			Expect(os.MkdirAll(topologyDir, os.ModePerm)).To(Succeed())
+
+			Expect(os.WriteFile(filepath.Join(topologyDir, "core_id"), []byte(cpuTopology.coreId), os.ModePerm)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(topologyDir, "physical_package_id"), []byte(cpuTopology.physicalPackageId), os.ModePerm)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(topologyDir, "core_siblings_list"), []byte(cpuTopology.coreSiblingsList), os.ModePerm)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(topologyDir, "thread_siblings_list"), []byte(cpuTopology.threadSiblingsList), os.ModePerm)).To(Succeed())
+		}
+	})
+
+	It("should interpret the proc and sys files as expected", func() {
 		hostmetrics := &hostMetricsCollector{
-			procCPUInfo: "testdata/cpuinfo",
-			procStat:    "testdata/stat",
-			procMemInfo: "testdata/meminfo",
-			procVMStat:  "testdata/vmstat",
-			pageSize:    4096,
+			procPath: "testdata",
+			sysPath:  tempSysDir,
+			pageSize: 4096,
 		}
 
 		metrics := hostmetrics.Collect()
@@ -47,23 +115,59 @@ var _ = Describe("Hostmetrics", func() {
 		Expect(metrics[8].Unit).To(Equal("s"))
 	})
 
-	DescribeTable("should cope with failed reads on stats files and return what it can get for", func(cpuinfo, meminfo, stat, vmstat string, count int) {
-		hostmetrics := &hostMetricsCollector{
-			procCPUInfo: cpuinfo,
-			procStat:    meminfo,
-			procMemInfo: stat,
-			procVMStat:  vmstat,
-			pageSize:    4096,
-		}
+	Context("with testdata copy", func() {
+		var tempDir string
 
-		metrics := hostmetrics.Collect()
-		Expect(metrics).To(HaveLen(count))
+		const (
+			memInfoFile = "meminfo"
+			statFile    = "stat"
+			vmStatFile  = "vmstat"
+		)
 
-	},
-		Entry("cpuinfo", "nonexistent", "testdata/meminfo", "testdata/stat", "testdata/vmstat", 8),
-		Entry("meminfo", "testdata/cpuinfo", "nonexistent", "testdata/stat", "testdata/vmstat", 8),
-		Entry("stat", "testdata/cpuinfo", "testdata/meminfo", "nonexistent", "testdata/vmstat", 5),
-		Entry("vmstat", "testdata/cpuinfo", "testdata/meminfo", "testdata/stat", "nonexistent", 7),
-	)
+		BeforeEach(func() {
+			testBaseDir, err := filepath.Abs("testdata")
+			Expect(err).ToNot(HaveOccurred())
 
+			tempDir = GinkgoT().TempDir()
+			Expect(os.Symlink(filepath.Join(testBaseDir, memInfoFile), filepath.Join(tempDir, memInfoFile))).To(Succeed())
+			Expect(os.Symlink(filepath.Join(testBaseDir, statFile), filepath.Join(tempDir, statFile))).To(Succeed())
+			Expect(os.Symlink(filepath.Join(testBaseDir, vmStatFile), filepath.Join(tempDir, vmStatFile))).To(Succeed())
+		})
+
+		DescribeTable("should cope with missing", func(fileToRemove string, count int) {
+			Expect(os.Remove(filepath.Join(tempDir, fileToRemove))).To(Succeed())
+
+			hostmetrics := &hostMetricsCollector{
+				procPath: tempDir,
+				sysPath:  tempSysDir,
+				pageSize: 4096,
+			}
+			metrics := hostmetrics.Collect()
+			Expect(metrics).To(HaveLen(count))
+		},
+			Entry("meminfo", memInfoFile, 5),
+			Entry("stat", statFile, 8),
+			Entry("vmstat", vmStatFile, 7),
+		)
+
+		It("should cope with missing sys directory", func() {
+			Expect(os.RemoveAll(tempSysDir)).To(Succeed())
+
+			hostmetrics := &hostMetricsCollector{
+				procPath: tempDir,
+				sysPath:  tempSysDir,
+				pageSize: 4096,
+			}
+			metrics := hostmetrics.Collect()
+			Expect(metrics).To(HaveLen(8))
+		})
+	})
+
+	It("should parse vmstat correctly", func() {
+		vmstat, err := readVMStat("testdata/vmstat")
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(vmstat.pswpin).To(Equal(uint64(4313504)), "pswpin not loaded correctly")
+		Expect(vmstat.pswpout).To(Equal(uint64(6813194)), "pswpout not loaded correctly")
+	})
 })

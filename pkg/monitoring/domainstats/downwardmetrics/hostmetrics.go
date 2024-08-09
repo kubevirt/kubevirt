@@ -1,11 +1,16 @@
 package downwardmetrics
 
 import (
+	"bufio"
+	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
-	"github.com/c9s/goprocinfo/linux"
-
+	"github.com/prometheus/procfs"
+	"github.com/prometheus/procfs/sysfs"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
@@ -13,57 +18,98 @@ import (
 )
 
 type hostMetricsCollector struct {
-	procCPUInfo string
-	procStat    string
-	procMemInfo string
-	procVMStat  string
-	pageSize    int
+	procPath string
+	sysPath  string
+	pageSize int
 }
 
-func (h *hostMetricsCollector) hostCPUMetrics() (metrics []api.Metric) {
-	if cpuinfo, err := linux.ReadCPUInfo(h.procCPUInfo); err == nil {
-		metrics = append(metrics,
-			metricspkg.MustToUnitlessHostMetric(cpuinfo.NumPhysicalCPU(), "NumberOfPhysicalCPUs"),
-		)
-	} else {
-		log.Log.Reason(err).Info("failed to collect cpuinfo on the node")
-	}
+func (h *hostMetricsCollector) hostCPUMetrics() []api.Metric {
+	var metrics []api.Metric
+	metrics = append(metrics, h.hostPhysicalCpuCount()...)
 
-	if stat, err := linux.ReadStat(h.procStat); err == nil {
-		// CLK_TCK is a constant on Linux, see e.g.
-		// https://github.com/containerd/cgroups/pull/12
-		var clk_tck float64 = 100
-		cpuTime := float64(stat.CPUStatAll.User+stat.CPUStatAll.Nice+stat.CPUStatAll.System) / clk_tck
+	procFS, err := procfs.NewFS(h.procPath)
+	if err != nil {
+		log.Log.Reason(err).Info("failed to access /proc")
+		return nil
+	}
+	if stat, err := procFS.Stat(); err == nil {
+		cpuTime := stat.CPUTotal.User + stat.CPUTotal.Nice + stat.CPUTotal.System
 		metrics = append(metrics,
 			metricspkg.MustToHostMetric(cpuTime, "TotalCPUTime", "s"),
 		)
 	} else {
 		log.Log.Reason(err).Info("failed to collect cputime on the node")
 	}
-	return
+
+	return metrics
 }
 
-func (h *hostMetricsCollector) hostMemoryMetrics() (metrics []api.Metric) {
-	if memInfo, err := linux.ReadMemInfo(h.procMemInfo); err == nil {
+func (h *hostMetricsCollector) hostPhysicalCpuCount() []api.Metric {
+	sysFS, err := sysfs.NewFS(h.sysPath)
+	if err != nil {
+		log.Log.Reason(err).Info("failed to access /sys")
+		return nil
+	}
+
+	cpus, err := sysFS.CPUs()
+	if err != nil {
+		log.Log.Reason(err).Info("failed to collect cpus on the node")
+		return nil
+	}
+
+	uniquePhysicalIDs := map[string]struct{}{}
+	for _, cpu := range cpus {
+		topology, err := cpu.Topology()
+		if err != nil {
+			log.Log.Reason(err).Info("failed to read cpu topology")
+			return nil
+		}
+		uniquePhysicalIDs[topology.PhysicalPackageID] = struct{}{}
+	}
+
+	return []api.Metric{
+		metricspkg.MustToUnitlessHostMetric(len(uniquePhysicalIDs), "NumberOfPhysicalCPUs"),
+	}
+}
+
+func (h *hostMetricsCollector) hostMemoryMetrics() []api.Metric {
+	fs, err := procfs.NewFS(h.procPath)
+	if err != nil {
+		log.Log.Reason(err).Info("failed to access /proc")
+		return nil
+	}
+
+	var metrics []api.Metric
+
+	if memInfo, err := fs.Meminfo(); err == nil {
+		memFree := derefOrZero(memInfo.MemFree)
+		swapFree := derefOrZero(memInfo.SwapFree)
+		memTotal := derefOrZero(memInfo.MemTotal)
+		swapTotal := derefOrZero(memInfo.SwapTotal)
+		buffers := derefOrZero(memInfo.Buffers)
+		cached := derefOrZero(memInfo.Cached)
+		swapCached := derefOrZero(memInfo.SwapCached)
+
 		metrics = append(metrics,
-			metricspkg.MustToHostMetric(memInfo.MemFree, "FreePhysicalMemory", "KiB"),
-			metricspkg.MustToHostMetric(memInfo.MemFree+memInfo.SwapFree, "FreeVirtualMemory", "KiB"),
-			metricspkg.MustToHostMetric(memInfo.MemTotal-memInfo.MemFree-memInfo.Buffers-memInfo.Cached, "MemoryAllocatedToVirtualServers", "KiB"),
-			metricspkg.MustToHostMetric(memInfo.MemTotal+memInfo.SwapTotal-memInfo.MemFree-memInfo.Cached-memInfo.Buffers-memInfo.SwapCached, "UsedVirtualMemory", "KiB"),
+			metricspkg.MustToHostMetric(memFree, "FreePhysicalMemory", "KiB"),
+			metricspkg.MustToHostMetric(memFree+swapFree, "FreeVirtualMemory", "KiB"),
+			metricspkg.MustToHostMetric(memTotal-memFree-buffers-cached, "MemoryAllocatedToVirtualServers", "KiB"),
+			metricspkg.MustToHostMetric(memTotal+swapTotal-memFree-cached-buffers-swapCached, "UsedVirtualMemory", "KiB"),
 		)
 	} else {
 		log.Log.Reason(err).Info("failed to collect meminfo on the node")
 	}
 
-	if vmstat, err := linux.ReadVMStat(h.procVMStat); err == nil {
+	if vmstat, err := readVMStat(filepath.Join(h.procPath, "vmstat")); err == nil {
 		metrics = append(metrics,
-			metricspkg.MustToHostMetric(vmstat.PageSwapin*uint64(h.pageSize)/1024, "PagedInMemory", "KiB"),
-			metricspkg.MustToHostMetric(vmstat.PageSwapout*uint64(h.pageSize)/1024, "PagedOutMemory", "KiB"),
+			metricspkg.MustToHostMetric(vmstat.pswpin*uint64(h.pageSize)/1024, "PagedInMemory", "KiB"),
+			metricspkg.MustToHostMetric(vmstat.pswpout*uint64(h.pageSize)/1024, "PagedOutMemory", "KiB"),
 		)
 	} else {
 		log.Log.Reason(err).Info("failed to collect vmstat on the node")
 	}
-	return
+
+	return metrics
 }
 
 func (h *hostMetricsCollector) Collect() (metrics []api.Metric) {
@@ -77,10 +123,59 @@ func (h *hostMetricsCollector) Collect() (metrics []api.Metric) {
 
 func defaultHostMetricsCollector() *hostMetricsCollector {
 	return &hostMetricsCollector{
-		procCPUInfo: "/proc/cpuinfo",
-		procStat:    "/proc/stat",
-		procMemInfo: "/proc/meminfo",
-		procVMStat:  "/proc/vmstat",
-		pageSize:    os.Getpagesize(),
+		procPath: "/proc",
+		sysPath:  "/sys",
+		pageSize: os.Getpagesize(),
 	}
+}
+
+func derefOrZero(val *uint64) uint64 {
+	if val == nil {
+		return 0
+	}
+	return *val
+}
+
+type vmStat struct {
+	pswpin  uint64
+	pswpout uint64
+}
+
+// readVMStat reads specific fields from the /proc/vmstat file.
+// We implement it here, because it is not implemented in "github.com/prometheus/procfs"
+// library.
+func readVMStat(path string) (*vmStat, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	result := &vmStat{}
+	s := bufio.NewScanner(f)
+	for s.Scan() {
+		fields := strings.Fields(s.Text())
+		if len(fields) != 2 {
+			return nil, fmt.Errorf("malformed line: %q", s.Text())
+		}
+
+		var resultField *uint64
+		switch fields[0] {
+		case "pswpin":
+			resultField = &(result.pswpin)
+		case "pswpout":
+			resultField = &(result.pswpout)
+		default:
+			continue
+		}
+
+		value, err := strconv.ParseUint(fields[1], 0, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		*resultField = value
+	}
+
+	return result, nil
 }
