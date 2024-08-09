@@ -83,6 +83,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"currentCPUTopology":            "CurrentCPUTopology specifies the current CPU topology used by the VM workload.\nCurrent topology may differ from the desired topology in the spec while CPU hotplug\ntakes place.",
 		"memory":                        "Memory shows various informations about the VirtualMachine memory.\n+optional",
 		"migratedVolumes":               "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
+		"clientPassthrough":             "Clientpassthrough indicates a list of devices that are currently being redirected from remote\ndevices to the running VMI\n+optional",
 	}
 }
 
@@ -435,6 +436,16 @@ func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 		"lastProbeTime":      "+nullable",
 		"lastTransitionTime": "+nullable",
 	}
+}
+
+func (ClientPassthroughStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"usb": "Redirected USB devices\n+optional\n+listType=atomic",
+	}
+}
+
+func (USBDeviceInfo) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (Handler) SwaggerDoc() map[string]string {

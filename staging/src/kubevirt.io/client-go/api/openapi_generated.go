@@ -334,6 +334,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.CertConfig":                                                         schema_kubevirtio_api_core_v1_CertConfig(ref),
 		"kubevirt.io/api/core/v1.Chassis":                                                            schema_kubevirtio_api_core_v1_Chassis(ref),
 		"kubevirt.io/api/core/v1.ClientPassthroughDevices":                                           schema_kubevirtio_api_core_v1_ClientPassthroughDevices(ref),
+		"kubevirt.io/api/core/v1.ClientPassthroughStatus":                                            schema_kubevirtio_api_core_v1_ClientPassthroughStatus(ref),
 		"kubevirt.io/api/core/v1.Clock":                                                              schema_kubevirtio_api_core_v1_Clock(ref),
 		"kubevirt.io/api/core/v1.ClockOffset":                                                        schema_kubevirtio_api_core_v1_ClockOffset(ref),
 		"kubevirt.io/api/core/v1.ClockOffsetUTC":                                                     schema_kubevirtio_api_core_v1_ClockOffsetUTC(ref),
@@ -496,6 +497,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Timer":                                                              schema_kubevirtio_api_core_v1_Timer(ref),
 		"kubevirt.io/api/core/v1.TokenBucketRateLimiter":                                             schema_kubevirtio_api_core_v1_TokenBucketRateLimiter(ref),
 		"kubevirt.io/api/core/v1.TopologyHints":                                                      schema_kubevirtio_api_core_v1_TopologyHints(ref),
+		"kubevirt.io/api/core/v1.USBDeviceInfo":                                                      schema_kubevirtio_api_core_v1_USBDeviceInfo(ref),
 		"kubevirt.io/api/core/v1.USBHostDevice":                                                      schema_kubevirtio_api_core_v1_USBHostDevice(ref),
 		"kubevirt.io/api/core/v1.USBSelector":                                                        schema_kubevirtio_api_core_v1_USBSelector(ref),
 		"kubevirt.io/api/core/v1.UnpauseOptions":                                                     schema_kubevirtio_api_core_v1_UnpauseOptions(ref),
@@ -17382,6 +17384,39 @@ func schema_kubevirtio_api_core_v1_ClientPassthroughDevices(ref common.Reference
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ClientPassthroughStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"usb": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Redirected USB devices",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.USBDeviceInfo"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.USBDeviceInfo"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_Clock(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -23627,6 +23662,33 @@ func schema_kubevirtio_api_core_v1_TopologyHints(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_kubevirtio_api_core_v1_USBDeviceInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vendor": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"product": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"vendor", "product"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_USBHostDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -25969,11 +26031,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							},
 						},
 					},
+					"clientPassthrough": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clientpassthrough indicates a list of devices that are currently being redirected from remote devices to the running VMI",
+							Ref:         ref("kubevirt.io/api/core/v1.ClientPassthroughStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.KernelBootStatus", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.MemoryStatus", "kubevirt.io/api/core/v1.StorageMigratedVolumeInfo", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
+			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.ClientPassthroughStatus", "kubevirt.io/api/core/v1.KernelBootStatus", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.MemoryStatus", "kubevirt.io/api/core/v1.StorageMigratedVolumeInfo", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
 	}
 }
 
