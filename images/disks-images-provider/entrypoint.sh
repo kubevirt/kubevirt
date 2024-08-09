@@ -31,6 +31,9 @@ echo "make the alpine image ready for parallel use"
 cp -r /hostImages/alpine hostImages/alpine1
 cp -r /hostImages/alpine hostImages/alpine2
 cp -r /hostImages/alpine hostImages/alpine3
+cp -r /hostImages/alpine hostImages/alpine4
+cp -r /hostImages/alpine hostImages/alpine5
+cp -r /hostImages/alpine hostImages/alpine6
 rm -rf /hostImages/alpine
 mkdir -p /local-storage/hotplug-test
 cp -r /hostImages/custom/disk.img /local-storage/hotplug-test/disk.img
@@ -40,6 +43,9 @@ echo "make the custom image ready for parallel use"
 cp -r /hostImages/custom hostImages/custom1
 cp -r /hostImages/custom hostImages/custom2
 cp -r /hostImages/custom hostImages/custom3
+cp -r /hostImages/custom hostImages/custom4
+cp -r /hostImages/custom hostImages/custom5
+cp -r /hostImages/custom hostImages/custom6
 rm -rf /hostImages/custom
 chmod -R 777 /hostImages
 
