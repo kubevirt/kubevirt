@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -52,10 +53,10 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
-		tests.WaitForConfigToBePropagatedToComponent(
+		config.WaitForConfigToBePropagatedToComponent(
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,
-			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 
 	})

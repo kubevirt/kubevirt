@@ -69,6 +69,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -549,7 +550,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				config := kv.Spec.Configuration
 				config.DeveloperConfiguration.MemoryOvercommit = 200
-				tests.UpdateKubeVirtConfigValueAndWait(config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
 			It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", func() {
@@ -1326,7 +1327,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 					config := kv.Spec.Configuration
 					config.SupportedGuestAgentVersions = []string{"X.*"}
-					tests.UpdateKubeVirtConfigValueAndWait(config)
+					kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 				})
 
 				It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
@@ -1643,7 +1644,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Configuring a default runtime class")
 				config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 				config.DefaultRuntimeClass = runtimeClassName
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				By("Creating a new VMI")
 				vmi := libvmifact.NewGuestless()
@@ -1677,7 +1678,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				config := kv.Spec.Configuration
 				config.AdditionalGuestMemoryOverheadRatio = &ratioStr
-				tests.UpdateKubeVirtConfigValueAndWait(config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			}
 
 			getComputeMemoryRequest := func(vmi *v1.VirtualMachineInstance) resource.Quantity {
@@ -1876,7 +1877,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
 			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = testEmulatedMachines
 
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 		})
 
 		It("[test_id:3124]should set machine type from VMI spec", func() {
@@ -1931,7 +1932,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
 			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
 			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = testEmulatedMachines
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := libvmifact.NewGuestless()
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -1988,7 +1989,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config := kv.Spec.Configuration
 			configureCPURequest := resource.MustParse("800m")
 			config.CPURequest = &configureCPURequest
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := libvmifact.NewGuestless()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -2010,7 +2011,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{autoCPULimitLabel: "true"},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 		})
 		It("should not set a CPU limit if the namespace doesn't match the selector", func() {
 			By("Creating a running VMI")
@@ -3041,7 +3042,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			// Clear SMBios values if already set in kubevirt-config, for testing default values.
 			test_smbios := &v1.SMBiosConfiguration{Family: "", Product: "", Manufacturer: ""}
 			config.SMBIOSConfig = test_smbios
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -3076,7 +3077,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			// Set a custom test SMBios
 			test_smbios := &v1.SMBiosConfiguration{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
 			config.SMBIOSConfig = test_smbios
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -3199,7 +3200,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			if testingPciFunctions {
 				assignDisksToFunctions(startIndex, vmi)
 			} else {
-				tests.DisableFeatureGate(virtconfig.ExpandDisksGate)
+				kvconfig.DisableFeatureGate(virtconfig.ExpandDisksGate)
 				assignDisksToSlots(startIndex, vmi)
 			}
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})

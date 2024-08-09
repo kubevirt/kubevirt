@@ -64,6 +64,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -141,7 +142,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			kubevirtConfiguration.ArchitectureConfiguration.Arm64.MachineType = testingMachineType
 			kubevirtConfiguration.ArchitectureConfiguration.Ppc64le.MachineType = testingMachineType
 
-			tests.UpdateKubeVirtConfigValueAndWait(kubevirtConfiguration)
+			config.UpdateKubeVirtConfigValueAndWait(kubevirtConfiguration)
 		})
 
 		It("[test_id:3312]should set the default MachineType when created without explicit value", func() {
@@ -1980,8 +1981,8 @@ status:
 				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionTrue(k8sv1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())
 
-			tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", libkubevirt.GetCurrentKv(virtClient).ResourceVersion,
-				tests.ExpectResourceVersionToBeLessEqualThanConfigVersion, 120*time.Second)
+			config.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", libkubevirt.GetCurrentKv(virtClient).ResourceVersion,
+				config.ExpectResourceVersionToBeLessEqualThanConfigVersion, 120*time.Second)
 		})
 
 		It("[Serial] the VMs running in that node should be respawned", func() {

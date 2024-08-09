@@ -35,8 +35,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
@@ -49,9 +49,9 @@ func WakeNodeLabellerUp(virtClient kubecli.KubevirtClient) {
 		kvConfig.ObsoleteCPUModels = make(map[string]bool)
 	}
 	kvConfig.ObsoleteCPUModels[fakeModel] = true
-	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+	config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 	delete(kvConfig.ObsoleteCPUModels, fakeModel)
-	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+	config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 }
 
 func ExpectStoppingNodeLabellerToSucceed(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {

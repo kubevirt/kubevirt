@@ -90,6 +90,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -2342,13 +2343,13 @@ spec:
 	Context("with VMExport feature gate toggled", func() {
 
 		AfterEach(func() {
-			tests.EnableFeatureGate(virtconfig.VMExportGate)
+			config.EnableFeatureGate(virtconfig.VMExportGate)
 			testsuite.WaitExportProxyReady()
 		})
 
 		It("should delete and recreate virt-exportproxy", func() {
 			testsuite.WaitExportProxyReady()
-			tests.DisableFeatureGate(virtconfig.VMExportGate)
+			config.DisableFeatureGate(virtconfig.VMExportGate)
 
 			Eventually(func() error {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
@@ -2366,14 +2367,14 @@ spec:
 
 			enableSeccompFeature := func() {
 				//Disable feature first to simulate addition
-				tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
-				tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				config.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				config.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
 			}
 
 			disableSeccompFeature := func() {
 				//Enable feature first to simulate removal
-				tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
-				tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				config.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				config.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
 			}
 
 			enableKubevirtProfile := func(enable bool) {
@@ -2405,7 +2406,7 @@ spec:
 					VirtualMachineInstanceProfile: vmProfile,
 				}
 
-				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 			}
 
 			It("should install Kubevirt policy", func() {
@@ -2438,7 +2439,7 @@ spec:
 					kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{}
 				}
 				kv.Spec.Configuration.SeccompConfiguration.VirtualMachineInstanceProfile = virtualMachineProfile
-				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Checking launcher seccomp policy")
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
@@ -2506,7 +2507,7 @@ spec:
 			if fgEnabled = checks.HasFeature(virtconfig.CommonInstancetypesDeploymentGate); fgEnabled {
 				// Disable feature gate for cases in which the feature gate was enabled
 				// prior to running any of these tests. (e.g. in downstream)
-				tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				config.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 				testsuite.EnsureKubevirtReady()
 			}
 
@@ -2520,9 +2521,9 @@ spec:
 		AfterEach(func() {
 			// Reset the feature gate to its original value after running any of these tests.
 			if fgEnabled {
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				config.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 			} else {
-				tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				config.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 			}
 			testsuite.EnsureKubevirtReady()
 		})
@@ -2552,7 +2553,7 @@ spec:
 		})
 
 		It("Should deploy common-instancetypes when feature gate is enabled", func() {
-			tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			config.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 			testsuite.EnsureKubevirtReady()
 			expectResourcesToExist()
 		})
@@ -2560,12 +2561,12 @@ spec:
 		It("Should remove common-instancetypes when feature gate is disabled", func() {
 			expectResourcesToNotExist()
 
-			tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			config.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 			testsuite.EnsureKubevirtReady()
 
 			expectResourcesToExist()
 
-			tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			config.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 			testsuite.EnsureKubevirtReady()
 
 			expectResourcesToNotExist()
@@ -2597,7 +2598,7 @@ spec:
 				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, managedByChanged))
 
 				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				config.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 				testsuite.EnsureKubevirtReady()
 
 				By("Verifying virt-operator took ownership of the instancetype")
@@ -2627,7 +2628,7 @@ spec:
 				Expect(preference.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, managedByChanged))
 
 				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				config.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 				testsuite.EnsureKubevirtReady()
 
 				By("Verifying virt-operator took ownership of the preference")
@@ -2641,7 +2642,7 @@ spec:
 		Context("Should delete resources not in install strategy", func() {
 			BeforeEach(func() {
 				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				config.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 				testsuite.EnsureKubevirtReady()
 			})
 
@@ -2703,7 +2704,7 @@ spec:
 
 			It("to instancetypes", func() {
 				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				config.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 				testsuite.EnsureKubevirtReady()
 
 				By("Getting the deployed instancetypes")
@@ -2740,7 +2741,7 @@ spec:
 
 			It("to preferences", func() {
 				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				config.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
 				testsuite.EnsureKubevirtReady()
 
 				By("Getting the deployed preferencess")
