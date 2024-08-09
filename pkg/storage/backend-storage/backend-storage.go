@@ -43,7 +43,7 @@ const (
 	PVCSize   = "10Mi"
 )
 
-func BasePVC(vmi *corev1.VirtualMachineInstance) string {
+func basePVC(vmi *corev1.VirtualMachineInstance) string {
 	return PVCPrefix + "-" + vmi.Name
 }
 
@@ -57,7 +57,7 @@ func PVCForVMI(pvcIndexer cache.Store, vmi *corev1.VirtualMachineInstance) *v1.P
 		if found && vmName == vmi.Name {
 			return pvc
 		}
-		if pvc.Name == BasePVC(vmi) && pvc.Namespace == vmi.Namespace {
+		if pvc.Name == basePVC(vmi) && pvc.Namespace == vmi.Namespace {
 			legacyPVC = pvc
 		}
 	}
@@ -208,15 +208,21 @@ func (bs *BackendStorage) updateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 	})
 }
 
-func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.VirtualMachineInstance) (string, error) {
+func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.VirtualMachineInstance, migrationTarget bool) (string, error) {
 	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
 		return "", nil
 	}
 
-	pvc := PVCForVMI(bs.pvcStore, vmi)
-	if pvc != nil {
-		bs.updateVolumeStatus(vmi, pvc)
-		return pvc.Name, nil
+	if !migrationTarget {
+		// TODO: if the pvc was just created and the pvcStore doesn't yet know about it, we'll create a second PVC...
+		// We probably need an API call instead
+		// TODO 2: on migration, do we need a job with source and target PVCs as volumes to copy the certs over?
+		// Or are they not needed?
+		pvc := PVCForVMI(bs.pvcStore, vmi)
+		if pvc != nil {
+			bs.updateVolumeStatus(vmi, pvc)
+			return pvc.Name, nil
+		}
 	}
 
 	storageClass, err := bs.getStorageClass()
@@ -235,11 +241,10 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
 		}
 	}
-	pvc = &v1.PersistentVolumeClaim{
+	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName:    BasePVC(vmi) + "-",
+			GenerateName:    basePVC(vmi) + "-",
 			OwnerReferences: ownerReferences,
-			Labels:          map[string]string{PVCPrefix: vmi.Name},
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
 			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
@@ -249,6 +254,10 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			StorageClassName: &storageClass,
 			VolumeMode:       &mode,
 		},
+	}
+	if !migrationTarget {
+		// If the PVC is for a migration target, we'll set the label at the end of the migration
+		pvc.Labels = map[string]string{PVCPrefix: vmi.Name}
 	}
 
 	pvc, err = bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})

@@ -31,7 +31,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -98,14 +97,5 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, decorators.RequiresRWXFil
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 		Expect(pvc.Status.AccessModes).To(HaveLen(1))
 		Expect(pvc.Status.AccessModes[0]).To(Equal(k8sv1.ReadWriteOnce))
-
-		By("Expecting the VMI to be non-migratable")
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		cond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
-		Expect(cond).NotTo(BeNil(), "LiveMigratable condition not found")
-		Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
-		Expect(cond.Reason).To(Equal(v1.VirtualMachineInstanceReasonDisksNotMigratable))
-		Expect(cond.Message).To(ContainSubstring("Backend storage PVC is not RWX"))
 	})
 })
