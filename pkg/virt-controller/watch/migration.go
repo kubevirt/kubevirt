@@ -759,11 +759,13 @@ func (c *MigrationController) handleMigrationBackoff(key string, vmi *virtv1.Vir
 	if _, exists := migration.Annotations[virtv1.FuncTestForceIgnoreMigrationBackoffAnnotation]; exists {
 		return nil
 	}
-	if _, exists := migration.Annotations[virtv1.EvacuationMigrationAnnotation]; !exists {
+	_, existsEvacMig := migration.Annotations[virtv1.EvacuationMigrationAnnotation]
+	_, existsWorkUpdMig := migration.Annotations[virtv1.WorkloadUpdateMigrationAnnotation]
+	if !existsEvacMig && !existsWorkUpdMig {
 		return nil
 	}
 
-	migrations, err := c.listEvacuationMigrations(vmi.Namespace, vmi.Name)
+	migrations, err := c.listBackoffEligibleMigrations(vmi.Namespace, vmi.Name)
 	if err != nil {
 		return err
 	}
@@ -1735,11 +1737,20 @@ func (c *MigrationController) listMigrationsMatchingVMI(namespace, name string) 
 	})
 }
 
-func (c *MigrationController) listEvacuationMigrations(namespace string, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+func (c *MigrationController) listBackoffEligibleMigrations(namespace string, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
 	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
-		_, isEvacuation := migration.Annotations[virtv1.EvacuationMigrationAnnotation]
-		return migration.Spec.VMIName == name && isEvacuation
+		return evacuationMigrationsFilter(migration, name) || workloadUpdaterMigrationsFilter(migration, name)
 	})
+}
+
+func evacuationMigrationsFilter(migration *virtv1.VirtualMachineInstanceMigration, name string) bool {
+	_, isEvacuation := migration.Annotations[virtv1.EvacuationMigrationAnnotation]
+	return migration.Spec.VMIName == name && isEvacuation
+}
+
+func workloadUpdaterMigrationsFilter(migration *virtv1.VirtualMachineInstanceMigration, name string) bool {
+	_, isWorkloadUpdater := migration.Annotations[virtv1.WorkloadUpdateMigrationAnnotation]
+	return migration.Spec.VMIName == name && isWorkloadUpdater
 }
 
 func (c *MigrationController) addVMI(obj interface{}) {

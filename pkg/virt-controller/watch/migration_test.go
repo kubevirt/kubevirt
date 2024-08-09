@@ -1984,11 +1984,11 @@ var _ = Describe("Migration watcher", func() {
 	Context("Migration backoff", func() {
 		var vmi *virtv1.VirtualMachineInstance
 
-		It("should be applied after an evacuation migration fails", func() {
+		DescribeTable("should be applied after an evacuation migration fails", func(ann string) {
 			vmi = newVirtualMachine("testvmi", virtv1.Running)
 			failedMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
 			pendingMigration := newMigration("testmigration2", vmi.Name, virtv1.MigrationPending)
-			setEvacuationAnnotation(failedMigration, pendingMigration)
+			setAnnotation(ann, failedMigration, pendingMigration)
 
 			failedMigration.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
 				{
@@ -2007,13 +2007,16 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvent(recorder, "MigrationBackoff")
 			expectMigrationPendingState(pendingMigration.Namespace, pendingMigration.Name)
-		})
+		},
+			Entry("with evacuation annotation", virtv1.EvacuationMigrationAnnotation),
+			Entry("with workload update annotation", virtv1.WorkloadUpdateMigrationAnnotation),
+		)
 
-		It("should not be applied if it is not an evacuation", func() {
+		DescribeTable("should not be applied if it is not an evacuation", func(ann string) {
 			vmi = newVirtualMachine("testvmi", virtv1.Running)
 			failedMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
 			pendingMigration := newMigration("testmigration2", vmi.Name, virtv1.MigrationPending)
-			setEvacuationAnnotation(failedMigration)
+			setAnnotation(ann, failedMigration)
 
 			failedMigration.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
 				{
@@ -2032,14 +2035,17 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, pendingMigration.UID, 1, 0, 0)
-		})
+		},
+			Entry("with evacuation annotation", virtv1.EvacuationMigrationAnnotation),
+			Entry("with workload update annotation", virtv1.WorkloadUpdateMigrationAnnotation),
+		)
 
-		It("should be cleared when a migration succeeds", func() {
+		DescribeTable("should be cleared when a migration succeeds", func(ann string) {
 			vmi = newVirtualMachine("testvmi", virtv1.Running)
 			failedMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
 			successfulMigration := newMigration("testmigration2", vmi.Name, virtv1.MigrationSucceeded)
 			pendingMigration := newMigration("testmigration3", vmi.Name, virtv1.MigrationPending)
-			setEvacuationAnnotation(failedMigration, pendingMigration, successfulMigration)
+			setAnnotation(ann, failedMigration, pendingMigration, successfulMigration)
 
 			failedMigration.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
 				{
@@ -2060,7 +2066,10 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, pendingMigration.UID, 1, 0, 0)
-		})
+		},
+			Entry("with evacuation annotation", virtv1.EvacuationMigrationAnnotation),
+			Entry("with workload update annotation", virtv1.WorkloadUpdateMigrationAnnotation),
+		)
 	})
 
 	Context("Descheduler annotations", func() {
@@ -2088,7 +2097,7 @@ var _ = Describe("Migration watcher", func() {
 			It("should add eviction-in-progress annotation only to source virt-launcher pod", func() {
 				vmi = newVirtualMachine("testvmi", virtv1.Running)
 				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-				setEvacuationAnnotation(migration)
+				setAnnotation(virtv1.EvacuationMigrationAnnotation, migration)
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
@@ -2121,7 +2130,7 @@ var _ = Describe("Migration watcher", func() {
 				migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
 					SourcePod: sourcePod.Name,
 				}
-				setEvacuationAnnotation(migration)
+				setAnnotation(virtv1.EvacuationMigrationAnnotation, migration)
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
@@ -2455,14 +2464,18 @@ func generatePolicyAndAlignVMI(vmi *virtv1.VirtualMachineInstance) *migrationsv1
 	return preparePolicyAndVMIWithNSAndVMILabels(vmi, nil, 1, 0)
 }
 
-func setEvacuationAnnotation(migrations ...*virtv1.VirtualMachineInstanceMigration) {
+func setAnnotation(annotation string, migrations ...*virtv1.VirtualMachineInstanceMigration) {
 	for _, m := range migrations {
+		var key string
+		if annotation == virtv1.EvacuationMigrationAnnotation {
+			key = m.Name
+		}
 		if m.Annotations == nil {
 			m.Annotations = map[string]string{
-				virtv1.EvacuationMigrationAnnotation: m.Name,
+				annotation: key,
 			}
 		} else {
-			m.Annotations[virtv1.EvacuationMigrationAnnotation] = m.Name
+			m.Annotations[annotation] = key
 		}
 	}
 }
