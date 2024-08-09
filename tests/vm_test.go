@@ -347,9 +347,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		It("should not update the vmi generation annotation when the template changes", func() {
 			vm := startVM(virtClient, createVM(virtClient, libvmifact.NewCirros()))
 
-			By("Updating the VM template spec")
-			vm.Spec.Template.ObjectMeta.Labels = map[string]string{"testkey": "testvalue"}
-			_, err := virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			By("Updating the VM template metadata")
+			labelsPatch, err := patch.New(
+				patch.WithReplace("/spec/template/metadata/labels",
+					map[string]string{"testkey": "testvalue"})).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, labelsPatch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			validateGenerationState(vm, 3, 3, 2, 2)
@@ -358,8 +362,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Template.ObjectMeta.Labels["testkey2"] = "testvalue2"
-			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			labelsPatch, err = patch.New(
+				patch.WithAdd("/spec/template/metadata/labels/testkey2", "testvalue2")).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, labelsPatch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			validateGenerationState(vm, 4, 4, 2, 2)
@@ -510,10 +517,18 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Updating the VM template spec")
 			updatedVM := vm.DeepCopy()
-			updatedVM.Spec.Template.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("4096Ki"),
-			}
-			updatedVM, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
+
+			resourcesPatch, err := patch.New(
+				patch.WithAdd("/spec/template/spec/domain/resources",
+					map[string]map[string]string{
+						"requests": {
+							"memory": "4096Ki",
+						},
+					},
+				)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Patch(context.Background(), updatedVM.Name, types.JSONPatchType, resourcesPatch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting the old VirtualMachineInstance spec still running")
@@ -599,10 +614,17 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("4096Ki"),
-				}
-				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
+				resourcesPatch, err := patch.New(
+					patch.WithAdd("/spec/template/spec/domain/resources",
+						map[string]map[string]string{
+							"requests": {
+								"memory": "4096Ki",
+							},
+						},
+					)).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, resourcesPatch, metav1.PatchOptions{})
 				return err
 			}, 10*time.Second, time.Second).ShouldNot(HaveOccurred())
 
@@ -1811,8 +1833,13 @@ status:
 			Eventually(func() error {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				delete(vm.Spec.Template.ObjectMeta.Annotations, v1.FuncTestLauncherFailFastAnnotation)
-				_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				annotationRemovePatch, err := patch.New(
+					patch.WithRemove(
+						fmt.Sprintf("/spec/template/metadata/annotations/%s", patch.EscapeJSONPointer(v1.FuncTestLauncherFailFastAnnotation)),
+					)).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, annotationRemovePatch, metav1.PatchOptions{})
 				return err
 			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
