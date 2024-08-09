@@ -1188,7 +1188,7 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations[istio.ISTIO_KUBEVIRT_ANNOTATION]
+				value, ok := pod.Annotations[istio.KubeVirtTrafficAnnotation]
 				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("k6t-eth0"))
 			})
@@ -1205,7 +1205,7 @@ var _ = Describe("Template", func() {
 						Namespace: "default",
 						UID:       "1234",
 						Annotations: map[string]string{
-							istio.ISTIO_INJECT_ANNOTATION: "true",
+							istio.InjectSidecarAnnotation: "true",
 						},
 					},
 				}
