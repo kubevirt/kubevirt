@@ -144,12 +144,6 @@ func main() {
 		utils.VmiMigration: utils.GetVMIMigration(),
 	}
 
-	var templates = map[string]*utils.Template{
-		utils.VmTemplateFedora:  utils.GetTemplateFedora(),
-		utils.VmTemplateRHEL7:   utils.GetTemplateRHEL7(),
-		utils.VmTemplateWindows: utils.GetTemplateWindows(),
-	}
-
 	var migrationPolicies = map[string]*v1alpha1.MigrationPolicy{
 		utils.MigrationPolicyName: utils.GetMigrationPolicy(),
 	}
@@ -242,11 +236,6 @@ func main() {
 	for name, obj := range migrations {
 		causes := validating_webhook.ValidateVirtualMachineInstanceMigrationSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		handleCauses(causes, name, "vmi preset")
-		handleError(dumpObject(name, *obj))
-	}
-
-	// TODO:(ihar) how to validate templates?
-	for name, obj := range templates {
 		handleError(dumpObject(name, *obj))
 	}
 

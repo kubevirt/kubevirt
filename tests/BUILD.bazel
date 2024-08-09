@@ -101,7 +101,6 @@ go_test(
         "subresource_api_test.go",
         "swap_test.go",
         "sysprep_test.go",
-        "template_test.go",
         "tests_suite_test.go",
         "usbredir_test.go",
         "version_test.go",

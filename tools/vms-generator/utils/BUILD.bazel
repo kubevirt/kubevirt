@@ -2,10 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "types.go",
-        "utils.go",
-    ],
+    srcs = ["utils.go"],
     importpath = "kubevirt.io/kubevirt/tools/vms-generator/utils",
     visibility = ["//visibility:public"],
     deps = [
@@ -19,8 +16,6 @@ go_library(
         "//vendor/k8s.io/api/scheduling/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
