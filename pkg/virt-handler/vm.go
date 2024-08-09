@@ -810,6 +810,9 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		log.Log.Object(vmi).Info("The target node received the running migrated domain")
 		now := metav1.Now()
 		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
+	}
+
+	if migrations.MigrationCompleted(vmi) {
 		d.finalizeMigration(vmiCopy)
 	}
 
