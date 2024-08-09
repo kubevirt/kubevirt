@@ -1053,8 +1053,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				origStatus := ss.Status
 				// zero out the times to be able to compare after
 				clearConditionsTimestamps(origStatus.Conditions)
-				ss.Status = nil
-				ss, err = virtClient.VirtualMachineSnapshot(ss.Namespace).Update(context.Background(), ss, metav1.UpdateOptions{})
+				patchPayload, err := patch.New(patch.WithRemove("/status")).GeneratePayload()
+				Expect(err).NotTo(HaveOccurred())
+				ss, err = virtClient.VirtualMachineSnapshot(ss.Namespace).Patch(context.Background(), ss.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ss.Status).To(BeNil())
 
