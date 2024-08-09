@@ -1,0 +1,27 @@
+{
+  "image": "mcr.microsoft.com/devcontainers/go",
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "64gb"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "version": "latest",
+      "helm": "latest",
+      "minikube": "latest"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.Go",
+        "streetsidesoftware.code-spell-checker",
+      ]
+    },
+    "settings": {
+      "remote.containers.copyGitConfig": true,
+    },
+  }
+}
