@@ -302,6 +302,14 @@ func (c *MigrationController) execute(key string) error {
 	migration := obj.(*virtv1.VirtualMachineInstanceMigration)
 	logger := log.Log.Object(migration)
 
+	vmiObj, vmiExists, err := c.vmiStore.GetByKey(fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName))
+	if err != nil {
+		return err
+	}
+	if vmiExists {
+		vmi = vmiObj.(*virtv1.VirtualMachineInstance)
+	}
+
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(migration) {
@@ -309,12 +317,11 @@ func (c *MigrationController) execute(key string) error {
 		controller.SetLatestApiVersionAnnotation(migration)
 		// Ensure the migration contains our selector label
 		ensureSelectorLabelPresent(migration)
+		// Set the VMI as the owner reference to ensure migrations don't survive VMIs
+		migration.OwnerReferences = []v1.OwnerReference{
+			*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
+		}
 		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(context.Background(), migration, metav1.UpdateOptions{})
-		return err
-	}
-
-	vmiObj, vmiExists, err := c.vmiStore.GetByKey(fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName))
-	if err != nil {
 		return err
 	}
 
@@ -329,7 +336,6 @@ func (c *MigrationController) execute(key string) error {
 		return err
 	}
 
-	vmi = vmiObj.(*virtv1.VirtualMachineInstance)
 	targetPods, err = c.listMatchingTargetPods(migration, vmi)
 	if err != nil {
 		return err
