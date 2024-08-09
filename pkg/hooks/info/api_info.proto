@@ -21,6 +21,6 @@ message InfoResult {
 message HookPoint {
     // name represents name of the subscribed hook point
     string name = 1;
-    // priority is used to sort hooks prior to their execution (second key is the name)
+    // priority is used to sort hooks prior to their execution
     int32 priority = 2;
 }
