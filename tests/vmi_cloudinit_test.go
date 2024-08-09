@@ -151,7 +151,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			Context("with injected ssh-key", func() {
-				It("[test_id:1616]should have ssh-key under authorized keys", func() {
+				It("[test_id:1616][s390x]should have ssh-key under authorized keys", func() {
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
@@ -190,7 +190,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			Context("with injected ssh-key", func() {
-				It("[test_id:3178]should have ssh-key under authorized keys", func() {
+				It("[test_id:3178][s390x]should have ssh-key under authorized keys", func() {
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
@@ -216,7 +216,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				})
 			})
 
-			It("cloud-init instance-id should be stable", func() {
+			It("[s390x]cloud-init instance-id should be stable", func() {
 				getInstanceId := func(vmi *v1.VirtualMachineInstance) (string, error) {
 					cmd := "cat /var/lib/cloud/data/instance-id"
 					instanceId, err := console.RunCommandAndStoreOutput(vmi, cmd, time.Second*30)
