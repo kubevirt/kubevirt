@@ -28,7 +28,7 @@ func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBin
 }
 
 func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role, imageTag string, imageRegistry string, id string) error {
-	if !r.stores.ServiceMonitorEnabled && (role.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
+	if !r.config.ServiceMonitorEnabled && (role.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
 		return nil
 	}
 
@@ -36,7 +36,7 @@ func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role, imageTag string, imag
 }
 
 func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding, imageTag string, imageRegistry string, id string) error {
-	if !r.stores.ServiceMonitorEnabled && (rb.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
+	if !r.config.ServiceMonitorEnabled && (rb.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
 		return nil
 	}
 

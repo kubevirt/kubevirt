@@ -17,7 +17,7 @@ import (
 func (r *Reconciler) createOrUpdateSCC() error {
 	sec := r.clientset.SecClient()
 
-	if !r.stores.IsOnOpenshift {
+	if !r.config.IsOnOpenshift {
 		return nil
 	}
 
