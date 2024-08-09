@@ -94,8 +94,8 @@ func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*s
 func (o *NativeSSHConnection) getAuthMethods(kind, namespace, name string) []ssh.AuthMethod {
 	var methods []ssh.AuthMethod
 
-	methods = o.trySSHAgent(methods)
 	methods = o.tryPrivateKey(methods)
+	methods = o.trySSHAgent(methods)
 
 	methods = append(methods, ssh.PasswordCallback(func() (secret string, err error) {
 		password, err := readPassword(fmt.Sprintf("%s@%s/%s.%s's password: ", o.Options.SSHUsername, kind, name, namespace))
