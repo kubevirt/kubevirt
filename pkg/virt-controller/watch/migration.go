@@ -95,6 +95,8 @@ type MigrationController struct {
 	templateService      services.TemplateService
 	clientset            kubecli.KubevirtClient
 	Queue                workqueue.RateLimitingInterface
+	pendingQueue         []string
+	pendingQueueLock     *sync.Mutex
 	vmiStore             cache.Store
 	podIndexer           cache.Indexer
 	migrationIndexer     cache.Indexer
@@ -136,6 +138,8 @@ func NewMigrationController(templateService services.TemplateService,
 	c := &MigrationController{
 		templateService:      templateService,
 		Queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
+		pendingQueue:         []string{},
+		pendingQueueLock:     &sync.Mutex{},
 		vmiStore:             vmiInformer.GetStore(),
 		podIndexer:           podInformer.GetIndexer(),
 		migrationIndexer:     migrationInformer.GetIndexer(),
@@ -399,6 +403,19 @@ func (c *MigrationController) canMigrateVMI(migration *virtv1.VirtualMachineInst
 
 }
 
+// flushPendingQueue checks if a migration just finished.
+// If it did, it will enqueue all items from the pendingQueue to the main queue and empty the pendingQueue.
+func (c *MigrationController) flushPendingQueue(oldPhase, newPhase virtv1.VirtualMachineInstanceMigrationPhase) {
+	if newPhase != oldPhase && (newPhase == virtv1.MigrationFailed || newPhase == virtv1.MigrationSucceeded) {
+		c.pendingQueueLock.Lock()
+		for _, key := range c.pendingQueue {
+			c.Queue.AddRateLimited(key)
+		}
+		c.pendingQueue = []string{}
+		c.pendingQueueLock.Unlock()
+	}
+}
+
 func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
 
 	var pod *k8sv1.Pod = nil
@@ -506,6 +523,8 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 
 	controller.SetVMIMigrationPhaseTransitionTimestamp(migration, migrationCopy)
 	controller.SetSourcePod(migrationCopy, vmi, c.podIndexer)
+
+	c.flushPendingQueue(migration.Status.Phase, migrationCopy.Status.Phase)
 
 	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
 		err := c.statusUpdater.UpdateStatus(migrationCopy)
@@ -1017,7 +1036,9 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
 		// Let's wait until some migrations are done
-		c.Queue.AddAfter(key, time.Second*5)
+		c.pendingQueueLock.Lock()
+		c.pendingQueue = append(c.pendingQueue, key)
+		c.pendingQueueLock.Unlock()
 		return nil
 	}
 
@@ -1029,9 +1050,11 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 
 	if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
 		// Let's ensure that we only have two outbound migrations per node
-		// XXX: Make this configurable, thinkg about inbound migration limit, bandwidh per migration, and so on.
+		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
-		c.Queue.AddAfter(key, time.Second*5)
+		c.pendingQueueLock.Lock()
+		c.pendingQueue = append(c.pendingQueue, key)
+		c.pendingQueueLock.Unlock()
 		return nil
 	}
 
