@@ -2898,7 +2898,9 @@ type ClusterProfilerRequest struct {
 
 type Matcher interface {
 	GetName() string
+	GetKind() string
 	GetRevisionName() string
+	GetInferFromVolume() string
 }
 
 type InferFromVolumeFailurePolicy string
@@ -2948,8 +2950,16 @@ func (i InstancetypeMatcher) GetName() string {
 	return i.Name
 }
 
+func (i InstancetypeMatcher) GetKind() string {
+	return i.Kind
+}
+
 func (i InstancetypeMatcher) GetRevisionName() string {
 	return i.RevisionName
+}
+
+func (i InstancetypeMatcher) GetInferFromVolume() string {
+	return i.InferFromVolume
 }
 
 // PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.
@@ -2992,8 +3002,16 @@ func (p PreferenceMatcher) GetName() string {
 	return p.Name
 }
 
+func (p PreferenceMatcher) GetKind() string {
+	return p.Kind
+}
+
 func (p PreferenceMatcher) GetRevisionName() string {
 	return p.RevisionName
+}
+
+func (p PreferenceMatcher) GetInferFromVolume() string {
+	return p.InferFromVolume
 }
 
 type LiveUpdateConfiguration struct {
