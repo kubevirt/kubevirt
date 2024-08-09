@@ -67,6 +67,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var (
 		vmsAdmitter         *VMsAdmitter
+		dataVolumeInformer  cache.SharedIndexInformer
 		dataSourceInformer  cache.SharedIndexInformer
 		namespaceInformer   cache.SharedIndexInformer
 		instancetypeMethods *testutils.MockInstancetypeMethods
@@ -110,6 +111,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	runStrategyHalted := v1.RunStrategyHalted
 
 	BeforeEach(func() {
+		dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		namespaceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		ns1 := &k8sv1.Namespace{
@@ -138,6 +140,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmsAdmitter = &VMsAdmitter{
 			VirtClient:          virtClient,
+			DataVolumeInformer:  dataVolumeInformer,
 			DataSourceInformer:  dataSourceInformer,
 			NamespaceInformer:   namespaceInformer,
 			ClusterConfig:       config,
@@ -1394,25 +1397,24 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake"))
 		})
 
-		DescribeTable("should successfully authorize clone", func(arNamespace, vmNamespace, sourceNamespace,
-			serviceAccount, expectedSourceNamespace, expectedTargetNamespace, expectedServiceAccount string) {
-
-			vm := &v1.VirtualMachine{
+		vmDefinitionWithCloneDataVolume := func(vmNamespece, sourceClaimNamespace string) *v1.VirtualMachine {
+			return &v1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmNamespace,
+					Namespace: vmNamespece,
+					Name:      "vm",
 				},
 				Spec: v1.VirtualMachineSpec{
 					Template: &v1.VirtualMachineInstanceTemplateSpec{},
 					DataVolumeTemplates: []v1.DataVolumeTemplateSpec{
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "whatever",
+								Name: "dv",
 							},
 							Spec: cdiv1.DataVolumeSpec{
 								Source: &cdiv1.DataVolumeSource{
 									PVC: &cdiv1.DataVolumeSourcePVC{
 										Name:      "whocares",
-										Namespace: sourceNamespace,
+										Namespace: sourceClaimNamespace,
 									},
 								},
 							},
@@ -1420,6 +1422,12 @@ var _ = Describe("Validating VM Admitter", func() {
 					},
 				},
 			}
+		}
+
+		DescribeTable("should successfully authorize clone", func(arNamespace, vmNamespace, sourceNamespace,
+			serviceAccount, expectedSourceNamespace, expectedTargetNamespace, expectedServiceAccount string) {
+
+			vm := vmDefinitionWithCloneDataVolume(vmNamespace, sourceNamespace)
 
 			if serviceAccount != "" {
 				vm.Spec.Template.Spec.Volumes = []v1.Volume{
@@ -1449,6 +1457,30 @@ var _ = Describe("Validating VM Admitter", func() {
 			Entry("when everything suppied with default service account", "ns1", "ns2", "ns3", "", "ns3", "ns2", "default"),
 			Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "ns3", "sa", "ns3", "ns2", "sa"),
 		)
+
+		It("should successfully authorize clone with existing prePopulated DataVolume", func() {
+
+			vm := vmDefinitionWithCloneDataVolume("ns1", "ns2")
+
+			ar := &admissionv1.AdmissionRequest{
+				Namespace: "ns1",
+			}
+
+			dv := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   "ns1",
+					Name:        vm.Spec.DataVolumeTemplates[0].Name,
+					Annotations: map[string]string{"cdi.kubevirt.io/storage.prePopulated": vm.Spec.DataVolumeTemplates[0].Name},
+				},
+				Spec: vm.Spec.DataVolumeTemplates[0].Spec,
+			}
+			vmsAdmitter.DataVolumeInformer.GetIndexer().Add(dv)
+
+			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFailFunc("should not be called", fmt.Errorf("should not be called"))
+			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(ar, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(causes).To(BeEmpty())
+		})
 
 		DescribeTable("should successfully authorize clone from sourceRef", func(arNamespace,
 			vmNamespace,
@@ -2373,7 +2405,7 @@ func makeCloneAdmitFunc(k8sClient *k8sfake.Clientset, expectedSourceNamespace, e
 		Expect(response.Handler.SourceName).Should(Equal(expectedPVCName))
 		Expect(saNamespace).Should(Equal(expectedTargetNamespace))
 		Expect(saName).Should(Equal(expectedServiceAccount))
-		return true, "", nil
+		return response.Allowed, "", nil
 	}
 }
 
