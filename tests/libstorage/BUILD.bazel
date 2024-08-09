@@ -6,6 +6,7 @@ go_library(
         "config.go",
         "datavolume.go",
         "image.go",
+        "pv.go",
         "pvc.go",
         "storageclass.go",
         "vmi.go",

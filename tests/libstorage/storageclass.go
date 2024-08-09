@@ -327,24 +327,3 @@ func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs i
 		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)
 	}
 }
-
-func countLocalStoragePVAvailableForUse(pvList *k8sv1.PersistentVolumeList, storageClassName string) int {
-	count := 0
-	for _, pv := range pvList.Items {
-		if pv.Spec.StorageClassName == storageClassName && isLocalPV(pv) && isPVAvailable(pv) {
-			count++
-		}
-	}
-	return count
-}
-
-func isLocalPV(pv k8sv1.PersistentVolume) bool {
-	return pv.Spec.NodeAffinity != nil &&
-		pv.Spec.NodeAffinity.Required != nil &&
-		len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 &&
-		(pv.Spec.VolumeMode == nil || *pv.Spec.VolumeMode != k8sv1.PersistentVolumeBlock)
-}
-
-func isPVAvailable(pv k8sv1.PersistentVolume) bool {
-	return pv.Spec.ClaimRef == nil
-}
