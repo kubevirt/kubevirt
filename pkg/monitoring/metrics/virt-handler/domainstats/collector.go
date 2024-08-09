@@ -39,7 +39,6 @@ var (
 		blockMetrics{},
 		networkMetrics{},
 		cpuAffinityMetrics{},
-		migrationMetrics{},
 		filesystemMetrics{},
 	}
 
@@ -100,12 +99,15 @@ func domainStatsCollectorCallback() []operatormetrics.CollectorResult {
 }
 
 func execCollector(concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
-	scraper := &domainstatsScraper{ch: make(chan operatormetrics.CollectorResult, len(vmis)*len(rms))}
+	scraper := NewDomainstatsScraper(len(vmis))
 	go concCollector.Collect(vmis, scraper, PrometheusCollectionTimeout)
 
 	var crs []operatormetrics.CollectorResult
-	for cr := range scraper.ch {
-		crs = append(crs, cr)
+
+	for vmiReport := range scraper.ch {
+		for _, rm := range rms {
+			crs = append(crs, rm.Collect(vmiReport)...)
+		}
 	}
 
 	return crs

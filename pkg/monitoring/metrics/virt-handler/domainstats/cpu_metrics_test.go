@@ -28,6 +28,7 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 )
 
 var _ = Describe("cpu metrics", func() {
@@ -56,7 +57,7 @@ var _ = Describe("cpu metrics", func() {
 
 		DescribeTable("should collect metrics values", func(metric operatormetrics.Metric, expectedValue float64) {
 			crs := cpuMetrics{}.Collect(vmiReport)
-			Expect(crs).To(ContainElement(gomegaContainsMetricMatcher(metric, expectedValue)))
+			Expect(crs).To(ContainElement(libmonitoring.GomegaContainsCollectorResultMatcher(metric, expectedValue)))
 		},
 			Entry("kubevirt_vmi_cpu_usage_seconds_total", cpuUsageSeconds, nanosecondsToSeconds(1)),
 			Entry("kubevirt_vmi_cpu_user_usage_seconds_total", cpuUserUsageSeconds, nanosecondsToSeconds(2)),

@@ -365,7 +365,8 @@ func (app *virtHandlerApp) Run() {
 		app.VirtShareDir,
 	)
 
-	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer); err != nil {
+	vmiMigrationInformer := factory.VirtualMachineInstanceMigration()
+	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, vmiMigrationInformer); err != nil {
 		panic(err)
 	}
 

@@ -3,6 +3,7 @@ package operatormetrics
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -24,6 +25,7 @@ type CollectorResult struct {
 	Labels      []string
 	ConstLabels map[string]string
 	Value       float64
+	Timestamp   time.Time
 }
 
 func (c Collector) hash() string {
@@ -93,7 +95,12 @@ func collectValue(ch chan<- prometheus.Metric, metric Metric, cr CollectorResult
 	if err != nil {
 		return err
 	}
-	ch <- cm
+
+	if cr.Timestamp.IsZero() {
+		ch <- cm
+	} else {
+		ch <- prometheus.NewMetricWithTimestamp(cr.Timestamp, cm)
+	}
 
 	return nil
 }

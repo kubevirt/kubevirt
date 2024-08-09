@@ -63,6 +63,21 @@ func RegisterCollector(collectors ...Collector) error {
 	return nil
 }
 
+// UnregisterMetrics unregisters the metrics from the Prometheus registry.
+func UnregisterMetrics(allMetrics ...[]Metric) error {
+	for _, metricList := range allMetrics {
+		for _, metric := range metricList {
+			if metricExists(metric) {
+				if err := unregisterMetric(metric); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // ListMetrics returns a list of all registered metrics.
 func ListMetrics() []Metric {
 	var result []Metric
