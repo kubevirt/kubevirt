@@ -2,7 +2,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/imdario/mergo"
@@ -13,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 func (r *Reconciler) createOrUpdateServiceMonitors() error {
@@ -63,19 +64,12 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 		log.Log.V(4).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
 		return nil
 	}
-
-	// Add Spec Patch
-	newSpec, err := json.Marshal(serviceMonitor.Spec)
+	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &serviceMonitor.ObjectMeta, serviceMonitor.Spec)...).GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &serviceMonitor.ObjectMeta, newSpec)
-	if err != nil {
-		return err
-	}
-
-	_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
 	}
@@ -141,19 +135,12 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 		log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName())
 		return nil
 	}
-
-	// Add Spec Patch
-	newSpec, err := json.Marshal(prometheusRule.Spec)
+	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &prometheusRule.ObjectMeta, prometheusRule.Spec)...).GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &prometheusRule.ObjectMeta, newSpec)
-	if err != nil {
-		return err
-	}
-
-	_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch PrometheusRule %+v: %v", prometheusRule, err)
 	}
