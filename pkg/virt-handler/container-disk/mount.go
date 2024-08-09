@@ -365,7 +365,11 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error) {
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
-			_, err := m.socketPathGetter(vmi, i)
+			sock, err := m.socketPathGetter(vmi, i)
+			if err == nil {
+				_, err = m.podIsolationDetector.DetectForSocket(vmi, sock)
+			}
+
 			if err != nil {
 				log.DefaultLogger().Object(vmi).Reason(err).Infof("containerdisk %s not yet ready", volume.Name)
 				if time.Now().After(notInitializedSince.Add(m.suppressWarningTimeout)) {
@@ -373,11 +377,15 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 				}
 				return false, nil
 			}
+
 		}
 	}
 
 	if util.HasKernelBootContainerImage(vmi) {
-		_, err := m.kernelBootSocketPathGetter(vmi)
+		sock, err := m.kernelBootSocketPathGetter(vmi)
+		if err == nil {
+			_, err = m.podIsolationDetector.DetectForSocket(vmi, sock)
+		}
 		if err != nil {
 			log.DefaultLogger().Object(vmi).Reason(err).Info("kernelboot container not yet ready")
 			if time.Now().After(notInitializedSince.Add(m.suppressWarningTimeout)) {
