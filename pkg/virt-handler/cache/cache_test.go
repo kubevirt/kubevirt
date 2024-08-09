@@ -85,7 +85,7 @@ var _ = Describe("Domain informer", func() {
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
 		os.MkdirAll(filepath.Dir(socketPath), 0755)
 
-		informer, err = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
+		informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -219,7 +219,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 			}
@@ -248,7 +248,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 			}
@@ -330,7 +330,7 @@ var _ = Describe("Domain informer", func() {
 
 			AddGhostRecord("test", "test", socketPath, "1234")
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
@@ -376,7 +376,7 @@ var _ = Describe("Domain informer", func() {
 			err = AddGhostRecord("test", "test", socketPath, "1234")
 			Expect(err).ToNot(HaveOccurred())
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
