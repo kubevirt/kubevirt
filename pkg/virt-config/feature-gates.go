@@ -39,6 +39,7 @@ const (
 	HotplugVolumesGate    = "HotplugVolumes"
 	HostDiskGate          = "HostDisk"
 	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
+	DRAGate               = "DynamicResourceAllocation"
 
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	Root                       = "Root"
@@ -183,6 +184,10 @@ func (config *ClusterConfig) PasstEnabled() bool {
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(HostDevicesGate)
+}
+
+func (config *ClusterConfig) DynamicResourceAllocationEnabled() bool {
+	return config.isFeatureGateEnabled(DRAGate)
 }
 
 func (config *ClusterConfig) RootEnabled() bool {

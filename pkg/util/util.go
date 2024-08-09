@@ -77,8 +77,23 @@ func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
 
 // Check if a VMI spec requests a HostDevice
 func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
+	for _, hostDevice := range vmi.Spec.Domain.Devices.HostDevices {
+		if hostDevice.ResourceClaim != nil {
+			return false
+		}
+	}
 	if vmi.Spec.Domain.Devices.HostDevices != nil && len(vmi.Spec.Domain.Devices.HostDevices) != 0 {
 		return true
+	}
+	return false
+}
+
+// Check if a VMI spec requests a HostDevice using resource claim
+func IsHostDevClaimVMI(vmi *v1.VirtualMachineInstance) bool {
+	for _, hostDevice := range vmi.Spec.Domain.Devices.HostDevices {
+		if hostDevice.ResourceClaim != nil {
+			return true
+		}
 	}
 	return false
 }
@@ -86,7 +101,7 @@ func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
 // Check if a VMI spec requests a VFIO device
 func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 
-	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || IsSRIOVVmi(vmi) {
+	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || IsSRIOVVmi(vmi) || IsHostDevClaimVMI(vmi) {
 		return true
 	}
 	return false

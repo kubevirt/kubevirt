@@ -616,6 +616,28 @@ type HostDevice struct {
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
+	// If specified, the ResourceName of the host device will be provisioned using DRA driver . which will not require the deviceName field
+	//+optional
+	ResourceClaim *ResourceClaim `json:"resourceClaim,omitempty"`
+}
+
+// ResourceClaim represents a resource claim to be used by the virtual machine
+type ResourceClaim struct {
+	// Name is the name of the resource claim
+	Name string `json:"name"`
+	// Source represents the source of the resource claim
+	Source ResourceClaimSource `json:"source"`
+}
+
+// ResourceClaimSource represents the source of a resource claim
+type ResourceClaimSource struct {
+	// ResourceClaimName is the name of the resource claim
+	ResourceClaimName string `json:"resourceClaimName"`
+	// ResourceClaimTemplateName is the name of the resource claim template
+	//
+	// Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+	// be set.
+	ResourceClaimTemplateName string `json:"resourceClaimTemplateName"`
 }
 
 type Disk struct {
