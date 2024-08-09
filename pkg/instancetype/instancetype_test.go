@@ -197,6 +197,13 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
 			})
 
+			It("find returns expected instancetype spec with no kind provided", func() {
+				vm.Spec.Instancetype.Kind = ""
+				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
+			})
+
 			It("uses client when instancetype not found within informer", func() {
 				err := clusterInstancetypeInformerStore.Delete(clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
@@ -642,6 +649,13 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find returns expected preference spec", func() {
+				s, err := instancetypeMethods.FindPreferenceSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*s).To(Equal(clusterPreference.Spec))
+			})
+
+			It("find returns expected preference spec with no kind provided", func() {
+				vm.Spec.Preference.Kind = ""
 				s, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*s).To(Equal(clusterPreference.Spec))
