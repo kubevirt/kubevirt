@@ -29,5 +29,5 @@ fi
 
 bazel test \
     --config=${ARCHITECTURE} \
-    --features race \
+    --@io_bazel_rules_go//go/config:race \
     --test_output=errors -- ${WHAT}
