@@ -69,14 +69,11 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
 var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachine", decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
-
-	runStrategyManual := v1.RunStrategyManual
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -1323,61 +1320,67 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Waiting for VM to be ready")
 					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 				})
+
 				DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string) {
-					// The estimated execution time of one test is 400 seconds.
-					By("Creating a Kernel Boot VMI with a mismatched disk")
-					vmi := utils.GetVMIKernelBootWithRandName()
-					vmi.Spec.Domain.Firmware.KernelBoot.Container.Image = cd.ContainerDiskFor(cd.ContainerDiskCirros)
-
-					By("Creating a VM with RunStrategyManual")
-					vm := libvmi.NewVirtualMachine(vmi)
+					By("creating a Running VM")
+					vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
+						libvmi.WithAnnotation(v1.KeepLauncherAfterFailureAnnotation, keepLauncher),
+						libvmi.WithAnnotation(v1.FuncTestLauncherFailFastAnnotation, ""),
+					), libvmi.WithRunStrategy(v1.RunStrategyOnce))
 					vm.Spec.Running = nil
-					vm.Spec.RunStrategy = &runStrategyManual
 
-					By("Annotate the VM with regard for leaving launcher pod after qemu exit")
-					vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
-						v1.KeepLauncherAfterFailureAnnotation: keepLauncher,
-					}
 					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					By("Starting the VMI with virtctl")
-					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
-					Expect(startCommand()).To(Succeed())
+					By("waiting for virt-launcher")
+					var vmi *v1.VirtualMachineInstance
+					Eventually(func() bool {
+						vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+						if errors.IsNotFound(err) {
+							return false
+						}
+						Expect(err).ToNot(HaveOccurred())
+						_, err = libpod.GetPodByVirtualMachineInstance(vmi, vm.Namespace)
+						if errors.IsNotFound(err) {
+							return false
+						}
+						Expect(err).ToNot(HaveOccurred())
+						return true
+					}).WithTimeout(60*time.Second).WithPolling(5*time.Second).Should(BeTrue(), "virt-launcher should be created eventually")
 
-					By("Waiting for VM to be in Starting status")
-					Eventually(ThisVM(vm), 160*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusStarting))
-
-					By("Waiting for VMI to fail")
-					Eventually(ThisVMIWith(vm.Namespace, vm.Name), 480*time.Second, 1*time.Second).Should(BeInPhase(v1.Failed))
+					getComputeContainerStateRunning := func() (*k8sv1.ContainerStateRunning, error) {
+						launcherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vm.Namespace)
+						if err != nil {
+							return nil, err
+						}
+						for _, status := range launcherPod.Status.ContainerStatuses {
+							if status.Name == "compute" {
+								return status.State.Running, nil
+							}
+						}
+						return nil, nil
+					}
 
 					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to true, the containerStatus of the
 					// compute container of the virt-launcher pod is kept in the running state.
 					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to false or not set, the virt-launcher pod will become failed.
 					By("Verify that the virt-launcher pod or its container is in the expected state")
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					launcherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vm.Namespace)
-					Expect(err).ToNot(HaveOccurred())
-
 					if toKeep, _ := strconv.ParseBool(keepLauncher); toKeep {
-						Consistently(func() bool {
-							for _, status := range launcherPod.Status.ContainerStatuses {
-								if status.Name == "compute" && status.State.Running != nil {
-									return true
-								}
-							}
-							return false
-						}, 10*time.Second, 1*time.Second).Should(BeTrue())
+						Consistently(func() *k8sv1.ContainerStateRunning {
+							running, err := getComputeContainerStateRunning()
+							Expect(err).ToNot(HaveOccurred())
+							return running
+						}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).ShouldNot(BeNil())
 					} else {
-						Eventually(launcherPod.Status.Phase).
-							Within(160 * time.Second).
-							WithPolling(time.Second).
-							Should(Equal(k8sv1.PodFailed))
+						Eventually(func() *k8sv1.ContainerStateRunning {
+							running, err := getComputeContainerStateRunning()
+							Expect(err).ToNot(HaveOccurred())
+							return running
+						}).WithTimeout(100 * time.Second).WithPolling(1 * time.Second).Should(BeNil())
 					}
 				},
-					Entry("[test_id:7164][QUARANTINE]VMI launcher pod should fail", "false", decorators.Quarantine),
-					Entry("[test_id:6993][QUARANTINE]VMI launcher pod compute container should keep running", "true", decorators.Quarantine),
+					Entry("[test_id:7164]VMI launcher pod should fail", "false"),
+					Entry("[test_id:6993]VMI launcher pod compute container should keep running", "true"),
 				)
 			})
 
