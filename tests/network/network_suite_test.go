@@ -17,7 +17,7 @@
  *
  */
 
-package tests_test
+package network_test
 
 import (
 	"path/filepath"
@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
+	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -39,31 +40,14 @@ import (
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	_ "kubevirt.io/kubevirt/tests/compute"
-	_ "kubevirt.io/kubevirt/tests/guestlog"
-	_ "kubevirt.io/kubevirt/tests/hotplug"
-	_ "kubevirt.io/kubevirt/tests/infrastructure"
-	_ "kubevirt.io/kubevirt/tests/instancetype"
-	_ "kubevirt.io/kubevirt/tests/launchsecurity"
-	_ "kubevirt.io/kubevirt/tests/migration"
-	_ "kubevirt.io/kubevirt/tests/monitoring"
 	_ "kubevirt.io/kubevirt/tests/network"
-	_ "kubevirt.io/kubevirt/tests/numa"
-	_ "kubevirt.io/kubevirt/tests/operator"
-	_ "kubevirt.io/kubevirt/tests/performance"
-	_ "kubevirt.io/kubevirt/tests/realtime"
-	_ "kubevirt.io/kubevirt/tests/scale"
-	_ "kubevirt.io/kubevirt/tests/storage"
-	_ "kubevirt.io/kubevirt/tests/usb"
-	_ "kubevirt.io/kubevirt/tests/validatingadmissionpolicy"
-	_ "kubevirt.io/kubevirt/tests/virtctl"
-	_ "kubevirt.io/kubevirt/tests/virtiofs"
 )
 
 var afterSuiteReporters = []Reporter{}
 var k8sReporter *reporter.KubernetesReporter
 
 func TestTests(t *testing.T) {
+	RegisterTestingT(t)
 	flags.NormalizeFlags()
 	testsuite.CalculateNamespaces()
 	maxFails := testsuite.GetMaxFailsFromEnv()
@@ -93,7 +77,7 @@ func TestTests(t *testing.T) {
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
 
-	RunSpecs(t, "Tests Suite")
+	RunSpecs(t, "Tests Network Suite")
 }
 
 var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite.BeforeTestSuiteSetup)

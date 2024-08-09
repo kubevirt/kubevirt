@@ -91,6 +91,9 @@ integ-test:
 functest: build-functests
 	hack/functests.sh
 
+functest-sig-net: build-functests
+	KUBEVIRT_TESTS=_out/tests/sig-net.test hack/functests.sh
+
 dump: bazel-build
 	hack/dump.sh
 
@@ -264,6 +267,7 @@ update-generated-api-testdata:
 	sync \
 	manifests \
 	functest \
+	functest-sig-net \
 	cluster-up \
 	cluster-down \
 	cluster-clean \
