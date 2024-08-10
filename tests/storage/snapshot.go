@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -336,11 +337,6 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 
 		Context("With online vm snapshot", func() {
-			const VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION = "pre.hook.backup.velero.io/container"
-			const VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION = "pre.hook.backup.velero.io/command"
-			const VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION = "post.hook.backup.velero.io/container"
-			const VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION = "post.hook.backup.velero.io/command"
-
 			createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 				var vmi *v1.VirtualMachineInstance
 				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
@@ -822,7 +818,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Calling Velero pre-backup hook")
-				_, _, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
+				_, _, err := callVeleroHook(vmi, velero.PreBackupHookContainerAnnotation, velero.PreBackupHookCommandAnnotation)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing the VM was frozen")
@@ -841,7 +837,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}, 180*time.Second, time.Second).Should(Equal("frozen"))
 
 				By("Calling Velero post-backup hook")
-				_, _, err = callVeleroHook(vmi, VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION)
+				_, _, err = callVeleroHook(vmi, velero.PostBackupHookContainerAnnotation, velero.PostBackupHookCommandAnnotation)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Veryfing the VM was thawed")
@@ -872,12 +868,12 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				)
 
 				By("Calling Velero pre-backup hook")
-				_, stderr, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
+				_, stderr, err := callVeleroHook(vmi, velero.PreBackupHookContainerAnnotation, velero.PreBackupHookCommandAnnotation)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
 
 				By("Calling Velero post-backup hook")
-				_, stderr, err = callVeleroHook(vmi, VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION)
+				_, stderr, err = callVeleroHook(vmi, velero.PostBackupHookContainerAnnotation, velero.PostBackupHookCommandAnnotation)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
 			})
@@ -903,7 +899,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 				By("Calling Velero pre-backup hook")
-				_, stderr, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
+				_, stderr, err := callVeleroHook(vmi, velero.PreBackupHookContainerAnnotation, velero.PreBackupHookCommandAnnotation)
 				Expect(err).To(HaveOccurred())
 				Expect(stderr).Should(ContainSubstring("Paused VM"))
 			})
