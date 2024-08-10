@@ -19,9 +19,17 @@
 
 package velero
 
+// For additional information please see https://velero.io/docs/v1.14/backup-hooks/#specifying-hooks-as-pod-annotations
 const (
-	VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION  = "pre.hook.backup.velero.io/container"
-	VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION    = "pre.hook.backup.velero.io/command"
-	VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION = "post.hook.backup.velero.io/container"
-	VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION   = "post.hook.backup.velero.io/command"
+	// PreBackupHookContainerAnnotation specifies the container where the command should be executed.
+	PreBackupHookContainerAnnotation = "pre.hook.backup.velero.io/container"
+
+	// PreBackupHookCommandAnnotation specifies the command to execute.
+	PreBackupHookCommandAnnotation = "pre.hook.backup.velero.io/command"
+
+	// PostBackupHookContainerAnnotation specifies the container where the command should be executed.
+	PostBackupHookContainerAnnotation = "post.hook.backup.velero.io/container"
+
+	// PostBackupHookCommandAnnotation specifies the command to execute.
+	PostBackupHookCommandAnnotation = "post.hook.backup.velero.io/command"
 )

@@ -1351,13 +1351,13 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
 		annotationsSet[istio.KubeVirtTrafficAnnotation] = "k6t-eth0"
 	}
-	annotationsSet[velero.VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
-	annotationsSet[velero.VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+	annotationsSet[velero.PreBackupHookContainerAnnotation] = "compute"
+	annotationsSet[velero.PreBackupHookCommandAnnotation] = fmt.Sprintf(
 		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
 		vmi.GetObjectMeta().GetName(),
 		vmi.GetObjectMeta().GetNamespace())
-	annotationsSet[velero.VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
-	annotationsSet[velero.VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+	annotationsSet[velero.PostBackupHookContainerAnnotation] = "compute"
+	annotationsSet[velero.PostBackupHookCommandAnnotation] = fmt.Sprintf(
 		"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
 		vmi.GetObjectMeta().GetName(),
 		vmi.GetObjectMeta().GetNamespace())
