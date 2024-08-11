@@ -1377,7 +1377,6 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = os.Setenv(hcoutil.SspVersionEnvV, newComponentVersion)
 				expected.ssp.Status.ObservedVersion = newComponentVersion
 
-				_ = os.Setenv(hcoutil.MtqVersionEnvV, newComponentVersion)
 				_ = os.Setenv(hcoutil.AaqVersionEnvV, newComponentVersion)
 
 				expected.hco.Status.Conditions = origConditions

@@ -75,7 +75,6 @@ function get_current_versions {
     ["SSP"]=""
     ["HPPO"]=""
     ["HPP"]=""
-    ["MTQ"]=""
     ["AAQ"]=""
     ["KUBEVIRT_CONSOLE_PLUGIN"]=""
     ["KUBEVIRT_CONSOLE_PROXY"]=""
@@ -98,7 +97,6 @@ function get_updated_versions {
     ["SSP"]="kubevirt/ssp-operator"
     ["HPPO"]="kubevirt/hostpath-provisioner-operator"
     ["HPP"]="kubevirt/hostpath-provisioner"
-    ["MTQ"]="kubevirt/managed-tenant-quota"
     ["AAQ"]="kubevirt/application-aware-quota"
     ["KUBEVIRT_CONSOLE_PLUGIN"]="kubevirt-ui/kubevirt-plugin"
     ["KUBEVIRT_CONSOLE_PROXY"]="kubevirt-ui/kubevirt-apiserver-proxy"
@@ -113,7 +111,6 @@ function get_updated_versions {
     ["CDI"]="kubevirt.io/containerized-data-importer-api"
     ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
     ["SSP"]="kubevirt.io/ssp-operator/api"
-    ["MTQ"]="kubevirt.io/managed-tenant-quota"
     ["AAQ"]="kubevirt.io/application-aware-quota"
   )
 

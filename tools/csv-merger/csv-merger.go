@@ -89,7 +89,7 @@ var (
 	sspCsv              = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
 	cdiCsv              = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
 	hppCsv              = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
-	mtqCsv              = flag.String("mtq-csv", "", "Managed Tenant Quota Operator CSV String")
+	_                   = flag.String("mtq-csv", "", "deprecated. This flag is ignored")
 	aaqCsv              = flag.String("aaq-csv", "", "Applications Aware Quota Operator CSV String")
 	operatorImage       = flag.String("operator-image-name", "", "HyperConverged Cluster Operator image")
 	webhookImage        = flag.String("webhook-image-name", "", "HyperConverged Cluster Webhook image")
@@ -121,7 +121,7 @@ var (
 	cnaoVersion                   = flag.String("cnao-version", "", "CNA operator version")
 	sspVersion                    = flag.String("ssp-version", "", "SSP operator version")
 	hppoVersion                   = flag.String("hppo-version", "", "HPP operator version")
-	mtqVersion                    = flag.String("mtq-version", "", "MTQ operator version")
+	_                             = flag.String("mtq-version", "", "deprecated. This flag is ignored")
 	aaqVersion                    = flag.String("aaq-version", "", "AAQ operator version")
 	apiSources                    = flag.String("api-sources", cwd+"/...", "Project sources")
 	enableUniqueSemver            = flag.Bool("enable-unique-version", false, "Insert a skipRange annotation to support unique semver in the CSV")
@@ -472,11 +472,6 @@ func getInitialCsvList() []util.CsvWithComponent {
 			Component: hcoutil.AppComponentStorage,
 		},
 		{
-			Name:      "MTQ",
-			Csv:       *mtqCsv,
-			Component: hcoutil.AppComponentMultiTenant,
-		},
-		{
 			Name:      "AAQ",
 			Csv:       *aaqCsv,
 			Component: hcoutil.AppComponentQuotaMngt,
@@ -536,7 +531,6 @@ func getDeploymentParams() *components.DeploymentOperatorParams {
 		CnaoVersion:        *cnaoVersion,
 		SspVersion:         *sspVersion,
 		HppoVersion:        *hppoVersion,
-		MtqVersion:         *mtqVersion,
 		AaqVersion:         *aaqVersion,
 		Env:                envVars,
 	}

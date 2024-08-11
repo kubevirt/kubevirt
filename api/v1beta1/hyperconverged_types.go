@@ -471,9 +471,6 @@ type HyperConvergedFeatureGates struct {
 	// +default=false
 	PersistentReservation *bool `json:"persistentReservation,omitempty"`
 
-	// Enable the Managed Tenant Quota operator (MTQ) on the cluster.
-	// MTQ streamlines the VirtualMachines migration process in namespaces where resource quotas are applied.
-	// Note: this feature is in Developer Preview.
 	// +optional
 	// +kubebuilder:default=false
 	// +default=false

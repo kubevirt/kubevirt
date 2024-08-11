@@ -13,7 +13,6 @@ const (
 	CnaoVersionEnvV                  = "NETWORK_ADDONS_VERSION"
 	SspVersionEnvV                   = "SSP_VERSION"
 	HppoVersionEnvV                  = "HPPO_VERSION"
-	MtqVersionEnvV                   = "MTQ_VERSION"
 	AaqVersionEnvV                   = "AAQ_VERSION"
 	KVUIPluginImageEnvV              = "KV_CONSOLE_PLUGIN_IMAGE"
 	KVUIProxyImageEnvV               = "KV_CONSOLE_PROXY_IMAGE"

@@ -198,23 +198,6 @@ function create_hpp_csv() {
   echo "${operatorName}"
 }
 
-function create_mtq_csv() {
-  local operatorName="managed-tenant-quota"
-  local dumpCRDsArg="--dump-crds"
-  local operatorArgs=" \
-    --csv-version=${CSV_VERSION} \
-    --operator-image=${MTQ_OPERATOR_IMAGE} \
-    --controller-image=${MTQ_CONTROLLER_IMAGE} \
-    --mtq-lock-server-image=${MTQ_LOCKSERVER_IMAGE} \
-    --operator-version=${MTQ_VERSION} \
-    --namespace=${OPERATOR_NAMESPACE} \
-    --pull-policy=IfNotPresent \
-  "
-
-  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} "${MTQ_OPERATOR_IMAGE}" ${dumpCRDsArg} ${operatorArgs}
-  echo "${operatorName}"
-}
-
 function create_aaq_csv() {
   local operatorName="application-aware-quota"
   local dumpCRDsArg="--dump-crds"
@@ -244,8 +227,6 @@ cdiFile=$(create_cdi_csv)
 cdiCsv="${TEMPDIR}/${cdiFile}.${CSV_EXT}"
 hppFile=$(create_hpp_csv)
 hppCsv="${TEMPDIR}/${hppFile}.${CSV_EXT}"
-mtqFile=$(create_mtq_csv)
-mtqCsv="${TEMPDIR}/${mtqFile}.${CSV_EXT}"
 aaqFile=$(create_aaq_csv)
 aaqCsv="${TEMPDIR}/${aaqFile}.${CSV_EXT}"
 csvOverrides="${TEMPDIR}/csv_overrides.${CSV_EXT}"
@@ -294,7 +275,7 @@ EOM
 )
 
 # validate CSVs. Make sure each one of them contain an image (and so, also not empty):
-csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${cdiCsv}" "${hppCsv}" "${mtqCsv}" "${aaqCsv}")
+csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${cdiCsv}" "${hppCsv}" "${aaqCsv}")
 for csv in "${csvs[@]}"; do
   grep -E "^ *image: [_a-zA-Z0-9/\.:@\-]+$" ${csv}
 done
@@ -308,7 +289,6 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --ssp-csv="$(<${sspCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
   --hpp-csv="$(<${hppCsv})" \
-  --mtq-csv="$(<${mtqCsv})" \
   --aaq-csv="$(<${aaqCsv})" \
   --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
@@ -321,7 +301,6 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
   --ssp-version="${SSP_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
-  --mtq-version="${MTQ_VERSION}" \
   --aaq-version="${AAQ_VERSION}" \
   --operator-image="${HCO_OPERATOR_IMAGE}" \
   --webhook-image="${HCO_WEBHOOK_IMAGE}" \
@@ -345,7 +324,6 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --ssp-csv="$(<${sspCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
   --hpp-csv="$(<${hppCsv})" \
-  --mtq-csv="$(<${mtqCsv})" \
   --aaq-csv="$(<${aaqCsv})" \
   --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
   --csv-version=${CSV_VERSION_PARAM} \
@@ -365,7 +343,6 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
   --ssp-version="${SSP_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
-  --mtq-version="${MTQ_VERSION}" \
   --aaq-version="${AAQ_VERSION}" \
   --related-images-list="${DIGEST_LIST}" \
   --operator-image-name="${HCO_OPERATOR_IMAGE}" \

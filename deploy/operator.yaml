@@ -66,8 +66,6 @@ spec:
           value: v0.20.0
         - name: HPPO_VERSION
           value: v0.19.0
-        - name: MTQ_VERSION
-          value: v1.2.1
         - name: AAQ_VERSION
           value: v1.2.3
         - name: KV_CONSOLE_PLUGIN_IMAGE
@@ -782,80 +780,6 @@ spec:
           - key: tls.key
             path: tls.key
           secretName: hostpath-provisioner-operator-webhook-service-cert
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/component: multi-tenant
-    app.kubernetes.io/part-of: hyperconverged-cluster
-    app.kubernetes.io/version: 1.13.0
-    name: mtq-operator
-  name: mtq-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: mtq-operator
-      operator.mtq.kubevirt.io: ""
-  strategy: {}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: multi-tenant
-        app.kubernetes.io/part-of: hyperconverged-cluster
-        app.kubernetes.io/version: 1.13.0
-        name: mtq-operator
-        operator.mtq.kubevirt.io: ""
-        prometheus.mtq.kubevirt.io: "true"
-    spec:
-      containers:
-      - args:
-        - -v=1
-        env:
-        - name: DEPLOY_CLUSTER_RESOURCES
-          value: "true"
-        - name: OPERATOR_VERSION
-          value: v1.2.1
-        - name: CONTROLLER_IMAGE
-          value: quay.io/kubevirt/mtq-controller@sha256:04b38720b65479046270c8132cff5ab0f2dabc9cae91de1cc95fecf167efc356
-        - name: MTQ_LOCK_SERVER_IMAGE
-          value: quay.io/kubevirt/mtq-lock-server@sha256:8b5189518ac6f68161d6a259e2a6f70e7902855ea1510aa260e79093520a7803
-        - name: VERBOSITY
-          value: "1"
-        - name: PULL_POLICY
-          value: IfNotPresent
-        - name: MONITORING_NAMESPACE
-        image: quay.io/kubevirt/mtq-operator@sha256:859524721ae1a3b1e5dd6e29036b4c80acff13f74a4ee6769d867283e9ccbba5
-        imagePullPolicy: IfNotPresent
-        name: mtq-operator
-        ports:
-        - containerPort: 8080
-          name: metrics
-          protocol: TCP
-        resources:
-          requests:
-            cpu: 10m
-            memory: 150Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          runAsNonRoot: true
-          seccompProfile:
-            type: RuntimeDefault
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-      nodeSelector:
-        kubernetes.io/os: linux
-      priorityClassName: kubevirt-cluster-critical
-      securityContext:
-        runAsNonRoot: true
-      serviceAccountName: mtq-operator
-      tolerations:
-      - key: CriticalAddonsOnly
-        operator: Exists
 ---
 apiVersion: apps/v1
 kind: Deployment

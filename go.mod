@@ -42,7 +42,6 @@ require (
 	kubevirt.io/application-aware-quota v1.2.3
 	kubevirt.io/containerized-data-importer-api v1.59.0
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
-	kubevirt.io/managed-tenant-quota v1.2.1
 	kubevirt.io/ssp-operator/api v0.20.0
 	sigs.k8s.io/controller-runtime v0.18.4
 	sigs.k8s.io/controller-tools v0.15.0

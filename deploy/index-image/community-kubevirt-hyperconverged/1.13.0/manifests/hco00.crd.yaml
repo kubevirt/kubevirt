@@ -1147,11 +1147,7 @@ spec:
                     type: boolean
                   enableManagedTenantQuota:
                     default: false
-                    description: |-
-                      Enable the Managed Tenant Quota operator (MTQ) on the cluster.
-                      MTQ streamlines the VirtualMachines migration process in namespaces where resource quotas are applied.
-                      Note: this feature is in Developer Preview.
-                      Deprecated: This field is ignored.
+                    description: 'Deprecated: This field is ignored.'
                     type: boolean
                   nonRoot:
                     default: true

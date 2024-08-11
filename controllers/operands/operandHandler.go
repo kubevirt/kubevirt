@@ -13,12 +13,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const (
@@ -55,7 +56,6 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 		(*genericOperand)(newKubevirtHandler(client, scheme)),
 		(*genericOperand)(newCdiHandler(client, scheme)),
 		(*genericOperand)(newCnaHandler(client, scheme)),
-		newMtqHandler(client, scheme),
 		newAAQHandler(client, scheme),
 	}
 
@@ -196,7 +196,6 @@ func (h *OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 		NewNetworkAddonsWithNameOnly(req.Instance),
 		NewSSPWithNameOnly(req.Instance),
 		NewConsoleCLIDownload(req.Instance),
-		NewMTQWithNameOnly(req.Instance),
 		NewAAQWithNameOnly(req.Instance),
 	}
 
