@@ -1999,14 +1999,17 @@ var _ = SIGDescribe("Export", func() {
 			if equality.Semantic.DeepEqual(beforeCertParams, &kv.Spec.CertificateRotationStrategy) {
 				return
 			}
-			kv.Spec.CertificateRotationStrategy = *beforeCertParams
-			_, err := virtClient.KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			patchBytes, err := patch.New(
+				patch.WithAdd("/spec/certificateRotateStrategy", beforeCertParams),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		updateCertConfig := func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
-			kv.Spec.CertificateRotationStrategy.SelfSigned = &v1.KubeVirtSelfSignConfiguration{
+			selfSigned := &v1.KubeVirtSelfSignConfiguration{
 				CA: &v1.CertConfig{
 					Duration:    &metav1.Duration{Duration: 24 * time.Hour},
 					RenewBefore: &metav1.Duration{Duration: 3 * time.Hour},
@@ -2016,7 +2019,11 @@ var _ = SIGDescribe("Export", func() {
 					RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
 				},
 			}
-			_, err := virtClient.KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			patchBytes, err := patch.New(
+				patch.WithAdd("/spec/certificateRotateStrategy/selfSigned", selfSigned),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
