@@ -34,8 +34,8 @@ func ServeVMICreate(resp http.ResponseWriter, req *http.Request, clusterConfig *
 	validating_webhooks.Serve(resp, req, &admitters.VMICreateAdmitter{ClusterConfig: clusterConfig})
 }
 
-func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
-	validating_webhooks.Serve(resp, req, &admitters.VMIUpdateAdmitter{ClusterConfig: clusterConfig})
+func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}) {
+	validating_webhooks.Serve(resp, req, &admitters.VMIUpdateAdmitter{ClusterConfig: clusterConfig, KubeVirtServiceAccounts: kubeVirtServiceAccounts})
 }
 
 func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {

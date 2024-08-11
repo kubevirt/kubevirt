@@ -21,25 +21,26 @@ package admitters
 
 import (
 	"fmt"
+	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 const nodeNameExtraInfo = "authentication.kubernetes.io/node-name"
 
 type VMIUpdateAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
+	ClusterConfig           *virtconfig.ClusterConfig
+	KubeVirtServiceAccounts map[string]struct{}
 }
 
 func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -52,7 +53,7 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if admitter.ClusterConfig.NodeRestrictionEnabled() && webhooks.IsComponentServiceAccount(ar.Request.UserInfo.Username, webhooks.GetNamespace(), components.HandlerServiceAccountName) {
+	if admitter.ClusterConfig.NodeRestrictionEnabled() && hasRequestOriginatedFromVirtHandler(ar.Request.UserInfo.Username, admitter.KubeVirtServiceAccounts) {
 		values, exist := ar.Request.UserInfo.Extra[nodeNameExtraInfo]
 		if exist && len(values) > 0 {
 			nodeName := values[0]
@@ -449,4 +450,12 @@ func admitHotplugMemory(oldMemory, newMemory *v1.Memory) *admissionv1.AdmissionR
 	}
 
 	return nil
+}
+
+func hasRequestOriginatedFromVirtHandler(requestUsername string, kubeVirtServiceAccounts map[string]struct{}) bool {
+	if _, isKubeVirtServiceAccount := kubeVirtServiceAccounts[requestUsername]; isKubeVirtServiceAccount {
+		return strings.HasSuffix(requestUsername, components.HandlerServiceAccountName)
+	}
+
+	return false
 }
