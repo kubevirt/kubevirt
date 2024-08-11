@@ -389,29 +389,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("VirtualMachineInstance with custom PCI address", func() {
-		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string) {
-			err := console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "ls /sys/bus/pci/devices/" + expectedPciAddress + "/virtio0/net\n"},
-				&expect.BExp{R: "eth0"},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		It("[test_id:1776]should configure custom Pci address", func() {
-			By("checking eth0 Pci address")
-			testVMI := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
-			testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:01:00.0"
-			testVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			libwait.WaitUntilVMIReady(testVMI, console.LoginToAlpine)
-			checkPciAddress(testVMI, testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress)
-		})
-	})
-
 	It("VMI with an interface that has ACPI Index set", func() {
 		const acpiIndex = 101
 		const pciAddress = "0000:01:00.0"
@@ -430,6 +407,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		err := console.SafeExpectBatch(testVMI, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: "ls /sys/bus/pci/devices/" + pciAddress + "/virtio0/net\n"},
+			&expect.BExp{R: "eth0"},
 			&expect.BSnd{S: "cat /sys/bus/pci/devices/" + pciAddress + "/acpi_index\n"},
 			&expect.BExp{R: strconv.Itoa(acpiIndex)},
 		}, 15)
