@@ -20,14 +20,18 @@
 package annotations
 
 import (
+	k8Scorev1 "k8s.io/api/core/v1"
+
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 )
 
 type Generator struct {
@@ -67,6 +71,28 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	if shouldAddIstioKubeVirtAnnotation(vmi) {
 		const defaultBridgeName = "k6t-eth0"
 		annotations[istio.KubeVirtTrafficAnnotation] = defaultBridgeName
+	}
+
+	return annotations, nil
+}
+
+func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8Scorev1.Pod) (map[string]string, error) {
+	annotations := map[string]string{}
+
+	if namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(sourcePod)) {
+		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
+		multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
+			vmi.Namespace,
+			vmi.Spec.Domain.Devices.Interfaces,
+			vmi.Spec.Networks,
+			ordinalNameScheme,
+			g.clusterConfig,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		annotations[networkv1.NetworkAttachmentAnnot] = multusNetworksAnnotation
 	}
 
 	return annotations, nil

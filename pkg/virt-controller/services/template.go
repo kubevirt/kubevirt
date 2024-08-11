@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"strings"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,8 +47,6 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
@@ -127,6 +124,10 @@ type annotationsGenerator interface {
 	Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error)
 }
 
+type targetAnnotationsGenerator interface {
+	GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (map[string]string, error)
+}
+
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -160,6 +161,7 @@ type templateService struct {
 	sidecarCreators                  []SidecarCreatorFunc
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 	annotationsGenerators            []annotationsGenerator
+	netTargetAnnotationsGenerator    targetAnnotationsGenerator
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -258,24 +260,23 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 	return t.renderLaunchManifest(vmi, nil, true)
 }
 
-func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, pod)
-	podManifest, err := t.renderLaunchManifest(vmi, imageIDs, false)
+func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
+	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
+	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, false)
 	if err != nil {
 		return nil, err
 	}
 
-	if namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
-		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
-		multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
-			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme, t.clusterConfig)
+	if t.netTargetAnnotationsGenerator != nil {
+		netAnnotations, err := t.netTargetAnnotationsGenerator.GenerateFromSource(vmi, sourcePod)
 		if err != nil {
 			return nil, err
 		}
-		podManifest.Annotations[networkv1.NetworkAttachmentAnnot] = multusNetworksAnnotation
+
+		maps.Copy(targetPod.Annotations, netAnnotations)
 	}
 
-	return podManifest, err
+	return targetPod, err
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -1521,5 +1522,11 @@ func WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryCalculator netBi
 func WithAnnotationsGenerators(generators ...annotationsGenerator) templateServiceOption {
 	return func(service *templateService) {
 		service.annotationsGenerators = append(service.annotationsGenerators, generators...)
+	}
+}
+
+func WithNetTargetAnnotationsGenerator(generator targetAnnotationsGenerator) templateServiceOption {
+	return func(service *templateService) {
+		service.netTargetAnnotationsGenerator = generator
 	}
 }

@@ -602,6 +602,9 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 
 	containerdisk.SetLocalDirectoryOnly(filepath.Join(vca.ephemeralDiskDir, "container-disk-data"))
+
+	netAnnotationsGenerator := netannotations.NewGenerator(vca.clusterConfig)
+
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.launcherQemuTimeout,
 		vca.virtShareDir,
@@ -623,7 +626,8 @@ func (vca *VirtControllerApp) initCommon() {
 			}),
 		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
 		services.WithNetBindingPluginMemoryCalculator(netbinding.MemoryCalculator{}),
-		services.WithAnnotationsGenerators(netannotations.NewGenerator(vca.clusterConfig)),
+		services.WithAnnotationsGenerators(netAnnotationsGenerator),
+		services.WithNetTargetAnnotationsGenerator(netAnnotationsGenerator),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)

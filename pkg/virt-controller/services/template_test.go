@@ -52,7 +52,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -136,7 +135,6 @@ var _ = Describe("Template", func() {
 						return hooks.UnmarshalHookSidecarList(vmi)
 					}),
 				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
-				WithAnnotationsGenerators(netannotations.NewGenerator(config)),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -964,80 +962,6 @@ var _ = Describe("Template", func() {
 				_, ok := pod.Annotations[v1.MigrationTransportUnixAnnotation]
 				Expect(ok).To(BeTrue())
 			})
-		})
-		Context("with multus annotation", func() {
-			DescribeTable("should add Multus networks annotation to the migration target pod with interface name scheme similar to the migration source pod",
-				func(migrationSourcePodNetworksAnnotation, expectedTargetPodMultusNetworksAnnotation map[string]string) {
-					config, kvStore, svc = configFactory(defaultArch)
-
-					vmi := &v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "testvmi",
-							Namespace: "default",
-							UID:       "1234",
-						},
-						Spec: v1.VirtualMachineInstanceSpec{
-							Networks: []v1.Network{
-								{Name: "default",
-									NetworkSource: v1.NetworkSource{
-										Pod: &v1.PodNetwork{},
-									}},
-								{Name: "blue",
-									NetworkSource: v1.NetworkSource{
-										Multus: &v1.MultusNetwork{NetworkName: "test1"},
-									}},
-								{Name: "red",
-									NetworkSource: v1.NetworkSource{
-										Multus: &v1.MultusNetwork{NetworkName: "other-namespace/test1"},
-									}},
-							},
-							Domain: v1.DomainSpec{
-								Devices: v1.Devices{
-									Interfaces: []v1.Interface{{Name: "default"}, {Name: "blue"}, {Name: "red"}},
-								},
-							},
-						},
-					}
-
-					sourcePod, err := svc.RenderLaunchManifest(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					sourcePod.ObjectMeta.Annotations[networkv1.NetworkStatusAnnot] = migrationSourcePodNetworksAnnotation[networkv1.NetworkStatusAnnot]
-
-					targetPod, err := svc.RenderMigrationManifest(vmi, sourcePod)
-					Expect(err).ToNot(HaveOccurred())
-
-					Expect(targetPod.Annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedTargetPodMultusNetworksAnnotation[networkv1.NetworkAttachmentAnnot]))
-				},
-				Entry("when the migration source Multus network-status annotation has ordinal naming",
-					map[string]string{
-						networkv1.NetworkStatusAnnot: `[
-							{"interface":"eth0", "name":"default"},
-							{"interface":"net1", "name":"test1", "namespace":"default"},
-							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
-						]`,
-					},
-					map[string]string{
-						networkv1.NetworkAttachmentAnnot: `[
-							{"interface":"net1", "name":"test1", "namespace":"default"},
-							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
-						]`,
-					},
-				),
-				Entry("when the migration source Multus network-status annotation has hashed naming",
-					map[string]string{
-						networkv1.NetworkStatusAnnot: `[
-							{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
-							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
-						]`,
-					},
-					map[string]string{
-						networkv1.NetworkAttachmentAnnot: `[
-							{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
-							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
-						]`,
-					},
-				),
-			)
 		})
 
 		Context("With Istio sidecar.istio.io/inject annotation", func() {
@@ -5104,6 +5028,90 @@ var _ = Describe("Template", func() {
 			Expect(pod.Annotations).To(HaveKeyWithValue(sharedKey, val2))
 		})
 	})
+
+	Context("Network target annotations generation", func() {
+		const (
+			testNamespace = "default"
+
+			testKey = "netAnnotation"
+
+			initialValue = "netAnnotationInitial"
+			updatedValue = "netAnnotationUpdated"
+		)
+
+		It("Should call network target annotations generator when templating a migration target pod", func() {
+			generator := stubTargetAnnotationsGenerator{
+				annotations: map[string]string{testKey: updatedValue},
+			}
+
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithNetTargetAnnotationsGenerator(generator),
+			)
+
+			vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
+
+			sourcePod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			sourcePod.Annotations[testKey] = initialValue
+
+			targetPod, err := svc.RenderMigrationManifest(vmi, sourcePod)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(targetPod.Annotations).To(HaveKeyWithValue(testKey, updatedValue))
+		})
+
+		It("Should fail templating a migration target pod when network target annotations generator fails", func() {
+			expectedErr := errors.New("some err")
+
+			generator := stubTargetAnnotationsGenerator{
+				annotations:   map[string]string{testKey: updatedValue},
+				generationErr: expectedErr,
+			}
+
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithNetTargetAnnotationsGenerator(generator),
+			)
+
+			vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
+
+			sourcePod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			sourcePod.Annotations[testKey] = initialValue
+
+			_, err = svc.RenderMigrationManifest(vmi, sourcePod)
+			Expect(err).To(MatchError(expectedErr))
+		})
+	})
 })
 
 func networkInfoAnnotVolume() k8sv1.Volume {
@@ -5247,4 +5255,13 @@ type stubAnnotationsGenerator struct {
 
 func (sag stubAnnotationsGenerator) Generate(_ *v1.VirtualMachineInstance) (map[string]string, error) {
 	return sag.annotations, sag.generationErr
+}
+
+type stubTargetAnnotationsGenerator struct {
+	annotations   map[string]string
+	generationErr error
+}
+
+func (stag stubTargetAnnotationsGenerator) GenerateFromSource(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) (map[string]string, error) {
+	return stag.annotations, stag.generationErr
 }

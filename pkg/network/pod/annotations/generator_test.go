@@ -23,6 +23,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8Scorev1 "k8s.io/api/core/v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -38,6 +42,8 @@ import (
 )
 
 var _ = Describe("Annotations Generator", func() {
+	const testNamespace = "default"
+
 	var clusterConfig *virtconfig.ClusterConfig
 
 	BeforeEach(func() {
@@ -54,8 +60,6 @@ var _ = Describe("Annotations Generator", func() {
 
 	Context("Multus", func() {
 		const (
-			testNamespace = "default"
-
 			defaultNetworkName = "default"
 			network1Name       = "test1"
 			network2Name       = "other-test1"
@@ -164,6 +168,68 @@ var _ = Describe("Annotations Generator", func() {
 			),
 		)
 	})
+
+	Context("Network naming scheme conversion during migration", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			const (
+				networkName1                     = "blue"
+				networkAttachmentDefinitionName1 = "test1"
+
+				networkName2                     = "red"
+				networkAttachmentDefinitionName2 = "other-namespace/test1"
+			)
+
+			vmi = libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName1)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName2)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName1, networkAttachmentDefinitionName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName2, networkAttachmentDefinitionName2)),
+			)
+		})
+
+		It("should convert the naming scheme when source pod has ordinal naming", func() {
+			sourcePodAnnotations := map[string]string{}
+			sourcePodAnnotations[networkv1.NetworkStatusAnnot] = `[
+							{"interface":"eth0", "name":"default"},
+							{"interface":"net1", "name":"test1", "namespace":"default"},
+							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
+						]`
+
+			sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
+
+			generator := annotations.NewGenerator(clusterConfig)
+			convertedAnnotations, err := generator.GenerateFromSource(vmi, sourcePod)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedMultusNetworksAnnotation := `[
+							{"interface":"net1", "name":"test1", "namespace":"default"},
+							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
+						]`
+
+			Expect(convertedAnnotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetworksAnnotation))
+		})
+
+		It("should not convert the naming scheme when source pod does not have ordinal naming", func() {
+			sourcePodAnnotations := map[string]string{}
+			sourcePodAnnotations[networkv1.NetworkStatusAnnot] = `[
+							{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
+							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
+						]`
+
+			sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
+
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations, err := generator.GenerateFromSource(vmi, sourcePod)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(annotations).To(BeEmpty())
+		})
+	})
 })
 
 func newClusterConfig(kv *v1.KubeVirt) *virtconfig.ClusterConfig {
@@ -179,6 +245,16 @@ func newMultusDefaultPodNetwork(name, networkAttachmentDefinitionName string) *v
 				NetworkName: networkAttachmentDefinitionName,
 				Default:     true,
 			},
+		},
+	}
+}
+
+func newStubVirtLauncherPod(vmi *v1.VirtualMachineInstance, annotations map[string]string) *k8Scorev1.Pod {
+	return &k8Scorev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "virt-launcher-" + vmi.Name,
+			Namespace:   vmi.Namespace,
+			Annotations: annotations,
 		},
 	}
 }
