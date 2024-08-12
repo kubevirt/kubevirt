@@ -405,7 +405,7 @@ func createUnschedulablePVC(name, namespace, size string) *k8sv1.PersistentVolum
 // virt-launcher in order to allow the migration.
 func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, size string) {
 	const volName = "vol"
-	const dir = "disks"
+	const dir = "/disks"
 	virtCli := kubevirt.Client()
 	vmi, err := virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ShouldNot(HaveOccurred())
