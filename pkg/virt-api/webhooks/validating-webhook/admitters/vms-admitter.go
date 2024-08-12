@@ -438,7 +438,7 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (cau
 	if spec.Running != nil && spec.RunStrategy != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Running and RunStrategy are mutually exclusive"),
+			Message: fmt.Sprintf("Running and RunStrategy are mutually exclusive. Note that Running is deprecated, please use RunStrategy instead"),
 			Field:   field.Child("running").String(),
 		})
 	}
@@ -446,7 +446,7 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (cau
 	if spec.Running == nil && spec.RunStrategy == nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("One of Running or RunStrategy must be specified"),
+			Message: fmt.Sprintf("RunStrategy must be specified"),
 			Field:   field.Child("running").String(),
 		})
 	}
