@@ -901,10 +901,9 @@ spec:
 			annotationPatchValue := "new-annotation-value"
 			annotationPatchKey := "applied-patch"
 
-			By("Updating KubeVirt Object")
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
+			By("Patching KubeVirt Object")
+
+			ccs := v1.CustomizeComponents{
 				Patches: []v1.CustomizeComponentsPatch{
 					{
 						ResourceName: "virt-controller",
@@ -915,7 +914,9 @@ spec:
 				},
 			}
 
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			patchPayload, err := patch.New(patch.WithReplace("/spec/customizeComponents", ccs)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			generation := kv.GetGeneration()
 
@@ -941,8 +942,10 @@ spec:
 			Expect(kv.GetGeneration()).To(Equal(generation))
 
 			By("Deleting patch from KubeVirt object")
-			kv.Spec.CustomizeComponents = v1.CustomizeComponents{}
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+
+			patchPayload, err = patch.New(patch.WithRemove("/spec/customizeComponents")).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			generation = kv.GetGeneration()
 
@@ -961,7 +964,6 @@ spec:
 
 			By("Waiting for virt-operator to apply changes to component")
 			waitForKvWithTimeout(kv, 120)
-
 		})
 	})
 
