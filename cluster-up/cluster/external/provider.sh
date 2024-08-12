@@ -22,6 +22,15 @@ manifest_docker_prefix=\${DOCKER_PREFIX}
 image_pull_policy=\${IMAGE_PULL_POLICY:-Always}
 EOF
 
+    if [ -n "$KUBECTL" ]; then
+       echo "kubectl=${KUBECTL}" >> "$PROVIDER_CONFIG_FILE_PATH"
+    else
+       if which kubectl; then
+          echo "kubectl=$(which kubectl)" >> "$PROVIDER_CONFIG_FILE_PATH"
+       fi 
+    fi
+
+
     if which oc; then
         echo "oc=$(which oc)" >> "$PROVIDER_CONFIG_FILE_PATH"
     fi
