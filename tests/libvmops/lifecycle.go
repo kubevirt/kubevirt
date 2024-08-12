@@ -35,10 +35,16 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+// StopVirtualMachine
+//
+// Deprecated: Use client.VirtualMachine(vm.Namespace).Stop and libwait instead
 func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	return StopVirtualMachineWithTimeout(vm, 300*time.Second)
 }
 
+// StopVirtualMachineWithTimeout
+//
+// Deprecated:Use client.VirtualMachine(vm.Namespace).Stop and libwait instead
 func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
 	virtClient := kubevirt.Client()
 
@@ -59,6 +65,9 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	return updatedVM
 }
 
+// StartVirtualMachine
+//
+// Deprecated: Use client.VirtualMachine(vm.Namespace).start and libwait instead
 func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	virtClient := kubevirt.Client()
 
