@@ -24,10 +24,6 @@ digraph component {
 		fontname="Courier-Bold" fontsize=42 group="kubevirt-console-plugin" label="kubevirt-console-plugin" rank=same style=dashed
 		"deployment/kubevirt-console-plugin" [label="deployment/kubevirt-console-plugin"]
 	}
-	subgraph "cluster_multi-tenant" {
-		fontname="Courier-Bold" fontsize=42 group="multi-tenant" label="multi-tenant" rank=same style=dashed
-		"deployment/mtq-operator" [label="deployment/mtq-operator"]
-	}
 	subgraph cluster_network {
 		fontname="Courier-Bold" fontsize=42 group=network label=network rank=same style=dashed
 		"NetworkAddonsConfig/cluster" [label="NetworkAddonsConfig/cluster"]
@@ -68,8 +64,7 @@ digraph component {
 	"KubeVirt/kubevirt-kubevirt-hyperconverged" -> "deployment/hco-operator"
 	"deployment/hco-operator" -> "deployment/kubevirt-apiserver-proxy"
 	"deployment/kubevirt-apiserver-proxy" -> "deployment/kubevirt-console-plugin"
-	"deployment/kubevirt-console-plugin" -> "deployment/mtq-operator"
-	"deployment/mtq-operator" -> "NetworkAddonsConfig/cluster"
+	"deployment/kubevirt-console-plugin" -> "NetworkAddonsConfig/cluster"
 	"NetworkAddonsConfig/cluster" -> "deployment/aaq-operator"
 	"deployment/aaq-operator" -> "SSP/ssp-kubevirt-hyperconverged"
 	"SSP/ssp-kubevirt-hyperconverged" -> "CDI/cdi-kubevirt-hyperconverged"
