@@ -36,10 +36,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -57,12 +57,13 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 
 	GetCloudInitHookSidecarLogs := func(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 		namespace := vmi.GetObjectMeta().GetNamespace()
-		podName := tests.GetVmPodName(virtCli, vmi)
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		Expect(err).ToNot(HaveOccurred())
 
 		var tailLines int64 = 100
 		logsRaw, err := virtCli.CoreV1().
 			Pods(namespace).
-			GetLogs(podName, &k8sv1.PodLogOptions{
+			GetLogs(pod.Name, &k8sv1.PodLogOptions{
 				TailLines: &tailLines,
 				Container: "hook-sidecar-0",
 			}).
