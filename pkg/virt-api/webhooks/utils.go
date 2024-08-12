@@ -95,6 +95,10 @@ func GetNamespace() string {
 	return ns
 }
 
+// IsKubeVirtServiceAccount returns true in case `serviceAccount` belongs to one of
+// KubeVirt's main components
+//
+// Deprecated: because it directly reads the namespace from the file-system
 func IsKubeVirtServiceAccount(serviceAccount string) bool {
 	ns := GetNamespace()
 
