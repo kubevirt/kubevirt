@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -43,6 +44,13 @@ const (
 	DefaultARM64OVMFPath         = "/usr/share/AAVMF"
 	DefaultAMD64EmulatedMachines = "q35*,pc-q35*"
 	DefaultARM64EmulatedMachines = "virt*"
+)
+
+const (
+	primaryUDNNetworkBindingName = "passt"
+	// Needs to align with the NAD that will be deployed by CNAO
+	primaryUDNNetworkBindingNADName      = "primary-udn-kubevirt-binding"
+	primaryUDNNetworkBindingNADNamespace = "default"
 )
 
 var (
@@ -421,11 +429,13 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 
 	seccompConfig := getKVSeccompConfig()
 
+	networkBindings := getNetworkBindings(hc.Spec.NetworkBinding, hc.Spec.FeatureGates)
+
 	config := &kubevirtcorev1.KubeVirtConfiguration{
 		DeveloperConfiguration: devConfig,
 		NetworkConfiguration: &kubevirtcorev1.NetworkConfiguration{
 			NetworkInterface: string(kubevirtcorev1.MasqueradeInterface),
-			Binding:          hc.Spec.NetworkBinding,
+			Binding:          networkBindings,
 		},
 		MigrationConfiguration:       kvLiveMigration,
 		PermittedHostDevices:         toKvPermittedHostDevices(hc.Spec.PermittedHostDevices),
@@ -509,8 +519,24 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 	if hc.Spec.ResourceRequirements != nil {
 		config.AutoCPULimitNamespaceLabelSelector = hc.Spec.ResourceRequirements.AutoCPULimitNamespaceLabelSelector.DeepCopy()
 	}
-
 	return config, nil
+}
+
+func getNetworkBindings(
+	hcoNetworkBindings map[string]kubevirtcorev1.InterfaceBindingPlugin,
+	hcoFeatureGates hcov1beta1.HyperConvergedFeatureGates) map[string]kubevirtcorev1.InterfaceBindingPlugin {
+	networkBindings := maps.Clone(hcoNetworkBindings)
+
+	if hcoFeatureGates.PrimaryUserDefinedNetworkBinding != nil && *hcoFeatureGates.PrimaryUserDefinedNetworkBinding {
+		if networkBindings == nil {
+			networkBindings = make(map[string]kubevirtcorev1.InterfaceBindingPlugin)
+		}
+
+		sidecarImage, _ := os.LookupEnv(hcoutil.PrimaryUDNImageEnvV)
+		networkBindings[primaryUDNNetworkBindingName] = primaryUserDefinedNetworkBinding(sidecarImage)
+	}
+	return networkBindings
+
 }
 
 func getObsoleteCPUConfig(hcObsoleteCPUConf *hcov1beta1.HyperConvergedObsoleteCPUs) (map[string]bool, string) {
@@ -736,6 +762,22 @@ func getKVDevConfig(hc *hcov1beta1.HyperConverged) *kubevirtcorev1.DeveloperConf
 	return devConf
 }
 
+func primaryUserDefinedNetworkBinding(sidecarImage string) kubevirtcorev1.InterfaceBindingPlugin {
+	const bindingComputeMemoryOverhead = "500Mi"
+	return kubevirtcorev1.InterfaceBindingPlugin{
+		NetworkAttachmentDefinition: path.Join(primaryUDNNetworkBindingNADNamespace, primaryUDNNetworkBindingNADName),
+		SidecarImage:                sidecarImage,
+		Migration: &kubevirtcorev1.InterfaceBindingMigration{
+			Method: kubevirtcorev1.LinkRefresh,
+		},
+		ComputeResourceOverhead: &corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse(bindingComputeMemoryOverhead),
+			},
+		},
+	}
+}
+
 // Static for now, could be configured in the HCO CR in the future
 func getKVSeccompConfig() *kubevirtcorev1.SeccompConfiguration {
 	return &kubevirtcorev1.SeccompConfiguration{
@@ -811,7 +853,6 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 	if featureGates.AutoResourceLimits != nil && *featureGates.AutoResourceLimits {
 		fgs = append(fgs, kvAutoResourceLimits)
 	}
-
 	if featureGates.AlignCPUs != nil && *featureGates.AlignCPUs {
 		fgs = append(fgs, kvAlignCPUs)
 	}

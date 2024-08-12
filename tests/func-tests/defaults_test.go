@@ -66,20 +66,21 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 	Context("feature gate defaults", func() {
 		defaultFeatureGates := v1beta1.HyperConvergedFeatureGates{
-			DownwardMetrics:              ptr.To(false),
-			DeployKubeSecondaryDNS:       ptr.To(false),
-			DeployKubevirtIpamController: ptr.To(false),
-			DeployTektonTaskResources:    ptr.To(false),
-			DeployVMConsoleProxy:         ptr.To(false),
-			DisableMDevConfiguration:     ptr.To(false),
-			EnableCommonBootImageImport:  ptr.To(true),
-			PersistentReservation:        ptr.To(false),
-			NonRoot:                      ptr.To(true), //nolint SA1019
-			WithHostPassthroughCPU:       ptr.To(false),
-			EnableManagedTenantQuota:     ptr.To(false),
-			AutoResourceLimits:           ptr.To(false),
-			AlignCPUs:                    ptr.To(false),
-			EnableApplicationAwareQuota:  ptr.To(false),
+			DownwardMetrics:                  ptr.To(false),
+			DeployKubeSecondaryDNS:           ptr.To(false),
+			DeployKubevirtIpamController:     ptr.To(false),
+			DeployTektonTaskResources:        ptr.To(false),
+			DeployVMConsoleProxy:             ptr.To(false),
+			DisableMDevConfiguration:         ptr.To(false),
+			EnableCommonBootImageImport:      ptr.To(true),
+			PersistentReservation:            ptr.To(false),
+			NonRoot:                          ptr.To(true), //nolint SA1019
+			WithHostPassthroughCPU:           ptr.To(false),
+			EnableManagedTenantQuota:         ptr.To(false),
+			AutoResourceLimits:               ptr.To(false),
+			AlignCPUs:                        ptr.To(false),
+			EnableApplicationAwareQuota:      ptr.To(false),
+			PrimaryUserDefinedNetworkBinding: ptr.To(false),
 		}
 
 		DescribeTable("Check that featureGates defaults are behaving as expected", func(ctx context.Context, path string) {
@@ -106,6 +107,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			Entry("when removing /spec/featureGates/enableManagedTenantQuota", "/spec/featureGates/enableManagedTenantQuota"),
 			Entry("when removing /spec/featureGates/autoResourceLimits", "/spec/featureGates/autoResourceLimits"),
 			Entry("when removing /spec/featureGates/alignCPUs", "/spec/featureGates/alignCPUs"),
+			Entry("when removing /spec/featureGates/primaryUserDefinedNetworkBinding", "/spec/featureGates/primaryUserDefinedNetworkBinding"),
 			Entry("when removing /spec/featureGates", "/spec/featureGates"),
 			Entry("when removing /spec", "/spec"),
 		)

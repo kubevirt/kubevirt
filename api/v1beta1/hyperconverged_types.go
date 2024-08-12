@@ -66,7 +66,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false,"autoResourceLimits": false, "enableApplicationAwareQuota": false}
+	// +kubebuilder:default={"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false,"autoResourceLimits": false, "enableApplicationAwareQuota": false, "primaryUserDefinedNetworkBinding": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -504,6 +504,14 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	// +default=false
 	EnableApplicationAwareQuota *bool `json:"enableApplicationAwareQuota,omitempty"`
+
+	// primaryUserDefinedNetworkBinding deploys the needed configurations for kubevirt users to
+	// be able to bind their VM to a UDN network on the VM's primary interface.
+	// Note: this feature is in Developer Preview.
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	PrimaryUserDefinedNetworkBinding *bool `json:"primaryUserDefinedNetworkBinding,omitempty"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough
@@ -860,7 +868,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": true}}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false, "primaryUserDefinedNetworkBinding": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": true}}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

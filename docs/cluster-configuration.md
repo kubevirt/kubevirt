@@ -249,6 +249,14 @@ See [below](#configure-application-aware-quota-aaq) for Application Aware Quota 
 
 **Default**: `false`
 
+### primaryUserDefinedNetworkBinding Feature Gate
+Set the `primaryUserDefinedNetworkBinding` feature gate to deploy the needed configurations for kubevirt users, so they
+can bind their VM to a user-defined network (UDN) on the VM's primary interface.
+
+**Note**: this feature is in Developer Preview.
+
+**Default**: `false`
+
 ### Feature Gates Example
 
 ```yaml

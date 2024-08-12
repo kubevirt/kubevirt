@@ -1815,6 +1815,7 @@ Version: 1.2.3`)
 		Context("Feature Gates", func() {
 
 			getClusterInfo := hcoutil.GetClusterInfo
+			const expectedPrimaryUDNImage = "quay.io/some-org/some-repo@some-sha"
 
 			BeforeEach(func() {
 				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
@@ -1824,6 +1825,14 @@ Version: 1.2.3`)
 
 			AfterEach(func() {
 				hcoutil.GetClusterInfo = getClusterInfo
+			})
+
+			BeforeEach(func() {
+				Expect(os.Setenv(hcoutil.PrimaryUDNImageEnvV, expectedPrimaryUDNImage)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				Expect(os.Unsetenv(hcoutil.PrimaryUDNImageEnvV)).To(Succeed())
 			})
 
 			Context("test feature gates in NewKubeVirt", func() {
@@ -2054,6 +2063,58 @@ Version: 1.2.3`)
 					})
 
 					Expect(existingResource.Annotations).ToNot(HaveKey(kubevirtcorev1.EmulatorThreadCompleteToEvenParity))
+				})
+
+				It("should add the Primary User Defined Network Binding to Kubevirt CR if PrimaryUserDefinedNetworkBinding is true in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						PrimaryUserDefinedNetworkBinding: ptr.To(true),
+					}
+					hco.Spec.NetworkBinding = nil
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(existingResource.Spec.Configuration.NetworkConfiguration).NotTo(BeNil())
+					Expect(existingResource.Spec.Configuration.NetworkConfiguration.Binding).NotTo(BeNil())
+					expectedInterfaceBindingPlugin := kubevirtcorev1.InterfaceBindingPlugin{
+						NetworkAttachmentDefinition: primaryUDNNetworkBindingNADNamespace + "/" + primaryUDNNetworkBindingNADName,
+						SidecarImage:                expectedPrimaryUDNImage,
+						Migration: &kubevirtcorev1.InterfaceBindingMigration{
+							Method: kubevirtcorev1.LinkRefresh,
+						},
+						ComputeResourceOverhead: &corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("500Mi"),
+							},
+						},
+					}
+					Expect(existingResource.Spec.Configuration.NetworkConfiguration.Binding[primaryUDNNetworkBindingName]).To(Equal(expectedInterfaceBindingPlugin))
+				})
+
+				It("should not add the Primary User Defined Network Binding to Kubevirt CR if PrimaryUserDefinedNetworkBinding is false in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						PrimaryUserDefinedNetworkBinding: ptr.To(false),
+					}
+					hco.Spec.NetworkBinding = nil
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(existingResource.Spec.Configuration.NetworkConfiguration).NotTo(BeNil())
+					Expect(existingResource.Spec.Configuration.NetworkConfiguration.Binding).To(BeNil())
+				})
+
+				It("should not add the Primary User Defined Network Binding to Kubevirt CR if PrimaryUserDefinedNetworkBinding is not set in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						PrimaryUserDefinedNetworkBinding: nil,
+					}
+					hco.Spec.NetworkBinding = nil
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(existingResource.Spec.Configuration.NetworkConfiguration).NotTo(BeNil())
+					Expect(existingResource.Spec.Configuration.NetworkConfiguration.Binding).To(BeNil())
 				})
 
 				It("should not add the feature gates if FeatureGates field is empty", func() {

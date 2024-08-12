@@ -323,6 +323,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.PrimaryUserDefinedNetworkBinding != nil {
+		in, out := &in.PrimaryUserDefinedNetworkBinding, &out.PrimaryUserDefinedNetworkBinding
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

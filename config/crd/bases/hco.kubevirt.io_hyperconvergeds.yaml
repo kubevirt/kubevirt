@@ -69,6 +69,7 @@ spec:
                 enableManagedTenantQuota: false
                 nonRoot: true
                 persistentReservation: false
+                primaryUserDefinedNetworkBinding: false
                 withHostPassthroughCPU: false
               liveMigrationConfig:
                 allowAutoConverge: false
@@ -1081,6 +1082,7 @@ spec:
                   enableManagedTenantQuota: false
                   nonRoot: true
                   persistentReservation: false
+                  primaryUserDefinedNetworkBinding: false
                   withHostPassthroughCPU: false
                 description: |-
                   featureGates is a map of feature gate flags. Setting a flag to `true` will enable
@@ -1164,6 +1166,13 @@ spec:
                       In order to issue privileged SCSI ioctls, the VM requires activation of the persistent reservation flag.
                       Once this feature gate is enabled, then the additional container with the qemu-pr-helper is deployed inside the virt-handler pod.
                       Enabling (or removing) the feature gate causes the redeployment of the virt-handler pod.
+                    type: boolean
+                  primaryUserDefinedNetworkBinding:
+                    default: false
+                    description: |-
+                      primaryUserDefinedNetworkBinding deploys the needed configurations for kubevirt users to
+                      be able to bind their VM to a UDN network on the VM's primary interface.
+                      Note: this feature is in Developer Preview.
                     type: boolean
                   withHostPassthroughCPU:
                     default: false

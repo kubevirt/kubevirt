@@ -25,6 +25,7 @@ spec:
     enableManagedTenantQuota: false
     nonRoot: true
     persistentReservation: false
+    primaryUserDefinedNetworkBinding: false
     withHostPassthroughCPU: false
   higherWorkloadDensity:
     memoryOvercommitPercentage: 100

@@ -96,6 +96,10 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.EnableApplicationAwareQuota = &ptrVar1
 	}
+	if in.Spec.FeatureGates.PrimaryUserDefinedNetworkBinding == nil {
+		var ptrVar1 bool = false
+		in.Spec.FeatureGates.PrimaryUserDefinedNetworkBinding = &ptrVar1
+	}
 	if in.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster == nil {
 		var ptrVar1 uint32 = 5
 		in.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &ptrVar1

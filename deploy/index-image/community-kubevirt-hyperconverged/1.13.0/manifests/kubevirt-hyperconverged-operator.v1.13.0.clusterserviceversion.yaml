@@ -3128,6 +3128,8 @@ spec:
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:413a6c229ebb608868e8b2c7c06b251c6b1d43c07af12a76b893292cbed8bef9
                 - name: KV_CONSOLE_PROXY_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-apiserver-proxy@sha256:935475c2850466aa5ac57e4de627fb177515cb2c402a95842ead095d82b6df5f
+                - name: PRIMARY_UDN_SIDECAR_IMAGE
+                  value: quay.io/kubevirt/network-passt-binding@sha256:3fb5f9fb87a9ab1f06bed2b2358ad862ef66bc47dc73044f1076a3eb9a4c55ff
                 image: +IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -4641,6 +4643,8 @@ spec:
     name: multus-cni
   - image: ghcr.io/k8snetworkplumbingwg/multus-dynamic-networks-controller@sha256:83b460502671fb4f34116363a1a39b2ddfc9d14a920ee0a6413bfc3bd0580404
     name: multus-dynamic-networks-controller
+  - image: quay.io/kubevirt/network-passt-binding@sha256:3fb5f9fb87a9ab1f06bed2b2358ad862ef66bc47dc73044f1076a3eb9a4c55ff
+    name: network-passt-binding
   - image: quay.io/openshift/origin-kube-rbac-proxy@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8
     name: origin-kube-rbac-proxy
   - image: ghcr.io/k8snetworkplumbingwg/ovs-cni-plugin@sha256:a53d381d62796f44c8db4bb7ee0a1ada7c5355ef869a20382affcb5e21a5e3f2
