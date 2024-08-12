@@ -1529,6 +1529,7 @@ const (
 type VirtualMachineSpec struct {
 	// Running controls whether the associatied VirtualMachineInstance is created or not
 	// Mutually exclusive with RunStrategy
+	// Deprecated: VirtualMachineInstance field "Running" is now deprecated
 	Running *bool `json:"running,omitempty" optional:"true"`
 
 	// Running state indicates the requested running state of the VirtualMachineInstance

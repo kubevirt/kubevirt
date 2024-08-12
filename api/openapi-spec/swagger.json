@@ -17534,7 +17534,7 @@
       "type": "string"
      },
      "running": {
-      "description": "Running controls whether the associatied VirtualMachineInstance is created or not Mutually exclusive with RunStrategy",
+      "description": "Running controls whether the associatied VirtualMachineInstance is created or not Mutually exclusive with RunStrategy Deprecated: VirtualMachineInstance field \"Running\" is now deprecated",
       "type": "boolean"
      },
      "template": {
