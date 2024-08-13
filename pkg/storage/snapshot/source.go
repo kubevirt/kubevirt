@@ -147,9 +147,14 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 	}
 
 	vmCopy.Status.SnapshotInProgress = nil
-	_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+	vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+	if err != nil {
+		return false, err
+	}
 
-	return true, err
+	s.vm = vmCopy
+
+	return true, nil
 }
 
 func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {
