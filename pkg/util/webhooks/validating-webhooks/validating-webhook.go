@@ -19,15 +19,8 @@ type admitter interface {
 	Admit(context.Context, *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
 }
 
-type AlwaysPassAdmitter struct {
-}
-
 func NewPassingAdmissionResponse() *admissionv1.AdmissionResponse {
 	return &admissionv1.AdmissionResponse{Allowed: true}
-}
-
-func (*AlwaysPassAdmitter) Admit(*admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	return NewPassingAdmissionResponse()
 }
 
 func NewAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionResponse {
