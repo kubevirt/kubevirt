@@ -1,5 +1,7 @@
 module kubevirt.io/kubevirt
 
+go 1.22.0
+
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/blang/semver v3.5.1+incompatible
@@ -205,7 +207,3 @@ replace (
 
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )
-
-go 1.22.0
-
-toolchain go1.22.6
