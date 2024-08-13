@@ -57,14 +57,7 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 	addMigrationSelectorLabel(&migration)
 	addMigrationFinalizer(&migration)
 
-	patchBytes, err := patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/metadata",
-			Value: migration.ObjectMeta,
-		},
-	)
-
+	patchBytes, err := patch.New(patch.WithReplace("/metadata", migration.ObjectMeta)).GeneratePayload()
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
