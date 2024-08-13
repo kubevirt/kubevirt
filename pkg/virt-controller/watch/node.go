@@ -274,7 +274,8 @@ func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv
 	c.recorder.Event(vmi, v1.EventTypeNormal, NodeUnresponsiveReason, fmt.Sprintf("virt-handler on node %s is not responsive, marking VMI as failed", vmi.Status.NodeName))
 	logger.V(2).Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
 
-	patchBytes, err := generateFailedVMIPatch(vmi.Status.Reason)
+	patchBytes, err := patch.New(patch.WithReplace("/status/phase", virtv1.Failed),
+		patch.WithAdd("/status/reason", NodeUnresponsiveReason)).GeneratePayload()
 	if err != nil {
 		return err
 	}
@@ -285,26 +286,6 @@ func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv
 	}
 
 	return nil
-}
-
-func generateFailedVMIPatch(reason string) ([]byte, error) {
-	reasonOp := "add"
-	if reason != "" {
-		reasonOp = "replace"
-	}
-
-	return patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/status/phase",
-			Value: virtv1.Failed,
-		},
-		patch.PatchOperation{
-			Op:    reasonOp,
-			Path:  "/status/reason",
-			Value: NodeUnresponsiveReason,
-		},
-	)
 }
 
 func (c *NodeController) requeueIfExists(key string, node *v1.Node) {
