@@ -10,6 +10,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -98,18 +99,28 @@ func runSetPasswordCommand(clientConfig clientcmd.ClientConfig, cmdFlags *passwo
 			return fmt.Errorf("secret %s does not have an owner reference pointing to VM %s", secretName, vm.Name)
 		}
 	}
-
-	addKeyPatch := common.AddKeyToSecretPatchOp(cmdFlags.User, []byte(cmdFlags.Password))
+	passwordPath := fmt.Sprintf("/data/%s", cmdFlags.User)
+	addKeyPatch, err := patch.New(patch.WithAdd(passwordPath, []byte(cmdFlags.Password))).GeneratePayload()
+	if err != nil {
+		return err
+	}
 
 	// Try patch to only add the new key.
 	_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(),
 		secretName,
 		types.JSONPatchType,
-		common.MustMarshalPatch(addKeyPatch),
+		addKeyPatch,
 		metav1.PatchOptions{})
 	if err != nil {
 		// If it fails, it probably means that /data field is nil. Try second patch to add /data field.
-		fullPatch := common.MustMarshalPatch(append(common.AddDataFieldToSecretPatchOp(), addKeyPatch)...)
+		fullPatch, err := patch.New(
+			patch.WithTest("/data", nil),
+			patch.WithAdd("/data", map[string][]byte{}),
+			patch.WithAdd(passwordPath, []byte(cmdFlags.Password)),
+		).GeneratePayload()
+		if err != nil {
+			return err
+		}
 		_, err = cli.CoreV1().Secrets(vmNamespace).Patch(cmd.Context(), secretName, types.JSONPatchType, fullPatch, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("error patching secret \"%s\": %w", secretName, err)
