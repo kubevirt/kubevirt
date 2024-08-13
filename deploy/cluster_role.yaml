@@ -1111,6 +1111,13 @@ rules:
   verbs:
   - update
 - apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines/finalizers
+  - virtualmachineinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -1192,6 +1199,9 @@ rules:
   - get
   - list
   - watch
+  - create
+  - update
+  - delete
 - apiGroups:
   - ""
   resources:
