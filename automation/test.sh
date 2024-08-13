@@ -297,7 +297,7 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-make cluster-sync
+ionice --class idle make cluster-sync
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)
