@@ -22,6 +22,7 @@ package backendstorage
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -67,6 +68,16 @@ func PVCForVMI(pvcIndexer cache.Store, vmi *corev1.VirtualMachineInstance) *v1.P
 	}
 
 	return nil
+}
+
+func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
+	for _, volume := range vmi.Status.VolumeStatus {
+		if strings.HasPrefix(volume.Name, basePVC(vmi)) {
+			return volume.Name
+		}
+	}
+
+	return ""
 }
 
 func HasPersistentTPMDevice(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
