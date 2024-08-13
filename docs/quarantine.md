@@ -115,6 +115,9 @@ A required test lane should be made optional if the following criteria are met:
 * The SIG responsible for the required test lane is unable to deliver a fix for the
 flake within 24 hours
 
+The percentage impact of a flaky test lane can be measured by searching for a relevant
+error on the [CI search page](https://search.ci.kubevirt.io/).
+
 Following a required test lane being made optional a number of actions must happen:
 * Create github issue with a comment `/release-blocker main` to ensure that
 the issue is addressed before a new release is cut.
