@@ -158,20 +158,7 @@ const (
 
 func patchLabelAnnotationHelper(nodeName string, newMap, oldMap map[string]string, mapType mapType) (*k8sv1.Node, error) {
 	path := "/metadata/" + string(mapType) + "s"
-	p := []patch.PatchOperation{
-		{
-			Op:    "test",
-			Path:  path,
-			Value: oldMap,
-		},
-		{
-			Op:    "replace",
-			Path:  path,
-			Value: newMap,
-		},
-	}
-
-	patchBytes, err := json.Marshal(p)
+	patchBytes, err := patch.New(patch.WithTest(path, oldMap), patch.WithReplace(path, newMap)).GeneratePayload()
 	Expect(err).ToNot(HaveOccurred())
 	client := kubevirt.Client()
 	patchedNode, err := client.CoreV1().Nodes().Patch(
