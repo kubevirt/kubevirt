@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -472,7 +473,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
-				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				updatedSnapshot2 := updatedSnapshot.DeepCopy()
+				updatedSnapshot2.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					SourceUID:  &vmUID,
 					ReadyToUse: pointer.P(false),
 					Phase:      snapshotv1.InProgress,
@@ -481,8 +484,8 @@ var _ = Describe("Snapshot controlleer", func() {
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
 				vmSource.Add(vm)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -492,7 +495,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
-				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				updatedSnapshot2 := updatedSnapshot.DeepCopy()
+				updatedSnapshot2.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					ReadyToUse: pointer.P(false),
 					Phase:      snapshotv1.InProgress,
 					Conditions: []snapshotv1.Condition{
@@ -500,7 +505,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -511,7 +516,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
-				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				updatedSnapshot2 := updatedSnapshot.DeepCopy()
+				updatedSnapshot2.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					SourceUID:  &vmUID,
 					ReadyToUse: pointer.P(false),
 					Phase:      snapshotv1.InProgress,
@@ -521,7 +528,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				}
 				vmSource.Add(vm)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -580,10 +587,12 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot.DeletionTimestamp = timeFunc()
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Finalizers = []string{}
 				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 					IncludedVolumes: []string{diskName},
 				}
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				updatedSnapshot2 := updatedSnapshot.DeepCopy()
+				updatedSnapshot2.Finalizers = []string{}
 
 				content := createVMSnapshotContent()
 				updatedContent := content.DeepCopy()
@@ -593,7 +602,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContentSource.Add(content)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				expectVMSnapshotContentDelete(vmSnapshotClient, updatedContent.Name)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -604,7 +613,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot.Spec.DeletionPolicy = &retain
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Finalizers = []string{}
 				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 					IncludedVolumes: []string{diskName},
 				}
@@ -616,9 +624,13 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &content.Name
 
+				updatedSnapshot2 := updatedSnapshot.DeepCopy()
+				updatedSnapshot2.Finalizers = []string{}
+
 				vmSnapshotContentSource.Add(content)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -629,10 +641,12 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot.Spec.DeletionPolicy = &retain
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Finalizers = []string{}
 				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 					IncludedVolumes: []string{diskName},
 				}
+
+				updatedSnapshot2 := updatedSnapshot.DeepCopy()
+				updatedSnapshot2.Finalizers = []string{}
 
 				content := createVMSnapshotContent()
 				updatedContent := content.DeepCopy()
@@ -643,6 +657,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				expectVMSnapshotContentDelete(vmSnapshotClient, updatedContent.Name)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -2289,9 +2304,8 @@ func expectVMSnapshotUpdate(client *kubevirtfake.Clientset, vmSnapshot *snapshot
 		Expect(ok).To(BeTrue())
 
 		updateObj := update.GetObject().(*snapshotv1.VirtualMachineSnapshot)
-		Expect(updateObj).To(Equal(vmSnapshot))
 
-		return true, update.GetObject(), nil
+		return reflect.DeepEqual(updateObj, vmSnapshot), update.GetObject(), nil
 	})
 }
 
