@@ -106,16 +106,16 @@ tests:
 # Test unsafe modification counter
 - interval: 1m
   input_series:
-  - series: 'kubevirt_hco_unsafe_modifications{annotation_name="kubevirt.kubevirt.io/jsonpatch"}'
+  - series: 'kubevirt_hco_unsafe_modifications{namespace="ns1", annotation_name="kubevirt.kubevirt.io/jsonpatch"}'
     # time:      0     1 2 3 4 5 6 7 8     9    10 11
     values: "stale stale 1 2 3 3 3 0 1 stale stale  2"
-  - series: 'kubevirt_hco_unsafe_modifications{annotation_name="containerizeddataimporter.kubevirt.io/jsonpatch"}'
+  - series: 'kubevirt_hco_unsafe_modifications{namespace="ns1", annotation_name="containerizeddataimporter.kubevirt.io/jsonpatch"}'
     # time:      0     1 2 3 4 5 6 7 8     9    10 11
     values: "stale stale 1 2 3 1 3 0 2 stale stale  3"
-  - series: 'kubevirt_hco_unsafe_modifications{annotation_name="networkaddonsconfigs.kubevirt.io/jsonpatch"}'
+  - series: 'kubevirt_hco_unsafe_modifications{namespace="ns1", annotation_name="networkaddonsconfigs.kubevirt.io/jsonpatch"}'
     # time:      0     1 2 3 4 5 6 7 8     9    10 11
     values: "stale stale 5 1 1 1 0 0 3 stale stale  1"
-  - series: 'kubevirt_hco_unsafe_modifications{annotation_name="ssp.kubevirt.io/jsonpatch"}'
+  - series: 'kubevirt_hco_unsafe_modifications{namespace="ns1", annotation_name="ssp.kubevirt.io/jsonpatch"}'
     # time:      0     1 2 3 4 5 6 7 8     9    10 11
     values: "stale stale 5 4 3 2 0 0 3 stale stale  1"
 
@@ -138,6 +138,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -148,6 +149,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -158,6 +160,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -168,6 +171,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "ssp.kubevirt.io/jsonpatch"
 
   # New increases must be detected
@@ -183,6 +187,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -193,6 +198,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     # still using the 10 minutes max
     - exp_annotations:
@@ -204,6 +210,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -214,6 +221,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "ssp.kubevirt.io/jsonpatch"
 
   # counter can be reduced
@@ -229,6 +237,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     # Reduced
     - exp_annotations:
@@ -240,6 +249,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -250,6 +260,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -260,6 +271,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "ssp.kubevirt.io/jsonpatch"
 
   # no alert if the value is 0
@@ -275,6 +287,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -285,6 +298,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
 
   # no alert if the value is 0 for all of the annotations
@@ -305,6 +319,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     # Reduced
     - exp_annotations:
@@ -316,6 +331,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -326,6 +342,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -336,6 +353,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "ssp.kubevirt.io/jsonpatch"
 
   # no data
@@ -356,6 +374,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
     # Reduced
     - exp_annotations:
@@ -367,6 +386,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -377,6 +397,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
     - exp_annotations:
         description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
@@ -387,6 +408,7 @@ tests:
         operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
+        namespace: "ns1"
         annotation_name: "ssp.kubevirt.io/jsonpatch"
 
 # Test hyperconverged exists counter
