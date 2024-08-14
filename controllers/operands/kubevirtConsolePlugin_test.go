@@ -889,18 +889,21 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 func expectedPodAntiAffinity(appComponent hcoutil.AppComponent) *v1.Affinity {
 	return &v1.Affinity{
 		PodAntiAffinity: &v1.PodAntiAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: []v1.PodAffinityTerm{
+			PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
 				{
-					LabelSelector: &metav1.LabelSelector{
-						MatchExpressions: []metav1.LabelSelectorRequirement{
-							{
-								Key:      hcoutil.AppLabelComponent,
-								Operator: metav1.LabelSelectorOpIn,
-								Values:   []string{string(appComponent)},
+					Weight: 90,
+					PodAffinityTerm: v1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      hcoutil.AppLabelComponent,
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{string(appComponent)},
+								},
 							},
 						},
+						TopologyKey: v1.LabelHostname,
 					},
-					TopologyKey: v1.LabelHostname,
 				},
 			},
 		},
