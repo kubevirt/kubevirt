@@ -551,8 +551,11 @@ rules:
   - leases
   verbs:
   - get
+  - list
+  - watch
   - update
   - create
+  - delete
 - apiGroups:
   - storage.k8s.io
   resources:
