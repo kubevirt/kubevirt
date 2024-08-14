@@ -2340,6 +2340,9 @@ func (c *VMIController) requireVolumesUpdate(vmi *virtv1.VirtualMachineInstance)
 	if len(vmi.Status.MigratedVolumes) < 1 {
 		return false
 	}
+	if controller.NewVirtualMachineInstanceConditionManager().HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange) {
+		return false
+	}
 	migVolsMap := make(map[string]string)
 	for _, v := range vmi.Status.MigratedVolumes {
 		migVolsMap[v.SourcePVCInfo.ClaimName] = v.DestinationPVCInfo.ClaimName

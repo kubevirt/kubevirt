@@ -22,6 +22,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,8 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -39,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -47,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkvconfig"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -364,6 +369,24 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitMigrationToNotExist(vm.Name, ns)
 		})
+
+		It("should fail to migrate when the destination image is smaller", func() {
+			const volName = "disk0"
+			vm := createVMWithDV(createDV(), volName)
+			createSmallImageForDestinationMigration(vm, destPVC, size)
+			By("Update volume")
+			updateVMWithPVC(vm.Name, volName, destPVC)
+			// let the workload updater creates some migration
+			time.Sleep(2 * time.Minute)
+			ls := labels.Set{virtv1.VolumesUpdateMigration: vm.Name}
+			migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
+				metav1.ListOptions{LabelSelector: ls.String()})
+			Expect(err).ShouldNot(HaveOccurred())
+			// It should have create some migrations, but the time between the migration creations should incrementally
+			// increasing. Therefore, after 2 minutes we don't expect more then 6 mgration objects.
+			Expect(len(migList.Items)).Should(BeNumerically(">", 1))
+			Expect(len(migList.Items)).Should(BeNumerically("<", 56))
+		})
 	})
 })
 
@@ -375,4 +398,80 @@ func createUnschedulablePVC(name, namespace, size string) *k8sv1.PersistentVolum
 	Expect(err).ShouldNot(HaveOccurred())
 
 	return createdPvc
+}
+
+// createSmallImageForDestinationMigration creates a smaller raw image on the destination PVC and the PVC is bound to another node then the running
+// virt-launcher in order to allow the migration.
+func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, size string) {
+	const volName = "vol"
+	const dir = "disks"
+	virtCli := kubevirt.Client()
+	vmi, err := virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	Expect(err).ShouldNot(HaveOccurred())
+	libstorage.CreateFSPVC(name, vmi.Namespace, size, nil)
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	Expect(err).ShouldNot(HaveOccurred())
+	volume := k8sv1.Volume{
+		Name: volName,
+		VolumeSource: k8sv1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: name,
+			},
+		}}
+	q := resource.MustParse(size)
+	q.Sub(resource.MustParse("0.5Gi"))
+	smallerSize := q.AsApproximateFloat64()
+	Expect(smallerSize).Should(BeNumerically(">", 0))
+	securityContext := k8sv1.SecurityContext{
+		Privileged:               pointer.P(false),
+		RunAsUser:                pointer.P(int64(util.NonRootUID)),
+		AllowPrivilegeEscalation: pointer.P(false),
+		RunAsNonRoot:             pointer.P(true),
+		SeccompProfile: &k8sv1.SeccompProfile{
+			Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+		},
+		Capabilities: &k8sv1.Capabilities{
+			Drop: []k8sv1.Capability{"ALL"},
+		},
+	}
+	cont := k8sv1.Container{
+		Name:       "create",
+		Image:      vmiPod.Spec.Containers[0].Image,
+		Command:    []string{"qemu-img", "create", "disk.img", strconv.FormatFloat(smallerSize, 'f', -1, 64)},
+		WorkingDir: dir,
+		VolumeMounts: []k8sv1.VolumeMount{{
+			Name:      volName,
+			MountPath: dir,
+		}},
+		SecurityContext: &securityContext,
+	}
+	affinity := k8sv1.Affinity{
+		PodAntiAffinity: &k8sv1.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+				{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							virtv1.CreatedByLabel: string(vmi.UID),
+						},
+					},
+					TopologyKey: k8sv1.LabelHostname,
+				},
+			},
+		},
+	}
+	pod := k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "create-img-",
+			Namespace:    vmi.Namespace,
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Volumes:       []k8sv1.Volume{volume},
+			Containers:    []k8sv1.Container{cont},
+			Affinity:      &affinity,
+		},
+	}
+	p, err := virtCli.CoreV1().Pods(vmi.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
+	Expect(err).ShouldNot(HaveOccurred())
+	Eventually(matcher.ThisPod(p)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveSucceeded())
 }
