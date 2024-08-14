@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/storage/backend-storage",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
@@ -14,6 +15,7 @@ go_library(
         "//vendor/k8s.io/api/storage/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],

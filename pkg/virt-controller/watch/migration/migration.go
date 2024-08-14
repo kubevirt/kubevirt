@@ -599,6 +599,13 @@ func (c *Controller) processMigrationPhase(
 	case virtv1.MigrationRunning:
 		_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
 		if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
+			if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+				err := backendstorage.MigrationHandoff(c.clientset, migration)
+				if err != nil {
+					return err
+				}
+			}
+
 			patchBytes, err := patch.New(
 				patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)), vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String()),
 			).GeneratePayload()

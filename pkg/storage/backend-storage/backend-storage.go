@@ -24,6 +24,10 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -103,6 +107,58 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 		return false
 	}
 	return HasPersistentTPMDevice(&vm.Spec.Template.Spec)
+}
+
+func MigrationHandoff(client kubecli.KubevirtClient, migration *corev1.VirtualMachineInstanceMigration) error {
+	if migration == nil || migration.Status.MigrationState == nil ||
+		migration.Status.MigrationState.SourcePersistentStatePVCName == "" ||
+		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
+		return fmt.Errorf("missing source and/or target PVC name(s)")
+	}
+
+	sourcePVC := migration.Status.MigrationState.SourcePersistentStatePVCName
+	targetPVC := migration.Status.MigrationState.TargetPersistentStatePVCName
+
+	// Let's label the target first, then remove the source.
+	// The target might already be labelled if this function was already called for this migration
+	target, err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Get(context.Background(), targetPVC, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	labels := target.Labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	existing, ok := labels[PVCPrefix]
+	if !ok || existing != migration.Spec.VMIName {
+		if ok && existing != migration.Spec.VMIName {
+			return fmt.Errorf("target PVC for %s is already labelled for another VMI: %s", migration.Spec.VMIName, existing)
+		}
+		labelPatch := patch.New()
+		if len(labels) == 0 {
+			labels[PVCPrefix] = migration.Spec.VMIName
+			labelPatch.AddOption(patch.WithAdd("/metadata/labels", labels))
+		} else {
+			labelPatch.AddOption(patch.WithReplace("/metadata/labels/"+PVCPrefix, migration.Spec.VMIName))
+		}
+
+		labelPatchPayload, err := labelPatch.GeneratePayload()
+		if err != nil {
+			return fmt.Errorf("failed to generate PVC patch: %v", err)
+		}
+		_, err = client.CoreV1().PersistentVolumeClaims(migration.Namespace).Patch(context.Background(), targetPVC, types.JSONPatchType, labelPatchPayload, metav1.PatchOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to patch PVC: %v", err)
+		}
+	}
+
+	err = client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete PVC: %v", err)
+	}
+
+	return nil
 }
 
 type BackendStorage struct {
