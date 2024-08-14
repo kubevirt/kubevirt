@@ -314,7 +314,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Name": Equal("disk0")}),
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Name": Equal("disk1")}),
+						"Name": Equal(libvmi.CloudInitDiskName)}),
 				),
 			}))
 		})

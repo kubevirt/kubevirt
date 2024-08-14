@@ -25,14 +25,14 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-const cloudInitDiskName = "disk1"
+const CloudInitDiskName = "cloudinitdisk"
 
 // WithCloudInitNoCloud adds cloud-init no-cloud sources.
 func WithCloudInitNoCloud(opts ...cloudinit.NoCloudOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+		addDiskVolumeWithCloudInitNoCloud(vmi, CloudInitDiskName, v1.DiskBusVirtio)
 
-		volume := getVolume(vmi, cloudInitDiskName)
+		volume := getVolume(vmi, CloudInitDiskName)
 
 		for _, f := range opts {
 			f(volume.CloudInitNoCloud)
@@ -43,9 +43,9 @@ func WithCloudInitNoCloud(opts ...cloudinit.NoCloudOption) Option {
 // WithCloudInitConfigDrive adds cloud-init config-drive sources.
 func WithCloudInitConfigDrive(opts ...cloudinit.ConfigDriveOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+		addDiskVolumeWithCloudInitConfigDrive(vmi, CloudInitDiskName, v1.DiskBusVirtio)
 
-		volume := getVolume(vmi, cloudInitDiskName)
+		volume := getVolume(vmi, CloudInitDiskName)
 
 		for _, f := range opts {
 			f(volume.CloudInitConfigDrive)
@@ -72,5 +72,5 @@ func setCloudInitNoCloud(volume *v1.Volume, source *v1.CloudInitNoCloudSource) {
 }
 
 func GetCloudInitVolume(vmi *v1.VirtualMachineInstance) *v1.Volume {
-	return getVolume(vmi, cloudInitDiskName)
+	return getVolume(vmi, CloudInitDiskName)
 }

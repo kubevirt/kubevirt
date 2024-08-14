@@ -2213,7 +2213,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[3].Driver.Cache).To(Equal(cacheNone))
 
 			By("checking if default cache 'none' has been set to cloud-init disk")
-			Expect(disks[4].Alias.GetName()).To(Equal("disk1"))
+			Expect(disks[4].Alias.GetName()).To(Equal(libvmi.CloudInitDiskName))
 			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
 
 			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
