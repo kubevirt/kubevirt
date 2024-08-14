@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -96,11 +97,6 @@ const (
 const LibvirtStartupDelay = 10
 
 const IntelVendorName = "Intel"
-
-const VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION = "pre.hook.backup.velero.io/container"
-const VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION = "pre.hook.backup.velero.io/command"
-const VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION = "post.hook.backup.velero.io/container"
-const VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION = "post.hook.backup.velero.io/command"
 
 const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
 const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
@@ -1355,13 +1351,13 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
 		annotationsSet[istio.KubeVirtTrafficAnnotation] = "k6t-eth0"
 	}
-	annotationsSet[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
-	annotationsSet[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+	annotationsSet[velero.PreBackupHookContainerAnnotation] = "compute"
+	annotationsSet[velero.PreBackupHookCommandAnnotation] = fmt.Sprintf(
 		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
 		vmi.GetObjectMeta().GetName(),
 		vmi.GetObjectMeta().GetNamespace())
-	annotationsSet[VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
-	annotationsSet[VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+	annotationsSet[velero.PostBackupHookContainerAnnotation] = "compute"
+	annotationsSet[velero.PostBackupHookCommandAnnotation] = fmt.Sprintf(
 		"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
 		vmi.GetObjectMeta().GetName(),
 		vmi.GetObjectMeta().GetNamespace())
