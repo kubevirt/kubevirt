@@ -98,11 +98,11 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		}
 	})
 
-	It("KubeVirtCRModified alert should fired when there is a modification on a CR", func(ctx context.Context) {
+	It("KubeVirtCRModified alert should fired when there is a modification on a CR", Serial, func(ctx context.Context) {
 		By("Patching kubevirt object")
 		const (
-			fakeFG = "fake-fg-for-testing"
-			query  = `kubevirt_hco_out_of_band_modifications_total{component_name="kubevirt/kubevirt-kubevirt-hyperconverged"}`
+			query     = `kubevirt_hco_out_of_band_modifications_total{component_name="kubevirt/kubevirt-kubevirt-hyperconverged"}`
+			jsonPatch = `[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": "fake-fg-for-testing"}]`
 		)
 
 		var valueBefore float64
@@ -110,38 +110,28 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			valueBefore = getMetricValue(ctx, promClient, query)
 		}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 
-		patchBytes := []byte(fmt.Sprintf(`[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": %q}]`, fakeFG))
-		patch := client.RawPatch(types.JSONPatchType, patchBytes)
+		patch := client.RawPatch(types.JSONPatchType, []byte(jsonPatch))
 
-		retries := float64(0)
-		Eventually(func(g Gomega, ctx context.Context) []string {
-			kv := &kubevirtcorev1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt-kubevirt-hyperconverged",
-					Namespace: tests.InstallNamespace,
-				},
-			}
+		kv := &kubevirtcorev1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt-kubevirt-hyperconverged",
+				Namespace: tests.InstallNamespace,
+			},
+		}
 
-			g.Expect(cli.Patch(ctx, kv, patch)).To(Succeed())
-			retries++
-			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
+		Expect(cli.Patch(ctx, kv, patch)).To(Succeed())
 
-			return kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		}).WithTimeout(10 * time.Second).
-			WithPolling(100 * time.Millisecond).
-			WithContext(ctx).
-			Should(ContainElement(fakeFG))
-
-		Expect(retries).To(BeNumerically(">", 0))
-
+		var metricValue float64
 		Eventually(func(g Gomega, ctx context.Context) float64 {
-			return getMetricValue(ctx, promClient, query)
-		}).WithTimeout(60*time.Second).
+			metricValue = getMetricValue(ctx, promClient, query)
+			return metricValue
+		}).
+			WithTimeout(60*time.Second).
 			WithPolling(time.Second).
 			WithContext(ctx).
 			Should(
-				Equal(valueBefore+retries),
-				"expected different counter value; valueBefore: %0.2f; retries: %0.2f", valueBefore, retries,
+				Equal(valueBefore+float64(1)),
+				"expected different counter value; value before: %0.2f; value after: %0.2f; expected value: %0.2f", valueBefore, metricValue, valueBefore+float64(1),
 			)
 
 		Eventually(func(ctx context.Context) *promApiv1.Alert {
