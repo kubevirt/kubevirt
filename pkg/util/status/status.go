@@ -342,24 +342,6 @@ func NewMigrationStatusUpdater(cli kubecli.KubevirtClient) *MigrationStatusUpdat
 	}
 }
 
-type CloneStatusUpdater struct {
-	updater
-}
-
-func (v *CloneStatusUpdater) UpdateStatus(vmClone *clonev1alpha1.VirtualMachineClone) error {
-	return v.update(vmClone)
-}
-
-func NewCloneStatusUpdater(cli kubecli.KubevirtClient) *CloneStatusUpdater {
-	return &CloneStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
 type VMExportStatusUpdater struct {
 	updater
 }

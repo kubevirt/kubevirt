@@ -50,10 +50,9 @@ type VMCloneController struct {
 	pvcStore             cache.Store
 	recorder             record.EventRecorder
 
-	vmCloneQueue       workqueue.RateLimitingInterface
-	vmStatusUpdater    *status.VMStatusUpdater
-	cloneStatusUpdater *status.CloneStatusUpdater
-	hasSynced          func() bool
+	vmCloneQueue    workqueue.RateLimitingInterface
+	vmStatusUpdater *status.VMStatusUpdater
+	hasSynced       func() bool
 }
 
 func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer, snapshotContentInformer, pvcInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*VMCloneController, error) {
@@ -68,7 +67,6 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		recorder:             recorder,
 		vmCloneQueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
 		vmStatusUpdater:      status.NewVMStatusUpdater(client),
-		cloneStatusUpdater:   status.NewCloneStatusUpdater(client),
 	}
 
 	ctrl.hasSynced = func() bool {
