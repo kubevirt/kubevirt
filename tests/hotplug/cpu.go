@@ -77,6 +77,29 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 		})
 	})
 
+	Context("with Kubevirt CR declaring MaxCpuSockets", func() {
+
+		It("should be able to start", func() {
+			By("Kubevirt CR with MaxCpuSockets set to 2")
+			kubevirt := libkubevirt.GetCurrentKv(virtClient)
+			if kubevirt.Spec.Configuration.LiveUpdateConfiguration == nil {
+				kubevirt.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{}
+			}
+			kubevirt.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = pointer.P(uint32(2))
+			tests.UpdateKubeVirtConfigValueAndWait(kubevirt.Spec.Configuration)
+
+			By("Run VM with 3 sockets")
+			vmi := libvmifact.NewAlpine(libvmi.WithCPUCount(1, 1, 3))
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			By("Expecting to see VMI that is starting")
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 10*time.Second, 1*time.Second).Should(Exist())
+		})
+
+	})
+
 	Context("A VM with cpu.maxSockets set higher than cpu.sockets", func() {
 		type cpuCount struct {
 			enabled  int

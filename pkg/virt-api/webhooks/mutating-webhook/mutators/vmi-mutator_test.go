@@ -1407,6 +1407,21 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(4)))
 			})
+
+			It("to set MaxSockets to number of sockets when MaxCpuSockets is lower", func() {
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+					MaxCpuSockets: pointer.Uint32(2),
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
+
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 3,
+				}
+
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(3)))
+			})
 		})
 		Context("configure Memory hotplug", func() {
 			It("to keep VMI values of max guest when provided", func() {

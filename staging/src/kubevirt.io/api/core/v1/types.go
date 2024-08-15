@@ -2937,7 +2937,8 @@ type LiveUpdateConfiguration struct {
 	// defined and MaxHotplugRatio is 2 then MaxGuest = 1Gi
 	// defaults to 4
 	MaxHotplugRatio uint32 `json:"maxHotplugRatio,omitempty"`
-	// MaxCpuSockets holds the maximum amount of sockets that can be hotplugged
+	// MaxCpuSockets provides a MaxSockets value for VMs that do not provide their own.
+	// For VMs with more sockets than maximum the MaxSockets will be set to equal number of sockets.
 	MaxCpuSockets *uint32 `json:"maxCpuSockets,omitempty"`
 	// MaxGuest defines the maximum amount memory that can be allocated
 	// to the guest using hotplug.
