@@ -9,8 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 type CommandFlags struct {
@@ -130,34 +128,6 @@ func ContainsValue(slice []string, value string) bool {
 
 func LineContainsKey(line, key string) bool {
 	return strings.HasPrefix(strings.TrimSpace(line), key)
-}
-
-func AddDataFieldToSecretPatchOp() []patch.PatchOperation {
-	return []patch.PatchOperation{{
-		Op:    patch.PatchTestOp,
-		Path:  "/data",
-		Value: nil,
-	}, {
-		Op:    patch.PatchAddOp,
-		Path:  "/data",
-		Value: map[string][]byte{},
-	}}
-}
-
-func AddKeyToSecretPatchOp(keyName string, key []byte) patch.PatchOperation {
-	return patch.PatchOperation{
-		Op:    patch.PatchAddOp,
-		Path:  "/data/" + keyName,
-		Value: key,
-	}
-}
-
-func MustMarshalPatch(patches ...patch.PatchOperation) []byte {
-	data, err := patch.GeneratePatchPayload(patches...)
-	if err != nil {
-		panic(err)
-	}
-	return data
 }
 
 func RandomWithPrefix(prefix string) string {

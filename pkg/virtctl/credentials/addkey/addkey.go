@@ -45,7 +45,7 @@ const exampleUsage = `  # Add an SSH key for a running virtual machine.
   # Add an SSH key to a secret that is not owned by the virtual machine.
   {{ProgramName}} credentials add-ssh-key --user <username> --file <path-to-ssh-public-key> --force <vm-name>
 
-  # Create a new secret with the SSH key, and assign it to the specified virtual machine. 
+  # Create a new secret with the SSH key, and assign it to the specified virtual machine.
   {{ProgramName}} credentials add-ssh-key --create-secret --user <username> --file <path-to-ssh-public-key> <vm-name>
 
   # Create a new secret with the SSH key, and assign it to a running VM. It will take effect after restart.
@@ -133,23 +133,36 @@ func addSecretWithSSHKey(
 	if err != nil {
 		return fmt.Errorf("error creating secret: %w", err)
 	}
-
+	const (
+		accessCredentialPath      = "/spec/template/spec/accessCredentials"   // #nosec
+		accessCredentialArrayPath = "/spec/template/spec/accessCredentials/-" // #nosec
+	)
 	accessCredential := newAccessCredential(secret.Name, cmdFlags.User)
-	accessCredentialPatch := patchToAddAccessCredential(accessCredential)
-
+	accessCredentialPatch, err := patch.New(patch.WithAdd(accessCredentialArrayPath, accessCredential)).GeneratePayload()
+	if err != nil {
+		return err
+	}
 	// First, Try to add the new access credential to the existing array.
-	_, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(),
+	if _, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(),
 		vm.Name,
 		types.JSONPatchType,
-		common.MustMarshalPatch(accessCredentialPatch),
-		metav1.PatchOptions{})
+		accessCredentialPatch,
+		metav1.PatchOptions{}); err == nil {
+		return nil
+	}
+
+	// If it fails, it probably means that the array is nil. Try to add the array.
+	fullPatch, err := patch.New(
+		patch.WithTest(accessCredentialPath, nil),
+		patch.WithAdd(accessCredentialPath, []v1.AccessCredential{}),
+		patch.WithAdd(accessCredentialArrayPath, accessCredential),
+	).GeneratePayload()
 	if err != nil {
-		// If it fails, it probably means that the array is nil. Try to add the array.
-		fullPatch := common.MustMarshalPatch(append(patchToAddAccessCredentialsArray(), accessCredentialPatch)...)
-		_, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(), vm.Name, types.JSONPatchType, fullPatch, metav1.PatchOptions{})
-		if err != nil {
-			return fmt.Errorf("error patching virtual machine: %w", err)
-		}
+		return err
+	}
+	if _, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(), vm.Name, types.JSONPatchType,
+		fullPatch, metav1.PatchOptions{}); err != nil {
+		return fmt.Errorf("error patching virtual machine: %w", err)
 	}
 
 	return nil
@@ -188,19 +201,28 @@ func updateSecretWithSSHKey(
 			return fmt.Errorf("secret %s does not have an owner reference pointing to VM %s", secretName, vm.Name)
 		}
 	}
-
-	addKeyPatch := common.AddKeyToSecretPatchOp(common.RandomWithPrefix("ssh-key-"), []byte(sshKey))
-
+	keyPath := fmt.Sprintf("/data/%s", common.RandomWithPrefix("ssh-key-"))
+	addKeyPatch, err := patch.New(patch.WithAdd(keyPath, []byte(sshKey))).GeneratePayload()
+	if err != nil {
+		return err
+	}
 	// First, try patch to add a new key
 	_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(
 		cmd.Context(),
 		secretName,
 		types.JSONPatchType,
-		common.MustMarshalPatch(addKeyPatch),
+		addKeyPatch,
 		metav1.PatchOptions{})
 	if err != nil {
 		// If it fails, the /data may be nil. Try a patch that adds the /data field
-		fullPatch := common.MustMarshalPatch(append(common.AddDataFieldToSecretPatchOp(), addKeyPatch)...)
+		fullPatch, err := patch.New(
+			patch.WithTest("/data", nil),
+			patch.WithAdd("/data", map[string][]byte{}),
+			patch.WithAdd(keyPath, []byte(sshKey)),
+		).GeneratePayload()
+		if err != nil {
+			return err
+		}
 		_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(), secretName, types.JSONPatchType, fullPatch, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("error patching secret \"%s\": %w", secretName, err)
@@ -269,25 +291,5 @@ func newAccessCredential(secretName, user string) *v1.AccessCredential {
 				},
 			},
 		},
-	}
-}
-
-func patchToAddAccessCredentialsArray() []patch.PatchOperation {
-	return []patch.PatchOperation{{
-		Op:    patch.PatchTestOp,
-		Path:  "/spec/template/spec/accessCredentials",
-		Value: nil,
-	}, {
-		Op:    patch.PatchAddOp,
-		Path:  "/spec/template/spec/accessCredentials",
-		Value: []v1.AccessCredential{},
-	}}
-}
-
-func patchToAddAccessCredential(credential *v1.AccessCredential) patch.PatchOperation {
-	return patch.PatchOperation{
-		Op:    patch.PatchAddOp,
-		Path:  "/spec/template/spec/accessCredentials/-",
-		Value: credential,
 	}
 }
