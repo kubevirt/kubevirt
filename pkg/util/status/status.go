@@ -284,24 +284,6 @@ func NewVMStatusUpdater(cli kubecli.KubevirtClient) *VMStatusUpdater {
 	}
 }
 
-type VMIRSStatusUpdater struct {
-	updater updater
-}
-
-func (v *VMIRSStatusUpdater) UpdateStatus(vmirs *v1.VirtualMachineInstanceReplicaSet) error {
-	return v.updater.update(vmirs)
-}
-
-func NewVMIRSStatusUpdater(cli kubecli.KubevirtClient) *VMIRSStatusUpdater {
-	return &VMIRSStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
 type VMExportStatusUpdater struct {
 	updater
 }
