@@ -314,10 +314,14 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"snapshot.kubevirt.io",
 				},
 				Resources: []string{
-					"*",
+					"virtualmachinesnapshots",
+					"virtualmachinesnapshots/status",
+					"virtualmachinesnapshotcontents",
+					"virtualmachinesnapshotcontents/status",
+					"virtualmachinerestores",
 				},
 				Verbs: []string{
-					"*",
+					"get", "list", "watch", "create", "update", "delete", "patch",
 				},
 			},
 			{
