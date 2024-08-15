@@ -599,9 +599,10 @@ const (
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and not running
 	VirtualMachineInstanceReasonAllDVsReady = "AllDVsReady"
-
 	// Indicates a generic reason that the VMI isn't migratable and more details are spiecified in the condition message.
 	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
+	// Reason means that the volume update change was cancelled
+	VirtualMachineInstanceReasonVolumesChangeCancellation = "VolumesChangeCancellation"
 )
 
 const (
