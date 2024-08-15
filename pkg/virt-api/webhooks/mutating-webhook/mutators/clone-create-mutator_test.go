@@ -41,7 +41,7 @@ var _ = Describe("Clone mutating webhook", func() {
 			Name:     fmt.Sprintf("clone-%s-%s", expectedVirtualMachineCloneSpec.Source.Name, expectedTargetSuffix),
 		}
 
-		expectedJSONPatch, err := expectedJSONPatchForVMCloneCreation(expectedVirtualMachineCloneSpec)
+		expectedJSONPatch, err := patch.New(patch.WithReplace("/spec", expectedVirtualMachineCloneSpec)).GeneratePayload()
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(mutator.Mutate(admissionReview)).To(Equal(
@@ -172,14 +172,4 @@ func newAdmissionReviewForVMCloneCreation(vmClone *clonev1alpha1.VirtualMachineC
 	}
 
 	return ar, nil
-}
-
-func expectedJSONPatchForVMCloneCreation(vmCloneSpec *clonev1alpha1.VirtualMachineCloneSpec) ([]byte, error) {
-	return patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/spec",
-			Value: vmCloneSpec,
-		},
-	)
 }
