@@ -42,7 +42,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util/status"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -71,7 +70,6 @@ type KubeVirtController struct {
 	latestStrategy       atomic.Value
 	operatorNamespace    string
 	aggregatorClient     install.APIServiceInterface
-	statusUpdater        *status.KVStatusUpdater
 	hasSynced            func() bool
 }
 
@@ -153,7 +151,6 @@ func NewKubeVirtController(
 		},
 
 		operatorNamespace: operatorNamespace,
-		statusUpdater:     status.NewKubeVirtStatusUpdater(clientset),
 		delayedQueueAdder: func(key interface{}, queue workqueue.RateLimitingInterface) {
 			queue.AddAfter(key, defaultAddDelay)
 		},
@@ -845,7 +842,7 @@ func (c *KubeVirtController) execute(key string) error {
 
 	// If we detect a change on KubeVirt we update it
 	if !equality.Semantic.DeepEqual(kv.Status, kvCopy.Status) {
-		if err := c.statusUpdater.UpdateStatus(kvCopy); err != nil {
+		if _, err := c.clientset.KubeVirt(kv.Namespace).UpdateStatus(context.Background(), kvCopy, metav1.UpdateOptions{}); err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource status.")
 			return err
 		}
