@@ -46,7 +46,8 @@ linters-settings:
           - '^console\.ExpectBatch$'
           - '^console\.RunCommand$'
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
   lll:
     line-length: 140
   maligned:
