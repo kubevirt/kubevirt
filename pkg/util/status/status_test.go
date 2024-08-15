@@ -37,57 +37,6 @@ var _ = Describe("Status", func() {
 		virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 	})
 	Context("starting with the assumption of /status being present", func() {
-
-		Context("for PUT operations", func() {
-			It("should continuously use the /status subresource if no errors occur", func() {
-				updater := NewKubeVirtStatusUpdater(virtClient)
-				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(2)
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-			})
-
-			It("should fall back on a 404 error on the /status subresource to an ordinary update", func() {
-				updater := NewKubeVirtStatusUpdater(virtClient)
-				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(2)
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-			})
-
-			It("should fall back on a 404 error on the /status subresource to an ordinary update but keep in mind that objects may have disappeared", func() {
-				updater := NewKubeVirtStatusUpdater(virtClient)
-				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-			})
-
-			It("should fall back on a 404 error on the /status subresource to an ordinary update but keep in mind that the subresource may get enabled directly afterwards", func() {
-				updater := NewKubeVirtStatusUpdater(virtClient)
-				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				newKV := kv.DeepCopy()
-				newKV.Status.Phase = v1.KubeVirtPhaseDeleted
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(newKV, nil).Times(1)
-				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-			})
-
-			It("should stick with /status if an arbitrary error occurs", func() {
-				updater := NewKubeVirtStatusUpdater(virtClient)
-				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, fmt.Errorf("I am not 404")).Times(1)
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
-				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-			})
-		})
-
 		Context("for PATCH operations", func() {
 			It("should continuously use the /status subresource if no errors occur", func() {
 				updater := NewVMStatusUpdater(virtClient)
@@ -146,48 +95,6 @@ var _ = Describe("Status", func() {
 	})
 
 	Context("starting with the assumption that /status is not present", func() {
-
-		Context("for PUT operations", func() {
-			It("should stick with a normal update if the  status did change", func() {
-				updater := NewKubeVirtStatusUpdater(virtClient)
-				updater.updater.subresource = false
-				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(2)
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-			})
-
-			It("should stick with a normal update if we get a 404 error", func() {
-				updater := NewKubeVirtStatusUpdater(virtClient)
-				updater.updater.subresource = false
-				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(2)
-				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
-				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
-			})
-
-			It("should stick with a normal update if we get an arbitrary error", func() {
-				updater := NewKubeVirtStatusUpdater(virtClient)
-				updater.updater.subresource = false
-				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, fmt.Errorf("I am not 404")).Times(2)
-				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
-				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
-			})
-
-			It("should fall back to /status if the status did not change and stick to it", func() {
-				updater := NewKubeVirtStatusUpdater(virtClient)
-				updater.updater.subresource = false
-				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				oldKV := kv.DeepCopy()
-				oldKV.Status.Phase = v1.KubeVirtPhaseDeploying
-				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(oldKV, nil).Times(1)
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
-				Expect(updater.UpdateStatus(kv)).To(Succeed())
-			})
-		})
 		Context("for PATCH operations", func() {
 			It("should stick with a normal update if the resource version did change", func() {
 				updater := NewVMStatusUpdater(virtClient)

@@ -302,28 +302,6 @@ func NewVMIRSStatusUpdater(cli kubecli.KubevirtClient) *VMIRSStatusUpdater {
 	}
 }
 
-type KVStatusUpdater struct {
-	updater updater
-}
-
-func (v *KVStatusUpdater) UpdateStatus(kv *v1.KubeVirt) error {
-	return v.updater.update(kv)
-}
-
-func (v *KVStatusUpdater) PatchStatus(kv *v1.KubeVirt, pt types.PatchType, data []byte) error {
-	return v.updater.patch(kv, pt, data, &metav1.PatchOptions{})
-}
-
-func NewKubeVirtStatusUpdater(cli kubecli.KubevirtClient) *KVStatusUpdater {
-	return &KVStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
 type VMExportStatusUpdater struct {
 	updater
 }
