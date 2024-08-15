@@ -319,6 +319,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachinesnapshotcontents",
 					"virtualmachinesnapshotcontents/status",
 					"virtualmachinerestores",
+					"virtualmachinerestores/status",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "create", "update", "delete", "patch",
