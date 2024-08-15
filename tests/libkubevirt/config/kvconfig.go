@@ -38,22 +38,22 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
 
-func RegisterKubevirtConfigChange(change func(c v1.KubeVirtConfiguration) ([]patch.PatchOperation, error)) error {
+func RegisterKubevirtConfigChange(change func(c v1.KubeVirtConfiguration) (*patch.PatchSet, error)) error {
 	kv := libkubevirt.GetCurrentKv(kubevirt.Client())
-	changePatch, err := change(kv.Spec.Configuration)
+	patchSet, err := change(kv.Spec.Configuration)
 	if err != nil {
 		return fmt.Errorf("failed changing the kubevirt configuration: %v", err)
 	}
 
-	if len(changePatch) == 0 {
+	if patchSet.IsEmpty() {
 		return nil
 	}
 
-	return patchKV(kv.Namespace, kv.Name, changePatch)
+	return patchKV(kv.Namespace, kv.Name, patchSet)
 }
 
-func patchKV(namespace, name string, patchOps []patch.PatchOperation) error {
-	patchData, err := patch.GeneratePatchPayload(patchOps...)
+func patchKV(namespace, name string, patchSet *patch.PatchSet) error {
+	patchData, err := patchSet.GeneratePayload()
 	if err != nil {
 		return err
 	}
