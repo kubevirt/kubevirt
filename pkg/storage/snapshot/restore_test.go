@@ -3,6 +3,7 @@ package snapshot
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -438,11 +439,13 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				refs := r.OwnerReferences
 				r.OwnerReferences = nil
+				r.Status = nil
 				vm := createModifiedVM()
 				rc := r.DeepCopy()
 				rc.OwnerReferences = refs
 				rc.ResourceVersion = "1"
-				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+				rc2 := rc.DeepCopy()
+				rc2.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: pointer.P(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
@@ -451,6 +454,7 @@ var _ = Describe("Restore controller", func() {
 				}
 				vmSource.Add(vm)
 				expectVMRestoreUpdate(kubevirtClient, rc)
+				expectVMRestoreUpdate(kubevirtClient, rc2)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
 			})
@@ -951,9 +955,11 @@ var _ = Describe("Restore controller", func() {
 					newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
 				}
 				updatedVMRestore.ResourceVersion = "1"
-				updatedVMRestore.Finalizers = []string{}
+				updatedVMRestore2 := updatedVMRestore.DeepCopy()
+				updatedVMRestore2.Finalizers = []string{}
 
 				expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
+				expectVMRestoreUpdate(kubevirtClient, updatedVMRestore2)
 				controller.processVMRestoreWorkItem()
 			})
 
@@ -984,9 +990,11 @@ var _ = Describe("Restore controller", func() {
 					newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
 				}
 				updatedVMRestore.ResourceVersion = "1"
-				updatedVMRestore.Finalizers = []string{}
+				updatedVMRestore2 := updatedVMRestore.DeepCopy()
+				updatedVMRestore2.Finalizers = []string{}
 
 				expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
+				expectVMRestoreUpdate(kubevirtClient, updatedVMRestore2)
 				controller.processVMRestoreWorkItem()
 			})
 
@@ -1120,15 +1128,10 @@ var _ = Describe("Restore controller", func() {
 					vmRestore := createRestore()
 					vmRestore.Finalizers = []string{"snapshot.kubevirt.io/vmrestore-protection"}
 					vmRestore.Spec.Target.Name = newVM.Name
-					addVolumeRestores(vmRestore)
 					addVirtualMachineRestore(vmRestore)
 
 					By("Making sure right VMRestore update occurs")
 					updatedVMRestore := vmRestore.DeepCopy()
-					updatedVMRestore.Status.Conditions = []snapshotv1.Condition{
-						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
-						newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
-					}
 					updatedVMRestore.ResourceVersion = "1"
 					updatedVMRestore.OwnerReferences = []metav1.OwnerReference{
 						{
@@ -1141,7 +1144,17 @@ var _ = Describe("Restore controller", func() {
 						},
 					}
 
+					updatedVMRestore2 := updatedVMRestore.DeepCopy()
+					updatedVMRestore2.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
+							newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
+						},
+					}
+
 					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
+					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore2)
 
 					By("Running the controller")
 					controller.processVMRestoreWorkItem()
@@ -1246,9 +1259,11 @@ var _ = Describe("Restore controller", func() {
 						newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
 					}
 					updatedVMRestore.ResourceVersion = "1"
-					updatedVMRestore.Finalizers = []string{}
+					updatedVMRestore2 := updatedVMRestore.DeepCopy()
+					updatedVMRestore2.Finalizers = []string{}
 
 					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
+					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore2)
 					controller.processVMRestoreWorkItem()
 				})
 			})
@@ -1731,9 +1746,8 @@ func expectVMRestoreUpdate(client *kubevirtfake.Clientset, vmRestore *snapshotv1
 		Expect(ok).To(BeTrue())
 
 		updateObj := update.GetObject().(*snapshotv1.VirtualMachineRestore)
-		Expect(updateObj).To(Equal(vmRestore))
 
-		return true, update.GetObject(), nil
+		return reflect.DeepEqual(vmRestore, updateObj), update.GetObject(), nil
 	})
 }
 
