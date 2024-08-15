@@ -69,7 +69,11 @@ func setupHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachin
 
 func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = clusterConfig.GetMaximumCpuSockets()
+		maxSockets := clusterConfig.GetMaximumCpuSockets()
+		if vmi.Spec.Domain.CPU.Sockets > maxSockets && maxSockets != 0 {
+			maxSockets = vmi.Spec.Domain.CPU.Sockets
+		}
+		vmi.Spec.Domain.CPU.MaxSockets = maxSockets
 	}
 
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {

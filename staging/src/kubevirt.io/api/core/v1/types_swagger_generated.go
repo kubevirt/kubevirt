@@ -991,7 +991,7 @@ func (PreferenceMatcher) SwaggerDoc() map[string]string {
 func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"maxHotplugRatio": "MaxHotplugRatio is the ratio used to define the max amount\nof a hotplug resource that can be made available to a VM\nwhen the specific Max* setting is not defined (MaxCpuSockets, MaxGuest)\nExample: VM is configured with 512Mi of guest memory, if MaxGuest is not\ndefined and MaxHotplugRatio is 2 then MaxGuest = 1Gi\ndefaults to 4",
-		"maxCpuSockets":   "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
+		"maxCpuSockets":   "MaxCpuSockets provides a MaxSockets value for VMs that do not provide their own.\nFor VMs with more sockets than maximum the MaxSockets will be set to equal number of sockets.",
 		"maxGuest":        "MaxGuest defines the maximum amount memory that can be allocated\nto the guest using hotplug.",
 	}
 }
