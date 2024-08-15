@@ -262,28 +262,6 @@ func (u *updater) getSubresource() bool {
 	return u.subresource
 }
 
-type VMStatusUpdater struct {
-	updater updater
-}
-
-func (v *VMStatusUpdater) UpdateStatus(vm *v1.VirtualMachine) error {
-	return v.updater.update(vm)
-}
-
-func (v *VMStatusUpdater) PatchStatus(vm *v1.VirtualMachine, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) error {
-	return v.updater.patch(vm, pt, data, patchOptions)
-}
-
-func NewVMStatusUpdater(cli kubecli.KubevirtClient) *VMStatusUpdater {
-	return &VMStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
 type VMExportStatusUpdater struct {
 	updater
 }
