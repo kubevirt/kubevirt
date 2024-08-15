@@ -324,24 +324,6 @@ func NewKubeVirtStatusUpdater(cli kubecli.KubevirtClient) *KVStatusUpdater {
 	}
 }
 
-type MigrationStatusUpdater struct {
-	updater updater
-}
-
-func (v *MigrationStatusUpdater) UpdateStatus(migration *v1.VirtualMachineInstanceMigration) error {
-	return v.updater.update(migration)
-}
-
-func NewMigrationStatusUpdater(cli kubecli.KubevirtClient) *MigrationStatusUpdater {
-	return &MigrationStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
 type VMExportStatusUpdater struct {
 	updater
 }
