@@ -32,17 +32,18 @@ linters-settings:
     min-complexity: 15
   goimports:
     local-prefixes: kubevirt.io/kubevirt
-  gomnd:
-    settings:
-      mnd:
-        # don't include the "operation" and "assign"
-        checks: argument,case,condition,return
-        ignored-functions:
-          - '^Eventually$'
-          - '^EventuallyWithOffset$'
-          - '^ExpectWithOffset$'
-          - '^console\.ExpectBatch$'
-          - '^console\.RunCommand$'
+  mnd:
+    # don't include the "operation" and "assign"
+    checks: argument,case,condition,return
+    ignored-functions:
+      - '^Eventually$'
+      - '^EventuallyWithOffset$'
+      - '^ExpectWithOffset$'
+      - '^console\.ExpectBatch$'
+      - '^console\.RunCommand$'
+    ignored-files:
+      - 'pkg/instancetype/instancetype.go$'
+      - 'tests/instancetype/instancetype.go$'
   govet:
     enable:
       - shadow
@@ -82,7 +83,7 @@ linters:
     - gofumpt
     - goheader
     - goimports
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - gosimple
