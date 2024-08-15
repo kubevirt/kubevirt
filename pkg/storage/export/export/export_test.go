@@ -969,6 +969,8 @@ var _ = Describe("Export controller", func() {
 		})
 		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(controller.Recorder.(*record.FakeRecorder).Events).To(HaveLen(1))
+		testutils.ExpectEvent(recorder, secretCreatedEvent)
 		By("Creating again, and returning exists")
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
@@ -981,6 +983,7 @@ var _ = Describe("Export controller", func() {
 		})
 		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(controller.Recorder.(*record.FakeRecorder).Events).To(BeEmpty())
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
@@ -992,6 +995,7 @@ var _ = Describe("Export controller", func() {
 		})
 		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).To(HaveOccurred())
+		Expect(controller.Recorder.(*record.FakeRecorder).Events).To(BeEmpty())
 	})
 
 	It("handleVMExportToken should create the export secret if no TokenSecretRef is specified", func() {
