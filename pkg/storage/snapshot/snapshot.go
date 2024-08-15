@@ -476,8 +476,8 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy.Status.ReadyToUse = &ready
 	contentCpy.Status.VolumeSnapshotStatus = volumeSnapshotStatus
 
-	if !equality.Semantic.DeepEqual(content, contentCpy) {
-		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
+	if !equality.Semantic.DeepEqual(content.Status, contentCpy.Status) {
+		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).UpdateStatus(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
 			return 0, err
 		}
 	}
