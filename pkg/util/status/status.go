@@ -360,28 +360,6 @@ func NewCloneStatusUpdater(cli kubecli.KubevirtClient) *CloneStatusUpdater {
 	}
 }
 
-type VMPStatusUpdater struct {
-	updater updater
-}
-
-func (v *VMPStatusUpdater) UpdateStatus(vp *poolv1.VirtualMachinePool) error {
-	return v.updater.update(vp)
-}
-
-func (v *VMPStatusUpdater) PatchStatus(vp *poolv1.VirtualMachinePool, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) error {
-	return v.updater.patch(vp, pt, data, patchOptions)
-}
-
-func NewVMPStatusUpdater(cli kubecli.KubevirtClient) *VMPStatusUpdater {
-	return &VMPStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
 type VMExportStatusUpdater struct {
 	updater
 }
