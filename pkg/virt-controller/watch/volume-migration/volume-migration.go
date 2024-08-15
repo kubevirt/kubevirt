@@ -209,6 +209,7 @@ func cancelVolumeMigration(clientset kubecli.KubevirtClient, vmi *virtv1.Virtual
 		Type:               virtv1.VirtualMachineInstanceVolumesChange,
 		LastTransitionTime: metav1.Now(),
 		Status:             k8sv1.ConditionFalse,
+		Reason:             virtv1.VirtualMachineInstanceReasonVolumesChangeCancellation,
 	})
 	vmiCopy.Status.MigratedVolumes = nil
 	if equality.Semantic.DeepEqual(vmiCopy.Status, vmi.Status) {
