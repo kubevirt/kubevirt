@@ -325,10 +325,11 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"export.kubevirt.io",
 				},
 				Resources: []string{
-					"*",
+					"virtualmachineexports",
+					"virtualmachineexports/status",
 				},
 				Verbs: []string{
-					"*",
+					"get", "list", "watch", "create", "update", "delete", "patch",
 				},
 			},
 			{
