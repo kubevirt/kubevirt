@@ -161,6 +161,22 @@ func MigrationHandoff(client kubecli.KubevirtClient, migration *corev1.VirtualMa
 	return nil
 }
 
+func MigrationAbort(client kubecli.KubevirtClient, migration *corev1.VirtualMachineInstanceMigration) error {
+	if migration == nil || migration.Status.MigrationState == nil ||
+		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
+		return nil
+	}
+
+	targetPVC := migration.Status.MigrationState.TargetPersistentStatePVCName
+
+	err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), targetPVC, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete PVC: %v", err)
+	}
+
+	return nil
+}
+
 type BackendStorage struct {
 	client        kubecli.KubevirtClient
 	clusterConfig *virtconfig.ClusterConfig
