@@ -117,4 +117,18 @@ var _ = Describe("PatchSet", func() {
 		Expect(patchSet.UnmarshalPatchValue("/abcd", pointer.P(patch.PatchReplaceOp), &t)).To(
 			MatchError("the path or operation doesn't exist in the patch"))
 	})
+
+	It("should unmarshal each single patch", func() {
+		p := []byte(`[{"op":"remove","path":"/abcd"},{"op":"add","path":"/abcd","value":"test1"},{"op":"replace","path":"/abcd","value":"test2"},{"op":"test","path":"/abcd","value":"test3"}]`)
+		patchSet := patch.New()
+		Expect(patchSet.AddPatch(p)).ToNot(HaveOccurred())
+		patches, err := patchSet.Unmarshal()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(patches).To(HaveLen(4))
+		Expect(patches[0]).To(Equal(`{"op":"remove","path":"/abcd"}`))
+		Expect(patches[1]).To(Equal(`{"op":"add","path":"/abcd","value":"test1"}`))
+		Expect(patches[2]).To(Equal(`{"op":"replace","path":"/abcd","value":"test2"}`))
+		Expect(patches[3]).To(Equal(`{"op":"test","path":"/abcd","value":"test3"}`))
+
+	})
 })

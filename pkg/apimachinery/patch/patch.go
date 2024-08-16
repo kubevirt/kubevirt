@@ -25,7 +25,7 @@ import (
 	"strings"
 )
 
-type PatchOperation struct {
+type patchOperation struct {
 	Op    PatchOp     `json:"op"`
 	Path  string      `json:"path"`
 	Value interface{} `json:"value"`
@@ -40,7 +40,11 @@ const (
 	PatchRemoveOp  PatchOp = "remove"
 )
 
-func (p *PatchOperation) MarshalJSON() ([]byte, error) {
+type PatchSet struct {
+	patches []patchOperation
+}
+
+func (p *patchOperation) MarshalJSON() ([]byte, error) {
 	switch p.Op {
 	// The 'remove' operation is the only patching operation without a value
 	// and it needs to be parsed differently.
@@ -67,20 +71,12 @@ func (p *PatchOperation) MarshalJSON() ([]byte, error) {
 	}
 }
 
-type PatchSet struct {
-	patches []PatchOperation
-}
-
 type PatchOption func(patches *PatchSet)
 
 func New(opts ...PatchOption) *PatchSet {
 	p := &PatchSet{}
 	p.AddOption(opts...)
 	return p
-}
-
-func (p *PatchSet) GetPatches() []PatchOperation {
-	return p.patches
 }
 
 func (p *PatchSet) AddOption(opts ...PatchOption) {
@@ -90,7 +86,7 @@ func (p *PatchSet) AddOption(opts ...PatchOption) {
 }
 
 func (p *PatchSet) addOp(op PatchOp, path string, value interface{}) {
-	p.patches = append(p.patches, PatchOperation{
+	p.patches = append(p.patches, patchOperation{
 		Op:    op,
 		Path:  path,
 		Value: value,
@@ -122,14 +118,14 @@ func WithRemove(path string) PatchOption {
 }
 
 func (p *PatchSet) GeneratePayload() ([]byte, error) {
-	return GeneratePatchPayload(p.patches...)
+	return generatePatchPayload(p.patches...)
 }
 
 func (p *PatchSet) IsEmpty() bool {
 	return len(p.patches) < 1
 }
 
-func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
+func generatePatchPayload(patches ...patchOperation) ([]byte, error) {
 	if len(patches) == 0 {
 		return nil, fmt.Errorf("list of patches is empty")
 	}
@@ -143,13 +139,13 @@ func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
 }
 
 func GenerateTestReplacePatch(path string, oldValue, newValue interface{}) ([]byte, error) {
-	return GeneratePatchPayload(
-		PatchOperation{
+	return generatePatchPayload(
+		patchOperation{
 			Op:    PatchTestOp,
 			Path:  path,
 			Value: oldValue,
 		},
-		PatchOperation{
+		patchOperation{
 			Op:    PatchReplaceOp,
 			Path:  path,
 			Value: newValue,
@@ -158,7 +154,7 @@ func GenerateTestReplacePatch(path string, oldValue, newValue interface{}) ([]by
 }
 
 func (p *PatchSet) AddRawPatch(patch []byte) error {
-	var ops []PatchOperation
+	var ops []patchOperation
 	if err := json.Unmarshal(patch, &ops); err != nil {
 		return err
 	}
@@ -189,6 +185,18 @@ func (d *PatchSet) UnmarshalPatchValue(path string, operation *PatchOp, obj any)
 	}
 
 	return fmt.Errorf("the path or operation doesn't exist in the patch")
+}
+
+func (p *PatchSet) Unmarshal() ([]string, error) {
+	var patches []string
+	for _, patchOp := range p.patches {
+		payloadBytes, err := patchOp.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		patches = append(patches, string(payloadBytes))
+	}
+	return patches, nil
 }
 
 func EscapeJSONPointer(ptr string) string {
