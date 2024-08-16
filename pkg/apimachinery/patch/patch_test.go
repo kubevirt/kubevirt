@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("PatchSet", func() {
@@ -74,5 +75,46 @@ var _ = Describe("PatchSet", func() {
 	It("should generate an empty set of patches", func() {
 		patches := patch.New()
 		Expect(patches.IsEmpty()).To(BeTrue())
+	})
+
+	It("should add the patch bytes with a wrong patch, it should generate an error", func() {
+		Expect(patch.New().AddRawPatch([]byte(`{"something": "wrong"}`))).To(HaveOccurred())
+	})
+	It("should add the patch bytes with a valid patch", func() {
+		Expect(patch.New().AddRawPatch([]byte(`[{"op":"replace","path":"/abcd","value":"test"}]`))).ToNot(HaveOccurred())
+	})
+
+	DescribeTable("should unmarshal the patch", func(operation *patch.PatchOp, expected string) {
+		var t string
+		p := []byte(`[{"op":"remove","path":"/abcd"},{"op":"add","path":"/abcd","value":"test1"},{"op":"replace","path":"/abcd","value":"test2"},{"op":"test","path":"/abcd","value":"test3"}]`)
+		patchSet := patch.New()
+		Expect(patchSet.AddRawPatch(p)).ToNot(HaveOccurred())
+		Expect(patchSet.UnmarshalPatchValue("/abcd", operation, &t)).ToNot(HaveOccurred())
+		Expect(t).To(Equal(expected))
+	},
+		Entry("without the operation", nil, "test1"),
+		Entry("without the add operation", pointer.P(patch.PatchAddOp), "test1"),
+		Entry("without the replace operation", pointer.P(patch.PatchReplaceOp), "test2"),
+		Entry("without the test operation", pointer.P(patch.PatchTestOp), "test3"),
+	)
+
+	It("should fail to unmarshal with a remove operation", func() {
+		var t string
+		patchSet := patch.New(patch.WithRemove("/abcd"))
+		Expect(patchSet.UnmarshalPatchValue("/abcd", pointer.P(patch.PatchRemoveOp), &t)).To(HaveOccurred())
+	})
+
+	It("should fail if the patch doesn't contain the path", func() {
+		var t string
+		patchSet := patch.New(patch.WithAdd("/abcd", "test"))
+		Expect(patchSet.UnmarshalPatchValue("/wrong", pointer.P(patch.PatchAddOp), &t)).To(
+			MatchError("the path or operation doesn't exist in the patch"))
+	})
+
+	It("should fail if the patch doesn't contain the operation", func() {
+		var t string
+		patchSet := patch.New(patch.WithAdd("/abcd", "test"))
+		Expect(patchSet.UnmarshalPatchValue("/abcd", pointer.P(patch.PatchReplaceOp), &t)).To(
+			MatchError("the path or operation doesn't exist in the patch"))
 	})
 })
