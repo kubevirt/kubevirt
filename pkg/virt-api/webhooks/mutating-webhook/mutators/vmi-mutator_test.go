@@ -89,19 +89,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(resp.Allowed).To(BeTrue())
 
 		By("Getting the VMI spec from the response")
-		vmiSpec := &v1.VirtualMachineInstanceSpec{}
-		vmiMeta := &k8smetav1.ObjectMeta{}
-		vmiStatus := &v1.VirtualMachineInstanceStatus{}
-		patchOps := []patch.PatchOperation{
-			{Value: vmiSpec},
-			{Value: vmiMeta},
-			{Value: vmiStatus},
-		}
-		err := json.Unmarshal(resp.Patch, &patchOps)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(patchOps).NotTo(BeEmpty())
+		var vmiSpec v1.VirtualMachineInstanceSpec
+		var vmiMeta k8smetav1.ObjectMeta
+		var vmiStatus v1.VirtualMachineInstanceStatus
+		patchSet := patch.New()
+		Expect(patchSet.AddRawPatch(resp.Patch)).ToNot(HaveOccurred())
+		Expect(patchSet.UnmarshalPatchValue("/spec", nil, &vmiSpec)).ToNot(HaveOccurred())
+		Expect(patchSet.UnmarshalPatchValue("/metadata", nil, &vmiMeta)).ToNot(HaveOccurred())
+		Expect(patchSet.UnmarshalPatchValue("/status", nil, &vmiStatus)).ToNot(HaveOccurred())
 
-		return vmiMeta, vmiSpec, vmiStatus
+		return &vmiMeta, &vmiSpec, &vmiStatus
 	}
 
 	getVMIStatusFromResponseWithUpdate := func(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance, user string) *v1.VirtualMachineInstanceStatus {
@@ -130,17 +127,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(resp.Allowed).To(BeTrue())
 
 		By("Getting the VMI spec from the response")
-		vmiStatus := &v1.VirtualMachineInstanceStatus{}
-		patchOps := []patch.PatchOperation{
-			{Value: vmiStatus},
-		}
 		if resp.Patch == nil {
 			return &newVMI.Status
 		}
-		err = json.Unmarshal(resp.Patch, &patchOps)
-		Expect(err).ToNot(HaveOccurred())
 
-		return vmiStatus
+		var vmiStatus v1.VirtualMachineInstanceStatus
+		patchSet := patch.New()
+		Expect(patchSet.AddRawPatch(resp.Patch)).ToNot(HaveOccurred())
+		Expect(patchSet.UnmarshalPatchValue("/status", nil, &vmiStatus)).ToNot(HaveOccurred())
+
+		return &vmiStatus
 	}
 
 	BeforeEach(func() {

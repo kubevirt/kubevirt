@@ -21,7 +21,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -52,6 +51,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -411,19 +411,10 @@ var _ = Describe("Apply Apps", func() {
 					Expect(ok).To(BeTrue())
 					patched = true
 
-					patches, err := patch.UnmarshalPatch(a.GetPatch())
-					Expect(err).ToNot(HaveOccurred())
-
 					var dsSpec *appsv1.DaemonSetSpec
-					for _, v := range patches {
-						if v.Path == "/spec" && v.Op == "replace" {
-							dsSpec = &appsv1.DaemonSetSpec{}
-							template, err := json.Marshal(v.Value)
-							Expect(err).ToNot(HaveOccurred())
-							json.Unmarshal(template, dsSpec)
-						}
-					}
-
+					patchSet := patch.New()
+					Expect(patchSet.AddRawPatch(a.GetPatch())).ToNot(HaveOccurred())
+					Expect(patchSet.UnmarshalPatchValue("/spec", pointer.P(patch.PatchReplaceOp), &dsSpec)).ToNot(HaveOccurred())
 					Expect(dsSpec).ToNot(BeNil())
 
 					command := dsSpec.Template.Spec.Containers[0].Command
@@ -489,18 +480,11 @@ var _ = Describe("Apply Apps", func() {
 					Expect(ok).To(BeTrue())
 					patched = true
 
-					patches := []patch.PatchOperation{}
-					json.Unmarshal(a.GetPatch(), &patches)
-
 					var annotations map[string]string
-					for _, v := range patches {
-						if v.Path == "/metadata/annotations" {
-							template, err := json.Marshal(v.Value)
-							Expect(err).ToNot(HaveOccurred())
-							json.Unmarshal(template, &annotations)
-						}
-					}
-
+					patchSet := patch.New()
+					Expect(patchSet.AddRawPatch(a.GetPatch())).ToNot(HaveOccurred())
+					Expect(patchSet.UnmarshalPatchValue("/metadata/annotations", nil, &annotations)).ToNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 					patchedDs := &appsv1.DaemonSet{
 						ObjectMeta: v12.ObjectMeta{
 							Annotations: annotations,
@@ -549,23 +533,12 @@ var _ = Describe("Apply Apps", func() {
 						Expect(ok).To(BeTrue())
 						patched = true
 
-						patches := []patch.PatchOperation{}
-						json.Unmarshal(a.GetPatch(), &patches)
-
 						var annotations map[string]string
 						var dsSpec appsv1.DaemonSetSpec
-						for _, v := range patches {
-							if v.Path == "/spec" {
-								template, err := json.Marshal(v.Value)
-								Expect(err).ToNot(HaveOccurred())
-								json.Unmarshal(template, &dsSpec)
-							}
-							if v.Path == "/metadata/annotations" {
-								template, err := json.Marshal(v.Value)
-								Expect(err).ToNot(HaveOccurred())
-								json.Unmarshal(template, &annotations)
-							}
-						}
+						patchSet := patch.New()
+						Expect(patchSet.AddRawPatch(a.GetPatch())).ToNot(HaveOccurred())
+						Expect(patchSet.UnmarshalPatchValue("/spec", nil, &dsSpec)).ToNot(HaveOccurred())
+						Expect(patchSet.UnmarshalPatchValue("/metadata/annotations", nil, &annotations)).ToNot(HaveOccurred())
 
 						patchedDs := &appsv1.DaemonSet{
 							ObjectMeta: v12.ObjectMeta{
