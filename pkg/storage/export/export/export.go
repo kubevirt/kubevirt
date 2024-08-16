@@ -1202,7 +1202,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 
 func (ctrl *VMExportController) updateVMExportStatus(vmExport, vmExportCopy *exportv1.VirtualMachineExport) error {
 	if !equality.Semantic.DeepEqual(vmExport.Status, vmExportCopy.Status) {
-		if _, err := ctrl.Client.VirtualMachineExport(vmExportCopy.Namespace).Update(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
+		if _, err := ctrl.Client.VirtualMachineExport(vmExportCopy.Namespace).UpdateStatus(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
