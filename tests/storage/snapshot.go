@@ -482,11 +482,11 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				// update vm to make sure vm revision is saved in the snapshot
 				By("Updating the VM template spec")
-				patchData, err := patch.GenerateTestReplacePatch(
-					"/spec/template/spec/domain/resources/requests/"+string(corev1.ResourceMemory),
-					initialMemory,
-					newMemory,
-				)
+				path := "/spec/template/spec/domain/resources/requests/" + string(corev1.ResourceMemory)
+				patchData, err := patch.New(
+					patch.WithTest(path, initialMemory),
+					patch.WithReplace(path, newMemory),
+				).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})

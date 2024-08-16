@@ -72,7 +72,10 @@ var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompu
 			libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 			By("Updating CPU sockets to a value that would be valid in LiveUpdate")
-			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
+			patchData, err := patch.New(
+				patch.WithTest("/spec/template/spec/domain/cpu/sockets", 1),
+				patch.WithReplace("/spec/template/spec/domain/cpu/sockets", 2),
+			).GeneratePayload()
 			Expect(err).NotTo(HaveOccurred())
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())

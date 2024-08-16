@@ -138,21 +138,6 @@ func generatePatchPayload(patches ...patchOperation) ([]byte, error) {
 	return payloadBytes, nil
 }
 
-func GenerateTestReplacePatch(path string, oldValue, newValue interface{}) ([]byte, error) {
-	return generatePatchPayload(
-		patchOperation{
-			Op:    PatchTestOp,
-			Path:  path,
-			Value: oldValue,
-		},
-		patchOperation{
-			Op:    PatchReplaceOp,
-			Path:  path,
-			Value: newValue,
-		},
-	)
-}
-
 func (p *PatchSet) AddRawPatch(patch []byte) error {
 	var ops []patchOperation
 	if err := json.Unmarshal(patch, &ops); err != nil {

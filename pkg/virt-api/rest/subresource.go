@@ -1605,14 +1605,17 @@ func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, r
 	newSEV := oldSEV.DeepCopy()
 	newSEV.Session = opts.Session
 	newSEV.DHCert = opts.DHCert
-	patch, err := patch.GenerateTestReplacePatch("/spec/domain/launchSecurity/sev", oldSEV, newSEV)
+	patchBytes, err := patch.New(
+		patch.WithTest("/spec/domain/launchSecurity/sev", oldSEV),
+		patch.WithReplace("/spec/domain/launchSecurity/sev", newSEV),
+	).GeneratePayload()
 	if err != nil {
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
 
-	log.Log.Object(vmi).Infof("Patching vmi: %s", string(patch))
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, k8smetav1.PatchOptions{}); err != nil {
+	log.Log.Object(vmi).Infof("Patching vmi: %s", string(patchBytes))
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to patch vmi")
 		writeError(errors.NewInternalError(err), response)
 		return

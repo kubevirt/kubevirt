@@ -113,7 +113,10 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 			By("Hotplug additional memory")
 			newGuestMemory := resource.MustParse("1042Mi")
-			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", guest.String(), newGuestMemory.String())
+			patchData, err := patch.New(
+				patch.WithTest("/spec/template/spec/domain/memory/guest", guest.String()),
+				patch.WithReplace("/spec/template/spec/domain/memory/guest", newGuestMemory.String()),
+			).GeneratePayload()
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -160,7 +163,10 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 			By("Hotplug additional memory")
 			newGuestMemory := resource.MustParse("1042Mi")
-			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", guest.String(), newGuestMemory.String())
+			patchData, err := patch.New(
+				patch.WithTest("/spec/template/spec/domain/memory/guest", guest.String()),
+				patch.WithReplace("/spec/template/spec/domain/memory/guest", newGuestMemory.String()),
+			).GeneratePayload()
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())

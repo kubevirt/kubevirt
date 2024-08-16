@@ -573,7 +573,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Updating the VirtualMachineInstancetype vCPU count")
 			newInstancetypeCPUGuest := originalInstancetypeCPUGuest + 1
-			patchData, err := patch.GenerateTestReplacePatch("/spec/cpu/guest", originalInstancetypeCPUGuest, newInstancetypeCPUGuest)
+			patchData, err := patch.New(
+				patch.WithTest("/spec/cpu/guest", originalInstancetypeCPUGuest),
+				patch.WithReplace("/spec/cpu/guest", newInstancetypeCPUGuest),
+			).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 			updatedInstancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Patch(context.Background(), instancetype.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())

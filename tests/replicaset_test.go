@@ -338,7 +338,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")
-		patchData, err := patch.GenerateTestReplacePatch("/spec/replicas", rs.Spec.Replicas, pointer.P(2))
+		patchData, err := patch.New(
+			patch.WithTest("/spec/replicas", rs.Spec.Replicas),
+			patch.WithAdd("/spec/replicas", pointer.P(2)),
+		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
 		rs, err = virtClient.ReplicaSet(rs.Namespace).Patch(context.Background(), rs.Name, types.JSONPatchType, patchData, v12.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())

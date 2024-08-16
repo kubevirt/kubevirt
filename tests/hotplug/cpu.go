@@ -137,7 +137,10 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}))
 
 			By("Enabling the second socket")
-			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
+			patchData, err := patch.New(
+				patch.WithTest("/spec/template/spec/domain/cpu/sockets", 1),
+				patch.WithReplace("/spec/template/spec/domain/cpu/sockets", 2),
+			).GeneratePayload()
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -188,7 +191,10 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 
 			By("Changing the number of CPU cores")
-			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/cores", 2, 4)
+			patchData, err = patch.New(
+				patch.WithTest("/spec/template/spec/domain/cpu/cores", 2),
+				patch.WithReplace("/spec/template/spec/domain/cpu/cores", 4),
+			).GeneratePayload()
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -252,7 +258,10 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 			By("Enabling the second socket")
-			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
+			patchData, err := patch.New(
+				patch.WithTest("/spec/template/spec/domain/cpu/sockets", 1),
+				patch.WithReplace("/spec/template/spec/domain/cpu/sockets", 2),
+			).GeneratePayload()
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())

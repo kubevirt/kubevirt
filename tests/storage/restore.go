@@ -364,11 +364,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				initialRequestedMemory := resource.MustParse("128Mi")
 				increasedRequestedMemory := resource.MustParse("256Mi")
-				patchData, err := patch.GenerateTestReplacePatch(
-					"/spec/template/spec/domain/resources/requests/"+string(corev1.ResourceMemory),
-					initialRequestedMemory,
-					increasedRequestedMemory,
-				)
+				path := "/spec/template/spec/domain/resources/requests/" + string(corev1.ResourceMemory)
+				patchData, err := patch.New(
+					patch.WithTest(path, initialRequestedMemory),
+					patch.WithReplace(path, increasedRequestedMemory),
+				).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
