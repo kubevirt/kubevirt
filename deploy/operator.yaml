@@ -61,7 +61,7 @@ spec:
         - name: CDI_VERSION
           value: v1.59.0
         - name: NETWORK_ADDONS_VERSION
-          value: v0.94.6
+          value: v0.95.0
         - name: SSP_VERSION
           value: v0.20.0
         - name: HPPO_VERSION
@@ -290,7 +290,7 @@ spec:
         - name: KUBE_RBAC_PROXY_IMAGE
           value: quay.io/openshift/origin-kube-rbac-proxy@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8
         - name: KUBE_SECONDARY_DNS_IMAGE
-          value: ghcr.io/kubevirt/kubesecondarydns@sha256:6268d84154e2483fbce8c1adacbdaf6f0839117b2d48d9fa4687cc8f76bd5130
+          value: ghcr.io/kubevirt/kubesecondarydns@sha256:44489bdf8affb0e82b68a7100bbee7d289151ada54ab2e76a9d3afef769a1f54
         - name: CORE_DNS_IMAGE
           value: registry.k8s.io/coredns/coredns@sha256:a0ead06651cf580044aeb0a0feba63591858fb2e43ade8c9dea45a6a89ae7e5e
         - name: KUBEVIRT_IPAM_CONTROLLER_IMAGE
@@ -298,11 +298,11 @@ spec:
         - name: PASST_BINDING_CNI_IMAGE
           value: ghcr.io/kubevirt/passt-binding-cni@sha256:26c19e9292a76c5311c8ff66059ddf4f8085eee9c075d642cd86d645ebc31088
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:a56d80254e2d2ee9f330fc0744114cba7aa4ff98e03c04273c44eb381e916c57
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:935b837a9f0c23d24bc7b20909928edb5ffe1ca9f6aa160567a652c2951785ea
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.94.6
+          value: v0.95.0
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -322,7 +322,7 @@ spec:
           value: prometheus-k8s
         - name: RUNBOOK_URL_TEMPLATE
           value: https://kubevirt.io/monitoring/runbooks/%s
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:a56d80254e2d2ee9f330fc0744114cba7aa4ff98e03c04273c44eb381e916c57
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:935b837a9f0c23d24bc7b20909928edb5ffe1ca9f6aa160567a652c2951785ea
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources:
