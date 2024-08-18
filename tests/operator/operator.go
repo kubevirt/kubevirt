@@ -732,17 +732,15 @@ spec:
 				}),
 			Entry("[test_id:6256] poddisruptionbudgets",
 				func() {
-					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+					patchBytes, err := patch.New(
+						patch.WithAdd("/spec/selector/matchLabels",
+							map[string]string{
+								"kubevirt.io": "dne",
+							}),
+					).GeneratePayload()
 					Expect(err).ToNot(HaveOccurred())
 
-					pdb.Spec.Selector.MatchLabels = map[string]string{
-						"kubevirt.io": "dne",
-					}
-
-					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						pdb, err = virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Update(context.Background(), pdb, metav1.UpdateOptions{})
-						return err
-					})
+					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Patch(context.Background(), "virt-controller-pdb", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(pdb.Spec.Selector.MatchLabels["kubevirt.io"]).To(Equal("dne"))
 				},
