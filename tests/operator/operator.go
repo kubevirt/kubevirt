@@ -700,16 +700,14 @@ spec:
 				}),
 
 			Entry("[test_id:6255] customresourcedefinitions",
+
 				func() {
-					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
+					patchBytes, err := patch.New(
+						patch.WithAdd("/spec/names/shortNames/-", shortNameAdded),
+					).GeneratePayload()
 					Expect(err).ToNot(HaveOccurred())
 
-					vmcrd.Spec.Names.ShortNames = append(vmcrd.Spec.Names.ShortNames, shortNameAdded)
-
-					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						vmcrd, err = virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Update(context.Background(), vmcrd, metav1.UpdateOptions{})
-						return err
-					})
+					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crdName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vmcrd.Spec.Names.ShortNames).To(ContainElement(shortNameAdded))
 				},
