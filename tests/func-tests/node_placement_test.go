@@ -27,7 +27,7 @@ const (
 	workloads = "workloads"
 )
 
-var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, Serial, Label(tests.HighlyAvailableClusterLabel), func() {
+var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, Serial, Label(tests.HighlyAvailableClusterLabel, "nodePlacement"), func() {
 	tests.FlagParse()
 	hco := &hcov1beta1.HyperConverged{}
 	var (
@@ -36,20 +36,19 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		originalWorkloadSpec hcov1beta1.HyperConvergedConfig
 		cli                  client.Client
 		cliSet               *kubernetes.Clientset
+		workerNodes          *v1.NodeList
 	)
 
 	BeforeAll(func(ctx context.Context) {
 		cli = tests.GetControllerRuntimeClient()
 		cliSet = tests.GetK8sClientSet()
 
-		nodes := listNodesByLabels(ctx, cliSet, "node-role.kubernetes.io/control-plane!=")
-		tests.FailIfSingleNode(len(nodes.Items) < 2)
+		workerNodes = listNodesByLabels(ctx, cliSet, "node-role.kubernetes.io/worker")
+		tests.FailIfSingleNode(len(workerNodes.Items) < 2)
 
-		// Label all but first node with "node.kubernetes.io/hco-test-node-type=infra"
-		// We are doing this to remove dependency of this Describe block on a shell script that
-		// labels the nodes this way
+		// Label all but the last node with "node.kubernetes.io/hco-test-node-type=infra"
 		Eventually(func(g Gomega, ctx context.Context) {
-			for _, node := range nodes.Items[:len(nodes.Items)-1] {
+			for _, node := range workerNodes.Items[:len(workerNodes.Items)-1] {
 				done, err := setHcoNodeTypeLabel(ctx, cliSet, &node, infra)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(done).To(BeTrue())
@@ -57,7 +56,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).WithContext(ctx).Should(Succeed())
 		// Label the last node with "node.kubernetes.io/hco-test-node-type=workloads"
 		Eventually(func(g Gomega, ctx context.Context) {
-			done, err := setHcoNodeTypeLabel(ctx, cliSet, &nodes.Items[len(nodes.Items)-1], workloads)
+			done, err := setHcoNodeTypeLabel(ctx, cliSet, &workerNodes.Items[len(workerNodes.Items)-1], workloads)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(done).To(BeTrue())
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).WithContext(ctx).Should(Succeed())
@@ -85,7 +84,8 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 		tests.UpdateHCORetry(ctx, cli, hco)
 
-		workloadsNodes := listNodesByLabels(ctx, cliSet, "node.kubernetes.io/hco-test-node-type==workloads")
+		const hcoSelector = hcoLabel + "==workloads"
+		workloadsNodes := listNodesByLabels(ctx, cliSet, hcoSelector)
 		Expect(workloadsNodes.Items).To(HaveLen(1))
 
 		workloadsNode = &workloadsNodes.Items[0]
@@ -119,6 +119,27 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 				n.SetLabels(labels)
 				_, err = cliSet.CoreV1().Nodes().Update(ctx, n, k8smetav1.UpdateOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
+			}
+		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).WithContext(ctx).Should(Succeed())
+
+		By("make sure all the virt-handler pods are running again")
+		Eventually(func(g Gomega, ctx context.Context) {
+			labelSelector := "kubevirt.io=virt-handler"
+			pods, err := cliSet.CoreV1().Pods(tests.InstallNamespace).List(ctx, k8smetav1.ListOptions{LabelSelector: labelSelector})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(len(pods.Items)).To(BeNumerically(">=", len(workerNodes.Items)))
+
+			for _, pod := range pods.Items {
+				podReady := false
+				for _, cond := range pod.Status.Conditions {
+					if cond.Type == v1.PodReady {
+						g.Expect(cond.Status).To(Equal(v1.ConditionTrue))
+						podReady = true
+						break
+					}
+				}
+
+				g.Expect(podReady).To(BeTrue())
 			}
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).WithContext(ctx).Should(Succeed())
 	})
