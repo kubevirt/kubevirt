@@ -20,6 +20,7 @@
 package webhooks
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -172,7 +173,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			admitter = NewKubeVirtUpdateAdmitter(nil, clusterConfig)
 		})
 
-		admit := func(kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
+		admit := func(ctx context.Context, kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
 			kvBytes, err := json.Marshal(kubevirt)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -188,7 +189,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 					Operation: admissionv1.Update,
 				},
 			}
-			return admitter.Admit(request)
+			return admitter.Admit(ctx, request)
 		}
 
 		const warn = true
@@ -206,7 +207,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(kvObject)
+			response := admit(context.Background(), kvObject)
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
@@ -241,7 +242,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(kvObject)
+			response := admit(context.Background(), kvObject)
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
@@ -298,7 +299,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			Expect(admitter.Admit(request)).To(Equal(&admissionv1.AdmissionResponse{
+			Expect(admitter.Admit(context.Background(), request)).To(Equal(&admissionv1.AdmissionResponse{
 				Allowed: true,
 				Warnings: []string{
 					expectedWarning,

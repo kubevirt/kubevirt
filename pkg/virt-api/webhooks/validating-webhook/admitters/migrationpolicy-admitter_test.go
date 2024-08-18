@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -116,6 +117,6 @@ func createPolicyAdmissionReview(policy *migrationsv1.MigrationPolicy, namespace
 
 func (admitter *MigrationPolicyAdmitter) admitAndExpect(policy *migrationsv1.MigrationPolicy, expectAllowed bool) {
 	ar := createPolicyAdmissionReview(policy, policy.Namespace)
-	resp := admitter.Admit(ar)
+	resp := admitter.Admit(context.Background(), ar)
 	Expect(resp.Allowed).To(Equal(expectAllowed))
 }

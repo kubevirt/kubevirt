@@ -84,7 +84,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(Equal("Snapshot/Restore feature gate not enabled"))
 		})
@@ -129,7 +129,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				},
 			}
 
-			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
@@ -150,7 +150,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config, nil, snapshot).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil, snapshot).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.apiGroup"))
@@ -173,7 +173,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
@@ -211,7 +211,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreUpdateAdmissionReview(oldRestore, restore)
-			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
@@ -248,7 +248,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreUpdateAdmissionReview(oldRestore, restore)
-			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -283,7 +283,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.Running = &t
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
@@ -308,7 +308,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.RunStrategy = &runStrategyManual
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
@@ -334,7 +334,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.Running = &f
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
@@ -361,7 +361,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				s.Status.Phase = snapshotv1.Failed
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %q has failed and is invalid to use", vmSnapshotName)))
@@ -388,7 +388,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				s.Status.ReadyToUse = &f
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
@@ -413,7 +413,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.Running = &t
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.kind"))
@@ -439,7 +439,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.Running = &t
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.apiGroup"))
@@ -480,7 +480,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot, restoreInProcess).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot, restoreInProcess).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
@@ -502,7 +502,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.Running = &f
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
@@ -528,7 +528,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, targetVM, snapshot).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, targetVM, snapshot).Admit(context.Background(), ar)
 
 				if doesTargetExist {
 					Expect(resp.Allowed).To(BeFalse())
@@ -570,7 +570,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					restore.Spec.Patches = []string{string(patchBytes)}
 
 					ar := createRestoreAdmissionReview(restore)
-					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 					Expect(resp.Allowed).To(BeFalse())
 					Expect(resp.Result.Details.Causes).To(HaveLen(1))
 					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.patches"))
@@ -589,7 +589,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					restore.Spec.Patches = []string{string(patchBytes)}
 
 					ar := createRestoreAdmissionReview(restore)
-					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 					Expect(resp.Allowed).To(BeTrue())
 				},
 					Entry("patch to replace MAC", patch.New(patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "some-value"))),
@@ -604,7 +604,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					restore.Spec.Patches = []string{invalidPatch}
 
 					ar := createRestoreAdmissionReview(restore)
-					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 					Expect(resp.Allowed).To(BeFalse())
 					Expect(resp.Result.Details.Causes).To(HaveLen(1))
 					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.patches"))

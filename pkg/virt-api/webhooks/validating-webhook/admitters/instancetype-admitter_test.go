@@ -1,12 +1,12 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +36,7 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 
 	DescribeTable("should accept valid instancetype", func(version string) {
 		ar := createInstancetypeAdmissionReview(instancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	},
@@ -47,7 +47,7 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 
 	It("should reject unsupported version", func() {
 		ar := createInstancetypeAdmissionReview(instancetypeObj, "unsupportedversion")
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
@@ -65,7 +65,7 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 			},
 		}
 		ar := createInstancetypeAdmissionReview(instancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 	},
@@ -88,7 +88,7 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 			},
 		}
 		ar := createInstancetypeAdmissionReview(instancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
@@ -114,7 +114,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 
 	DescribeTable("should accept valid instancetype", func(version string) {
 		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	},
@@ -137,7 +137,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 			},
 		}
 		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
@@ -145,7 +145,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 
 	It("should reject unsupported version", func() {
 		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, "unsupportedversion")
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")

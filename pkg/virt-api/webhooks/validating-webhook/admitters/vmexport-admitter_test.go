@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,7 +53,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(Equal("vm export feature gate not enabled"))
 		})
@@ -97,7 +98,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				},
 			}
 
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
@@ -133,7 +134,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				},
 			}
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring(errorString))
 		},
@@ -154,7 +155,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.kind"))
@@ -182,7 +183,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportUpdateAdmissionReview(oldExport, export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
@@ -213,7 +214,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportUpdateAdmissionReview(oldExport, export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -229,7 +230,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue(), "should allow APIGroup: %s, Kind: %s", apiGroup, kind)
 		},
 			Entry("persistent volume claim blank", "", pvc),
@@ -249,7 +250,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
+			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse(), "should reject APIGroup: %s, Kind: %s", apiGroup, kind)
 		},
 			Entry("persistent volume claim", "invalid", pvc),

@@ -51,7 +51,7 @@ type kubeVirtCreateAdmitter struct {
 // check for creation of a new KubeVirt CR (rejecting it), no validation can be done here
 // as that is done in the 'kubevirt-update-validator.kubevirt.io' webhook
 
-func (k *kubeVirtCreateAdmitter) Admit(review *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (k *kubeVirtCreateAdmitter) Admit(ctx context.Context, review *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	log.Log.Info("Trying to create KV")
 	if resp := webhooks.ValidateSchema(v1.KubeVirtGroupVersionKind, review.Request.Object.Raw); resp != nil {
 		return resp
@@ -59,7 +59,7 @@ func (k *kubeVirtCreateAdmitter) Admit(review *admissionv1.AdmissionReview) *adm
 	//TODO: Do we want semantic validation
 
 	// Best effort
-	list, err := k.client.KubeVirt(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	list, err := k.client.KubeVirt(k8sv1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}

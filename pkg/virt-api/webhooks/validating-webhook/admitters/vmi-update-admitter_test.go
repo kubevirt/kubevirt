@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -141,7 +142,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Status.NodeName = "got"
 
-				resp := vmiUpdateAdmitter.Admit(admission(vmi, handlernode))
+				resp := vmiUpdateAdmitter.Admit(context.Background(), admission(vmi, handlernode))
 				Expect(resp).To(matcher)
 			},
 				Entry("should deny request if handler is on different node", "diff",
@@ -159,7 +160,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					TargetNode: "git",
 				}
 
-				resp := vmiUpdateAdmitter.Admit(admission(vmi, handlernode))
+				resp := vmiUpdateAdmitter.Admit(context.Background(), admission(vmi, handlernode))
 				Expect(resp).To(matcher)
 			},
 				Entry("should deny request if handler is on different node", "diff",
@@ -177,7 +178,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					TargetNode: "target",
 				}
 
-				resp := vmiUpdateAdmitter.Admit(admission(vmi, handlernode))
+				resp := vmiUpdateAdmitter.Admit(context.Background(), admission(vmi, handlernode))
 				Expect(resp).To(matcher)
 			},
 				Entry("should deny request if handler is on different node", "diff",
@@ -202,7 +203,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				updatedVMI := vmi.DeepCopy()
 				updatedVMI.Status.NodeName = "target"
 
-				resp := vmiUpdateAdmitter.Admit(admissionWithCustomUpdate(vmi, updatedVMI, "got"))
+				resp := vmiUpdateAdmitter.Admit(context.Background(), admissionWithCustomUpdate(vmi, updatedVMI, "got"))
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
@@ -214,7 +215,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				updatedVMI.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 					TargetNode: "target",
 				}
-				resp := vmiUpdateAdmitter.Admit(admissionWithCustomUpdate(vmi, updatedVMI, "got"))
+				resp := vmiUpdateAdmitter.Admit(context.Background(), admissionWithCustomUpdate(vmi, updatedVMI, "got"))
 				Expect(resp.Allowed).To(BeFalse())
 			})
 		})
@@ -224,7 +225,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			vmi.Status.NodeName = "got"
 			vmi.Status.MigrationState = migrationState
 
-			resp := vmiUpdateAdmitter.Admit(admission(vmi, "diff"))
+			resp := vmiUpdateAdmitter.Admit(context.Background(), admission(vmi, "diff"))
 			Expect(resp.Allowed).To(BeTrue())
 		},
 			Entry("when TargetNode is not set", nil),
@@ -233,7 +234,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	})
 
-	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -245,7 +246,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				},
 			},
 		}
-		resp := review(ar)
+		resp := review(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
@@ -286,7 +287,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			},
 		}
 
-		resp := vmiUpdateAdmitter.Admit(ar)
+		resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal("update of VMI object is restricted"))
@@ -868,7 +869,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				Operation: admissionv1.Update,
 			},
 		}
-		resp := vmiUpdateAdmitter.Admit(ar)
+		resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(expected)
 	},
 		Entry("Should admit internal sa", "system:serviceaccount:kubevirt:"+components.ApiServiceAccountName, BeTrue()),
@@ -896,7 +897,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				Operation: admissionv1.Update,
 			},
 		}
-		resp := vmiUpdateAdmitter.Admit(ar)
+		resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(expected)
 	},
 		Entry("deny update of maxSockets",
@@ -937,7 +938,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				Operation: admissionv1.Update,
 			},
 		}
-		resp := vmiUpdateAdmitter.Admit(ar)
+		resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 

@@ -1,6 +1,7 @@
 package validating_webhooks
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,18 +16,11 @@ import (
 )
 
 type admitter interface {
-	Admit(*admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
-}
-
-type AlwaysPassAdmitter struct {
+	Admit(context.Context, *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
 }
 
 func NewPassingAdmissionResponse() *admissionv1.AdmissionResponse {
 	return &admissionv1.AdmissionResponse{Allowed: true}
-}
-
-func (*AlwaysPassAdmitter) Admit(*admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	return NewPassingAdmissionResponse()
 }
 
 func NewAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionResponse {
@@ -70,7 +64,8 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter admitter) {
 			Kind:       "AdmissionReview",
 		},
 	}
-	reviewResponse := admitter.Admit(review)
+
+	reviewResponse := admitter.Admit(req.Context(), review)
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		response.Response.UID = review.Request.UID

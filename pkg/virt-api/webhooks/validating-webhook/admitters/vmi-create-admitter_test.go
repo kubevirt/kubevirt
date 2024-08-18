@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -114,7 +115,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			},
 		}
 
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].name"))
@@ -132,7 +133,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
@@ -157,7 +158,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
@@ -234,7 +235,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket, spec.readinessProbe.exec or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket, spec.livenessProbe.exec or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
 		})
@@ -270,7 +271,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`spec.readinessProbe must have exactly one probe type set, spec.livenessProbe must have exactly one probe type set`))
 		})
@@ -301,7 +302,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 		It("should reject properly configured network-based readiness and liveness probes if no Pod Network is present", func() {
@@ -329,7 +330,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`spec.readinessProbe.tcpSocket is only allowed if the Pod Network is attached, spec.livenessProbe.httpGet is only allowed if the Pod Network is attached`))
 		})
@@ -347,7 +348,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
@@ -360,12 +361,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := vmiCreateAdmitter.Admit(ar)
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`))
 	})
 
-	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -377,7 +378,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			},
 		}
-		resp := review(ar)
+		resp := review(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
@@ -406,7 +407,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						},
 					},
 				}
-				resp := vmiCreateAdmitter.Admit(ar)
+				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 				if positive {
 					Expect(resp.Allowed).To(BeTrue())
 				} else {
@@ -1151,7 +1152,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Object: runtime.RawExtension{
 						Raw: vmiJSON}}}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 			Expect(resp.Result).To(BeNil())
 			Expect(resp.Warnings).To(HaveLen(1))
@@ -3112,7 +3113,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3132,7 +3133,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3163,7 +3164,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(3))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
@@ -3202,7 +3203,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(3))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
@@ -3241,7 +3242,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(2))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
@@ -3278,7 +3279,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(4))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
@@ -3314,7 +3315,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight"))
@@ -3337,7 +3338,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3369,7 +3370,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(3))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey"))
@@ -3411,7 +3412,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3443,7 +3444,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(2))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
@@ -3480,7 +3481,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(4))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].labelSelector.matchExpressions[0].values"))
@@ -3509,7 +3510,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3530,7 +3531,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			// webhookutils.ValidateSchema will take over so result will be only a message
@@ -3560,7 +3561,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3591,7 +3592,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3622,7 +3623,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].key"))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].key: Invalid value: \"key\": not a valid field selector key"))
@@ -3655,7 +3656,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchFields[0].values[0]"))
@@ -3690,7 +3691,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3718,7 +3719,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("Allow to create when spec.topologySpreadConstraints set to nil", func() {
 			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, nil)
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3732,7 +3733,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3754,7 +3755,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -3768,7 +3769,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints[0].topologyKey"))
@@ -3785,7 +3786,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints[0].topologyKey"))
@@ -3802,7 +3803,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints[0].maxSkew"))
@@ -3827,7 +3828,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints.labelSelector.matchExpressions[0].values"))
@@ -3965,7 +3966,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				}
 
-				resp := vmiCreateAdmitter.Admit(ar)
+				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.cpu.sockets"))
@@ -3999,7 +4000,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			resp := vmiCreateAdmitter.Admit(ar)
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 
 			if expectValid {
 				Expect(resp.Allowed).To(BeTrue())

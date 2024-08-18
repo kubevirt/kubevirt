@@ -1,6 +1,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -38,7 +39,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 
 	DescribeTable("should accept valid preference", func(version string) {
 		ar := createPreferenceAdmissionReview(preferenceObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeTrue(), "Expected preference to be allowed.")
 	},
@@ -49,7 +50,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 
 	It("should reject unsupported version", func() {
 		ar := createPreferenceAdmissionReview(preferenceObj, "unsupportedversion")
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
@@ -65,7 +66,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 			},
 		}
 		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
@@ -88,7 +89,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 			},
 		}
 		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
@@ -102,7 +103,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 
 	DescribeTable("should reject when spreading vCPUs across CoresThreads with a ratio higher than 2 set through", func(preferenceObj instancetypev1beta1.VirtualMachinePreference) {
 		ar := createPreferenceAdmissionReview(&preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
@@ -172,7 +173,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 			},
 		}
 		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 		Expect(response.Allowed).To(BeTrue())
 		Expect(response.Warnings).To(HaveLen(1))
 		Expect(response.Warnings[0]).To(ContainSubstring(fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, deprecatedTopology, expectedAlternativeTopology)))
@@ -204,7 +205,7 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 
 	DescribeTable("should accept valid preference", func(version string) {
 		ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeTrue(), "Expected preference to be allowed.")
 	},
@@ -215,7 +216,7 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 
 	It("should reject unsupported version", func() {
 		ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, "unsupportedversion")
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
@@ -235,7 +236,7 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 			},
 		}
 		ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
@@ -249,7 +250,7 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 
 	DescribeTable("should reject when spreading vCPUs across CoresThreads with a ratio higher than 2 set through", func(clusterPreferenceObj instancetypev1beta1.VirtualMachineClusterPreference) {
 		ar := createClusterPreferenceAdmissionReview(&clusterPreferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
@@ -319,7 +320,7 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 			},
 		}
 		ar := createClusterPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(ar)
+		response := admitter.Admit(context.Background(), ar)
 		Expect(response.Allowed).To(BeTrue())
 		Expect(response.Warnings).To(HaveLen(1))
 		Expect(response.Warnings[0]).To(ContainSubstring(fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, deprecatedTopology, expectedAlternativeTopology)))

@@ -1,6 +1,7 @@
 package admitters
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -27,7 +28,7 @@ var supportedInstancetypeVersions = []string{
 
 type InstancetypeAdmitter struct{}
 
-func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (f *InstancetypeAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitInstancetype(ar.Request, instancetype.PluralResourceName)
 }
 
@@ -67,7 +68,7 @@ func validateMemoryOvercommitPercentNoHugepages(field *k8sfield.Path, spec *inst
 
 type ClusterInstancetypeAdmitter struct{}
 
-func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (f *ClusterInstancetypeAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitInstancetype(ar.Request, instancetype.ClusterPluralResourceName)
 }
 

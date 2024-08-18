@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -45,7 +46,7 @@ func NewMigrationPolicyAdmitter() *MigrationPolicyAdmitter {
 }
 
 // Admit validates an AdmissionReview
-func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if ar.Request.Resource.Group != migrationsv1.MigrationPolicyKind.Group ||
 		ar.Request.Resource.Resource != migrations.ResourceMigrationPolicies {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))

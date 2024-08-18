@@ -20,6 +20,7 @@
 package admitters_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -78,6 +79,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(evictedPod.Namespace, evictedPod.Name, !isDryRun),
 		)
 
@@ -100,6 +102,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(testNamespace, "does-not-exist", !isDryRun),
 		)
 
@@ -122,6 +125,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(pod.Namespace, pod.Name, !isDryRun),
 		)
 
@@ -153,6 +157,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -215,6 +220,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -274,6 +280,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -313,6 +320,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -349,6 +357,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -380,6 +389,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
@@ -411,6 +421,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		)
 
 		actualAdmissionResponse := admitter.Admit(
+			context.Background(),
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, isDryRun),
 		)
 
