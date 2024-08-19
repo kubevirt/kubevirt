@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	exportv1 "kubevirt.io/api/export/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -79,6 +80,27 @@ func (u *updater) updateUnstructured(obj runtime.Object) (oldStatus interface{},
 			return nil, nil, err
 		}
 		return oldObj.Status, newObj.Status, nil
+	case *snapshotv1.VirtualMachineSnapshot:
+		oldObj := obj.(*snapshotv1.VirtualMachineSnapshot)
+		newObj, err := u.cli.VirtualMachineSnapshot(a.GetNamespace()).Update(context.Background(), oldObj, metav1.UpdateOptions{})
+		if err != nil {
+			return nil, nil, err
+		}
+		return oldObj.Status, newObj.Status, nil
+	case *snapshotv1.VirtualMachineSnapshotContent:
+		oldObj := obj.(*snapshotv1.VirtualMachineSnapshotContent)
+		newObj, err := u.cli.VirtualMachineSnapshotContent(a.GetNamespace()).Update(context.Background(), oldObj, metav1.UpdateOptions{})
+		if err != nil {
+			return nil, nil, err
+		}
+		return oldObj.Status, newObj.Status, nil
+	case *snapshotv1.VirtualMachineRestore:
+		oldObj := obj.(*snapshotv1.VirtualMachineRestore)
+		newObj, err := u.cli.VirtualMachineRestore(a.GetNamespace()).Update(context.Background(), oldObj, metav1.UpdateOptions{})
+		if err != nil {
+			return nil, nil, err
+		}
+		return oldObj.Status, newObj.Status, nil
 	default:
 		panic(unknownObj)
 	}
@@ -89,6 +111,15 @@ func (u *updater) updateStatusUnstructured(obj runtime.Object) (err error) {
 	case *exportv1.VirtualMachineExport:
 		oldObj := obj.(*exportv1.VirtualMachineExport)
 		_, err = u.cli.VirtualMachineExport(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
+	case *snapshotv1.VirtualMachineSnapshot:
+		oldObj := obj.(*snapshotv1.VirtualMachineSnapshot)
+		_, err = u.cli.VirtualMachineSnapshot(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
+	case *snapshotv1.VirtualMachineSnapshotContent:
+		oldObj := obj.(*snapshotv1.VirtualMachineSnapshotContent)
+		_, err = u.cli.VirtualMachineSnapshotContent(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
+	case *snapshotv1.VirtualMachineRestore:
+		oldObj := obj.(*snapshotv1.VirtualMachineRestore)
+		_, err = u.cli.VirtualMachineRestore(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	default:
 		panic(unknownObj)
 	}
@@ -118,6 +149,60 @@ func (v *VMExportStatusUpdater) UpdateStatus(vmExport *exportv1.VirtualMachineEx
 
 func NewVMExportStatusUpdater(cli kubecli.KubevirtClient) *VMExportStatusUpdater {
 	return &VMExportStatusUpdater{
+		updater: updater{
+			lock:        sync.Mutex{},
+			subresource: true,
+			cli:         cli,
+		},
+	}
+}
+
+type VMSnapshotStatusUpdater struct {
+	updater
+}
+
+func (v *VMSnapshotStatusUpdater) UpdateStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+	return v.update(vmSnapshot)
+}
+
+func NewVMSnapshotStatusUpdater(cli kubecli.KubevirtClient) *VMSnapshotStatusUpdater {
+	return &VMSnapshotStatusUpdater{
+		updater: updater{
+			lock:        sync.Mutex{},
+			subresource: true,
+			cli:         cli,
+		},
+	}
+}
+
+type VMSnapshotContentStatusUpdater struct {
+	updater
+}
+
+func (v *VMSnapshotContentStatusUpdater) UpdateStatus(vmSnapshotContent *snapshotv1.VirtualMachineSnapshotContent) error {
+	return v.update(vmSnapshotContent)
+}
+
+func NewVMSnapshotContentStatusUpdater(cli kubecli.KubevirtClient) *VMSnapshotContentStatusUpdater {
+	return &VMSnapshotContentStatusUpdater{
+		updater: updater{
+			lock:        sync.Mutex{},
+			subresource: true,
+			cli:         cli,
+		},
+	}
+}
+
+type VMRestoreStatusUpdater struct {
+	updater
+}
+
+func (v *VMRestoreStatusUpdater) UpdateStatus(vmRestore *snapshotv1.VirtualMachineRestore) error {
+	return v.update(vmRestore)
+}
+
+func NewVMRestoreStatusUpdater(cli kubecli.KubevirtClient) *VMRestoreStatusUpdater {
+	return &VMRestoreStatusUpdater{
 		updater: updater{
 			lock:        sync.Mutex{},
 			subresource: true,
