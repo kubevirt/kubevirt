@@ -36,43 +36,16 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 )
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
-	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-
 	// Mock VirtualMachineInstanceMigration
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
 	var migrationCreateAdmitter *MigrationCreateAdmitter
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var mockVMIClient *kubecli.MockVirtualMachineInstanceInterface
-
-	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featureGate},
-					},
-				},
-			},
-		})
-	}
-	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: make([]string, 0),
-					},
-				},
-			},
-		})
-	}
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -81,7 +54,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().VirtualMachineInstanceMigration("default").Return(migrationInterface).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient).AnyTimes()
-		migrationCreateAdmitter = &MigrationCreateAdmitter{ClusterConfig: config, VirtClient: virtClient}
+		migrationCreateAdmitter = &MigrationCreateAdmitter{VirtClient: virtClient}
 	})
 
 	It("should reject Migration spec on create when another VMI migration is in-flight", func() {
@@ -107,8 +80,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		}
 		migrationBytes, _ := json.Marshal(&migration)
 
-		enableFeatureGate(deprecation.LiveMigrationGate)
-
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
@@ -129,10 +100,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 
 		})
 
-		AfterEach(func() {
-			disableFeatureGates()
-		})
-
 		It("should reject invalid Migration spec on create", func() {
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -143,8 +110,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 			migrationBytes, _ := json.Marshal(&migration)
-
-			enableFeatureGate(deprecation.LiveMigrationGate)
 
 			ar := &admissionv1.AdmissionReview{
 				Request: &admissionv1.AdmissionRequest{
@@ -175,8 +140,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 			migrationBytes, _ := json.Marshal(&migration)
-
-			enableFeatureGate(deprecation.LiveMigrationGate)
 
 			ar := &admissionv1.AdmissionReview{
 				Request: &admissionv1.AdmissionRequest{
@@ -211,8 +174,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			}
 			migrationBytes, _ := json.Marshal(&migration)
 
-			enableFeatureGate(deprecation.LiveMigrationGate)
-
 			ar := &admissionv1.AdmissionReview{
 				Request: &admissionv1.AdmissionRequest{
 					Resource: webhooks.MigrationGroupVersionResource,
@@ -241,8 +202,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 			migrationBytes, _ := json.Marshal(&migration)
-
-			enableFeatureGate(deprecation.LiveMigrationGate)
 
 			ar := &admissionv1.AdmissionReview{
 				Request: &admissionv1.AdmissionRequest{
@@ -284,8 +243,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 			migrationBytes, _ := json.Marshal(&migration)
-
-			enableFeatureGate(deprecation.LiveMigrationGate)
 
 			ar := &admissionv1.AdmissionReview{
 				Request: &admissionv1.AdmissionRequest{

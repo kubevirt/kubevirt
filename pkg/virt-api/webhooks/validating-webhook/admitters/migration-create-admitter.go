@@ -36,12 +36,10 @@ import (
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type MigrationCreateAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
-	VirtClient    kubecli.KubevirtClient
+	VirtClient kubecli.KubevirtClient
 }
 
 func isMigratable(vmi *v1.VirtualMachineInstance) error {
