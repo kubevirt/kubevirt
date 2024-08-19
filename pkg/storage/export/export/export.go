@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/status"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -216,6 +217,8 @@ type VMExportController struct {
 	clusterConfig *virtconfig.ClusterConfig
 
 	instancetypeMethods instancetype.Methods
+
+	statusUpdater *status.VMExportStatusUpdater
 }
 
 type CertParams struct {
@@ -346,6 +349,8 @@ func (ctrl *VMExportController) Init() error {
 		ControllerRevisionStore:  ctrl.ControllerRevisionInformer.GetStore(),
 		Clientset:                ctrl.Client,
 	}
+
+	ctrl.statusUpdater = status.NewVMExportStatusUpdater(ctrl.Client)
 
 	initCert(ctrl)
 	return nil
@@ -1202,7 +1207,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 
 func (ctrl *VMExportController) updateVMExportStatus(vmExport, vmExportCopy *exportv1.VirtualMachineExport) error {
 	if !equality.Semantic.DeepEqual(vmExport.Status, vmExportCopy.Status) {
-		if _, err := ctrl.Client.VirtualMachineExport(vmExportCopy.Namespace).UpdateStatus(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
+		if err := ctrl.statusUpdater.UpdateStatus(vmExportCopy); err != nil {
 			return err
 		}
 	}
