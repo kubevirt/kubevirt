@@ -2852,6 +2852,44 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("UEFI secure boot is currently not supported on aarch64 Arch"))
 		})
 
+		DescribeTable("should validate ACPI", func(acpi *v1.ACPI, volumes []v1.Volume, expectedLen int, expectedMessage string) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Firmware = &v1.Firmware{ACPI: acpi}
+			vmi.Spec.Volumes = volumes
+			causes := validateFirmwareACPI(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(HaveLen(expectedLen))
+			if expectedLen != 0 {
+				Expect(causes[0].Message).To(ContainSubstring(expectedMessage))
+			}
+		},
+			Entry("Not set is ok", nil, []v1.Volume{}, 0, ""),
+			Entry("ACPI with Volume match is ok",
+				&v1.ACPI{SlicNameRef: "slic"},
+				[]v1.Volume{
+					{
+						Name: "slic",
+						VolumeSource: v1.VolumeSource{
+							Secret: &v1.SecretVolumeSource{SecretName: "secret-slic"},
+						},
+					},
+				}, 0, ""),
+			Entry("ACPI without Volume match should fail",
+				&v1.ACPI{SlicNameRef: "slic"},
+				[]v1.Volume{}, 1, "does not have a matching Volume"),
+			Entry("ACPI with wrong Volume type should fail",
+				&v1.ACPI{SlicNameRef: "slic"},
+				[]v1.Volume{
+					{
+						Name: "slic",
+						VolumeSource: v1.VolumeSource{
+							ConfigMap: &v1.ConfigMapVolumeSource{
+								LocalObjectReference: k8sv1.LocalObjectReference{Name: "configmap-slic"},
+							},
+						},
+					},
+				}, 1, "Volume of unsupported type"),
+		)
+
 		It("should reject setting cpu model to host-model", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: "host-model"}
