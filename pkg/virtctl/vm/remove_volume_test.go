@@ -107,7 +107,7 @@ var _ = Describe("Remove volume command", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(errorString))
 	},
-		Entry("removevolume no args", "argument validation failed"),
+		Entry("removevolume no args", "accepts 1 arg(s), received 0"),
 		Entry("removevolume name, missing required volume-name", "required flag(s)", "testvmi"),
 		Entry("removevolume name, invalid extra parameter", "unknown flag", "testvmi", "--volume-name=blah", "--invalid=test"),
 	)

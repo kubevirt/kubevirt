@@ -58,7 +58,7 @@ var _ = Describe("Migrate cancel command", func() {
 		cmd := clientcmd.NewRepeatableVirtctlCommand("migrate-cancel")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
-		Expect(err).Should(MatchError("argument validation failed"))
+		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
 	})
 
 	It("should cancel the vm migration", func() {

@@ -37,7 +37,7 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "restart (VM)",
 		Short:   "Restart a virtual machine.",
 		Example: usage(COMMAND_RESTART),
-		Args:    templates.ExactArgs("restart", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
 			return c.restartRun(args, cmd)

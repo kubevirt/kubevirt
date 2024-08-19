@@ -268,7 +268,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 		Use:     "vmexport",
 		Short:   "Export a VM volume.",
 		Example: usage(),
-		Args:    templates.ExactArgs("vmexport", 2),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := command{clientConfig: clientConfig, cmd: cmd}
 			return v.run(args)

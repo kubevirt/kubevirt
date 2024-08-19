@@ -109,7 +109,7 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "memory-dump get/download/remove (VM)",
 		Short:   "Dump the memory of a running VM to a pvc",
 		Example: usageMemoryDump(),
-		Args:    templates.ExactArgs("memory-dump", 2),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := command{clientConfig: clientConfig}
 			return c.run(args)

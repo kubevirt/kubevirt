@@ -49,7 +49,7 @@ var _ = Describe("Migrate command", func() {
 		cmd := clientcmd.NewRepeatableVirtctlCommand("migrate")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
-		Expect(err).Should(MatchError("argument validation failed"))
+		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
 	})
 
 	DescribeTable("should migrate a vm according to options", func(migrateOptions *v1.MigrateOptions) {

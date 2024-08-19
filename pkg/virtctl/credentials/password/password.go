@@ -20,7 +20,7 @@ func SetPasswordCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set-password",
 		Short:   "Set password for a user",
-		Args:    templates.ExactArgs("set-password", 1),
+		Args:    cobra.ExactArgs(1),
 		Example: exampleUsage,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSetPasswordCommand(clientConfig, cmdFlags, cmd, args)

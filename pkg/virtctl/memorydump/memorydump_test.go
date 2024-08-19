@@ -209,9 +209,9 @@ var _ = Describe("MemoryDump", func() {
 		Expect(res).To(HaveOccurred())
 		Expect(res.Error()).To(ContainSubstring(errorString))
 	},
-		Entry("memorydump no args", "argument validation failed"),
-		Entry("memorydump missing action arg", "argument validation failed", "testvm"),
-		Entry("memorydump missing vm name arg", "argument validation failed", "get"),
+		Entry("memorydump no args", "accepts 2 arg(s), received 0"),
+		Entry("memorydump missing action arg", "accepts 2 arg(s), received 1", "testvm"),
+		Entry("memorydump missing vm name arg", "accepts 2 arg(s), received 1", "get"),
 		Entry("memorydump wrong action arg", "invalid action type create", "create", "testvm"),
 		Entry("memorydump name, invalid extra parameter", "unknown flag", "testvm", "--claim-name=blah", "--invalid=test"),
 		Entry("memorydump download missing outputFile", "missing outputFile", "download", "testvm", "--claim-name=pvc"),

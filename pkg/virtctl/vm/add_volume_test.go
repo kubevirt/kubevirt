@@ -104,7 +104,7 @@ var _ = Describe("Add volume command", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(errorString))
 	},
-		Entry("addvolume no args", "addvolume", "argument validation failed"),
+		Entry("addvolume no args", "addvolume", "accepts 1 arg(s), received 0"),
 		Entry("addvolume name, missing required volume-name", "addvolume", "required flag(s)", vmiName),
 		Entry("addvolume name, invalid extra parameter", "addvolume", "unknown flag", vmiName, "--volume-name=blah", "--invalid=test"),
 	)

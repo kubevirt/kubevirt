@@ -33,7 +33,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "usbredir (vendor:product)|(bus-device) (VMI)",
 		Short:   "Redirect an USB device to a virtual machine instance.",
 		Example: usage(),
-		Args:    templates.ExactArgs("usb", 2),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := usbredirCommand{clientConfig: clientConfig}
 			return c.Run(cmd, args)

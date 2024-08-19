@@ -311,14 +311,14 @@ var _ = Describe("vmexport", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(errString))
 		},
-			Entry("No arguments", "argument validation failed"),
-			Entry("Missing arg", "argument validation failed", virtctlvmexport.CREATE, setflag(virtctlvmexport.PVC_FLAG, vmexportName)),
-			Entry("More arguments than expected create", "argument validation failed", virtctlvmexport.CREATE, virtctlvmexport.DELETE, vmexportName),
+			Entry("No arguments", "accepts 2 arg(s), received 0"),
+			Entry("Missing arg", "accepts 2 arg(s), received 1", virtctlvmexport.CREATE, setflag(virtctlvmexport.PVC_FLAG, vmexportName)),
+			Entry("More arguments than expected create", "accepts 2 arg(s), received 3", virtctlvmexport.CREATE, virtctlvmexport.DELETE, vmexportName),
 			Entry("Using 'create' without export type", virtctlvmexport.ErrRequiredExportType, virtctlvmexport.CREATE, vmexportName),
 			Entry("Using 'create' with invalid flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.INSECURE_FLAG, virtctlvmexport.CREATE), virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test"), virtctlvmexport.INSECURE_FLAG),
 			Entry("Using 'delete' with export type", virtctlvmexport.ErrIncompatibleExportType, virtctlvmexport.DELETE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test")),
 			Entry("Using 'delete' with invalid flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.INSECURE_FLAG, virtctlvmexport.DELETE), virtctlvmexport.DELETE, vmexportName, virtctlvmexport.INSECURE_FLAG),
-			Entry("More arguments than expected download and 'manifest'", "argument validation failed", virtctlvmexport.DOWNLOAD, virtctlvmexport.DELETE, virtctlvmexport.MANIFEST_FLAG, vmexportName),
+			Entry("More arguments than expected download and 'manifest'", "accepts 2 arg(s), received 3", virtctlvmexport.DOWNLOAD, virtctlvmexport.DELETE, virtctlvmexport.MANIFEST_FLAG, vmexportName),
 			Entry("Using 'manifest' with pvc flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.PVC_FLAG, virtctlvmexport.MANIFEST_FLAG), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.PVC_FLAG, "test")),
 			Entry("Using 'manifest' with volume type", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.VOLUME_FLAG, virtctlvmexport.MANIFEST_FLAG), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test"), setflag(virtctlvmexport.VOLUME_FLAG, "volume")),
 			Entry("Using 'manifest' with invalid output_format_flag", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.OUTPUT_FORMAT_FLAG, "json/yaml"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.OUTPUT_FORMAT_FLAG, "invalid")),

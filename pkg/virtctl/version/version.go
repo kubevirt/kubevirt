@@ -27,7 +27,7 @@ func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "version",
 		Short:   "Print the client and server version information.",
 		Example: usage(),
-		Args:    templates.ExactArgs("version", 0),
+		Args:    cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := Version{clientConfig: clientConfig}
 			return v.Run()
