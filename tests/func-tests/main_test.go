@@ -41,7 +41,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 var _ = AfterSuite(func(ctx context.Context) {
 	cli := tests.GetK8sClientSet()
 	err := cli.CoreV1().Namespaces().Delete(ctx, tests.TestNamespace, metav1.DeleteOptions{})
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		panic(err)
 	}
 })

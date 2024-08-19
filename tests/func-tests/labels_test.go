@@ -16,10 +16,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kvv1 "kubevirt.io/api/core/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
@@ -35,35 +34,36 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 		cliSet = tests.GetK8sClientSet()
 	})
 
-	It("should have all the required labels in all the controlled resources", func(ctx context.Context) {
-		hc := tests.GetHCO(ctx, cli)
-		plural := pluralize.NewClient()
-		const kvName = "kubevirt-kubevirt-hyperconverged"
+	It("should restore managed labels", func(ctx context.Context) {
+		const cdiName = "cdi-kubevirt-hyperconverged"
 
 		By("removing one of the managed labels and wait for it to be added back")
-		kv := &kvv1.KubeVirt{
+		cdi := &cdiv1beta1.CDI{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      kvName,
-				Namespace: hc.Namespace,
+				Name: cdiName,
 			},
 		}
 
-		Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
-		expectedVersion := kv.Labels[hcoutil.AppLabelVersion]
+		Expect(cli.Get(ctx, client.ObjectKeyFromObject(cdi), cdi)).To(Succeed())
+		expectedVersion := cdi.Labels[hcoutil.AppLabelVersion]
 
 		patchBytes := []byte(`[{"op": "remove", "path": "/metadata/labels/app.kubernetes.io~1version"}]`)
 		patch := client.RawPatch(types.JSONPatchType, patchBytes)
 
 		Eventually(func(ctx context.Context) error {
-			return cli.Patch(ctx, kv, patch)
+			return cli.Patch(ctx, cdi, patch)
 		}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).WithContext(ctx).Should(Succeed())
 
 		Eventually(func(g Gomega, ctx context.Context) {
-			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(kv), kv)).To(Succeed())
-			g.Expect(kv.Labels).To(HaveKeyWithValue(hcoutil.AppLabelVersion, expectedVersion))
+			g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(cdi), cdi)).To(Succeed())
+			g.Expect(cdi.Labels).To(HaveKeyWithValue(hcoutil.AppLabelVersion, expectedVersion))
 		}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
+	})
 
+	It("should have all the required labels in all the controlled resources", func(ctx context.Context) {
 		By("checking all the labels")
+		plural := pluralize.NewClient()
+		hc := tests.GetHCO(ctx, cli)
 		for _, resource := range hc.Status.RelatedObjects {
 			By(fmt.Sprintf("checking labels for %s/%s", resource.Kind, resource.Name))
 			parts := strings.Split(resource.APIVersion, "/")

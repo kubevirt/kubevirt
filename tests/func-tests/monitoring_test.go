@@ -39,7 +39,7 @@ const (
 	criticalImpact
 )
 
-var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", Serial, Ordered, Label(tests.OpenshiftLabel), func() {
+var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", Serial, Ordered, Label(tests.OpenshiftLabel, "monitoring"), func() {
 	flag.Parse()
 
 	var (
@@ -121,17 +121,15 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 		Expect(cli.Patch(ctx, kv, patch)).To(Succeed())
 
-		var metricValue float64
 		Eventually(func(g Gomega, ctx context.Context) float64 {
-			metricValue = getMetricValue(ctx, promClient, query)
-			return metricValue
+			return getMetricValue(ctx, promClient, query)
 		}).
 			WithTimeout(60*time.Second).
 			WithPolling(time.Second).
 			WithContext(ctx).
 			Should(
 				Equal(valueBefore+float64(1)),
-				"expected different counter value; value before: %0.2f; value after: %0.2f; expected value: %0.2f", valueBefore, metricValue, valueBefore+float64(1),
+				"expected different counter value; value before: %0.2f; expected value: %0.2f", valueBefore, valueBefore+float64(1),
 			)
 
 		Eventually(func(ctx context.Context) *promApiv1.Alert {
