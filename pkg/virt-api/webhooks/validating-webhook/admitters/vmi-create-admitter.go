@@ -549,13 +549,13 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 		})
 	} else if launchSecurity != nil && launchSecurity.SEV != nil {
 		firmware := spec.Domain.Firmware
-		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
+		if !efiBootEnabled(firmware) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "SEV requires OVMF (UEFI)",
 				Field:   field.Child("launchSecurity").String(),
 			})
-		} else if firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot {
+		} else if secureBootEnabled(firmware) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "SEV does not work along with SecureBoot",
@@ -1425,15 +1425,26 @@ func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.Stat
 	return causes
 }
 
+func efiBootEnabled(firmware *v1.Firmware) bool {
+	return firmware != nil && firmware.Bootloader != nil && firmware.Bootloader.EFI != nil
+}
+
+func secureBootEnabled(firmware *v1.Firmware) bool {
+	return efiBootEnabled(firmware) &&
+		(firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot)
+}
+
+func smmFeatureEnabled(features *v1.Features) bool {
+	return features != nil && features.SMM != nil && (features.SMM.Enabled == nil || *features.SMM.Enabled)
+}
+
 func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 
-	if spec.Firmware != nil && spec.Firmware.Bootloader != nil && spec.Firmware.Bootloader.EFI != nil &&
-		(spec.Firmware.Bootloader.EFI.SecureBoot == nil || *spec.Firmware.Bootloader.EFI.SecureBoot) &&
-		(spec.Features == nil || spec.Features.SMM == nil || (spec.Features.SMM.Enabled != nil && !*spec.Features.SMM.Enabled)) {
+	if secureBootEnabled(spec.Firmware) && !smmFeatureEnabled(spec.Features) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),
