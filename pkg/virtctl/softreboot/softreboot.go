@@ -41,7 +41,7 @@ func NewSoftRebootCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "soft-reboot (VMI)",
 		Short:   "Soft reboot a virtual machine instance",
 		Long:    `Soft reboot a virtual machine instance`,
-		Args:    templates.ExactArgs(COMMAND_SOFT_REBOOT, 1),
+		Args:    cobra.ExactArgs(1),
 		Example: usage(COMMAND_SOFT_REBOOT),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := SoftReboot{

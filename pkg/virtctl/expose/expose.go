@@ -58,7 +58,7 @@ Possible types are (case insensitive, both single and plurant forms):
 
 virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplicaset (vmirs)`,
 		Example: usage(),
-		Args:    templates.ExactArgs("expose", 2),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_EXPOSE, clientConfig: clientConfig}
 			return c.RunE(args)

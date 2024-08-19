@@ -37,7 +37,7 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 		Use:     "removevolume VMI",
 		Short:   "remove a volume from a running VM",
 		Example: usageRemoveVolume(),
-		Args:    templates.ExactArgs("removevolume", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{clientConfig: clientConfig}
 			return c.removeVolumeRun(args)

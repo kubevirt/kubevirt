@@ -44,7 +44,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "start (VM)",
 		Short:   "Start a virtual machine.",
 		Example: usage(COMMAND_START),
-		Args:    templates.ExactArgs("start", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_START, clientConfig: clientConfig}
 			return c.startRun(args)

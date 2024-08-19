@@ -24,7 +24,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add-ssh-key",
 		Short:   "Add credentials to a virtual machine.",
-		Args:    templates.ExactArgs("add-ssh-key", 1),
+		Args:    cobra.ExactArgs(1),
 		Example: exampleUsage,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAddKeyCommand(clientConfig, cmdFlags, cmd, args)

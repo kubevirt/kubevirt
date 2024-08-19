@@ -37,7 +37,7 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "stop (VM)",
 		Short:   "Stop a virtual machine.",
 		Example: usage(COMMAND_STOP),
-		Args:    templates.ExactArgs("stop", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_STOP, clientConfig: clientConfig}
 			return c.stopRun(args, cmd)

@@ -21,7 +21,7 @@ func NewScreenshotCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "screenshot (VMI)",
 		Short:   "Create a VNC screenshot of a virtual machine instance.",
 		Example: usage(),
-		Args:    templates.ExactArgs("screenshot", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := s
 			return c.Run(cmd, args)

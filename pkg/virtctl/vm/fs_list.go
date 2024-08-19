@@ -37,7 +37,7 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "fslist (VMI)",
 		Short:   "Return full list of filesystems available on the guest machine.",
 		Example: usage(COMMAND_FSLIST),
-		Args:    templates.ExactArgs("fslist", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{clientConfig: clientConfig}
 			return c.fsListRun(args)

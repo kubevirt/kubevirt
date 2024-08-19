@@ -44,7 +44,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "scp (VM|VMI)",
 		Short:   "SCP files from/to a virtual machine instance.",
 		Example: usage(),
-		Args:    templates.ExactArgs("scp", 2),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.Run(cmd, args)
 		},

@@ -49,7 +49,7 @@ var _ = Describe("Restart command", func() {
 		cmd := clientcmd.NewRepeatableVirtctlCommand("restart")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
-		Expect(err).Should(MatchError("argument validation failed"))
+		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
 	})
 
 	DescribeTable("test", func(restartOptions v1.RestartOptions, runStrategy bool, running bool, args ...string) {

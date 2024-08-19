@@ -38,7 +38,7 @@ func NewMigrateCancelCommand(clientConfig clientcmd.ClientConfig) *cobra.Command
 		Use:     "migrate-cancel (VM)",
 		Short:   "Cancel migration of a virtual machine.",
 		Example: usage(COMMAND_MIGRATE_CANCEL),
-		Args:    templates.ExactArgs("migrate-cancel", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_MIGRATE_CANCEL, clientConfig: clientConfig}
 			return c.migrateCancelRun(args)

@@ -37,7 +37,7 @@ func NewUserListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "userlist (VMI)",
 		Short:   "Return full list of logged in users on the guest machine.",
 		Example: usage(COMMAND_USERLIST),
-		Args:    templates.ExactArgs("userlist", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{clientConfig: clientConfig}
 			return c.userListRun(args)

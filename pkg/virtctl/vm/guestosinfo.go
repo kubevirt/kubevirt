@@ -37,7 +37,7 @@ func NewGuestOsInfoCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "guestosinfo (VMI)",
 		Short:   "Return guest agent info about operating system.",
 		Example: usage(COMMAND_GUESTOSINFO),
-		Args:    templates.ExactArgs("guestosinfo", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{clientConfig: clientConfig}
 			return c.guestOsInfoRun(args)

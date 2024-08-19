@@ -20,7 +20,7 @@ func NewListPermittedDevices(clientConfig clientcmd.ClientConfig) *cobra.Command
 		Use:     "permitted-devices",
 		Short:   "List the permitted devices for vmis.",
 		Example: usage(),
-		Args:    templates.ExactArgs("permitted-devices", 0),
+		Args:    cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := command{clientConfig: clientConfig}
 			return c.run()

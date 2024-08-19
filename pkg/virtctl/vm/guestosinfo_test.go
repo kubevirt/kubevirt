@@ -50,7 +50,7 @@ var _ = Describe("Guest os info command", func() {
 		cmd := clientcmd.NewRepeatableVirtctlCommand("guestosinfo")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
-		Expect(err).Should(MatchError("argument validation failed"))
+		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
 	})
 
 	It("should fail with non existing vm", func() {

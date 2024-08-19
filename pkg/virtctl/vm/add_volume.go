@@ -51,7 +51,7 @@ func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "addvolume VMI",
 		Short:   "add a volume to a running VM",
 		Example: usageAddVolume(),
-		Args:    templates.ExactArgs("addvolume", 1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_ADDVOLUME, clientConfig: clientConfig}
 			return c.addVolumeRun(args)
