@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
@@ -2575,6 +2576,41 @@ var _ = Describe("Converter", func() {
 			Entry("VGA with BIOS and BochsDisplayForEFIGuests set", v1.Bootloader{BIOS: &v1.BIOS{}}, true, "vga"),
 			Entry("VGA with EFI and BochsDisplayForEFIGuests unset", v1.Bootloader{EFI: &v1.EFI{}}, false, "vga"),
 			Entry("Bochs with EFI and BochsDisplayForEFIGuests set", v1.Bootloader{EFI: &v1.EFI{}}, true, "bochs"),
+		)
+
+		DescribeTable("slic ACPI table should be set to", func(source v1.VolumeSource, isSupported bool, path string) {
+			slicName := "slic"
+			vmi.Spec.Domain.Firmware = &v1.Firmware{ACPI: &v1.ACPI{SlicNameRef: slicName}}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name:         slicName,
+					VolumeSource: source,
+				},
+			}
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				AllowEmulation: true,
+			}
+			if isSupported {
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.ACPI.Table.Type).To(Equal("slic"))
+				Expect(domainSpec.OS.ACPI.Table.Path).To(Equal(path))
+			} else {
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				Expect(err).To(HaveOccurred())
+			}
+		},
+			Entry("Secret set",
+				v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{SecretName: "secret-slic"},
+				}, true, filepath.Join(config.GetSecretSourcePath("slic"), "slic.bin")),
+			Entry("ConfigMap unset",
+				v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{
+						LocalObjectReference: k8sv1.LocalObjectReference{Name: "configmap-slic"},
+					},
+				}, false, ""),
 		)
 	})
 
