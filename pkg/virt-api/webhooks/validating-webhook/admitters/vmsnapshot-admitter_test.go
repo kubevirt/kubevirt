@@ -23,8 +23,6 @@ import (
 	"context"
 	"encoding/json"
 
-	"k8s.io/utils/pointer"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -40,6 +38,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -217,8 +216,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 					},
 				}
 
-				t := true
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
@@ -236,8 +234,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 					},
 				}
 
-				t := true
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
@@ -258,8 +255,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 					},
 				}
 
-				t := true
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
@@ -274,7 +270,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
 								TPM: &v1.TPMDevice{
-									Persistent: pointer.BoolPtr(true),
+									Persistent: pointer.P(true),
 								},
 							},
 						},
@@ -309,8 +305,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 					},
 				}
 
-				f := false
-				vm.Spec.Running = &f
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
 
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)

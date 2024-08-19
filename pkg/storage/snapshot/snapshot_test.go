@@ -39,6 +39,7 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/status"
@@ -676,9 +677,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should (partial) lock source manual runstrategy", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
-				vm.Spec.Running = nil
-				rs := v1.RunStrategyManual
-				vm.Spec.RunStrategy = &rs
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
 				vmUpdate := vm.DeepCopy()
 				vmUpdate.ResourceVersion = "1"
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
@@ -748,7 +747,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should (partial) lock source if running", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 				vmUpdate := vm.DeepCopy()
 				vmUpdate.ResourceVersion = "1"
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
@@ -775,7 +774,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should (finish) lock source if running", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 				vm.Status.SnapshotInProgress = &vmSnapshotName
 				vmUpdate := vm.DeepCopy()
 				vmUpdate.ResourceVersion = "1"
@@ -865,7 +864,6 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should not lock source if pods using PVCs", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
-				vm.Spec.Running = &f
 
 				pods := createPodsUsingPVCs(vm)
 				podSource.Add(&pods[0])
@@ -887,7 +885,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should (partial) lock source if pods using PVCs if VM is running", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 				vmSource.Add(vm)
 				pods := createPodsUsingPVCs(vm)
 				podSource.Add(&pods[0])
@@ -971,7 +969,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("create VirtualMachineSnapshotContent online snapshot", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createLockedVM()
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("32Mi"),
 				}
@@ -2397,7 +2395,7 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 			},
 		},
 		Spec: v1.VirtualMachineSpec{
-			Running: &f,
+			RunStrategy: pointer.P(v1.RunStrategyHalted),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{

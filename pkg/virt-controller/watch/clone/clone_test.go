@@ -185,9 +185,6 @@ var _ = Describe("Clone", func() {
 		)
 		sourceVMI.Namespace = metav1.NamespaceDefault
 		sourceVM = libvmi.NewVirtualMachine(sourceVMI)
-		sourceVM.Spec.Running = nil
-		runStrategy := virtv1.RunStrategyHalted
-		sourceVM.Spec.RunStrategy = &runStrategy
 
 		vmClone = kubecli.NewMinimalCloneWithNS("testclone", metav1.NamespaceDefault)
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
