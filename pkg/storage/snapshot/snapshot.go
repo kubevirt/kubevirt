@@ -477,7 +477,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy.Status.VolumeSnapshotStatus = volumeSnapshotStatus
 
 	if !equality.Semantic.DeepEqual(content.Status, contentCpy.Status) {
-		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).UpdateStatus(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
+		if ctrl.vmSnapshotContentStatusUpdater.UpdateStatus(contentCpy); err != nil {
 			return 0, err
 		}
 	}
@@ -790,7 +790,10 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	if !equality.Semantic.DeepEqual(vmSnapshot.Status, vmSnapshotCpy.Status) {
-		return ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).UpdateStatus(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{})
+		if err := ctrl.vmSnapshotStatusUpdater.UpdateStatus(vmSnapshotCpy); err != nil {
+			return nil, err
+		}
+		return vmSnapshotCpy, nil
 	}
 
 	return vmSnapshot, nil
