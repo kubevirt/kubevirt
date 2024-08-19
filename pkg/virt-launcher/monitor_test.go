@@ -133,7 +133,6 @@ var _ = Describe("VirtLauncher", func() {
 			It("verify pid detection works", func() {
 				StartProcess()
 				VerifyProcessStarted()
-				go func() { CleanupProcess() }()
 				StopProcess()
 				VerifyProcessStopped()
 			})
@@ -184,7 +183,6 @@ var _ = Describe("VirtLauncher", func() {
 
 				StartProcess()
 				VerifyProcessStarted()
-				go func() { CleanupProcess() }()
 
 				go func() {
 					defer GinkgoRecover()
@@ -203,7 +201,6 @@ var _ = Describe("VirtLauncher", func() {
 
 				StartProcess()
 				VerifyProcessStarted()
-				go func() { CleanupProcess() }()
 				go func() {
 					defer GinkgoRecover()
 					mon.gracePeriod = 1
