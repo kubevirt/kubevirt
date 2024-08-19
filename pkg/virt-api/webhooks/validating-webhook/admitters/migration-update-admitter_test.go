@@ -33,41 +33,11 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 )
 
 var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	migrationUpdateAdmitter := &MigrationUpdateAdmitter{}
-	_, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-
-	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featureGate},
-					},
-				},
-			},
-		})
-	}
-	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: make([]string, 0),
-					},
-				},
-			},
-		})
-	}
-
-	AfterEach(func() {
-		disableFeatureGates()
-	})
 
 	It("should reject Migration on update if spec changes", func() {
 		migration := v1.VirtualMachineInstanceMigration{
@@ -85,8 +55,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		newMigration := migration.DeepCopy()
 		newMigration.Spec.VMIName = "somethingelse"
 		newMigrationBytes, _ := json.Marshal(&newMigration)
-
-		enableFeatureGate(deprecation.LiveMigrationGate)
 
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
@@ -118,8 +86,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		}
 
 		migrationBytes, _ := json.Marshal(&migration)
-
-		enableFeatureGate(deprecation.LiveMigrationGate)
 
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
@@ -162,8 +128,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		newMigration.Labels = nil
 		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		enableFeatureGate(deprecation.LiveMigrationGate)
-
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
@@ -205,8 +169,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		delete(newMigration.Labels, v1.MigrationSelectorLabel)
 		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		enableFeatureGate(deprecation.LiveMigrationGate)
-
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
@@ -247,8 +209,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		newMigration := migration.DeepCopy()
 		delete(newMigration.Labels, "someOtherLabel")
 		newMigrationBytes, _ := json.Marshal(&newMigration)
-
-		enableFeatureGate(deprecation.LiveMigrationGate)
 
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
