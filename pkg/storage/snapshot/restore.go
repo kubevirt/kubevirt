@@ -244,7 +244,7 @@ func (ctrl *VMRestoreController) doUpdateError(restore *snapshotv1.VirtualMachin
 
 func (ctrl *VMRestoreController) doUpdateStatus(original, updated *snapshotv1.VirtualMachineRestore) error {
 	if !equality.Semantic.DeepEqual(original.Status, updated.Status) {
-		if _, err := ctrl.Client.VirtualMachineRestore(updated.Namespace).UpdateStatus(context.Background(), updated, metav1.UpdateOptions{}); err != nil {
+		if err := ctrl.VMRestoreStatusUpdater.UpdateStatus(updated); err != nil {
 			return err
 		}
 	}
