@@ -172,6 +172,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateGuestMemoryLimit(field, spec, config)...)
 	causes = append(causes, validateEmulatedMachine(field, spec, config)...)
 	causes = append(causes, validateFirmwareSerial(field, spec)...)
+	causes = append(causes, validateFirmwareACPI(field.Child("acpi"), spec)...)
 	causes = append(causes, validateCPURequestNotNegative(field, spec)...)
 	causes = append(causes, validateCPULimitNotNegative(field, spec)...)
 	causes = append(causes, validateCpuRequestDoesNotExceedLimit(field, spec)...)
@@ -1410,6 +1411,40 @@ func validateBootloader(field *k8sfield.Path, bootloader *v1.Bootloader) []metav
 			Field:   field.String(),
 		})
 	}
+
+	return causes
+}
+
+func validateFirmwareACPI(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.Domain.Firmware == nil || spec.Domain.Firmware.ACPI == nil {
+		return causes
+	}
+
+	acpi := spec.Domain.Firmware.ACPI
+	for _, volume := range spec.Volumes {
+		if acpi.SlicNameRef != volume.Name {
+			continue
+		}
+
+		switch {
+		case volume.Secret != nil:
+		default:
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s refers to Volume of unsupported type.", field.String()),
+				Field:   field.Child("slicNameRef").String(),
+			})
+		}
+		return causes
+	}
+
+	causes = append(causes, metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: fmt.Sprintf("%s does not have a matching Volume.", field.String()),
+		Field:   field.String(),
+	})
 
 	return causes
 }
