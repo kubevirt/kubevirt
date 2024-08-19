@@ -119,6 +119,11 @@ func MigrationHandoff(client kubecli.KubevirtClient, migration *corev1.VirtualMa
 	sourcePVC := migration.Status.MigrationState.SourcePersistentStatePVCName
 	targetPVC := migration.Status.MigrationState.TargetPersistentStatePVCName
 
+	if sourcePVC == targetPVC {
+		// RWX backend-storage, nothing to do
+		return nil
+	}
+
 	// Let's label the target first, then remove the source.
 	// The target might already be labelled if this function was already called for this migration
 	target, err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Get(context.Background(), targetPVC, metav1.GetOptions{})
@@ -167,7 +172,13 @@ func MigrationAbort(client kubecli.KubevirtClient, migration *corev1.VirtualMach
 		return nil
 	}
 
+	sourcePVC := migration.Status.MigrationState.SourcePersistentStatePVCName
 	targetPVC := migration.Status.MigrationState.TargetPersistentStatePVCName
+
+	if sourcePVC == targetPVC {
+		// RWX backend-storage, nothing to delete
+		return nil
+	}
 
 	err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), targetPVC, metav1.DeleteOptions{})
 	if err != nil {
@@ -296,16 +307,16 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 		return "", nil
 	}
 
-	if !migrationTarget {
-		// TODO: if the pvc was just created and the pvcStore doesn't yet know about it, we'll create a second PVC...
-		// We probably need an API call instead
-		// TODO 2: on migration, do we need a job with source and target PVCs as volumes to copy the certs over?
-		// Or are they not needed?
-		pvc := PVCForVMI(bs.pvcStore, vmi)
-		if pvc != nil {
-			bs.updateVolumeStatus(vmi, pvc)
-			return pvc.Name, nil
-		}
+	// TODO: if the pvc was just created and the pvcStore doesn't yet know about it, we'll create a second PVC...
+	// We probably need an API call instead
+	pvc := PVCForVMI(bs.pvcStore, vmi)
+
+	if (!migrationTarget && pvc != nil) ||
+		(migrationTarget && len(pvc.Status.AccessModes) > 0 && pvc.Status.AccessModes[0] == v1.ReadWriteMany) {
+		// We're not a migration target and the PVC already exists, or we are a migration target and the PVC is RWX
+		// In both cases, we just return the existing PVC.
+		bs.updateVolumeStatus(vmi, pvc)
+		return pvc.Name, nil
 	}
 
 	storageClass, err := bs.getStorageClass()
@@ -324,7 +335,7 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
 		}
 	}
-	pvc := &v1.PersistentVolumeClaim{
+	pvc = &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName:    basePVC(vmi) + "-",
 			OwnerReferences: ownerReferences,
