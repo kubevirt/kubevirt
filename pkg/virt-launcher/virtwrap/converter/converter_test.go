@@ -46,6 +46,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	kvapi "kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
@@ -2779,6 +2780,42 @@ var _ = Describe("Converter", func() {
 			Entry("VGA on ppc64le with BIOS and BochsDisplayForEFIGuests set", ppc64le, v1.Bootloader{BIOS: &v1.BIOS{}}, true, "vga"),
 			Entry("VGA on ppc64le with EFI and BochsDisplayForEFIGuests unset", ppc64le, v1.Bootloader{EFI: &v1.EFI{}}, false, "vga"),
 			Entry("VGA on ppc64le with EFI and BochsDisplayForEFIGuests set", ppc64le, v1.Bootloader{EFI: &v1.EFI{}}, true, "vga"),
+		)
+
+		DescribeTable("slic ACPI table should be set to", func(source v1.VolumeSource, isSupported bool, path string) {
+			slicName := "slic"
+			vmi.Spec.Domain.Firmware = &v1.Firmware{ACPI: &v1.ACPI{SlicNameRef: slicName}}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name:         slicName,
+					VolumeSource: source,
+				},
+			}
+			c = &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				VirtualMachine: vmi,
+				AllowEmulation: true,
+			}
+			if isSupported {
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.ACPI.Table.Type).To(Equal("slic"))
+				Expect(domainSpec.OS.ACPI.Table.Path).To(Equal(path))
+			} else {
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				Expect(err).To(MatchError(ContainSubstring("Firmware's slic volume type is unsupported")))
+			}
+		},
+			Entry("Secret set",
+				v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{SecretName: "secret-slic"},
+				}, true, filepath.Join(config.GetSecretSourcePath("slic"), "slic.bin")),
+			Entry("ConfigMap unset",
+				v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{
+						LocalObjectReference: k8sv1.LocalObjectReference{Name: "configmap-slic"},
+					},
+				}, false, ""),
 		)
 	})
 
