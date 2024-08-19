@@ -124,3 +124,15 @@ issues:
     - text: 'SA1019: libvmi.WithRunning'
       linters:
         - staticcheck
+    # We should steer users towards client.VirtualMachine(vm.Namespace).start
+    - text: 'SA1019: tests.StartVirtualMachine'
+      linters:
+        - staticcheck
+    # We should steer users towards client.VirtualMachine(vm.Namespace).Stop
+    - text: 'SA1019: tests.StopVirtualMachine'
+      linters:
+        - staticcheck
+    # We should steer users towards client.VirtualMachine(vm.Namespace).Stop
+    - text: 'SA1019: tests.StopVirtualMachineWithTimeout'
+      linters:
+        - staticcheck
