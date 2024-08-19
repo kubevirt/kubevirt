@@ -42,10 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
-
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -147,8 +144,8 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			vm = tests.StartVirtualMachine(vm)
 
 			By("Pausing the VM")
-			command := clientcmd.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_PAUSE, "vm", "--namespace", testsuite.GetTestNamespace(vm), vm.Name)
-			Expect(command()).To(Succeed())
+			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting until next Prometheus scrape")
 			time.Sleep(35 * time.Second)
