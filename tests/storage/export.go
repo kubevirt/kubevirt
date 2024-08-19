@@ -1139,38 +1139,9 @@ var _ = SIGDescribe("Export", func() {
 		return vm
 	}
 
-	stopVM := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
-		vmName := vm.Name
-		vmNamespace := vm.Namespace
-		var err error
-		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyHalted)
-			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-			return err
-		}, 15*time.Second, time.Second).Should(BeNil())
-		return vm
-	}
-
 	deleteVMI := func(vmi *v1.VirtualMachineInstance) {
 		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
-	}
-
-	startVM := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
-		vmName := vm.Name
-		vmNamespace := vm.Namespace
-		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
-			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-			return err
-		}, 15*time.Second, time.Second).Should(Succeed())
-		return vm
 	}
 
 	newSnapshot := func(vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
@@ -1284,7 +1255,10 @@ var _ = SIGDescribe("Export", func() {
 			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		}
 		vm = createVM(vm)
-		stopVM(vm)
+		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
 		snapshot := createAndVerifyVMSnapshot(vm)
 		Expect(snapshot).ToNot(BeNil())
 		defer deleteSnapshot(snapshot)
@@ -1361,7 +1335,10 @@ var _ = SIGDescribe("Export", func() {
 			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		}
 		vm = createVM(vm)
-		stopVM(vm)
+		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
 		snapshot := createAndVerifyVMSnapshot(vm)
 		Expect(snapshot).ToNot(BeNil())
 		defer deleteSnapshot(snapshot)
@@ -1441,13 +1418,15 @@ var _ = SIGDescribe("Export", func() {
 		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 
 		By("Stopping VM, we should get the export ready eventually")
-		vm = stopVM(vm)
+		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		export = waitForReadyExport(export)
 		checkExportSecretRef(export)
 		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
 		verifyKubevirtInternal(export, export.Name, export.Namespace, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		By("Starting VM, the export should return to pending")
-		vm = startVM(vm)
+		err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		waitForExportPhase(export, exportv1.Pending)
 		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 	})
@@ -1748,7 +1727,8 @@ var _ = SIGDescribe("Export", func() {
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
-		vm = stopVM(vm)
+		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		token := createExportTokenSecret(vm.Name, vm.Namespace)
 		export := createVMExportObject(vm.Name, vm.Namespace, token)
 		Expect(export).ToNot(BeNil())
@@ -1784,7 +1764,8 @@ var _ = SIGDescribe("Export", func() {
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
-		vm = stopVM(vm)
+		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		snapshot := createAndVerifyVMSnapshot(vm)
 		export := createRunningVMSnapshotExport(snapshot)
 		Expect(export).ToNot(BeNil())
@@ -1860,7 +1841,8 @@ var _ = SIGDescribe("Export", func() {
 		delete(vm.Spec.Template.Spec.Domain.Resources.Requests, k8sv1.ResourceMemory)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
-		vm = stopVM(vm)
+		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		token := createExportTokenSecret(vm.Name, vm.Namespace)
 		export := createVMExportObject(vm.Name, vm.Namespace, token)
 		Expect(export).ToNot(BeNil())
@@ -1991,9 +1973,11 @@ var _ = SIGDescribe("Export", func() {
 			// start the VM which triggers the populating, and then it should become ready.
 			waitForExportPhase(export, exportv1.Pending)
 			waitForExportCondition(export, expectedPVCPopulatingCondition(vm.Name, vm.Namespace), "export should report PVCs in VM populating")
-			vm = startVM(vm)
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			waitForDisksComplete(vm)
-			stopVM(vm)
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			waitForExportPhase(export, exportv1.Ready)
 		} else {
 			// With non WFFC storage we expect the disk to populate immediately and thus the export to become ready
@@ -2015,14 +1999,17 @@ var _ = SIGDescribe("Export", func() {
 			if equality.Semantic.DeepEqual(beforeCertParams, &kv.Spec.CertificateRotationStrategy) {
 				return
 			}
-			kv.Spec.CertificateRotationStrategy = *beforeCertParams
-			_, err := virtClient.KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			patchBytes, err := patch.New(
+				patch.WithAdd("/spec/certificateRotateStrategy", beforeCertParams),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		updateCertConfig := func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
-			kv.Spec.CertificateRotationStrategy.SelfSigned = &v1.KubeVirtSelfSignConfiguration{
+			selfSigned := &v1.KubeVirtSelfSignConfiguration{
 				CA: &v1.CertConfig{
 					Duration:    &metav1.Duration{Duration: 24 * time.Hour},
 					RenewBefore: &metav1.Duration{Duration: 3 * time.Hour},
@@ -2032,7 +2019,11 @@ var _ = SIGDescribe("Export", func() {
 					RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
 				},
 			}
-			_, err := virtClient.KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			patchBytes, err := patch.New(
+				patch.WithAdd("/spec/certificateRotateStrategy/selfSigned", selfSigned),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -2145,7 +2136,10 @@ var _ = SIGDescribe("Export", func() {
 				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 			}
 			vm = createVM(vm)
-			vm = stopVM(vm)
+			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
 			snapshot := createAndVerifyVMSnapshot(vm)
 			Expect(snapshot).ToNot(BeNil())
 			defer deleteSnapshot(snapshot)
@@ -2173,7 +2167,8 @@ var _ = SIGDescribe("Export", func() {
 			}, 180*time.Second, time.Second).Should(Equal(v1.Running))
 
 			By("Stopping VM, we should get the export ready eventually")
-			vm = stopVM(vm)
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			// Run vmexport
 			By("Running vmexport command")
@@ -2293,7 +2288,10 @@ var _ = SIGDescribe("Export", func() {
 					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 				}
 				vm = createVM(vm)
-				vm = stopVM(vm)
+				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+					err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
 				snapshot := createAndVerifyVMSnapshot(vm)
 				Expect(snapshot).ToNot(BeNil())
 				defer deleteSnapshot(snapshot)
@@ -2343,7 +2341,8 @@ var _ = SIGDescribe("Export", func() {
 				}, 180*time.Second, time.Second).Should(Equal(v1.Running))
 
 				By("Stopping VM, we should get the export ready eventually")
-				vm = stopVM(vm)
+				err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				// Run vmexport
 				By("Running vmexport command")
@@ -2520,7 +2519,8 @@ var _ = SIGDescribe("Export", func() {
 				}, 180*time.Second, time.Second).Should(Equal(v1.Running))
 
 				By("Stopping VM, we should get the export ready eventually")
-				vm = stopVM(vm)
+				err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				// Run vmexport
 				By("Running vmexport create command")
