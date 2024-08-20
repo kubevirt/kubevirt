@@ -563,6 +563,8 @@ func shouldDeletePDB(vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *po
 		return true, "VMI deletion"
 	case !needsEvictionProtection:
 		return true, "VMI not using evictionStrategy: LiveMigration|External"
+	case vmi.IsFinal():
+		return true, "VMI has moved to a Final state and is no longer active"
 	case isPDBFromOldVMI(vmi, pdb):
 		return true, "VMI not existing anymore"
 	case pdbs.IsPDBFromOldMigrationController(pdb):
