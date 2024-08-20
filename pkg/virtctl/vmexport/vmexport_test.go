@@ -2,6 +2,7 @@ package vmexport_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -375,6 +376,41 @@ var _ = Describe("vmexport", func() {
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		DescribeTable("Succesfully create and download a VirtualMachineExport in different steps", func(expectedDeletes int, arg string) {
+			utils.HandleVMExportCreate(vmExportClient, nil)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"))
+			Expect(cmd()).ToNot(HaveOccurred())
+
+			vme, err := vmExportClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vmexportName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    volumeName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
+			deletes := 0
+			vmExportClient.Fake.PrependReactor("delete", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				deletes++
+				return true, nil, nil
+			})
+
+			args := []string{commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG, "-n", metav1.NamespaceDefault}
+			if arg != "" {
+				args = append(args, arg)
+			}
+			cmd = clientcmd.NewRepeatableVirtctlCommand(args...)
+			Expect(cmd()).ToNot(HaveOccurred())
+			Expect(deletes).To(Equal(expectedDeletes))
+		},
+			Entry("and expect retained VME (default behavior)", 0, ""),
+			Entry("and expect retained VME (using flag)", 0, virtctlvmexport.KEEP_FLAG),
+			Entry("and expect deleted VME", 1, virtctlvmexport.DELETE_FLAG),
+		)
 
 		It("Succesfully create and download a VirtualMachineExport", func() {
 			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
