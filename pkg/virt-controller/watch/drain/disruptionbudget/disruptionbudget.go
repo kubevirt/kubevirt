@@ -538,6 +538,9 @@ func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv
 			// vmi isn't set to prevent eviction, so delete the pdb
 			log.Log.Object(vmi).Infof("deleting pdb %s/%s due to not using evictionStrategy: LiveMigration|External", pdb.Namespace, pdb.Name)
 			return c.deletePDB(key, pdb, vmi)
+		} else if vmi.IsFinal() {
+			log.Log.Infof("deleting PDB %s/%s because the VMI has moved to a Final state and is no longer active", pdb.Namespace, pdb.Name)
+			return c.deletePDB(key, pdb, vmi)
 		} else if isPDBFromOldVMI(vmi, pdb) {
 			// pdb for non existent vmi
 			log.Log.Object(vmi).Infof("deleting pdb %s/%s due to VMI not existing anymore", pdb.Namespace, pdb.Name)
