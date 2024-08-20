@@ -562,8 +562,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		startVMIFromVMTemplate := func(virtClient kubecli.KubevirtClient, name string, namespace string) *v1.VirtualMachineInstance {
 			By("Calling the start command")
-			virtctl := clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", namespace, name)
-			Expect(virtctl()).To(Succeed(), "should succeed starting a VMI via `virtctl start ...`")
+			err := virtClient.VirtualMachine(namespace).Start(context.Background(), name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Getting the status of the VMI")
 			Eventually(func() bool {
@@ -674,8 +674,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
 
 				By("Restarting the running VM.")
-				virtctl := clientcmd.NewRepeatableVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
-				err = virtctl()
+				err = virtClient.VirtualMachine(vmObj.Namespace).Restart(context.Background(), vmObj.Name, &v1.RestartOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying the VMI is back up AFTER restart (in Running status with new UID).")
