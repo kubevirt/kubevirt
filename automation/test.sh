@@ -97,6 +97,8 @@ elif [[ $TARGET =~ sig-operator ]]; then
 elif [[ $TARGET =~ sig-monitoring ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
     export KUBEVIRT_DEPLOY_PROMETHEUS=true
+elif [[ $TARGET =~ wg-s390x ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -421,6 +423,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     fi
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='(sig-storage)'
+  elif [[ $TARGET =~ wg-s390x ]]; then
+    label_filter='(wg-s390x)'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
