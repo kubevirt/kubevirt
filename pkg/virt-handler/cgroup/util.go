@@ -30,16 +30,6 @@ import (
 
 type CgroupVersion string
 
-const (
-	cgroupStr = "cgroup"
-
-	procMountPoint = "/proc"
-
-	HostRootPath       = procMountPoint + "/1/root"
-	cgroupBasePath     = "/sys/fs/" + cgroupStr
-	HostCgroupBasePath = HostRootPath + cgroupBasePath
-)
-
 // Templates for logging / error messages
 const (
 	V1 CgroupVersion = "v1"
