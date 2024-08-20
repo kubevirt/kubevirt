@@ -1453,6 +1453,25 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		It("should not attempt to authorize if DataVolumeTemplates haven't changed", func() {
+			vm := vmDefinitionWithCloneDataVolume("ns1", "ns2")
+			oldVM := vm.DeepCopy()
+			oldVM.Annotations = map[string]string{"old": "true"}
+			oldBytes, err := json.Marshal(oldVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			ar := &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Update,
+				Namespace: "ns1",
+				OldObject: runtime.RawExtension{Raw: oldBytes},
+			}
+
+			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFailFunc("should not be called", fmt.Errorf("should not be called"))
+			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(ar, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(causes).To(BeEmpty())
+		})
+
 		DescribeTable("should successfully authorize clone from sourceRef", func(
 			arNamespace,
 			vmNamespace,

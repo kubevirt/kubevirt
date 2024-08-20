@@ -290,6 +290,20 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	var causes []metav1.StatusCause
 
+	if ar.Operation == admissionv1.Update || ar.Operation == admissionv1.Delete {
+		oldVM := &v1.VirtualMachine{}
+		if err := json.Unmarshal(ar.OldObject.Raw, oldVM); err != nil {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeUnexpectedServerResponse,
+				Message: "Could not fetch old VM",
+			}}, nil
+		}
+
+		if equality.Semantic.DeepEqual(oldVM.Spec.DataVolumeTemplates, vm.Spec.DataVolumeTemplates) {
+			return nil, nil
+		}
+	}
+
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
 		targetNamespace := vm.Namespace
 		if targetNamespace == "" {
