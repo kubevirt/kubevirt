@@ -53,7 +53,7 @@ Any help is highly appreciated.
 
 ### Testing
 
-**Untested features do not exist**. To ensure that what the code really works,
+**Untested features do not exist**. To ensure that the code really works,
 relevant flows should be covered via unit tests and functional tests. So when
 thinking about a contribution, also think about testability. All tests can be
 run local without the need of CI. Have a look at the
