@@ -58,7 +58,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"k8s.io/utils/pointer"
 
@@ -662,23 +661,22 @@ spec:
 			Entry("[test_id:6254] deployments",
 
 				func() {
-
-					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+					patchBytes, err := patch.New(
+						patch.WithAdd(
+							"/spec/template/spec/containers/0/env/-",
+							k8sv1.EnvVar{
+								Name:  envVarDeploymentKeyToUpdate,
+								Value: "value",
+							}),
+					).GeneratePayload()
 					Expect(err).ToNot(HaveOccurred())
 
-					vc.Spec.Template.Spec.Containers[0].Env = []k8sv1.EnvVar{
-						{
-							Name:  envVarDeploymentKeyToUpdate,
-							Value: "value",
-						},
-					}
-
-					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
-						return err
-					})
+					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Patch(context.Background(), deploymentName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarDeploymentKeyToUpdate))
+					Expect(vc.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{
+						Name:  envVarDeploymentKeyToUpdate,
+						Value: "value",
+					}))
 				},
 
 				func() runtime.Object {
@@ -701,16 +699,14 @@ spec:
 				}),
 
 			Entry("[test_id:6255] customresourcedefinitions",
+
 				func() {
-					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
+					patchBytes, err := patch.New(
+						patch.WithAdd("/spec/names/shortNames/-", shortNameAdded),
+					).GeneratePayload()
 					Expect(err).ToNot(HaveOccurred())
 
-					vmcrd.Spec.Names.ShortNames = append(vmcrd.Spec.Names.ShortNames, shortNameAdded)
-
-					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						vmcrd, err = virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Update(context.Background(), vmcrd, metav1.UpdateOptions{})
-						return err
-					})
+					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crdName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vmcrd.Spec.Names.ShortNames).To(ContainElement(shortNameAdded))
 				},
@@ -735,17 +731,15 @@ spec:
 				}),
 			Entry("[test_id:6256] poddisruptionbudgets",
 				func() {
-					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+					patchBytes, err := patch.New(
+						patch.WithAdd("/spec/selector/matchLabels",
+							map[string]string{
+								"kubevirt.io": "dne",
+							}),
+					).GeneratePayload()
 					Expect(err).ToNot(HaveOccurred())
 
-					pdb.Spec.Selector.MatchLabels = map[string]string{
-						"kubevirt.io": "dne",
-					}
-
-					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						pdb, err = virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Update(context.Background(), pdb, metav1.UpdateOptions{})
-						return err
-					})
+					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Patch(context.Background(), "virt-controller-pdb", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(pdb.Spec.Selector.MatchLabels["kubevirt.io"]).To(Equal("dne"))
 				},
@@ -767,18 +761,16 @@ spec:
 				}),
 			Entry("[test_id:6308] daemonsets",
 				func() {
-					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					patchBytes, err := patch.New(
+						patch.WithAdd(
+							"/spec/template/spec/containers/0/env/-",
+							k8sv1.EnvVar{
+								Name:  envVarDeploymentKeyToUpdate,
+								Value: "value",
+							}),
+					).GeneratePayload()
 
-					vc.Spec.Template.Spec.Containers[0].Env = append(vc.Spec.Template.Spec.Containers[0].Env, k8sv1.EnvVar{
-						Name:  envVarDeploymentKeyToUpdate,
-						Value: "value",
-					})
-
-					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						vc, err = virtClient.AppsV1().DaemonSets(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
-						return err
-					})
+					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Patch(context.Background(), daemonSetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vc.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{
 						Name:  envVarDeploymentKeyToUpdate,
