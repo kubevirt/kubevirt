@@ -493,7 +493,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusPvcNotFound))
 
 				By("creating the first DataVolume")
-				dataVolume1, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume1, metav1.CreateOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume1, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("ensuring that VMI and VM are reporting VirtualMachineInstanceDataVolumesReady=False")
@@ -501,7 +501,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(HaveConditionFalse(v1.VirtualMachineInstanceDataVolumesReady))
 
 				By("creating the second DataVolume")
-				dataVolume2, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume2, metav1.CreateOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume2, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("ensuring that VMI and VM are reporting VirtualMachineInstanceDataVolumesReady=True")
@@ -1147,10 +1147,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			}
 
 			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+			vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
-			vm = libvmops.StartVirtualMachine(vm)
 			By(checkingVMInstanceConsoleExpectedOut)
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1169,8 +1170,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			}
 
 			libstorage.EventuallyDVWith(vm.Namespace, dvName, 100, BeNil())
-
-			vm = libvmops.StopVirtualMachine(vm)
 		},
 			Entry("[test_id:8567]GC is enabled", pointer.P(int32(0)), pointer.P(int32(0)), ""),
 			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.P(int32(-1)), pointer.P(int32(0)), "true"),
