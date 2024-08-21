@@ -385,7 +385,7 @@ func (c *VMController) execute(key string) error {
 
 	var syncErr syncError
 
-	vm, syncErr, err = c.sync(vm, vmi, key, dataVolumes)
+	vm, syncErr, err = c.sync(vm, vmi, key)
 	if err != nil {
 		return err
 	}
@@ -455,22 +455,18 @@ func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume
 	return nil
 }
 
-func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes []*cdiv1.DataVolume) (bool, error) {
+func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) {
 	ready := true
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		return ready, err
 	}
 	for _, template := range vm.Spec.DataVolumeTemplates {
-		var curDataVolume *cdiv1.DataVolume
-		exists := false
-		for _, curDataVolume = range dataVolumes {
-			if curDataVolume.Name == template.Name {
-				exists = true
-				break
-			}
+		curDataVolume, err := storagetypes.GetDataVolumeFromCache(vm.Namespace, template.Name, c.dataVolumeStore)
+		if err != nil {
+			return false, err
 		}
-		if !exists {
+		if curDataVolume == nil {
 			// Don't create DV if PVC already exists
 			pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, template.Name, c.pvcStore)
 			if err != nil {
@@ -1250,6 +1246,16 @@ func (c *VMController) cleanupRestartRequired(vm *virtv1.VirtualMachine) (*virtv
 }
 
 func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	ready, err := c.handleDataVolumes(vm)
+	if err != nil {
+		return vm, err
+	}
+
+	if !ready {
+		log.Log.Object(vm).V(4).Info("Waiting for DataVolumes to be created, delaying start")
+		return vm, nil
+	}
+
 	// TODO add check for existence
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
@@ -3040,7 +3046,7 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 	return false
 }
 
-func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string, dataVolumes []*cdiv1.DataVolume) (*virtv1.VirtualMachine, syncError, error) {
+func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, syncError, error) {
 
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
@@ -3107,14 +3113,18 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		return vm, &syncErrorImpl{fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}, nil
 	}
 
-	dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
-	if err != nil {
-		return vm, &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}, nil
-	}
+	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
+	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {
+		dataVolumesReady, err := c.handleDataVolumes(vm)
+		if err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}, nil
+		}
 
-	if !dataVolumesReady && runStrategy != virtv1.RunStrategyHalted {
-		log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
-		return vm, nil, nil
+		// not sure why we allow to proceed when halted but preserving legacy behavior
+		if !dataVolumesReady && runStrategy != virtv1.RunStrategyHalted {
+			log.Log.Object(vm).V(3).Info("Waiting on DataVolumes to be ready.")
+			return vm, nil, nil
+		}
 	}
 
 	vm, syncErr = c.syncRunStrategy(vm, vmi, runStrategy)
