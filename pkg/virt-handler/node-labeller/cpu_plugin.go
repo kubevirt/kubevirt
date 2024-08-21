@@ -28,8 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"libvirt.org/go/libvirtxml"
-
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
@@ -38,7 +36,7 @@ const (
 	isSupported            string = "yes"
 	isUnusable             string = "no"
 	isRequired             string = "require"
-	nodeLabellerVolumePath        = "/var/lib/kubevirt-node-labeller/"
+	NodeLabellerVolumePath        = "/var/lib/kubevirt-node-labeller/"
 
 	supportedFeaturesXml = "supported_features.xml"
 )
@@ -146,20 +144,6 @@ func (n *NodeLabeller) loadHostSupportedFeatures() error {
 	}
 
 	n.supportedFeatures = usableFeatures
-	return nil
-}
-
-func (n *NodeLabeller) loadHostCapabilities() error {
-	capsFile := filepath.Join(n.volumePath, "capabilities.xml")
-	n.capabilities = &libvirtxml.Caps{}
-	rawFile, err := os.ReadFile(capsFile)
-	if err != nil {
-		return err
-	}
-	err = n.capabilities.Unmarshal(string(rawFile))
-	if err != nil {
-		return err
-	}
 	return nil
 }
 

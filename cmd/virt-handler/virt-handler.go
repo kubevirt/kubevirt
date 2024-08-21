@@ -305,14 +305,28 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	var capabilities *libvirtxml.Caps
+	var capabilities libvirtxml.Caps
 	var hostCpuModel string
-	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
-	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli.CoreV1().Nodes(), app.HostOverride, nodeLabellerrecorder)
+
+	hostCapsFile, err := os.ReadFile(filepath.Join(nodelabeller.NodeLabellerVolumePath, "capabilities.xml"))
 	if err != nil {
 		panic(err)
 	}
-	capabilities = nodeLabellerController.HostCapabilities()
+
+	if err := capabilities.Unmarshal(string(hostCapsFile)); err != nil {
+		panic(err)
+	}
+
+	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
+	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
+		app.virtCli.CoreV1().Nodes(),
+		app.HostOverride,
+		nodeLabellerrecorder,
+		capabilities.Host.CPU.Counter,
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// Node labelling is only relevant on x86_64 and s390x arches.
 	if virtconfig.IsAMD64(runtime.GOARCH) || virtconfig.IsS390X(runtime.GOARCH) {
@@ -345,7 +359,7 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		downwardMetricsManager,
-		capabilities,
+		&capabilities,
 		hostCpuModel,
 		netsetup.NewNetConf(),
 		netsetup.NewNetStat(),
