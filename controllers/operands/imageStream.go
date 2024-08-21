@@ -98,6 +98,17 @@ func (iso imageStreamOperand) deleteImageStream(req *common.HcoRequest) *EnsureR
 	if err != nil {
 		return NewEnsureResult(h.required).Error(fmt.Errorf("failed to delete imagestream %s/%s; %w", h.required.Namespace, h.required.Name, err))
 	}
+
+	objectRef, err := reference.GetReference(iso.operand.Scheme, h.required)
+	if err != nil {
+		return NewEnsureResult(req.Instance).Error(err)
+	}
+
+	if err = objectreferencesv1.RemoveObjectReference(&req.Instance.Status.RelatedObjects, *objectRef); err != nil {
+		return NewEnsureResult(req.Instance).Error(err)
+	}
+	req.StatusDirty = true
+
 	return nil
 }
 

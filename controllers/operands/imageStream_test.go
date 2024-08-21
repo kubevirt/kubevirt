@@ -83,6 +83,7 @@ var _ = Describe("imageStream tests", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-image-stream",
 					Namespace: "test-image-stream-ns",
+					UID:       types.UID("0987654321"),
 				},
 
 				Spec: imagev1.ImageStreamSpec{
@@ -101,6 +102,10 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
+			ref, err := reference.GetReference(commontestutils.GetScheme(), exists)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(objectreferencesv1.SetObjectReference(&hco.Status.RelatedObjects, *ref)).To(Succeed())
+
 			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
@@ -115,6 +120,10 @@ var _ = Describe("imageStream tests", func() {
 			imageStreamObjects := &imagev1.ImageStreamList{}
 			Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 			Expect(imageStreamObjects.Items).To(BeEmpty())
+
+			newRef, err := objectreferencesv1.FindObjectReference(hco.Status.RelatedObjects, *ref)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newRef).To(BeNil())
 		})
 
 		It("should delete the ImageStream resource if the FG is not set, and emit event", func() {
@@ -770,10 +779,6 @@ var _ = Describe("imageStream tests", func() {
 					return testFilesLocation
 				}
 
-				getImageStreamFileLocation = func() string {
-					return testFilesLocation
-				}
-
 				By("create imagestream in the default namespace")
 				hco := commontestutils.NewHco()
 				hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
@@ -794,10 +799,14 @@ var _ = Describe("imageStream tests", func() {
 				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
 				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal("test-image-stream-ns"))
 
+				ref, err := reference.GetReference(commontestutils.GetScheme(), &ImageStreamObjects.Items[0])
+				Expect(err).ToNot(HaveOccurred())
+
 				By("replace the image stream with a new one in the custom namespace")
 				hco = commontestutils.NewHco()
 				hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 				hco.Spec.CommonBootImageNamespace = ptr.To(customNS)
+				Expect(objectreferencesv1.SetObjectReference(&hco.Status.RelatedObjects, *ref)).To(Succeed())
 
 				req = commontestutils.NewReq(hco)
 				res = handlers[0].ensure(req)
@@ -809,6 +818,10 @@ var _ = Describe("imageStream tests", func() {
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
 				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
 				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal(customNS))
+
+				newRef, err := objectreferencesv1.FindObjectReference(hco.Status.RelatedObjects, *ref)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newRef).To(BeNil())
 			})
 
 			It("should remove an imagestream from a custom namespace, and create it in the default one", func() {
@@ -842,9 +855,13 @@ var _ = Describe("imageStream tests", func() {
 				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
 				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal(customNS))
 
+				ref, err := reference.GetReference(commontestutils.GetScheme(), &ImageStreamObjects.Items[0])
+				Expect(err).ToNot(HaveOccurred())
+
 				By("replace the image stream with a new one in the default namespace")
 				hco = commontestutils.NewHco()
 				hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+				Expect(objectreferencesv1.SetObjectReference(&hco.Status.RelatedObjects, *ref)).To(Succeed())
 
 				req = commontestutils.NewReq(hco)
 				res = handlers[0].ensure(req)
@@ -856,6 +873,10 @@ var _ = Describe("imageStream tests", func() {
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
 				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
 				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal("test-image-stream-ns"))
+
+				newRef, err := objectreferencesv1.FindObjectReference(hco.Status.RelatedObjects, *ref)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newRef).To(BeNil())
 			})
 
 			It("should remove an imagestream from a custom namespace, and create it in the new custom namespace", func() {
@@ -889,10 +910,14 @@ var _ = Describe("imageStream tests", func() {
 				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
 				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal(customNS))
 
+				ref, err := reference.GetReference(commontestutils.GetScheme(), &ImageStreamObjects.Items[0])
+				Expect(err).ToNot(HaveOccurred())
+
 				By("replace the image stream with a new one in another custom namespace")
 				hco = commontestutils.NewHco()
 				hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 				hco.Spec.CommonBootImageNamespace = ptr.To(customNS + "1")
+				Expect(objectreferencesv1.SetObjectReference(&hco.Status.RelatedObjects, *ref)).To(Succeed())
 
 				req = commontestutils.NewReq(hco)
 				res = handlers[0].ensure(req)
@@ -904,6 +929,10 @@ var _ = Describe("imageStream tests", func() {
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
 				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
 				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal(customNS + "1"))
+
+				newRef, err := objectreferencesv1.FindObjectReference(hco.Status.RelatedObjects, *ref)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newRef).To(BeNil())
 			})
 		})
 	})
