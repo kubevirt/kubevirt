@@ -82,6 +82,8 @@ type SSPSpec struct {
 	TLSSecurityProfile *ocpv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 
 	// CommonInstancetypes is the configuration of the common-instancetypes operand
+	//
+	// Deprecated: This functionality will be removed in a future release.
 	CommonInstancetypes *CommonInstancetypes `json:"commonInstancetypes,omitempty"`
 
 	// TektonPipelines is the configuration of the tekton-pipelines operand

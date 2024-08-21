@@ -466,7 +466,7 @@ k8s.io/api/storagemigration/v1alpha1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
-# k8s.io/apimachinery v0.30.1 => k8s.io/apimachinery v0.30.1
+# k8s.io/apimachinery v0.30.3 => k8s.io/apimachinery v0.30.1
 ## explicit; go 1.22.0
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -723,8 +723,8 @@ kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/ssp-operator/api v0.20.0
-## explicit; go 1.21
+# kubevirt.io/ssp-operator/api v0.21.1
+## explicit; go 1.22.4
 kubevirt.io/ssp-operator/api/v1beta2
 # sigs.k8s.io/controller-runtime v0.18.4
 ## explicit; go 1.22.0
