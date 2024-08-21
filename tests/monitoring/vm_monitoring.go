@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,7 +38,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -59,8 +59,11 @@ import (
 )
 
 var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
+	var (
+		err        error
+		virtClient kubecli.KubevirtClient
+		vm         *v1.VirtualMachine
+	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -102,7 +105,6 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 	})
 
 	Context("VM status metrics", func() {
-		var vm *v1.VirtualMachine
 		var cpuMetrics = []string{
 			"kubevirt_vmi_cpu_system_usage_seconds_total",
 			"kubevirt_vmi_cpu_usage_seconds_total",
@@ -267,6 +269,31 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 				libmonitoring.WaitForMetricValue(virtClient, totalMetric, i)
 				libmonitoring.WaitForMetricValue(virtClient, bytesMetric, float64(quantity.Value())*i)
 			}
+		})
+
+		It("Snapshot succeeded timestamp metric values should be correct", func() {
+			virtClient = kubevirt.Client()
+			By("Creating a Virtual Machine")
+			vmi := libvmifact.NewGuestless()
+			vm = libvmi.NewVirtualMachine(vmi)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting the Virtual Machine")
+			libvmops.StartVirtualMachine(vm)
+
+			By("Creating a snapshot of the Virtual Machine")
+			snapshot := libstorage.NewSnapshot(vm.Name, vm.Namespace)
+			_, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
+
+			labels := map[string]string{
+				"name":          snapshot.Spec.Source.Name,
+				"snapshot_name": snapshot.Name,
+				"namespace":     snapshot.Namespace,
+			}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0)
 		})
 	})
 

@@ -68,6 +68,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_console_active_connections":                true,
 			"kubevirt_vmi_last_api_connection_timestamp_seconds": true,
 
+			// needs a snapshot - ignoring since already tested in - VM Monitoring, VM snapshot metrics
+			"kubevirt_vmsnapshot_succeeded_timestamp_seconds": true,
+
 			// migration metrics
 			// needs a migration - ignoring since already tested in - VM Monitoring, VM migration metrics
 			"kubevirt_vmi_migration_phase_transition_time_from_creation_seconds": true,
