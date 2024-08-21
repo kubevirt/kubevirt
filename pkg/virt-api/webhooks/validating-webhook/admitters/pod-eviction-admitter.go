@@ -30,7 +30,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	if !isVirtLauncher(pod) {
+	if !isVirtLauncher(pod) || isCompleted(pod) {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
@@ -109,4 +109,8 @@ func denied(message string) *admissionv1.AdmissionResponse {
 
 func isVirtLauncher(pod *k8scorev1.Pod) bool {
 	return pod.Labels[virtv1.AppLabel] == "virt-launcher"
+}
+
+func isCompleted(pod *k8scorev1.Pod) bool {
+	return pod.Status.Phase == k8scorev1.PodFailed || pod.Status.Phase == k8scorev1.PodSucceeded
 }

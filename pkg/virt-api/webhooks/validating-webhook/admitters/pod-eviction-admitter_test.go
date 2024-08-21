@@ -114,6 +114,49 @@ var _ = Describe("Pod eviction admitter", func() {
 			}
 		})
 
+		DescribeTable("should allow the request when it refers to a virt-launcher pod", func(podPhase k8sv1.PodPhase) {
+			By("Composing a dummy admission request on a virt-launcher pod")
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testpod",
+					Namespace: testns,
+					Annotations: map[string]string{
+						virtv1.DomainAnnotation: vmi.Name,
+					},
+					Labels: map[string]string{
+						virtv1.AppLabel: "virt-launcher",
+					},
+				},
+				Spec: k8sv1.PodSpec{
+					NodeName: nodeName,
+				},
+				Status: k8sv1.PodStatus{
+					Phase: podPhase,
+				},
+			}
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Name:      pod.Name,
+					Namespace: pod.Namespace,
+				},
+			}
+
+			kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				get, ok := action.(testing.GetAction)
+				Expect(ok).To(BeTrue())
+				Expect(pod.Namespace).To(Equal(get.GetNamespace()))
+				Expect(pod.Name).To(Equal(get.GetName()))
+				return true, pod, nil
+			})
+
+			resp := podEvictionAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+		},
+			Entry("in failed phase", k8sv1.PodFailed),
+			Entry("in succeeded phase", k8sv1.PodSucceeded),
+		)
+
 		It("Should deny review requests when updating the VMI fails", func() {
 
 			By("Composing a dummy admission request on a virt-launcher pod")
