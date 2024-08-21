@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"k8s.io/client-go/tools/record"
+	"libvirt.org/go/libvirtxml"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -42,7 +43,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 )
 
 var nodeLabellerLabels = []string{
@@ -73,7 +73,7 @@ type NodeLabeller struct {
 	cpuModelVendor          string
 	volumePath              string
 	domCapabilitiesFileName string
-	capabilities            *api.Capabilities
+	capabilities            *libvirtxml.Caps
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
 	arch                    string
@@ -249,11 +249,11 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 		newLabels[kubevirtv1.HypervLabel+key] = "true"
 	}
 
-	if c, err := n.capabilities.GetTSCCounter(); err == nil && c != nil {
+	if c := n.GetTSCCounter(); c != nil {
 		newLabels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", c.Frequency)
 		newLabels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%v", c.Scaling)
-	} else if err != nil {
-		n.logger.Reason(err).Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
+	} else {
+		n.logger.Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
 	}
 
 	for feature := range hostCpuModel.requiredFeatures {
@@ -296,7 +296,7 @@ func (n *NodeLabeller) addLabellerLabels(node *v1.Node, labels map[string]string
 	}
 }
 
-func (n *NodeLabeller) HostCapabilities() *api.Capabilities {
+func (n *NodeLabeller) HostCapabilities() *libvirtxml.Caps {
 	return n.capabilities
 }
 
@@ -338,5 +338,12 @@ func isNodeLabellerLabel(label string) bool {
 func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostModel string, ObsoleteCPUModels map[string]bool) error {
 	warningMsg := fmt.Sprintf("This node has %v host-model cpu that is included in ObsoleteCPUModels: %v", hostModel, ObsoleteCPUModels)
 	n.recorder.Eventf(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
+	return nil
+}
+
+func (n *NodeLabeller) GetTSCCounter() *libvirtxml.CapsHostCPUCounter {
+	if n.capabilities.Host.CPU.Counter.Name == "tsc" {
+		return n.capabilities.Host.CPU.Counter
+	}
 	return nil
 }

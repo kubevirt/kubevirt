@@ -28,8 +28,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"libvirt.org/go/libvirtxml"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
@@ -150,8 +151,12 @@ func (n *NodeLabeller) loadHostSupportedFeatures() error {
 
 func (n *NodeLabeller) loadHostCapabilities() error {
 	capsFile := filepath.Join(n.volumePath, "capabilities.xml")
-	n.capabilities = &api.Capabilities{}
-	err := n.getStructureFromXMLFile(capsFile, n.capabilities)
+	n.capabilities = &libvirtxml.Caps{}
+	rawFile, err := os.ReadFile(capsFile)
+	if err != nil {
+		return err
+	}
+	err = n.capabilities.Unmarshal(string(rawFile))
 	if err != nil {
 		return err
 	}

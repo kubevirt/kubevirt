@@ -48,7 +48,6 @@ go_library(
         "//pkg/virt-handler/hotplug-disk:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
-        "//pkg/virt-handler/node-labeller/api:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virtiofs:go_default_library",
@@ -68,6 +67,7 @@ go_library(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
 
@@ -106,7 +106,6 @@ go_test(
         "//pkg/virt-handler/hotplug-disk:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
-        "//pkg/virt-handler/node-labeller/api:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
@@ -128,6 +127,7 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
 

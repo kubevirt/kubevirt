@@ -49,12 +49,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
+	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
-
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/domainstats/downwardmetrics"
 
@@ -306,7 +305,7 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	var capabilities *api.Capabilities
+	var capabilities *libvirtxml.Caps
 	var hostCpuModel string
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli.CoreV1().Nodes(), app.HostOverride, nodeLabellerrecorder)

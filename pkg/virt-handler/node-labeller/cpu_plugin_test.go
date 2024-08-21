@@ -83,8 +83,7 @@ var _ = Describe("Node-labeller config", func() {
 		Expect(cpuModels).To(HaveLen(4), "number of models must match")
 
 		Expect(cpuFeatures).To(HaveLen(4), "number of features must match")
-		counter, err := nlController.capabilities.GetTSCCounter()
-		Expect(err).ToNot(HaveOccurred())
+		counter := nlController.GetTSCCounter()
 		Expect(counter).ToNot(BeNil())
 		Expect(counter.Frequency).To(BeNumerically("==", 4008012000))
 

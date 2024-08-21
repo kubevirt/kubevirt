@@ -19,45 +19,51 @@ package virthandler
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"libvirt.org/go/libvirtxml"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 )
 
 var _ = Describe("Parsing VMI Options", func() {
 	Context("virt-handler VM processes VMI options during update", func() {
 		const memoryUnit = "KiB"
-		DescribeTable("should convert api.Capabilities to cmdv1.Topology when Capabilities is nil or empty", func(caps *api.Capabilities) {
+		DescribeTable("should convert libvirtxml.Caps to cmdv1.Topology when Caps is nil or empty", func(caps *libvirtxml.Caps) {
 			actualTopology := capabilitiesToTopology(caps)
 
 			expectedTopology := &cmdv1.Topology{}
 
 			Expect(actualTopology).To(Equal(expectedTopology))
 		},
-			Entry("api.Capabilities is nil", nil),
-			Entry("api.Capabilities is empty", &api.Capabilities{}),
+			Entry("libvirtxml.Caps is nil", nil),
+			Entry("libvirtxml.Caps is empty", &libvirtxml.Caps{
+				Host: libvirtxml.CapsHost{
+					NUMA: &libvirtxml.CapsHostNUMATopology{
+						Cells: &libvirtxml.CapsHostNUMACells{},
+					},
+				},
+			}),
 		)
-		It("should convert api.Capabilities to cmdv1.Topology with single NUMA node", func() {
-			caps := &api.Capabilities{}
-			caps.Host.Topology.Cells = api.Cells{
-				Cell: []api.Cell{
+		It("should convert libvirtxml.Caps to cmdv1.Topology with single NUMA node", func() {
+			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
+			caps.Host.NUMA.Cells = &libvirtxml.CapsHostNUMACells{
+				Cells: []libvirtxml.CapsHostNUMACell{
 					{
-						Memory: api.Memory{Unit: memoryUnit, Amount: 16256896},
-						Pages: []api.Pages{
+						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 16256896},
+						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
 							{Unit: memoryUnit, Size: 4, Count: 4064224},
 							{Unit: memoryUnit, Size: 2048, Count: 0},
 							{Unit: memoryUnit, Size: 1048576, Count: 0},
 						},
-						Distances: api.Distances{Sibling: []api.Sibling{{ID: 0, Value: 10}}},
-						Cpus: api.CPUs{CPU: []api.CPU{
-							{ID: 0, Siblings: []uint32{0, 4}},
-							{ID: 1, Siblings: []uint32{1, 5}},
-							{ID: 2, Siblings: []uint32{2, 6}},
-							{ID: 3, Siblings: []uint32{3, 7}},
-							{ID: 4, Siblings: []uint32{0, 4}},
-							{ID: 5, Siblings: []uint32{1, 5}},
-							{ID: 6, Siblings: []uint32{2, 6}},
-							{ID: 7, Siblings: []uint32{3, 7}},
+						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{{ID: 0, Value: 10}}},
+						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
+							{ID: 0, Siblings: "0,4"},
+							{ID: 1, Siblings: "1,5"},
+							{ID: 2, Siblings: "2,6"},
+							{ID: 3, Siblings: "3,7"},
+							{ID: 4, Siblings: "0,4"},
+							{ID: 5, Siblings: "1,5"},
+							{ID: 6, Siblings: "2,6"},
+							{ID: 7, Siblings: "3,7"},
 						}},
 					},
 				},
@@ -92,96 +98,96 @@ var _ = Describe("Parsing VMI Options", func() {
 			Expect(actualTopology).To(Equal(expectedTopology))
 		})
 
-		It("should convert api.Capabilities to cmdv1.Topology with multiple NUMA nodes, CPUs and pages", func() {
-			caps := &api.Capabilities{}
-			caps.Host.Topology.Cells = api.Cells{
-				Cell: []api.Cell{
+		It("should convert libvirtxml.Caps to cmdv1.Topology with multiple NUMA nodes, CPUs and pages", func() {
+			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
+			caps.Host.NUMA.Cells = &libvirtxml.CapsHostNUMACells{
+				Cells: []libvirtxml.CapsHostNUMACell{
 					{
-						Memory: api.Memory{Unit: memoryUnit, Amount: 1289144},
-						Pages: []api.Pages{
+						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 1289144},
+						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
 							{Unit: memoryUnit, Size: 4, Count: 314094},
 							{Unit: memoryUnit, Size: 2048, Count: 16},
 							{Unit: memoryUnit, Size: 1048576, Count: 0},
 						},
-						Distances: api.Distances{Sibling: []api.Sibling{
+						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{
 							{ID: 0, Value: 10},
 							{ID: 1, Value: 10},
 							{ID: 2, Value: 10},
 							{ID: 3, Value: 10},
 						}},
-						Cpus: api.CPUs{CPU: []api.CPU{
-							{ID: 0, Siblings: []uint32{0}},
-							{ID: 1, Siblings: []uint32{1}},
-							{ID: 2, Siblings: []uint32{2}},
-							{ID: 3, Siblings: []uint32{3}},
-							{ID: 4, Siblings: []uint32{4}},
-							{ID: 5, Siblings: []uint32{5}},
+						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
+							{ID: 0, Siblings: "0"},
+							{ID: 1, Siblings: "1"},
+							{ID: 2, Siblings: "2"},
+							{ID: 3, Siblings: "3"},
+							{ID: 4, Siblings: "4"},
+							{ID: 5, Siblings: "5"},
 						}},
 					},
 					{
-						Memory: api.Memory{Unit: memoryUnit, Amount: 1223960},
-						Pages: []api.Pages{
+						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 1223960},
+						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
 							{Unit: memoryUnit, Size: 4, Count: 297798},
 							{Unit: memoryUnit, Size: 2048, Count: 16},
 							{Unit: memoryUnit, Size: 1048576, Count: 0},
 						},
-						Distances: api.Distances{Sibling: []api.Sibling{
+						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{
 							{ID: 0, Value: 10},
 							{ID: 1, Value: 10},
 							{ID: 2, Value: 10},
 							{ID: 3, Value: 10},
 						}},
-						Cpus: api.CPUs{CPU: []api.CPU{
-							{ID: 0, Siblings: []uint32{0}},
-							{ID: 1, Siblings: []uint32{1}},
-							{ID: 2, Siblings: []uint32{2}},
-							{ID: 3, Siblings: []uint32{3}},
-							{ID: 4, Siblings: []uint32{4}},
-							{ID: 5, Siblings: []uint32{5}},
+						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
+							{ID: 0, Siblings: "0"},
+							{ID: 1, Siblings: "1"},
+							{ID: 2, Siblings: "2"},
+							{ID: 3, Siblings: "3"},
+							{ID: 4, Siblings: "4"},
+							{ID: 5, Siblings: "5"},
 						}},
 					},
 					{
-						Memory: api.Memory{Unit: memoryUnit, Amount: 1251752},
-						Pages: []api.Pages{
+						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 1251752},
+						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
 							{Unit: memoryUnit, Size: 4, Count: 304746},
 							{Unit: memoryUnit, Size: 2048, Count: 16},
 							{Unit: memoryUnit, Size: 1048576, Count: 0},
 						},
-						Distances: api.Distances{Sibling: []api.Sibling{
+						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{
 							{ID: 0, Value: 10},
 							{ID: 1, Value: 10},
 							{ID: 2, Value: 10},
 							{ID: 3, Value: 10},
 						}},
-						Cpus: api.CPUs{CPU: []api.CPU{
-							{ID: 0, Siblings: []uint32{0}},
-							{ID: 1, Siblings: []uint32{1}},
-							{ID: 2, Siblings: []uint32{2}},
-							{ID: 3, Siblings: []uint32{3}},
-							{ID: 4, Siblings: []uint32{4}},
-							{ID: 5, Siblings: []uint32{5}},
+						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
+							{ID: 0, Siblings: "0"},
+							{ID: 1, Siblings: "1"},
+							{ID: 2, Siblings: "2"},
+							{ID: 3, Siblings: "3"},
+							{ID: 4, Siblings: "4"},
+							{ID: 5, Siblings: "5"},
 						}},
 					},
 					{
-						Memory: api.Memory{Unit: memoryUnit, Amount: 1289404},
-						Pages: []api.Pages{
+						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 1289404},
+						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
 							{Unit: memoryUnit, Size: 4, Count: 314159},
 							{Unit: memoryUnit, Size: 2048, Count: 16},
 							{Unit: memoryUnit, Size: 1048576, Count: 0},
 						},
-						Distances: api.Distances{Sibling: []api.Sibling{
+						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{
 							{ID: 0, Value: 10},
 							{ID: 1, Value: 10},
 							{ID: 2, Value: 10},
 							{ID: 3, Value: 10},
 						}},
-						Cpus: api.CPUs{CPU: []api.CPU{
-							{ID: 0, Siblings: []uint32{0}},
-							{ID: 1, Siblings: []uint32{1}},
-							{ID: 2, Siblings: []uint32{2}},
-							{ID: 3, Siblings: []uint32{3}},
-							{ID: 4, Siblings: []uint32{4}},
-							{ID: 5, Siblings: []uint32{5}},
+						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
+							{ID: 0, Siblings: "0"},
+							{ID: 1, Siblings: "1"},
+							{ID: 2, Siblings: "2"},
+							{ID: 3, Siblings: "3"},
+							{ID: 4, Siblings: "4"},
+							{ID: 5, Siblings: "5"},
 						}},
 					},
 				},
@@ -284,27 +290,27 @@ var _ = Describe("Parsing VMI Options", func() {
 
 			Expect(actualTopology).To(Equal(expectedTopology))
 		})
-		It("should convert api.Capabilities to cmdv1.Topology when certain fields of Capabilities are not initialized", func() {
-			caps := &api.Capabilities{}
-			caps.Host.Topology.Cells = api.Cells{
-				Cell: []api.Cell{
+		It("should convert libvirtxml.Caps to cmdv1.Topology when certain fields of Caps are not initialized", func() {
+			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
+			caps.Host.NUMA.Cells = &libvirtxml.CapsHostNUMACells{
+				Cells: []libvirtxml.CapsHostNUMACell{
 					{
-						Memory: api.Memory{Unit: memoryUnit, Amount: 16256896},
-						Pages: []api.Pages{
+						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 16256896},
+						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
 							{Size: 4, Count: 4064224},
 							{Unit: memoryUnit, Count: 0},
 							{Unit: memoryUnit, Size: 1048576},
 						},
-						Distances: api.Distances{Sibling: []api.Sibling{{ID: 0, Value: 10}}},
-						Cpus: api.CPUs{CPU: []api.CPU{
+						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{{ID: 0, Value: 10}}},
+						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
 							{ID: 0},
-							{Siblings: []uint32{1, 5}},
-							{ID: 2, Siblings: []uint32{2, 6}},
-							{ID: 3, Siblings: []uint32{3, 7}},
-							{ID: 4, Siblings: []uint32{0, 4}},
-							{ID: 5, Siblings: []uint32{1, 5}},
-							{ID: 6, Siblings: []uint32{2, 6}},
-							{ID: 7, Siblings: []uint32{3, 7}},
+							{Siblings: "1,5"},
+							{ID: 2, Siblings: "2,6"},
+							{ID: 3, Siblings: "3,7"},
+							{ID: 4, Siblings: "0,4"},
+							{ID: 5, Siblings: "1,5"},
+							{ID: 6, Siblings: "2,6"},
+							{ID: 7, Siblings: "3,7"},
 						}},
 					},
 				},
