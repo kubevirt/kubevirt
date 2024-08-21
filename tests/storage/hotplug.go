@@ -64,6 +64,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -623,7 +624,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
 
 			By("Starting the VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -650,7 +651,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
 
 			By("Starting the VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1018,10 +1019,10 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(targets).To(HaveLen(1))
 
 				By("stopping VM")
-				vm = tests.StopVirtualMachine(vm)
+				vm = libvmops.StopVirtualMachine(vm)
 
 				By("starting VM")
-				vm = tests.StartVirtualMachine(vm)
+				vm = libvmops.StartVirtualMachine(vm)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1181,7 +1182,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			DescribeTable("should allow live migration with attached hotplug volumes", func(vmiFunc func() *v1.VirtualMachineInstance) {
 				vmi = vmiFunc()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 				volumeName := "testvolume"
 				volumeMode := k8sv1.PersistentVolumeBlock
 				addVolumeFunc := addDVVolumeVMI

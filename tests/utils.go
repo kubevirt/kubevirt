@@ -35,7 +35,6 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -55,59 +54,19 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 const (
-	BinBash                = "/bin/bash"
-	waitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
+	BinBash = "/bin/bash"
 
 	CustomHostPath     = "custom-host-path"
 	DiskAlpineHostPath = "disk-alpine-host-path"
 	DiskWindowsSysprep = "disk-windows-sysprep"
 	DiskCustomHostPath = "disk-custom-host-path"
 )
-
-func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By(waitingVMInstanceStart)
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		libwait.WithTimeout(timeout),
-	)
-}
-
-func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By(waitingVMInstanceStart)
-	return libwait.WaitForSuccessfulVMIStart(vmi,
-		libwait.WithFailOnWarnings(false),
-		libwait.WithTimeout(timeout),
-	)
-}
-
-func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	wp := watcher.WarningsPolicy{FailOnWarnings: true}
-	return RunVMIAndExpectSchedulingWithWarningPolicy(vmi, timeout, wp)
-}
-
-func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By("Waiting until the VirtualMachineInstance will be scheduled")
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running},
-		libwait.WithWarningsPolicy(&wp),
-		libwait.WithTimeout(timeout),
-	)
-}
 
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
@@ -195,50 +154,6 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 		panic(err)
 	}
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
-}
-
-func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
-	By("Stopping the VirtualMachineInstance")
-	virtClient := kubevirt.Client()
-
-	Expect(virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})).To(Succeed())
-
-	Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(timeout).WithPolling(time.Second).Should(BeGone(), "The vmi did not disappear")
-
-	By("VM has not the running condition")
-	var updatedVM *v1.VirtualMachine
-	var err error
-	Eventually(func() bool {
-		updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return updatedVM.Status.Ready
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(BeFalse())
-
-	return updatedVM
-}
-
-func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
-	return StopVirtualMachineWithTimeout(vm, time.Second*300)
-}
-
-func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
-	By("Starting the VirtualMachineInstance")
-	virtClient := kubevirt.Client()
-
-	Expect(virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})).To(Succeed())
-
-	Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(Exist())
-
-	By("VMI has the running condition")
-	var updatedVM *v1.VirtualMachine
-	var err error
-	Eventually(func() *v1.VirtualMachine {
-		updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return updatedVM
-	}).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
-
-	return updatedVM
 }
 
 func DisableFeatureGate(feature string) {

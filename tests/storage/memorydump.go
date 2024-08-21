@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/client-go/log"
 
@@ -50,7 +51,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
@@ -468,7 +468,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			previousOutput := verifyMemoryDumpOutput(memoryDumpPVC, "", false)
 
 			By("Stopping VM")
-			vm = tests.StopVirtualMachine(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 
 			// verify the output is still the same even when vm is stopped
 			waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
@@ -486,9 +486,9 @@ var _ = SIGDescribe("Memory dump", func() {
 			previousOutput := verifyMemoryDumpOutput(memoryDumpPVC, "", false)
 
 			By("Stopping VM")
-			vm = tests.StopVirtualMachine(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 			By("Starting VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 
 			waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
 			// verify memory dump didnt reappeared in the VMI

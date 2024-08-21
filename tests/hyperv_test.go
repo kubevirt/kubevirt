@@ -11,6 +11,7 @@ import (
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/libnet"
 
@@ -253,7 +254,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 					EVMCS: featureState,
 				},
 			}
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 
 			var err error
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -284,7 +285,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 	Context("VMI with HyperV passthrough", func() {
 		It("should be usable and non-migratable", func() {
 			vmi := libvmifact.NewCirros(withHypervPassthrough())
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())

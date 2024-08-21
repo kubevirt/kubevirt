@@ -8,6 +8,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/watcher"
 
 	expect "github.com/google/goexpect"
@@ -42,7 +43,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libdv"
@@ -1031,7 +1031,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					waitDataVolumePopulated(vm.Namespace, dvt.Name)
 				}
 				if wffcSC {
-					vm = tests.StopVirtualMachine(vm)
+					vm = libvmops.StopVirtualMachine(vm)
 				}
 			})
 
@@ -1382,7 +1382,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}
 
 				if wffcSC {
-					vm = tests.StopVirtualMachine(vm)
+					vm = libvmops.StopVirtualMachine(vm)
 				}
 
 				snapshot = newSnapshot()
@@ -1594,7 +1594,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			DescribeTable("Bug #8435 - should create a snapshot successfully", func(toRunSourceVM bool) {
 				if !toRunSourceVM {
 					By("Stoping the VM")
-					vm = tests.StopVirtualMachine(vm)
+					vm = libvmops.StopVirtualMachine(vm)
 				}
 
 				snapshot = newSnapshot()
