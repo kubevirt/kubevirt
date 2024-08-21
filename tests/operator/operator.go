@@ -1224,12 +1224,9 @@ spec:
 					Expect(err).ToNot(HaveOccurred(), stderr)
 				}
 
-				// Use Current virtctl to start VM
-				// NOTE: we are using virtctl explicitly here because we want to start the VM
-				// using the subresource endpoint in the same way virtctl performs this.
-				By("Starting VM with virtctl")
-				startCommand := clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", testsuite.GetTestNamespace(nil), vmYaml.vmName)
-				Expect(startCommand()).To(Succeed())
+				By("Starting VM")
+				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Start(context.Background(), vmYaml.vmName, &v1.StartOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
 
@@ -1325,11 +1322,9 @@ spec:
 					return nil
 				}, 60*time.Second, 1*time.Second).Should(BeNil())
 
-				By("Stopping VM with virtctl")
-				stopFn := clientcmd.NewRepeatableVirtctlCommand("stop", "--namespace", testsuite.GetTestNamespace(nil), vmYaml.vmName)
-				Eventually(func() error {
-					return stopFn()
-				}, 30*time.Second, 1*time.Second).Should(BeNil())
+				By("Stopping VM")
+				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Stop(context.Background(), vmYaml.vmName, &v1.StopOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to stop")
 				Eventually(func() error {
