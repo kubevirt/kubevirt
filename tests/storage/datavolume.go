@@ -995,6 +995,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 				err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestAlternative).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisPVCWith(testsuite.NamespaceTestAlternative, dataVolume.Name), 10*time.Second, 1*time.Second).Should(BeGone())
 
 				// We check if the VM is succesfully created
 				By("Creating VM")
