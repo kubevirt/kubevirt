@@ -403,7 +403,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1 => gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/api v0.30.1 => k8s.io/api v0.30.1
+# k8s.io/api v0.30.3 => k8s.io/api v0.30.3
 ## explicit; go 1.22.0
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -461,12 +461,12 @@ k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
 k8s.io/api/storagemigration/v1alpha1
-# k8s.io/apiextensions-apiserver v0.30.1 => k8s.io/apiextensions-apiserver v0.30.1
+# k8s.io/apiextensions-apiserver v0.30.3 => k8s.io/apiextensions-apiserver v0.30.3
 ## explicit; go 1.22.0
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
-# k8s.io/apimachinery v0.30.3 => k8s.io/apimachinery v0.30.1
+# k8s.io/apimachinery v0.30.3 => k8s.io/apimachinery v0.30.3
 ## explicit; go 1.22.0
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -525,11 +525,11 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.30.1 => k8s.io/apiserver v0.30.1
+# k8s.io/apiserver v0.30.3 => k8s.io/apiserver v0.30.3
 ## explicit; go 1.22.0
 k8s.io/apiserver/pkg/admission/plugin/webhook/errors
 k8s.io/apiserver/pkg/authentication/user
-# k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.30.1
+# k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.30.3
 ## explicit; go 1.22.0
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
 k8s.io/client-go/applyconfigurations/admissionregistration/v1alpha1
@@ -716,8 +716,8 @@ kubevirt.io/api/core/v1
 ## explicit; go 1.20
 kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core
 kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core/v1alpha1
-# kubevirt.io/containerized-data-importer-api v1.59.0
-## explicit; go 1.21
+# kubevirt.io/containerized-data-importer-api v1.60.1
+## explicit; go 1.22.3
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
@@ -796,31 +796,31 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
-# k8s.io/api => k8s.io/api v0.30.1
-# k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.30.1
-# k8s.io/apimachinery => k8s.io/apimachinery v0.30.1
-# k8s.io/apiserver => k8s.io/apiserver v0.30.1
-# k8s.io/cli-runtime => k8s.io/cli-runtime v0.30.1
-# k8s.io/client-go => k8s.io/client-go v0.30.1
-# k8s.io/cloud-provider => k8s.io/cloud-provider v0.30.1
-# k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.30.1
-# k8s.io/code-generator => k8s.io/code-generator v0.30.1
-# k8s.io/component-base => k8s.io/component-base v0.30.1
-# k8s.io/cri-api => k8s.io/cri-api v0.30.1
-# k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.30.1
-# k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.30.1
-# k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.30.1
+# k8s.io/api => k8s.io/api v0.30.3
+# k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.30.3
+# k8s.io/apimachinery => k8s.io/apimachinery v0.30.3
+# k8s.io/apiserver => k8s.io/apiserver v0.30.3
+# k8s.io/cli-runtime => k8s.io/cli-runtime v0.30.3
+# k8s.io/client-go => k8s.io/client-go v0.30.3
+# k8s.io/cloud-provider => k8s.io/cloud-provider v0.30.3
+# k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.30.3
+# k8s.io/code-generator => k8s.io/code-generator v0.30.3
+# k8s.io/component-base => k8s.io/component-base v0.30.3
+# k8s.io/cri-api => k8s.io/cri-api v0.30.3
+# k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.30.3
+# k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.30.3
+# k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.30.3
 # k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20240521193020-835d969ad83a
-# k8s.io/kube-proxy => k8s.io/kube-proxy v0.30.1
-# k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.30.1
-# k8s.io/kubectl => k8s.io/kubectl v0.30.1
-# k8s.io/kubelet => k8s.io/kubelet v0.30.1
-# k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.30.1
-# k8s.io/metrics => k8s.io/metrics v0.30.1
-# k8s.io/node-api => k8s.io/node-api v0.30.1
-# k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.30.1
-# k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.30.1
-# k8s.io/sample-controller => k8s.io/sample-controller v0.30.1
+# k8s.io/kube-proxy => k8s.io/kube-proxy v0.30.3
+# k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.30.3
+# k8s.io/kubectl => k8s.io/kubectl v0.30.3
+# k8s.io/kubelet => k8s.io/kubelet v0.30.3
+# k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.30.3
+# k8s.io/metrics => k8s.io/metrics v0.30.3
+# k8s.io/node-api => k8s.io/node-api v0.30.3
+# k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.30.3
+# k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.30.3
+# k8s.io/sample-controller => k8s.io/sample-controller v0.30.3
 # github.com/appscode/jsonpatch => github.com/appscode/jsonpatch v1.0.1
 # github.com/go-kit/kit => github.com/go-kit/kit v0.12.0
 # github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20230329185430-d3973b45c2b6

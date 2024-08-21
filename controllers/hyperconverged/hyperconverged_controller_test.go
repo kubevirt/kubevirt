@@ -1193,7 +1193,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cdi),
 					).To(Succeed())
 
-					Expect(cdi.Spec.Config.TLSSecurityProfile).To(Equal(initialTLSSecurityProfile))
+					Expect(cdi.Spec.Config.TLSSecurityProfile).To(Equal(openshift2CdiSecProfile(initialTLSSecurityProfile)))
 
 				})
 				By("Verify that CNA was properly configured with initialTLSSecurityProfile", func() {
@@ -1265,7 +1265,7 @@ var _ = Describe("HyperconvergedController", func() {
 							cdi),
 					).To(Succeed())
 
-					Expect(cdi.Spec.Config.TLSSecurityProfile).To(Equal(customTLSSecurityProfile))
+					Expect(cdi.Spec.Config.TLSSecurityProfile).To(Equal(openshift2CdiSecProfile(customTLSSecurityProfile)))
 
 				})
 				By("Verify that CNA was properly updated with customTLSSecurityProfile", func() {
@@ -3910,4 +3910,24 @@ func searchInRelatedObjects(relatedObjects []corev1.ObjectReference, kind, name 
 		}
 	}
 	return false
+}
+
+func openshift2CdiSecProfile(hcProfile *openshiftconfigv1.TLSSecurityProfile) *cdiv1beta1.TLSSecurityProfile {
+	var custom *cdiv1beta1.CustomTLSProfile
+	if hcProfile.Custom != nil {
+		custom = &cdiv1beta1.CustomTLSProfile{
+			TLSProfileSpec: cdiv1beta1.TLSProfileSpec{
+				Ciphers:       hcProfile.Custom.TLSProfileSpec.Ciphers,
+				MinTLSVersion: cdiv1beta1.TLSProtocolVersion(hcProfile.Custom.TLSProfileSpec.MinTLSVersion),
+			},
+		}
+	}
+
+	return &cdiv1beta1.TLSSecurityProfile{
+		Type:         cdiv1beta1.TLSProfileType(hcProfile.Type),
+		Old:          (*cdiv1beta1.OldTLSProfile)(hcProfile.Old),
+		Intermediate: (*cdiv1beta1.IntermediateTLSProfile)(hcProfile.Intermediate),
+		Modern:       (*cdiv1beta1.ModernTLSProfile)(hcProfile.Modern),
+		Custom:       custom,
+	}
 }

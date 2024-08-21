@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	ocpconfigv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
@@ -80,7 +79,7 @@ type StorageSpec struct {
 	// Resources represents the minimum resources the volume should have.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
 	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	Resources corev1.VolumeResourceRequirements `json:"resources,omitempty"`
 	// VolumeName is the binding reference to the PersistentVolume backing this claim.
 	// +optional
 	VolumeName string `json:"volumeName,omitempty"`
@@ -820,6 +819,10 @@ type CDICertConfig struct {
 	// Server configuration
 	// Certs are rotated and discarded
 	Server *CertConfig `json:"server,omitempty"`
+
+	// Client configuration
+	// Certs are rotated and discarded
+	Client *CertConfig `json:"client,omitempty"`
 }
 
 // CDISpec defines our specification for the CDI installation
@@ -1010,7 +1013,7 @@ type CDIConfigSpec struct {
 	// +optional
 	DataVolumeTTLSeconds *int32 `json:"dataVolumeTTLSeconds,omitempty"`
 	// TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.
-	TLSSecurityProfile *ocpconfigv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
+	TLSSecurityProfile *TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 	// The imagePullSecrets used to pull the container images
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// LogVerbosity overrides the default verbosity level used to initialize loggers
@@ -1022,6 +1025,8 @@ type CDIConfigSpec struct {
 type CDIConfigStatus struct {
 	// The calculated upload proxy URL
 	UploadProxyURL *string `json:"uploadProxyURL,omitempty"`
+	// UploadProxyCA is the certificate authority of the upload proxy
+	UploadProxyCA *string `json:"uploadProxyCA,omitempty"`
 	// ImportProxy contains importer pod proxy configuration.
 	// +optional
 	ImportProxy *ImportProxy `json:"importProxy,omitempty"`

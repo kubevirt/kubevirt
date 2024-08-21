@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -104,7 +105,7 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 		UninstallStrategy: &uninstallStrategy,
 		Config: &cdiv1beta1.CDIConfigSpec{
 			FeatureGates:       getDefaultFeatureGates(),
-			TLSSecurityProfile: hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile),
+			TLSSecurityProfile: openshift2CdiSecProfile(hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile)),
 		},
 		CertConfig: &cdiv1beta1.CDICertConfig{
 			CA: &cdiv1beta1.CertConfig{
@@ -167,5 +168,25 @@ func NewCDIWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1bet
 			Namespace:   getNamespace(hcoutil.UndefinedNamespace, opts),
 			Annotations: map[string]string{cdiConfigAuthorityAnnotation: ""},
 		},
+	}
+}
+
+func openshift2CdiSecProfile(hcProfile *openshiftconfigv1.TLSSecurityProfile) *cdiv1beta1.TLSSecurityProfile {
+	var custom *cdiv1beta1.CustomTLSProfile
+	if hcProfile.Custom != nil {
+		custom = &cdiv1beta1.CustomTLSProfile{
+			TLSProfileSpec: cdiv1beta1.TLSProfileSpec{
+				Ciphers:       hcProfile.Custom.TLSProfileSpec.Ciphers,
+				MinTLSVersion: cdiv1beta1.TLSProtocolVersion(hcProfile.Custom.TLSProfileSpec.MinTLSVersion),
+			},
+		}
+	}
+
+	return &cdiv1beta1.TLSSecurityProfile{
+		Type:         cdiv1beta1.TLSProfileType(hcProfile.Type),
+		Old:          (*cdiv1beta1.OldTLSProfile)(hcProfile.Old),
+		Intermediate: (*cdiv1beta1.IntermediateTLSProfile)(hcProfile.Intermediate),
+		Modern:       (*cdiv1beta1.ModernTLSProfile)(hcProfile.Modern),
+		Custom:       custom,
 	}
 }

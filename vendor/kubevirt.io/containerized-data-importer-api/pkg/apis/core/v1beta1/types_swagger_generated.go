@@ -420,6 +420,7 @@ func (CDICertConfig) SwaggerDoc() map[string]string {
 		"":       "CDICertConfig has the CertConfigs for CDI",
 		"ca":     "CA configuration\nCA certs are kept in the CA bundle as long as they are valid",
 		"server": "Server configuration\nCerts are rotated and discarded",
+		"client": "Client configuration\nCerts are rotated and discarded",
 	}
 }
 
@@ -517,6 +518,7 @@ func (CDIConfigStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                               "CDIConfigStatus provides the most recently observed status of the CDI Config resource",
 		"uploadProxyURL":                 "The calculated upload proxy URL",
+		"uploadProxyCA":                  "UploadProxyCA is the certificate authority of the upload proxy",
 		"importProxy":                    "ImportProxy contains importer pod proxy configuration.\n+optional",
 		"scratchSpaceStorageClass":       "The calculated storage class to be used for scratch space",
 		"defaultPodResourceRequirements": "ResourceRequirements describes the compute resource requirements.",

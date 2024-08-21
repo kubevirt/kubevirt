@@ -173,6 +173,7 @@ function create_cdi_csv() {
     --uploadproxy-image=${CDI_UPLOADPROXY_IMAGE} \
     --uploadserver-image=${CDI_UPLOADSERVER_IMAGE} \
     --operator-version=${CDI_VERSION} \
+    --ovirt-populator-image="${CDI_IMPORTER_IMAGE}" \
   "
   gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} "${CDI_OPERATOR_IMAGE}" ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"

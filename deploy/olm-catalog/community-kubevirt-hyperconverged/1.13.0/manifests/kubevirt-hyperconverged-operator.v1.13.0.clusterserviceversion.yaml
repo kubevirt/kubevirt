@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.13.0-unstable
-    createdAt: "2024-08-20 05:04:19"
+    createdAt: "2024-08-21 17:25:34"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -2521,6 +2521,7 @@ spec:
           - config.openshift.io
           resources:
           - proxies
+          - infrastructures
           verbs:
           - get
           - list
@@ -2592,6 +2593,15 @@ spec:
           - virtualmachines/finalizers
           verbs:
           - update
+        - apiGroups:
+          - forklift.cdi.kubevirt.io
+          resources:
+          - ovirtvolumepopulators
+          - openstackvolumepopulators
+          verbs:
+          - get
+          - list
+          - watch
         - apiGroups:
           - ""
           resources:
@@ -3125,7 +3135,7 @@ spec:
                 - name: KUBEVIRT_VERSION
                   value: v1.3.0
                 - name: CDI_VERSION
-                  value: v1.59.0
+                  value: v1.60.1
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.95.0
                 - name: SSP_VERSION
@@ -3651,25 +3661,27 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
-                  value: v1.59.0
+                  value: v1.60.1
                 - name: CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/cdi-controller@sha256:392ead2fdc5050c584765ebf99706cc5c0ab9c2b424b692ad35005e77d110b58
+                  value: quay.io/kubevirt/cdi-controller@sha256:ce5fc009baad3b654c9ead88fecaa5dcabac77b190e01600abada8c90f87a593
                 - name: IMPORTER_IMAGE
-                  value: quay.io/kubevirt/cdi-importer@sha256:de5b89c879a531165482d540deffdc2dec0c188fd0f7b5fbd49c0298cf9a5b1d
+                  value: quay.io/kubevirt/cdi-importer@sha256:9252a412272adf7f235d7aefb9d9d446114c8de8f5d3432b85101167beb99abe
                 - name: CLONER_IMAGE
-                  value: quay.io/kubevirt/cdi-cloner@sha256:05da8df0b64024f9e2a48a1a54f06c821d79a3efe7828fad2c4fda6a01d0cd86
+                  value: quay.io/kubevirt/cdi-cloner@sha256:d4ebae0cbb75709a435b191b8bc50c728c24e40148189da9ca4fc3f14b1010c5
+                - name: OVIRT_POPULATOR_IMAGE
+                  value: quay.io/kubevirt/cdi-importer@sha256:9252a412272adf7f235d7aefb9d9d446114c8de8f5d3432b85101167beb99abe
                 - name: APISERVER_IMAGE
-                  value: quay.io/kubevirt/cdi-apiserver@sha256:4ba004f57e7d589ddb5372a9729360460a97effecc6e5ecaccd7fbf16c6fcf13
+                  value: quay.io/kubevirt/cdi-apiserver@sha256:060641ac2212b6fce61e985c67da888a94ddad8cafef2572d214f105cfa6b3d5
                 - name: UPLOAD_SERVER_IMAGE
-                  value: quay.io/kubevirt/cdi-uploadserver@sha256:d7fb653bb33dade84583fff6048092346639532d6675aaf9f88070171cb0fe7c
+                  value: quay.io/kubevirt/cdi-uploadserver@sha256:390be7c81a6a70c0a63d1cbf2ad88bba9a2523b7c68b9114b14385051ca647af
                 - name: UPLOAD_PROXY_IMAGE
-                  value: quay.io/kubevirt/cdi-uploadproxy@sha256:86285df5cf52533732ddf4fdb74674cbce877ba69833cb8ed058c2a157cb5573
+                  value: quay.io/kubevirt/cdi-uploadproxy@sha256:454ceeb0e97a3fcd8cf9c2633d9905a825a675ef1f4129ceea20d11b32273f11
                 - name: VERBOSITY
                   value: "1"
                 - name: PULL_POLICY
                   value: IfNotPresent
                 - name: MONITORING_NAMESPACE
-                image: quay.io/kubevirt/cdi-operator@sha256:f68e4f2a082fc72d92bc1df0340285af03cd12d8c7721b38c619d1de0f4c175a
+                image: quay.io/kubevirt/cdi-operator@sha256:1565009ebf307d04500a1c0a5c9269f6abee059e5410beb02b438ffd0495bf19
                 imagePullPolicy: IfNotPresent
                 name: cdi-operator
                 ports:
@@ -4602,19 +4614,19 @@ spec:
     name: aaq-server
   - image: quay.io/kubevirt/bridge-marker@sha256:18d954d58b9830738df9bf5c9a575d22b33096d1af26fb6bc2da09fb31c9f73a
     name: bridge-marker
-  - image: quay.io/kubevirt/cdi-apiserver@sha256:4ba004f57e7d589ddb5372a9729360460a97effecc6e5ecaccd7fbf16c6fcf13
+  - image: quay.io/kubevirt/cdi-apiserver@sha256:060641ac2212b6fce61e985c67da888a94ddad8cafef2572d214f105cfa6b3d5
     name: cdi-apiserver
-  - image: quay.io/kubevirt/cdi-cloner@sha256:05da8df0b64024f9e2a48a1a54f06c821d79a3efe7828fad2c4fda6a01d0cd86
+  - image: quay.io/kubevirt/cdi-cloner@sha256:d4ebae0cbb75709a435b191b8bc50c728c24e40148189da9ca4fc3f14b1010c5
     name: cdi-cloner
-  - image: quay.io/kubevirt/cdi-controller@sha256:392ead2fdc5050c584765ebf99706cc5c0ab9c2b424b692ad35005e77d110b58
+  - image: quay.io/kubevirt/cdi-controller@sha256:ce5fc009baad3b654c9ead88fecaa5dcabac77b190e01600abada8c90f87a593
     name: cdi-controller
-  - image: quay.io/kubevirt/cdi-importer@sha256:de5b89c879a531165482d540deffdc2dec0c188fd0f7b5fbd49c0298cf9a5b1d
+  - image: quay.io/kubevirt/cdi-importer@sha256:9252a412272adf7f235d7aefb9d9d446114c8de8f5d3432b85101167beb99abe
     name: cdi-importer
-  - image: quay.io/kubevirt/cdi-operator@sha256:f68e4f2a082fc72d92bc1df0340285af03cd12d8c7721b38c619d1de0f4c175a
+  - image: quay.io/kubevirt/cdi-operator@sha256:1565009ebf307d04500a1c0a5c9269f6abee059e5410beb02b438ffd0495bf19
     name: cdi-operator
-  - image: quay.io/kubevirt/cdi-uploadproxy@sha256:86285df5cf52533732ddf4fdb74674cbce877ba69833cb8ed058c2a157cb5573
+  - image: quay.io/kubevirt/cdi-uploadproxy@sha256:454ceeb0e97a3fcd8cf9c2633d9905a825a675ef1f4129ceea20d11b32273f11
     name: cdi-uploadproxy
-  - image: quay.io/kubevirt/cdi-uploadserver@sha256:d7fb653bb33dade84583fff6048092346639532d6675aaf9f88070171cb0fe7c
+  - image: quay.io/kubevirt/cdi-uploadserver@sha256:390be7c81a6a70c0a63d1cbf2ad88bba9a2523b7c68b9114b14385051ca647af
     name: cdi-uploadserver
   - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:935b837a9f0c23d24bc7b20909928edb5ffe1ca9f6aa160567a652c2951785ea
     name: cluster-network-addons-operator

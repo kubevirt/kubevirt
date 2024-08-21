@@ -365,7 +365,7 @@ func getDICT() hcov1beta1.DataImportCronTemplate {
 						},
 					},
 					Storage: &cdiv1beta1.StorageSpec{
-						Resources: corev1.ResourceRequirements{
+						Resources: corev1.VolumeResourceRequirements{
 							Requests: corev1.ResourceList{
 								"storage": resource.MustParse("30Gi"),
 							},

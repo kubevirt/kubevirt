@@ -1323,7 +1323,7 @@ var _ = Describe("CDI Operand", func() {
 			It("should modify TLSSecurityProfile on CDI CR according to ApiServer or HCO CR", func() {
 				existingResource, err := NewCDI(hco)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(existingResource.Spec.Config.TLSSecurityProfile).To(Equal(intermediateTLSSecurityProfile))
+				Expect(existingResource.Spec.Config.TLSSecurityProfile).To(Equal(openshift2CdiSecProfile(intermediateTLSSecurityProfile)))
 
 				// now, modify HCO's TLSSecurityProfile
 				hco.Spec.TLSSecurityProfile = modernTLSSecurityProfile
@@ -1342,7 +1342,7 @@ var _ = Describe("CDI Operand", func() {
 						foundResource),
 				).ToNot(HaveOccurred())
 
-				Expect(foundResource.Spec.Config.TLSSecurityProfile).To(Equal(modernTLSSecurityProfile))
+				Expect(foundResource.Spec.Config.TLSSecurityProfile).To(Equal(openshift2CdiSecProfile(modernTLSSecurityProfile)))
 
 				Expect(req.Conditions).To(BeEmpty())
 			})
@@ -1356,7 +1356,7 @@ var _ = Describe("CDI Operand", func() {
 				req.HCOTriggered = false
 
 				// now, modify CDI node placement
-				existingResource.Spec.Config.TLSSecurityProfile = modernTLSSecurityProfile
+				existingResource.Spec.Config.TLSSecurityProfile = openshift2CdiSecProfile(modernTLSSecurityProfile)
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
@@ -1373,7 +1373,7 @@ var _ = Describe("CDI Operand", func() {
 						foundResource),
 				).ToNot(HaveOccurred())
 
-				Expect(foundResource.Spec.Config.TLSSecurityProfile).To(Equal(hco.Spec.TLSSecurityProfile))
+				Expect(foundResource.Spec.Config.TLSSecurityProfile).To(Equal(openshift2CdiSecProfile(hco.Spec.TLSSecurityProfile)))
 				Expect(foundResource.Spec.Config.TLSSecurityProfile).ToNot(Equal(existingResource.Spec.Config.TLSSecurityProfile))
 
 				Expect(req.Conditions).To(BeEmpty())
