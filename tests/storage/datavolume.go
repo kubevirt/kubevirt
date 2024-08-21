@@ -1066,9 +1066,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				if cloneMutateFunc != nil {
 					cloneMutateFunc()
 				}
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("insufficient permissions in clone source namespace"))
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisVM(vm), 1*time.Minute, 2*time.Second).Should(HaveConditionTrueWithMessage(v1.VirtualMachineFailure, "insufficient permissions in clone source namespace"))
 
 				saName := testsuite.AdminServiceAccountName
 				saNamespace := testsuite.GetTestNamespace(nil)
@@ -1083,18 +1083,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// add permission
 				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, testsuite.NamespaceTestAlternative)
 				if fail {
-					Consistently(func() error {
-						_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-						return err
-					}, 5*time.Second, 1*time.Second).Should(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("insufficient permissions in clone source namespace"))
-
+					Consistently(ThisVM(vm), 10*time.Second, 1*time.Second).Should(HaveConditionTrueWithMessage(v1.VirtualMachineFailure, "insufficient permissions in clone source namespace"))
 					return
 				}
-				createVMSuccess()
 
-				// stop vm
-				vm = libvmops.StopVirtualMachine(vm)
+				libvmops.StartVirtualMachine(vm)
 			},
 				Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false, nil, false),
 				Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false, nil, false),
