@@ -20,7 +20,6 @@
 package vm_test
 
 import (
-	"context"
 	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +27,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/testing"
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	kvtesting "kubevirt.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -41,26 +44,23 @@ var _ = Describe("Remove volume command", func() {
 		volumeName = "testvolume"
 	)
 
-	var vmInterface *kubecli.MockVirtualMachineInterface
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var ctrl *gomock.Controller
+	var virtClient *kubevirtfake.Clientset
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
+		ctrl := gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient = kubevirtfake.NewSimpleClientset()
 	})
 
 	expectVMIEndpointRemoveVolumeError := func() {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
 			VirtualMachineInstance(metav1.NamespaceDefault).
-			Return(vmiInterface).
+			Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).
 			Times(1)
-		vmiInterface.EXPECT().RemoveVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(_ context.Context, _, arg1 interface{}) interface{} {
-			return errors.New("error removing")
+		virtClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(_ testing.Action) (handled bool, ret runtime.Object, err error) {
+			return true, nil, errors.New("error removing")
 		})
 	}
 
@@ -68,10 +68,10 @@ var _ = Describe("Remove volume command", func() {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
 			VirtualMachine(metav1.NamespaceDefault).
-			Return(vmInterface).
+			Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).
 			Times(1)
-		vmInterface.EXPECT().RemoveVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(_ context.Context, _, arg1 interface{}) interface{} {
-			return errors.New("error removing")
+		virtClient.PrependReactor("put", "virtualmachines/removevolume", func(_ testing.Action) (handled bool, ret runtime.Object, err error) {
+			return true, nil, errors.New("error removing")
 		})
 	}
 
@@ -80,18 +80,23 @@ var _ = Describe("Remove volume command", func() {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
 				VirtualMachineInstance(metav1.NamespaceDefault).
-				Return(vmiInterface).
+				Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).
 				Times(1)
-			vmiInterface.EXPECT().RemoveVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(_ context.Context, _, arg1 interface{}) interface{} {
-				volumeOptions, ok := arg1.(*v1.RemoveVolumeOptions)
-				Expect(ok).To(BeTrue())
-				Expect(volumeOptions.Name).To(Equal(volumeName))
-				if dryRun {
-					Expect(volumeOptions.DryRun).To(Equal([]string{metav1.DryRunAll}))
-				} else {
-					Expect(volumeOptions.DryRun).To(BeEmpty())
+			virtClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				switch action := action.(type) {
+				case kvtesting.PutAction[*v1.RemoveVolumeOptions]:
+					volumeOptions := action.GetOptions()
+					Expect(volumeOptions.Name).To(Equal(volumeName))
+					if dryRun {
+						Expect(volumeOptions.DryRun).To(Equal([]string{metav1.DryRunAll}))
+					} else {
+						Expect(volumeOptions.DryRun).To(BeEmpty())
+					}
+					return true, nil, nil
+				default:
+					Fail("unexpected action type on removevolume")
+					return false, nil, nil
 				}
-				return nil
 			})
 		}
 	}
@@ -101,18 +106,23 @@ var _ = Describe("Remove volume command", func() {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
 				VirtualMachine(metav1.NamespaceDefault).
-				Return(vmInterface).
+				Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).
 				Times(1)
-			vmInterface.EXPECT().RemoveVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(_ context.Context, _, arg1 interface{}) interface{} {
-				volumeOptions, ok := arg1.(*v1.RemoveVolumeOptions)
-				Expect(ok).To(BeTrue())
-				Expect(volumeOptions.Name).To(Equal(volumeName))
-				if dryRun {
-					Expect(volumeOptions.DryRun).To(Equal([]string{metav1.DryRunAll}))
-				} else {
-					Expect(volumeOptions.DryRun).To(BeEmpty())
+			virtClient.PrependReactor("put", "virtualmachines/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				switch action := action.(type) {
+				case kvtesting.PutAction[*v1.RemoveVolumeOptions]:
+					volumeOptions := action.GetOptions()
+					Expect(volumeOptions.Name).To(Equal(volumeName))
+					if dryRun {
+						Expect(volumeOptions.DryRun).To(Equal([]string{metav1.DryRunAll}))
+					} else {
+						Expect(volumeOptions.DryRun).To(BeEmpty())
+					}
+					return true, nil, nil
+				default:
+					Fail("unexpected action type on removevolume")
+					return false, nil, nil
 				}
-				return nil
 			})
 		}
 	}
@@ -127,27 +137,29 @@ var _ = Describe("Remove volume command", func() {
 		Entry("with name and volume-name but invalid extra parameter", "unknown flag", vmiName, "--volume-name=blah", "--invalid=test"),
 	)
 
-	DescribeTable("should report error if call returns error according to option", func(expectFn func(), extraArgs ...string) {
+	DescribeTable("should report error if call returns error according to option", func(expectFn func(), resourceName string, extraArgs ...string) {
 		expectFn()
 		args := append([]string{"removevolume", vmiName, "--volume-name=" + volumeName}, extraArgs...)
 		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
 		Expect(cmd()).To(MatchError(ContainSubstring("error removing")))
+		Expect(kvtesting.FilterActions(&virtClient.Fake, "put", resourceName, "removevolume")).To(HaveLen(1))
 	},
-		Entry("no args", expectVMIEndpointRemoveVolumeError),
-		Entry("with persist", expectVMEndpointRemoveVolumeError, "--persist"),
-		Entry("with dry-run", expectVMIEndpointRemoveVolumeError, "--dry-run"),
-		Entry("with persist and dry-run", expectVMEndpointRemoveVolumeError, "--persist", "--dry-run"),
+		Entry("no args", expectVMIEndpointRemoveVolumeError, "virtualmachineinstances"),
+		Entry("with persist", expectVMEndpointRemoveVolumeError, "virtualmachines", "--persist"),
+		Entry("with dry-run", expectVMIEndpointRemoveVolumeError, "virtualmachineinstances", "--dry-run"),
+		Entry("with persist and dry-run", expectVMEndpointRemoveVolumeError, "virtualmachines", "--persist", "--dry-run"),
 	)
 
-	DescribeTable("should call correct endpoint", func(expectFn func(), extraArgs ...string) {
+	DescribeTable("should call correct endpoint", func(expectFn func(), resourceName string, extraArgs ...string) {
 		expectFn()
 		args := append([]string{"removevolume", vmiName, "--volume-name=" + volumeName}, extraArgs...)
 		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
 		Expect(cmd()).To(Succeed())
+		Expect(kvtesting.FilterActions(&virtClient.Fake, "put", resourceName, "removevolume")).To(HaveLen(1))
 	},
-		Entry("no args should call VMI endpoint", expectVMIEndpointRemoveVolume(false)),
-		Entry("with persist should call VM endpoint", expectVMEndpointRemoveVolume(false), "--persist"),
-		Entry("no persist with dry-run should call VMI endpoint", expectVMIEndpointRemoveVolume(true), "--dry-run"),
-		Entry("with persist with dry-run should call VM endpoint", expectVMEndpointRemoveVolume(true), "--persist", "--dry-run"),
+		Entry("no args should call VMI endpoint", expectVMIEndpointRemoveVolume(false), "virtualmachineinstances"),
+		Entry("with persist should call VM endpoint", expectVMEndpointRemoveVolume(false), "virtualmachines", "--persist"),
+		Entry("no persist with dry-run should call VMI endpoint", expectVMIEndpointRemoveVolume(true), "virtualmachineinstances", "--dry-run"),
+		Entry("with persist with dry-run should call VM endpoint", expectVMEndpointRemoveVolume(true), "virtualmachines", "--persist", "--dry-run"),
 	)
 })

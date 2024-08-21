@@ -28,10 +28,14 @@ import (
 	"github.com/golang/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
+	kvtesting "kubevirt.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -46,21 +50,17 @@ var _ = Describe("Add volume command", func() {
 		volumeName = "testvolume"
 	)
 
-	var vmInterface *kubecli.MockVirtualMachineInterface
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var ctrl *gomock.Controller
-
 	var cdiClient *cdifake.Clientset
-	var coreClient *fake.Clientset
+	var coreClient *k8sfake.Clientset
+	var virtClient *kubevirtfake.Clientset
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
+		ctrl := gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		cdiClient = cdifake.NewSimpleClientset()
-		coreClient = fake.NewSimpleClientset()
+		coreClient = k8sfake.NewSimpleClientset()
+		virtClient = kubevirtfake.NewSimpleClientset()
 	})
 
 	DescribeTable("should fail with missing required or invalid parameters", func(expected string, extraArgs ...string) {
@@ -108,18 +108,23 @@ var _ = Describe("Add volume command", func() {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
 				VirtualMachineInstance(metav1.NamespaceDefault).
-				Return(vmiInterface).
+				Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).
 				Times(1)
-			vmiInterface.EXPECT().AddVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(ctx context.Context, _, arg1 interface{}) interface{} {
-				volumeOptions, ok := arg1.(*v1.AddVolumeOptions)
-				Expect(ok).To(BeTrue())
-				Expect(volumeOptions).ToNot(BeNil())
-				Expect(volumeOptions.Name).To(Equal(volumeName))
-				Expect(volumeOptions.VolumeSource).ToNot(BeNil())
-				for _, verifyFn := range verifyFns {
-					verifyFn(volumeOptions)
+			virtClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				switch action := action.(type) {
+				case kvtesting.PutAction[*v1.AddVolumeOptions]:
+					volumeOptions := action.GetOptions()
+					Expect(volumeOptions).ToNot(BeNil())
+					Expect(volumeOptions.Name).To(Equal(volumeName))
+					Expect(volumeOptions.VolumeSource).ToNot(BeNil())
+					for _, verifyFn := range verifyFns {
+						verifyFn(volumeOptions)
+					}
+					return true, nil, nil
+				default:
+					Fail("unexpected action type on addvolume")
+					return false, nil, nil
 				}
-				return nil
 			})
 		}
 
@@ -127,19 +132,23 @@ var _ = Describe("Add volume command", func() {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
 				VirtualMachine(metav1.NamespaceDefault).
-				Return(vmInterface).
+				Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).
 				Times(1)
-			vmInterface.EXPECT().AddVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(ctx context.Context, _, arg1 interface{}) interface{} {
-				volumeOptions, ok := arg1.(*v1.AddVolumeOptions)
-				Expect(ok).To(BeTrue())
-				Expect(volumeOptions).ToNot(BeNil())
-				Expect(volumeOptions.Name).To(Equal(volumeName))
-				Expect(volumeOptions.Disk).ToNot(BeNil())
-				Expect(volumeOptions.VolumeSource).ToNot(BeNil())
-				for _, verifyFn := range verifyFns {
-					verifyFn(volumeOptions)
+			virtClient.PrependReactor("put", "virtualmachines/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				switch action := action.(type) {
+				case kvtesting.PutAction[*v1.AddVolumeOptions]:
+					volumeOptions := action.GetOptions()
+					Expect(volumeOptions).ToNot(BeNil())
+					Expect(volumeOptions.Name).To(Equal(volumeName))
+					Expect(volumeOptions.VolumeSource).ToNot(BeNil())
+					for _, verifyFn := range verifyFns {
+						verifyFn(volumeOptions)
+					}
+					return true, nil, nil
+				default:
+					Fail("unexpected action type on addvolume")
+					return false, nil, nil
 				}
-				return nil
 			})
 		}
 
@@ -173,6 +182,7 @@ var _ = Describe("Add volume command", func() {
 				verifyFns = append(verifyFns, verifyDVVolumeSource)
 				expectVMIEndpointAddVolume(verifyFns)
 				runCmd(false, arg)
+				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachineinstances", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
 				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
@@ -188,6 +198,7 @@ var _ = Describe("Add volume command", func() {
 				verifyFns = append(verifyFns, verifyDVVolumeSource)
 				expectVMEndpointAddVolume(verifyFns)
 				runCmd(true, arg)
+				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
 				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
@@ -219,6 +230,7 @@ var _ = Describe("Add volume command", func() {
 				verifyFns = append(verifyFns, verifyPVCVolumeSource)
 				expectVMIEndpointAddVolume(verifyFns)
 				runCmd(false, arg)
+				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachineinstances", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
 				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
@@ -234,6 +246,7 @@ var _ = Describe("Add volume command", func() {
 				verifyFns = append(verifyFns, verifyPVCVolumeSource)
 				expectVMEndpointAddVolume(verifyFns)
 				runCmd(true, arg)
+				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
 				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
