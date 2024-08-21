@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -56,10 +57,6 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 	var vmUID types.UID = "vm-uid"
 	apiGroup := "kubevirt.io"
 
-	t := true
-	f := false
-	runStrategyManual := v1.RunStrategyManual
-
 	snapshot := &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmSnapshotName,
@@ -67,7 +64,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 		},
 		Status: &snapshotv1.VirtualMachineSnapshotStatus{
 			SourceUID:  &vmUID,
-			ReadyToUse: &t,
+			ReadyToUse: pointer.P(true),
 		},
 	}
 
@@ -280,7 +277,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
@@ -305,7 +302,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = &runStrategyManual
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
@@ -331,7 +328,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.Running = &f
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm).Admit(context.Background(), ar)
@@ -356,7 +353,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.Running = &f
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
 				s := snapshot.DeepCopy()
 				s.Status.Phase = snapshotv1.Failed
 
@@ -383,9 +380,9 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.Running = &f
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
 				s := snapshot.DeepCopy()
-				s.Status.ReadyToUse = &f
+				s.Status.ReadyToUse = pointer.P(false)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(context.Background(), ar)
@@ -410,7 +407,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
@@ -436,7 +433,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.Running = &t
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
@@ -461,8 +458,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				f := false
-				vm.Spec.Running = &f
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
 
 				restoreInProcess := &snapshotv1.VirtualMachineRestore{
 					ObjectMeta: metav1.ObjectMeta{
@@ -498,8 +494,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				f := false
-				vm.Spec.Running = &f
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
