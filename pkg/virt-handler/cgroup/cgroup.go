@@ -35,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	virtutil "kubevirt.io/kubevirt/pkg/util"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -96,14 +97,14 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 	const isRootless = false
 	var version CgroupVersion
 
-	procCgroupBasePath := filepath.Join(procMountPoint, strconv.Itoa(pid), cgroupStr)
+	procCgroupBasePath := filepath.Join(cgroupconsts.ProcMountPoint, strconv.Itoa(pid), cgroupconsts.CgroupStr)
 	controllerPaths, err := runc_cgroups.ParseCgroupFile(procCgroupBasePath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
 	}
 
 	config := &configs.Cgroup{
-		Path: HostCgroupBasePath,
+		Path: cgroupconsts.HostCgroupBasePath,
 		Resources: &configs.Resources{
 			Devices: deviceRules,
 		},
@@ -112,7 +113,7 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 
 	if runc_cgroups.IsCgroup2UnifiedMode() {
 		version = V2
-		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
+		slicePath := filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
 		slicePath = managerPath(slicePath)
 		manager, err = newV2Manager(config, slicePath)
 	} else {
@@ -154,9 +155,9 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance) (Manager, error) {
 // GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
 func GetGlobalCpuSetPath() string {
 	if runc_cgroups.IsCgroup2UnifiedMode() {
-		return filepath.Join(cgroupBasePath, "cpuset.cpus.effective")
+		return filepath.Join(cgroupconsts.CgroupBasePath, "cpuset.cpus.effective")
 	}
-	return filepath.Join(cgroupBasePath, "cpuset", "cpuset.cpus")
+	return filepath.Join(cgroupconsts.CgroupBasePath, "cpuset", "cpuset.cpus")
 }
 
 func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
