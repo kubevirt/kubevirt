@@ -3457,16 +3457,16 @@ func setGuestMemory(spec *virtv1.VirtualMachineInstanceSpec) {
 		return
 	}
 
+	if spec.Domain.Memory == nil {
+		spec.Domain.Memory = &virtv1.Memory{}
+	}
+
 	switch {
 	case !spec.Domain.Resources.Requests.Memory().IsZero():
-		spec.Domain.Memory = &virtv1.Memory{
-			Guest: spec.Domain.Resources.Requests.Memory(),
-		}
+		spec.Domain.Memory.Guest = spec.Domain.Resources.Requests.Memory()
 	case !spec.Domain.Resources.Limits.Memory().IsZero():
-		spec.Domain.Memory = &virtv1.Memory{
-			Guest: spec.Domain.Resources.Limits.Memory(),
-		}
-	case spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil:
+		spec.Domain.Memory.Guest = spec.Domain.Resources.Limits.Memory()
+	case spec.Domain.Memory.Hugepages != nil:
 		if hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize); err == nil {
 			spec.Domain.Memory.Guest = &hugepagesSize
 		}
