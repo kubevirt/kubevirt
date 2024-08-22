@@ -426,27 +426,6 @@ func CancelMigration(migration *v1.VirtualMachineInstanceMigration, vminame stri
 	}
 }
 
-func RunAndImmediatelyCancelMigration(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, with_virtctl bool, timeout int) *v1.VirtualMachineInstanceMigration {
-	var err error
-	virtClient := kubevirt.Client()
-	By("Starting a Migration")
-	Eventually(func() error {
-		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
-		return err
-	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-
-	By("Waiting until the Migration is Running")
-	Eventually(func() bool {
-		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return migration.Status.Phase == v1.MigrationRunning
-	}, timeout, 1*time.Second).Should(BeTrue())
-
-	CancelMigration(migration, vmi.Name, with_virtctl)
-
-	return migration
-}
-
 func RunMigrationAndExpectFailure(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
 	var err error
 	virtClient := kubevirt.Client()
