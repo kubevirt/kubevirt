@@ -486,13 +486,14 @@ type Reconciler struct {
 
 	targetStrategy   install.StrategyInterface
 	stores           util.Stores
+	config           util.OperatorConfig
 	clientset        kubecli.KubevirtClient
 	aggregatorclient install.APIServiceInterface
 	expectations     *util.Expectations
 	recorder         record.EventRecorder
 }
 
-func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, stores util.Stores, clientset kubecli.KubevirtClient, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder) (*Reconciler, error) {
+func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, stores util.Stores, config util.OperatorConfig, clientset kubecli.KubevirtClient, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder) (*Reconciler, error) {
 	kvKey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return nil, err
@@ -513,6 +514,7 @@ func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, st
 		kvKey:            kvKey,
 		targetStrategy:   targetStrategy,
 		stores:           stores,
+		config:           config,
 		clientset:        clientset,
 		aggregatorclient: aggregatorclient,
 		expectations:     expectations,

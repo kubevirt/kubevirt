@@ -332,7 +332,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 }
 
 func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBindings() error {
-	if !r.stores.ValidatingAdmissionPolicyBindingEnabled {
+	if !r.config.ValidatingAdmissionPolicyBindingEnabled {
 		return nil
 	}
 
@@ -396,7 +396,7 @@ func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBinding(validatingAd
 }
 
 func (r *Reconciler) createOrUpdateValidatingAdmissionPolicies() error {
-	if !r.stores.ValidatingAdmissionPolicyEnabled {
+	if !r.config.ValidatingAdmissionPolicyEnabled {
 		return nil
 	}
 

@@ -27,39 +27,43 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
-type Stores struct {
-	ServiceAccountCache                     cache.Store
-	ClusterRoleCache                        cache.Store
-	ClusterRoleBindingCache                 cache.Store
-	RoleCache                               cache.Store
-	RoleBindingCache                        cache.Store
-	OperatorCrdCache                        cache.Store
-	ServiceCache                            cache.Store
-	DeploymentCache                         cache.Store
-	DaemonSetCache                          cache.Store
-	ValidationWebhookCache                  cache.Store
-	MutatingWebhookCache                    cache.Store
-	APIServiceCache                         cache.Store
-	SCCCache                                cache.Store
-	RouteCache                              cache.Store
-	InstallStrategyConfigMapCache           cache.Store
-	InstallStrategyJobCache                 cache.Store
-	InfrastructurePodCache                  cache.Store
-	PodDisruptionBudgetCache                cache.Store
-	ServiceMonitorCache                     cache.Store
-	NamespaceCache                          cache.Store
-	PrometheusRuleCache                     cache.Store
-	SecretCache                             cache.Store
-	ConfigMapCache                          cache.Store
-	ValidatingAdmissionPolicyBindingCache   cache.Store
-	ValidatingAdmissionPolicyCache          cache.Store
-	ClusterInstancetype                     cache.Store
-	ClusterPreference                       cache.Store
+type OperatorConfig struct {
 	IsOnOpenshift                           bool
 	ServiceMonitorEnabled                   bool
 	PrometheusRulesEnabled                  bool
 	ValidatingAdmissionPolicyBindingEnabled bool
 	ValidatingAdmissionPolicyEnabled        bool
+}
+
+type Stores struct {
+	KubeVirtCache                         cache.Store
+	ServiceAccountCache                   cache.Store
+	ClusterRoleCache                      cache.Store
+	ClusterRoleBindingCache               cache.Store
+	RoleCache                             cache.Store
+	RoleBindingCache                      cache.Store
+	OperatorCrdCache                      cache.Store
+	ServiceCache                          cache.Store
+	DeploymentCache                       cache.Store
+	DaemonSetCache                        cache.Store
+	ValidationWebhookCache                cache.Store
+	MutatingWebhookCache                  cache.Store
+	APIServiceCache                       cache.Store
+	SCCCache                              cache.Store
+	RouteCache                            cache.Store
+	InstallStrategyConfigMapCache         cache.Store
+	InstallStrategyJobCache               cache.Store
+	InfrastructurePodCache                cache.Store
+	PodDisruptionBudgetCache              cache.Store
+	ServiceMonitorCache                   cache.Store
+	NamespaceCache                        cache.Store
+	PrometheusRuleCache                   cache.Store
+	SecretCache                           cache.Store
+	ConfigMapCache                        cache.Store
+	ValidatingAdmissionPolicyBindingCache cache.Store
+	ValidatingAdmissionPolicyCache        cache.Store
+	ClusterInstancetype                   cache.Store
+	ClusterPreference                     cache.Store
 }
 
 func (s *Stores) AllEmpty() bool {

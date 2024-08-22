@@ -17,7 +17,7 @@ import (
 )
 
 func (r *Reconciler) createOrUpdateServiceMonitors() error {
-	if !r.stores.ServiceMonitorEnabled {
+	if !r.config.ServiceMonitorEnabled {
 		return nil
 	}
 
@@ -92,7 +92,7 @@ func ensureServiceMonitorSpec(required, existing *promv1.ServiceMonitor) (bool, 
 }
 
 func (r *Reconciler) createOrUpdatePrometheusRules() error {
-	if !r.stores.PrometheusRulesEnabled {
+	if !r.config.PrometheusRulesEnabled {
 		return nil
 	}
 
