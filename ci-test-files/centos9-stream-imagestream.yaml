@@ -1,7 +1,7 @@
 apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
-  name: centos8
+  name: centos-stream9
   namespace: kubevirt-os-images
 spec:
   lookupPolicy:
@@ -10,7 +10,7 @@ spec:
   - annotations: null
     from:
       kind: DockerImage
-      name: quay.io/kubevirt/centos8-container-disk-images
+      name: quay.io/containerdisks/centos-stream:9
     importPolicy:
       scheduled: true
       importMode: Legacy

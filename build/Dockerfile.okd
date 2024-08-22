@@ -7,6 +7,6 @@ COPY hack/testFiles/test_quickstart.yaml quickStart/
 COPY hack/testFiles/test_dashboard_cm.yaml dashboard/
 COPY assets/ .
 COPY ci-test-files/dataImportCronTemplatesWithImageStream.yaml dataImportCronTemplates/
-COPY ci-test-files/centos8-imagestream.yaml imageStreams/
+COPY ci-test-files/centos9-stream-imagestream.yaml imageStreams/
 
 ENTRYPOINT /usr/bin/hyperconverged-cluster-operator
