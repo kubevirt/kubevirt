@@ -42,19 +42,23 @@ var _ = Describe("Backend Storage", func() {
 	var backendStorage *BackendStorage
 	var config *virtconfig.ClusterConfig
 	var kvStore cache.Store
-	var storageClassInformer cache.SharedIndexInformer
-	var storageProfileInformer cache.SharedIndexInformer
+	var storageClassStore cache.Store
+	var storageProfileStore cache.Store
+	var pvcStore cache.Store
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		kubevirtFakeConfig := &virtv1.KubeVirtConfiguration{}
 		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
-		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
-		storageProfileInformer, _ = testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
+		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
+		storageClassStore = storageClassInformer.GetStore()
+		storageProfileStore = storageProfileInformer.GetStore()
 		pvcInformer, _ := testutils.NewFakeInformerFor(&v1.PersistentVolumeClaim{})
+		pvcStore = pvcInformer.GetStore()
 
-		backendStorage = NewBackendStorage(virtClient, config, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer())
+		backendStorage = NewBackendStorage(virtClient, config, storageClassStore, storageProfileStore, pvcStore)
 	})
 
 	Context("Storage class", func() {
@@ -85,7 +89,7 @@ var _ = Describe("Backend Storage", func() {
 				if i == 3 {
 					sc.Annotations = map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}
 				}
-				err := storageClassInformer.GetStore().Add(&sc)
+				err := storageClassStore.Add(&sc)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
@@ -112,7 +116,7 @@ var _ = Describe("Backend Storage", func() {
 					ClaimPropertySets: []cdiv1.ClaimPropertySet{},
 				},
 			}
-			err := storageProfileInformer.GetStore().Add(sp)
+			err := storageProfileStore.Add(sp)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Creating a storage profile with RWO FS as its only mode")
@@ -122,7 +126,7 @@ var _ = Describe("Backend Storage", func() {
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
 				VolumeMode:  pointer.P(v1.PersistentVolumeFilesystem),
 			}}
-			err = storageProfileInformer.GetStore().Add(sp)
+			err = storageProfileStore.Add(sp)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Creating a storage profile that supports FS in both RWO and RWX")
@@ -132,7 +136,7 @@ var _ = Describe("Backend Storage", func() {
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany, v1.ReadWriteOnce},
 				VolumeMode:  pointer.P(v1.PersistentVolumeFilesystem),
 			}}
-			err = storageProfileInformer.GetStore().Add(sp)
+			err = storageProfileStore.Add(sp)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -153,7 +157,7 @@ var _ = Describe("Backend Storage", func() {
 
 		It("Should pick RWO when RWX isn't possible", func() {
 			accessMode := backendStorage.getAccessMode("onlyrwo", v1.PersistentVolumeFilesystem)
-			Expect(accessMode).To(Equal(v1.ReadWriteOnce), fmt.Sprintf("%#v", storageProfileInformer.GetStore().ListKeys()))
+			Expect(accessMode).To(Equal(v1.ReadWriteOnce), fmt.Sprintf("%#v", storageProfileStore.ListKeys()))
 		})
 	})
 })
