@@ -184,7 +184,7 @@ func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeSt
 		dvRunningCond := NewDataVolumeConditionManager().GetCondition(dv, cdiv1.DataVolumeRunning)
 		if dvRunningCond != nil &&
 			dvRunningCond.Status == v1.ConditionFalse &&
-			dvRunningCond.Reason == "Error" {
+			(dvRunningCond.Reason == "Error" || dvRunningCond.Reason == "ImagePullFailed") {
 			return fmt.Errorf("DataVolume %s importer has stopped running due to an error: %v",
 				volume.DataVolume.Name, dvRunningCond.Message)
 		}
