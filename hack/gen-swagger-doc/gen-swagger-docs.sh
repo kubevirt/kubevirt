@@ -23,23 +23,21 @@ if [ "$OUTPUT_FORMAT" = "html" ]; then
     LINK1_TEMPLATE="\* \<\<\${VERSION}.\$m\>\>"
     LINK_DEFINITIONS="* link:./definitions.html[Types Definition]"
     LINK_OPERATIONS="* link:./operations.html[Operations]"
-    GRADLE_EXTRA_PARAMS=""
 elif [ "$OUTPUT_FORMAT" = "markdown" ]; then
     SUFFIX="md"
     HEADER="#"
     LINK1_TEMPLATE="\* [\${VERSION}.\$m]\(definitions.md#\${VERSION}-\${m,,}\)"
     LINK_DEFINITIONS="* [Types Definition](definitions.md)"
     LINK_OPERATIONS="* [Operations](operations.md)"
-    GRADLE_EXTRA_PARAMS="-PmarkupLanguage=MARKDOWN"
 else
     echo "Unknown OUTPUT_FORMAT=${OUTPUT_FORMAT}"
     exit 1
 fi
 WORKDIR="hack/gen-swagger-doc"
-GRADLE_BUILD_FILE="$WORKDIR/build.gradle"
+SWAGGER_JSON="api/openapi-spec/swagger.json"
 
 # Generate *.adoc files from swagger.json
-gradle -b $GRADLE_BUILD_FILE $GRADLE_EXTRA_PARAMS convertSwagger2markup --info
+java -jar /opt/swagger2markup-cli/swagger2markup-cli-1.3.3.jar convert -i $SWAGGER_JSON -d $WORKDIR/
 
 #insert a TOC for top level API objects
 buf="${HEADER}${HEADER} Top Level API Objects\n\n"
