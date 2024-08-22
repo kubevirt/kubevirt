@@ -1308,11 +1308,6 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 		return vm, err
 	}
 
-	err = vmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
-	if err != nil {
-		return vm, err
-	}
-
 	err = c.applyInstancetypeToVmi(vm, vmi, preferenceSpec)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
