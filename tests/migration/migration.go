@@ -64,7 +64,6 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -725,8 +724,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(isPaused).To(BeTrue(), "The VMI should be paused after migration, but it is not.")
 
 				By("verify that VMI can be unpaused after migration")
-				command := clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
-				Expect(command()).To(Succeed(), "should successfully unpause tthe vmi")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
+				Expect(err).ToNot(HaveOccurred(), "should successfully unpause the vmi")
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 				By("verifying that the vmi is running")
