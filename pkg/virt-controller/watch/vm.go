@@ -1860,8 +1860,6 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
-	util.SetDefaultVolumeDisk(&vmi.Spec)
-
 	autoAttachInputDevice(vmi)
 
 	return vmi
