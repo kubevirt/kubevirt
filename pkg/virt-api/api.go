@@ -902,16 +902,16 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVMExports(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMInstancetypeValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmInstancetypes(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmInstancetypes(w, r)
 	})
 	http.HandleFunc(components.VMClusterInstancetypeValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmClusterInstancetypes(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmClusterInstancetypes(w, r)
 	})
 	http.HandleFunc(components.VMPreferenceValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmPreferences(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmPreferences(w, r)
 	})
 	http.HandleFunc(components.VMClusterPreferenceValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmClusterPreferences(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmClusterPreferences(w, r)
 	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers)
@@ -920,7 +920,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.MigrationPolicyCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationPolicies(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeMigrationPolicies(w, r)
 	})
 	http.HandleFunc(components.VMCloneCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig, app.virtCli)
