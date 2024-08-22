@@ -72,7 +72,7 @@ for namespace in ${namespaces[@]}; do
     fi
 done
 
-if [ "${CMD}" == "oc" ]; then
+if [ "${IS_OPENSHIFT}" == "true" ]; then
     # Switch project to kubevirt-hyperconverged
     oc project "${HCO_NAMESPACE}"
 else
