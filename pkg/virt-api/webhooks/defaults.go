@@ -62,6 +62,7 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
     setVMIFinalizer(vmi)
     setInitialVmiStatus(vmi)
     setRootOrNonRoot(clusterConfig, vmi)
+	autoAttachInputDevice(vmi)
 	return nil
 }
 
@@ -86,6 +87,23 @@ func setNodeSelectors(vmi *v1.VirtualMachineInstance) {
         addNodeSelector(vmi, v1.SEVESLabel)
     }
 }
+
+func autoAttachInputDevice(vmi *v1.VirtualMachineInstance) {
+	autoAttachInput := vmi.Spec.Domain.Devices.AutoattachInputDevice
+	// Default to False if nil and return, otherwise return if input devices are already present
+	if autoAttachInput == nil || !*autoAttachInput || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
+		return
+	}
+	// Only add the device with an alias here. Preferences for the bus and type might
+	// be applied later and if not the VMI mutation webhook will apply defaults for both.
+	vmi.Spec.Domain.Devices.Inputs = append(
+		vmi.Spec.Domain.Devices.Inputs,
+		v1.Input{
+			Name: "default-0",
+		},
+	)
+}
+
 
 func setAnnotations(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance){
 

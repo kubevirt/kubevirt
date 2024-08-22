@@ -1855,8 +1855,6 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
-	autoAttachInputDevice(vmi)
-
 	return vmi
 }
 
@@ -3227,22 +3225,6 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *met
 		return nil
 	}
 	return vm.(*virtv1.VirtualMachine)
-}
-
-func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
-	autoAttachInput := vmi.Spec.Domain.Devices.AutoattachInputDevice
-	// Default to False if nil and return, otherwise return if input devices are already present
-	if autoAttachInput == nil || !*autoAttachInput || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
-		return
-	}
-	// Only add the device with an alias here. Preferences for the bus and type might
-	// be applied later and if not the VMI mutation webhook will apply defaults for both.
-	vmi.Spec.Domain.Devices.Inputs = append(
-		vmi.Spec.Domain.Devices.Inputs,
-		virtv1.Input{
-			Name: "default-0",
-		},
-	)
 }
 
 func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
