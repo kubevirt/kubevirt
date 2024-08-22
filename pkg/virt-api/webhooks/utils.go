@@ -80,7 +80,7 @@ type Informers struct {
 	NamespaceInformer  cache.SharedIndexInformer
 }
 
-func IsComponentServiceAccount(serviceAccount, namespace, component string) bool {
+func isComponentServiceAccount(serviceAccount, namespace, component string) bool {
 	return serviceAccount == fmt.Sprintf("system:serviceaccount:%s:%s", namespace, component)
 }
 
@@ -95,12 +95,16 @@ func GetNamespace() string {
 	return ns
 }
 
+// IsKubeVirtServiceAccount returns true in case `serviceAccount` belongs to one of
+// KubeVirt's main components
+//
+// Deprecated: because it directly reads the namespace from the file-system
 func IsKubeVirtServiceAccount(serviceAccount string) bool {
 	ns := GetNamespace()
 
-	return IsComponentServiceAccount(serviceAccount, ns, components.ApiServiceAccountName) ||
-		IsComponentServiceAccount(serviceAccount, ns, components.HandlerServiceAccountName) ||
-		IsComponentServiceAccount(serviceAccount, ns, components.ControllerServiceAccountName)
+	return isComponentServiceAccount(serviceAccount, ns, components.ApiServiceAccountName) ||
+		isComponentServiceAccount(serviceAccount, ns, components.HandlerServiceAccountName) ||
+		isComponentServiceAccount(serviceAccount, ns, components.ControllerServiceAccountName)
 }
 
 func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {

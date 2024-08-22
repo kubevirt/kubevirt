@@ -22,25 +22,26 @@ package admitters
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 const nodeNameExtraInfo = "authentication.kubernetes.io/node-name"
 
 type VMIUpdateAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
+	ClusterConfig           *virtconfig.ClusterConfig
+	KubeVirtServiceAccounts map[string]struct{}
 }
 
 func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -53,7 +54,7 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if admitter.ClusterConfig.NodeRestrictionEnabled() && webhooks.IsComponentServiceAccount(ar.Request.UserInfo.Username, webhooks.GetNamespace(), components.HandlerServiceAccountName) {
+	if admitter.ClusterConfig.NodeRestrictionEnabled() && hasRequestOriginatedFromVirtHandler(ar.Request.UserInfo.Username, admitter.KubeVirtServiceAccounts) {
 		values, exist := ar.Request.UserInfo.Extra[nodeNameExtraInfo]
 		if exist && len(values) > 0 {
 			nodeName := values[0]
@@ -95,7 +96,7 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	// Reject VMI update if VMI spec changed
 	if !equality.Semantic.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		// Only allow the KubeVirt SA to modify the VMI spec, since that means it went through the sub resource.
-		if webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
+		if _, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]; isKubeVirtServiceAccount {
 			hotplugResponse := admitHotplug(oldVMI, newVMI, admitter.ClusterConfig)
 			if hotplugResponse != nil {
 				return hotplugResponse
@@ -450,4 +451,12 @@ func admitHotplugMemory(oldMemory, newMemory *v1.Memory) *admissionv1.AdmissionR
 	}
 
 	return nil
+}
+
+func hasRequestOriginatedFromVirtHandler(requestUsername string, kubeVirtServiceAccounts map[string]struct{}) bool {
+	if _, isKubeVirtServiceAccount := kubeVirtServiceAccounts[requestUsername]; isKubeVirtServiceAccount {
+		return strings.HasSuffix(requestUsername, components.HandlerServiceAccountName)
+	}
+
+	return false
 }

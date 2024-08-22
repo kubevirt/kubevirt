@@ -49,6 +49,8 @@ import (
 )
 
 var _ = Describe("Validating VMIUpdate Admitter", func() {
+	const kubeVirtNamespace = "kubevirt"
+
 	kv := &v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt",
@@ -64,7 +66,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		},
 	}
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
-	vmiUpdateAdmitter := &VMIUpdateAdmitter{config}
+	vmiUpdateAdmitter := &VMIUpdateAdmitter{ClusterConfig: config, KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)}
 
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
