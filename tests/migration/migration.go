@@ -2010,7 +2010,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				return vmi
 			}
 
-			DescribeTable("should be able to cancel a migration", decorators.SigStorage, func(createVMI vmiBuilder, with_virtctl bool) {
+			DescribeTable("should be able to cancel a migration", decorators.SigStorage, func(createVMI vmiBuilder) {
 				vmi := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -2023,7 +2023,32 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
-				migration = libmigration.RunAndCancelMigration(migration, vmi, with_virtctl, 180)
+				By("Starting a Migration")
+				const timeout = 180
+				Eventually(func() error {
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+					return err
+				}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+
+				By("Waiting until the Migration is Running")
+				Eventually(func() bool {
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
+					if migration.Status.Phase == v1.MigrationRunning {
+						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						if vmi.Status.MigrationState.Completed != true {
+							return true
+						}
+					}
+					return false
+
+				}, timeout, 1*time.Second).Should(BeTrue())
+
+				By("Cancelling a Migration")
+				Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})).To(Succeed())
 
 				// check VMI, confirm migration state
 				libmigration.ConfirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
@@ -2031,10 +2056,9 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Waiting for the migration object to disappear")
 				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
 			},
-				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
-				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
-				Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
-				Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
+				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
+				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk),
+			)
 
 			DescribeTable("Immediate migration cancellation after migration starts running", func(with_virtctl bool) {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
