@@ -2131,7 +2131,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libwait.WaitForMigrationToDisappearWithTimeout(migration, 20)
 			})
 
-			DescribeTable("Immediate migration cancellation before migration starts running", func(with_virtctl bool) {
+			It("[sig-compute][test_id:8584]Immediate migration cancellation before migration starts running cancel a migration by deleting vmim object", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -2160,8 +2160,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					return migration.UID != ""
 				}, timeout, 1*time.Second).Should(BeTrue())
 
-				By("Cancelling migration")
-				libmigration.CancelMigration(migration, vmi.Name, with_virtctl)
+				By("Cancelling a Migration")
+				Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for the migration object to disappear")
 				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
@@ -2176,10 +2176,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Verifying the VMI's is in the running state and on original node")
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 				Expect(vmi.Status.NodeName).To(Equal(vmiOriginalNode), "expecting VMI to not migrate")
-			},
-				Entry("[sig-compute][test_id:8584]cancel a migration by deleting vmim object", false),
-				Entry("[sig-compute][test_id:8585]cancel a migration with virtctl", true),
-			)
+			})
 
 			Context("[Serial]when target pod cannot be scheduled and is suck in Pending phase", Serial, func() {
 

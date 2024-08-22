@@ -20,7 +20,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -412,18 +411,6 @@ func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID
 	By("Verifying the VMI's is in the running state")
 	ExpectWithOffset(1, vmi).To(matcher.BeInPhase(v1.Running))
 	return vmi
-}
-
-func CancelMigration(migration *v1.VirtualMachineInstanceMigration, vminame string, with_virtctl bool) {
-	virtClient := kubevirt.Client()
-	if !with_virtctl {
-		By("Cancelling a Migration")
-		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
-	} else {
-		By("Cancelling a Migration with virtctl")
-		command := clientcmd.NewRepeatableVirtctlCommand("migrate-cancel", "--namespace", migration.Namespace, vminame)
-		Expect(command()).To(Succeed(), "should successfully migrate-cancel a migration")
-	}
 }
 
 func RunMigrationAndExpectFailure(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
