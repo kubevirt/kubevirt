@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package admitters_test
 
 import (
 	"context"
@@ -25,19 +25,22 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	admissionv1 "k8s.io/api/admission/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 )
 
 var _ = Describe("Validating MigrationUpdate Admitter", func() {
-	migrationUpdateAdmitter := &MigrationUpdateAdmitter{}
+	migrationUpdateAdmitter := &admitters.MigrationUpdateAdmitter{}
 
 	It("should reject Migration on update if spec changes", func() {
 		migration := v1.VirtualMachineInstanceMigration{
