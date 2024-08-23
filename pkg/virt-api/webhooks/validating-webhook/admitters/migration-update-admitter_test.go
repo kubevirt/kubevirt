@@ -40,8 +40,6 @@ import (
 )
 
 var _ = Describe("Validating MigrationUpdate Admitter", func() {
-	migrationUpdateAdmitter := &admitters.MigrationUpdateAdmitter{}
-
 	It("should reject Migration on update if spec changes", func() {
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -72,7 +70,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
+		admitter := &admitters.MigrationUpdateAdmitter{}
+		resp := admitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
@@ -103,7 +102,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
+		admitter := &admitters.MigrationUpdateAdmitter{}
+		resp := admitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
@@ -144,7 +144,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
+		admitter := &admitters.MigrationUpdateAdmitter{}
+		resp := admitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
@@ -185,7 +186,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
+		admitter := &admitters.MigrationUpdateAdmitter{}
+		resp := admitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
@@ -226,7 +228,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		resp := migrationUpdateAdmitter.Admit(context.Background(), ar)
+		admitter := &admitters.MigrationUpdateAdmitter{}
+		resp := admitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })
