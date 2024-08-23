@@ -41,7 +41,7 @@ import (
 
 var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	It("should reject Migration on update if spec changes", func() {
-		migration := v1.VirtualMachineInstanceMigration{
+		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigrationthatchanged",
 				Namespace: "default",
@@ -51,24 +51,12 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 				VMIName: "testmigratevmiupdate",
 			},
 		}
-		oldMigrationBytes, _ := json.Marshal(&migration)
 
 		newMigration := migration.DeepCopy()
 		newMigration.Spec.VMIName = "somethingelse"
-		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.MigrationGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: newMigrationBytes,
-				},
-				OldObject: runtime.RawExtension{
-					Raw: oldMigrationBytes,
-				},
-				Operation: admissionv1.Update,
-			},
-		}
+		ar, err := newAdmissionReviewForVMIMUpdate(migration, newMigration)
+		Expect(err).ToNot(HaveOccurred())
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
@@ -76,7 +64,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	})
 
 	It("should accept Migration on update if spec doesn't change", func() {
-		migration := v1.VirtualMachineInstanceMigration{
+		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigration",
 				Namespace: "default",
@@ -87,20 +75,10 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		migrationBytes, _ := json.Marshal(&migration)
+		newMigration := migration.DeepCopy()
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.MigrationGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: migrationBytes,
-				},
-				OldObject: runtime.RawExtension{
-					Raw: migrationBytes,
-				},
-				Operation: admissionv1.Update,
-			},
-		}
+		ar, err := newAdmissionReviewForVMIMUpdate(migration, newMigration)
+		Expect(err).ToNot(HaveOccurred())
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
@@ -110,7 +88,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	It("should reject Migration on update if labels include our selector and are removed", func() {
 		vmi := api.NewMinimalVMI("testmigratevmiupdate-labelsremoved")
 
-		migration := v1.VirtualMachineInstanceMigration{
+		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigration",
 				Namespace: "default",
@@ -125,24 +103,11 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		oldMigrationBytes, _ := json.Marshal(&migration)
-
 		newMigration := migration.DeepCopy()
 		newMigration.Labels = nil
-		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.MigrationGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: newMigrationBytes,
-				},
-				OldObject: runtime.RawExtension{
-					Raw: oldMigrationBytes,
-				},
-				Operation: admissionv1.Update,
-			},
-		}
+		ar, err := newAdmissionReviewForVMIMUpdate(migration, newMigration)
+		Expect(err).ToNot(HaveOccurred())
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
@@ -152,7 +117,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	It("should reject Migration on update if our selector label is removed", func() {
 		vmi := api.NewMinimalVMI("testmigratevmiupdate-selectorremoved")
 
-		migration := v1.VirtualMachineInstanceMigration{
+		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigration",
 				Namespace: "default",
@@ -167,24 +132,11 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		oldMigrationBytes, _ := json.Marshal(&migration)
-
 		newMigration := migration.DeepCopy()
 		delete(newMigration.Labels, v1.MigrationSelectorLabel)
-		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.MigrationGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: newMigrationBytes,
-				},
-				OldObject: runtime.RawExtension{
-					Raw: oldMigrationBytes,
-				},
-				Operation: admissionv1.Update,
-			},
-		}
+		ar, err := newAdmissionReviewForVMIMUpdate(migration, newMigration)
+		Expect(err).ToNot(HaveOccurred())
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
@@ -194,7 +146,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	It("should accept Migration on update if non-selector label is removed", func() {
 		vmi := api.NewMinimalVMI("testmigratevmiupdate-otherremoved")
 
-		migration := v1.VirtualMachineInstanceMigration{
+		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigration",
 				Namespace: "default",
@@ -209,27 +161,39 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 			},
 		}
 
-		oldMigrationBytes, _ := json.Marshal(&migration)
-
 		newMigration := migration.DeepCopy()
 		delete(newMigration.Labels, "someOtherLabel")
-		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.MigrationGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: newMigrationBytes,
-				},
-				OldObject: runtime.RawExtension{
-					Raw: oldMigrationBytes,
-				},
-				Operation: admissionv1.Update,
-			},
-		}
+		ar, err := newAdmissionReviewForVMIMUpdate(migration, newMigration)
+		Expect(err).ToNot(HaveOccurred())
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })
+
+func newAdmissionReviewForVMIMUpdate(oldMigration, newMigration *v1.VirtualMachineInstanceMigration) (*admissionv1.AdmissionReview, error) {
+	oldMigrationBytes, err := json.Marshal(oldMigration)
+	if err != nil {
+		return nil, err
+	}
+
+	newMigrationBytes, err := json.Marshal(newMigration)
+	if err != nil {
+		return nil, err
+	}
+
+	return &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: webhooks.MigrationGroupVersionResource,
+			Object: runtime.RawExtension{
+				Raw: newMigrationBytes,
+			},
+			OldObject: runtime.RawExtension{
+				Raw: oldMigrationBytes,
+			},
+			Operation: admissionv1.Update,
+		},
+	}, nil
+}
