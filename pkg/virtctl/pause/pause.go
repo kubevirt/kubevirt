@@ -46,11 +46,17 @@ const (
 	ARG_VMI_LONG    = "virtualmachineinstance"
 )
 
-var (
-	dryRun bool
-)
+type virtCommand struct {
+	clientConfig clientcmd.ClientConfig
+	command      string
+	dryRun       bool
+}
 
 func NewPauseCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	c := virtCommand{
+		command:      COMMAND_PAUSE,
+		clientConfig: clientConfig,
+	}
 	cmd := &cobra.Command{
 		Use:   "pause vm|vmi (VM)|(VMI)",
 		Short: "Pause a virtual machine",
@@ -60,19 +66,21 @@ Second argument is the name of the resource.`,
 		Args:    cobra.ExactArgs(2),
 		Example: usage(COMMAND_PAUSE),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := VirtCommand{
-				command:      COMMAND_PAUSE,
-				clientConfig: clientConfig,
-			}
 			return c.Run(args)
 		},
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
+
+	cmd.Flags().BoolVar(&c.dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
+
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 func NewUnpauseCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	c := virtCommand{
+		command:      COMMAND_UNPAUSE,
+		clientConfig: clientConfig,
+	}
 	cmd := &cobra.Command{
 		Use:   "unpause vm|vmi (VM)|(VMI)",
 		Short: "Unpause a virtual machine",
@@ -82,14 +90,12 @@ Second argument is the name of the resource.`,
 		Args:    cobra.ExactArgs(2),
 		Example: usage(COMMAND_UNPAUSE),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := VirtCommand{
-				command:      COMMAND_UNPAUSE,
-				clientConfig: clientConfig,
-			}
 			return c.Run(args)
 		},
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
+
+	cmd.Flags().BoolVar(&c.dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
+
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -100,12 +106,7 @@ func usage(cmd string) string {
 	return usage
 }
 
-type VirtCommand struct {
-	clientConfig clientcmd.ClientConfig
-	command      string
-}
-
-func (vc *VirtCommand) Run(args []string) error {
+func (vc *virtCommand) Run(args []string) error {
 	resourceType := strings.ToLower(args[0])
 	resourceName := args[1]
 	namespace, _, err := vc.clientConfig.Namespace()
@@ -119,7 +120,7 @@ func (vc *VirtCommand) Run(args []string) error {
 	}
 
 	var dryRunOption []string
-	if dryRun {
+	if vc.dryRun {
 		fmt.Println("Dry Run execution")
 		dryRunOption = []string{v1.DryRunAll}
 	}
