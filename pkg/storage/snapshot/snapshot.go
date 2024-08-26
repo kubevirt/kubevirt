@@ -31,12 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 )
@@ -266,6 +268,13 @@ func (ctrl *VMSnapshotController) unfreezeSource(vmSnapshot *snapshotv1.VirtualM
 	return nil
 }
 
+func generateFinalizerPatch(test, replace []string) ([]byte, error) {
+	return patch.New(
+		patch.WithTest("/metadata/finalizers", test),
+		patch.WithReplace("/metadata/finalizers", replace),
+	).GeneratePayload()
+}
+
 func (ctrl *VMSnapshotController) addSnapshotFinalizer(snapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshot, error) {
 	if controller.HasFinalizer(snapshot, vmSnapshotFinalizer) {
 		return snapshot, nil
@@ -274,7 +283,12 @@ func (ctrl *VMSnapshotController) addSnapshotFinalizer(snapshot *snapshotv1.Virt
 	cpy := snapshot.DeepCopy()
 	controller.AddFinalizer(cpy, vmSnapshotFinalizer)
 
-	return ctrl.Client.VirtualMachineSnapshot(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
+	patch, err := generateFinalizerPatch(snapshot.Finalizers, cpy.Finalizers)
+	if err != nil {
+		return snapshot, err
+	}
+
+	return ctrl.Client.VirtualMachineSnapshot(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
 func (ctrl *VMSnapshotController) removeSnapshotFinalizer(snapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshot, error) {
@@ -285,7 +299,12 @@ func (ctrl *VMSnapshotController) removeSnapshotFinalizer(snapshot *snapshotv1.V
 	cpy := snapshot.DeepCopy()
 	controller.RemoveFinalizer(cpy, vmSnapshotFinalizer)
 
-	return ctrl.Client.VirtualMachineSnapshot(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
+	patch, err := generateFinalizerPatch(snapshot.Finalizers, cpy.Finalizers)
+	if err != nil {
+		return snapshot, err
+	}
+
+	return ctrl.Client.VirtualMachineSnapshot(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
 func (ctrl *VMSnapshotController) removeContentFinalizer(content *snapshotv1.VirtualMachineSnapshotContent) (*snapshotv1.VirtualMachineSnapshotContent, error) {
@@ -296,7 +315,12 @@ func (ctrl *VMSnapshotController) removeContentFinalizer(content *snapshotv1.Vir
 	cpy := content.DeepCopy()
 	controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
 
-	return ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
+	patch, err := generateFinalizerPatch(content.Finalizers, cpy.Finalizers)
+	if err != nil {
+		return content, err
+	}
+
+	return ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
 func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) (time.Duration, error) {

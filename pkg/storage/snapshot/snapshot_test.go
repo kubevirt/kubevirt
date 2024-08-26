@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,7 +64,7 @@ var (
 
 var _ = Describe("Snapshot controlleer", func() {
 	var (
-		timeStamp               = metav1.Now()
+		timeStamp               = metav1.Time{Time: time.Now().Truncate(time.Second)}
 		vmName                  = "testvm"
 		vmRevisionName          = "testvm-revision"
 		vmSnapshotName          = "test-snapshot"
@@ -473,7 +474,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotPatch(vmSnapshotClient, vmSnapshot, updatedSnapshot)
 				updatedSnapshot2 := updatedSnapshot.DeepCopy()
 				updatedSnapshot2.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					SourceUID:  &vmUID,
@@ -495,7 +496,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotPatch(vmSnapshotClient, vmSnapshot, updatedSnapshot)
 				updatedSnapshot2 := updatedSnapshot.DeepCopy()
 				updatedSnapshot2.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					ReadyToUse: pointer.P(false),
@@ -516,7 +517,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotPatch(vmSnapshotClient, vmSnapshot, updatedSnapshot)
 				updatedSnapshot2 := updatedSnapshot.DeepCopy()
 				updatedSnapshot2.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					SourceUID:  &vmUID,
@@ -602,7 +603,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContentSource.Add(content)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				expectVMSnapshotContentDelete(vmSnapshotClient, updatedContent.Name)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
+				expectVMSnapshotPatch(vmSnapshotClient, updatedSnapshot, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -630,7 +631,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContentSource.Add(content)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
+				expectVMSnapshotPatch(vmSnapshotClient, updatedSnapshot, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -657,7 +658,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				expectVMSnapshotContentDelete(vmSnapshotClient, updatedContent.Name)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
+				expectVMSnapshotPatch(vmSnapshotClient, updatedSnapshot, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -1654,7 +1655,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.Finalizers = []string{}
 
 				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(freezeError)
-				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
+				expectVMSnapshotContentPatch(vmSnapshotClient, vmSnapshotContent, updatedContent)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotContentWorkItem()
 			},
@@ -2297,6 +2298,60 @@ var _ = Describe("Snapshot controlleer", func() {
 		})
 	})
 })
+
+func applyPatch(patch []byte, orig, patched interface{}) error {
+	originalBytes, err := json.Marshal(orig)
+	if err != nil {
+		return err
+	}
+	patchJSON, err := jsonpatch.DecodePatch(patch)
+	if err != nil {
+		return err
+	}
+	patchedBytes, err := patchJSON.Apply(originalBytes)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(GinkgoWriter, "Patched object: %s\n", string(patchedBytes))
+
+	if err = json.Unmarshal(patchedBytes, patched); err != nil {
+		return err
+	}
+	return nil
+}
+
+func expectVMSnapshotPatch(client *kubevirtfake.Clientset, orig, newObj *snapshotv1.VirtualMachineSnapshot) {
+	client.Fake.PrependReactor("patch", "virtualmachinesnapshots", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		patch, ok := action.(testing.PatchAction)
+		Expect(ok).To(BeTrue())
+
+		patched := &snapshotv1.VirtualMachineSnapshot{}
+		if err := applyPatch(patch.GetPatch(), orig, patched); err != nil {
+			return false, nil, err
+		}
+
+		Expect(patched).To(Equal(newObj))
+
+		return reflect.DeepEqual(newObj, patched), patched, nil
+	})
+}
+
+func expectVMSnapshotContentPatch(client *kubevirtfake.Clientset, orig, newObj *snapshotv1.VirtualMachineSnapshotContent) {
+	client.Fake.PrependReactor("patch", "virtualmachinesnapshotcontents", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		patch, ok := action.(testing.PatchAction)
+		Expect(ok).To(BeTrue())
+
+		patched := &snapshotv1.VirtualMachineSnapshotContent{}
+		if err := applyPatch(patch.GetPatch(), orig, patched); err != nil {
+			return false, nil, err
+		}
+
+		Expect(patched).To(Equal(newObj))
+
+		return reflect.DeepEqual(newObj, patched), patched, nil
+	})
+}
 
 func expectVMSnapshotUpdate(client *kubevirtfake.Clientset, vmSnapshot *snapshotv1.VirtualMachineSnapshot) {
 	client.Fake.PrependReactor("update", "virtualmachinesnapshots", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
