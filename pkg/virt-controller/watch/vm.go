@@ -939,6 +939,20 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 			vmCopy.Spec.Template.Spec.Volumes[i].ContainerDisk.ImagePullPolicy = vmiVol.ContainerDisk.ImagePullPolicy
 		}
 	}
+	hotplugOp := false
+	volsVM := storagetypes.GetVolumesByName(&vmCopy.Spec.Template.Spec)
+	for _, volume := range vmi.Spec.Volumes {
+		hotpluggableVol := (volume.VolumeSource.PersistentVolumeClaim != nil &&
+			volume.VolumeSource.PersistentVolumeClaim.Hotpluggable) ||
+			(volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Hotpluggable)
+		_, ok := volsVM[volume.Name]
+		if !ok && hotpluggableVol {
+			hotplugOp = true
+		}
+	}
+	if hotplugOp {
+		return nil
+	}
 	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, vmCopy.Spec.Template.Spec.Volumes) {
 		return nil
 	}
