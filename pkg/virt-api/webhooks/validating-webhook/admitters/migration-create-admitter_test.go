@@ -54,7 +54,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().VirtualMachineInstanceMigration("default").Return(migrationInterface).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient).AnyTimes()
-		migrationCreateAdmitter = &MigrationCreateAdmitter{VirtClient: virtClient}
+		migrationCreateAdmitter = NewMigrationCreateAdmitter(virtClient)
 	})
 
 	It("should reject Migration spec on create when another VMI migration is in-flight", func() {

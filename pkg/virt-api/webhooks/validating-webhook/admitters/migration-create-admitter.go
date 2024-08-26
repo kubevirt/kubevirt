@@ -39,7 +39,13 @@ import (
 )
 
 type MigrationCreateAdmitter struct {
-	VirtClient kubecli.KubevirtClient
+	virtClient kubecli.KubevirtClient
+}
+
+func NewMigrationCreateAdmitter(virtClient kubecli.KubevirtClient) *MigrationCreateAdmitter {
+	return &MigrationCreateAdmitter{
+		virtClient: virtClient,
+	}
 }
 
 func isMigratable(vmi *v1.VirtualMachineInstance) error {
@@ -90,7 +96,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(migration.Namespace).Get(ctx, migration.Spec.VMIName, metav1.GetOptions{})
+	vmi, err := admitter.virtClient.VirtualMachineInstance(migration.Namespace).Get(ctx, migration.Spec.VMIName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// ensure VMI exists for the migration
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("the VMI \"%s/%s\" does not exist", migration.Namespace, migration.Spec.VMIName))
@@ -111,7 +117,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 
 	// Don't allow new migration jobs to be introduced when previous migration jobs
 	// are already in flight.
-	err = ensureNoMigrationConflict(ctx, admitter.VirtClient, migration.Spec.VMIName, migration.Namespace)
+	err = ensureNoMigrationConflict(ctx, admitter.virtClient, migration.Spec.VMIName, migration.Namespace)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
