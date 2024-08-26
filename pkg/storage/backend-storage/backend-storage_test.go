@@ -20,7 +20,10 @@
 package backendstorage
 
 import (
+	"context"
 	"fmt"
+
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -45,10 +48,11 @@ var _ = Describe("Backend Storage", func() {
 	var storageClassStore cache.Store
 	var storageProfileStore cache.Store
 	var pvcStore cache.Store
+	var virtClient *kubecli.MockKubevirtClient
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		kubevirtFakeConfig := &virtv1.KubeVirtConfiguration{}
 		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
@@ -158,6 +162,86 @@ var _ = Describe("Backend Storage", func() {
 		It("Should pick RWO when RWX isn't possible", func() {
 			accessMode := backendStorage.getAccessMode("onlyrwo", v1.PersistentVolumeFilesystem)
 			Expect(accessMode).To(Equal(v1.ReadWriteOnce), fmt.Sprintf("%#v", storageProfileStore.ListKeys()))
+		})
+	})
+
+	Context("Migration", func() {
+		var k8sClient *k8sfake.Clientset
+		var migration *virtv1.VirtualMachineInstanceMigration
+		const (
+			nsName        = "testns"
+			vmiName       = "testvmi"
+			sourcePVCName = "sourcepvc"
+			targetPVCName = "targetpvc"
+		)
+
+		BeforeEach(func() {
+			k8sClient = k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			sourcePVC := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:   sourcePVCName,
+					Labels: map[string]string{"persistent-state-for": vmiName},
+				},
+			}
+			targetPVC := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: targetPVCName,
+				},
+			}
+			_, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(), sourcePVC, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(), targetPVC, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			migration = &virtv1.VirtualMachineInstanceMigration{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "migration",
+					Namespace: nsName,
+				},
+				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
+					VMIName: vmiName,
+				},
+				Status: virtv1.VirtualMachineInstanceMigrationStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+						SourcePersistentStatePVCName: sourcePVCName,
+						TargetPersistentStatePVCName: targetPVCName,
+					},
+				},
+			}
+		})
+		It("Should label the target PVC and remove the source PVC on migration success", func() {
+			err := MigrationHandoff(virtClient, migration)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
+			Expect(err).To(HaveOccurred())
+			targetPVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), targetPVCName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(targetPVC.Labels["persistent-state-for"]).To(Equal(vmiName))
+		})
+		It("Should remove the target PVC on migration failure", func() {
+			err := MigrationAbort(virtClient, migration)
+			Expect(err).NotTo(HaveOccurred())
+			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(sourcePVC.Labels["persistent-state-for"]).To(Equal(vmiName))
+			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), targetPVCName, k8smetav1.GetOptions{})
+			Expect(err).To(HaveOccurred())
+		})
+		It("Should keep the shared PVC on migration success", func() {
+			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
+			err := MigrationHandoff(virtClient, migration)
+			Expect(err).NotTo(HaveOccurred())
+			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(sourcePVC.Labels["persistent-state-for"]).To(Equal(vmiName))
+		})
+		It("Should keep the shared PVC on migration failure", func() {
+			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
+			err := MigrationAbort(virtClient, migration)
+			Expect(err).NotTo(HaveOccurred())
+			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(sourcePVC.Labels["persistent-state-for"]).To(Equal(vmiName))
 		})
 	})
 })
