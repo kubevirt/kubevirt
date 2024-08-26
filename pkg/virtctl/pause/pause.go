@@ -46,14 +46,14 @@ const (
 	ARG_VMI_LONG    = "virtualmachineinstance"
 )
 
-type VirtCommand struct {
+type virtCommand struct {
 	clientConfig clientcmd.ClientConfig
 	command      string
 	dryRun       bool
 }
 
 func NewPauseCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := VirtCommand{
+	c := virtCommand{
 		command:      COMMAND_PAUSE,
 		clientConfig: clientConfig,
 	}
@@ -77,7 +77,7 @@ Second argument is the name of the resource.`,
 }
 
 func NewUnpauseCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := VirtCommand{
+	c := virtCommand{
 		command:      COMMAND_UNPAUSE,
 		clientConfig: clientConfig,
 	}
@@ -106,7 +106,7 @@ func usage(cmd string) string {
 	return usage
 }
 
-func (vc *VirtCommand) Run(args []string) error {
+func (vc *virtCommand) Run(args []string) error {
 	resourceType := strings.ToLower(args[0])
 	resourceName := args[1]
 	namespace, _, err := vc.clientConfig.Namespace()
