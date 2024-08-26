@@ -3486,6 +3486,10 @@ spec:
                   value: quay.io/kubevirt/virt-exportserver@sha256:f232590d9a751a22672c6edab87f085f7a0e837652535c1c356da33dff6b12c3
                 - name: GS_IMAGE
                   value: quay.io/kubevirt/libguestfs-tools@sha256:0b8f015c2516560a3d16069cad80379c01084a516632b1c9ff8af12173575007
+                - name: PR_HELPER_IMAGE
+                  value: quay.io/kubevirt/pr-helper@sha256:8b026a0c7d38aff0bcf93ec36a13455bd89f16c865b1112b7069e83f825ab5a8
+                - name: SIDECAR_SHIM_IMAGE
+                  value: quay.io/kubevirt/sidecar-shim@sha256:c328b0e873a31bb816dcc78e5545b20977de71f88937e2a220813264c2895eb9
                 - name: KUBEVIRT_VERSION
                   value: v1.3.1
                 image: quay.io/kubevirt/virt-operator@sha256:9eb46469574941ad21833ea00a518e97c0beb0c80e0d73a91973021d0c1e5c7a
@@ -4680,6 +4684,10 @@ spec:
     name: ovs-cni-plugin
   - image: ghcr.io/kubevirt/passt-binding-cni@sha256:26c19e9292a76c5311c8ff66059ddf4f8085eee9c075d642cd86d645ebc31088
     name: passt-binding-cni
+  - image: quay.io/kubevirt/pr-helper@sha256:8b026a0c7d38aff0bcf93ec36a13455bd89f16c865b1112b7069e83f825ab5a8
+    name: pr-helper
+  - image: quay.io/kubevirt/sidecar-shim@sha256:c328b0e873a31bb816dcc78e5545b20977de71f88937e2a220813264c2895eb9
+    name: sidecar-shim
   - image: quay.io/kubevirt/ssp-operator@sha256:f1215c0e6e6c94df60691c838de7140fad338f702c685d204a43610179fb31c1
     name: ssp-operator
   - image: quay.io/kubevirt/virt-api@sha256:2c63b197119f0d503320d142a31a421d8e186ef2c3c75aa7b262388cb4ef5d99
