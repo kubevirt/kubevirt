@@ -56,7 +56,7 @@ func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, admitters.NewMigrationCreateAdmitter(virtCli))
+	validating_webhooks.Serve(resp, req, admitters.NewMigrationCreateAdmitter(virtCli.GeneratedKubeVirtClient()))
 }
 
 func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
