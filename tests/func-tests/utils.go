@@ -83,7 +83,10 @@ func (c *cacheIsOpenShift) IsOpenShift(ctx context.Context, cli client.Client) (
 		return c.isOpenShift, nil
 	}
 
-	_ = openshiftconfigv1.AddToScheme(cli.Scheme())
+	err := openshiftconfigv1.AddToScheme(cli.Scheme())
+	if err != nil {
+		panic("can't register scheme; " + err.Error())
+	}
 
 	clusterVersion := &openshiftconfigv1.ClusterVersion{
 		ObjectMeta: metav1.ObjectMeta{
@@ -91,7 +94,7 @@ func (c *cacheIsOpenShift) IsOpenShift(ctx context.Context, cli client.Client) (
 		},
 	}
 
-	err := cli.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
+	err = cli.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
 	if err == nil {
 		c.isOpenShift = true
 		c.hasSet = true

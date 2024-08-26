@@ -49,6 +49,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		promClient                       promApiv1.API
 		prometheusRule                   monitoringv1.PrometheusRule
 		initialOperatorHealthMetricValue float64
+		tempRouteURL                     string
 	)
 
 	runbookClient.Timeout = time.Second * 3
@@ -63,6 +64,19 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		prometheusRule = getPrometheusRule(ctx, restClient)
 
 		initialOperatorHealthMetricValue = getMetricValue(ctx, promClient, "kubevirt_hyperconverged_operator_health_status")
+
+		Eventually(ctx, func(g Gomega) {
+			tempRouteHost, err := tests.GetTempRouteHost(ctx, cli)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(tempRouteHost).NotTo(BeEmpty())
+			tempRouteURL = fmt.Sprintf("https://%s/metrics", tempRouteHost)
+		}).WithTimeout(time.Second * 60).
+			WithPolling(time.Second).
+			WithContext(ctx).
+			Should(Succeed())
+
+		GinkgoWriter.Println("temporary URL to read HCO metrics: ", tempRouteURL)
+
 	})
 
 	It("Alert rules should have all the requried annotations", func() {
@@ -99,17 +113,22 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 	})
 
 	It("KubeVirtCRModified alert should fired when there is a modification on a CR", Serial, func(ctx context.Context) {
-		By("Patching kubevirt object")
+
 		const (
 			query     = `kubevirt_hco_out_of_band_modifications_total{component_name="kubevirt/kubevirt-kubevirt-hyperconverged"}`
 			jsonPatch = `[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": "fake-fg-for-testing"}]`
 		)
 
+		By(fmt.Sprintf("Reading the `%s` metric from HCO prometheus endpoint", query))
 		var valueBefore float64
 		Eventually(func(g Gomega, ctx context.Context) {
-			valueBefore = getMetricValue(ctx, promClient, query)
+			var err error
+			valueBefore, err = tests.GetHCOMetric(ctx, tempRouteURL, query)
+			g.Expect(err).NotTo(HaveOccurred())
 		}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
+		GinkgoWriter.Printf("The metric value before the test is: %0.2f\n", valueBefore)
 
+		By("Patching kubevirt object")
 		patch := client.RawPatch(types.JSONPatchType, []byte(jsonPatch))
 
 		kv := &kubevirtcorev1.KubeVirt{
@@ -121,7 +140,22 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 		Expect(cli.Patch(ctx, kv, patch)).To(Succeed())
 
+		By("checking that the HCO metric was increased by 1")
 		Eventually(func(g Gomega, ctx context.Context) float64 {
+			valueAfter, err := tests.GetHCOMetric(ctx, tempRouteURL, query)
+			g.Expect(err).NotTo(HaveOccurred())
+			return valueAfter
+		}).
+			WithTimeout(60*time.Second).
+			WithPolling(time.Second).
+			WithContext(ctx).
+			Should(
+				Equal(valueBefore+float64(1)),
+				"expected different counter value; value before: %0.2f; expected value: %0.2f", valueBefore, valueBefore+float64(1),
+			)
+
+		By("checking that the prometheus metric was increased by 1")
+		Eventually(func(ctx context.Context) float64 {
 			return getMetricValue(ctx, promClient, query)
 		}).
 			WithTimeout(60*time.Second).
@@ -132,6 +166,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 				"expected different counter value; value before: %0.2f; expected value: %0.2f", valueBefore, valueBefore+float64(1),
 			)
 
+		By("Checking the alert")
 		Eventually(func(ctx context.Context) *promApiv1.Alert {
 			alerts, err := promClient.Alerts(ctx)
 			Expect(err).ToNot(HaveOccurred())

@@ -3,6 +3,7 @@ package tests_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,7 +36,35 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		}
 	}
 
+	controllerCli := tests.GetControllerRuntimeClient()
+	isOpenshift, err := tests.IsOpenShift(ctx, controllerCli)
+	if err != nil {
+		Fail("can't tell the cluster type; " + err.Error())
+	}
+
+	if isOpenshift {
+		By("adding temporary route")
+		Eventually(ctx, func(g Gomega) error {
+			return tests.CreateTempRoute(ctx, controllerCli)
+		}).WithTimeout(time.Second * 60).
+			WithPolling(time.Second).
+			WithContext(ctx).
+			Should(Succeed())
+	}
+
 	tests.BeforeEach(ctx)
+
+	DeferCleanup(func(ctx context.Context) {
+		if isOpenshift {
+			By("removing the temporary route")
+			Eventually(ctx, func() error {
+				return tests.DeleteTempRoute(ctx, controllerCli)
+			}).WithTimeout(time.Second * 60).
+				WithPolling(time.Second).
+				WithContext(ctx).
+				Should(Succeed())
+		}
+	})
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
