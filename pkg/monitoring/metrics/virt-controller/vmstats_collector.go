@@ -20,9 +20,8 @@
 package virt_controller
 
 import (
-	"fmt"
-
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"kubevirt.io/client-go/log"
 
 	k6tv1 "kubevirt.io/api/core/v1"
@@ -37,7 +36,7 @@ var (
 	vmResourceRequests = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vm_resource_requests",
-			Help: "Resources requested by Virtual Machine.",
+			Help: "Resources requested by Virtual Machine. Reports memory and CPU requests.",
 		},
 		[]string{"vmi", "namespace", "resource", "unit"},
 	)
@@ -147,33 +146,81 @@ func CollectResourceRequests(vms []*k6tv1.VirtualMachine) []operatormetrics.Coll
 	var results []operatormetrics.CollectorResult
 
 	for _, vm := range vms {
-		memoryRequested, err := getMemoryRequested(vm)
-		if err != nil {
-			log.Log.V(4).Infof("Error getting memory request for VM %s: %v", vm.Name, err)
-			continue
-		}
-
-		results = append(results, operatormetrics.CollectorResult{
-			Metric: vmResourceRequests,
-			Value:  float64(memoryRequested),
-			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
-		})
+		results = append(results, collectMemoryResourceRequestsFromDomain(vm)...)
+		results = append(results, collectCpuResourceRequestsFromDomain(vm)...)
+		results = append(results, collectCpuResourceRequestsFromResources(vm)...)
 	}
 
 	return results
 }
 
-func getMemoryRequested(vm *k6tv1.VirtualMachine) (int64, error) {
+func collectMemoryResourceRequestsFromDomain(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	if vm.Spec.Template == nil {
-		return 0, fmt.Errorf("domain spec not set")
+		return []operatormetrics.CollectorResult{}
 	}
 
 	memoryRequested := vm.Spec.Template.Spec.Domain.Resources.Requests.Memory()
 	if memoryRequested.IsZero() {
-		return 0, fmt.Errorf("memory request not set")
+		return []operatormetrics.CollectorResult{}
 	}
 
-	return memoryRequested.Value(), nil
+	return []operatormetrics.CollectorResult{{
+		Metric: vmResourceRequests,
+		Value:  float64(memoryRequested.Value()),
+		Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
+	}}
+}
+
+func collectCpuResourceRequestsFromDomain(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template.Spec.Domain.CPU == nil {
+		return cr
+	}
+
+	if vm.Spec.Template.Spec.Domain.CPU.Cores != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Cores),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
+		})
+	}
+
+	if vm.Spec.Template.Spec.Domain.CPU.Threads != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Threads),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "threads"},
+		})
+	}
+
+	if vm.Spec.Template.Spec.Domain.CPU.Sockets != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Sockets),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets"},
+		})
+	}
+
+	return cr
+}
+
+func collectCpuResourceRequestsFromResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	cpuRequests := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu()
+
+	if cpuRequests == nil || cpuRequests.IsZero() {
+		return cr
+	}
+
+	cr = append(cr, operatormetrics.CollectorResult{
+		Metric: vmResourceRequests,
+		Value:  float64(cpuRequests.ScaledValue(resource.Milli)) / 1000,
+		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
+	})
+
+	return cr
 }
 
 func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
