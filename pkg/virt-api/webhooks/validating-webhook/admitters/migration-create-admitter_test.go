@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package admitters_test
 
 import (
 	"context"
@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 )
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
@@ -59,7 +60,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			},
 		}
 		virtClient := kubevirtfake.NewSimpleClientset(vmi, inFlightMigration)
-		migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+		migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
 		ar, err := newAdmissionReviewForVMIMCreation(migration)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -79,7 +80,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			}
 
 			virtClient := kubevirtfake.NewSimpleClientset()
-			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -101,7 +102,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -127,7 +128,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			}
 
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -149,7 +150,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			}
 
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -182,7 +183,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
 
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
@@ -212,13 +213,13 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset()).Admit,
+				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset()).Admit,
 			),
 			Entry("Migration update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset()).Admit,
+				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset()).Admit,
 			),
 		)
 	})
