@@ -459,16 +459,20 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 			},
 		},
 	}
+	podSecurityContext := k8sv1.PodSecurityContext{
+		FSGroup: pointer.P(int64(util.NonRootUID)),
+	}
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "create-img-",
 			Namespace:    vmi.Namespace,
 		},
 		Spec: k8sv1.PodSpec{
-			RestartPolicy: k8sv1.RestartPolicyNever,
-			Volumes:       []k8sv1.Volume{volume},
-			Containers:    []k8sv1.Container{cont},
-			Affinity:      &affinity,
+			RestartPolicy:   k8sv1.RestartPolicyNever,
+			Volumes:         []k8sv1.Volume{volume},
+			Containers:      []k8sv1.Container{cont},
+			Affinity:        &affinity,
+			SecurityContext: &podSecurityContext,
 		},
 	}
 	p, err := virtCli.CoreV1().Pods(vmi.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
