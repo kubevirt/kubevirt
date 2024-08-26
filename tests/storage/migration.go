@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -168,20 +169,6 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Expect(err).ToNot(HaveOccurred())
 			return dv
 		}
-		createBlankDV := func() *cdiv1.DataVolume {
-			sc, exist := libstorage.GetRWOFileSystemStorageClass()
-			Expect(exist).To(BeTrue())
-			dv := libdv.NewDataVolume(
-				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(size),
-				),
-			)
-			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
-				dv, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return dv
-		}
 		createVMWithDV := func(dv *cdiv1.DataVolume, volName string) *virtv1.VirtualMachine {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(ns),
@@ -288,7 +275,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 		It("should migrate the source volume from a source DV to a destination DV", func() {
 			volName := "disk0"
 			vm := createVMWithDV(createDV(), volName)
-			destDV := createBlankDV()
+			destDV := createBlankDV(virtClient, ns, size)
 			By("Update volumes")
 			updateVMWithDV(vm.Name, volName, destDV.Name)
 			Eventually(func() bool {
@@ -393,8 +380,8 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 		It("should set the restart condition since the second volume is RWO and not part of the migration", func() {
 			const volName = "vol0"
 			dv1 := createDV()
-			dv2 := createBlankDV()
-			destDV := createBlankDV()
+			dv2 := createBlankDV(virtClient, ns, size)
+			destDV := createBlankDV(virtClient, ns, size)
 			vmi := libvmi.New(
 				libvmi.WithNamespace(ns),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -426,6 +413,99 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				})), "The RestartRequired condition should be false",
 			)
 		})
+	})
+
+	Describe("Hotplug volumes", func() {
+		var fgDisabled bool
+		BeforeEach(func() {
+			var err error
+			virtClient, err = kubecli.GetKubevirtClient()
+			Expect(err).ToNot(HaveOccurred())
+			fgDisabled = !checks.HasFeature(virtconfig.HotplugVolumesGate)
+			if fgDisabled {
+				tests.EnableFeatureGate(virtconfig.HotplugVolumesGate)
+			}
+
+		})
+		AfterEach(func() {
+			if fgDisabled {
+				tests.DisableFeatureGate(virtconfig.HotplugVolumesGate)
+			}
+		})
+
+		DescribeTable("should be able to add and remove a volume with the volume migration feature gate enabled", func(persist bool) {
+			const volName = "vol0"
+			ns := testsuite.GetTestNamespace(nil)
+			dv := createBlankDV(virtClient, ns, "1Gi")
+			vmi := libvmifact.NewCirros(
+				libvmi.WithNamespace(ns),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+			)
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithRunning(),
+			)
+			vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+
+			volumeSource := &v1.HotplugVolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: dv.Name,
+				},
+			}
+
+			// Add the volume
+			addOpts := &v1.AddVolumeOptions{
+				Name: volName,
+				Disk: &v1.Disk{
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+					},
+					Serial: volName,
+				},
+				VolumeSource: volumeSource,
+			}
+			if persist {
+				Expect(virtClient.VirtualMachine(ns).AddVolume(context.Background(), vm.Name, addOpts)).ToNot(HaveOccurred())
+			} else {
+				Expect(virtClient.VirtualMachineInstance(ns).AddVolume(context.Background(), vm.Name, addOpts)).ToNot(HaveOccurred())
+			}
+			Eventually(func() string {
+				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
+					if volumeStatus.Name == volName && volumeStatus.HotplugVolume != nil {
+						return volumeStatus.Target
+					}
+				}
+				return ""
+			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
+
+			// Remove the volume
+			removeOpts := &v1.RemoveVolumeOptions{
+				Name: volName,
+			}
+			if persist {
+				Expect(virtClient.VirtualMachine(ns).RemoveVolume(context.Background(), vm.Name, removeOpts)).ToNot(HaveOccurred())
+			} else {
+				Expect(virtClient.VirtualMachineInstance(ns).RemoveVolume(context.Background(), vm.Name, removeOpts)).ToNot(HaveOccurred())
+			}
+			Eventually(func() bool {
+				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
+					if volumeStatus.Name == volName {
+						return true
+					}
+				}
+				return false
+			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).Should(BeTrue())
+		},
+			Entry("with a persistent volume", true),
+			Entry("with an ephemeral volume", false),
+		)
 	})
 })
 
@@ -517,4 +597,19 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 	p, err := virtCli.CoreV1().Pods(vmi.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
 	Expect(err).ShouldNot(HaveOccurred())
 	Eventually(matcher.ThisPod(p)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveSucceeded())
+}
+
+func createBlankDV(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {
+	sc, exist := libstorage.GetRWOFileSystemStorageClass()
+	Expect(exist).To(BeTrue())
+	dv := libdv.NewDataVolume(
+		libdv.WithBlankImageSource(),
+		libdv.WithPVC(libdv.PVCWithStorageClass(sc),
+			libdv.PVCWithVolumeSize(size),
+		),
+	)
+	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
+		dv, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return dv
 }
