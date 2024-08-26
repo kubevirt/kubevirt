@@ -22,6 +22,7 @@ package admitters_test
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -60,7 +61,25 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
-		Expect(resp.Allowed).To(BeFalse())
+
+		expectedResponse := &admissionv1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Code:    http.StatusUnprocessableEntity,
+				Message: "update of Migration object's spec is restricted",
+				Reason:  metav1.StatusReasonInvalid,
+				Details: &metav1.StatusDetails{
+					Causes: []metav1.StatusCause{
+						{
+							Type:    metav1.CauseTypeFieldValueNotSupported,
+							Message: "update of Migration object's spec is restricted",
+						},
+					},
+				},
+			},
+		}
+
+		Expect(resp).To(Equal(expectedResponse))
 	})
 
 	It("should accept Migration on update if spec doesn't change", func() {
@@ -82,7 +101,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
-		Expect(resp.Allowed).To(BeTrue())
+		Expect(resp).To(Equal(allowedAdmissionResponse()))
 	})
 
 	It("should reject Migration on update if labels include our selector and are removed", func() {
@@ -111,7 +130,25 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
-		Expect(resp.Allowed).To(BeFalse())
+
+		expectedResponse := &admissionv1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Code:    http.StatusUnprocessableEntity,
+				Message: "selector label can't be removed from an in-flight migration",
+				Reason:  metav1.StatusReasonInvalid,
+				Details: &metav1.StatusDetails{
+					Causes: []metav1.StatusCause{
+						{
+							Type:    metav1.CauseTypeFieldValueNotSupported,
+							Message: "selector label can't be removed from an in-flight migration",
+						},
+					},
+				},
+			},
+		}
+
+		Expect(resp).To(Equal(expectedResponse))
 	})
 
 	It("should reject Migration on update if our selector label is removed", func() {
@@ -140,7 +177,25 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
-		Expect(resp.Allowed).To(BeFalse())
+
+		expectedResponse := &admissionv1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Code:    http.StatusUnprocessableEntity,
+				Message: "selector label can't be modified on an in-flight migration",
+				Reason:  metav1.StatusReasonInvalid,
+				Details: &metav1.StatusDetails{
+					Causes: []metav1.StatusCause{
+						{
+							Type:    metav1.CauseTypeFieldValueNotSupported,
+							Message: "selector label can't be modified on an in-flight migration",
+						},
+					},
+				},
+			},
+		}
+
+		Expect(resp).To(Equal(expectedResponse))
 	})
 
 	It("should accept Migration on update if non-selector label is removed", func() {
@@ -169,7 +224,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		admitter := &admitters.MigrationUpdateAdmitter{}
 		resp := admitter.Admit(context.Background(), ar)
-		Expect(resp.Allowed).To(BeTrue())
+
+		Expect(resp).To(Equal(allowedAdmissionResponse()))
 	})
 })
 
