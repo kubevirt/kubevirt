@@ -27,8 +27,8 @@ function main() {
     ./hack/cluster-clean.sh >$TEMP_FILE 2>&1 &
     CLEAN_PID=$!
 
-    make cluster-build
-    make manifests
+    ./hack/cluster-build.sh
+    ./hack/manifests.sh
 
     echo "waiting for cluster-clean to finish"
     if ! wait $CLEAN_PID; then
