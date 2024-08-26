@@ -63,7 +63,7 @@ Example:
 ```
 cat << END > Dockerfile
 FROM scratch
-ADD fedora25.qcow2 /disk/
+ADD --chown=107:107 fedora25.qcow2 /disk/
 END
 docker build -t vmdisks/fedora25:latest .
 docker push vmdisks/fedora25:latest
