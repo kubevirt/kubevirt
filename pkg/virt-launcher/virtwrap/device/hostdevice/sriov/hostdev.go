@@ -53,7 +53,7 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 	netStatusPath := path.Join(downwardapi.MountPath, downwardapi.NetworkInfoVolumePath)
 	pciAddressPoolWithNetworkStatus, err := newPCIAddressPoolWithNetworkStatusFromFile(netStatusPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create SR-IOV hostdevices: %v", err)
 	}
 	if pciAddressPoolWithNetworkStatus.Len() == 0 {
 		log.Log.Object(vmi).Warningf("found no SR-IOV networks to PCI-Address mapping. fall back to resource address pool")
@@ -70,15 +70,21 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 // - file empty post-polling (timeout) - return err to fail SyncVMI.
 // - other error reading file (i.e. file not exist) - return no error but PCIAddressWithNetworkStatusPool.Len() will return 0.
 func newPCIAddressPoolWithNetworkStatusFromFile(path string) (*PCIAddressWithNetworkStatusPool, error) {
+	const failedCreatePciPoolFmt = "failed to create PCI address pool with network status from file: %w"
+
 	networkDeviceInfoBytes, err := readFileUntilNotEmpty(path)
 	if err != nil {
 		if isFileEmptyAfterTimeout(err, networkDeviceInfoBytes) {
-			return nil, err
+			return nil, fmt.Errorf(failedCreatePciPoolFmt, err)
 		}
 		return nil, nil
 	}
 
-	return NewPCIAddressPoolWithNetworkStatus(networkDeviceInfoBytes)
+	pciPool, err := NewPCIAddressPoolWithNetworkStatus(networkDeviceInfoBytes)
+	if err != nil {
+		return nil, fmt.Errorf(failedCreatePciPoolFmt, err)
+	}
+	return pciPool, nil
 }
 
 func readFileUntilNotEmpty(networkPCIMapPath string) ([]byte, error) {
@@ -88,6 +94,9 @@ func readFileUntilNotEmpty(networkPCIMapPath string) ([]byte, error) {
 		networkPCIMapBytes, err = os.ReadFile(networkPCIMapPath)
 		return len(networkPCIMapBytes) > 0, err
 	})
+	if errors.Is(err, wait.ErrWaitTimeout) {
+		return nil, fmt.Errorf("%w: file is not populated with network-info", err)
+	}
 	return networkPCIMapBytes, err
 }
 
