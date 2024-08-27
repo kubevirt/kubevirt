@@ -76,8 +76,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	runStrategyManual := v1.RunStrategyManual
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
@@ -311,11 +309,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.OwnerReferences).ToNot(BeEmpty())
 
-			// Delete it
-			orphanPolicy := metav1.DeletePropagationOrphan
 			By("Deleting VM")
 			Expect(virtClient.VirtualMachine(vm.Namespace).
-				Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
+				Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationOrphan)})).To(Succeed())
 			// Wait until the virtual machine is deleted
 			By("Waiting for VM to delete")
 			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).ShouldNot(Exist())
@@ -1096,7 +1092,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					By("Creating a VM with RunStrategyManual")
 					vm := libvmi.NewVirtualMachine(vmi)
-					vm.Spec.RunStrategy = &runStrategyManual
+					vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
 
 					By("Annotate the VM with regard for leaving launcher pod after qemu exit")
 					vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
