@@ -535,30 +535,41 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HaveConditionFalse(v1.VirtualMachineReady))
 		})
 
-		DescribeTable("should report an error status when VM scheduling error occurs", func(unschedulableFunc func(vmi *v1.VirtualMachineInstance)) {
-			vmi := libvmi.New(
-				libvmi.WithContainerDisk("disk0", "no-such-image"),
-				libvmi.WithResourceMemory("128Mi"),
-			)
-			unschedulableFunc(vmi)
-
+		DescribeTable("should report an error status", func(vmi *v1.VirtualMachineInstance, expectedStatus v1.VirtualMachinePrintableStatus) {
 			vm := createRunningVM(virtClient, vmi)
-
-			By("Verifying that the VM status eventually gets set to FailedUnschedulable")
-			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusUnschedulable))
+			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(expectedStatus))
 		},
-			Entry("[test_id:6867]with unsatisfiable resource requirements", func(vmi *v1.VirtualMachineInstance) {
-				vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			Entry("[test_id:6867] when VM scheduling error occurs with unsatisfiable resource requirements",
+				libvmi.New(
 					// This may stop working sometime around 2040
-					k8sv1.ResourceMemory: resource.MustParse("1Ei"),
-					k8sv1.ResourceCPU:    resource.MustParse("1M"),
-				}
-			}),
-			Entry("[test_id:6868]with unsatisfiable scheduling constraints", func(vmi *v1.VirtualMachineInstance) {
-				vmi.Spec.NodeSelector = map[string]string{
-					"node-label": "that-doesnt-exist",
-				}
-			}),
+					libvmi.WithResourceMemory("1Ei"),
+					libvmi.WithResourceCPU("1M"),
+				),
+				v1.VirtualMachineStatusUnschedulable,
+			),
+			Entry("[test_id:6868] when VM scheduling error occurs with unsatisfiable scheduling constraints",
+				libvmi.New(
+					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithNodeSelectorFor("that-doesnt-exist"),
+				),
+				v1.VirtualMachineStatusUnschedulable,
+			),
+			Entry(
+				"[test_id:7596] when a VM with a missing PVC is started",
+				libvmi.New(
+					libvmi.WithPersistentVolumeClaim("disk0", "missing-pvc"),
+					libvmi.WithResourceMemory("128Mi"),
+				),
+				v1.VirtualMachineStatusPvcNotFound,
+			),
+			Entry(
+				"[test_id:7597] when a VM with a missing DV is started",
+				libvmi.New(
+					libvmi.WithDataVolume("disk0", "missing-datavolume"),
+					libvmi.WithResourceMemory("128Mi"),
+				),
+				v1.VirtualMachineStatusPvcNotFound,
+			),
 		)
 
 		It("[test_id:6869]should report an error status when image pull error occurs", func() {
@@ -576,32 +587,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusImagePullBackOff))
 			}
 		})
-
-		DescribeTable("should report an error status when a VM with a missing PVC/DV is started", func(vmiFunc func() *v1.VirtualMachineInstance, status v1.VirtualMachinePrintableStatus) {
-			vm := createRunningVM(virtClient, vmiFunc())
-			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(status))
-		},
-			Entry(
-				"[test_id:7596]missing PVC",
-				func() *v1.VirtualMachineInstance {
-					return libvmi.New(
-						libvmi.WithPersistentVolumeClaim("disk0", "missing-pvc"),
-						libvmi.WithResourceMemory("128Mi"),
-					)
-				},
-				v1.VirtualMachineStatusPvcNotFound,
-			),
-			Entry(
-				"[test_id:7597]missing DataVolume",
-				func() *v1.VirtualMachineInstance {
-					return libvmi.New(
-						libvmi.WithDataVolume("disk0", "missing-datavolume"),
-						libvmi.WithResourceMemory("128Mi"),
-					)
-				},
-				v1.VirtualMachineStatusPvcNotFound,
-			),
-		)
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
 			By("Verifying that required StorageClass is configured")
