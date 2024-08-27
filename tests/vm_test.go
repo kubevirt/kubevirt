@@ -194,16 +194,22 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Entry("float type", "2.2", "2222222.2"),
 		)
 
-		It("[test_id:3161]should carry annotations to VMI", func() {
-			vm := createRunningVM(virtClient, libvmifact.NewGuestless(libvmi.WithAnnotation("testannotation", "test")))
+		It("[test_id:3161]should carry vm.template.spec.annotations to VMI and ignore vm ones", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmifact.NewGuestless(libvmi.WithAnnotation("test.vm.template.spec.annotation", "propagated")),
+			)
+			vm.Annotations = map[string]string{"test.vm.annotation": "nopropagated"}
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm = libvmops.StartVirtualMachine(vm)
 
-			By("Waiting for VMI to exist")
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 10*time.Second, 1*time.Second).Should(Exist())
-
-			By("checking for annotations to be present")
+			By("checking for annotations propagation")
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(vmi.Annotations).To(HaveKeyWithValue("testannotation", "test"))
+			Expect(vmi.Annotations).To(And(
+				HaveKeyWithValue("test.vm.template.spec.annotation", "propagated"),
+				Not(HaveKey("test.vm.annotation")),
+			))
 		})
 
 		It("should sync the generation annotation on the vmi during restarts", func() {
