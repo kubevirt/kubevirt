@@ -27,6 +27,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
@@ -90,5 +92,54 @@ var _ = Describe("VM Stats Collector", func() {
 			Entry("Non running VM", k6tv1.VirtualMachineStatusStopped, nonRunningTimestamp),
 			Entry("Errored VM", k6tv1.VirtualMachineStatusCrashLoopBackOff, errorTimestamp),
 		)
+	})
+
+	Context("VM Resource Requests", func() {
+		It("should ignore VM with empty memory resource requests", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{},
+						},
+					},
+				},
+			}
+
+			cr := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
+			Expect(cr).To(BeZero())
+		})
+
+		It("should collect VM memory resource requests", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								Resources: k6tv1.ResourceRequirements{
+									Requests: k8sv1.ResourceList{
+										k8sv1.ResourceMemory: *resource.NewQuantity(1024, resource.BinarySI),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
+			Expect(crs).To(HaveLen(1))
+			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[0].Value).To(BeEquivalentTo(1024))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes"}))
+		})
 	})
 })

@@ -20,6 +20,8 @@
 package virt_controller
 
 import (
+	"fmt"
+
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"kubevirt.io/client-go/log"
 
@@ -28,9 +30,17 @@ import (
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         timestampMetrics,
+		Metrics:         append(timestampMetrics, vmResourceRequests),
 		CollectCallback: vmStatsCollectorCallback,
 	}
+
+	vmResourceRequests = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_resource_requests",
+			Help: "Resources requested by Virtual Machine.",
+		},
+		[]string{"vmi", "namespace", "resource", "unit"},
+	)
 
 	timestampMetrics = []operatormetrics.Metric{
 		startingTimestamp,
@@ -127,7 +137,43 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 		vms[i] = obj.(*k6tv1.VirtualMachine)
 	}
 
-	return reportVmsStats(vms)
+	var results []operatormetrics.CollectorResult
+	results = append(results, CollectResourceRequests(vms)...)
+	results = append(results, reportVmsStats(vms)...)
+	return results
+}
+
+func CollectResourceRequests(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		memoryRequested, err := getMemoryRequested(vm)
+		if err != nil {
+			log.Log.V(4).Infof("Error getting memory request for VM %s: %v", vm.Name, err)
+			continue
+		}
+
+		results = append(results, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(memoryRequested),
+			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
+		})
+	}
+
+	return results
+}
+
+func getMemoryRequested(vm *k6tv1.VirtualMachine) (int64, error) {
+	if vm.Spec.Template == nil {
+		return 0, fmt.Errorf("domain spec not set")
+	}
+
+	memoryRequested := vm.Spec.Template.Spec.Domain.Resources.Requests.Memory()
+	if memoryRequested.IsZero() {
+		return 0, fmt.Errorf("memory request not set")
+	}
+
+	return memoryRequested.Value(), nil
 }
 
 func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
