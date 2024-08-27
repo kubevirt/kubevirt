@@ -131,7 +131,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				[]string{"/bin/bash", "-c", virtioFsFileTestCmd},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -143,7 +143,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			podVirtioFsFileExist, err = exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				[]string{"/bin/bash", "-c", virtioFsFileTestCmd},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -243,7 +243,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				[]string{"/bin/bash", "-c", virtioFsFileTestCmd},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -347,7 +347,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				[]string{"/bin/bash", "-c", virtioFsFileTestCmd},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))

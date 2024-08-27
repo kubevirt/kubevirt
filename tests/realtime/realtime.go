@@ -95,7 +95,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			psOutput, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+				[]string{"/bin/bash", "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -107,7 +107,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			psOutput, err = exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "grep 'locked memory' /proc/$(ps -C " + emulator + " -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
+				[]string{"/bin/bash", "-c", "grep 'locked memory' /proc/$(ps -C " + emulator + " -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			limits := strings.Split(strings.TrimSpace(psOutput), " ")
@@ -138,7 +138,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			psOutput, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+				[]string{"/bin/bash", "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -149,7 +149,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			psOutput, err = exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "ps -TcC " + emulator + " |grep CPU |awk '{print $3\" \" $8}'"},
+				[]string{"/bin/bash", "-c", "ps -TcC " + emulator + " |grep CPU |awk '{print $3\" \" $8}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			slice = strings.Split(strings.TrimSpace(psOutput), "\n")

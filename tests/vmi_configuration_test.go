@@ -3434,7 +3434,7 @@ func getKvmPitMask(qemupid, nodeName string) (output string, err error) {
 
 	kvmpitpid := strings.TrimSpace(output)
 	tasksetcmd := "taskset -c -p " + kvmpitpid + " | cut -f2 -d:"
-	args = []string{tests.BinBash, "-c", tasksetcmd}
+	args = []string{"/bin/bash", "-c", tasksetcmd}
 	output, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	Expect(err).ToNot(HaveOccurred())
 
