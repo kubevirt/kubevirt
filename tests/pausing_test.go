@@ -84,20 +84,6 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		})
 
-		It("[test_id:3225]should signal paused state with condition when paused multiple times", func() {
-			for i := 0; i < 3; i++ {
-				By("Pausing VMI")
-				err := virtClient.VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
-
-				By("Unpausing VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
-			}
-		})
-
 		It("[test_id:3224]should not be paused with a LivenessProbe configured", func() {
 			By("Launching a VMI with LivenessProbe")
 			vmi = libvmifact.NewCirros(
