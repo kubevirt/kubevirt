@@ -1360,7 +1360,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					VirtualMachine: newVMI,
 					AllowEmulation: true,
 				}
-				converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
+				err = converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
+				Expect(err).ToNot(HaveOccurred())
 
 				expectedType := ""
 				if _, err := os.Stat("/dev/kvm"); errors.Is(err, os.ErrNotExist) {
@@ -1816,15 +1817,6 @@ func pkillAllVMIs(virtCli kubecli.KubevirtClient, node string) error {
 	_, err := virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 
 	return err
-}
-
-func nowAsJSONWithOffset(offset time.Duration) string {
-	now := metav1.Now()
-	now = metav1.NewTime(now.Add(offset))
-
-	data, err := json.Marshal(now)
-	Expect(err).ToNot(HaveOccurred(), "Should marshal to json")
-	return strings.Trim(string(data), `"`)
 }
 
 func addBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
