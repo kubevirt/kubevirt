@@ -102,7 +102,7 @@ var _ = DescribeInfra("changes to the kubernetes client", func() {
 		targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
 		vmi := libvmi.New(
 			libvmi.WithResourceMemory("1Mi"),
-			libvmi.WithNodeSelectorFor(&targetNode),
+			libvmi.WithNodeSelectorFor(targetNode.Name),
 		)
 
 		replicaset := tests.NewRandomReplicaSetFromVMI(vmi, 0)

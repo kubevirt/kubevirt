@@ -25,12 +25,12 @@ import (
 )
 
 // WithNodeSelectorFor ensures that the VMI gets scheduled on the specified node
-func WithNodeSelectorFor(node *k8sv1.Node) Option {
+func WithNodeSelectorFor(nodeName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.NodeSelector == nil {
 			vmi.Spec.NodeSelector = map[string]string{}
 		}
-		vmi.Spec.NodeSelector[k8sv1.LabelHostname] = node.Name
+		vmi.Spec.NodeSelector[k8sv1.LabelHostname] = nodeName
 	}
 }
 
