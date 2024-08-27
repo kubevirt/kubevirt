@@ -267,10 +267,11 @@ if [ "$CI" != "true" ]; then
   make cluster-down
 fi
 
-# Create .bazelrc to use remote cache
+# Create .bazelrc to use 4 jobs, remote cache and disable progress output
 cat >ci.bazelrc <<EOF
 build --jobs=4
 build --remote_download_toplevel
+build --noshow_progress
 EOF
 
 # Build and test images with a custom image name prefix

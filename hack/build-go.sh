@@ -97,7 +97,7 @@ if [ "${target}" = "install" ]; then
         if [ -z "$BIN_NAME" ] || [[ $BIN_NAME == *"container-disk"* ]]; then
             mkdir -p ${CMD_OUT_DIR}/container-disk-v2alpha
             cd cmd/container-disk-v2alpha
-            # the containerdisk bianry needs to be static, as it runs in a scratch container
+            # The containerdisk binary needs to be static, as it runs in a scratch container
             echo "building static binary container-disk"
             gcc -static -o ${CMD_OUT_DIR}/container-disk-v2alpha/container-disk main.c
         fi
