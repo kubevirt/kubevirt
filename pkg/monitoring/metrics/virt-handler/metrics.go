@@ -25,6 +25,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/migrationdomainstats"
 )
 
 func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) error {
@@ -42,7 +43,12 @@ func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInf
 	SetVersionInfo()
 
 	domainstats.SetupDomainStatsCollector(virtShareDir, nodeName, MaxRequestsInFlight, vmiInformer)
-	return operatormetrics.RegisterCollector(domainstats.Collector)
+
+	if err := migrationdomainstats.SetupMigrationStatsCollector(vmiInformer); err != nil {
+		return err
+	}
+
+	return operatormetrics.RegisterCollector(domainstats.Collector, migrationdomainstats.MigrationStatsCollector)
 }
 
 func ListMetrics() []operatormetrics.Metric {

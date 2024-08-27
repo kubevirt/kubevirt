@@ -30,7 +30,7 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats/collector"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/collector"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -116,6 +116,6 @@ func (fc fakeCollector) Collect(_ []*k6tv1.VirtualMachineInstance, scraper colle
 func fakeCollect(scraper collector.MetricsScraper, wg *sync.WaitGroup, vmi *k6tv1.VirtualMachineInstance, vmiStats *VirtualMachineInstanceStats) {
 	defer wg.Done()
 
-	dScraper := scraper.(*domainstatsScraper)
+	dScraper := scraper.(*DomainstatsScraper)
 	dScraper.report(vmi, vmiStats)
 }

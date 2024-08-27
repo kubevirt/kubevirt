@@ -17,13 +17,26 @@
  *
  */
 
-package domainstats
+package migrationdomainstats
 
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"k8s.io/client-go/tools/cache"
 )
 
 var (
+	migrationdomainstatsHandler *handler
+
+	MigrationStatsCollector = operatormetrics.Collector{
+		Metrics: []operatormetrics.Metric{
+			migrateVMIDataRemaining,
+			migrateVMIDataProcessed,
+			migrateVmiDirtyMemoryRate,
+			migrateVmiMemoryTransferRate,
+		},
+		CollectCallback: migrationStatsCollectorCallback,
+	}
+
 	migrateVMIDataRemaining = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_migration_data_remaining_bytes",
@@ -53,41 +66,61 @@ var (
 	)
 )
 
-type migrationMetrics struct{}
-
-func (migrationMetrics) Describe() []operatormetrics.Metric {
-	return []operatormetrics.Metric{
-		migrateVMIDataRemaining,
-		migrateVMIDataProcessed,
-		migrateVmiDirtyMemoryRate,
-		migrateVmiMemoryTransferRate,
+func SetupMigrationStatsCollector(vmiInformer cache.SharedIndexInformer) error {
+	if vmiInformer == nil {
+		return nil
 	}
+
+	var err error
+	migrationdomainstatsHandler, err = newHandler(vmiInformer)
+	return err
 }
 
-func (migrationMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operatormetrics.CollectorResult {
+func migrationStatsCollectorCallback() []operatormetrics.CollectorResult {
+	results := migrationdomainstatsHandler.Collect()
+
 	var crs []operatormetrics.CollectorResult
-
-	if vmiReport.vmiStats.DomainStats == nil || vmiReport.vmiStats.DomainStats.MigrateDomainJobInfo == nil {
-		return crs
-	}
-
-	jobInfo := vmiReport.vmiStats.DomainStats.MigrateDomainJobInfo
-
-	if jobInfo.DataRemainingSet {
-		crs = append(crs, vmiReport.newCollectorResult(migrateVMIDataRemaining, float64(jobInfo.DataRemaining)))
-	}
-
-	if jobInfo.DataProcessedSet {
-		crs = append(crs, vmiReport.newCollectorResult(migrateVMIDataProcessed, float64(jobInfo.DataProcessed)))
-	}
-
-	if jobInfo.MemDirtyRateSet {
-		crs = append(crs, vmiReport.newCollectorResult(migrateVmiDirtyMemoryRate, float64(jobInfo.MemDirtyRate)))
-	}
-
-	if jobInfo.MemoryBpsSet {
-		crs = append(crs, vmiReport.newCollectorResult(migrateVmiMemoryTransferRate, float64(jobInfo.MemoryBps)))
+	for _, r := range results {
+		crs = append(crs, parse(&r)...)
 	}
 
 	return crs
+}
+
+func parse(r *result) []operatormetrics.CollectorResult {
+	var crs []operatormetrics.CollectorResult
+
+	jobInfo := r.domainJobInfo
+
+	if jobInfo.DataRemainingSet {
+		crs = append(crs, newCR(r, migrateVMIDataRemaining, float64(jobInfo.DataRemaining)))
+	}
+
+	if jobInfo.DataProcessedSet {
+		crs = append(crs, newCR(r, migrateVMIDataProcessed, float64(jobInfo.DataProcessed)))
+	}
+
+	if jobInfo.MemDirtyRateSet {
+		crs = append(crs, newCR(r, migrateVmiDirtyMemoryRate, float64(jobInfo.MemDirtyRate)))
+	}
+
+	if jobInfo.MemoryBpsSet {
+		crs = append(crs, newCR(r, migrateVmiMemoryTransferRate, float64(jobInfo.MemoryBps)))
+	}
+
+	return crs
+}
+
+func newCR(r *result, metric operatormetrics.Metric, value float64) operatormetrics.CollectorResult {
+	vmiLabels := map[string]string{
+		"namespace": r.namespace,
+		"name":      r.vmi,
+	}
+
+	return operatormetrics.CollectorResult{
+		Metric:      metric,
+		ConstLabels: vmiLabels,
+		Value:       value,
+		Timestamp:   r.timestamp,
+	}
 }
