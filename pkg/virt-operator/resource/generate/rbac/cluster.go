@@ -83,6 +83,7 @@ const (
 	apiVMInstancesSEVQueryLaunchMeasurement = "virtualmachineinstances/sev/querylaunchmeasurement"
 	apiVMInstancesSEVSetupSession           = "virtualmachineinstances/sev/setupsession"
 	apiVMInstancesSEVInjectLaunchSecret     = "virtualmachineinstances/sev/injectlaunchsecret"
+	apiVMInstancesUSBRedir                  = "virtualmachineinstances/usbredir"
 )
 
 func GetAllCluster() []runtime.Object {
@@ -199,6 +200,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesUserList,
 					apiVMInstancesSEVFetchCertChain,
 					apiVMInstancesSEVQueryLaunchMeasurement,
+					apiVMInstancesUSBRedir,
 				},
 				Verbs: []string{
 					"get",
@@ -381,6 +383,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesUserList,
 					apiVMInstancesSEVFetchCertChain,
 					apiVMInstancesSEVQueryLaunchMeasurement,
+					apiVMInstancesUSBRedir,
 				},
 				Verbs: []string{
 					"get",
