@@ -1600,19 +1600,15 @@ status:
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			oldFinalizers, err := json.Marshal(vm.GetFinalizers())
-			Expect(err).ToNot(HaveOccurred())
-
 			newVm := vm.DeepCopy()
 			controller.RemoveFinalizer(newVm, customFinalizer)
-			newFinalizers, err := json.Marshal(newVm.GetFinalizers())
-			Expect(err).ToNot(HaveOccurred())
 
-			var ops []string
-			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/finalizers", "value": %s }`, string(oldFinalizers)))
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/finalizers", "value": %s }`, string(newFinalizers)))
+			patchBytes, err := patch.New(
+				patch.WithTest("/metadata/finalizers", vm.GetFinalizers()),
+				patch.WithReplace("/metadata/finalizers", newVm.GetFinalizers()),
+			).GeneratePayload()
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), metav1.PatchOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensure the vm has disappeared")
