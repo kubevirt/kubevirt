@@ -75,19 +75,19 @@ func ServeVMExports(resp http.ResponseWriter, req *http.Request, clusterConfig *
 	validating_webhooks.Serve(resp, req, admitters.NewVMExportAdmitter(clusterConfig))
 }
 
-func ServeVmInstancetypes(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+func ServeVmInstancetypes(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.InstancetypeAdmitter{})
 }
 
-func ServeVmClusterInstancetypes(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+func ServeVmClusterInstancetypes(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.ClusterInstancetypeAdmitter{})
 }
 
-func ServeVmPreferences(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+func ServeVmPreferences(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.PreferenceAdmitter{})
 }
 
-func ServeVmClusterPreferences(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+func ServeVmClusterPreferences(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.ClusterPreferenceAdmitter{})
 }
 
@@ -105,7 +105,7 @@ func ServePodEvictionInterceptor(resp http.ResponseWriter, req *http.Request, cl
 	validating_webhooks.Serve(resp, req, admitters.NewPodEvictionAdmitter(clusterConfig, virtCli, virtCli.GeneratedKubeVirtClient()))
 }
 
-func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, admitters.NewMigrationPolicyAdmitter())
 }
 
