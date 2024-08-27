@@ -11,6 +11,8 @@ kubectl() { cluster/kubectl.sh "$@"; }
 make cluster-down
 make cluster-up
 
+trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
+
 make cluster-sync
 make ci-functest
 

@@ -17,9 +17,9 @@
 # Copyright 2020 Red Hat, Inc.
 #
 
-set -ex
 
 function test_delete_ns(){
+    set -ex
     if [ "${CMD}" == "oc" ]; then
         echo "Trying to delete kubevirt-hyperconverged namespace when the hyperconverged CR is still there"
         # this should fail with a clear error message

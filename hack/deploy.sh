@@ -173,7 +173,7 @@ done
 "${CMD}" apply -f _out/hco.cr.yaml
 sleep 10
 # Give 30 minutes to available condition become true
-if ! timeout 30m bash -c -- "until "${CMD}" get -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} -o go-template='{{ range .status.conditions }}{{ if eq .type \"Available\" }}{{ .status }}{{ end }}{{ end }}' | grep True; do sleep 1; done";
+if ! ${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for=condition=Available --timeout=30m;
 then
     echo "Available condition never became true"
     "${CMD}" get pods -n "${HCO_NAMESPACE}"

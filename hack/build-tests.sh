@@ -17,12 +17,11 @@ if [ "${JOB_TYPE}" == "travis" ]; then
     ginkgo -r ${PKG_PACKAGE_PATH}webhooks
     ginkgo -cover -output-dir=./coverprofiles -coverprofile=cover.coverprofile -r ${PKG_PACKAGE_PATH} -r ${CONTROLLERS_PACKAGE_PATH}
 else
-    test_path="tests/func-tests"
+    test_path="./tests/func-tests"
     GOFLAGS='' go install github.com/onsi/ginkgo/v2/ginkgo@$(grep github.com/onsi/ginkgo go.mod | cut -d " " -f2)
     go mod tidy
     go mod vendor
     test_out_path=${test_path}/_out
     mkdir -p ${test_out_path}
-    (cd $test_path; ginkgo build .)
-    mv ${test_path}/func-tests.test ${test_out_path}
+    ginkgo build -o ${test_out_path} ${test_path}
 fi
