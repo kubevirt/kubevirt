@@ -53,7 +53,7 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 	netStatusPath := path.Join(downwardapi.MountPath, downwardapi.NetworkInfoVolumePath)
 	pciAddressPoolWithNetworkStatus, err := newPCIAddressPoolWithNetworkStatusFromFile(netStatusPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create PCI address pool with network status from file: %w", err)
 	}
 	if pciAddressPoolWithNetworkStatus.Len() == 0 {
 		log.Log.Object(vmi).Warningf("found no SR-IOV networks to PCI-Address mapping. fall back to resource address pool")
