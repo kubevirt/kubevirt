@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -1192,6 +1193,81 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) patchClientPassthrough(name, namespace string, client *v1.ClientPassthroughStatus) error {
+	var bytes []byte
+	var err error
+
+	bytes, err = patch.GeneratePatchPayload(patch.PatchOperation{
+		Op:    patch.PatchReplaceOp,
+		Path:  "/status/clientPassthrough",
+		Value: client,
+	},
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(
+		context.Background(),
+		name,
+		types.JSONPatchType,
+		bytes,
+		k8smetav1.PatchOptions{},
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (app *SubresourceAPIApp) vmUsbredirPatchAddStatus(name, namespace, vendor, product string) *errors.StatusError {
+	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
+	if statErr != nil {
+		return statErr
+	}
+
+	client := vmi.Status.ClientPassthrough
+	if client == nil {
+		client = &v1.ClientPassthroughStatus{}
+	}
+
+	client.USB = append(client.USB, v1.USBDeviceInfo{
+		Vendor:  vendor,
+		Product: product,
+	},
+	)
+
+	if err := app.patchClientPassthrough(name, namespace, client); err != nil {
+		return errors.NewInternalError(fmt.Errorf("unable to patch vm status: %v", err))
+	}
+	return nil
+}
+
+func (app *SubresourceAPIApp) vmUsbredirPatchRemoveStatus(name, namespace, vendor, product string) *errors.StatusError {
+	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
+	if statErr != nil {
+		return statErr
+	}
+
+	client := vmi.Status.ClientPassthrough
+	if client == nil {
+		return nil
+	}
+
+	i := slices.IndexFunc(client.USB, func(usb v1.USBDeviceInfo) bool {
+		return usb.Vendor == vendor && usb.Product == product
+	})
+
+	if client.USB = append(client.USB[:i], client.USB[i+1:]...); len(client.USB) == 0 {
+		client = nil
+	}
+	if err := app.patchClientPassthrough(name, namespace, client); err != nil {
+		return errors.NewInternalError(fmt.Errorf("unable to patch vm status: %v", err))
+	}
+	return nil
 }
 
 func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {

@@ -8855,6 +8855,12 @@
      },
      {
       "$ref": "#/parameters/namespace-nfszEHZ0"
+     },
+     {
+      "$ref": "#/parameters/product-TGdLyjyO"
+     },
+     {
+      "$ref": "#/parameters/vendor-hdG9HENl"
      }
     ]
    },
@@ -10323,6 +10329,12 @@
      },
      {
       "$ref": "#/parameters/namespace-nfszEHZ0"
+     },
+     {
+      "$ref": "#/parameters/product-TGdLyjyO"
+     },
+     {
+      "$ref": "#/parameters/vendor-hdG9HENl"
      }
     ]
    },
@@ -12794,6 +12806,20 @@
    "v1.ClientPassthroughDevices": {
     "description": "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no immediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
     "type": "object"
+   },
+   "v1.ClientPassthroughStatus": {
+    "type": "object",
+    "properties": {
+     "usb": {
+      "description": "Redirected USB devices",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.USBDeviceInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
    },
    "v1.Clock": {
     "description": "Represents the clock and timers of a vmi.",
@@ -16070,6 +16096,23 @@
      }
     }
    },
+   "v1.USBDeviceInfo": {
+    "type": "object",
+    "required": [
+     "vendor",
+     "product"
+    ],
+    "properties": {
+     "product": {
+      "type": "string",
+      "default": ""
+     },
+     "vendor": {
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.USBHostDevice": {
     "type": "object",
     "required": [
@@ -17281,6 +17324,10 @@
        "type": "string",
        "default": ""
       }
+     },
+     "clientPassthrough": {
+      "description": "Clientpassthrough indicates a list of devices that are currently being redirected from remote devices to the running VMI",
+      "$ref": "#/definitions/v1.ClientPassthroughStatus"
      },
      "conditions": {
       "description": "Conditions are specific points in VirtualMachineInstance's pod runtime.",
@@ -20230,6 +20277,13 @@
     "in": "query",
     "required": true
    },
+   "product-TGdLyjyO": {
+    "uniqueItems": true,
+    "type": "string",
+    "description": "Provides Product of USB device",
+    "name": "product",
+    "in": "query"
+   },
    "propagationPolicy-6jk3prlO": {
     "uniqueItems": true,
     "type": "string",
@@ -20264,6 +20318,13 @@
     "type": "boolean",
     "description": "Weather to request a TLS encrypted session from the VSOCK application.",
     "name": "tls",
+    "in": "query"
+   },
+   "vendor-hdG9HENl": {
+    "uniqueItems": true,
+    "type": "string",
+    "description": "Provides Vendor of USB device",
+    "name": "vendor",
     "in": "query"
    },
    "watch-XNNPZGbK": {

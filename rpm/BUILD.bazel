@@ -2923,6 +2923,28 @@ rpmtree(
     visibility = ["//visibility:public"],
 )
 
+rpmtree(
+    name = "virtctl-usbredir_aarch64",
+    rpms = [
+        "@centos-gpg-keys-0__9.0-26.el9.x86_64//rpm",
+        "@centos-stream-release-0__9.0-26.el9.x86_64//rpm",
+        "@centos-stream-repos-0__9.0-26.el9.x86_64//rpm",
+        "@hwdata-0__0.348-9.13.el9.x86_64//rpm",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+rpmtree(
+    name = "virtctl-usbredir_x86_64",
+    rpms = [
+        "@centos-gpg-keys-0__9.0-26.el9.x86_64//rpm",
+        "@centos-stream-release-0__9.0-26.el9.x86_64//rpm",
+        "@centos-stream-repos-0__9.0-26.el9.x86_64//rpm",
+        "@hwdata-0__0.348-9.13.el9.x86_64//rpm",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 tar2files(
     name = "libvirt-libs_aarch64",
     files = {

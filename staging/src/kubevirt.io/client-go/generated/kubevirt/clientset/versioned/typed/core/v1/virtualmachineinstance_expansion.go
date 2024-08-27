@@ -39,7 +39,7 @@ type SerialConsoleOptions struct {
 
 type VirtualMachineInstanceExpansion interface {
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
-	USBRedir(vmiName string) (StreamInterface, error)
+	USBRedir(vmiName, vendor, product string) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
 	Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error)
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
@@ -66,7 +66,7 @@ func (c *virtualMachineInstances) SerialConsole(name string, options *SerialCons
 	return nil, fmt.Errorf("SerialConsole is not implemented yet in generated client")
 }
 
-func (c *virtualMachineInstances) USBRedir(vmiName string) (StreamInterface, error) {
+func (c *virtualMachineInstances) USBRedir(vmiName, vendor, product string) (StreamInterface, error) {
 	// TODO not implemented yet
 	//  requires clientConfig
 	return nil, fmt.Errorf("USBRedir is not implemented yet in generated client")

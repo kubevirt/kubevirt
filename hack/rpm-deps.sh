@@ -164,6 +164,12 @@ sidecar_shim="
     python3
 "
 
+# This is actually a noarch package but we need to fetch it in
+# an arch specific repo.
+virtctl_usbredir="
+    hwdata
+"
+
 # get latest repo data from repo.yaml
 bazel run \
     --config=${ARCHITECTURE} \
@@ -286,6 +292,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $sidecar_shim
 
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name virtctl-usbredir_x86_64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $virtctl_usbredir
+
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
         --config=${ARCHITECTURE} \
@@ -399,6 +414,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_main \
         $centos_extra \
         $sidecar_shim
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name virtctl-usbredir_aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $virtctl_usbredir
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
