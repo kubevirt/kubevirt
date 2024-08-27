@@ -457,26 +457,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 		})
 
-		It("should create vm revision when starting vm", func() {
-			vm := libvmops.StartVirtualMachine(createVM(virtClient, libvmifact.NewCirros()))
-
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", vm.UID, vm.Generation)
-			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
-
-			cr, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(cr.Revision).To(Equal(int64(2)))
-			vmRevision := &v1.VirtualMachine{}
-			err = json.Unmarshal(cr.Data.Raw, vmRevision)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(vmRevision.Spec).To(Equal(vm.Spec))
-		})
-
-		It("should delete old vm revision and create new one when restarting vm", func() {
+		It("should always have updated vm revision when starting vm", func() {
 			By("Starting the VM")
 			vm := libvmops.StartVirtualMachine(createVM(virtClient, libvmifact.NewCirros()))
 
@@ -486,6 +467,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", vm.UID, vm.Generation)
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 			oldVMRevisionName := expectedVMRevisionName
+
+			cr, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cr.Revision).To(Equal(int64(2)))
+			vmRevision := &v1.VirtualMachine{}
+			err = json.Unmarshal(cr.Data.Raw, vmRevision)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmRevision.Spec).To(Equal(vm.Spec))
 
 			By("Stopping the VM")
 			vm = libvmops.StopVirtualMachine(vm)
@@ -518,13 +508,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			expectedVMRevisionName = fmt.Sprintf("revision-start-vm-%s-%d", vm.UID, vm.Generation)
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 
-			cr, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), oldVMRevisionName, metav1.GetOptions{})
+			cr, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), oldVMRevisionName, metav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 			cr, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cr.Revision).To(Equal(int64(5)))
-			vmRevision := &v1.VirtualMachine{}
+			vmRevision = &v1.VirtualMachine{}
 			err = json.Unmarshal(cr.Data.Raw, vmRevision)
 			Expect(err).ToNot(HaveOccurred())
 
