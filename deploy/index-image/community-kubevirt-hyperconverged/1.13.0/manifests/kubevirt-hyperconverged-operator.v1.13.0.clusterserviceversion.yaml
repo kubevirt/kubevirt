@@ -3768,7 +3768,7 @@ spec:
                 - name: NODE_DRIVER_REG_IMAGE
                   value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:e01facb9fb9cffaf52d0053bdb979fbd8c505c8e411939a6e026dd061a6b4fbe
                 - name: LIVENESS_PROBE_IMAGE
-                  value: registry.k8s.io/sig-storage/livenessprobe@sha256:d2a9027a4876e039185e9bef7c61a0142c8ea14e7440860285c34ac73fee4ffb
+                  value: registry.k8s.io/sig-storage/livenessprobe@sha256:33692aed26aaf105b4d6e66280cceca9e0463f500c81b5d8c955428a75438f32
                 - name: CSI_SNAPSHOT_IMAGE
                   value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:2e04046334baf9be425bb0fa1d04c2d1720d770825eedbdbcdb10d430da4ad8c
                 - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
@@ -4668,7 +4668,7 @@ spec:
     name: kubevirt-template-validator
   - image: quay.io/kubevirt/libguestfs-tools@sha256:0b8f015c2516560a3d16069cad80379c01084a516632b1c9ff8af12173575007
     name: libguestfs-tools
-  - image: registry.k8s.io/sig-storage/livenessprobe@sha256:d2a9027a4876e039185e9bef7c61a0142c8ea14e7440860285c34ac73fee4ffb
+  - image: registry.k8s.io/sig-storage/livenessprobe@sha256:33692aed26aaf105b4d6e66280cceca9e0463f500c81b5d8c955428a75438f32
     name: livenessprobe
   - image: quay.io/kubevirt/macvtap-cni@sha256:850b89343ace7c7ea6b18dd8e11964613974e9d1f7377af03854d407fb15230a
     name: macvtap-cni
