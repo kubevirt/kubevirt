@@ -24,7 +24,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -43,15 +42,11 @@ func init() {
 var _ = Describe("VirtLauncher", func() {
 	var mon *monitor
 	var cmd *exec.Cmd
-	var cmdLock sync.Mutex
 	var gracefulShutdownChannel chan struct{}
 	var pidDir string
 	var processStarted bool
 
 	StartProcess := func() {
-		cmdLock.Lock()
-		defer cmdLock.Unlock()
-
 		cmd = exec.Command(fakeQEMUBinary, "--uuid", uuid.New().String(), "--pidfile", filepath.Join(pidDir, "fakens_fakevmi.pid"))
 		err := cmd.Start()
 		Expect(err).ToNot(HaveOccurred())
@@ -63,19 +58,9 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	StopProcess := func() {
-		cmdLock.Lock()
-		defer cmdLock.Unlock()
-
 		cmd.Process.Kill()
 
 		processStarted = false
-	}
-
-	CleanupProcess := func() {
-		cmdLock.Lock()
-		defer cmdLock.Unlock()
-
-		cmd.Wait()
 	}
 
 	VerifyProcessStarted := func() {
@@ -125,7 +110,7 @@ var _ = Describe("VirtLauncher", func() {
 		if processStarted {
 			StopProcess()
 		}
-		CleanupProcess()
+		cmd.Wait()
 	})
 
 	Describe("VirtLauncher", func() {
@@ -144,7 +129,7 @@ var _ = Describe("VirtLauncher", func() {
 				VerifyProcessStopped()
 
 				// cleanup after stopping ensures zombie process is detected
-				CleanupProcess()
+				cmd.Wait()
 			})
 
 			It("verify start timeout works", func() {
