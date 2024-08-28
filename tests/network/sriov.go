@@ -686,7 +686,16 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
 	// see https://github.com/kubevirt/kubevirt/issues/5027
 	warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
-	libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithWarningsIgnoreList(warningsIgnoreList))
+
+	const timeoutWaitingForConditionMaxOccurrences = 2
+	warningMaxOccurrences := map[string]int{
+		"timed out waiting for condition": timeoutWaitingForConditionMaxOccurrences,
+	}
+
+	libwait.WaitUntilVMIReady(vmi, console.LoginToFedora,
+		libwait.WithWarningsIgnoreList(warningsIgnoreList),
+		libwait.WithWarningsTolerationPolicy(warningMaxOccurrences),
+	)
 
 	virtClient := kubevirt.Client()
 
