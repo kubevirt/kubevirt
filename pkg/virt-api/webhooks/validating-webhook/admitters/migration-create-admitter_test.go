@@ -50,7 +50,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			},
 		}
 
-		migration := v1.VirtualMachineInstanceMigration{
+		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: vmi.Namespace,
 			},
@@ -58,18 +58,10 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				VMIName: vmi.Name,
 			},
 		}
-		migrationBytes, _ := json.Marshal(&migration)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.MigrationGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: migrationBytes,
-				},
-			},
-		}
 		virtClient := kubevirtfake.NewSimpleClientset(vmi, inFlightMigration)
 		migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+		ar, err := newAdmissionReviewForVMIMCreation(migration)
+		Expect(err).ToNot(HaveOccurred())
 
 		resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
@@ -77,7 +69,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 
 	Context("with no conflicting migration", func() {
 		It("should reject invalid Migration spec on create", func() {
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 				},
@@ -85,18 +77,11 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 					VMIName: "",
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
 			virtClient := kubevirtfake.NewSimpleClientset()
 			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -107,7 +92,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		It("should accept valid Migration spec on create", func() {
 			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
 				},
@@ -115,18 +100,10 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 					VMIName: vmi.Name,
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
 			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -140,7 +117,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				Failed:       false,
 			}
 
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
 				},
@@ -148,18 +125,11 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 					VMIName: vmi.Name,
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
 			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -169,7 +139,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vmi.Status.Phase = v1.Succeeded
 
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
 				},
@@ -177,18 +147,11 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 					VMIName: vmi.Name,
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
 			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -210,7 +173,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
 				},
@@ -218,18 +181,11 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 					VMIName: vmi.Name,
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
 			migrationCreateAdmitter := NewMigrationCreateAdmitter(virtClient)
+
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -267,3 +223,20 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		)
 	})
 })
+
+func newAdmissionReviewForVMIMCreation(migration *v1.VirtualMachineInstanceMigration) (*admissionv1.AdmissionReview, error) {
+	migrationBytes, err := json.Marshal(migration)
+	if err != nil {
+		return nil, err
+	}
+
+	return &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: webhooks.MigrationGroupVersionResource,
+			Object: runtime.RawExtension{
+				Raw: migrationBytes,
+			},
+			Operation: admissionv1.Create,
+		},
+	}, nil
+}
