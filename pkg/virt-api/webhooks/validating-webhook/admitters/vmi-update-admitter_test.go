@@ -66,7 +66,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		},
 	}
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
-	vmiUpdateAdmitter := &VMIUpdateAdmitter{ClusterConfig: config, KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)}
+	vmiUpdateAdmitter := NewVMIUpdateAdmitter(config, webhooks.KubeVirtServiceAccounts(kubeVirtNamespace))
 
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
@@ -685,7 +685,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 		newVMI.Spec.Domain.Devices.Filesystems = filesystems
 
-		result := admitStorageUpdate(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
+		result := admitStorageUpdate(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.clusterConfig)
 		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	}
 
@@ -1003,6 +1003,6 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "pvc1"},
 			},
 		}
-		Expect(admitStorageUpdate(newVols, oldVols, disks, disks, volumeStatuses, vmi, vmiUpdateAdmitter.ClusterConfig)).To(BeNil())
+		Expect(admitStorageUpdate(newVols, oldVols, disks, disks, volumeStatuses, vmi, vmiUpdateAdmitter.clusterConfig)).To(BeNil())
 	})
 })

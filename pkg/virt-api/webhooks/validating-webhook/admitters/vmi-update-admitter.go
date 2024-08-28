@@ -40,8 +40,15 @@ import (
 const nodeNameExtraInfo = "authentication.kubernetes.io/node-name"
 
 type VMIUpdateAdmitter struct {
-	ClusterConfig           *virtconfig.ClusterConfig
-	KubeVirtServiceAccounts map[string]struct{}
+	clusterConfig           *virtconfig.ClusterConfig
+	kubeVirtServiceAccounts map[string]struct{}
+}
+
+func NewVMIUpdateAdmitter(config *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}) *VMIUpdateAdmitter {
+	return &VMIUpdateAdmitter{
+		clusterConfig:           config,
+		kubeVirtServiceAccounts: kubeVirtServiceAccounts,
+	}
 }
 
 func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -54,7 +61,7 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if admitter.ClusterConfig.NodeRestrictionEnabled() && hasRequestOriginatedFromVirtHandler(ar.Request.UserInfo.Username, admitter.KubeVirtServiceAccounts) {
+	if admitter.clusterConfig.NodeRestrictionEnabled() && hasRequestOriginatedFromVirtHandler(ar.Request.UserInfo.Username, admitter.kubeVirtServiceAccounts) {
 		values, exist := ar.Request.UserInfo.Extra[nodeNameExtraInfo]
 		if exist && len(values) > 0 {
 			nodeName := values[0]
@@ -96,8 +103,8 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	// Reject VMI update if VMI spec changed
 	if !equality.Semantic.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		// Only allow the KubeVirt SA to modify the VMI spec, since that means it went through the sub resource.
-		if _, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]; isKubeVirtServiceAccount {
-			hotplugResponse := admitHotplug(oldVMI, newVMI, admitter.ClusterConfig)
+		if _, isKubeVirtServiceAccount := admitter.kubeVirtServiceAccounts[ar.Request.UserInfo.Username]; isKubeVirtServiceAccount {
+			hotplugResponse := admitHotplug(oldVMI, newVMI, admitter.clusterConfig)
 			if hotplugResponse != nil {
 				return hotplugResponse
 			}
@@ -117,7 +124,7 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 
 	return &admissionv1.AdmissionResponse{
 		Allowed:  true,
-		Warnings: warnDeprecatedAPIs(&newVMI.Spec, admitter.ClusterConfig),
+		Warnings: warnDeprecatedAPIs(&newVMI.Spec, admitter.clusterConfig),
 	}
 }
 
