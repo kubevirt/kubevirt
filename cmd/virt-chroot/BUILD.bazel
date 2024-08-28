@@ -13,7 +13,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/safepath:go_default_library",
-        "//pkg/virt-handler/cgroup:go_default_library",
+        "//pkg/virt-handler/cgroup/constants:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
