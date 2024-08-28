@@ -931,17 +931,13 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 	vmCopy := vm.DeepCopy()
 	volsVMI := storagetypes.GetVolumesByName(&vmi.Spec)
 	for i, volume := range vmCopy.Spec.Template.Spec.Volumes {
-		if volume.ContainerDisk == nil {
-			continue
-		}
 		vmiVol, ok := volsVMI[volume.Name]
 		if !ok {
 			continue
 		}
-		if vmiVol.ContainerDisk == nil {
-			continue
+		if vmiVol.ContainerDisk != nil {
+			vmCopy.Spec.Template.Spec.Volumes[i].ContainerDisk.ImagePullPolicy = vmiVol.ContainerDisk.ImagePullPolicy
 		}
-		vmCopy.Spec.Template.Spec.Volumes[i].ContainerDisk.ImagePullPolicy = vmiVol.ContainerDisk.ImagePullPolicy
 	}
 	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, vmCopy.Spec.Template.Spec.Volumes) {
 		return nil
