@@ -63,6 +63,7 @@ const (
 	memoryDumpSmallPVCName           = "fs-pvc-small"
 	virtCtlClaimName                 = "--claim-name=%s"
 	virtCtlCreate                    = "--create-claim"
+	virtCtlNamespace                 = "--namespace"
 	virtCtlOutputFile                = "--output=%s"
 	virtCtlStorageClass              = "--storage-class=%s"
 	virtCtlPortForward               = "--port-forward"
