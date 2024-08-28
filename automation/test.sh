@@ -459,6 +459,12 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   if [[ ! $TARGET =~ k8s-1\.3[0-9].* ]]; then
     add_to_label_filter "(!kubernetes130)" "&&"
   fi
+
+  # execute tests labelled as PERIODIC only on periodic test lanes (according to lane name)
+  if [[ ! $TARGET =~ .*periodic.* ]]; then
+    add_to_label_filter "(!PERIODIC)" "&&"
+  fi
+
 fi
 
 # No lane currently supports loading a custom policy

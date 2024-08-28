@@ -172,7 +172,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				Expect(logs).To(ContainSubstring("\n" + testString + "\n"))
 			})
 
-			It("it should rotate the internal log files", func() {
+			It("it should rotate the internal log files", decorators.Periodic, func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")
@@ -192,7 +192,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4 + 1))
 			})
 
-			It("it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", func() {
+			It("it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", decorators.Periodic, func() {
 				cirrosVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceCPU:    resource.MustParse("1000m"),

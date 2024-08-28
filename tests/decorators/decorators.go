@@ -5,6 +5,7 @@ import . "github.com/onsi/ginkgo/v2"
 var (
 	//
 	Quarantine = []interface{}{Label("QUARANTINE")}
+	Periodic   = []interface{}{Label("PERIODIC")}
 
 	// SIGs
 	SigCompute           = []interface{}{Label("sig-compute")}
