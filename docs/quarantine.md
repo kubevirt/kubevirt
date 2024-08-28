@@ -110,13 +110,15 @@ number of tests failing each time. This can cause major delays to merging import
 requests and overload CI. Individual test case quarantining does not make sense in this case.
 
 A required test lane should be made optional if the following criteria are met:
-* The required test lane has a failure rate higher than 25% in the last 24 hours
+* The required test lane has a failure rate higher than 25% in the last 7 days
 * More than ten individual test cases are causing the required test lane to fail
 * The SIG responsible for the required test lane is unable to deliver a fix for the
-flake within 24 hours
+flake within 7 days
 
 The percentage impact of a flaky test lane can be measured by searching for a relevant
 error on the [CI search page](https://search.ci.kubevirt.io/).
+The failure rate of a test lane can be checked by going to the 
+[top failed lane list](https://github.com/kubevirt/ci-health?tab=readme-ov-file#failures-per-sig-against-last-code-push-for-merged-prs) in the ci-health repository.
 
 Following a required test lane being made optional a number of actions must happen:
 * Create github issue with a comment `/release-blocker main` to ensure that
@@ -124,8 +126,8 @@ the issue is addressed before a new release is cut.
 * Ensure that the github issue is assigned to a member of the responsible SIG who
 will own bringing the blocker to completion within a quick time frame.
 * The SIG should stop all feature and refactoring work until a fix for the flake
-has been identified and a pull request has been created. If the flaky test lane is 
-not receiving the required attention from the responsible SIG, SIG CI will hold 
-merge queue PRs from the responsible SIG that are not related to a fix.
+has been identified and a pull request has been created. If the quarantined test lane is 
+not receiving the required attention from the responsible SIG, SIG CI can take a 
+decision to hold merge queue PRs from the responsible SIG that are not related to a fix.
 * Once the fix is merged and the test lane returns to an acceptable failure
 rate, the test lane should be set back to required as soon as possible
