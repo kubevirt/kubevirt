@@ -29,7 +29,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -78,7 +77,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				vmiNodeOrig := vmi.Status.NodeName
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 				By("Ensuring the VMI has migrated and lives on another node")
@@ -213,7 +212,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				By("Verifying at least once that both pods are protected")
 				for _, pod := range pods.Items {
-					err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "expected TooManyRequests error, got: %v", err)
 				}
 				By("Verifying that both pods are protected by the PodDisruptionBudget for the whole migration")
@@ -229,8 +228,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						}
 
 						deleteOptions := &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{ResourceVersion: &pod.ResourceVersion}}
-						eviction := &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}, DeleteOptions: deleteOptions}
-						err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), eviction)
+						eviction := &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}, DeleteOptions: deleteOptions}
+						err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), eviction)
 						Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "expected TooManyRequests error, got: %v", err)
 					}
 					return currentMigration.Status.Phase
@@ -568,7 +567,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vmiNodeOrig := vmi.Status.NodeName
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
-					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 					By("Ensuring the VMI has migrated and lives on another node")
@@ -608,7 +607,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
-					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})
