@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -72,7 +73,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				vmi = alpineVMIWithEvictionStrategy()
 			})
 
-			It("[test_id:3242]should block the eviction api and migrate", func() {
+			It("[test_id:3242]should block the eviction api and migrate", decorators.Conformance, func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 				vmiNodeOrig := vmi.Status.NodeName
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -352,7 +353,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					expectVMIMigratedToAnotherNode(vmi.Name, node)
 				})
 
-				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
+				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", decorators.Conformance, func() {
 					const labelKey = "testkey"
 
 					// give an affinity rule to ensure the vmi's get placed on the same node.
