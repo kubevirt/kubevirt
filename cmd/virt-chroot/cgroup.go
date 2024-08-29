@@ -12,7 +12,7 @@ import (
 	runc_fs2 "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
 
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
 func decodeResources(marshalledResourcesHash string) (*runc_configs.Resources, error) {
@@ -53,7 +53,7 @@ func decodePaths(marshalledPathsHash string) (map[string]string, error) {
 
 func setCgroupResources(paths map[string]string, resources *runc_configs.Resources, isRootless bool, isV2 bool) error {
 	config := &runc_configs.Cgroup{
-		Path:      cgroup.HostCgroupBasePath,
+		Path:      cgroupconsts.HostCgroupBasePath,
 		Resources: resources,
 		Rootless:  isRootless,
 	}
@@ -74,7 +74,7 @@ func setCgroupResources(paths map[string]string, resources *runc_configs.Resourc
 }
 
 func setCgroupResourcesV1(paths map[string]string, resources *runc_configs.Resources, config *runc_configs.Cgroup) error {
-	return RunWithChroot(cgroup.HostCgroupBasePath, func() error {
+	return RunWithChroot(cgroupconsts.HostCgroupBasePath, func() error {
 		cgroupManager, err := runc_fs.NewManager(config, paths)
 		if err != nil {
 			return fmt.Errorf("cannot create cgroups v1 manager. err: %v", err)
