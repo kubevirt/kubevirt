@@ -1,7 +1,14 @@
 export GO15VENDOREXPERIMENT := 1
 
+ifeq (${CI}, true)
+  # If we're running under a test lane, enable timestamps and disable progress output
+  TIMESTAMP=1
+  ifeq (,$(wildcard ci.bazelrc))
+    $(shell echo 'build --noshow_progress' > ci.bazelrc)
+  endif
+endif
+
 ifeq (${TIMESTAMP}, 1)
-  $(info "Timestamp is enabled")
   SHELL = ./hack/timestamps.sh
 endif
 
