@@ -56,10 +56,7 @@ import (
 )
 
 var _ = SIGMigrationDescribe("Live Migration", func() {
-	var (
-		virtClient kubecli.KubevirtClient
-		err        error
-	)
+	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		checks.SkipIfMigrationIsNotPossible()
@@ -134,7 +131,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				By("creating the VMI")
 				strategy := v1.EvictionStrategyLiveMigrateIfPossible
 				vmi.Spec.EvictionStrategy = &strategy
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking that the PDB appeared, with extra time since schedulability needs to be determined first in the cluster")
@@ -405,7 +402,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vm_noevict := libvmi.NewVirtualMachine(vmi_noevict)
 
 					// post VMs
-					vm_evict1, err = virtClient.VirtualMachine(vm_evict1.Namespace).Create(context.Background(), vm_evict1, metav1.CreateOptions{})
+					vm_evict1, err := virtClient.VirtualMachine(vm_evict1.Namespace).Create(context.Background(), vm_evict1, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					vm_evict2, err = virtClient.VirtualMachine(vm_evict2.Namespace).Create(context.Background(), vm_evict2, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -513,7 +510,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				Eventually(func() []string {
 					var nodes []string
 					for _, vmi := range vmis {
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
 						nodes = append(nodes, vmi.Status.NodeName)
 					}
 
