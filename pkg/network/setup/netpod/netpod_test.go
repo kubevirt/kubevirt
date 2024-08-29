@@ -331,6 +331,12 @@ var _ = Describe("netpod", func() {
 					NextHopAddress:   defaultGatewayIP4Address,
 					TableID:          0,
 				},
+				// Static route to a wider subnet containing the local subnet
+				{
+					Destination:      "10.222.0.0/16",
+					NextHopInterface: "eth0",
+					TableID:          0,
+				},
 			}},
 		}}
 
@@ -418,6 +424,7 @@ var _ = Describe("netpod", func() {
 			podIfaceOrignalMAC,
 			defaultGatewayIP4Address,
 			"192.168.1.0/24",
+			"10.222.0.0/16",
 		)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(Equal(expDHCPConfig))
@@ -1675,7 +1682,7 @@ func (c *tempCacheCreator) New(filePath string) *cache.Cache {
 	return cache.NewCustomCache(filePath, kfs.NewWithRootPath(c.tmpDir))
 }
 
-func expectedDHCPConfig(podIfaceCIDR, podIfaceMAC, defaultGW, staticRouteDst string) (*cache.DHCPConfig, error) {
+func expectedDHCPConfig(podIfaceCIDR, podIfaceMAC, defaultGW, staticRouteDst, staticRouteToWiderSubnet string) (*cache.DHCPConfig, error) {
 	ipv4, err := vishnetlink.ParseAddr(podIfaceCIDR)
 	if err != nil {
 		return nil, err
@@ -1688,9 +1695,16 @@ func expectedDHCPConfig(podIfaceCIDR, podIfaceMAC, defaultGW, staticRouteDst str
 	if err != nil {
 		return nil, err
 	}
+
+	staticRouteToWiderSubnetDest, err := vishnetlink.ParseAddr(staticRouteToWiderSubnet)
+	if err != nil {
+		return nil, err
+	}
+
 	routes := []vishnetlink.Route{
 		{Gw: net.ParseIP(defaultGW)},
 		{Dst: destAddr.IPNet, Gw: net.ParseIP(defaultGW)},
+		{Dst: staticRouteToWiderSubnetDest.IPNet, Gw: nil},
 	}
 	return &cache.DHCPConfig{
 		IP:           *ipv4,
