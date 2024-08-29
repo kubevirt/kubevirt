@@ -462,7 +462,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   fi
 
   # execute tests labelled as PERIODIC only on periodic test lanes (according to lane name)
-  if [[ ! $TARGET =~ .*periodic.* ]]; then
+  if [[ ! $JOB_NAME =~ .*periodic.* ]]; then
     add_to_label_filter "(!PERIODIC)" "&&"
   fi
 
