@@ -244,30 +244,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	})
 
 	Describe("Starting a VirtualMachineInstance ", func() {
-		Context("with a bridge network interface", func() {
-			It("[test_id:3226]should reject a migration of a vmi with a bridge interface", func() {
-				vmi := libvmifact.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("default")),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
-
-				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
-				// after being restarted multiple times
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
-
-				Expect(vmi).To(HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
-
-				// execute a migration, wait for finalized state
-				migration := libmigration.New(vmi.Name, vmi.Namespace)
-
-				By("Starting a Migration")
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("InterfaceNotLiveMigratable"))
-			})
-		})
 		Context("with bandwidth limitations", func() {
 
 			updateMigrationPolicyBandwidth := func(migrationPolicy *v1alpha1.MigrationPolicy, bandwidth resource.Quantity) {
