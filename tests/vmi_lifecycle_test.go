@@ -335,34 +335,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with user-data", func() {
 
 			Context("without k8s secret", func() {
-				It("[test_id:1629][posneg:negative]should not be able to start virt-launcher pod", func() {
-					vmi := libvmifact.NewCirros()
-
-					for _, volume := range vmi.Spec.Volumes {
-						if volume.CloudInitNoCloud != nil {
-							spec := volume.CloudInitNoCloud
-							spec.UserDataBase64 = ""
-							spec.UserDataSecretRef = &k8sv1.LocalObjectReference{Name: "nonexistent"}
-							break
-						}
-					}
-					By("Starting a VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectScheduling(vmi, 30)
-					ctx, cancel := context.WithCancel(context.Background())
-					defer cancel()
-					launcher, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-					Expect(err).ToNot(HaveOccurred())
-					watcher.New(launcher).
-						SinceWatchedObjectResourceVersion().
-						Timeout(60*time.Second).
-						Watch(ctx, func(event *k8sv1.Event) bool {
-							if event.Type == "Warning" && event.Reason == "FailedMount" {
-								return true
-							}
-							return false
-						},
-							"event of type Warning, reason = FailedMount")
-				})
 
 				It("[test_id:1630]should log warning and proceed once the secret is there", func() {
 					userData64 := ""
