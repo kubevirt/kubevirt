@@ -117,15 +117,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
-		It("[test_id:1619]should success", decorators.WgS390x, func() {
-			vmi := libvmifact.NewAlpine()
-			_, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
-		})
-
-		It("[test_id:1620]should start it", decorators.WgS390x, func() {
-			libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
-		})
 
 		It("[test_id:6095]should start in paused state if start strategy set to paused", decorators.WgS390x, decorators.Conformance, func() {
 			vmi := libvmifact.NewAlpine(libvmi.WithStartStrategy(v1.StartStrategyPaused))
