@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -1362,95 +1361,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Entry("[test_id:7164][QUARANTINE]VMI launcher pod should fail", "false", decorators.Quarantine),
 					Entry("[test_id:6993][QUARANTINE]VMI launcher pod compute container should keep running", "true", decorators.Quarantine),
 				)
-			})
-
-			Context("Using expand command", func() {
-				var vm *v1.VirtualMachine
-
-				BeforeEach(func() {
-					vm = createRunningVM(virtClient, libvmifact.NewCirros())
-				})
-
-				It("should fail without arguments", func() {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND)
-					Expect(expandCommand()).To(MatchError("error invalid arguments - VirtualMachine name or file must be provided"))
-				})
-
-				It("should expand vm", func() {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", vm.Namespace, "--vm", vm.Name)
-					Expect(expandCommand()).To(Succeed())
-				})
-
-				It("should fail with non existing vm", func() {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", "default", "--vm", "non-existing-vm")
-					Expect(expandCommand()).To(MatchError("error expanding VirtualMachine - non-existing-vm in namespace - default: virtualmachine.kubevirt.io \"non-existing-vm\" not found"))
-				})
-
-				DescribeTable("should expand vm with", func(formatName string) {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", vm.Namespace, "--output", formatName, "--vm", vm.Name)
-					Expect(expandCommand()).To(Succeed())
-				},
-					Entry("supported format output json", virtctl.JSON),
-					Entry("supported format output yaml", virtctl.YAML),
-				)
-
-				It("should fail with unsupported output format", func() {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", vm.Namespace, "--output", "fakeJson", "--vm", vm.Name)
-					Expect(expandCommand()).To(MatchError("error not supported output format defined: fakeJson"))
-				})
-			})
-
-			Context("Using expand command with file input", func() {
-				const (
-					invalidVmSpec = `apiVersion: kubevirt.io/v1
-kind: VirtualMachine
-metadata:
-  annotations: {}
-  labels: {}
-  name: testvm
-spec: {}
-`
-					vmSpec = `apiVersion: kubevirt.io/v1
-kind: VirtualMachine
-metadata:
-  name: testvm
-spec:
-  runStrategy: Always
-  template:
-    spec:
-      domain:
-        devices: {}
-        machine:
-          type: q35
-        resources: {}
-        volumes:
-status:
-`
-				)
-
-				var file *os.File
-
-				BeforeEach(func() {
-					file, err = os.CreateTemp("", "file-*")
-					Expect(err).ToNot(HaveOccurred())
-				})
-
-				It("should expand vm defined in file", func() {
-					Expect(os.WriteFile(file.Name(), []byte(vmSpec), 0777)).To(Succeed())
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", file.Name())
-					Expect(expandCommand()).To(Succeed())
-				})
-
-				It("should fail expanding invalid vm defined in file", func() {
-					Expect(os.WriteFile(file.Name(), []byte(invalidVmSpec), 0777)).To(Succeed())
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", "default", "--file", file.Name())
-					Expect(expandCommand()).To(MatchError("error expanding VirtualMachine - testvm in namespace - default: Object is not a valid VirtualMachine"))
-				})
-
-				It("should fail expanding vm when input file does not exist", func() {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", "invalid/path")
-					Expect(expandCommand()).To(MatchError("error reading file open invalid/path: no such file or directory"))
-				})
 			})
 		})
 	})
