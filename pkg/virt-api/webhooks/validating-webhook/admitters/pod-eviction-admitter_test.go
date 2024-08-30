@@ -56,8 +56,6 @@ var _ = Describe("Pod eviction admitter", func() {
 		testNodeName  = "node01"
 	)
 
-	const isDryRun = true
-
 	var defaultVMIOptions = []libvmi.Option{
 		libvmi.WithNamespace(testNamespace),
 		withStatusNodeName(testNodeName),
@@ -80,7 +78,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(evictedPod.Namespace, evictedPod.Name, !isDryRun),
+			newAdmissionReview(evictedPod.Namespace, evictedPod.Name, &dryRunOptions{}),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
@@ -103,7 +101,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(testNamespace, "does-not-exist", !isDryRun),
+			newAdmissionReview(testNamespace, "does-not-exist", &dryRunOptions{}),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
@@ -126,7 +124,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(pod.Namespace, pod.Name, !isDryRun),
+			newAdmissionReview(pod.Namespace, pod.Name, &dryRunOptions{}),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
@@ -158,7 +156,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, &dryRunOptions{}),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
@@ -221,7 +219,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, &dryRunOptions{}),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
@@ -281,7 +279,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, &dryRunOptions{}),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
@@ -321,7 +319,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, &dryRunOptions{}),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
@@ -358,7 +356,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, &dryRunOptions{}),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
@@ -390,7 +388,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, &dryRunOptions{}),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
@@ -398,7 +396,13 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Fake.Actions()).To(HaveLen(1))
 	})
 
-	It("should deny the request and perform a dryRun patch on the VMI when the request is a dry run", func() {
+	// TODO: we need to bump the k8s deps to v0.31 to properly test this as
+	// that's the first version where the fake client records PatchOptions, otherwise
+	// it's impossible to verify whether we're correctly making a dry run request.
+	// At the moment updating the dependencies is not easy as it requires us to use
+	// openapi V3 which is not trivial, once all of this is taken care of this test
+	// needs to be adjusted to check PatchOptions and then can be finally re-enabled.
+	PDescribeTable("should deny the request and perform a dryRun patch on the VMI when", func(dryRunOpts *dryRunOptions) {
 		vmiOptions := append(defaultVMIOptions,
 			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withLiveMigratableCondition(),
@@ -422,7 +426,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			context.Background(),
-			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, isDryRun),
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, dryRunOpts),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
@@ -431,7 +435,11 @@ var _ = Describe("Pod eviction admitter", func() {
 		patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", migratableVMI.Status.NodeName)).GeneratePayload()
 		Expect(err).To(Not(HaveOccurred()))
 		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, patchBytes)))
-	})
+	},
+
+		Entry("dry run is set in the request", &dryRunOptions{dryRunInRequest: true}),
+		Entry("dry run is set in the object", &dryRunOptions{dryRunInObject: []string{metav1.DryRunAll}}),
+	)
 })
 
 func newClusterConfig(clusterWideEvictionStrategy *virtv1.EvictionStrategy) *virtconfig.ClusterConfig {
@@ -482,12 +490,17 @@ func newVirtLauncherPodWithPhase(namespace, vmiName, nodeName string, phase k8sv
 	return pod
 }
 
-func newAdmissionReview(evictedPodNamespace, evictedPodName string, isDryRun bool) *admissionv1.AdmissionReview {
+type dryRunOptions struct {
+	dryRunInRequest bool
+	dryRunInObject  []string
+}
+
+func newAdmissionReview(evictedPodNamespace, evictedPodName string, dryRunOpts *dryRunOptions) *admissionv1.AdmissionReview {
 	return &admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
 			Namespace: evictedPodNamespace,
 			Name:      evictedPodName,
-			DryRun:    pointer.P(isDryRun),
+			DryRun:    pointer.P(dryRunOpts.dryRunInRequest),
 			Kind: metav1.GroupVersionKind{
 				Group:   "policy",
 				Version: "v1",
@@ -520,6 +533,9 @@ func newAdmissionReview(evictedPodNamespace, evictedPodName string, isDryRun boo
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: evictedPodNamespace,
 						Name:      evictedPodName,
+					},
+					DeleteOptions: &metav1.DeleteOptions{
+						DryRun: dryRunOpts.dryRunInObject,
 					},
 				},
 			},
