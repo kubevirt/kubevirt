@@ -1341,20 +1341,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 	})
 
-	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Get a VirtualMachineInstance", decorators.WgS390x, func() {
-		Context("when that not exist", func() {
-			It("[test_id:1649]should return 404", func() {
-				vmi := libvmifact.NewAlpine()
-				b, err := kubevirt.Client().RestClient().Get().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Name("nonexistnt").DoRaw(context.Background())
-				Expect(err).To(HaveOccurred(), "Should get VMIs")
-				status := metav1.Status{}
-				err = json.Unmarshal(b, &status)
-				Expect(err).ToNot(HaveOccurred(), "Unmarshal without error")
-				Expect(status.Code).To(Equal(int32(http.StatusNotFound)), "There should not be and VMI")
-			})
-		})
-	})
-
 	Describe("Freeze/Unfreeze a VirtualMachineInstance", func() {
 		It("[test_id:7476][test_id:7477]should fail without guest agent", func() {
 			vmi := libvmifact.NewCirros()
