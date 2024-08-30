@@ -34,9 +34,18 @@ const (
 	defaultDiskSize = "1Gi"
 )
 
+type diskOptions func(*v1.Disk)
+
 // WithContainerDisk specifies the disk name and the name of the container image to be used.
-func WithContainerDisk(diskName, imageName string) Option {
-	return WithContainerDiskAndPullPolicy(diskName, imageName, "")
+func WithContainerDisk(diskName, imageName string, options ...diskOptions) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		disk := newDisk(diskName, v1.DiskBusVirtio)
+		for _, option := range options {
+			option(&disk)
+		}
+		addDisk(vmi, disk)
+		addVolume(vmi, newContainerVolume(diskName, imageName, ""))
+	}
 }
 
 // WithContainerDiskAndPullPolicy specifies the disk name, the name of the container image and Pull Policy to be used.
