@@ -328,26 +328,33 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with boot order", func() {
-			DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
-				By("defining a VirtualMachineInstance with an Alpine disk")
-				vmi := libvmifact.NewAlpine(libvmi.WithContainerDisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+		bootOrderToDisk := func(bootOrder uint) func(disk *v1.Disk) {
+			return func(disk *v1.Disk) {
+				disk.BootOrder = &bootOrder
+			}
+		}
 
-				By("setting boot order")
-				vmi = addBootOrderToDisk(vmi, "disk0", &alpineBootOrder)
-				vmi = addBootOrderToDisk(vmi, "disk2", &cirrosBootOrder)
+		Context("with boot order", func() {
+			DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should be able to boot from selected disk", func(disk1, disk2 libvmi.Option, expectedConsoleText string) {
+				By("defining a VirtualMachineInstance with an Alpine disk")
+				vmi := libvmi.New(disk1, disk2, libvmi.WithResourceMemory("256Mi"))
+
 				By("starting VMI")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 2*startupTimeout)
 
 				By("Checking console text")
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: consoleText},
-				}, wait)
+					&expect.BExp{R: expectedConsoleText},
+				}, 90)
 				Expect(err).ToNot(HaveOccurred(), "Should match the console in VMI")
 			},
-				Entry("[test_id:1627]Alpine as first boot", uint(1), uint(2), "Welcome to Alpine", 90),
-				Entry("[test_id:1628]Cirros as first boot", uint(2), uint(1), "cirros", 90),
+				Entry("[test_id:1627]Alpine as first boot",
+					libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskAlpine), bootOrderToDisk(1)), libvmi.WithContainerDisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros), bootOrderToDisk(2)),
+					"Welcome to Alpine"),
+				Entry("[test_id:1628]Cirros as first boot",
+					libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskAlpine), bootOrderToDisk(2)), libvmi.WithContainerDisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros), bootOrderToDisk(1)),
+					"cirros"),
 			)
 		})
 
