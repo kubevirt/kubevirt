@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -1574,16 +1575,16 @@ status:
 			Entry("with v1alpha3 api", "kubevirt.io/v1alpha3"),
 		)
 
-		It("[test_id:264]should create and delete via command line", func() {
+		It("[test_id:264]should create and delete a VM", func() {
 			vm, vmJson := createVMAndGenerateJson()
 
 			By("Creating VM using k8s client binary")
 			_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Invoking virtctl start")
-			startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
-			Expect(startCommand()).To(Succeed())
+			By("Starting the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
@@ -1607,23 +1608,22 @@ status:
 		})
 
 		Context("should not change anything if dry-run option is passed", func() {
-			It("[test_id:7530]in start command", func() {
+			It("[test_id:7530]when starting a VM", func() {
 				vm, vmJson := createVMAndGenerateJson()
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Invoking virtctl start with dry-run option")
-				startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, "--dry-run", vm.Name)
-				Expect(startCommand()).To(Succeed())
+				By("Performing dry run start")
+				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{DryRun: []string{metav1.DryRunAll}})
+				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			})
 
-			DescribeTable("in stop command", func(flags ...string) {
+			DescribeTable("when stopping a VM", func(gracePeriod *int64) {
 				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
 
 				By("Creating VM using k8s client binary")
@@ -1641,13 +1641,13 @@ status:
 				originalVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				var args = []string{virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name, "--dry-run"}
-				if flags != nil {
-					args = append(args, flags...)
+				By("Performing dry run stop")
+				options := &v1.StopOptions{DryRun: []string{metav1.DryRunAll}}
+				if gracePeriod != nil {
+					options.GracePeriod = gracePeriod
 				}
-				By("Invoking virtctl stop with dry-run option")
-				stopCommand := clientcmd.NewRepeatableVirtctlCommand(args...)
-				Expect(stopCommand()).To(Succeed())
+				err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, options)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking that VM is still running")
 				stdout, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "describe", "vmis", vm.GetName())
@@ -1670,12 +1670,11 @@ status:
 				Expect(actualVMI.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(originalVMI.Spec.TerminationGracePeriodSeconds))
 				Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
 			},
-
-				Entry("[test_id:7529]with no other flags"),
-				Entry("[test_id:7604]with grace period", "--grace-period=10", "--force"),
+				Entry("[test_id:7529]with no other flags", nil),
+				Entry("[test_id:7604]with grace period", pointer.P[int64](10)),
 			)
 
-			It("[test_id:7528]in restart command", func() {
+			It("[test_id:7528]when restarting a VM", func() {
 				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
 
 				By("Creating VM using k8s client binary")
@@ -1689,9 +1688,9 @@ status:
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Invoking virtctl restart with dry-run option")
-				restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", vm.Namespace, "--dry-run", vm.Name)
-				Expect(restartCommand()).To(Succeed())
+				By("Performing dry run restart")
+				err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{DryRun: []string{metav1.DryRunAll}})
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Comparing the CreationTimeStamp and UUID and check no Deletion Timestamp was set")
 				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1857,9 +1856,9 @@ status:
 			By("waiting for crash loop state")
 			Eventually(ThisVM(vm), 60*time.Second, 5*time.Second).Should(BeInCrashLoop())
 
-			By("Invoking virtctl stop while in a crash loop")
-			stopCmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, vm.Name, "--namespace", vm.Namespace)
-			Expect(stopCmd()).To(Succeed())
+			By("Stopping the VM while in a crash loop")
+			err := virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting on crash loop status to be removed.")
 			Eventually(ThisVM(vm), 120*time.Second, 5*time.Second).Should(NotBeInCrashLoop())
