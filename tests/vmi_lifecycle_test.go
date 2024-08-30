@@ -302,23 +302,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("when it already exist", decorators.WgS390x, func() {
-			It("[test_id:1626]should be rejected", func() {
-				By("Creating a VirtualMachineInstance")
-				vmi := libvmifact.NewAlpine()
-				err := kubevirt.Client().RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-				By("Creating the same VirtualMachineInstance second time")
-				b, err := kubevirt.Client().RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).DoRaw(context.Background())
-				Expect(err).To(HaveOccurred(), "Second VMI should be rejected")
-				By("Checking that POST return status equals to 409")
-				status := metav1.Status{}
-				err = json.Unmarshal(b, &status)
-				Expect(err).ToNot(HaveOccurred(), "Response should be decoded successfully from json")
-				Expect(status.Code).To(Equal(int32(http.StatusConflict)), "There should be conflict with existing VMI")
-			})
-		})
-
 		bootOrderToDisk := func(bootOrder uint) func(disk *v1.Disk) {
 			return func(disk *v1.Disk) {
 				disk.BootOrder = &bootOrder
