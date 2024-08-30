@@ -682,10 +682,21 @@ func createVMIAndWait(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanc
 }
 
 func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
-	// Running multi sriov jobs with Kind, DinD is resource extensive, causing DeadlineExceeded transient warning
-	// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
-	// see https://github.com/kubevirt/kubevirt/issues/5027
-	warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
+	warningsIgnoreList := []string{
+		// Running multi sriov jobs with Kind, DinD is resource extensive, causing DeadlineExceeded transient warning
+		// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
+		// see https://github.com/kubevirt/kubevirt/issues/5027
+		"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded",
+
+		// SR-IOV tests run on Kind cluster in a docker-in-docker CI environment which is resource extensive,
+		// causing general slowness in the cluster.
+		// It manifests having warning event raised due to SR-IOV VMs virt-launcher pod's SR-IOV network-pci-map
+		// downward API mount not become ready on time.
+		// Kubevirt re-enqueues such requests and eventually reconcile this state.
+		// Tacking issue: https://github.com/kubevirt/kubevirt/issues/12691
+		"failed to create SR-IOV hostdevices: failed to create PCI address pool with network status from file: timed out waiting for the condition: file is not populated with network-info",
+	}
+
 	libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithWarningsIgnoreList(warningsIgnoreList))
 
 	virtClient := kubevirt.Client()
