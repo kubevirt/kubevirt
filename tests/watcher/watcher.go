@@ -22,11 +22,11 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/kubernetes/fake"
+
 	"reflect"
 	"strings"
 	"time"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -121,7 +121,8 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	cli := kubevirt.Client()
+	fc := fake.NewSimpleClientset() // kubevirt.Client()
+	cli := fc
 
 	f := processFunc
 
@@ -141,12 +142,26 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		return logParams
 	}
 
-	if w.warningPolicy.FailOnWarnings {
+	failOnWarnings := w.warningPolicy.FailOnWarnings
+
+	var warningEventsTracker *EventsTracker
+	if failOnWarnings && len(w.warningPolicy.WarningsMaxToleration) > 0 {
+		warningEventsTracker = createWarningEventsTracker(w.warningPolicy.WarningsMaxToleration)
+	}
+
+	if failOnWarnings {
 		f = func(event *v1.Event) bool {
+			warningEventsTracker.Record(event)
+
 			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
 			if !w.warningPolicy.shouldIgnoreWarning(event) {
 				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
 			}
+
+			if !w.warningPolicy.shouldTolerateWarning(warningEventsTracker, event) {
+				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Tolerated warning event max occurrences exceeded: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
+			}
+
 			log.Log.With(objectRefOption(&event.InvolvedObject)).Info(msg)
 
 			return processFunc(event)
@@ -261,8 +276,9 @@ const (
 )
 
 type WarningsPolicy struct {
-	FailOnWarnings     bool
-	WarningsIgnoreList []string
+	FailOnWarnings        bool
+	WarningsIgnoreList    []string
+	WarningsMaxToleration map[string]int
 }
 
 func (wp *WarningsPolicy) shouldIgnoreWarning(event *v1.Event) bool {
@@ -275,6 +291,29 @@ func (wp *WarningsPolicy) shouldIgnoreWarning(event *v1.Event) bool {
 	}
 
 	return false
+}
+
+func (wp *WarningsPolicy) shouldTolerateWarning(tracker *EventsTracker, event *v1.Event) bool {
+	if event.Type != string(WarningEvent) || tracker == nil {
+		return false
+	}
+
+	for eventMessage, eventMaxOccurrences := range wp.WarningsMaxToleration {
+		if event.Message == eventMessage &&
+			tracker.GetEventOccurrences(event.Message) > eventMaxOccurrences {
+			return true
+		}
+	}
+
+	return false
+}
+
+func createWarningEventsTracker(eventsMaxOccurrences map[string]int) *EventsTracker {
+	var events []string
+	for event, _ := range eventsMaxOccurrences {
+		events = append(events, event)
+	}
+	return NewEventsTracker(events)
 }
 
 type startType string

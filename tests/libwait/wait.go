@@ -121,6 +121,26 @@ func WithWarningsIgnoreList(warningIgnoreList []string) Option {
 	}
 }
 
+// WithWarningsTolerationPolicy sets warning events max occurrences policy.
+// Expects a map where keys are the warning events message and values are the event max occurrences.
+//
+// Given warning events will be ignored during the waiting-for-phase, when the event exceed the max occurrences
+// an error is raised.
+//
+// Given warning events should not overlap with the ignore-events-list configured by WithWarningsIgnoreList.
+//
+// This option will be ignored if a warning policy has been set before and the failOnWarnings is false
+// If no warning policy has been set before, a new one will be set implicitly with fail on warnings enabled and the ignore list added
+func WithWarningsTolerationPolicy(warningsMaxToleration map[string]int) Option {
+	return func(waiting *Waiting) {
+		if waiting.wp == nil {
+			waiting.wp = &watcher.WarningsPolicy{FailOnWarnings: true}
+		}
+
+		waiting.wp.WarningsMaxToleration = warningsMaxToleration
+	}
+}
+
 // WithWaitForFail adds the specific waitForFail to the waiting struct
 func WithWaitForFail(waitForFail bool) Option {
 	return func(waiting *Waiting) {
