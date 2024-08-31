@@ -226,7 +226,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			stdout, err := exec.ExecuteCommandOnPod(
 				helperPod,
 				helperPod.Spec.Containers[0].Name,
-				[]string{tests.BinBash, "-c", command})
+				[]string{"/bin/bash", "-c", command})
 			return strings.TrimSpace(stdout), err
 		}
 
