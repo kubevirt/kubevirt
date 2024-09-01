@@ -81,6 +81,9 @@ type SSPSpec struct {
 	// TLSSecurityProfile is a configuration for the TLS.
 	TLSSecurityProfile *ocpv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 
+	// TokenGenerationService configures the service for generating tokens to access VNC for a VM.
+	TokenGenerationService *TokenGenerationService `json:"tokenGenerationService,omitempty"`
+
 	// CommonInstancetypes is the configuration of the common-instancetypes operand
 	//
 	// Deprecated: This functionality will be removed in a future release.
@@ -116,6 +119,8 @@ type FeatureGates struct {
 	// Deprecated: This field is ignored.
 	DeployTektonTaskResources bool `json:"deployTektonTaskResources,omitempty"`
 
+	// +kubebuilder:deprecatedversion:warning="use the .spec.tokenGenerationService to enable vm-console-proxy"
+	// Deprecated: This field is ignored.
 	DeployVmConsoleProxy bool `json:"deployVmConsoleProxy,omitempty"`
 
 	// Enables deployment of the common-instancetypes bundles, defaults to true.
@@ -136,6 +141,11 @@ func (t *DataImportCronTemplate) AsDataImportCron() cdiv1beta1.DataImportCron {
 		ObjectMeta: t.ObjectMeta,
 		Spec:       t.Spec,
 	}
+}
+
+// TokenGenerationService configures the service for generating tokens to access VNC for a VM.
+type TokenGenerationService struct {
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // SSPStatus defines the observed state of SSP

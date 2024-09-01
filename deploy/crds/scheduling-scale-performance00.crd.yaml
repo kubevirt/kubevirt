@@ -4196,6 +4196,7 @@ spec:
                     description: 'Deprecated: This field is ignored.'
                     type: boolean
                   deployVmConsoleProxy:
+                    description: 'Deprecated: This field is ignored.'
                     type: boolean
                 type: object
               tektonPipelines:
@@ -5479,6 +5480,13 @@ spec:
                     - Modern
                     - Custom
                     type: string
+                type: object
+              tokenGenerationService:
+                description: TokenGenerationService configures the service for generating
+                  tokens to access VNC for a VM.
+                properties:
+                  enabled:
+                    type: boolean
                 type: object
             required:
             - commonTemplates

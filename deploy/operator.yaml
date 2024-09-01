@@ -63,7 +63,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.95.0
         - name: SSP_VERSION
-          value: v0.21.1
+          value: v0.22.0-rc.0
         - name: HPPO_VERSION
           value: v0.20.0
         - name: AAQ_VERSION
@@ -523,15 +523,15 @@ spec:
         - /manager
         env:
         - name: VALIDATOR_IMAGE
-          value: quay.io/kubevirt/kubevirt-template-validator@sha256:093f1e3ee47abfae908c9c49b657c278788a01decd5651da4db84da48013f1a0
+          value: quay.io/kubevirt/kubevirt-template-validator@sha256:28daec478f721c7f92b81bd9b13307bfb8888e0eea9892f93df0ac1795b338ec
         - name: OPERATOR_VERSION
-          value: v0.21.1
+          value: v0.22.0-rc.0
         - name: VM_CONSOLE_PROXY_IMAGE
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: quay.io/kubevirt/ssp-operator@sha256:f1215c0e6e6c94df60691c838de7140fad338f702c685d204a43610179fb31c1
+        image: quay.io/kubevirt/ssp-operator@sha256:640e02a827a87dbc89134030cdcab3a7aa381b7b6a902ed19a8837d89a3baadb
         livenessProbe:
           httpGet:
             path: /healthz
