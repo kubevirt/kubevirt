@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"strings"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,8 +47,6 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
@@ -123,6 +120,14 @@ type netBindingPluginMemoryCalculator interface {
 	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
 }
 
+type annotationsGenerator interface {
+	Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error)
+}
+
+type targetAnnotationsGenerator interface {
+	GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (map[string]string, error)
+}
+
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -155,6 +160,8 @@ type templateService struct {
 
 	sidecarCreators                  []SidecarCreatorFunc
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
+	annotationsGenerators            []annotationsGenerator
+	netTargetAnnotationsGenerator    targetAnnotationsGenerator
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -253,24 +260,23 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 	return t.renderLaunchManifest(vmi, nil, true)
 }
 
-func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, pod)
-	podManifest, err := t.renderLaunchManifest(vmi, imageIDs, false)
+func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
+	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
+	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, false)
 	if err != nil {
 		return nil, err
 	}
 
-	if namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
-		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
-		multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
-			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme, t.clusterConfig)
+	if t.netTargetAnnotationsGenerator != nil {
+		netAnnotations, err := t.netTargetAnnotationsGenerator.GenerateFromSource(vmi, sourcePod)
 		if err != nil {
 			return nil, err
 		}
-		podManifest.Annotations[networkv1.NetworkAttachmentAnnot] = multusNetworksAnnotation
+
+		maps.Copy(targetPod.Annotations, netAnnotations)
 	}
 
-	return podManifest, err
+	return targetPod, err
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -516,7 +522,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, sidecarContainer)
 	}
 
-	podAnnotations, err := generatePodAnnotations(vmi, t.clusterConfig)
+	podAnnotations, err := t.generatePodAnnotations(vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -1173,16 +1179,6 @@ func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) bool {
 	return false
 }
 
-func HaveMasqueradeInterface(interfaces []v1.Interface) bool {
-	for _, iface := range interfaces {
-		if iface.Masquerade != nil {
-			return true
-		}
-	}
-
-	return false
-}
-
 func HaveContainerDiskVolume(volumes []v1.Volume) bool {
 	for _, volume := range volumes {
 		if volume.ContainerDisk != nil {
@@ -1324,7 +1320,7 @@ func generateContainerSecurityContext(selinuxType string, container *k8sv1.Conta
 	container.SecurityContext.SELinuxOptions.Level = "s0"
 }
 
-func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) (map[string]string, error) {
+func (t *templateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 	annotationsSet := map[string]string{
 		v1.DomainAnnotation: vmi.GetObjectMeta().GetName(),
 	}
@@ -1332,25 +1328,6 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
-	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.State != v1.InterfaceStateAbsent
-	})
-	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
-	if err != nil {
-		return nil, err
-	}
-	if multusAnnotation != "" {
-		annotationsSet[networkv1.NetworkAttachmentAnnot] = multusAnnotation
-	}
-
-	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
-		annotationsSet[multus.DefaultNetworkCNIAnnotation] = multusDefaultNetwork
-	}
-
-	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
-		annotationsSet[istio.KubeVirtTrafficAnnotation] = "k6t-eth0"
-	}
 	annotationsSet[velero.PreBackupHookContainerAnnotation] = "compute"
 	annotationsSet[velero.PreBackupHookCommandAnnotation] = fmt.Sprintf(
 		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
@@ -1367,16 +1344,16 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	annotationsSet[v1.MigrationTransportUnixAnnotation] = "true"
 	annotationsSet[descheduler.EvictOnlyAnnotation] = ""
 
-	return annotationsSet, nil
-}
-
-func lookupMultusDefaultNetworkName(networks []v1.Network) string {
-	for _, network := range networks {
-		if network.Multus != nil && network.Multus.Default {
-			return network.Multus.NetworkName
+	for _, generator := range t.annotationsGenerators {
+		annotations, err := generator.Generate(vmi)
+		if err != nil {
+			return nil, err
 		}
+
+		maps.Copy(annotationsSet, annotations)
 	}
-	return ""
+
+	return annotationsSet, nil
 }
 
 func filterVMIAnnotationsForPod(vmiAnnotations map[string]string) map[string]string {
@@ -1539,5 +1516,17 @@ func readinessGates() []k8sv1.PodReadinessGate {
 func WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator) templateServiceOption {
 	return func(service *templateService) {
 		service.netBindingPluginMemoryCalculator = netBindingPluginMemoryCalculator
+	}
+}
+
+func WithAnnotationsGenerators(generators ...annotationsGenerator) templateServiceOption {
+	return func(service *templateService) {
+		service.annotationsGenerators = append(service.annotationsGenerators, generators...)
+	}
+}
+
+func WithNetTargetAnnotationsGenerator(generator targetAnnotationsGenerator) templateServiceOption {
+	return func(service *templateService) {
+		service.netTargetAnnotationsGenerator = generator
 	}
 }
