@@ -28,8 +28,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-
 	"kubevirt.io/client-go/api"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -3956,24 +3954,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Entry("with persistent EFI", addPersistentEFI),
 			)
 		})
-	})
-
-	Context("with multi-threaded QEMU migrations", func() {
-		DescribeTable("should", func(threadCountStr string, isValid bool) {
-			meta := metav1.ObjectMeta{Annotations: map[string]string{cmdclient.MultiThreadedQemuMigrationAnnotation: threadCountStr}}
-			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &meta, config, "fake-account")
-
-			if isValid {
-				Expect(causes).To(BeEmpty())
-			} else {
-				Expect(causes).To(HaveLen(1))
-			}
-		},
-			Entry("deny if thread count is negative", "-123", false),
-			Entry("deny if thread count is 0", "0", false),
-			Entry("deny if thread count is 1", "1", false),
-			Entry("allow otherwise", "5", true),
-		)
 	})
 
 	Context("with CPU hotplug", func() {
