@@ -3234,6 +3234,70 @@ var _ = Describe("VirtualMachineInstance", func() {
 	})
 
 	Context("Migration options", func() {
+		Context("multi-threaded qemu migrations", func() {
+
+			var (
+				vmi    *v1.VirtualMachineInstance
+				domain *api.Domain
+			)
+
+			BeforeEach(func() {
+				vmi = api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					TargetNode:                     "othernode",
+					TargetNodeAddress:              "127.0.0.1:12345",
+					SourceNode:                     host,
+					MigrationUID:                   "123",
+					TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+				}
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+					{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					},
+				}
+				vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+				vmi = addActivePods(vmi, podTestUUID, host)
+
+				domain = api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				domainFeeder.Add(domain)
+				vmiFeeder.Add(vmi)
+
+			})
+
+			DescribeTable("should configure 8 threads when CPU is not limited", func(cpuQuantity *resource.Quantity) {
+				if cpuQuantity == nil {
+					vmi.Spec.Domain.Resources.Limits = nil
+				} else {
+					vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = *cpuQuantity
+				}
+
+				client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+					Expect(options.ParallelMigrationThreads).ToNot(BeNil())
+					Expect(*options.ParallelMigrationThreads).To(Equal(parallelMultifdMigrationThreads))
+				}).Times(1).Return(nil)
+
+				controller.Execute()
+				testutils.ExpectEvent(recorder, VMIMigrating)
+			},
+				Entry("with a nil CPU quantity", nil),
+				Entry("with a zero CPU quantity", pointer.P(resource.MustParse("0"))),
+			)
+
+			It("should not configure multiple threads if CPU is limited", func() {
+				vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("4")
+
+				client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+					Expect(options.ParallelMigrationThreads).To(BeNil())
+				}).Times(1).Return(nil)
+
+				controller.Execute()
+				testutils.ExpectEvent(recorder, VMIMigrating)
+			})
+		})
 	})
 
 })
