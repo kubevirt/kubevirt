@@ -72,10 +72,7 @@ import (
 const deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
 
 // The location of uefi boot loader on ARM64 is different from that on x86
-const (
-	defaultIOThread = uint(1)
-	resolvConf      = "/etc/resolv.conf"
-)
+const defaultIOThread = uint(1)
 
 const (
 	multiQueueMaxQueues  = uint32(256)
