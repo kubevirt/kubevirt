@@ -125,6 +125,8 @@ type downwardMetricsManager interface {
 const (
 	failedDetectIsolationFmt              = "failed to detect isolation for launcher pod: %v"
 	unableCreateVirtLauncherConnectionFmt = "unable to create virt-launcher client connection: %v"
+	// This value was determined after consulting with libvirt developers and performing extensive testing.
+	parallelMultifdMigrationThreads = uint(8)
 )
 
 const (
@@ -2778,15 +2780,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
 		}
 
-		if threadCountStr, exists := origVMI.Annotations[cmdclient.MultiThreadedQemuMigrationAnnotation]; exists {
-			threadCount, err := strconv.Atoi(threadCountStr)
-
-			if err != nil {
-				log.Log.Object(origVMI).Reason(err).Infof("cannot parse %s to int", threadCountStr)
-			} else {
-				options.ParallelMigrationThreads = pointer.P(uint(threadCount))
-			}
-		}
+		configureParallelMigrationThreads(options, origVMI)
 
 		marshalledOptions, err := json.Marshal(options)
 		if err != nil {
@@ -3788,4 +3782,14 @@ func (d *VirtualMachineController) updateMemoryInfo(vmi *v1.VirtualMachineInstan
 	currentGuest := parseLibvirtQuantity(int64(domain.Spec.CurrentMemory.Value), domain.Spec.CurrentMemory.Unit)
 	vmi.Status.Memory.GuestCurrent = currentGuest
 	return nil
+}
+
+func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *v1.VirtualMachineInstance) {
+	// When the CPU is limited, there's a risk of the migration threads choking the CPU resources on the compute container.
+	// For this reason, we will avoid configuring migration threads in such scenarios.
+	if cpuLimit, cpuLimitExists := vm.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; cpuLimitExists && !cpuLimit.IsZero() {
+		return
+	}
+
+	options.ParallelMigrationThreads = pointer.P(parallelMultifdMigrationThreads)
 }
