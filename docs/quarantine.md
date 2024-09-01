@@ -37,7 +37,7 @@ would lead to a terrible 41.81% passing rate of the whole suite (0.95 ** 17 = 0.
 
 In order to remove as much as possible the influence of changes in PRs to
 determine the stability of the suite, we will take into account only results
-from the periodics that run e2e tests from main (hese jobs can be checked
+from the periodics that run e2e tests from main (hence jobs can be checked
 [on testgrid]) and presubmits that are executed on merged code (on tide merge
 batches as reported by flakefinder).
 

@@ -229,7 +229,7 @@ cause delays.  So releases that overlap with holidays may be delayed.
 
 ### Release procedure
 
-If the release is stable, the release readiness conditions are met, and all holidas are over, then it is finally time to make a release generally available.
+If the release is stable, the release readiness conditions are met, and all holidays are over, then it is finally time to make a release generally available.
 
 The procedure for making a release generally available is described in [release-procedure.md](release-procedure.md).
 
@@ -250,7 +250,7 @@ The maintenance phase of a KubeVirt release is tied to the [support period](http
 
 ### Bug fixes
 
-During the maintenance phase contributors can backport fixes to a stable branch accoiring to the KubeVirt [backport policy](release-branch-backporting.md).
+During the maintenance phase contributors can backport fixes to a stable branch according to the KubeVirt [backport policy](release-branch-backporting.md).
 
 ### Patch releases
 

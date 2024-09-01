@@ -45,7 +45,7 @@ else a user might want to distribute with their VMIs.
 
 ### High Level Design
 
-**Standardised KubeVirt VMI disk Wrapper**
+**Standardized KubeVirt VMI disk Wrapper**
 
 KubeVirt provides a standardized base wrapper container image that serves up a
 user provided VMI disk as a local file consumable by Libvirt. This base
