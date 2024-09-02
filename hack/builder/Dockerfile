@@ -78,11 +78,11 @@ RUN set -x && \
     go install -v k8s.io/code-generator/cmd/conversion-gen@v0.20.2  && \
     go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.20.2 && \
     go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.20.2  && \
-    go install -v k8s.io/kube-openapi/cmd/openapi-gen@f5883ff && \
+    go install -v k8s.io/kube-openapi/cmd/openapi-gen@f7e401e && \
     go install -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
     go install -v k8s.io/code-generator/cmd/client-gen@v0.20.2 && \
     go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
-    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 && \
+    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.3 && \
     go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@e2be790 && \
     go clean -cache -modcache
 
