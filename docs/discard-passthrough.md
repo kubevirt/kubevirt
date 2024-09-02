@@ -12,7 +12,7 @@ vda         512      512B       2G         0
 └─vda1        0      512B       2G         0
 ```
 
-However, in certain cases like preallocaton or when the disk is thick provisioned, the option needs to be disabled. The disk's PVC has to be marked with an annotation that contains `/storage.preallocation` or `/storage.thick-provisioned`, and set to true. If the volume is preprovisioned using [CDI](https://github.com/kubevirt/containerized-data-importer) and the [preallocation](https://github.com/kubevirt/containerized-data-importer/blob/main/doc/preallocation.md) is enabled, then the PVC is automatically annotated with: `cdi.kubevirt.io/storage.preallocation: true` and the discard passthrough option is disabled.
+However, in certain cases like preallocation or when the disk is thick provisioned, the option needs to be disabled. The disk's PVC has to be marked with an annotation that contains `/storage.preallocation` or `/storage.thick-provisioned`, and set to true. If the volume is preprovisioned using [CDI](https://github.com/kubevirt/containerized-data-importer) and the [preallocation](https://github.com/kubevirt/containerized-data-importer/blob/main/doc/preallocation.md) is enabled, then the PVC is automatically annotated with: `cdi.kubevirt.io/storage.preallocation: true` and the discard passthrough option is disabled.
 
 Example of a PVC definition with the annotation to disable discard passthrough:
 ```yaml
