@@ -55,7 +55,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -137,8 +136,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 			By("Unpausing VMI")
-			command := clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
-			Expect(command()).To(Succeed())
+			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 		})
 
@@ -1361,7 +1360,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					VirtualMachine: newVMI,
 					AllowEmulation: true,
 				}
-				converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
+				err = converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
+				Expect(err).ToNot(HaveOccurred())
 
 				expectedType := ""
 				if _, err := os.Stat("/dev/kvm"); errors.Is(err, os.ErrNotExist) {
@@ -1817,15 +1817,6 @@ func pkillAllVMIs(virtCli kubecli.KubevirtClient, node string) error {
 	_, err := virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 
 	return err
-}
-
-func nowAsJSONWithOffset(offset time.Duration) string {
-	now := metav1.Now()
-	now = metav1.NewTime(now.Add(offset))
-
-	data, err := json.Marshal(now)
-	Expect(err).ToNot(HaveOccurred(), "Should marshal to json")
-	return strings.Trim(string(data), `"`)
 }
 
 func addBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
