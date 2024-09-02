@@ -315,7 +315,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			It("should successfully restore", func() {
-				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategyHalted
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())

@@ -1306,10 +1306,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		It("vmsnapshot should update error if vmsnapshotcontent is unready to use and error", func() {
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
-			runStrategyAlways := v1.RunStrategyAlways
-			vm.Spec.RunStrategy = &runStrategyAlways
-			vm.Spec.Running = nil
-
+			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
