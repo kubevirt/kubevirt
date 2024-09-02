@@ -1712,11 +1712,17 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	It("should generate updated DataVolumeTemplates on http endpoint when exporting", func() {
-		sc, exists := libstorage.GetRWOFileSystemStorageClass()
-		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+		virtClient, err := kubecli.GetKubevirtClient()
+		Expect(err).ToNot(HaveOccurred())
+		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+		Expect(err).ToNot(HaveOccurred())
+		if sc == "" {
+			Skip("Skip test when storage with snapshot is not present")
 		}
+
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+		vm.Spec.DataVolumeTemplates[0].Annotations = map[string]string{}
+		vm.Spec.DataVolumeTemplates[0].Annotations["cdi.kubevirt.io/storage.pod.retainAfterCompletion"] = "true"
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -1753,6 +1759,8 @@ var _ = SIGDescribe("Export", func() {
 		}
 
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+		vm.Spec.DataVolumeTemplates[0].Annotations = map[string]string{}
+		vm.Spec.DataVolumeTemplates[0].Annotations["cdi.kubevirt.io/storage.pod.retainAfterCompletion"] = "true"
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
