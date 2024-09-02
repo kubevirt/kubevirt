@@ -20,17 +20,13 @@
 package converter
 
 import (
-	"bytes"
 	"fmt"
-	"os"
-	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
-	"kubevirt.io/kubevirt/pkg/network/dns"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
@@ -149,30 +145,6 @@ func NetworkQueuesCapacity(vmi *v1.VirtualMachineInstance) uint32 {
 
 func isTrue(networkInterfaceMultiQueue *bool) bool {
 	return (networkInterfaceMultiQueue != nil) && (*networkInterfaceMultiQueue)
-}
-
-// returns nameservers [][]byte, searchdomains []string, error
-func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
-	// #nosec No risk for path injection. resolvConf is static "/etc/resolve.conf"
-	b, err := os.ReadFile(resolvConf)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	nameservers, err := dns.ParseNameservers(string(b))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	searchDomains, err := dns.ParseSearchDomains(string(b))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
-	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
-
-	return nameservers, searchDomains, err
 }
 
 func translateModel(useVirtioTransitional *bool, bus string, archString string) string {
