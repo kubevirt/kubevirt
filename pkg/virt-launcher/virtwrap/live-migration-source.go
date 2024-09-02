@@ -114,7 +114,7 @@ func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdcl
 	if migratePaused {
 		migrateFlags |= libvirt.MIGRATE_PAUSED
 	}
-	if options.ParallelMigrationThreads != nil {
+	if shouldConfigureParallel, _ := shouldConfigureParallelMigration(options); shouldConfigureParallel {
 		migrateFlags |= libvirt.MIGRATE_PARALLEL
 	}
 
@@ -732,12 +732,7 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		return nil, err
 	}
 
-	parallelMigrationSet := false
-	var parallelMigrationThreads int
-	if options.ParallelMigrationThreads != nil {
-		parallelMigrationSet = true
-		parallelMigrationThreads = int(*options.ParallelMigrationThreads)
-	}
+	parallelMigrationSet, parallelMigrationThreads := shouldConfigureParallelMigration(options)
 
 	key := migrationproxy.ConstructProxyKey(string(vmi.UID), migrationproxy.LibvirtDirectMigrationPort)
 	migrURI := fmt.Sprintf("unix://%s", migrationproxy.SourceUnixFile(virtShareDir, key))
@@ -1027,4 +1022,20 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
 		migrationMetadata.Mode = mode
 	})
 	log.Log.V(4).Infof("Migration mode set in metadata: %s", l.metadataCache.Migration.String())
+}
+
+func shouldConfigureParallelMigration(options *cmdclient.MigrationOptions) (shouldConfigure bool, threadsCount int) {
+	if options == nil {
+		return
+	}
+	if options.AllowPostCopy {
+		return
+	}
+	if options.ParallelMigrationThreads == nil {
+		return
+	}
+
+	shouldConfigure = true
+	threadsCount = int(*options.ParallelMigrationThreads)
+	return
 }
