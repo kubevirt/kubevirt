@@ -29,6 +29,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -284,6 +285,122 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					return newVMI.Status.Phase
 				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
 			})
+		})
+
+		It("[test_id:1529]should start a VirtualMachine only once", func() {
+			By("getting a VM")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Getting the status of the VM")
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+
+			By("Getting the running VirtualMachineInstance")
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
+
+			By("Ensuring a second invocation should fail")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).To(MatchError(ContainSubstring("VM is already running")))
+		})
+
+		It("[test_id:1530]should stop a VirtualMachine only once", func() {
+			By("getting a VM")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm = libvmops.StartVirtualMachine(vm)
+
+			By("Stopping VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring VM is not running")
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(And(Not(BeCreated()), Not(BeReady())))
+
+			By("Ensuring the VirtualMachineInstance is removed")
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
+
+			By("Ensuring a second invocation should fail")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).To(MatchError(ContainSubstring("VM is not running")))
+		})
+
+		It("[test_id:3007][QUARANTINE] Should force restart a VM with terminationGracePeriodSeconds>0", decorators.Quarantine, func() {
+			By("getting a VM with high TerminationGracePeriod")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)))
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm = libvmops.StartVirtualMachine(vm)
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Force restarting the VM with grace period of 0")
+			err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{GracePeriodSeconds: pointer.P(int64(0))})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Checks if the old VMI Pod still exists after the force restart
+			Eventually(func() error {
+				_, err := libpod.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, vm.Namespace, "")
+				return err
+			}, 120*time.Second, 1*time.Second).Should(MatchError(ContainSubstring("failed to find pod with the label")))
+
+			Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
+
+			By("Comparing the new UID and CreationTimeStamp with the old one")
+			newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newVMI.CreationTimestamp).ToNot(Equal(vmi.CreationTimestamp))
+			Expect(newVMI.UID).ToNot(Equal(vmi.UID))
+		})
+
+		It("should force stop a VM with terminationGracePeriodSeconds>0", func() {
+			By("getting a VM with high TerminationGracePeriod")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)))
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm = libvmops.StartVirtualMachine(vm)
+
+			By("setting up a watch for vmi")
+			lw, err := virtClient.VirtualMachineInstance(vm.Namespace).Watch(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			terminationGracePeriodUpdated := func(done <-chan bool, events <-chan watch.Event, updated chan<- bool) {
+				GinkgoRecover()
+				for {
+					select {
+					case <-done:
+						return
+					case e := <-events:
+						vmi, ok := e.Object.(*v1.VirtualMachineInstance)
+						Expect(ok).To(BeTrue())
+						if vmi.Name != vm.Name {
+							continue
+						}
+						if *vmi.Spec.TerminationGracePeriodSeconds == 0 {
+							updated <- true
+						}
+					}
+				}
+			}
+			done := make(chan bool, 1)
+			updated := make(chan bool, 1)
+			go terminationGracePeriodUpdated(done, lw.ResultChan(), updated)
+
+			By("Stopping the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{GracePeriod: pointer.P(int64(0))})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring the VirtualMachineInstance is removed")
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
+
+			Expect(updated).To(Receive(), "vmi should be updated")
+			done <- true
 		})
 	})
 
