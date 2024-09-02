@@ -6,7 +6,7 @@ metadata:
     kubevirt.io/vm: vm-cirros-sata
   name: vm-cirros-sata
 spec:
-  running: false
+  runStrategy: Halted
   template:
     metadata:
       labels:
