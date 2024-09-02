@@ -1312,21 +1312,11 @@ spec:
 					return err
 				}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-				// change run stategy to halted to be able to restore the vm
-				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
-					if err != nil {
-						return false
-					}
-					vm.Spec.RunStrategy = &runStrategyHalted
-					_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Update(context.Background(), vm, metav1.UpdateOptions{})
-					if err != nil {
-						return false
-					}
-					updatedVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return updatedVM.Spec.RunStrategy != nil && *updatedVM.Spec.RunStrategy == runStrategyHalted
-				}, 30*time.Second, 3*time.Second).Should(BeTrue())
+				By("Changing run strategy to halted to be able to restore the vm")
+				patchBytes, err := patch.New(patch.WithAdd("/spec/runStrategy", &runStrategyHalted)).GeneratePayload()
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Patch(context.Background(), vmYaml.vmName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*vm.Spec.RunStrategy).To(Equal(runStrategyHalted))
 
 				By(fmt.Sprintf("Ensure vm %s can be restored from vmsnapshots", vmYaml.vmName))
 				for _, snapshot := range vmYaml.vmSnapshots {
