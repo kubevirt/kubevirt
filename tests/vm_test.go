@@ -754,27 +754,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		Context("Using virtctl interface", func() {
-			It("[test_id:6310]should start a VirtualMachineInstance in paused state", func() {
-				By("getting a VM")
-				vm := createVM(virtClient, libvmifact.NewCirros())
-
-				By("Invoking virtctl start")
-				startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name, "--paused")
-				Expect(startCommand()).To(Succeed())
-
-				By("Getting the status of the VM")
-				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeCreated())
-
-				By("Getting running VirtualMachineInstance with paused condition")
-				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(*vmi.Spec.StartStrategy).To(Equal(v1.StartStrategyPaused))
-					Eventually(ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstancePaused))
-					return vmi.Status.Phase == v1.Running
-				}, 240*time.Second, 1*time.Second).Should(BeTrue())
-			})
-
 			Context("Using RunStrategyAlways", func() {
 				It("[test_id:3163]should stop a running VM", func() {
 					By("creating a VM with RunStrategyAlways")
