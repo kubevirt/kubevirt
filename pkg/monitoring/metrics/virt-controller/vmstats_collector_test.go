@@ -94,6 +94,119 @@ var _ = Describe("VM Stats Collector", func() {
 		)
 	})
 
+	Context("VM info", func() {
+		setupTestCollector()
+
+		It("should handle no VMs", func() {
+			cr := CollectVMsInfo([]*k6tv1.VirtualMachine{})
+			Expect(cr).To(BeEmpty())
+		})
+
+		It("should show annotation types correctly", func() {
+			vms := []*k6tv1.VirtualMachine{
+				{
+					Spec: k6tv1.VirtualMachineSpec{
+						Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Annotations: map[string]string{
+									annotationPrefix + "os":       "centos8",
+									annotationPrefix + "workload": "server",
+									annotationPrefix + "flavor":   "tiny",
+									"other":                       "other",
+								},
+							},
+						},
+					},
+				},
+				{
+					Spec: k6tv1.VirtualMachineSpec{
+						Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Annotations: map[string]string{
+									annotationPrefix + "os":       "centos8",
+									annotationPrefix + "workload": "server",
+									annotationPrefix + "flavor":   "tiny",
+									annotationPrefix + "phase":    "dummy",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := CollectVMsInfo(vms)
+			Expect(crs).To(HaveLen(2), "Expected 2 metrics")
+
+			for i, cr := range crs {
+				Expect(cr).ToNot(BeNil())
+				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
+				Expect(cr.Value).To(BeEquivalentTo(1))
+				Expect(cr.Labels).To(HaveLen(7))
+
+				os, workload, flavor := getSystemInfoFromAnnotations(vms[i].Spec.Template.ObjectMeta.Annotations)
+				Expect(cr.Labels[2]).To(Equal(os))
+				Expect(cr.Labels[3]).To(Equal(workload))
+				Expect(cr.Labels[4]).To(Equal(flavor))
+			}
+		})
+
+		DescribeTable("should show instance type value correctly", func(instanceTypeKind string, instanceTypeName string, expected string) {
+			var instanceType *k6tv1.InstancetypeMatcher
+			if instanceTypeName != "" {
+				instanceType = &k6tv1.InstancetypeMatcher{
+					Kind: instanceTypeKind,
+					Name: instanceTypeName,
+				}
+			}
+
+			vms := []*k6tv1.VirtualMachine{{Spec: k6tv1.VirtualMachineSpec{Instancetype: instanceType}}}
+			crs := CollectVMsInfo(vms)
+			Expect(crs).To(HaveLen(1), "Expected 1 metric")
+
+			cr := crs[0]
+			Expect(cr).ToNot(BeNil())
+			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
+			Expect(cr.Value).To(BeEquivalentTo(1))
+			Expect(cr.Labels).To(HaveLen(7))
+			Expect(cr.Labels[5]).To(Equal(expected))
+		},
+			Entry("with no instance type expect <none>", "VirtualMachineInstancetype", "", "<none>"),
+			Entry("with managed instance type expect its name", "VirtualMachineInstancetype", "i-managed", "i-managed"),
+			Entry("with custom instance type expect <other>", "VirtualMachineInstancetype", "i-unmanaged", "<other>"),
+			Entry("with no cluster instance type expect <none>", "VirtualMachineClusterInstancetype", "", "<none>"),
+			Entry("with managed cluster instance type expect its name", "VirtualMachineClusterInstancetype", "ci-managed", "ci-managed"),
+			Entry("with custom cluster instance type expect <other>", "VirtualMachineClusterInstancetype", "ci-unmanaged", "<other>"),
+		)
+
+		DescribeTable("should show preference value correctly", func(preferenceAnnotationKey string, preferenceName string, expected string) {
+			var preference *k6tv1.PreferenceMatcher
+			if preferenceName != "" {
+				preference = &k6tv1.PreferenceMatcher{
+					Kind: preferenceAnnotationKey,
+					Name: preferenceName,
+				}
+			}
+
+			vms := []*k6tv1.VirtualMachine{{Spec: k6tv1.VirtualMachineSpec{Preference: preference}}}
+			crs := CollectVMsInfo(vms)
+			Expect(crs).To(HaveLen(1), "Expected 1 metric")
+
+			cr := crs[0]
+
+			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
+			Expect(cr.Value).To(BeEquivalentTo(1))
+			Expect(cr.Labels).To(HaveLen(7))
+			Expect(cr.Labels[6]).To(Equal(expected))
+		},
+			Entry("with no preference expect <none>", "VirtualMachinePreference", "", "<none>"),
+			Entry("with managed preference expect its name", "VirtualMachinePreference", "p-managed", "p-managed"),
+			Entry("with custom preference expect <other>", "VirtualMachinePreference", "p-unmanaged", "<other>"),
+			Entry("with no cluster preference expect <none>", "VirtualMachineClusterPreference", "", "<none>"),
+			Entry("with managed cluster preference expect its name", "VirtualMachineClusterPreference", "cp-managed", "cp-managed"),
+			Entry("with custom cluster preference expect <other>", "VirtualMachineClusterPreference", "cp-unmanaged", "<other>"),
+		)
+	})
+
 	Context("VM Resource Requests", func() {
 		It("should ignore VM with empty memory resource requests", func() {
 			vm := &k6tv1.VirtualMachine{
