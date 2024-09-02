@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.13.0-unstable
-    createdAt: "2024-09-01 05:05:07"
+    createdAt: "2024-09-02 05:04:33"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -3766,7 +3766,7 @@ spec:
                 - name: CSI_PROVISIONER_IMAGE
                   value: quay.io/kubevirt/hostpath-csi-driver@sha256:8295eb47ba3e64c39abb0919d834c7bd6e9b182159805cd9fc99f437bb4446ec
                 - name: NODE_DRIVER_REG_IMAGE
-                  value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:e01facb9fb9cffaf52d0053bdb979fbd8c505c8e411939a6e026dd061a6b4fbe
+                  value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:0d23a6fd60c421054deec5e6d0405dc3498095a5a597e175236c0692f4adee0f
                 - name: LIVENESS_PROBE_IMAGE
                   value: registry.k8s.io/sig-storage/livenessprobe@sha256:33692aed26aaf105b4d6e66280cceca9e0463f500c81b5d8c955428a75438f32
                 - name: CSI_SNAPSHOT_IMAGE
@@ -4638,7 +4638,7 @@ spec:
     name: cni-default-plugins
   - image: registry.k8s.io/coredns/coredns@sha256:a0ead06651cf580044aeb0a0feba63591858fb2e43ade8c9dea45a6a89ae7e5e
     name: coredns
-  - image: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:e01facb9fb9cffaf52d0053bdb979fbd8c505c8e411939a6e026dd061a6b4fbe
+  - image: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:0d23a6fd60c421054deec5e6d0405dc3498095a5a597e175236c0692f4adee0f
     name: csi-node-driver-registrar
   - image: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
     name: csi-provisioner
