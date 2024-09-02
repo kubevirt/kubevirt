@@ -14,11 +14,5 @@ make cluster-up
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
 make cluster-sync
-make ci-functest
-
-# Upgrade test requires OLM which is currently
-# only available with okd providers
-if [[ $TARGET =~ okd-.* || $TARGET =~ ocp-.* ]]; then
-  make upgrade-test
-  make ci-functest
-fi
+export KUBECONFIG=$(_kubevirtci/cluster-up/kubeconfig.sh)
+JOB_TYPE="stdci" GINKGO_LABELS=${GINKGO_LABELS} make functest

@@ -29,4 +29,5 @@ ARG git_url=https://github.com/kubevirt/hyperconverged-cluster-operator.git
 ARG git_sha=NONE
 
 LABEL multi.GIT_URL=${git_url} \
-      multi.GIT_SHA=${git_sha}
+      multi.GIT_SHA=${git_sha} \
+      app=hyperconverged-cluster-functest

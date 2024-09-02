@@ -5,6 +5,7 @@ set -exuo pipefail
 
 INSTALLED_NAMESPACE=${INSTALLED_NAMESPACE:-"kubevirt-hyperconverged"}
 OUTPUT_DIR=${ARTIFACT_DIR:-"$(pwd)/_out"}
+FUNCTEST_IMAGE=${FUNCTEST_IMAGE:-}
 
 source hack/common.sh
 source cluster/kubevirtci.sh
@@ -17,7 +18,7 @@ if [ "${JOB_TYPE}" == "stdci" ]; then
     KUBECTL_BINARY="cluster/kubectl.sh"
 fi
 
-if [[ ${JOB_TYPE} = "prow" ]]; then
+if [[ ${JOB_TYPE} = "prow" && -n ${FUNCTEST_IMAGE} ]]; then
     KUBECTL_BINARY="oc"
     computed_test_image=${FUNCTEST_IMAGE}
 else
@@ -126,4 +127,4 @@ echo "Exiting... Exit code: $exitCode"
 
 # Brutally delete HCO removing the namespace where it's running"
 source hack/test_delete_ns.sh
-test_delete_ns
+CMD=${KUBECTL_BINARY} test_delete_ns

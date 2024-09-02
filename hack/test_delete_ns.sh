@@ -17,40 +17,36 @@
 # Copyright 2020 Red Hat, Inc.
 #
 
+INSTALLED_NAMESPACE=${INSTALLED_NAMESPACE:-"kubevirt-hyperconverged"}
 
 function test_delete_ns(){
     set -ex
-    if [ "${CMD}" == "oc" ]; then
-        echo "Trying to delete kubevirt-hyperconverged namespace when the hyperconverged CR is still there"
-        # this should fail with a clear error message
-        DELETE_ERROR_TEXT="$(${CMD} delete namespace kubevirt-hyperconverged 2>&1 || true)"
+    echo "Trying to delete ${INSTALLED_NAMESPACE} namespace when the hyperconverged CR is still there"
+    # this should fail with a clear error message
+    DELETE_ERROR_TEXT="$(${CMD} delete namespace ${INSTALLED_NAMESPACE} 2>&1 || true)"
 
-        # try to mitigate CI flakiness when we randomly get
-        # "x509: certificate signed by unknown authority" errors
-        if [[ $DELETE_ERROR_TEXT == *"x509: certificate signed by unknown authority"* ]]; then
-          # gave it time to recovery
-          sleep 300
-          DELETE_ERROR_TEXT="$(${CMD} delete namespace kubevirt-hyperconverged 2>&1 || true)"
-        fi
-        # and eventually try again...
-        if [[ $DELETE_ERROR_TEXT == *"x509: certificate signed by unknown authority"* ]]; then
-          sleep 300
-          DELETE_ERROR_TEXT="$(${CMD} delete namespace kubevirt-hyperconverged 2>&1 || true)"
-        fi
-
-        echo "${DELETE_ERROR_TEXT}" | grep "denied the request: HyperConverged CR is still present, please remove it before deleting the containing hcoNamespace"
-
-        echo "kubevirt-hyperconverged namespace should be still there"
-        ${CMD} get namespace kubevirt-hyperconverged -o yaml
-
-    else
-        echo "Ignoring webhook on k8s where we don't have OLM based validating webhooks"
+    # try to mitigate CI flakiness when we randomly get
+    # "x509: certificate signed by unknown authority" errors
+    if [[ $DELETE_ERROR_TEXT == *"x509: certificate signed by unknown authority"* ]]; then
+      # gave it time to recovery
+      sleep 300
+      DELETE_ERROR_TEXT="$(${CMD} delete namespace ${INSTALLED_NAMESPACE} 2>&1 || true)"
+    fi
+    # and eventually try again...
+    if [[ $DELETE_ERROR_TEXT == *"x509: certificate signed by unknown authority"* ]]; then
+      sleep 300
+      DELETE_ERROR_TEXT="$(${CMD} delete namespace ${INSTALLED_NAMESPACE} 2>&1 || true)"
     fi
 
-    echo "Delete the hyperconverged CR to remove the product"
-    timeout 10m ${CMD} delete hyperconverged -n kubevirt-hyperconverged kubevirt-hyperconverged
+    echo "${DELETE_ERROR_TEXT}" | grep "denied the request: HyperConverged CR is still present, please remove it before deleting the containing hcoNamespace"
 
-    echo "Finally delete kubevirt-hyperconverged namespace"
-    timeout 10m ${CMD} delete namespace kubevirt-hyperconverged
+    echo "${INSTALLED_NAMESPACE} namespace should be still there"
+    ${CMD} get namespace ${INSTALLED_NAMESPACE} -o yaml
+
+    echo "Delete the hyperconverged CR to remove the product"
+    timeout 10m ${CMD} delete hyperconverged -n ${INSTALLED_NAMESPACE} kubevirt-hyperconverged
+
+    echo "Finally delete ${INSTALLED_NAMESPACE} namespace"
+    timeout 10m ${CMD} delete namespace ${INSTALLED_NAMESPACE}
 }
 

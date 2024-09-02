@@ -31,7 +31,7 @@ CNA_URL_PREFIX="https://github.com/kubevirt/cluster-network-addons-operator/rele
 
 mem_size=${KUBEVIRT_MEMORY_SIZE:-5120M}
 num_nodes=${KUBEVIRT_NUM_NODES:-1}
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.17}
+KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.30}
 BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
 KUBEVIRTCI_PATH=$(kubevirtci::path)
 CMD=${CMD:-}
