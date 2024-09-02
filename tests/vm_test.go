@@ -47,7 +47,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -281,53 +280,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		)
 
 		It("[test_id:3161]should carry annotations to VMI", func() {
-			annotations := map[string]string{
-				"testannotation": "test",
-			}
+			vm := createRunningVM(virtClient, libvmifact.NewGuestless(libvmi.WithAnnotation("testannotation", "test")))
 
-			vm := createVM(virtClient, libvmifact.NewCirros())
-
-			err = retryWithMetadataIfModified(vm.ObjectMeta, func(meta metav1.ObjectMeta) error {
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				vm.Spec.Template.ObjectMeta.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-				return err
-			})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm = libvmops.StartVirtualMachine(vm)
+			By("Waiting for VMI to exist")
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 10*time.Second, 1*time.Second).Should(Exist())
 
 			By("checking for annotations to be present")
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Annotations).To(HaveKeyWithValue("testannotation", "test"))
-		})
-
-		It("[test_id:3162]should ignore kubernetes and kubevirt annotations to VMI", func() {
-			annotations := map[string]string{
-				"kubevirt.io/test":   "test",
-				"kubernetes.io/test": "test",
-			}
-
-			vm := createVM(virtClient, libvmifact.NewCirros())
-
-			err = retryWithMetadataIfModified(vm.ObjectMeta, func(meta metav1.ObjectMeta) error {
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				vm.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-				return err
-			})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm = libvmops.StartVirtualMachine(vm)
-
-			By("checking for annotations to not be present")
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vmi.Annotations).ShouldNot(HaveKey("kubevirt.io/test"), "kubevirt internal annotations should be ignored")
-			Expect(vmi.Annotations).ShouldNot(HaveKey("kubernetes.io/test"), "kubernetes internal annotations should be ignored")
 		})
 
 		It("should sync the generation annotation on the vmi during restarts", func() {
@@ -2096,16 +2057,4 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return vm
-}
-
-func retryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
-	retries := 0
-	for err = do(objectMeta); errors.IsConflict(err); err = do(objectMeta) {
-		if retries >= 10 {
-			return fmt.Errorf("object seems to be permanently modified, failing after 10 retries: %v", err)
-		}
-		retries++
-		log.DefaultLogger().Reason(err).Infof("Object got modified, will retry.")
-	}
-	return err
 }

@@ -3121,6 +3121,21 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmi.Annotations).To(Equal(annotations))
 		})
 
+		It("should not copy annotations from vm to vmi", func() {
+			vm, _ := DefaultVirtualMachine(true)
+			vm.Annotations["kubevirt.io/test"] = "test"
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			sanityExecute(vm)
+
+			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Annotations).ToNot(HaveKey("kubevirt.io/test"))
+		})
+
 		It("should copy kubevirt ignitiondata annotation from spec.template to vmi", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"kubevirt.io/ignitiondata": "test"}
