@@ -8,7 +8,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +57,23 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 
+	})
+
+	Context("with requests without topology", func() {
+
+		It("should be able to start", func() {
+			By("Kubevirt CR with default MaxHotplugRatio set to 4")
+
+			By("Run VM with 5 sockets without topology")
+			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU("5000m"))
+
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			By("Expecting to see VMI that is starting")
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 10*time.Second, 1*time.Second).Should(Exist())
+		})
 	})
 
 	Context("A VM with cpu.maxSockets set higher than cpu.sockets", func() {
