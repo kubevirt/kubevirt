@@ -11136,8 +11136,7 @@
       "type": [
        "string",
        "number"
-      ],
-      "default": {}
+      ]
      },
      "scheme": {
       "description": "Scheme to use for connecting to the host. Defaults to HTTP.\n\nPossible enum values:\n - `\"HTTP\"` means that the scheme used will be http://\n - `\"HTTPS\"` means that the scheme used will be https://",
@@ -11174,8 +11173,9 @@
     "type": "object",
     "properties": {
      "name": {
-      "description": "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
-      "type": "string"
+      "description": "Name of the referent. This field is effectively required, but due to backwards compatibility is allowed to be empty. Instances of this type with an empty value here are almost certainly wrong. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "type": "string",
+      "default": ""
      }
     },
     "x-kubernetes-map-type": "atomic"
@@ -11308,7 +11308,13 @@
       "type": "array",
       "items": {
        "type": "string",
-       "default": ""
+       "default": "",
+       "enum": [
+        "ReadOnlyMany",
+        "ReadWriteMany",
+        "ReadWriteOnce",
+        "ReadWriteOncePod"
+       ]
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -11334,7 +11340,7 @@
       "type": "string"
      },
      "volumeAttributesClassName": {
-      "description": "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim. If specified, the CSI driver will create or update the volume with the attributes defined in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName, it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass will be applied to the claim but it's not allowed to reset this field to empty string once it is set. If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass will be set by the persistentvolume controller if it exists. If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource exists. More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/ (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.",
+      "description": "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim. If specified, the CSI driver will create or update the volume with the attributes defined in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName, it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass will be applied to the claim but it's not allowed to reset this field to empty string once it is set. If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass will be set by the persistentvolume controller if it exists. If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource exists. More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/ (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).",
       "type": "string"
      },
      "volumeMode": {
@@ -11405,7 +11411,7 @@
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "matchLabelKeys": {
-      "description": "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both matchLabelKeys and labelSelector. Also, matchLabelKeys cannot be set when labelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.",
+      "description": "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both matchLabelKeys and labelSelector. Also, matchLabelKeys cannot be set when labelSelector isn't set. This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).",
       "type": "array",
       "items": {
        "type": "string",
@@ -11414,7 +11420,7 @@
       "x-kubernetes-list-type": "atomic"
      },
      "mismatchLabelKeys": {
-      "description": "MismatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both mismatchLabelKeys and labelSelector. Also, mismatchLabelKeys cannot be set when labelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.",
+      "description": "MismatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both mismatchLabelKeys and labelSelector. Also, mismatchLabelKeys cannot be set when labelSelector isn't set. This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).",
       "type": "array",
       "items": {
        "type": "string",
@@ -11544,6 +11550,10 @@
       "description": "Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.",
       "type": "string",
       "default": ""
+     },
+     "request": {
+      "description": "Request is the name chosen for a request in the referenced claim. If empty, everything from the claim is made available, otherwise only the result of this request.",
+      "type": "string"
      }
     }
    },
@@ -11560,7 +11570,6 @@
      },
      "divisor": {
       "description": "Specifies the output format of the exposed resources, defaults to \"1\"",
-      "default": {},
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "resource": {
@@ -11591,7 +11600,6 @@
       "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
-       "default": {},
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      },
@@ -11599,7 +11607,6 @@
       "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
-       "default": {},
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      }
@@ -11621,8 +11628,7 @@
       "type": [
        "string",
        "number"
-      ],
-      "default": {}
+      ]
      }
     }
    },
@@ -11787,7 +11793,6 @@
       "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
-       "default": {},
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      },
@@ -11795,7 +11800,6 @@
       "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
-       "default": {},
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      }
@@ -12196,8 +12200,7 @@
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "deletionGracePeriodSeconds": {
       "description": "Number of seconds allowed for this object to gracefully terminate before it will be removed from the system. Only set when deletionTimestamp is also set. May only be shortened. Read-only.",
@@ -12487,7 +12490,6 @@
     "properties": {
      "object": {
       "description": "Object is:\n * If Type is Added or Modified: the new state of the object.\n * If Type is Deleted: the state of the object immediately before deletion.\n * If Type is Error: *Status is recommended; other types may make sense\n   depending on context.",
-      "default": {},
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.runtime.RawExtension"
      },
      "type": {
@@ -12929,8 +12931,9 @@
     "type": "object",
     "properties": {
      "name": {
-      "description": "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
-      "type": "string"
+      "description": "Name of the referent. This field is effectively required, but due to backwards compatibility is allowed to be empty. Instances of this type with an empty value here are almost certainly wrong. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "type": "string",
+      "default": ""
      },
      "optional": {
       "description": "Specify whether the ConfigMap or it's keys must be defined",
@@ -13574,7 +13577,6 @@
     "properties": {
      "capacity": {
       "description": "Capacity of the sparse disk.",
-      "default": {},
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
@@ -13959,7 +13961,6 @@
     "properties": {
      "capacity": {
       "description": "Capacity of the sparse disk",
-      "default": {},
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "path": {
@@ -14375,15 +14376,13 @@
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "lastTransitionTime": {
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "message": {
       "type": "string"
@@ -15296,7 +15295,13 @@
       "type": "array",
       "items": {
        "type": "string",
-       "default": ""
+       "default": "",
+       "enum": [
+        "ReadOnlyMany",
+        "ReadWriteMany",
+        "ReadWriteOnce",
+        "ReadWriteOncePod"
+       ]
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -15304,7 +15309,6 @@
       "description": "Capacity represents the capacity set on the corresponding PVC status",
       "type": "object",
       "additionalProperties": {
-       "default": {},
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      },
@@ -15324,7 +15328,6 @@
       "description": "Requests represents the resources requested by the corresponding PVC spec",
       "type": "object",
       "additionalProperties": {
-       "default": {},
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      },
@@ -16252,15 +16255,13 @@
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "lastTransitionTime": {
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "message": {
       "type": "string"
@@ -16299,7 +16300,6 @@
      },
      "spec": {
       "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
-      "default": {},
       "$ref": "#/definitions/v1.VirtualMachineInstanceSpec"
      },
      "status": {
@@ -16320,15 +16320,13 @@
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "lastTransitionTime": {
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "message": {
       "type": "string"
@@ -16658,15 +16656,13 @@
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "lastTransitionTime": {
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "message": {
       "type": "string"
@@ -16722,7 +16718,6 @@
      },
      "phaseTransitionTimestamp": {
       "description": "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
-      "default": {},
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
@@ -16917,7 +16912,6 @@
      },
      "phaseTransitionTimestamp": {
       "description": "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
-      "default": {},
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
@@ -17041,15 +17035,13 @@
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "lastTransitionTime": {
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "message": {
       "type": "string"
@@ -17432,7 +17424,6 @@
      },
      "spec": {
       "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
-      "default": {},
       "$ref": "#/definitions/v1.VirtualMachineInstanceSpec"
      }
     }
@@ -17907,15 +17898,13 @@
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "lastTransitionTime": {
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "message": {
       "type": "string"
@@ -18239,15 +18228,13 @@
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "lastTransitionTime": {
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "message": {
       "type": "string"
@@ -18460,15 +18447,13 @@
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "lastTransitionTime": {
       "type": [
        "string",
        "null"
-      ],
-      "default": {}
+      ]
      },
      "message": {
       "type": "string"
@@ -19011,7 +18996,6 @@
     "properties": {
      "guest": {
       "description": "Required amount of memory which is visible inside the guest OS.",
-      "default": {},
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "hugepages": {
@@ -19037,7 +19021,6 @@
     "properties": {
      "guest": {
       "description": "Minimal amount of memory required by the preference.",
-      "default": {},
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
@@ -19124,7 +19107,13 @@
       "type": "array",
       "items": {
        "type": "string",
-       "default": ""
+       "default": "",
+       "enum": [
+        "ReadOnlyMany",
+        "ReadWriteMany",
+        "ReadWriteOnce",
+        "ReadWriteOncePod"
+       ]
       }
      },
      "dataSource": {

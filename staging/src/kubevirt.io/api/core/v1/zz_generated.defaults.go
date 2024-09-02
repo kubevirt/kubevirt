@@ -22,6 +22,8 @@ limitations under the License.
 package v1
 
 import (
+	"reflect"
+
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -29,6 +31,8 @@ import (
 // Public to allow building arbitrary schemes.
 // All generated defaulters are covering - they call all nested defaulters.
 func RegisterDefaults(scheme *runtime.Scheme) error {
+	scheme.AddTypeDefaultingFunc(&KubeVirt{}, func(obj interface{}) { SetObjectDefaults_KubeVirt(obj.(*KubeVirt)) })
+	scheme.AddTypeDefaultingFunc(&KubeVirtList{}, func(obj interface{}) { SetObjectDefaults_KubeVirtList(obj.(*KubeVirtList)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachine{}, func(obj interface{}) { SetObjectDefaults_VirtualMachine(obj.(*VirtualMachine)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachineInstance{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineInstance(obj.(*VirtualMachineInstance)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachineInstanceList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineInstanceList(obj.(*VirtualMachineInstanceList)) })
@@ -46,6 +50,22 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 	})
 	scheme.AddTypeDefaultingFunc(&VirtualMachineList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineList(obj.(*VirtualMachineList)) })
 	return nil
+}
+
+func SetObjectDefaults_KubeVirt(in *KubeVirt) {
+	for i := range in.Spec.ImagePullSecrets {
+		a := &in.Spec.ImagePullSecrets[i]
+		if reflect.ValueOf(a.Name).IsZero() {
+			a.Name = ""
+		}
+	}
+}
+
+func SetObjectDefaults_KubeVirtList(in *KubeVirtList) {
+	for i := range in.Items {
+		a := &in.Items[i]
+		SetObjectDefaults_KubeVirt(a)
+	}
 }
 
 func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
@@ -156,6 +176,50 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 					if a.VirtualGPUOptions.Display.RamFB != nil {
 						SetDefaults_FeatureState(a.VirtualGPUOptions.Display.RamFB)
 					}
+				}
+			}
+		}
+		for i := range in.Spec.Template.Spec.Volumes {
+			a := &in.Spec.Template.Spec.Volumes[i]
+			if a.VolumeSource.CloudInitNoCloud != nil {
+				if a.VolumeSource.CloudInitNoCloud.UserDataSecretRef != nil {
+					if reflect.ValueOf(a.VolumeSource.CloudInitNoCloud.UserDataSecretRef.Name).IsZero() {
+						a.VolumeSource.CloudInitNoCloud.UserDataSecretRef.Name = ""
+					}
+				}
+				if a.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef != nil {
+					if reflect.ValueOf(a.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef.Name).IsZero() {
+						a.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef.Name = ""
+					}
+				}
+			}
+			if a.VolumeSource.CloudInitConfigDrive != nil {
+				if a.VolumeSource.CloudInitConfigDrive.UserDataSecretRef != nil {
+					if reflect.ValueOf(a.VolumeSource.CloudInitConfigDrive.UserDataSecretRef.Name).IsZero() {
+						a.VolumeSource.CloudInitConfigDrive.UserDataSecretRef.Name = ""
+					}
+				}
+				if a.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+					if reflect.ValueOf(a.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef.Name).IsZero() {
+						a.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef.Name = ""
+					}
+				}
+			}
+			if a.VolumeSource.Sysprep != nil {
+				if a.VolumeSource.Sysprep.Secret != nil {
+					if reflect.ValueOf(a.VolumeSource.Sysprep.Secret.Name).IsZero() {
+						a.VolumeSource.Sysprep.Secret.Name = ""
+					}
+				}
+				if a.VolumeSource.Sysprep.ConfigMap != nil {
+					if reflect.ValueOf(a.VolumeSource.Sysprep.ConfigMap.Name).IsZero() {
+						a.VolumeSource.Sysprep.ConfigMap.Name = ""
+					}
+				}
+			}
+			if a.VolumeSource.ConfigMap != nil {
+				if reflect.ValueOf(a.VolumeSource.ConfigMap.LocalObjectReference.Name).IsZero() {
+					a.VolumeSource.ConfigMap.LocalObjectReference.Name = ""
 				}
 			}
 		}
@@ -292,6 +356,50 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 				if a.VirtualGPUOptions.Display.RamFB != nil {
 					SetDefaults_FeatureState(a.VirtualGPUOptions.Display.RamFB)
 				}
+			}
+		}
+	}
+	for i := range in.Spec.Volumes {
+		a := &in.Spec.Volumes[i]
+		if a.VolumeSource.CloudInitNoCloud != nil {
+			if a.VolumeSource.CloudInitNoCloud.UserDataSecretRef != nil {
+				if reflect.ValueOf(a.VolumeSource.CloudInitNoCloud.UserDataSecretRef.Name).IsZero() {
+					a.VolumeSource.CloudInitNoCloud.UserDataSecretRef.Name = ""
+				}
+			}
+			if a.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef != nil {
+				if reflect.ValueOf(a.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef.Name).IsZero() {
+					a.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef.Name = ""
+				}
+			}
+		}
+		if a.VolumeSource.CloudInitConfigDrive != nil {
+			if a.VolumeSource.CloudInitConfigDrive.UserDataSecretRef != nil {
+				if reflect.ValueOf(a.VolumeSource.CloudInitConfigDrive.UserDataSecretRef.Name).IsZero() {
+					a.VolumeSource.CloudInitConfigDrive.UserDataSecretRef.Name = ""
+				}
+			}
+			if a.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+				if reflect.ValueOf(a.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef.Name).IsZero() {
+					a.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef.Name = ""
+				}
+			}
+		}
+		if a.VolumeSource.Sysprep != nil {
+			if a.VolumeSource.Sysprep.Secret != nil {
+				if reflect.ValueOf(a.VolumeSource.Sysprep.Secret.Name).IsZero() {
+					a.VolumeSource.Sysprep.Secret.Name = ""
+				}
+			}
+			if a.VolumeSource.Sysprep.ConfigMap != nil {
+				if reflect.ValueOf(a.VolumeSource.Sysprep.ConfigMap.Name).IsZero() {
+					a.VolumeSource.Sysprep.ConfigMap.Name = ""
+				}
+			}
+		}
+		if a.VolumeSource.ConfigMap != nil {
+			if reflect.ValueOf(a.VolumeSource.ConfigMap.LocalObjectReference.Name).IsZero() {
+				a.VolumeSource.ConfigMap.LocalObjectReference.Name = ""
 			}
 		}
 	}
@@ -539,6 +647,50 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 					if a.VirtualGPUOptions.Display.RamFB != nil {
 						SetDefaults_FeatureState(a.VirtualGPUOptions.Display.RamFB)
 					}
+				}
+			}
+		}
+		for i := range in.Spec.Template.Spec.Volumes {
+			a := &in.Spec.Template.Spec.Volumes[i]
+			if a.VolumeSource.CloudInitNoCloud != nil {
+				if a.VolumeSource.CloudInitNoCloud.UserDataSecretRef != nil {
+					if reflect.ValueOf(a.VolumeSource.CloudInitNoCloud.UserDataSecretRef.Name).IsZero() {
+						a.VolumeSource.CloudInitNoCloud.UserDataSecretRef.Name = ""
+					}
+				}
+				if a.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef != nil {
+					if reflect.ValueOf(a.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef.Name).IsZero() {
+						a.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef.Name = ""
+					}
+				}
+			}
+			if a.VolumeSource.CloudInitConfigDrive != nil {
+				if a.VolumeSource.CloudInitConfigDrive.UserDataSecretRef != nil {
+					if reflect.ValueOf(a.VolumeSource.CloudInitConfigDrive.UserDataSecretRef.Name).IsZero() {
+						a.VolumeSource.CloudInitConfigDrive.UserDataSecretRef.Name = ""
+					}
+				}
+				if a.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+					if reflect.ValueOf(a.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef.Name).IsZero() {
+						a.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef.Name = ""
+					}
+				}
+			}
+			if a.VolumeSource.Sysprep != nil {
+				if a.VolumeSource.Sysprep.Secret != nil {
+					if reflect.ValueOf(a.VolumeSource.Sysprep.Secret.Name).IsZero() {
+						a.VolumeSource.Sysprep.Secret.Name = ""
+					}
+				}
+				if a.VolumeSource.Sysprep.ConfigMap != nil {
+					if reflect.ValueOf(a.VolumeSource.Sysprep.ConfigMap.Name).IsZero() {
+						a.VolumeSource.Sysprep.ConfigMap.Name = ""
+					}
+				}
+			}
+			if a.VolumeSource.ConfigMap != nil {
+				if reflect.ValueOf(a.VolumeSource.ConfigMap.LocalObjectReference.Name).IsZero() {
+					a.VolumeSource.ConfigMap.LocalObjectReference.Name = ""
 				}
 			}
 		}

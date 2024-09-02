@@ -17,6 +17,8 @@ go_library(
         "uuid.go",
         "version1.go",
         "version4.go",
+        "version6.go",
+        "version7.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/google/uuid",
     importpath = "github.com/google/uuid",
