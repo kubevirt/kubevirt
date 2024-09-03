@@ -49,6 +49,7 @@ import (
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -73,6 +74,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -144,7 +146,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
 		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance)
 		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
-		fetchVirtHandlerCommand                func() string
 	)
 
 	deprecatedBeforeAll(func() {
@@ -522,18 +523,6 @@ spec:
 					yamlFile:      yamlFile,
 				}
 			}
-
-		}
-
-		fetchVirtHandlerCommand = func() string {
-			virtHandler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			containers := virtHandler.Spec.Template.Spec.Containers
-			Expect(containers).ToNot(BeEmpty())
-
-			container := containers[0]
-			return strings.Join(container.Command, " ")
 		}
 	})
 
@@ -862,36 +851,57 @@ spec:
 
 		It("test VirtualMachineInstancesPerNode", func() {
 			newVirtualMachineInstancesPerNode := 10
-			maxDevicesCommandArgument := fmt.Sprintf("--max-devices %d", newVirtualMachineInstancesPerNode)
 
-			By("Updating KubeVirt Object")
+			By("Patching KubeVirt Object")
 			kv, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Spec.Configuration.VirtualMachineInstancesPerNode).ToNot(Equal(&newVirtualMachineInstancesPerNode))
-			kv.Spec.Configuration.VirtualMachineInstancesPerNode = &newVirtualMachineInstancesPerNode
 
-			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			newVMIPerNodePatch, err := patch.New(
+				patch.WithAdd("/spec/configuration/virtualMachineInstancesPerNode", newVirtualMachineInstancesPerNode)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kv.Name, types.JSONPatchType, newVMIPerNodePatch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
 			waitForKvWithTimeout(kv, 120)
 
-			By("Test that patch was applied to DaemonSet")
-			Eventually(fetchVirtHandlerCommand, 60*time.Second, 5*time.Second).Should(ContainSubstring(maxDevicesCommandArgument))
+			By("Test that worker nodes have the correct allocatable kvm devices according to virtualMachineInstancesPerNode setting")
+			Eventually(func() error {
+				nodesWithKvm := libnode.GetNodesWithKVM()
+				for _, node := range nodesWithKvm {
+					kvmDevices, _ := node.Status.Allocatable[services.KvmDevice]
+					if int(kvmDevices.Value()) != newVirtualMachineInstancesPerNode {
+						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %d, got: %d", node.Name, newVirtualMachineInstancesPerNode, kvmDevices.Value())
+					}
+				}
+				return nil
+			}, 60*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
 
 			By("Deleting patch from KubeVirt object")
-			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
+			newVMIPerNodeRemovePatch, err := patch.New(
+				patch.WithRemove("/spec/configuration/virtualMachineInstancesPerNode")).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 
-			kv.Spec.Configuration.VirtualMachineInstancesPerNode = nil
-			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kv.Name, types.JSONPatchType, newVMIPerNodeRemovePatch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
 			waitForKvWithTimeout(kv, 120)
 
-			By("Test that patch was removed from DaemonSet")
-			Eventually(fetchVirtHandlerCommand, 60*time.Second, 5*time.Second).ShouldNot(ContainSubstring(maxDevicesCommandArgument))
+			By("Check that worker nodes resumed the default amount of allocatable kvm devices")
+			defaultKvmDevices := "1k"
+			Eventually(func() error {
+				nodesWithKvm := libnode.GetNodesWithKVM()
+				for _, node := range nodesWithKvm {
+					kvmDevices, _ := node.Status.Allocatable[services.KvmDevice]
+					if kvmDevices != resource.MustParse(defaultKvmDevices) {
+						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %s, got: %d", node.Name, defaultKvmDevices, kvmDevices.Value())
+					}
+				}
+				return nil
+			}, 60*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 	})
 
