@@ -622,18 +622,22 @@ func waitUploadProcessingComplete(client kubernetes.Interface, namespace, name s
 	return err
 }
 
-func setDefaultInstancetypeLabels(labels map[string]string) {
+func setDefaultInstancetypeLabels(target metav1.Object) {
+	if target.GetLabels() == nil {
+		target.SetLabels(make(map[string]string))
+	}
+
 	if defaultInstancetype != "" {
-		labels[instancetypeapi.DefaultInstancetypeLabel] = defaultInstancetype
+		target.GetLabels()[instancetypeapi.DefaultInstancetypeLabel] = defaultInstancetype
 	}
 	if defaultInstancetypeKind != "" {
-		labels[instancetypeapi.DefaultInstancetypeKindLabel] = defaultInstancetypeKind
+		target.GetLabels()[instancetypeapi.DefaultInstancetypeKindLabel] = defaultInstancetypeKind
 	}
 	if defaultPreference != "" {
-		labels[instancetypeapi.DefaultPreferenceLabel] = defaultPreference
+		target.GetLabels()[instancetypeapi.DefaultPreferenceLabel] = defaultPreference
 	}
 	if defaultPreferenceKind != "" {
-		labels[instancetypeapi.DefaultPreferenceKindLabel] = defaultPreferenceKind
+		target.GetLabels()[instancetypeapi.DefaultPreferenceKindLabel] = defaultPreferenceKind
 	}
 }
 
@@ -656,9 +660,6 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 		annotations[forceImmediateBindingAnnotation] = ""
 	}
 
-	labels := make(map[string]string)
-	setDefaultInstancetypeLabels(labels)
-
 	contentType := cdiv1.DataVolumeKubeVirt
 	if archiveUpload {
 		contentType = cdiv1.DataVolumeArchive
@@ -669,7 +670,6 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 			Name:        name,
 			Namespace:   namespace,
 			Annotations: annotations,
-			Labels:      labels,
 		},
 		Spec: cdiv1.DataVolumeSpec{
 			Source: &cdiv1.DataVolumeSource{
@@ -679,6 +679,7 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 			Storage:     pvcSpec,
 		},
 	}
+	setDefaultInstancetypeLabels(&dv.ObjectMeta)
 
 	dv, err = client.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	if err != nil {
@@ -763,10 +764,7 @@ func createUploadPVC(client kubecli.KubevirtClient, namespace, name, size, stora
 	}
 
 	pvc.ObjectMeta.Annotations = annotations
-
-	labels := make(map[string]string)
-	setDefaultInstancetypeLabels(labels)
-	pvc.ObjectMeta.Labels = labels
+	setDefaultInstancetypeLabels(&pvc.ObjectMeta)
 
 	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
@@ -966,7 +964,7 @@ func createNewDataSource(client kubecli.KubevirtClient, name, namespace string) 
 			},
 		},
 	}
-	setDefaultInstancetypeLabels(ds.Labels)
+	setDefaultInstancetypeLabels(&ds.ObjectMeta)
 
 	_, err := client.CdiClient().CdiV1beta1().DataSources(namespace).Create(context.Background(), ds, metav1.CreateOptions{})
 	if err == nil {
@@ -976,7 +974,7 @@ func createNewDataSource(client kubecli.KubevirtClient, name, namespace string) 
 }
 
 func updateExistingDataSource(client kubecli.KubevirtClient, pvcName, pvcNamespace string, ds *cdiv1.DataSource) error {
-	setDefaultInstancetypeLabels(ds.Labels)
+	setDefaultInstancetypeLabels(&ds.ObjectMeta)
 
 	patchBytes, err := patch.GeneratePatchPayload(
 		patch.PatchOperation{
