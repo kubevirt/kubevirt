@@ -347,16 +347,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			// get the pod backing the VirtualMachineInstance
 			By("Getting the pod backing the VirtualMachineInstance")
-			pods, err := virtClient.CoreV1().Pods(vm.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(firstVMI))
+			firstPod, err := libpod.GetPodByVirtualMachineInstance(firstVMI, firstVMI.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pods.Items).To(HaveLen(1))
-			firstPod := pods.Items[0]
 
 			// Delete the Pod
 			By("Deleting the VirtualMachineInstance's pod")
-			Eventually(func() error {
-				return virtClient.CoreV1().Pods(vm.Namespace).Delete(context.Background(), firstPod.Name, metav1.DeleteOptions{})
-			}, 120*time.Second, 1*time.Second).Should(Succeed())
+			Expect(virtClient.CoreV1().Pods(vm.Namespace).Delete(context.Background(), firstPod.Name, metav1.DeleteOptions{})).Should(Succeed())
 
 			// Wait on the VMI controller to create a new VirtualMachineInstance
 			By("Waiting for a new VirtualMachineInstance to spawn")
@@ -367,7 +363,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verifying a new pod backs the VMI")
 			currentVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			pods, err = virtClient.CoreV1().Pods(vm.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(currentVMI))
+			pods, err := virtClient.CoreV1().Pods(vm.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(currentVMI))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).To(HaveLen(1))
 			pod := pods.Items[0]
