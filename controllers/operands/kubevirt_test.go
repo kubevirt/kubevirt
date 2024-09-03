@@ -73,22 +73,28 @@ var _ = Describe("KubeVirt Operand", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
-		DescribeTable("should update if something changed", func(modifiedResource *schedulingv1.PriorityClass) {
-			cl := commontestutils.InitClient([]client.Object{modifiedResource})
+		DescribeTable("should update if something changed", func(modifiedPC *schedulingv1.PriorityClass) {
+			expectedPC := NewKubeVirtPriorityClass(hco)
+			key := client.ObjectKeyFromObject(expectedPC)
+
+			cl := commontestutils.InitClient([]client.Object{modifiedPC})
+
+			origPC := &schedulingv1.PriorityClass{}
+			Expect(cl.Get(context.TODO(), key, origPC)).To(Succeed())
+
 			handler := (*genericOperand)(newKvPriorityClassHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
-			expectedResource := NewKubeVirtPriorityClass(hco)
-			key := client.ObjectKeyFromObject(expectedResource)
-			foundResource := &schedulingv1.PriorityClass{}
-			Expect(cl.Get(context.TODO(), key, foundResource)).To(Succeed())
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Value).To(Equal(expectedResource.Value))
-			Expect(foundResource.GlobalDefault).To(Equal(expectedResource.GlobalDefault))
+			foundPC := &schedulingv1.PriorityClass{}
+			Expect(cl.Get(context.TODO(), key, foundPC)).To(Succeed())
+			Expect(foundPC.Name).To(Equal(expectedPC.Name))
+			Expect(foundPC.Value).To(Equal(expectedPC.Value))
+			Expect(foundPC.GlobalDefault).To(Equal(expectedPC.GlobalDefault))
+			Expect(foundPC.UID).ToNot(Equal(origPC.UID))
 
-			newReference, err := reference.GetReference(cl.Scheme(), foundResource)
+			newReference, err := reference.GetReference(cl.Scheme(), foundPC)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*newReference))
 		},
@@ -100,6 +106,7 @@ var _ = Describe("KubeVirt Operand", func() {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: kvPriorityClass,
+						UID:  "origPC",
 					},
 					Value:         1,
 					GlobalDefault: false,
@@ -113,6 +120,7 @@ var _ = Describe("KubeVirt Operand", func() {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: kvPriorityClass,
+						UID:  "origPC",
 					},
 					Value:         1000000000,
 					GlobalDefault: true,
@@ -122,7 +130,7 @@ var _ = Describe("KubeVirt Operand", func() {
 
 		DescribeTable("should return error when there is something wrong", func(initiateErrors func(testClient *commontestutils.HcoTestClient) error) {
 			modifiedResource := NewKubeVirtPriorityClass(hco)
-			modifiedResource.Labels = map[string]string{"foo": "bar"}
+			modifiedResource.Value = 1
 
 			cl := commontestutils.InitClient([]client.Object{modifiedResource})
 			expectedError := initiateErrors(cl)
@@ -165,6 +173,75 @@ var _ = Describe("KubeVirt Operand", func() {
 				return expectedError
 			}),
 		)
+
+		Context("check labels", func() {
+			const origUID = types.UID("origPC")
+			It("should add missing labels", func(ctx context.Context) {
+				expectedResource := NewKubeVirtPriorityClass(hco)
+				expectedResource.UID = origUID
+				delete(expectedResource.Labels, hcoutil.AppLabelComponent)
+
+				cl := commontestutils.InitClient([]client.Object{expectedResource})
+				handler := (*genericOperand)(newKvPriorityClassHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundPC := schedulingv1.PriorityClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: kvPriorityClass,
+					},
+				}
+
+				Expect(cl.Get(ctx, client.ObjectKeyFromObject(&foundPC), &foundPC)).To(Succeed())
+				Expect(foundPC.Labels).To(HaveKeyWithValue(hcoutil.AppLabelComponent, string(hcoutil.AppComponentCompute)))
+				Expect(foundPC.UID).To(Equal(origUID))
+			})
+
+			It("should fix wrong labels", func(ctx context.Context) {
+				expectedResource := NewKubeVirtPriorityClass(hco)
+				expectedResource.UID = "origPC"
+				expectedResource.Labels[hcoutil.AppLabelComponent] = string(hcoutil.AppComponentStorage)
+
+				cl := commontestutils.InitClient([]client.Object{expectedResource})
+				handler := (*genericOperand)(newKvPriorityClassHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundPC := schedulingv1.PriorityClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: kvPriorityClass,
+					},
+				}
+
+				Expect(cl.Get(ctx, client.ObjectKeyFromObject(&foundPC), &foundPC)).To(Succeed())
+				Expect(foundPC.Labels).To(HaveKeyWithValue(hcoutil.AppLabelComponent, string(hcoutil.AppComponentCompute)))
+				Expect(foundPC.UID).To(Equal(origUID))
+			})
+
+			It("should keep user-defined labels", func(ctx context.Context) {
+				const customLabel = "custom-label"
+				expectedResource := NewKubeVirtPriorityClass(hco)
+				expectedResource.Labels[customLabel] = "test"
+				expectedResource.Labels[hcoutil.AppLabelComponent] = string(hcoutil.AppComponentStorage)
+				expectedResource.UID = "origPC"
+
+				cl := commontestutils.InitClient([]client.Object{expectedResource})
+				handler := (*genericOperand)(newKvPriorityClassHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundPC := schedulingv1.PriorityClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: kvPriorityClass,
+					},
+				}
+
+				Expect(cl.Get(ctx, client.ObjectKeyFromObject(&foundPC), &foundPC)).To(Succeed())
+				Expect(foundPC.Labels).To(HaveKeyWithValue(customLabel, "test"))
+				Expect(foundPC.Labels).To(HaveKeyWithValue(hcoutil.AppLabelComponent, string(hcoutil.AppComponentCompute)))
+				Expect(foundPC.UID).To(Equal(origUID))
+			})
+		})
 
 	})
 

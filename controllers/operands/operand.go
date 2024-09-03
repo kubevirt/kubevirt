@@ -386,16 +386,6 @@ func getNamespace(defaultNamespace string, opts []string) string {
 	return defaultNamespace
 }
 
-func getLabels(hc *hcov1beta1.HyperConverged, component hcoutil.AppComponent) map[string]string {
-	hcoName := hcov1beta1.HyperConvergedName
-
-	if hc.Name != "" {
-		hcoName = hc.Name
-	}
-
-	return hcoutil.GetLabels(hcoName, component)
-}
-
 func applyAnnotationPatch(obj runtime.Object, annotation string) error {
 	patches, err := jsonpatch.DecodePatch([]byte(annotation))
 	if err != nil {

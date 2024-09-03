@@ -537,7 +537,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		{
 			APIGroups: stringListToSlice("scheduling.k8s.io"),
 			Resources: stringListToSlice("priorityclasses"),
-			Verbs:     stringListToSlice("get", "list", "watch", "create", "delete"),
+			Verbs:     stringListToSlice("get", "list", "watch", "create", "delete", "patch"),
 		},
 		{
 			APIGroups: stringListToSlice("admissionregistration.k8s.io"),

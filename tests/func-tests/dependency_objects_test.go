@@ -11,6 +11,8 @@ import (
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
+const priorityClassName = "kubevirt-cluster-critical"
+
 var _ = Describe("[rfe_id:5672][crit:medium][vendor:cnv-qe@redhat.com][level:system]Dependency objects", Label("PriorityClass"), func() {
 	flag.Parse()
 

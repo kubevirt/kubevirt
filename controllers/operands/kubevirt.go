@@ -19,15 +19,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
 )
 
 // env vars
@@ -888,8 +888,8 @@ func (kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Clien
 	}
 
 	// at this point we found the object in the cache and we check if something was changed
-	if (pc.Name == found.Name) && (pc.Value == found.Value) &&
-		(pc.Description == found.Description) && hcoutil.CompareLabels(&pc.ObjectMeta, &found.ObjectMeta) {
+	specEquals := (pc.Value == found.Value) && (pc.Description == found.Description)
+	if (pc.Name == found.Name) && specEquals && hcoutil.CompareLabels(&pc.ObjectMeta, &found.ObjectMeta) {
 		return false, false, nil
 	}
 
@@ -899,16 +899,38 @@ func (kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Clien
 		req.Logger.Info("Reconciling an externally updated PriorityClass's Spec to its opinionated values")
 	}
 
-	// something was changed but since we can't patch a priority class object, we remove it
-	err := Client.Delete(req.Ctx, found, &client.DeleteOptions{})
-	if err != nil {
-		return false, false, err
+	// make sure req labels are in place, while allowing user defined labels
+	labels := maps.Clone(found.Labels)
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	if len(pc.Labels) > 0 {
+		maps.Copy(labels, pc.Labels)
 	}
 
-	// create the new object
-	err = Client.Create(req.Ctx, pc, &client.CreateOptions{})
-	if err != nil {
-		return false, false, err
+	if !specEquals {
+		// something was changed but since we can't patch a priority class object, we remove it
+		err := Client.Delete(req.Ctx, found)
+		if err != nil {
+			return false, false, err
+		}
+
+		// create the new object
+		pc.Labels = labels
+		err = Client.Create(req.Ctx, pc)
+		if err != nil {
+			return false, false, err
+		}
+	} else {
+		patch, err := getLabelPatch(found.Labels, labels)
+		if err != nil {
+			return false, false, err
+		}
+
+		err = Client.Patch(req.Ctx, found, client.RawPatch(types.JSONPatchType, patch))
+		if err != nil {
+			return false, false, err
+		}
 	}
 
 	pc.DeepCopyInto(found)
