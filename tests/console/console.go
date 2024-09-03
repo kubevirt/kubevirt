@@ -223,10 +223,10 @@ func LinuxExpecter(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer expecter.Close()
 
-	b := []expect.Batcher{
-		&expect.BExp{R: `\[    0.000000\] Linux version`},
-	}
-	res, err := expecter.ExpectBatch(b, time.Minute)
+	_, _, res, err := expecter.ExpectSwitchCase([]expect.Caser{
+		&expect.Case{R: regexp.MustCompile(`\[ {4}0.0{6}\] Linux version`)},
+		&expect.Case{R: regexp.MustCompile(`systemd\[1\]:`)},
+	}, time.Minute)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Failed to find Linux boot logs in: %+v", res)
 	}
