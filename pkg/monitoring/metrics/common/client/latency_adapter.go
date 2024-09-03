@@ -31,5 +31,5 @@ type latencyAdapter struct {
 }
 
 func (l *latencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
-	l.m.WithLabelValues(verb, u.String()).Observe(latency.Seconds())
+	l.m.WithLabelValues(getVerbFromHTTPVerb(u, verb), u.String()).Observe(latency.Seconds())
 }
