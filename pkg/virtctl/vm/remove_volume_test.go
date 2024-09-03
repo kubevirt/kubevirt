@@ -21,11 +21,13 @@ package vm_test
 
 import (
 	"errors"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/golang/mock/gomock"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
@@ -36,6 +38,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
+)
+
+const (
+	concurrentError = "the server rejected our request due to an error in our request"
 )
 
 var _ = Describe("Remove volume command", func() {
@@ -127,6 +133,55 @@ var _ = Describe("Remove volume command", func() {
 		}
 	}
 
+	expectVMIEndpointRemoveVolumeRepeatedError := func(dryRun bool, repeatCount int) {
+		kubecli.MockKubevirtClientInstance.
+			EXPECT().
+			VirtualMachineInstance(k8smetav1.NamespaceDefault).
+			Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).
+			Times(repeatCount)
+		for i := 0; i < repeatCount; i++ {
+			virtClient.PrependReactor("put", "virtualmachines/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				switch action := action.(type) {
+				case kvtesting.PutAction[*v1.RemoveVolumeOptions]:
+					volumeOptions := action.GetOptions()
+					Expect(volumeOptions.Name).To(Equal(volumeName))
+					if dryRun {
+						Expect(volumeOptions.DryRun).To(Equal([]string{metav1.DryRunAll}))
+					} else {
+						Expect(volumeOptions.DryRun).To(BeEmpty())
+					}
+					return true, nil, fmt.Errorf(concurrentError)
+				default:
+					Fail("unexpected action type on removevolume")
+					return false, nil, nil
+				}
+			})
+		}
+	}
+	expectVMIEndpointRemoveVolumeFatalError := func(dryRun bool) {
+		kubecli.MockKubevirtClientInstance.
+			EXPECT().
+			VirtualMachineInstance(k8smetav1.NamespaceDefault).
+			Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).
+			Times(1)
+		virtClient.PrependReactor("put", "virtualmachines/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			switch action := action.(type) {
+			case kvtesting.PutAction[*v1.RemoveVolumeOptions]:
+				volumeOptions := action.GetOptions()
+				Expect(volumeOptions.Name).To(Equal(volumeName))
+				if dryRun {
+					Expect(volumeOptions.DryRun).To(Equal([]string{metav1.DryRunAll}))
+				} else {
+					Expect(volumeOptions.DryRun).To(BeEmpty())
+				}
+				return true, nil, fmt.Errorf("fatal error")
+			default:
+				Fail("unexpected action type on removevolume")
+				return false, nil, nil
+			}
+		})
+	}
+
 	DescribeTable("should fail with missing required or invalid parameters", func(expected string, extraArgs ...string) {
 		args := append([]string{"removevolume"}, extraArgs...)
 		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
@@ -162,4 +217,30 @@ var _ = Describe("Remove volume command", func() {
 		Entry("no persist with dry-run should call VMI endpoint", expectVMIEndpointRemoveVolume(true), "virtualmachineinstances", "--dry-run"),
 		Entry("with persist with dry-run should call VM endpoint", expectVMEndpointRemoveVolume(true), "virtualmachines", "--persist", "--dry-run"),
 	)
+
+	It("should fail immediately on non concurrent error", func() {
+		expectVMIEndpointRemoveVolumeFatalError(false)
+		commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
+		cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+		err := cmdAdd()
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should retry on error", func() {
+		expectVMIEndpointRemoveVolumeRepeatedError(false, 1)
+		expectVMIEndpointRemoveVolume("testvmi", "testvolume", false)
+		commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
+		cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+		err := cmdAdd()
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should fail after 15 retries", func() {
+		expectVMIEndpointRemoveVolumeRepeatedError(false, 15)
+		commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
+		cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+		err := cmdAdd()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("error removing volume after 15 retries"))
+	})
 })

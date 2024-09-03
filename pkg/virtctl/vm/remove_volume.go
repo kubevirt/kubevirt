@@ -22,6 +22,8 @@ package vm
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -70,20 +72,32 @@ func (o *Command) removeVolumeRun(args []string) error {
 	}
 
 	dryRunOption := setDryRunOption(dryRun)
+	retry := 0
+	keepTrying := true
+	for retry < maxRetries && keepTrying {
+		if !persist {
+			err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
+				Name:   volumeName,
+				DryRun: dryRunOption,
+			})
+		} else {
+			err = virtClient.VirtualMachine(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
+				Name:   volumeName,
+				DryRun: dryRunOption,
+			})
+		}
 
-	if !persist {
-		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
-			Name:   volumeName,
-			DryRun: dryRunOption,
-		})
-	} else {
-		err = virtClient.VirtualMachine(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
-			Name:   volumeName,
-			DryRun: dryRunOption,
-		})
+		if err != nil && err.Error() != concurrentError {
+			return fmt.Errorf("error removing volume, %v", err)
+		}
+		retry++
+		keepTrying = err != nil
+		if keepTrying {
+			time.Sleep(time.Duration(retry*(rand.IntN(5))) * time.Millisecond)
+		}
 	}
-	if err != nil {
-		return fmt.Errorf("error removing volume, %v", err)
+	if retry == maxRetries {
+		return fmt.Errorf("error removing volume after %d retries", maxRetries)
 	}
 	fmt.Printf("Successfully submitted remove volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil

@@ -22,6 +22,8 @@ package vm
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
+	"time"
 
 	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"
@@ -38,6 +40,8 @@ const (
 	serialArg         = "serial"
 	cacheArg          = "cache"
 	diskTypeArg       = "disk-type"
+	concurrentError   = "the server rejected our request due to an error in our request"
+	maxRetries        = 15
 )
 
 var (
@@ -163,13 +167,25 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 			return fmt.Errorf("error adding volume, invalid cache value %s", cache)
 		}
 	}
-	if !persist {
-		err = virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
-	} else {
-		err = virtClient.VirtualMachine(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
+	retry := 0
+	keepTrying := true
+	for retry < maxRetries && keepTrying {
+		if !persist {
+			err = virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
+		} else {
+			err = virtClient.VirtualMachine(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
+		}
+		if err != nil && err.Error() != concurrentError {
+			return fmt.Errorf("error adding volume, %v", err)
+		}
+		retry++
+		keepTrying = err != nil
+		if keepTrying {
+			time.Sleep(time.Duration(retry*(rand.IntN(5))) * time.Millisecond)
+		}
 	}
-	if err != nil {
-		return fmt.Errorf("error adding volume, %v", err)
+	if retry == maxRetries {
+		return fmt.Errorf("error adding volume after %d retries", maxRetries)
 	}
 	fmt.Printf("Successfully submitted add volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil
