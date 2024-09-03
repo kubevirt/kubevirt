@@ -84,6 +84,9 @@ The total number of VMs created by namespace and virt-api pod, since install. Ty
 ### kubevirt_vm_created_total
 The total number of VMs created by namespace, since install. Type: Counter.
 
+### kubevirt_vm_disk_allocated_size_bytes
+Allocated disk size of a persistent volume claim in bytes for each Virtual Machine. Type: Gauge.
+
 ### kubevirt_vm_error_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to error status. Type: Counter.
 
@@ -284,9 +287,6 @@ Returns the amount of space in bytes restored from the source virtual machine. T
 
 ### kubevirt_vmsnapshot_persistentvolumeclaim_labels
 Returns the labels of the persistent volume claims that are used for restoring virtual machines. Type: Gauge.
-
-### kubevirt_vmsnapshot_succeeded_timestamp_seconds
-Returns the timestamp of successful virtual machine snapshot. Type: Gauge.
 
 ### kubevirt_vnc_active_connections
 Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.

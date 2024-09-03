@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -41,19 +42,21 @@ var (
 		vmSnapshotMetrics,
 	}
 
-	vmInformer                  cache.SharedIndexInformer
-	vmiInformer                 cache.SharedIndexInformer
-	clusterInstanceTypeInformer cache.SharedIndexInformer
-	instanceTypeInformer        cache.SharedIndexInformer
-	clusterPreferenceInformer   cache.SharedIndexInformer
-	preferenceInformer          cache.SharedIndexInformer
-	vmiMigrationInformer        cache.SharedIndexInformer
-	clusterConfig               *virtconfig.ClusterConfig
+	vmInformer                    cache.SharedIndexInformer
+	vmiInformer                   cache.SharedIndexInformer
+	persistentVolumeClaimInformer cache.SharedIndexInformer
+	clusterInstanceTypeInformer   cache.SharedIndexInformer
+	instanceTypeInformer          cache.SharedIndexInformer
+	clusterPreferenceInformer     cache.SharedIndexInformer
+	preferenceInformer            cache.SharedIndexInformer
+	vmiMigrationInformer          cache.SharedIndexInformer
+	clusterConfig                 *virtconfig.ClusterConfig
 )
 
 func SetupMetrics(
 	vm cache.SharedIndexInformer,
 	vmi cache.SharedIndexInformer,
+	pvc cache.SharedIndexInformer,
 	clusterInstanceType cache.SharedIndexInformer,
 	instanceType cache.SharedIndexInformer,
 	clusterPreference cache.SharedIndexInformer,
@@ -63,6 +66,7 @@ func SetupMetrics(
 ) error {
 	vmInformer = vm
 	vmiInformer = vmi
+	persistentVolumeClaimInformer = pvc
 	clusterInstanceTypeInformer = clusterInstanceType
 	instanceTypeInformer = instanceType
 	clusterPreferenceInformer = clusterPreference
@@ -142,4 +146,14 @@ func getTransitionTimeSeconds(oldTime *metav1.Time, newTime *metav1.Time) (float
 	}
 
 	return diffSeconds, nil
+}
+
+func SetupPVCInformer() {
+	// Adding the PVC index setup by namespace and name
+	persistentVolumeClaimInformer.AddIndexers(cache.Indexers{
+		"pvc": func(obj interface{}) ([]string, error) {
+			pvc := obj.(*k8sv1.PersistentVolumeClaim)
+			return []string{fmt.Sprintf("%s/%s", pvc.Namespace, pvc.Name)}, nil
+		},
+	})
 }
