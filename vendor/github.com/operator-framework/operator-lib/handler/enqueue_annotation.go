@@ -85,17 +85,17 @@ type EnqueueRequestForAnnotation[T client.Object] struct {
 	Type schema.GroupKind
 }
 
-var _ crtHandler.EventHandler = &EnqueueRequestForAnnotation[client.Object]{}
+var _ crtHandler.TypedEventHandler[client.Object, reconcile.Request] = &EnqueueRequestForAnnotation[client.Object]{}
 
 // Create implements EventHandler
-func (e *EnqueueRequestForAnnotation[T]) Create(_ context.Context, evt event.TypedCreateEvent[T], q workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForAnnotation[T]) Create(_ context.Context, evt event.TypedCreateEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
 
 // Update implements EventHandler
-func (e *EnqueueRequestForAnnotation[T]) Update(_ context.Context, evt event.TypedUpdateEvent[T], q workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForAnnotation[T]) Update(_ context.Context, evt event.TypedUpdateEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if ok, req := e.getAnnotationRequests(evt.ObjectOld); ok {
 		q.Add(req)
 	}
@@ -105,14 +105,14 @@ func (e *EnqueueRequestForAnnotation[T]) Update(_ context.Context, evt event.Typ
 }
 
 // Delete implements EventHandler
-func (e *EnqueueRequestForAnnotation[T]) Delete(_ context.Context, evt event.TypedDeleteEvent[T], q workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForAnnotation[T]) Delete(_ context.Context, evt event.TypedDeleteEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
 
 // Generic implements EventHandler
-func (e *EnqueueRequestForAnnotation[T]) Generic(_ context.Context, evt event.TypedGenericEvent[T], q workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForAnnotation[T]) Generic(_ context.Context, evt event.TypedGenericEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}

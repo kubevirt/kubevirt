@@ -116,6 +116,22 @@ func (Format) Help() *markers.DefinitionHelp {
 	}
 }
 
+func (KubernetesDefault) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "Default sets the default value for this field.",
+			Details: "A default value will be accepted as any value valid for the field.\nOnly JSON-formatted values are accepted. `ref(...)` values are ignored.\nFormatting for common types include: boolean: `true`, string:\n`\"Cluster\"`, numerical: `1.24`, array: `[1,2]`, object: `{\"policy\":\n\"delete\"}`). Defaults should be defined in pruned form, and only best-effort\nvalidation will be performed. Full validation of a default requires\nsubmission of the containing CRD to an apiserver.",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"Value": {
+				Summary: "",
+				Details: "",
+			},
+		},
+	}
+}
+
 func (ListMapKey) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD processing",
@@ -520,6 +536,14 @@ func (XValidation) Help() *markers.DefinitionHelp {
 				Details: "",
 			},
 			"MessageExpression": {
+				Summary: "",
+				Details: "",
+			},
+			"Reason": {
+				Summary: "",
+				Details: "",
+			},
+			"FieldPath": {
 				Summary: "",
 				Details: "",
 			},

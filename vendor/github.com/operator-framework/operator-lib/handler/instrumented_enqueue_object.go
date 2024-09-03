@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/operator-framework/operator-lib/handler/internal/metrics"
 )
@@ -41,13 +42,13 @@ type InstrumentedEnqueueRequestForObject[T client.Object] struct {
 }
 
 // Create implements EventHandler, and creates the metrics.
-func (h InstrumentedEnqueueRequestForObject[T]) Create(ctx context.Context, e event.TypedCreateEvent[T], q workqueue.RateLimitingInterface) {
+func (h InstrumentedEnqueueRequestForObject[T]) Create(ctx context.Context, e event.TypedCreateEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	setResourceMetric(e.Object)
 	h.TypedEnqueueRequestForObject.Create(ctx, e, q)
 }
 
 // Update implements EventHandler, and updates the metrics.
-func (h InstrumentedEnqueueRequestForObject[T]) Update(ctx context.Context, e event.TypedUpdateEvent[T], q workqueue.RateLimitingInterface) {
+func (h InstrumentedEnqueueRequestForObject[T]) Update(ctx context.Context, e event.TypedUpdateEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	setResourceMetric(e.ObjectOld)
 	setResourceMetric(e.ObjectNew)
 
@@ -55,7 +56,7 @@ func (h InstrumentedEnqueueRequestForObject[T]) Update(ctx context.Context, e ev
 }
 
 // Delete implements EventHandler, and deletes metrics.
-func (h InstrumentedEnqueueRequestForObject[T]) Delete(ctx context.Context, e event.TypedDeleteEvent[T], q workqueue.RateLimitingInterface) {
+func (h InstrumentedEnqueueRequestForObject[T]) Delete(ctx context.Context, e event.TypedDeleteEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	deleteResourceMetric(e.Object)
 	h.TypedEnqueueRequestForObject.Delete(ctx, e, q)
 }

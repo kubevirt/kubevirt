@@ -404,20 +404,28 @@ func structToSchema(ctx *schemaContext, structType *ast.StructType) *apiext.JSON
 			defaultMode = "optional"
 		}
 
-		switch defaultMode {
+		switch {
+		case field.Markers.Get("kubebuilder:validation:Optional") != nil:
+			// explicity optional - kubebuilder
+		case field.Markers.Get("kubebuilder:validation:Required") != nil:
+			// explicitly required - kubebuilder
+			props.Required = append(props.Required, fieldName)
+		case field.Markers.Get("optional") != nil:
+			// explicity optional - kubernetes
+		case field.Markers.Get("required") != nil:
+			// explicitly required - kubernetes
+			props.Required = append(props.Required, fieldName)
+
 		// if this package isn't set to optional default...
-		case "required":
-			// ...everything that's not inline, omitempty, or explicitly optional is required
-			if !inline && !omitEmpty && field.Markers.Get("kubebuilder:validation:Optional") == nil && field.Markers.Get("optional") == nil {
+		case defaultMode == "required":
+			// ...everything that's not inline / omitempty is required
+			if !inline && !omitEmpty {
 				props.Required = append(props.Required, fieldName)
 			}
 
 		// if this package isn't set to required default...
-		case "optional":
-			// ...everything that isn't explicitly required is optional
-			if field.Markers.Get("kubebuilder:validation:Required") != nil {
-				props.Required = append(props.Required, fieldName)
-			}
+		case defaultMode == "optional":
+			// implicitly optional
 		}
 
 		var propSchema *apiext.JSONSchemaProps

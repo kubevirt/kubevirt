@@ -128,18 +128,15 @@ type GrpcPodConfig struct {
 	// SecurityContextConfig can be one of `legacy` or `restricted`. The CatalogSource's pod is either injected with the
 	// right pod.spec.securityContext and pod.spec.container[*].securityContext values to allow the pod to run in Pod
 	// Security Admission (PSA) `restricted` mode, or doesn't set these values at all, in which case the pod can only be
-	// run in PSA `baseline` or `privileged` namespaces. Currently if the SecurityContextConfig is unspecified, the default
-	// value of `legacy` is used. Specifying a value other than `legacy` or `restricted` result in a validation error.
-	// When using older catalog images, which could not be run in `restricted` mode, the SecurityContextConfig should be
-	// set to `legacy`.
-	//
-	// In a future version will the default will be set to `restricted`, catalog maintainers should rebuild their catalogs
-	// with a version of opm that supports running catalogSource pods in `restricted` mode to prepare for these changes.
+	// run in PSA `baseline` or `privileged` namespaces. If the SecurityContextConfig is unspecified, the mode will be
+	// determined by the namespace's PSA configuration. If the namespace is enforcing `restricted` mode, then the pod
+	// will be configured as if `restricted` was specified. Otherwise, it will be configured as if `legacy` was
+	// specified. Specifying a value other than `legacy` or `restricted` result in a validation error. When using older
+	// catalog images, which can not run in `restricted` mode, the SecurityContextConfig should be set to `legacy`.
 	//
 	// More information about PSA can be found here: https://kubernetes.io/docs/concepts/security/pod-security-admission/'
 	// +optional
 	// +kubebuilder:validation:Enum=legacy;restricted
-	// +kubebuilder:default:=legacy
 	SecurityContextConfig SecurityConfig `json:"securityContextConfig,omitempty"`
 
 	// MemoryTarget configures the $GOMEMLIMIT value for the gRPC catalog Pod. This is a soft memory limit for the server,
