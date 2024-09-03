@@ -268,7 +268,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(err.Error()).To(ContainSubstring("InterfaceNotLiveMigratable"))
 			})
 		})
-		Context("[Serial] with bandwidth limitations", Serial, func() {
+		Context("with bandwidth limitations", func() {
 
 			updateMigrationPolicyBandwidth := func(migrationPolicy *v1alpha1.MigrationPolicy, bandwidth resource.Quantity) {
 				migrationPolicy, err = virtClient.MigrationPolicy().Get(context.Background(), migrationPolicy.Name, metav1.GetOptions{})
