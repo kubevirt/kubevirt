@@ -168,8 +168,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 		}
 	}
 	retry := 0
-	keepTrying := true
-	for retry < maxRetries && keepTrying {
+	for retry < maxRetries {
 		if !persist {
 			err = virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
 		} else {
@@ -178,13 +177,15 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 		if err != nil && err.Error() != concurrentError {
 			return fmt.Errorf("error adding volume, %v", err)
 		}
+		if err == nil {
+			break
+		}
 		retry++
-		keepTrying = err != nil
-		if keepTrying {
+		if retry < maxRetries {
 			time.Sleep(time.Duration(retry*(rand.IntN(5))) * time.Millisecond)
 		}
 	}
-	if retry == maxRetries {
+	if err != nil && retry == maxRetries {
 		return fmt.Errorf("error adding volume after %d retries", maxRetries)
 	}
 	fmt.Printf("Successfully submitted add volume request to VM %s for volume %s\n", vmiName, volumeName)
