@@ -2737,7 +2737,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 		Context("and NUMA passthrough", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 			It("should not make migrations fail", func() {
-				checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 				checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 				var err error
 				cpuVMI := libvmifact.NewAlpine(
