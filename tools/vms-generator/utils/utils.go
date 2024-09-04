@@ -1163,8 +1163,9 @@ func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePre
 				PreferredSmm: &v1.FeatureState{},
 			},
 			Firmware: &instancetypev1beta1.FirmwarePreferences{
-				PreferredUseEfi:        pointer.P(true),
-				PreferredUseSecureBoot: pointer.P(true),
+				PreferredEfi: &v1.EFI{
+					SecureBoot: pointer.P(true),
+				},
 			},
 		},
 	}
