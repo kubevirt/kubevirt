@@ -1,13 +1,42 @@
 # Conformance testing
 
+The Conformance tests are a subset of our e2e test suite that cover a set of features
+defining Kubevirt core functionalities. The goal of the suite is to make sure that selected features work across different Vendors, CNIs, CSIs, CRIs implementations.
+
+## How are Conformance tests selected
+
+By default tests with a `[Conformance]` tag (and from release 0.59 also decorator) will be executed and tests with a
+`[Disruptive]` tag will be skipped. These tests will not destroy or modify
+anything outside of the explicitly created test namespaces by the binary.
+
+The tests are always part of Kubevirt e2e tests that are usually approved by individual [Sigs](https://github.com/kubevirt/community/blob/main/sig-list.md#special-interest-groups). For the Conformance tests we have higher requirements than the regular tests, most significant requirements are:
+- Test is not Disruptive
+- Test is not flaky and is reliable per data available from CI team
+- For more concrete details see below
+
+
+## Conformance tests requirements:
+- The feature being tested is GA (no feature gate)
+- The feature is not deprecated
+- The feature is turned on by default (no feature toggle)
+- The test uses only GAed Kubernetes APIs/features
+- The test uses only APIs available to user
+- The test doesn't use direct access to virt-launcher/libvirt
+- It doesn't require any special hardware (such as gpu/pci devices,...) being available on the cluster other than the default required device nodes (kvm, virtio-net)
+- It doesn't use `Skip` or any other helper that uses it
+- It does not require access to public network, all images or resources should be able to be pre-pulled
+- It does not rely on environment of the executor
+- It has history of stability and is not flaky, and consequently doesn't have the QUARANTINE label.
+- It doesn't rely on specific implementation of CRI, CSI, CNI
+
+Exceptions are allowed but must be explicit and reasoned.
+
+## Delivery
+
 KubeVirt releases a `kubevirt/conformance:<release>` image and
 `conformance.yaml` manifest starting from `v0.33.0`. It can be executed as a
 [Sonobuoy](https://sonobuoy.io/) plugin to verify if the underlying cluster
 meets the basic needs to run KubeVirt.
-
-By default tests with a `[Conformance]` tag will be executed and tests with a
-`[Disruptive]` tag will be skipped. These tests will not destroy or modify
-anything outside of the explicitly created test namespaces by the binary.
 
 ## Executing conformance tests for a specific release
 
