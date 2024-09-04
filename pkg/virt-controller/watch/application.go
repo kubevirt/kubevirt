@@ -90,6 +90,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
+	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 )
 
 const (
@@ -626,7 +627,7 @@ func (vca *VirtControllerApp) initCommon() {
 			}),
 		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
 		services.WithNetBindingPluginMemoryCalculator(netbinding.MemoryCalculator{}),
-		services.WithAnnotationsGenerators(netAnnotationsGenerator),
+		services.WithAnnotationsGenerators(netAnnotationsGenerator, storageannotations.Generator{}),
 		services.WithNetTargetAnnotationsGenerator(netAnnotationsGenerator),
 	)
 

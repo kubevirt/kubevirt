@@ -35,6 +35,7 @@ go_library(
         "//pkg/service:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/export/export:go_default_library",
+        "//pkg/storage/pod/annotations:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",
