@@ -71,3 +71,7 @@ func Convert_v1beta1_VirtualMachineInstancetypeSpec_To_v1alpha1_VirtualMachineIn
 func Convert_v1beta1_CPUInstancetype_To_v1alpha1_CPUInstancetype(in *v1beta1.CPUInstancetype, out *CPUInstancetype, s conversion.Scope) error {
 	return autoConvert_v1beta1_CPUInstancetype_To_v1alpha1_CPUInstancetype(in, out, s)
 }
+
+func Convert_v1beta1_FirmwarePreferences_To_v1alpha1_FirmwarePreferences(in *v1beta1.FirmwarePreferences, out *FirmwarePreferences, s conversion.Scope) error {
+	return autoConvert_v1beta1_FirmwarePreferences_To_v1alpha1_FirmwarePreferences(in, out, s)
+}
