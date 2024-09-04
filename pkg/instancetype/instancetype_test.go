@@ -2197,6 +2197,37 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeFalse())
 			})
+
+			It("should apply PreferredEfi", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredEfi: &v1.EFI{
+							Persistent: pointer.P(true),
+							SecureBoot: pointer.P(true),
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(BeTrue())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeTrue())
+			})
+
+			It("should ignore PreferredUseEfi and PreferredUseSecureBoot when using PreferredEfi", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredEfi: &v1.EFI{
+							Persistent: pointer.P(true),
+						},
+						PreferredUseEfi:        pointer.P(false),
+						PreferredUseSecureBoot: pointer.P(true),
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(BeTrue())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeNil())
+			})
 		})
 
 		Context("Preference.Machine", func() {

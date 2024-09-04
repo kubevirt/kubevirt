@@ -1517,28 +1517,38 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
 		return
 	}
 
+	firmware := preferenceSpec.Firmware
+
 	if vmiSpec.Domain.Firmware == nil {
 		vmiSpec.Domain.Firmware = &virtv1.Firmware{}
 	}
 
-	if vmiSpec.Domain.Firmware.Bootloader == nil {
-		vmiSpec.Domain.Firmware.Bootloader = &virtv1.Bootloader{}
+	vmiFirmware := vmiSpec.Domain.Firmware
+
+	if vmiFirmware.Bootloader == nil {
+		vmiFirmware.Bootloader = &virtv1.Bootloader{}
 	}
 
-	if preferenceSpec.Firmware.PreferredUseBios != nil && *preferenceSpec.Firmware.PreferredUseBios && vmiSpec.Domain.Firmware.Bootloader.BIOS == nil && vmiSpec.Domain.Firmware.Bootloader.EFI == nil {
-		vmiSpec.Domain.Firmware.Bootloader.BIOS = &virtv1.BIOS{}
+	if firmware.PreferredUseBios != nil && *firmware.PreferredUseBios && vmiFirmware.Bootloader.BIOS == nil && vmiFirmware.Bootloader.EFI == nil {
+		vmiFirmware.Bootloader.BIOS = &virtv1.BIOS{}
 	}
 
-	if preferenceSpec.Firmware.PreferredUseBiosSerial != nil && vmiSpec.Domain.Firmware.Bootloader.BIOS != nil && vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial == nil {
-		vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(*preferenceSpec.Firmware.PreferredUseBiosSerial)
+	if firmware.PreferredUseBiosSerial != nil && vmiFirmware.Bootloader.BIOS != nil && vmiFirmware.Bootloader.BIOS.UseSerial == nil {
+		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
 	}
 
-	if preferenceSpec.Firmware.PreferredUseEfi != nil && *preferenceSpec.Firmware.PreferredUseEfi && vmiSpec.Domain.Firmware.Bootloader.EFI == nil && vmiSpec.Domain.Firmware.Bootloader.BIOS == nil {
-		vmiSpec.Domain.Firmware.Bootloader.EFI = &virtv1.EFI{}
+	if firmware.PreferredEfi != nil {
+		vmiFirmware.Bootloader.EFI = firmware.PreferredEfi.DeepCopy()
+		// When using PreferredEfi return early to avoid applying PreferredUseEfi or PreferredUseSecureBoot below
+		return
 	}
 
-	if preferenceSpec.Firmware.PreferredUseSecureBoot != nil && vmiSpec.Domain.Firmware.Bootloader.EFI != nil && vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil {
-		vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(*preferenceSpec.Firmware.PreferredUseSecureBoot)
+	if firmware.PreferredUseEfi != nil && *firmware.PreferredUseEfi && vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil {
+		vmiFirmware.Bootloader.EFI = &virtv1.EFI{}
+	}
+
+	if firmware.PreferredUseSecureBoot != nil && vmiFirmware.Bootloader.EFI != nil && vmiFirmware.Bootloader.EFI.SecureBoot == nil {
+		vmiFirmware.Bootloader.EFI.SecureBoot = pointer.P(*firmware.PreferredUseSecureBoot)
 	}
 }
 
