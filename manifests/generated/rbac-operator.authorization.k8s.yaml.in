@@ -583,9 +583,16 @@ rules:
 - apiGroups:
   - export.kubevirt.io
   resources:
-  - '*'
+  - virtualmachineexports
+  - virtualmachineexports/status
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
 - apiGroups:
   - pool.kubevirt.io
   resources:
