@@ -22930,6 +22930,10 @@
     "description": "FirmwarePreferences contains various optional defaults for Firmware.",
     "type": "object",
     "properties": {
+     "preferredEfi": {
+      "description": "PreferredEfi optionally enables EFI",
+      "$ref": "#/definitions/v1.EFI"
+     },
      "preferredUseBios": {
       "description": "PreferredUseBios optionally enables BIOS",
       "type": "boolean"

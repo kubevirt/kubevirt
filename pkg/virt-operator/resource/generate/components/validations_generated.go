@@ -8733,6 +8733,19 @@ var CRDsValidation map[string]string = map[string]string{
           description: Firmware optionally defines preferences associated with the
             Firmware attribute of a VirtualMachineInstance DomainSpec
           properties:
+            preferredEfi:
+              description: PreferredEfi optionally enables EFI
+              properties:
+                persistent:
+                  description: If set to true, Persistent will persist the EFI NVRAM
+                    across reboots. Defaults to false
+                  type: boolean
+                secureBoot:
+                  description: If set, SecureBoot will be enabled and the OVMF roms
+                    will be swapped for SecureBoot-enabled ones. Requires SMM to be
+                    enabled. Defaults to true
+                  type: boolean
+              type: object
             preferredUseBios:
               description: PreferredUseBios optionally enables BIOS
               type: boolean
@@ -22068,6 +22081,19 @@ var CRDsValidation map[string]string = map[string]string{
           description: Firmware optionally defines preferences associated with the
             Firmware attribute of a VirtualMachineInstance DomainSpec
           properties:
+            preferredEfi:
+              description: PreferredEfi optionally enables EFI
+              properties:
+                persistent:
+                  description: If set to true, Persistent will persist the EFI NVRAM
+                    across reboots. Defaults to false
+                  type: boolean
+                secureBoot:
+                  description: If set, SecureBoot will be enabled and the OVMF roms
+                    will be swapped for SecureBoot-enabled ones. Requires SMM to be
+                    enabled. Defaults to true
+                  type: boolean
+              type: object
             preferredUseBios:
               description: PreferredUseBios optionally enables BIOS
               type: boolean
