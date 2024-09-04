@@ -305,6 +305,11 @@ func (in *FirmwarePreferences) DeepCopyInto(out *FirmwarePreferences) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.PreferredEfi != nil {
+		in, out := &in.PreferredEfi, &out.PreferredEfi
+		*out = new(v1.EFI)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

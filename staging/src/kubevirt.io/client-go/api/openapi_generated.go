@@ -30132,9 +30132,17 @@ func schema_kubevirtio_api_instancetype_v1beta1_FirmwarePreferences(ref common.R
 							Format:      "",
 						},
 					},
+					"preferredEfi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredEfi optionally enables EFI",
+							Ref:         ref("kubevirt.io/api/core/v1.EFI"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.EFI"},
 	}
 }
 
