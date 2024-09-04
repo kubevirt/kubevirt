@@ -2095,10 +2095,10 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should apply BIOS preferences full to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       pointer.P(true),
-						PreferredUseBiosSerial: pointer.P(true),
-						PreferredUseEfi:        pointer.P(false),
-						PreferredUseSecureBoot: pointer.P(false),
+						PreferredUseBios:                 pointer.P(true),
+						PreferredUseBiosSerial:           pointer.P(true),
+						DeprecatedPreferredUseEfi:        pointer.P(false),
+						DeprecatedPreferredUseSecureBoot: pointer.P(false),
 					},
 				}
 
@@ -2111,24 +2111,24 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should apply SecureBoot preferences full to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       pointer.P(false),
-						PreferredUseBiosSerial: pointer.P(false),
-						PreferredUseEfi:        pointer.P(true),
-						PreferredUseSecureBoot: pointer.P(true),
+						PreferredUseBios:                 pointer.P(false),
+						PreferredUseBiosSerial:           pointer.P(false),
+						DeprecatedPreferredUseEfi:        pointer.P(true),
+						DeprecatedPreferredUseSecureBoot: pointer.P(true),
 					},
 				}
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
 				Expect(conflicts).To(BeEmpty())
 
-				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(Equal(*preferenceSpec.Firmware.PreferredUseSecureBoot))
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(Equal(*preferenceSpec.Firmware.DeprecatedPreferredUseSecureBoot))
 			})
 
-			It("should not overwrite user defined Bootloader.BIOS with PreferredUseEfi - bug #10313", func() {
+			It("should not overwrite user defined Bootloader.BIOS with DeprecatedPreferredUseEfi - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseEfi:        pointer.P(true),
-						PreferredUseSecureBoot: pointer.P(true),
+						DeprecatedPreferredUseEfi:        pointer.P(true),
+						DeprecatedPreferredUseSecureBoot: pointer.P(true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -2180,11 +2180,11 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeFalse())
 			})
 
-			It("should not overwrite user defined value with PreferredUseSecureBoot - bug #10313", func() {
+			It("should not overwrite user defined value with DeprecatedPreferredUseSecureBoot - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseEfi:        pointer.P(true),
-						PreferredUseSecureBoot: pointer.P(true),
+						DeprecatedPreferredUseEfi:        pointer.P(true),
+						DeprecatedPreferredUseSecureBoot: pointer.P(true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -2213,14 +2213,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeTrue())
 			})
 
-			It("should ignore PreferredUseEfi and PreferredUseSecureBoot when using PreferredEfi", func() {
+			It("should ignore DeprecatedPreferredUseEfi and DeprecatedPreferredUseSecureBoot when using PreferredEfi", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
 						PreferredEfi: &v1.EFI{
 							Persistent: pointer.P(true),
 						},
-						PreferredUseEfi:        pointer.P(false),
-						PreferredUseSecureBoot: pointer.P(true),
+						DeprecatedPreferredUseEfi:        pointer.P(false),
+						DeprecatedPreferredUseSecureBoot: pointer.P(false),
 					},
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())

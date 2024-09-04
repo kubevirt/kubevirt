@@ -19009,11 +19009,11 @@
       "type": "boolean"
      },
      "preferredUseEfi": {
-      "description": "PreferredUseEfi optionally enables EFI",
+      "description": "PreferredUseEfi optionally enables EFI\n\nDeprecated: Will be removed with v1beta2 or v1",
       "type": "boolean"
      },
      "preferredUseSecureBoot": {
-      "description": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.",
+      "description": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.\n\nDeprecated: Will be removed with v1beta2 or v1",
       "type": "boolean"
      }
     }
