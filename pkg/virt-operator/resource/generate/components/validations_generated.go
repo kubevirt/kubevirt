@@ -9583,13 +9583,18 @@ var CRDsValidation map[string]string = map[string]string{
                 Requires PreferredUseBios to be enabled.
               type: boolean
             preferredUseEfi:
-              description: PreferredUseEfi optionally enables EFI
+              description: |-
+                PreferredUseEfi optionally enables EFI
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
             preferredUseSecureBoot:
               description: |-
                 PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.
 
                 Requires PreferredUseEfi and PreferredSmm to be enabled.
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
           type: object
         machine:
@@ -23994,13 +23999,18 @@ var CRDsValidation map[string]string = map[string]string{
                 Requires PreferredUseBios to be enabled.
               type: boolean
             preferredUseEfi:
-              description: PreferredUseEfi optionally enables EFI
+              description: |-
+                PreferredUseEfi optionally enables EFI
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
             preferredUseSecureBoot:
               description: |-
                 PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.
 
                 Requires PreferredUseEfi and PreferredSmm to be enabled.
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
           type: object
         machine:
