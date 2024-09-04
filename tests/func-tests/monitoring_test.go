@@ -49,7 +49,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		promClient                       promApiv1.API
 		prometheusRule                   monitoringv1.PrometheusRule
 		initialOperatorHealthMetricValue float64
-		tempRouteURL                     string
+		hcoClient                        *tests.HCOPrometheusClient
 	)
 
 	runbookClient.Timeout = time.Second * 3
@@ -63,20 +63,12 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		promClient = initializePromClient(getPrometheusURL(ctx, restClient), getAuthorizationTokenForPrometheus(ctx, cliSet))
 		prometheusRule = getPrometheusRule(ctx, restClient)
 
+		var err error
+		hcoClient, err = tests.GetHCOPrometheusClient(ctx, cli)
+		Expect(err).NotTo(HaveOccurred())
+
 		initialOperatorHealthMetricValue = getMetricValue(ctx, promClient, "kubevirt_hyperconverged_operator_health_status")
-
-		Eventually(ctx, func(g Gomega) {
-			tempRouteHost, err := tests.GetTempRouteHost(ctx, cli)
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(tempRouteHost).NotTo(BeEmpty())
-			tempRouteURL = fmt.Sprintf("https://%s/metrics", tempRouteHost)
-		}).WithTimeout(time.Second * 60).
-			WithPolling(time.Second).
-			WithContext(ctx).
-			Should(Succeed())
-
-		GinkgoWriter.Println("temporary URL to read HCO metrics: ", tempRouteURL)
-
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("Alert rules should have all the requried annotations", func() {
@@ -123,7 +115,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		var valueBefore float64
 		Eventually(func(g Gomega, ctx context.Context) {
 			var err error
-			valueBefore, err = tests.GetHCOMetric(ctx, tempRouteURL, query)
+			valueBefore, err = hcoClient.GetHCOMetric(ctx, query)
 			g.Expect(err).NotTo(HaveOccurred())
 		}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		GinkgoWriter.Printf("The metric value before the test is: %0.2f\n", valueBefore)
@@ -142,7 +134,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 		By("checking that the HCO metric was increased by 1")
 		Eventually(func(g Gomega, ctx context.Context) float64 {
-			valueAfter, err := tests.GetHCOMetric(ctx, tempRouteURL, query)
+			valueAfter, err := hcoClient.GetHCOMetric(ctx, query)
 			g.Expect(err).NotTo(HaveOccurred())
 			return valueAfter
 		}).
@@ -174,7 +166,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			return alert
 		}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
 
-		verifyOperatorHealthMetricValue(ctx, promClient, initialOperatorHealthMetricValue, warningImpact)
+		verifyOperatorHealthMetricValue(ctx, promClient, hcoClient, initialOperatorHealthMetricValue, warningImpact)
 	})
 
 	It("UnsupportedHCOModification alert should fired when there is an jsonpatch annotation to modify an operand CRs", func(ctx context.Context) {
@@ -192,7 +184,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			alert := getAlertByName(alerts, "UnsupportedHCOModification")
 			return alert
 		}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
-		verifyOperatorHealthMetricValue(ctx, promClient, initialOperatorHealthMetricValue, warningImpact)
+		verifyOperatorHealthMetricValue(ctx, promClient, hcoClient, initialOperatorHealthMetricValue, warningImpact)
 	})
 })
 
@@ -205,11 +197,14 @@ func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.
 	return nil
 }
 
-func verifyOperatorHealthMetricValue(ctx context.Context, promClient promApiv1.API, initialOperatorHealthMetricValue, alertImpact float64) {
+func verifyOperatorHealthMetricValue(ctx context.Context, promClient promApiv1.API, hcoClient *tests.HCOPrometheusClient, initialOperatorHealthMetricValue, alertImpact float64) {
 	Eventually(func(g Gomega, ctx context.Context) {
 		if alertImpact >= initialOperatorHealthMetricValue {
-			systemHealthMetricValue := getMetricValue(ctx, promClient, "kubevirt_hco_system_health_status")
+			systemHealthMetricValue, err := hcoClient.GetHCOMetric(ctx, "kubevirt_hco_system_health_status")
+			g.Expect(err).NotTo(HaveOccurred())
+
 			operatorHealthMetricValue := getMetricValue(ctx, promClient, "kubevirt_hyperconverged_operator_health_status")
+
 			expectedOperatorHealthMetricValue := math.Max(alertImpact, systemHealthMetricValue)
 
 			g.Expect(operatorHealthMetricValue).To(Equal(expectedOperatorHealthMetricValue),
