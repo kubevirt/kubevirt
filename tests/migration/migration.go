@@ -372,9 +372,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 
 			It("should migrate vmi with LiveMigrateIfPossible eviction strategy", func() {
-				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
-				strategy := v1.EvictionStrategyLiveMigrateIfPossible
-				vmi.Spec.EvictionStrategy = &strategy
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrateIfPossible),
+				)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
@@ -852,8 +853,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// set autoconverge flag
 				config := getCurrentKvConfig(virtClient)
-				allowAutoConverage := true
-				config.MigrationConfiguration.AllowAutoConverge = &allowAutoConverage
+				config.MigrationConfiguration.AllowAutoConverge = pointer.P(true)
 				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
@@ -1582,9 +1582,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			BeforeEach(func() {
 				createdPods = []string{}
 				cfg := getCurrentKvConfig(virtClient)
-				var timeout int64 = 5
 				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-					CompletionTimeoutPerGiB: &timeout,
+					CompletionTimeoutPerGiB: pointer.P(int64(5)),
 				}
 				kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
