@@ -39,6 +39,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	virtcache "kubevirt.io/kubevirt/tools/cache"
@@ -883,11 +884,11 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		log.DefaultLogger().Error("No disk capacity")
 		return 0, false
 	}
-	preferredSize := *disk.Capacity
 	if disk.FilesystemOverhead == nil {
 		log.DefaultLogger().Errorf("No filesystem overhead found for disk %v", disk)
 		return 0, false
 	}
+
 	filesystemOverhead, err := strconv.ParseFloat(string(*disk.FilesystemOverhead), 64)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
@@ -898,12 +899,37 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		return 0, false
 	}
 
-	size := int64((1 - filesystemOverhead) * float64(preferredSize))
+	usableSize, err := getUsableDiskSize(getSourceFile(disk))
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
+		usableSize = *disk.Capacity
+	}
+	preferredSize := float64(min(usableSize, *disk.Capacity))
+
+	size := int64((1 - filesystemOverhead) * preferredSize)
 	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
 	if size == 0 {
 		return 0, false
 	}
 	return size, true
+}
+
+func getUsableDiskSize(path string) (int64, error) {
+	var statfs syscall.Statfs_t
+	err := syscall.Statfs(path, &statfs)
+	if err != nil {
+		return int64(-1), err
+	}
+	availableSize := int64(statfs.Bavail) * int64(statfs.Bsize)
+
+	var stat syscall.Stat_t
+	err = syscall.Stat(path, &stat)
+	if err != nil {
+		return int64(-1), err
+	}
+	actualSize := int64(stat.Size)
+
+	return actualSize + availableSize, nil
 }
 
 func shouldExpandOffline(disk api.Disk) bool {
