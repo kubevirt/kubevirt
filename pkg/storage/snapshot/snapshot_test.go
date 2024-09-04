@@ -742,7 +742,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 			})
 
-			It("should (partial) lock source if running", func() {
+			It("should (partial) lock source if running but no VMI", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
@@ -759,17 +759,13 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
-				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
-					snapshotv1.VMSnapshotOnlineSnapshotIndication,
-					snapshotv1.VMSnapshotNoGuestAgentIndication,
-				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
 
-			It("should (finish) lock source if running", func() {
+			It("should (finish) lock source if running but no VMI", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
@@ -786,10 +782,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
-				}
-				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
-					snapshotv1.VMSnapshotOnlineSnapshotIndication,
-					snapshotv1.VMSnapshotNoGuestAgentIndication,
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
@@ -885,6 +877,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm := createVM()
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 				vmSource.Add(vm)
+				vmiSource.Add(createVMI(vm))
 				pods := createPodsUsingPVCs(vm)
 				podSource.Add(&pods[0])
 

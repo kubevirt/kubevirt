@@ -253,8 +253,17 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			Expect(snapshot.Status.SourceUID).ToNot(BeNil())
 			Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
 
+			running := true
+			_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+				running = false
+			}
+
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
-			if (vm.Spec.Running != nil && *vm.Spec.Running) || (vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == v1.RunStrategyAlways) {
+			if running {
 				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotNoGuestAgentIndication}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 				checkOnlineSnapshotExpectedContentSource(vm, contentName, false)
@@ -281,6 +290,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.RunStrategy).To(HaveValue(Equal(v1.RunStrategyAlways)))
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
 
 			createAndVerifyVMSnapshot(vm)
 		})
