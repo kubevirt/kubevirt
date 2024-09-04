@@ -108,7 +108,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	var (
 		virtClient              kubecli.KubevirtClient
 		migrationBandwidthLimit resource.Quantity
-		err                     error
 	)
 
 	const (
@@ -217,7 +216,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			By("Exposing headless service matching subdomain")
 			service := service.BuildHeadlessSpec(subdomain, port, port, labelKey, labelValue)
-			_, err = virtClient.CoreV1().Services(vmi.Namespace).Create(context.TODO(), service, metav1.CreateOptions{})
+			_, err := virtClient.CoreV1().Services(vmi.Namespace).Create(context.TODO(), service, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			assertConnectivityToService := func(msg string) {
@@ -247,6 +246,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		Context("with bandwidth limitations", func() {
 
 			updateMigrationPolicyBandwidth := func(migrationPolicy *v1alpha1.MigrationPolicy, bandwidth resource.Quantity) {
+				var err error
 				migrationPolicy, err = virtClient.MigrationPolicy().Get(context.Background(), migrationPolicy.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -410,7 +410,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					),
 				)
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.Background(), dv, metav1.CreateOptions{})
+				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 				vmi := libvmi.New(
@@ -678,7 +678,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// ensure the libvirt domain is persistent
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				persistent, err := libvirtDomainIsPersistent(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should list libvirt domains successfully")
@@ -957,7 +957,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithResourceMemory("1Gi"),
 				)
 
-				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
@@ -1018,7 +1018,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Starting a first migration")
 				migration1 := libmigration.New(vmi.Name, vmi.Namespace)
-				migration1, err = virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(context.Background(), migration1, metav1.CreateOptions{})
+				migration1, err := virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(context.Background(), migration1, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakyness
@@ -1122,6 +1122,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					),
 				)
 
+				var err error
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -1188,7 +1189,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libdv.WithForceBindAnnotation(),
 			)
 
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			var pvc *k8sv1.PersistentVolumeClaim
 			Eventually(func() *k8sv1.PersistentVolumeClaim {
@@ -1425,7 +1426,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 
 					By("Waiting for the proxy connection details to appear")
 					Eventually(func() bool {
@@ -1504,7 +1505,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the proxy connection details to appear")
@@ -1732,6 +1733,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("Failed migration to satisfy functional test condition"))
 
 					Eventually(func() error {
+						var err error
 						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
@@ -1771,6 +1773,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("Failed migration to satisfy functional test condition"))
 
 				Eventually(func() error {
+					var err error
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -1798,7 +1801,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				// execute a migration
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+				migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for Migration to reach Preparing Target Phase")
@@ -1956,7 +1959,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				By("Starting a Migration")
-				_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+				_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
 			})
@@ -1989,7 +1992,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					),
 				)
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dv, 600, Or(HaveSucceeded(), PendingPopulation()))
 				vmi := libvmi.New(
@@ -2018,6 +2021,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Starting a Migration")
 				const timeout = 180
 				Eventually(func() error {
+					var err error
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 					return err
 				}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
@@ -2141,12 +2145,14 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Starting a Migration")
 				const timeout = 180
 				Eventually(func() error {
+					var err error
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 					return err
 				}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 
 				By("Waiting until the Migration has UID")
 				Eventually(func() bool {
+					var err error
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return migration.UID != ""
@@ -2159,7 +2165,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
 
 				By("Retrieving the VMI post migration")
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying the VMI's migration state")
@@ -2205,6 +2211,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration = libmigration.RunMigration(virtClient, migration)
 					expectMigrationSchedulingPhase := func() v1.VirtualMachineInstanceMigrationPhase {
+						var err error
 						migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 						Expect(err).ShouldNot(HaveOccurred())
 
@@ -2370,6 +2377,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				const fakeHostModelLabel = v1.HostModelCPULabel + "fake-model"
 
 				BeforeEach(func() {
+					var err error
 					By("Creating a VMI with default CPU mode")
 					vmi = alpineVMIWithEvictionStrategy()
 					vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
@@ -2402,6 +2410,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					node = libnode.AddLabelToNode(node.Name, fakeHostModelLabel, "true")
 
 					Eventually(func() bool {
+						var err error
 						node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 						Expect(err).ShouldNot(HaveOccurred())
 
@@ -2565,7 +2574,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Retrieving the VMI post migration")
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(vmi.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
@@ -2760,6 +2769,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		const fakeHostModel = v1.HostModelCPULabel + "fakeHostModel"
 
 		BeforeEach(func() {
+			var err error
 			sourceNode, targetNode, err = libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
 			if err != nil {
 				Skip(err.Error())
@@ -2837,6 +2847,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 
 		It("vmi with host-model should be able to migrate to node that support the initial node's host-model even if this model isn't the target's host-model", func() {
+			var err error
 			targetNode, err = virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
@@ -3085,7 +3096,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			By("Creating the Network Attachment Definition")
 			nad := libmigration.GenerateMigrationCNINetworkAttachmentDefinition()
-			_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.TODO(), nad, metav1.CreateOptions{})
+			_, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.TODO(), nad, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred(), "Failed to create the Network Attachment Definition")
 
 			By("Setting it as the migration network in the KubeVirt CR")
@@ -3097,8 +3108,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			By("Deleting the Network Attachment Definition")
 			nad := libmigration.GenerateMigrationCNINetworkAttachmentDefinition()
-			err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.TODO(), nad.Name, metav1.DeleteOptions{})
-			Expect(err).NotTo(HaveOccurred(), "Failed to delete the Network Attachment Definition")
+			Expect(virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.TODO(), nad.Name, metav1.DeleteOptions{})).To(Succeed(), "Failed to delete the Network Attachment Definition")
 		})
 		It("Should migrate over that network", func() {
 			vmi := libvmifact.NewAlpine(
@@ -3133,7 +3143,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 		By("Ensuring MigrationConfiguration is updated")
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.MigrationState).ToNot(BeNil())
 		Expect(vmi.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
@@ -3153,7 +3163,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmim := libmigration.New(vmi.Name, vmi.Namespace)
 				// not checking err as the migration creation will be blocked immediately by virt-api's validating webhook
 				// if another one is currently running
-				vmim, err = virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
+				vmim, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
 
 				labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
 				Expect(err).ToNot(HaveOccurred())
@@ -3182,6 +3192,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			expectTopologyHintsToBeSet := func(vmi *v1.VirtualMachineInstance) {
 				EventuallyWithOffset(1, func() bool {
+					var err error
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
