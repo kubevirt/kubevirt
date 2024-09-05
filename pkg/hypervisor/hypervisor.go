@@ -14,6 +14,9 @@ type Hypervisor interface {
 	GetHypervisorOverhead() string
 
 	SupportsIso() bool
+
+	// TODO Probably not needed
+	SupportsNonRootUser() bool
 }
 
 // Define QemuHypervisor struct that implements the Hypervisor interface
@@ -52,6 +55,10 @@ func (q *QemuHypervisor) SupportsIso() bool {
 	return true
 }
 
+func (q *QemuHypervisor) SupportsNonRootUser() bool {
+	return true
+}
+
 // Implement GetVirtLauncherMonitorOverhead method for CloudHypervisor
 func (c *CloudHypervisor) GetVirtLauncherMonitorOverhead() string {
 	return "25Mi"
@@ -78,6 +85,10 @@ func (c *CloudHypervisor) GetHypervisorOverhead() string {
 }
 
 func (c *CloudHypervisor) SupportsIso() bool {
+	return false
+}
+
+func (c *CloudHypervisor) SupportsNonRootUser() bool {
 	return false
 }
 
