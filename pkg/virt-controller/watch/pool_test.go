@@ -46,6 +46,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
+	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 )
 
 var _ = Describe("Pool", func() {
@@ -277,7 +278,7 @@ var _ = Describe("Pool", func() {
 			}}
 
 			markVmAsReady(vm)
-			markAsReady(vmi)
+			watchtesting.MarkAsReady(vmi)
 			addPool(pool)
 			addVM(vm)
 			addCR(poolRevision)
@@ -729,7 +730,7 @@ func PoolFromVM(name string, vm *v1.VirtualMachine, replicas int32) *poolv1.Virt
 func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine) {
 	vmi := api.NewMinimalVMI("testvmi")
 	vmi.Labels = map[string]string{}
-	vm := VirtualMachineFromVMI(vmi.Name, vmi, true)
+	vm := watchtesting.VirtualMachineFromVMI(vmi.Name, vmi, true)
 	vm.Labels = map[string]string{}
 	vm.Labels["selector"] = "value"
 

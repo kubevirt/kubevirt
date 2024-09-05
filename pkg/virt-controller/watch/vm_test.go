@@ -45,6 +45,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
+	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	gomegatypes "github.com/onsi/gomega/types"
@@ -494,7 +496,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 
 				if isRunning {
-					markAsReady(vmi)
+					watchtesting.MarkAsReady(vmi)
 					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					controller.vmiIndexer.Add(vmi)
@@ -540,7 +542,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					markAsReady(vmi)
+					watchtesting.MarkAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					controller.vmiIndexer.Add(vmi)
@@ -575,7 +577,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					markAsReady(vmi)
+					watchtesting.MarkAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					controller.vmiIndexer.Add(vmi)
@@ -700,7 +702,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					markAsReady(vmi)
+					watchtesting.MarkAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					controller.vmiIndexer.Add(vmi)
@@ -843,7 +845,7 @@ var _ = Describe("VirtualMachine", func() {
 				if isRunning {
 					vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
 					vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
-					markAsReady(vmi)
+					watchtesting.MarkAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					controller.vmiIndexer.Add(vmi)
@@ -895,7 +897,7 @@ var _ = Describe("VirtualMachine", func() {
 				if isRunning {
 					vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
 					vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
-					markAsReady(vmi)
+					watchtesting.MarkAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					controller.vmiIndexer.Add(vmi)
@@ -935,7 +937,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 
 				if isRunning {
-					markAsReady(vmi)
+					watchtesting.MarkAsReady(vmi)
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					controller.vmiIndexer.Add(vmi)
@@ -2542,7 +2544,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should update status to created and ready when vmi is running and running", func() {
 			vm, vmi := DefaultVirtualMachine(true)
-			markAsReady(vmi)
+			watchtesting.MarkAsReady(vmi)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2856,6 +2858,10 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
 
+		unmarkReady := func(vmi *v1.VirtualMachineInstance) {
+			virtcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+		}
+
 		DescribeTable("should add ready condition when VMI exists", func(setup func(vmi *v1.VirtualMachineInstance), status k8sv1.ConditionStatus) {
 			vm, vmi := DefaultVirtualMachine(true)
 			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
@@ -2882,8 +2888,8 @@ var _ = Describe("VirtualMachine", func() {
 			}))
 
 		},
-			Entry("VMI Ready condition is True", markAsReady, k8sv1.ConditionTrue),
-			Entry("VMI Ready condition is False", markAsNonReady, k8sv1.ConditionFalse),
+			Entry("VMI Ready condition is True", watchtesting.MarkAsReady, k8sv1.ConditionTrue),
+			Entry("VMI Ready condition is False", watchtesting.MarkAsNonReady, k8sv1.ConditionFalse),
 			Entry("VMI Ready condition doesn't exist", unmarkReady, k8sv1.ConditionFalse),
 		)
 
@@ -3023,7 +3029,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
-			markAsReady(vmi)
+			watchtesting.MarkAsReady(vmi)
 			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 				Type:   v1.VirtualMachineInstancePaused,
 				Status: k8sv1.ConditionTrue,
@@ -3056,7 +3062,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
-			markAsReady(vmi)
+			watchtesting.MarkAsReady(vmi)
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			controller.vmiIndexer.Add(vmi)
@@ -3225,7 +3231,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
-				markAsReady(vmi)
+				watchtesting.MarkAsReady(vmi)
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				controller.vmiIndexer.Add(vmi)
@@ -3252,7 +3258,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmi.Spec = vm.Spec.Template.Spec
-				markAsReady(vmi)
+				watchtesting.MarkAsReady(vmi)
 				controller.vmiIndexer.Add(vmi)
 
 				// when the memory dump volume is in the vm volume list we should change status to in progress
@@ -3297,7 +3303,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					},
 				}
-				markAsReady(vmi)
+				watchtesting.MarkAsReady(vmi)
 				controller.vmiIndexer.Add(vmi)
 
 				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
@@ -3342,7 +3348,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					},
 				}
-				markAsReady(vmi)
+				watchtesting.MarkAsReady(vmi)
 				controller.vmiIndexer.Add(vmi)
 
 				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
@@ -3386,7 +3392,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					},
 				}
-				markAsReady(vmi)
+				watchtesting.MarkAsReady(vmi)
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				controller.vmiIndexer.Add(vmi)
@@ -3439,7 +3445,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
-				markAsReady(vmi)
+				watchtesting.MarkAsReady(vmi)
 				controller.vmiIndexer.Add(vmi)
 
 				// in case the volume is not in vmi volume status we should update status to completed
@@ -5585,7 +5591,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			controller.netSynchronizer = syncer
 
-			markAsReady(vmi)
+			watchtesting.MarkAsReady(vmi)
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			controller.vmiIndexer.Add(vmi)
@@ -5615,7 +5621,7 @@ var _ = Describe("VirtualMachine", func() {
 			),
 			Entry(
 				"fails with proper error",
-				testSynchronizer{err: &syncErrorImpl{err: fmt.Errorf("good error"), reason: "good reason"}},
+				testSynchronizer{err: common.NewSyncError(fmt.Errorf("good error"), "good reason")},
 				v1.VirtualMachineCondition{Type: v1.VirtualMachineFailure, Status: k8sv1.ConditionTrue, Reason: "good reason", Message: "good error"}, 2,
 			),
 			Entry(
@@ -6657,7 +6663,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
-				markAsReady(vmi)
+				watchtesting.MarkAsReady(vmi)
 				vmi.Status.Memory = &v1.MemoryStatus{
 					GuestAtBoot:  &maxGuest,
 					GuestCurrent: &maxGuest,
@@ -6723,7 +6729,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
-				markAsReady(vmi)
+				watchtesting.MarkAsReady(vmi)
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				controller.vmiIndexer.Add(vmi)
@@ -7132,38 +7138,12 @@ var _ = Describe("VirtualMachine", func() {
 	})
 })
 
-func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started bool) *v1.VirtualMachine {
-	vm := &v1.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: vmUID},
-		Spec: v1.VirtualMachineSpec{
-			Running: &started,
-			Template: &v1.VirtualMachineInstanceTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   vmi.ObjectMeta.Name,
-					Labels: vmi.ObjectMeta.Labels,
-				},
-				Spec: vmi.Spec,
-			},
-		},
-		Status: v1.VirtualMachineStatus{
-			Conditions: []v1.VirtualMachineCondition{
-				{
-					Type:   v1.VirtualMachineReady,
-					Status: k8sv1.ConditionFalse,
-					Reason: "VMINotExists",
-				},
-			},
-		},
-	}
-	return vm
-}
-
 func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 	vmi := api.NewMinimalVMI(vmiName)
 	vmi.GenerateName = "prettyrandom"
 	vmi.Status.Phase = v1.Running
 	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineControllerFinalizer)
-	vm := VirtualMachineFromVMI(vmName, vmi, started)
+	vm := watchtesting.VirtualMachineFromVMI(vmName, vmi, started)
 	vm.Finalizers = append(vm.Finalizers, v1.VirtualMachineControllerFinalizer)
 	vmi.OwnerReferences = []metav1.OwnerReference{{
 		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
