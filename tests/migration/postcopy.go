@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,6 +43,7 @@ import (
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -154,10 +154,12 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 				)
 
 				DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
-					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
-					vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-					vmi.Namespace = testsuite.NamespacePrivileged
+					vmi := libvmifact.NewFedora(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithResourceMemory("512Mi"),
+						libvmi.WithRng(),
+						libvmi.WithNamespace(testsuite.NamespacePrivileged),
+					)
 
 					switch settingsType {
 					case applyWithMigrationPolicy:
@@ -186,7 +188,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 					libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
 				},
-					Entry("a migration policy", applyWithMigrationPolicy),
+					Entry("a migration policy", decorators.Conformance, applyWithMigrationPolicy),
 					Entry("[Serial] Kubevirt CR", Serial, applyWithKubevirtCR),
 				)
 
