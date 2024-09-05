@@ -2319,7 +2319,7 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		flags |= libvirt.DOMAIN_START_PAUSED
+		flags |= libvirt.DOMAIN_START_PAUSED // TODO MSHV Check whether this needs to be commented out
 	}
 	return flags
 }

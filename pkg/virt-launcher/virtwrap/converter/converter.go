@@ -164,6 +164,7 @@ func assignDiskToSCSIController(disk *api.Disk, unit int) {
 }
 
 func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
+	// TODO MSHV This function needs to be thoroughly tested with MSHV
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
@@ -222,7 +223,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		}
 	}
 	disk.Driver = &api.DiskDriver{
-		Name:  "qemu",
+		Name:  c.Hypervisor.GetDiskDriver(),
 		Cache: string(diskDevice.Cache),
 		IO:    diskDevice.IO,
 	}
@@ -1256,6 +1257,12 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 			domain.Spec.OS.Initrd = initrdPath
 		}
 
+		if c.Hypervisor.RequiresBootOrder() {
+			bootDevice := api.Boot{
+				Dev: "hd",
+			}
+			domain.Spec.OS.BootOrder = append(domain.Spec.OS.BootOrder, bootDevice)
+		}
 	}
 
 	// Define custom command-line arguments even if kernel-boot container is not defined
@@ -1307,15 +1314,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domainVCPUTopologyForHotplug(vmi, domain)
 	}
 
-	kvmPath := "/dev/kvm"
-	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, c.AllowEmulation); err != nil {
+	hypervisorKubeVirtDevice := strings.TrimPrefix(c.Hypervisor.GetHypervisorDevice(), "devices.kubevirt.io/")
+	hypervisorPath := fmt.Sprintf("/dev/%s", hypervisorKubeVirtDevice)
+	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(hypervisorPath, c.AllowEmulation); err != nil {
 		return err
 	} else if softwareEmulation {
 		logger := log.DefaultLogger()
-		logger.Infof("Hardware emulation device '%s' not present. Using software emulation.", kvmPath)
+		logger.Infof("Hardware emulation device '%s' not present. Using software emulation.", hypervisorPath)
 		domain.Spec.Type = "qemu"
-	} else if _, err := os.Stat(kvmPath); errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("hardware emulation device '%s' not present", kvmPath)
+	} else if _, err := os.Stat(hypervisorPath); errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("hardware emulation device '%s' not present", hypervisorPath)
 	} else if err != nil {
 		return err
 	}
@@ -1625,8 +1633,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Rng = newRng
 	}
 
-	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
-	ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
+	if c.Hypervisor.SupportsMemoryBallooning() {
+		domain.Spec.Devices.Ballooning = &api.MemBalloon{}
+		ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
+	}
 
 	if vmi.Spec.Domain.Devices.Inputs != nil {
 		inputDevices := make([]api.Input, 0)

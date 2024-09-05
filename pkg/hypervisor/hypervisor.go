@@ -30,6 +30,12 @@ type Hypervisor interface {
 	GetVcpuRegex() *regexp.Regexp
 
 	GetLibvirtSocketPath() string
+
+	GetDiskDriver() string
+
+	RequiresBootOrder() bool
+
+	SupportsMemoryBallooning() bool
 }
 
 // Define QemuHypervisor struct that implements the Hypervisor interface
@@ -37,6 +43,21 @@ type QemuHypervisor struct {
 }
 
 type CloudHypervisor struct {
+}
+
+// Implement SupportsMemoryBallooning method for QemuHypervisor
+func (q *QemuHypervisor) SupportsMemoryBallooning() bool {
+	return true
+}
+
+// Implement RequiresBoot order method for QemuHypervisor
+func (q *QemuHypervisor) RequiresBootOrder() bool {
+	return false
+}
+
+// Implement GetDiskDriver method for QemuHypervisor
+func (q *QemuHypervisor) GetDiskDriver() string {
+	return "qemu"
 }
 
 // Implement GetLibvirtSocketPath method for QemuHypervisor
@@ -92,6 +113,21 @@ func (q *QemuHypervisor) SupportsIso() bool {
 
 func (q *QemuHypervisor) SupportsNonRootUser() bool {
 	return true
+}
+
+// Implement SupportsMemoryBallooning method for CloudHypervisor
+func (c *CloudHypervisor) SupportsMemoryBallooning() bool {
+	return false
+}
+
+// Implement RequiresBoot order method for CloudHypervisor
+func (c *CloudHypervisor) RequiresBootOrder() bool {
+	return true
+}
+
+// Implement GetDiskDriver method for CloudHypervisor
+func (c *CloudHypervisor) GetDiskDriver() string {
+	return "raw"
 }
 
 // Implement GetLibvirtSocketPath method for CloudHypervisor
