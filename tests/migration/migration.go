@@ -171,7 +171,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			}
 		})
 
-		It("should remain to able resolve the VM IP", func() {
+		It("should remain to able resolve the VM IP", decorators.Conformance, func() {
 			const hostname = "alpine"
 			const port int = 1500
 			const labelKey = "subdomain"
@@ -274,7 +274,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 		})
 		Context("with a Alpine disk", func() {
-			It("[test_id:6969]should be successfully migrate with a tablet device", func() {
+			It("[test_id:6969]should be successfully migrate with a tablet device", decorators.Conformance, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libnet.WithMasqueradeNetworking(),
 					libvmi.WithTablet("tablet0", v1.InputBusUSB),
@@ -319,7 +319,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(disks[0].Driver.Cache).To(Equal(string(v1.CacheWriteBack)))
 			})
 
-			It("[test_id:6970]should migrate vmi with cdroms on various bus types", func() {
+			It("[test_id:6970]should migrate vmi with cdroms on various bus types", decorators.Conformance, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libnet.WithMasqueradeNetworking(),
 					libvmi.WithEphemeralCDRom("cdrom-0", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
@@ -546,7 +546,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
-			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
+			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", decorators.Conformance, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
@@ -696,7 +696,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
 			})
 
-			It("should automatically cancel unschedulable migration after a timeout period", func() {
+			It("should automatically cancel unschedulable migration after a timeout period", decorators.Conformance, func() {
 				// Add node affinity to ensure VMI affinity rules block target pod from being created
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
@@ -906,6 +906,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				// check VMI, confirm migration state
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
+
 			It("[test_id:6974]should reject additional migrations on the same VMI if the first one is not finished", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize))
 
@@ -1822,7 +1823,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 		})
 
-		Context("live migration cancelation", func() {
+		Context("live migration cancellation", func() {
 			type vmiBuilder func() *v1.VirtualMachineInstance
 
 			newVirtualMachineInstanceWithFedoraContainerDisk := func() *v1.VirtualMachineInstance {
@@ -2434,7 +2435,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 	Context("with sata disks", func() {
 
-		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot + USB Disk", func() {
+		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot + USB Disk", decorators.Conformance, func() {
 			vmi := prepareVMIWithAllVolumeSources(testsuite.GetTestNamespace(nil), true)
 
 			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(7))
@@ -2953,7 +2954,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	})
 
 	Context("with a live-migration in flight", func() {
-		It("there should always be a single active migration per VMI", func() {
+		It("there should always be a single active migration per VMI", decorators.Conformance, func() {
 			By("Starting a VMI")
 			vmi := libvmifact.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -3143,7 +3144,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	})
 
 	Context("ResourceQuota rejection", func() {
-		It("Should contain condition when migrating with quota that doesn't have resources for both source and target", func() {
+		It("Should contain condition when migrating with quota that doesn't have resources for both source and target", decorators.Conformance, func() {
 			vmiRequest := resource.MustParse("200Mi")
 			vmi := libvmifact.NewCirros(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
