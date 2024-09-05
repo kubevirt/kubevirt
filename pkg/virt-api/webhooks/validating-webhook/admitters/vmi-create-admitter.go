@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -157,6 +158,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	var causes []metav1.StatusCause
 	volumeNameMap := make(map[string]*v1.Volume)
 
+	causes = append(causes, validateHypervisor(field, spec)...)
 	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
 	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
 	causes = append(causes, validateMemoryRequestsNegativeOrNull(field, spec)...)
@@ -2327,6 +2329,18 @@ func validateCPUHotplug(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 				Field:   field.Child("domain", "cpu", "sockets").String(),
 			})
 		}
+	}
+	return causes
+}
+
+func validateHypervisor(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if hypervisor.NewHypervisor(spec.Hypervisor) == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Hypervisor %s is not supported", spec.Hypervisor),
+			Field:   field.Child("hypervisor").String(),
+		})
 	}
 	return causes
 }
