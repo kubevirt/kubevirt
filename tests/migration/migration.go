@@ -128,17 +128,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		return name
 	}
 
-	withKernelBoot := func() libvmi.Option {
-		return func(vmi *v1.VirtualMachineInstance) {
-			kernelBootFirmware := utils.GetVMIKernelBootWithRandName().Spec.Domain.Firmware
-			if vmiFirmware := vmi.Spec.Domain.Firmware; vmiFirmware == nil {
-				vmiFirmware = kernelBootFirmware
-			} else {
-				vmiFirmware.KernelBoot = kernelBootFirmware.KernelBoot
-			}
-		}
-	}
-
 	prepareVMIWithAllVolumeSources := func(namespace string) *v1.VirtualMachineInstance {
 		name := "secret-" + rand.String(5)
 		secret := libsecret.New(name, libsecret.DataString{"user": "admin", "password": "redhat"})
@@ -169,20 +158,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		migrationBandwidthLimit = resource.MustParse("1Ki")
 	})
 
-	getVirtqemudPid := func(pod *k8sv1.Pod) (string, error) {
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "compute",
-			[]string{
-				"pidof",
-				"virtqemud",
-			})
-		errorMessageFormat := "failed after running `pidof virtqemud` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
-		if err != nil {
-			return "", fmt.Errorf(errorMessageFormat, stdout, stderr, err)
-		}
-
-		return strings.TrimSuffix(stdout, "\n"), nil
-	}
-
 	Context("with Headless service", func() {
 		const subdomain = "mysub"
 
@@ -194,20 +169,14 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 
 		It("should remain to able resolve the VM IP", func() {
-			withHostnameAndSubdomain := func(hostname, subdomain string) libvmi.Option {
-				return func(vmi *v1.VirtualMachineInstance) {
-					vmi.Spec.Hostname = hostname
-					vmi.Spec.Subdomain = subdomain
-
-				}
-			}
 			const hostname = "alpine"
 			const port int = 1500
 			const labelKey = "subdomain"
 			const labelValue = "mysub"
 
 			vmi := libvmifact.NewCirros(
-				withHostnameAndSubdomain(hostname, subdomain),
+				libvmi.WithHostname(hostname),
+				withSubdomain(subdomain),
 				libvmi.WithLabel(labelKey, labelValue),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -241,7 +210,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 			assertConnectivityToService("Asserting connectivity through service after migration")
-
 		})
 	})
 
@@ -3362,6 +3330,21 @@ func getIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	return strings.TrimSpace(podOutput)
 }
 
+func getVirtqemudPid(pod *k8sv1.Pod) (string, error) {
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "compute",
+		[]string{
+			"pidof",
+			"virtqemud",
+		})
+	errorMessageFormat := "failed after running `pidof virtqemud` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+	if err != nil {
+		return "", fmt.Errorf(errorMessageFormat, stdout, stderr, err)
+	}
+
+	return strings.TrimSuffix(stdout, "\n"), nil
+
+}
+
 // runCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration
 func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) (string, error) {
 	virtClient := kubevirt.Client()
@@ -3416,4 +3399,21 @@ func haveMigrationState(matcher gomegatypes.GomegaMatcher) gomegatypes.GomegaMat
 			"MigrationState": matcher,
 		}),
 	}))
+}
+
+func withKernelBoot() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		kernelBootFirmware := utils.GetVMIKernelBootWithRandName().Spec.Domain.Firmware
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = kernelBootFirmware
+		} else {
+			vmi.Spec.Domain.Firmware.KernelBoot = kernelBootFirmware.KernelBoot
+		}
+	}
+}
+
+func withSubdomain(subdomain string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Subdomain = subdomain
+	}
 }
