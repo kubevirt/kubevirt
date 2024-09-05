@@ -1285,7 +1285,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	}
 
 	// start it
-	vmi := c.setupVMIFromVM(vm)
+	vmi := SetupVMIFromVM(vm)
 	vmRevisionName, err := c.createVMRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
@@ -1305,15 +1305,6 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
-		return vm, err
-	}
-
-	util.SetDefaultVolumeDisk(&vmi.Spec)
-
-	autoAttachInputDevice(vmi)
-
-	err = vmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
-	if err != nil {
 		return vm, err
 	}
 
@@ -1837,8 +1828,8 @@ func hasCompletedMemoryDump(vm *virtv1.VirtualMachine) bool {
 	return vm.Status.MemoryDumpRequest != nil && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpAssociating && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpInProgress
 }
 
-// setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
-func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
+// SetupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
+func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
 	vmi.ObjectMeta = *vm.Spec.Template.ObjectMeta.DeepCopy()
 	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
@@ -3234,22 +3225,6 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *met
 		return nil
 	}
 	return vm.(*virtv1.VirtualMachine)
-}
-
-func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
-	autoAttachInput := vmi.Spec.Domain.Devices.AutoattachInputDevice
-	// Default to False if nil and return, otherwise return if input devices are already present
-	if autoAttachInput == nil || !*autoAttachInput || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
-		return
-	}
-	// Only add the device with an alias here. Preferences for the bus and type might
-	// be applied later and if not the VMI mutation webhook will apply defaults for both.
-	vmi.Spec.Domain.Devices.Inputs = append(
-		vmi.Spec.Domain.Devices.Inputs,
-		virtv1.Input{
-			Name: "default-0",
-		},
-	)
 }
 
 func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
