@@ -5,13 +5,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 )
 
 var _ = Describe("Running real time workloads", func() {
 
 	Context("captures the correct CPU ID from the thread command value", func() {
 		DescribeTable("extracts the CPU ID", func(comm []byte, cpuID string, parseOK bool) {
-			v, ok := isVCPU(comm)
+			v, ok := isVCPU(comm, hypervisor.NewHypervisor("qemu").GetVcpuRegex())
 			Expect(ok).To(Equal(parseOK))
 			Expect(v).To(Equal(cpuID))
 		},

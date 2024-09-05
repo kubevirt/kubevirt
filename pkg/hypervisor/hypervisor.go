@@ -1,5 +1,10 @@
 package hypervisor
 
+import "regexp"
+
+var HypervisorDaemonExecutables []string = []string{"virtqemud", "libvirtd"}
+var QemuProcessExecutablePrefixes []string = []string{"qemu-system", "qemu-kvm", "cloud-hypervisor"}
+
 // Define Hypervisor interface
 type Hypervisor interface {
 	// The `ps` RSS for virt-launcher-monitor
@@ -21,6 +26,10 @@ type Hypervisor interface {
 	GetHypervisorDevice() string
 
 	ShouldRunPrivileged() bool
+
+	GetVcpuRegex() *regexp.Regexp
+
+	GetLibvirtSocketPath() string
 }
 
 // Define QemuHypervisor struct that implements the Hypervisor interface
@@ -28,6 +37,18 @@ type QemuHypervisor struct {
 }
 
 type CloudHypervisor struct {
+}
+
+// Implement GetLibvirtSocketPath method for QemuHypervisor
+func (q *QemuHypervisor) GetLibvirtSocketPath() string {
+	return "libvirt/libvirt-sock"
+}
+
+// Implement GetVcpuRegex method for QemuHypervisor
+func (q *QemuHypervisor) GetVcpuRegex() *regexp.Regexp {
+	// parse thread comm value expression
+	return regexp.MustCompile(`^CPU (\d+)/KVM\n$`) // These threads follow this naming pattern as their command value (/proc/{pid}/task/{taskid}/comm)
+	// QEMU uses threads to represent vCPUs.
 }
 
 // Implement ShouldRunPrivileged method for QemuHypervisor
@@ -71,6 +92,17 @@ func (q *QemuHypervisor) SupportsIso() bool {
 
 func (q *QemuHypervisor) SupportsNonRootUser() bool {
 	return true
+}
+
+// Implement GetLibvirtSocketPath method for CloudHypervisor
+func (c *CloudHypervisor) GetLibvirtSocketPath() string {
+	return "libvirt/ch-sock" // TODO: Check this
+}
+
+// Implement GetVcpuRegex method for CloudHypervisor
+func (c *CloudHypervisor) GetVcpuRegex() *regexp.Regexp {
+	// parse thread comm value expression for MSHV
+	return regexp.MustCompile(`^vcpu(\d+)\n$`) // These threads follow this naming pattern as their command value (/proc/{pid}/task/{taskid}/comm)
 }
 
 // Implement ShouldRunPrivileged method for CloudHypervisor

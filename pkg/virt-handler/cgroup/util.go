@@ -194,6 +194,13 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 			Permissions: permissions,
 			Allow:       toAllow,
 		},
+		{ // /dev/mshv (hardware virtualization extensions)
+			Type:        devices.CharDevice,
+			Major:       10,
+			Minor:       125,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
 		{ // /dev/net/tun (TAP/TUN network device)
 			Type:        devices.CharDevice,
 			Major:       10,

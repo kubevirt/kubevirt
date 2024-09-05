@@ -153,14 +153,14 @@ func (n *NodeLabeller) loadAll() error {
 		err := n.loadHostSupportedFeatures()
 		if err != nil {
 			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
-			return err
+			// return err  TODO MSHV Hermes https://dev.azure.com/mariner-org/ECF/_queries/edit/4984/?triage=true
 		}
 	}
 
 	err := n.loadDomCapabilities()
 	if err != nil {
 		n.logger.Errorf("node-labeller could not load host dom capabilities: " + err.Error())
-		return err
+		// return err  TODO MSHV Hermes https://dev.azure.com/mariner-org/ECF/_queries/edit/4984/?triage=true
 	}
 
 	err = n.loadHostCapabilities()

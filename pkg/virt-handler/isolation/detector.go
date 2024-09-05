@@ -36,6 +36,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -119,7 +120,17 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		}
 
 		// virtqemud process sets the memory lock limit before fork/exec-ing into qemu
-		if process.Executable() != "virtqemud" {
+		// Iterate over hypervisor.hypervisorDaemonExecutables
+		// to find the virtqemud process
+		matched := false
+		for _, executable := range hypervisor.QemuProcessExecutablePrefixes {
+			if process.Executable() == executable {
+				matched = true
+				break
+			}
+		}
+
+		if matched {
 			continue
 		}
 
@@ -172,12 +183,10 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	return nil
 }
 
-var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
-
 // findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
 func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error) {
 	processes = childProcesses(processes, pid)
-	for _, execPrefix := range qemuProcessExecutablePrefixes {
+	for _, execPrefix := range hypervisor.QemuProcessExecutablePrefixes {
 		if qemuProcess := lookupProcessByExecutablePrefix(processes, execPrefix); qemuProcess != nil {
 			return qemuProcess, nil
 		}
