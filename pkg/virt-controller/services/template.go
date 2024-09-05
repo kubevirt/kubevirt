@@ -71,6 +71,7 @@ const (
 	virtExporter     = "virt-exporter"
 )
 
+const MshvDevice = "devices.kubevirt.io/mshv"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
@@ -106,6 +107,7 @@ const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
 const ephemeralStorageOverheadSize = "50M"
 
+// TODO Instead of having this as a constant, make getting these values via  accessor functions
 const (
 	VirtLauncherMonitorOverhead = "25Mi"  // The `ps` RSS for virt-launcher-monitor
 	VirtLauncherOverhead        = "100Mi" // The `ps` RSS for the virt-launcher process
