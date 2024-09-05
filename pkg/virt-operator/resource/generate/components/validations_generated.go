@@ -7014,6 +7014,10 @@ var CRDsValidation map[string]string = map[string]string{
                     Specifies the hostname of the vmi
                     If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.
                   type: string
+                hypervisor:
+                  description: The Hypervisor to use for the VMI. Possible values
+                    are "qemu" for QEMU and "ch" for Cloud Hypervisor.
+                  type: string
                 livenessProbe:
                   description: |-
                     Periodic probe of VirtualMachineInstance liveness.
@@ -12062,6 +12066,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             Specifies the hostname of the vmi
             If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.
+          type: string
+        hypervisor:
+          description: The Hypervisor to use for the VMI. Possible values are "qemu"
+            for QEMU and "ch" for Cloud Hypervisor.
           type: string
         livenessProbe:
           description: |-
@@ -17619,6 +17627,10 @@ var CRDsValidation map[string]string = map[string]string{
                     Specifies the hostname of the vmi
                     If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.
                   type: string
+                hypervisor:
+                  description: The Hypervisor to use for the VMI. Possible values
+                    are "qemu" for QEMU and "ch" for Cloud Hypervisor.
+                  type: string
                 livenessProbe:
                   description: |-
                     Periodic probe of VirtualMachineInstance liveness.
@@ -22122,6 +22134,10 @@ var CRDsValidation map[string]string = map[string]string{
                           description: |-
                             Specifies the hostname of the vmi
                             If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.
+                          type: string
+                        hypervisor:
+                          description: The Hypervisor to use for the VMI. Possible
+                            values are "qemu" for QEMU and "ch" for Cloud Hypervisor.
                           type: string
                         livenessProbe:
                           description: |-
@@ -27293,6 +27309,10 @@ var CRDsValidation map[string]string = map[string]string{
                               description: |-
                                 Specifies the hostname of the vmi
                                 If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.
+                              type: string
+                            hypervisor:
+                              description: The Hypervisor to use for the VMI. Possible
+                                values are "qemu" for QEMU and "ch" for Cloud Hypervisor.
                               type: string
                             livenessProbe:
                               description: |-

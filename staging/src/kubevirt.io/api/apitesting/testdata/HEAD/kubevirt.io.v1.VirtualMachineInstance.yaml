@@ -420,6 +420,7 @@ spec:
         requestsKey: "0"
   evictionStrategy: evictionStrategyValue
   hostname: hostnameValue
+  hypervisor: hypervisorValue
   livenessProbe:
     exec:
       command:

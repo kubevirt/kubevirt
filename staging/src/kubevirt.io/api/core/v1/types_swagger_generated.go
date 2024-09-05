@@ -19,6 +19,7 @@ func (VirtualMachineInstanceList) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                              "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
+		"hypervisor":                    "The Hypervisor to use for the VMI. Possible values are \"qemu\" for QEMU and \"ch\" for Cloud Hypervisor.",
 		"priorityClassName":             "If specified, indicates the pod's priority.\nIf not specified, the pod priority will be default or zero if there is no\ndefault.\n+optional",
 		"domain":                        "Specification of the desired behavior of the VirtualMachineInstance on the host.",
 		"nodeSelector":                  "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",

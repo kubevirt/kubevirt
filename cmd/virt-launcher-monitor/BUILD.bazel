@@ -7,8 +7,8 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/util:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//pkg/virt-launcher/virtwrap/util:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
     ],

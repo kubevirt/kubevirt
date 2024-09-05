@@ -17186,6 +17186,10 @@
       "description": "Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",
       "type": "string"
      },
+     "hypervisor": {
+      "description": "The Hypervisor to use for the VMI. Possible values are \"qemu\" for QEMU and \"ch\" for Cloud Hypervisor.",
+      "type": "string"
+     },
      "livenessProbe": {
       "description": "Periodic probe of VirtualMachineInstance liveness. VirtualmachineInstances will be stopped if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
       "$ref": "#/definitions/v1.Probe"

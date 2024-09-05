@@ -104,6 +104,7 @@
         ]
       },
       "spec": {
+        "hypervisor": "hypervisorValue",
         "priorityClassName": "priorityClassNameValue",
         "domain": {
           "resources": {
