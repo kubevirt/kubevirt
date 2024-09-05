@@ -133,9 +133,10 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				emulator, err := tests.GetRunningVMIEmulator(vmi)
+				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				emulator = "[/]" + strings.TrimPrefix(emulator, "/")
+
+				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -208,9 +209,10 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				emulator, err := tests.GetRunningVMIEmulator(vmi)
+				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				emulator = "[/]" + strings.TrimPrefix(emulator, "/")
+
+				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
 				Expect(err).ToNot(HaveOccurred())
