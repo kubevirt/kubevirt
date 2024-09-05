@@ -62,7 +62,6 @@ import (
 const (
 	CustomHostPath     = "custom-host-path"
 	DiskAlpineHostPath = "disk-alpine-host-path"
-	DiskWindowsSysprep = "disk-windows-sysprep"
 	DiskCustomHostPath = "disk-custom-host-path"
 )
 

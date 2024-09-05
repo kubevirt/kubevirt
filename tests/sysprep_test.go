@@ -39,7 +39,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -53,7 +52,8 @@ import (
 )
 
 const (
-	windowsSealedDisk = "windows-disk"
+	windowsSealedDisk  = "windows-disk"
+	diskWindowsSysprep = "disk-windows-sysprep"
 )
 
 const (
@@ -278,7 +278,7 @@ func getWindowsSysprepVMISpec() v1.VirtualMachineInstanceSpec {
 				VolumeSource: v1.VolumeSource{
 					Ephemeral: &v1.EphemeralVolumeSource{
 						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: tests.DiskWindowsSysprep,
+							ClaimName: diskWindowsSysprep,
 						},
 					},
 				},
@@ -312,7 +312,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 	BeforeEach(func() {
 		const OSWindowsSysprep = "windows-sysprep"
 		virtClient = kubevirt.Client()
-		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
+		checks.SkipIfMissingRequiredImage(virtClient, diskWindowsSysprep)
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		windowsVMI = libvmi.New()
