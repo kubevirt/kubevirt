@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/util"
+	putil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
@@ -98,7 +99,10 @@ type LibvirtWrapper interface {
 	SetupLibvirt(customLogFilters *string) (err error)
 	GetHypervisorCommandPrefix() []string
 	StartHypervisorDaemon(stopChan chan struct{})
+	StartVirtlog(stopChan chan struct{}, domainName string)
 	root() bool
+	GetLibvirtUriAndUser() (string, string)
+	GetPidDir() string
 }
 
 type QemuLibvirtWrapper struct {
@@ -109,6 +113,14 @@ func (q *QemuLibvirtWrapper) StartHypervisorDaemon(stopChan chan struct{}) {
 	q.StartVirtqemud(stopChan)
 }
 
+func (q *QemuLibvirtWrapper) GetPidDir() string {
+	if q.root() {
+		return "/run/libvirt/qemu"
+	} else {
+		return "/run/libvirt/qemu/run"
+	}
+}
+
 func (q *QemuLibvirtWrapper) GetHypervisorCommandPrefix() []string {
 	// give qemu some time to shut down in case it survived virt-handler
 	// Most of the time we call `qemu-system=* binaries, but qemu-system-* packages
@@ -117,12 +129,30 @@ func (q *QemuLibvirtWrapper) GetHypervisorCommandPrefix() []string {
 	return []string{"qemu-system", "qemu-kvm"}
 }
 
+func (q *QemuLibvirtWrapper) GetLibvirtUriAndUser() (string, string) {
+	libvirtUri := "qemu:///system"
+	user := ""
+	if q.root() {
+		user = putil.NonRootUserString
+		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock"
+	}
+	return libvirtUri, user
+}
+
+func (c *CloudHypervisorLibvirtWrapper) GetPidDir() string {
+	return "/run/libvirt/ch"
+}
+
+func (c *CloudHypervisorLibvirtWrapper) GetLibvirtUriAndUser() (string, string) {
+	return "ch:///system", ""
+}
+
 func (c *CloudHypervisorLibvirtWrapper) GetHypervisorCommandPrefix() []string {
 	return []string{"cloud-hypervisor"}
 }
 
 func (c *CloudHypervisorLibvirtWrapper) StartHypervisorDaemon(stopChan chan struct{}) {
-
+	c.StartLibvirtd(stopChan)
 }
 
 type CloudHypervisorLibvirtWrapper struct {
@@ -254,6 +284,63 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
+func (l CloudHypervisorLibvirtWrapper) StartLibvirtd(stopChan chan struct{}) {
+	// we spawn libvirtd from virt-launcher in order to ensure the libvirtd process
+	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
+	// to perform special shutdown logic. These processes need to live in the same
+	// container.
+
+	go func() {
+		for {
+			exitChan := make(chan struct{})
+			args := []string{"-f", "/etc/libvirt/libvirtd.conf"}
+			cmd := exec.Command("/libvirt/build/src/libvirtd", args...)
+
+			// connect libvirt's stderr to our own stdout in order to see the logs in the container logs
+			reader, err := cmd.StderrPipe()
+			if err != nil {
+				log.Log.Reason(err).Error("failed to start libvirtd")
+				panic(err)
+			}
+
+			go func() {
+				scanner := bufio.NewScanner(reader)
+				scanner.Buffer(make([]byte, 1024), 512*1024)
+				for scanner.Scan() {
+					log.LogLibvirtLogLine(log.Log, scanner.Text())
+				}
+
+				if err := scanner.Err(); err != nil {
+					log.Log.Reason(err).Error("failed to read libvirt logs")
+				}
+			}()
+
+			err = cmd.Start()
+			if err != nil {
+				log.Log.Reason(err).Error("failed to start libvirtd")
+				panic(err)
+			}
+
+			go func() {
+				defer close(exitChan)
+				cmd.Wait()
+			}()
+
+			select {
+			case <-stopChan:
+				cmd.Process.Kill()
+				return
+			case <-exitChan:
+				log.Log.Errorf("libvirtd exited, restarting")
+			}
+
+			// this sleep is to avoid consuming all resources in the
+			// event of a virtqemud crash loop.
+			time.Sleep(time.Second)
+		}
+	}()
+}
+
 func (l QemuLibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
 	// we spawn libvirt from virt-launcher in order to ensure the virtqemud+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
@@ -316,9 +403,9 @@ func (l QemuLibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
 	}()
 }
 
-func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot bool) {
+func startVirtlogdLogging(virtlogdBinaryPath string, stopChan chan struct{}, domainName string, nonRoot bool) {
 	for {
-		cmd := exec.Command("/usr/sbin/virtlogd", "-f", "/etc/libvirt/virtlogd.conf")
+		cmd := exec.Command(virtlogdBinaryPath, "-f", "/etc/libvirt/virtlogd.conf")
 
 		exitChan := make(chan struct{})
 
@@ -429,9 +516,13 @@ func startQEMUSeaBiosLogging(stopChan chan struct{}) {
 	}
 }
 
-func StartVirtlog(stopChan chan struct{}, domainName string, nonRoot bool) {
-	go startVirtlogdLogging(stopChan, domainName, nonRoot)
+func (l QemuLibvirtWrapper) StartVirtlog(stopChan chan struct{}, domainName string) {
+	go startVirtlogdLogging("/usr/sbin/virtlogd", stopChan, domainName, l.user != util.RootUser)
 	go startQEMUSeaBiosLogging(stopChan)
+}
+
+func (l CloudHypervisorLibvirtWrapper) StartVirtlog(stopChan chan struct{}, domainName string) { // TODO No need for this function when the path to virtlogd has been made consistent with QEMU
+	go startVirtlogdLogging("/libvirt/build/src/virtlogd", stopChan, domainName, l.user != util.RootUser)
 }
 
 // returns the namespace and name that is encoded in the
@@ -622,9 +713,9 @@ func getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar *string, l
 }
 
 func (l QemuLibvirtWrapper) root() bool {
-	return l.user == 0
+	return l.user == util.RootUser
 }
 
 func (l CloudHypervisorLibvirtWrapper) root() bool {
-	return l.user == 0
+	return l.user == util.RootUser
 }
