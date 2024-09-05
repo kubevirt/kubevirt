@@ -34,8 +34,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/kubevirt/pkg/util/status"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -79,7 +77,6 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 		clientset:     clientset,
 		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		burstReplicas: burstReplicas,
-		statusUpdater: status.NewVMIRSStatusUpdater(clientset),
 	}
 
 	c.hasSynced = func() bool {
@@ -117,7 +114,6 @@ type VMIReplicaSet struct {
 	recorder      record.EventRecorder
 	expectations  *controller.UIDTrackingControllerExpectations
 	burstReplicas uint
-	statusUpdater *status.VMIRSStatusUpdater
 	hasSynced     func() bool
 }
 
@@ -682,7 +678,7 @@ func (c *VMIReplicaSet) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet
 	// Add/Remove Failure condition if necessary
 	c.checkFailure(rs, diff, scaleErr)
 
-	err = c.statusUpdater.UpdateStatus(rs)
+	_, err = c.clientset.ReplicaSet(rs.Namespace).UpdateStatus(context.Background(), rs, metav1.UpdateOptions{})
 
 	if err != nil {
 		return err

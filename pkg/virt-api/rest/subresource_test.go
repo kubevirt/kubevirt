@@ -61,7 +61,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util/status"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -143,7 +142,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		app.consoleServerPort = backendPort
 		flag.Set("kubeconfig", "")
 		app.virtCli = virtClient
-		app.statusUpdater = status.NewVMStatusUpdater(app.virtCli)
 		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config

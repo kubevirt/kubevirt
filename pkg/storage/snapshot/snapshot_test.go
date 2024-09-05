@@ -42,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 const (
@@ -355,7 +354,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				CRInformer:                crInformer,
 				Recorder:                  recorder,
 				ResyncPeriod:              60 * time.Second,
-				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
 			}
 			controller.Init()
 

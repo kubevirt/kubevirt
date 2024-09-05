@@ -41,7 +41,6 @@ go_library(
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/pdbs:go_default_library",
         "//pkg/util/ratelimiter:go_default_library",
-        "//pkg/util/status:go_default_library",
         "//pkg/util/tls:go_default_library",
         "//pkg/util/trace:go_default_library",
         "//pkg/virt-config:go_default_library",

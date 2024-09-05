@@ -37,7 +37,6 @@ import (
 
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/util/status"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -60,8 +59,6 @@ type VMRestoreController struct {
 	Recorder record.EventRecorder
 
 	vmRestoreQueue workqueue.RateLimitingInterface
-
-	vmStatusUpdater *status.VMStatusUpdater
 }
 
 // Init initializes the restore controller
@@ -108,8 +105,6 @@ func (ctrl *VMRestoreController) Init() error {
 	if err != nil {
 		return err
 	}
-
-	ctrl.vmStatusUpdater = status.NewVMStatusUpdater(ctrl.Client)
 	return nil
 }
 

@@ -113,7 +113,9 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		// unfortunately, status updater does not return the updated resource
 		// but the controller is watching VMs so will get notified
 		// returning here because following Update will always block
-		return false, s.controller.vmStatusUpdater.UpdateStatus(vmCopy)
+		_, err := s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+
+		return false, err
 	}
 
 	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
@@ -145,12 +147,9 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 	}
 
 	vmCopy.Status.SnapshotInProgress = nil
-	err = s.controller.vmStatusUpdater.UpdateStatus(vmCopy)
-	if err != nil {
-		return true, err
-	}
+	_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
 
-	return true, nil
+	return true, err
 }
 
 func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {

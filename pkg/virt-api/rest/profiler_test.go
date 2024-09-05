@@ -39,8 +39,6 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	"github.com/onsi/gomega/types"
 
-	"kubevirt.io/kubevirt/pkg/util/status"
-
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -89,7 +87,6 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
-		app.statusUpdater = status.NewVMStatusUpdater(app.virtCli)
 		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config

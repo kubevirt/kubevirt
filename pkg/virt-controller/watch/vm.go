@@ -69,7 +69,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
-	"kubevirt.io/kubevirt/pkg/util/status"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
@@ -155,7 +154,6 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
 			return response.Allowed, response.Reason, err
 		},
-		statusUpdater:   status.NewVMStatusUpdater(clientset),
 		clusterConfig:   clusterConfig,
 		netSynchronizer: netSynchronizer,
 	}
@@ -250,7 +248,6 @@ type VMController struct {
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
 	cloneAuthFunc          CloneAuthFunc
-	statusUpdater          *status.VMStatusUpdater
 	clusterConfig          *virtconfig.ClusterConfig
 	hasSynced              func() bool
 
@@ -1002,18 +999,18 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 }
 
 func (c *VMController) addStartRequest(vm *virtv1.VirtualMachine) error {
-	addRequest := []virtv1.VirtualMachineStateChangeRequest{{Action: virtv1.StartRequest}}
-	req, err := json.Marshal(addRequest)
+	desiredStateChangeRequests := append(vm.Status.StateChangeRequests, virtv1.VirtualMachineStateChangeRequest{Action: virtv1.StartRequest})
+	patchSet := patch.New()
+	patchSet.AddOption(patch.WithAdd("/status/stateChangeRequests", desiredStateChangeRequests))
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
 		return err
 	}
-	patch := fmt.Sprintf(`{ "status":{ "stateChangeRequests":%s } }`, string(req))
-	err = c.statusUpdater.PatchStatus(vm, types.MergePatchType, []byte(patch), &metav1.PatchOptions{})
+	patchedVM, err := c.clientset.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return err
 	}
-	vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, addRequest[0])
-
+	vm.Status = patchedVM.Status
 	return nil
 }
 
@@ -2456,7 +2453,7 @@ func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virt
 
 	// only update if necessary
 	if !equality.Semantic.DeepEqual(vm.Status, vmOrig.Status) {
-		if err := c.statusUpdater.UpdateStatus(vm); err != nil {
+		if _, err := c.clientset.VirtualMachine(vm.Namespace).UpdateStatus(context.Background(), vm, v1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
