@@ -222,14 +222,6 @@ func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.Domai
 	return &runningVMISpec, err
 }
 
-func GetRunningVMIEmulator(vmi *v1.VirtualMachineInstance) (string, error) {
-	domSpec, err := GetRunningVMIDomainSpec(vmi)
-	if err != nil {
-		return "", err
-	}
-	return domSpec.Devices.Emulator, nil
-}
-
 func updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	virtClient := kubevirt.Client()
 	ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
