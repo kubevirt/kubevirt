@@ -72,9 +72,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -868,10 +868,14 @@ spec:
 			waitForKvWithTimeout(kv, 120)
 
 			By("Test that worker nodes have the correct allocatable kvm devices according to virtualMachineInstancesPerNode setting")
+
+			hypervisor := hypervisor.NewHypervisor("qemu")
+			kvmDevice := k8sv1.ResourceName(hypervisor.GetHypervisorDevice())
+
 			Eventually(func() error {
 				nodesWithKvm := libnode.GetNodesWithKVM()
 				for _, node := range nodesWithKvm {
-					kvmDevices, _ := node.Status.Allocatable[services.KvmDevice]
+					kvmDevices, _ := node.Status.Allocatable[kvmDevice]
 					if int(kvmDevices.Value()) != newVirtualMachineInstancesPerNode {
 						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %d, got: %d", node.Name, newVirtualMachineInstancesPerNode, kvmDevices.Value())
 					}
@@ -891,11 +895,12 @@ spec:
 			waitForKvWithTimeout(kv, 120)
 
 			By("Check that worker nodes resumed the default amount of allocatable kvm devices")
+
 			defaultKvmDevices := "1k"
 			Eventually(func() error {
 				nodesWithKvm := libnode.GetNodesWithKVM()
 				for _, node := range nodesWithKvm {
-					kvmDevices, _ := node.Status.Allocatable[services.KvmDevice]
+					kvmDevices, _ := node.Status.Allocatable[kvmDevice]
 					if kvmDevices != resource.MustParse(defaultKvmDevices) {
 						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %s, got: %d", node.Name, defaultKvmDevices, kvmDevices.Value())
 					}

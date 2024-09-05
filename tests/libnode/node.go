@@ -40,9 +40,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/util/nodes"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -295,6 +295,9 @@ func GetNodesWithKVM() []*k8sv1.Node {
 	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 	Expect(err).ToNot(HaveOccurred())
 
+	hypervisor := hypervisor.NewHypervisor("qemu")
+	kvmDevice := k8sv1.ResourceName(hypervisor.GetHypervisorDevice())
+
 	nodeList := make([]*k8sv1.Node, 0)
 	// cluster is not ready until all nodeList are ready.
 	for i := range virtHandlerPods.Items {
@@ -302,7 +305,7 @@ func GetNodesWithKVM() []*k8sv1.Node {
 		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+		_, ok := virtHandlerNode.Status.Allocatable[kvmDevice]
 		if ok {
 			nodeList = append(nodeList, virtHandlerNode)
 		}

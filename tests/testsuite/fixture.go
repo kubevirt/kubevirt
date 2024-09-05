@@ -38,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -178,6 +179,9 @@ func EnsureKubevirtReadyWithTimeout(timeout time.Duration) {
 func EnsureKVMPresent() {
 	virtClient := kubevirt.Client()
 
+	hypervisor := hypervisor.NewHypervisor("qemu")
+	kvmDevice := k8sv1.ResourceName(hypervisor.GetHypervisorDevice())
+
 	if !ShouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 		virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
@@ -190,7 +194,7 @@ func EnsureKVMPresent() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[kvmDevice]
 				vhostNetAllocatable, ok2 := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
 				ready = ready && ok1 && ok2
 				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)

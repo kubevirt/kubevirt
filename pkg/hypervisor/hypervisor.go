@@ -17,6 +17,10 @@ type Hypervisor interface {
 
 	// TODO Probably not needed
 	SupportsNonRootUser() bool
+
+	GetHypervisorDevice() string
+
+	ShouldRunPrivileged() bool
 }
 
 // Define QemuHypervisor struct that implements the Hypervisor interface
@@ -24,6 +28,16 @@ type QemuHypervisor struct {
 }
 
 type CloudHypervisor struct {
+}
+
+// Implement ShouldRunPrivileged method for QemuHypervisor
+func (q *QemuHypervisor) ShouldRunPrivileged() bool {
+	return false
+}
+
+// Implement GetHypervisorDevice method for QemuHypervisor
+func (q *QemuHypervisor) GetHypervisorDevice() string {
+	return "devices.kubevirt.io/kvm"
 }
 
 // Implement GetVirtLauncherMonitorOverhead method for QemuHypervisor
@@ -57,6 +71,16 @@ func (q *QemuHypervisor) SupportsIso() bool {
 
 func (q *QemuHypervisor) SupportsNonRootUser() bool {
 	return true
+}
+
+// Implement ShouldRunPrivileged method for CloudHypervisor
+func (c *CloudHypervisor) ShouldRunPrivileged() bool {
+	return true
+}
+
+// Implement GetHypervisorDevice method for CloudHypervisor
+func (c *CloudHypervisor) GetHypervisorDevice() string {
+	return "devices.kubevirt.io/mshv"
 }
 
 // Implement GetVirtLauncherMonitorOverhead method for CloudHypervisor

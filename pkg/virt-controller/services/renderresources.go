@@ -471,7 +471,13 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k
 		res[VhostNetDevice] = resource.MustParse("1")
 	}
 	if !allowEmulation {
-		res[KvmDevice] = resource.MustParse("1")
+		// TODO Remove this if condition
+		if vmi.Spec.Hypervisor == "qemu" {
+			// TODO Hermes KVM/MSHV. Node isn't being labeled with MSHV. Once the problem is fixed, uncomment this line to enable virt-launcher pod requesting MSHV Device. Bug to track https://dev.azure.com/mariner-org/ECF/_queries/edit/4984/?triage=true
+			hypervisor := hypervisor.NewHypervisor(vmi.Spec.Hypervisor)
+			hypervisorDevice := k8sv1.ResourceName(hypervisor.GetHypervisorDevice())
+			res[hypervisorDevice] = resource.MustParse("1")
+		}
 	}
 	if util.IsAutoAttachVSOCK(vmi) {
 		res[VhostVsockDevice] = resource.MustParse("1")

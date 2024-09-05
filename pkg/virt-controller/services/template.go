@@ -44,6 +44,7 @@ import (
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
@@ -71,8 +72,6 @@ const (
 	virtExporter     = "virt-exporter"
 )
 
-const MshvDevice = "devices.kubevirt.io/mshv"
-const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const SevDevice = "devices.kubevirt.io/sev"
@@ -375,6 +374,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	} else {
 		command = []string{"/usr/bin/virt-launcher-monitor",
 			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
+			"--hypervisor", vmi.Spec.Hypervisor,
 			"--name", domain,
 			"--uid", string(vmi.UID),
 			"--namespace", namespace,
@@ -737,9 +737,13 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 		computeContainerOpts = append(computeContainerOpts, WithNonRoot(userId))
 		computeContainerOpts = append(computeContainerOpts, WithDropALLCapabilities())
 	}
-	if t.IsPPC64() {
+
+	hypervisor := hypervisor.NewHypervisor(vmi.Spec.Hypervisor)
+
+	if t.IsPPC64() || hypervisor.ShouldRunPrivileged() {
 		computeContainerOpts = append(computeContainerOpts, WithPrivileged())
 	}
+
 	if vmi.Spec.ReadinessProbe != nil {
 		computeContainerOpts = append(computeContainerOpts, WithReadinessProbe(vmi))
 	}
