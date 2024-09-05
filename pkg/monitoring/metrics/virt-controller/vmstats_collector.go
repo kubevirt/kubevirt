@@ -48,6 +48,9 @@ var (
 
 			// Instance type
 			"instance_type", "preference",
+
+			// Status
+			"status",
 		},
 	)
 
@@ -179,6 +182,7 @@ func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 				vm.Name, vm.Namespace,
 				os, workload, flavor,
 				instanceType, preference,
+				string(vm.Status.PrintableStatus),
 			},
 			Value: 1.0,
 		})
