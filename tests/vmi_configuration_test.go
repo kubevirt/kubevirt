@@ -49,6 +49,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -3328,12 +3329,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(processRss).To(HaveKey(process), "no %s process found", process)
 			}
 
+			hypervisor := hypervisor.NewHypervisor("qemu")
+
 			By("Ensuring no process is using too much ram")
-			doesntExceedMemoryUsage(&processRss, "virt-launcher-monitor", resource.MustParse(services.VirtLauncherMonitorOverhead))
-			doesntExceedMemoryUsage(&processRss, "virt-launcher", resource.MustParse(services.VirtLauncherOverhead))
-			doesntExceedMemoryUsage(&processRss, "virtlogd", resource.MustParse(services.VirtlogdOverhead))
-			doesntExceedMemoryUsage(&processRss, "virtqemud", resource.MustParse(services.VirtqemudOverhead))
-			qemuExpected := resource.MustParse(services.QemuOverhead)
+			doesntExceedMemoryUsage(&processRss, "virt-launcher-monitor", resource.MustParse(hypervisor.GetVirtLauncherMonitorOverhead()))
+			doesntExceedMemoryUsage(&processRss, "virt-launcher", resource.MustParse(hypervisor.GetVirtLauncherOverhead()))
+			doesntExceedMemoryUsage(&processRss, "virtlogd", resource.MustParse(hypervisor.GetVirtlogdOverhead()))
+			doesntExceedMemoryUsage(&processRss, "virtqemud", resource.MustParse(hypervisor.GetHypervisorDaemonOverhead()))
+			qemuExpected := resource.MustParse(hypervisor.GetHypervisorOverhead())
 			qemuExpected.Add(vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory])
 			doesntExceedMemoryUsage(&processRss, "qemu", qemuExpected)
 		})

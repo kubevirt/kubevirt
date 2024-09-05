@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -123,7 +124,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).NotTo(HaveOccurred())
 
-		path := cloudinit.GetIsoFilePath(source, vmi.Name, vmi.Namespace)
+		path := cloudinit.GetCloudInitFilePath(source, vmi.Name, vmi.Namespace, hypervisor.NewHypervisor(vmi.Spec.Hypervisor))
 
 		By(fmt.Sprintf("Checking cloud init ISO at '%s' is 4k-block fs compatible", path))
 		cmdCheck := []string{"stat", "--printf='%s'", path}

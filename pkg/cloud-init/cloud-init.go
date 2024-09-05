@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/precond"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
@@ -53,6 +54,7 @@ var cloudInitIsoFunc = defaultIsoFunc
 const (
 	noCloudFile     = "noCloud.iso"
 	configDriveFile = "configdrive.iso"
+	rawNoCloudFile  = "noCloud.img"
 )
 
 type DataSourceType string
@@ -503,21 +505,25 @@ func getDomainBasePath(domain string, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", cloudInitLocalDir, namespace, domain)
 }
 
-func GetIsoFilePath(source DataSourceType, domain, namespace string) string {
-	switch source {
-	case DataSourceNoCloud:
+func GetCloudInitFilePath(source DataSourceType, domain, namespace string, hypervisor hypervisor.Hypervisor) string {
+	if hypervisor.SupportsIso() {
+		switch source {
+		case DataSourceNoCloud:
+			return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), noCloudFile)
+		case DataSourceConfigDrive:
+			return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), configDriveFile)
+		}
 		return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), noCloudFile)
-	case DataSourceConfigDrive:
-		return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), configDriveFile)
+	} else {
+		return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), rawNoCloudFile)
 	}
-	return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), noCloudFile)
 }
 
 func PrepareLocalPath(vmiName string, namespace string) error {
 	return util.MkdirAllWithNosec(getDomainBasePath(vmiName, namespace))
 }
 
-func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, size int64) error {
+func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, size int64, hypervisor hypervisor.Hypervisor) error {
 	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(data)
 
@@ -526,7 +532,7 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 
 	switch data.DataSource {
 	case DataSourceNoCloud, DataSourceConfigDrive:
-		iso = GetIsoFilePath(data.DataSource, vmiName, namespace)
+		iso = GetCloudInitFilePath(data.DataSource, vmiName, namespace, hypervisor)
 	default:
 		return fmt.Errorf("invalid cloud-init data source: '%v'", data.DataSource)
 	}
@@ -571,8 +577,19 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 }
 
 func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data *CloudInitData) error {
+	hypervisor := hypervisor.NewHypervisor(vmi.Spec.Hypervisor)
+	if hypervisor.SupportsIso() {
+		return GenerateLocalDataIso(vmi, instanceType, data)
+	} else {
+		return GenerateLocalDataRaw(vmi, instanceType, data)
+	}
+}
+
+func GenerateLocalDataIso(vmi *v1.VirtualMachineInstance, instanceType string, data *CloudInitData) error {
 	precond.MustNotBeEmpty(vmi.Name)
 	precond.MustNotBeNil(data)
+
+	hypervisor := hypervisor.NewHypervisor(vmi.Spec.Hypervisor)
 
 	var metaData []byte
 	var err error
@@ -587,7 +604,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta-data")
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user-data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
-		iso = GetIsoFilePath(DataSourceNoCloud, vmi.Name, vmi.Namespace)
+		iso = GetCloudInitFilePath(DataSourceNoCloud, vmi.Name, vmi.Namespace, hypervisor)
 		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 		if data.NoCloudMetaData == nil {
 			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
@@ -605,7 +622,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta_data.json")
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user_data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
-		iso = GetIsoFilePath(DataSourceConfigDrive, vmi.Name, vmi.Namespace)
+		iso = GetCloudInitFilePath(DataSourceConfigDrive, vmi.Name, vmi.Namespace, hypervisor)
 		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 		if data.ConfigDriveMetaData == nil {
 			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
@@ -688,5 +705,143 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 	}
 
 	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
+	return nil
+}
+
+func GenerateLocalDataRaw(vmi *v1.VirtualMachineInstance, instanceType string, data *CloudInitData) error { // TODO Hermes Deduplicate code between this and GenerateLocalDataIso function
+	precond.MustNotBeEmpty(vmi.Name)
+	precond.MustNotBeNil(data)
+
+	hypervisor := hypervisor.NewHypervisor(vmi.Spec.Hypervisor)
+
+	var metaData []byte
+	var err error
+
+	domainBasePath := getDomainBasePath(vmi.Name, vmi.Namespace)
+	dataBasePath := fmt.Sprintf("%s/data", domainBasePath)
+
+	var dataPath, metaFile, userFile, networkFile, rawCloudInit string
+	switch data.DataSource {
+	case DataSourceNoCloud:
+		dataPath = dataBasePath
+		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta-data")
+		userFile = fmt.Sprintf("%s/%s", dataPath, "user-data")
+		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
+		// Create path for raw cloudinit file to be generated by this function
+		rawCloudInit = GetCloudInitFilePath(DataSourceNoCloud, vmi.Name, vmi.Namespace, hypervisor)
+		if data.NoCloudMetaData == nil {
+			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
+			data.NoCloudMetaData = &NoCloudMetadata{
+				InstanceID: cloudInitUUIDFromVMI(vmi),
+			}
+			data.NoCloudMetaData.InstanceType = instanceType
+		}
+		metaData, err = json.Marshal(data.NoCloudMetaData)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("Invalid cloud-init data source: '%v' for CloudHypervisor VMM", data.DataSource)
+	}
+
+	err = util.MkdirAllWithNosec(dataPath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
+		return err
+	}
+
+	if data.UserData == "" && data.NetworkData == "" {
+		return fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
+	}
+	userData := []byte(data.UserData)
+
+	var networkData []byte
+	if data.NetworkData != "" {
+		networkData = []byte(data.NetworkData)
+	}
+
+	err = diskutils.RemoveFilesIfExist(userFile, metaFile, networkFile, rawCloudInit)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(userFile, userData, 0600)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(userFile)
+
+	err = os.WriteFile(metaFile, metaData, 0600)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(metaFile)
+
+	if len(networkData) > 0 {
+		err = os.WriteFile(networkFile, networkData, 0600)
+		if err != nil {
+			return err
+		}
+		defer os.Remove(networkFile)
+	}
+
+	// Now generate the raw cloudinit file
+
+	err = RunCommand("mkdosfs", "-n", "CIDATA", "-C", rawCloudInit, "8192")
+	if err != nil {
+		return err
+	}
+	log.Log.V(2).Infof("Created rawCloudinit")
+
+	err = RunCommand("mkdir", "/cloud-init-mnt")
+	if err != nil {
+		return err
+	}
+	log.Log.V(2).Infof("Created /cloud-init-mnt")
+
+	err = RunCommand("mount", rawCloudInit, "/cloud-init-mnt")
+	if err != nil {
+		return err
+	}
+	log.Log.V(2).Infof("Mounted cloud-init")
+
+	err = RunCommand("cp", userFile, "/cloud-init-mnt/")
+	if err != nil {
+		return err
+	}
+	log.Log.V(2).Infof("Copied user-data")
+
+	if len(networkData) > 0 {
+		err = RunCommand("cp", networkFile, "/cloud-init-mnt/")
+		if err != nil {
+			return err
+		}
+		log.Log.V(2).Infof("Copied network-data")
+	}
+
+	err = RunCommand("cp", metaFile, "/cloud-init-mnt/")
+	if err != nil {
+		return err
+	}
+	log.Log.V(2).Infof("Copied metadata")
+
+	err = RunCommand("umount", rawCloudInit)
+	if err != nil {
+		return err
+	}
+	log.Log.V(2).Infof("unmounted cloudinit")
+
+	log.Log.V(2).Infof("generated nocloud raw file %s", rawCloudInit)
+	return nil
+}
+
+func RunCommand(binary string, args ...string) error {
+	// #nosec No risk for attacket injection. Parameters are predefined strings
+	cmd := exec.Command(binary, args...)
+	err := cmd.Run()
+	if err != nil {
+		log.Log.Reason(err).Errorf("%s cmd failed to run", binary)
+		return err
+	}
 	return nil
 }

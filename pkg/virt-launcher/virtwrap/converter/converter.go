@@ -36,6 +36,7 @@ import (
 	"strings"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
@@ -122,6 +123,7 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	DomainAttachmentByInterfaceName map[string]string
+	Hypervisor                      hypervisor.Hypervisor
 }
 
 func contains(volumes []string, name string) bool {
@@ -798,7 +800,7 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 		return fmt.Errorf("Only nocloud and configdrive are valid cloud-init volumes")
 	}
 
-	disk.Source.File = cloudinit.GetIsoFilePath(dataSource, c.VirtualMachine.Name, c.VirtualMachine.Namespace)
+	disk.Source.File = cloudinit.GetCloudInitFilePath(dataSource, c.VirtualMachine.Name, c.VirtualMachine.Namespace, c.Hypervisor)
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop

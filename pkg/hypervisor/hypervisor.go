@@ -12,6 +12,8 @@ type Hypervisor interface {
 	GetHypervisorDaemonOverhead() string
 	// The `ps` RSS for vmm, minus the RAM of its (stressed) guest, minus the virtual page table
 	GetHypervisorOverhead() string
+
+	SupportsIso() bool
 }
 
 // Define QemuHypervisor struct that implements the Hypervisor interface
@@ -46,6 +48,10 @@ func (q *QemuHypervisor) GetHypervisorOverhead() string {
 	return "30Mi"
 }
 
+func (q *QemuHypervisor) SupportsIso() bool {
+	return true
+}
+
 // Implement GetVirtLauncherMonitorOverhead method for CloudHypervisor
 func (c *CloudHypervisor) GetVirtLauncherMonitorOverhead() string {
 	return "25Mi"
@@ -69,6 +75,10 @@ func (c *CloudHypervisor) GetHypervisorDaemonOverhead() string {
 // Implement GetHypervisorOverhead method for CloudHypervisor
 func (c *CloudHypervisor) GetHypervisorOverhead() string {
 	return "30Mi"
+}
+
+func (c *CloudHypervisor) SupportsIso() bool {
+	return false
 }
 
 func NewHypervisor(hypervisor string) Hypervisor {
