@@ -94,19 +94,64 @@ var PausedReasonTranslationMap = map[libvirt.DomainPausedReason]api.StateChangeR
 
 var getHookManager = hooks.GetManager
 
-type LibvirtWrapper struct {
+type LibvirtWrapper interface {
+	SetupLibvirt(customLogFilters *string) (err error)
+	GetHypervisorCommandPrefix() []string
+	StartHypervisorDaemon(stopChan chan struct{})
+	root() bool
+}
+
+type QemuLibvirtWrapper struct {
 	user uint32
 }
 
-func NewLibvirtWrapper(nonRoot bool) *LibvirtWrapper {
-	if nonRoot {
-		return &LibvirtWrapper{
-			user: util.NonRootUID,
+func (q *QemuLibvirtWrapper) StartHypervisorDaemon(stopChan chan struct{}) {
+	q.StartVirtqemud(stopChan)
+}
+
+func (q *QemuLibvirtWrapper) GetHypervisorCommandPrefix() []string {
+	// give qemu some time to shut down in case it survived virt-handler
+	// Most of the time we call `qemu-system=* binaries, but qemu-system-* packages
+	// are not everywhere available where libvirt and qemu are. There we usually call qemu-kvm
+	// which resides in /usr/libexec/qemu-kvm
+	return []string{"qemu-system", "qemu-kvm"}
+}
+
+func (c *CloudHypervisorLibvirtWrapper) GetHypervisorCommandPrefix() []string {
+	return []string{"cloud-hypervisor"}
+}
+
+func (c *CloudHypervisorLibvirtWrapper) StartHypervisorDaemon(stopChan chan struct{}) {
+
+}
+
+type CloudHypervisorLibvirtWrapper struct {
+	user uint32
+}
+
+func (l CloudHypervisorLibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
+	// TODO Need to implement this function
+	return nil
+}
+
+func NewLibvirtWrapper(nonRoot bool, vmm string) LibvirtWrapper {
+	if vmm == "ch" {
+		return &CloudHypervisorLibvirtWrapper{
+			user: util.RootUser,
 		}
+	} else if vmm == "qemu" {
+		if nonRoot {
+			return &QemuLibvirtWrapper{
+				user: util.NonRootUID,
+			}
+		}
+		return &QemuLibvirtWrapper{
+			user: util.RootUser,
+		}
+	} else {
+		return nil
 	}
-	return &LibvirtWrapper{
-		user: util.RootUser,
-	}
+
 }
 
 func ConvState(status libvirt.DomainState) api.LifeCycle {
@@ -209,7 +254,7 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
-func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
+func (l QemuLibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
 	// we spawn libvirt from virt-launcher in order to ensure the virtqemud+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
 	// to perform special shutdown logic. These processes need to live in the same
@@ -472,7 +517,7 @@ func copyFile(from, to string) error {
 	return err
 }
 
-func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
+func (l QemuLibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 	runtimeQemuConfPath := qemuConfPath
 	if !l.root() {
 		runtimeQemuConfPath = qemuNonRootConfPath
@@ -576,6 +621,10 @@ func getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar *string, l
 	return logFilters + allowAllOtherCategories, true
 }
 
-func (l LibvirtWrapper) root() bool {
+func (l QemuLibvirtWrapper) root() bool {
+	return l.user == 0
+}
+
+func (l CloudHypervisorLibvirtWrapper) root() bool {
 	return l.user == 0
 }

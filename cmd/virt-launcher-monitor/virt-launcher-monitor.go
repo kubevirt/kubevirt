@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	virtWrap "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 const (
@@ -110,6 +111,8 @@ func removeSerialConsoleTermFile(uid string) {
 
 func main() {
 
+	vmm := pflag.String("vmm", "qemu", "VMM to be used. Can be either \"qemu\" or \"ch\"")
+	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run virtqemud with the 'virt' user")
 	containerDiskDir := pflag.String("container-disk-dir", "/var/run/kubevirt/container-disks", "Base directory for container disk data")
 	keepAfterFailure := pflag.Bool("keep-after-failure", false, "virt-launcher will be kept alive after failure for debugging if set to true")
 	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
@@ -132,7 +135,9 @@ func main() {
 		}
 	}
 
-	exitCode, err := RunAndMonitor(*containerDiskDir, *uid)
+	libvirtWrapper := virtWrap.NewLibvirtWrapper(*runWithNonRoot, *vmm)
+
+	exitCode, err := RunAndMonitor(*containerDiskDir, *uid, libvirtWrapper)
 	if *keepAfterFailure && (exitCode != 0 || err != nil) {
 		log.Log.Infof("keeping virt-launcher container alive since --keep-after-failure is set to true")
 		<-make(chan struct{})
@@ -148,7 +153,7 @@ func main() {
 
 // RunAndMonitor run virt-launcher process and monitor it to give qemu an extra grace period to properly terminate
 // in case of crashes
-func RunAndMonitor(containerDiskDir, uid string) (int, error) {
+func RunAndMonitor(containerDiskDir, uid string, libvirtWrapper virtWrap.LibvirtWrapper) (int, error) {
 	defer removeSerialConsoleTermFile(uid)
 	defer cleanupContainerDiskDirectory(containerDiskDir)
 	defer terminateIstioProxy()
@@ -218,15 +223,18 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 
 	dumpLogFile(passtLogFile)
 
-	// give qemu some time to shut down in case it survived virt-handler
-	// Most of the time we call `qemu-system=* binaries, but qemu-system-* packages
-	// are not everywhere available where libvirt and qemu are. There we usually call qemu-kvm
-	// which resides in /usr/libexec/qemu-kvm
-	pid, _ := findPid("qemu-system")
-	qemuProcessCommandPrefix := "qemu-system"
-	if pid <= 0 {
-		pid, _ = findPid("qemu-kvm")
-		qemuProcessCommandPrefix = "qemu-kvm"
+	potentialProcessCommandPrefixes := libvirtWrapper.GetHypervisorCommandPrefix()
+
+	// Iterate through the array potentialProcessCommandPrefixes and check if the process is still running
+
+	pid := 0
+	hypervisorProcessCommandPrefix := ""
+	for _, processCommandPrefix := range potentialProcessCommandPrefixes {
+		pid, _ := findPid(processCommandPrefix)
+		hypervisorProcessCommandPrefix = processCommandPrefix
+		if pid > 0 {
+			break
+		}
 	}
 
 	if pid > 0 {
@@ -259,7 +267,7 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 			case <-timeout:
 				return 1, err
 			case <-period:
-				pid, _ := findPid(qemuProcessCommandPrefix)
+				pid, _ := findPid(hypervisorProcessCommandPrefix)
 				if pid == 0 {
 					return exitCode, nil
 				}
