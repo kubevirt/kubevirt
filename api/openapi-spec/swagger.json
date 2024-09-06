@@ -12898,6 +12898,15 @@
      }
     }
    },
+   "v1.CommonInstancetypesDeployment": {
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "description": "Enabled controls the deployment of common-instancetypes resources, defaults to True.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.ComponentConfig": {
     "type": "object",
     "properties": {
@@ -14409,6 +14418,10 @@
      "autoCPULimitNamespaceLabelSelector": {
       "description": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside namespaces that match the label selector. The CPU limit will equal the number of requested vCPUs. This setting does not apply to VMIs with dedicated CPUs.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "commonInstancetypesDeployment": {
+      "description": "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources",
+      "$ref": "#/definitions/v1.CommonInstancetypesDeployment"
      },
      "controllerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"

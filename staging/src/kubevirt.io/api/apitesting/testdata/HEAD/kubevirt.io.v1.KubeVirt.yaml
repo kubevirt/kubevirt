@@ -77,6 +77,8 @@ spec:
         - valuesValue
       matchLabels:
         matchLabelsKey: matchLabelsValue
+    commonInstancetypesDeployment:
+      enabled: true
     controllerConfiguration:
       restClient:
         rateLimiter:
