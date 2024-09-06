@@ -20,16 +20,16 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
         Long: `The 'config' command allows you to manage configuration options for kubevirt, such as specifying paths for SSH binaries or VNC clients. 
 This command supports setting, retrieving, and resetting configurations, which will be stored in a local configuration file.
 
-Usage Examples:
+	Usage Examples:
 
-# Set the path to the ssh binary
-virtctl config set ssh /usr/bin/ssh
+	# Set the path to the ssh binary
+	virtctl config set ssh /usr/bin/ssh
 
-# Get the configured ssh path
-virtctl config get ssh
+	# Get the configured ssh path
+	virtctl config get ssh
 
-# Reset all configurations
-virtctl config reset
+	# Reset all configurations
+	virtctl config reset
         `,
     }
 
