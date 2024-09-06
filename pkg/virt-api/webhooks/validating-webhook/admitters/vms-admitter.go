@@ -45,6 +45,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -58,6 +59,7 @@ type VMsAdmitter struct {
 	VirtClient          kubecli.KubevirtClient
 	DataSourceInformer  cache.SharedIndexInformer
 	NamespaceInformer   cache.SharedIndexInformer
+	DataVolumeInformer  cache.SharedIndexInformer
 	InstancetypeMethods instancetype.Methods
 	ClusterConfig       *virtconfig.ClusterConfig
 	cloneAuthFunc       CloneAuthFunc
@@ -78,7 +80,7 @@ func (p *authProxy) GetNamespace(name string) (*corev1.Namespace, error) {
 	if err != nil {
 		return nil, err
 	} else if !exists {
-		return nil, fmt.Errorf("namespace %s does not exist", name)
+		return nil, errors.NewNotFound(corev1.Resource("namespace"), name)
 	}
 
 	ns := obj.(*corev1.Namespace).DeepCopy()
@@ -91,7 +93,7 @@ func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, er
 	if err != nil {
 		return nil, err
 	} else if !exists {
-		return nil, fmt.Errorf("dataSource %s does not exist", key)
+		return nil, errors.NewNotFound(cdiv1.Resource("datasource"), key)
 	}
 
 	ds := obj.(*cdiv1.DataSource).DeepCopy()
@@ -103,6 +105,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 		VirtClient:          client,
 		DataSourceInformer:  informers.DataSourceInformer,
 		NamespaceInformer:   informers.NamespaceInformer,
+		DataVolumeInformer:  informers.DataVolumeInformer,
 		InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: client},
 		ClusterConfig:       clusterConfig,
 		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
@@ -295,6 +298,20 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	var causes []metav1.StatusCause
 
+	if ar.Operation == admissionv1.Update || ar.Operation == admissionv1.Delete {
+		oldVM := &v1.VirtualMachine{}
+		if err := json.Unmarshal(ar.OldObject.Raw, oldVM); err != nil {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeUnexpectedServerResponse,
+				Message: "Could not fetch old VM",
+			}}, nil
+		}
+
+		if equality.Semantic.DeepEqual(oldVM.Spec.DataVolumeTemplates, vm.Spec.DataVolumeTemplates) {
+			return nil, nil
+		}
+	}
+
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
 		targetNamespace := vm.Namespace
 		if targetNamespace == "" {
@@ -316,12 +333,24 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.Admissi
 			}
 		}
 
-		proxy := &authProxy{client: admitter.VirtClient, dataSourceInformer: admitter.DataSourceInformer, namespaceInformer: admitter.NamespaceInformer}
-		dv := &cdiv1.DataVolume{
+		dv, err := storagetypes.GetDataVolumeFromCache(targetNamespace, dataVolume.Name, admitter.DataVolumeInformer)
+		if err != nil {
+			return nil, err
+		}
+		if dv != nil {
+			continue
+		}
+
+		dv = &cdiv1.DataVolume{
 			ObjectMeta: dataVolume.ObjectMeta,
 			Spec:       dataVolume.Spec,
 		}
 		dv.Namespace = targetNamespace
+		proxy := &authProxy{
+			client:             admitter.VirtClient,
+			dataSourceInformer: admitter.DataSourceInformer,
+			namespaceInformer:  admitter.NamespaceInformer,
+		}
 		allowed, message, err := admitter.cloneAuthFunc(dv, ar.Namespace, ar.Name, proxy, targetNamespace, serviceAccountName)
 		if err != nil && err != cdiv1.ErrNoTokenOkay {
 			return nil, err

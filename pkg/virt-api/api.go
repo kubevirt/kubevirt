@@ -1074,13 +1074,16 @@ func (app *virtAPIApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 
 	var dataSourceInformer cache.SharedIndexInformer
+	var dataVolumeInformer cache.SharedIndexInformer
 	if app.hasCDIDataSource {
+		dataVolumeInformer = kubeInformerFactory.DataVolume()
 		dataSourceInformer = kubeInformerFactory.DataSource()
-		log.Log.Infof("CDI detected, DataSource integration enabled")
+		log.Log.Infof("CDI detected, DataVolume/DataSource integration enabled")
 	} else {
 		// Add a dummy DataSource informer in the event datasource support
 		// is disabled. This lets the controller continue to work without
 		// requiring a separate branching code path.
+		dataVolumeInformer = kubeInformerFactory.DummyDataVolume()
 		dataSourceInformer = kubeInformerFactory.DummyDataSource()
 		log.Log.Infof("CDI not detected, DataSource integration disabled")
 	}
@@ -1094,6 +1097,7 @@ func (app *virtAPIApp) Run() {
 	webhookInformers := &webhooks.Informers{
 		VMIPresetInformer:  vmiPresetInformer,
 		VMRestoreInformer:  vmRestoreInformer,
+		DataVolumeInformer: dataVolumeInformer,
 		DataSourceInformer: dataSourceInformer,
 		NamespaceInformer:  namespaceInformer,
 	}
