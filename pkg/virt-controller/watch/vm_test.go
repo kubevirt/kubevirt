@@ -80,14 +80,14 @@ var _ = Describe("VirtualMachine", func() {
 			// if you need to prepend reactor it need to not handle the object or use the
 			// modify function
 			virtFakeClient.PrependReactor("update", "virtualmachines",
-				UpdateReactor(SubresourceHandle, virtFakeClient.Tracker(), ModifyStatusOnlyVM))
+				watchtesting.UpdateReactor(watchtesting.SubresourceHandle, virtFakeClient.Tracker(), watchtesting.ModifyStatusOnlyVM))
 			virtFakeClient.PrependReactor("update", "virtualmachines",
-				UpdateReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
+				watchtesting.UpdateReactor(watchtesting.Handle, virtFakeClient.Tracker(), watchtesting.ModifyVM))
 
 			virtFakeClient.PrependReactor("patch", "virtualmachines",
-				PatchReactor(SubresourceHandle, virtFakeClient.Tracker(), ModifyStatusOnlyVM))
+				watchtesting.PatchReactor(watchtesting.SubresourceHandle, virtFakeClient.Tracker(), watchtesting.ModifyStatusOnlyVM))
 			virtFakeClient.PrependReactor("patch", "virtualmachines",
-				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
+				watchtesting.PatchReactor(watchtesting.Handle, virtFakeClient.Tracker(), watchtesting.ModifyVM))
 
 			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})

@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package testing
 
 import (
 	"encoding/json"

@@ -16,7 +16,8 @@
  * Copyright 2024 The KubeVirt Authors
  *
  */
-package watch
+
+package testing
 
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
