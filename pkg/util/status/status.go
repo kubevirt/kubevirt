@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 )
@@ -203,6 +204,13 @@ func (u *updater) updateUnstructured(obj runtime.Object) (oldStatus interface{},
 			return nil, nil, err
 		}
 		return oldObj.Status, newObj.Status, nil
+	case *exportv1.VirtualMachineExport:
+		oldObj := obj.(*exportv1.VirtualMachineExport)
+		newObj, err := u.cli.VirtualMachineExport(a.GetNamespace()).Update(context.Background(), oldObj, metav1.UpdateOptions{})
+		if err != nil {
+			return nil, nil, err
+		}
+		return oldObj.Status, newObj.Status, nil
 	default:
 		panic(unknownObj)
 	}
@@ -232,6 +240,9 @@ func (u *updater) updateStatusUnstructured(obj runtime.Object) (err error) {
 	case *poolv1.VirtualMachinePool:
 		oldObj := obj.(*poolv1.VirtualMachinePool)
 		_, err = u.cli.VirtualMachinePool(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
+	case *exportv1.VirtualMachineExport:
+		oldObj := obj.(*exportv1.VirtualMachineExport)
+		_, err = u.cli.VirtualMachineExport(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	default:
 		panic(unknownObj)
 	}
@@ -251,118 +262,16 @@ func (u *updater) getSubresource() bool {
 	return u.subresource
 }
 
-type VMStatusUpdater struct {
-	updater updater
-}
-
-func (v *VMStatusUpdater) UpdateStatus(vm *v1.VirtualMachine) error {
-	return v.updater.update(vm)
-}
-
-func (v *VMStatusUpdater) PatchStatus(vm *v1.VirtualMachine, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) error {
-	return v.updater.patch(vm, pt, data, patchOptions)
-}
-
-func NewVMStatusUpdater(cli kubecli.KubevirtClient) *VMStatusUpdater {
-	return &VMStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
-type VMIRSStatusUpdater struct {
-	updater updater
-}
-
-func (v *VMIRSStatusUpdater) UpdateStatus(vmirs *v1.VirtualMachineInstanceReplicaSet) error {
-	return v.updater.update(vmirs)
-}
-
-func NewVMIRSStatusUpdater(cli kubecli.KubevirtClient) *VMIRSStatusUpdater {
-	return &VMIRSStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
-type KVStatusUpdater struct {
-	updater updater
-}
-
-func (v *KVStatusUpdater) UpdateStatus(kv *v1.KubeVirt) error {
-	return v.updater.update(kv)
-}
-
-func (v *KVStatusUpdater) PatchStatus(kv *v1.KubeVirt, pt types.PatchType, data []byte) error {
-	return v.updater.patch(kv, pt, data, &metav1.PatchOptions{})
-}
-
-func NewKubeVirtStatusUpdater(cli kubecli.KubevirtClient) *KVStatusUpdater {
-	return &KVStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
-type MigrationStatusUpdater struct {
-	updater updater
-}
-
-func (v *MigrationStatusUpdater) UpdateStatus(migration *v1.VirtualMachineInstanceMigration) error {
-	return v.updater.update(migration)
-}
-
-func NewMigrationStatusUpdater(cli kubecli.KubevirtClient) *MigrationStatusUpdater {
-	return &MigrationStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
-type CloneStatusUpdater struct {
+type VMExportStatusUpdater struct {
 	updater
 }
 
-func (v *CloneStatusUpdater) UpdateStatus(vmClone *clonev1alpha1.VirtualMachineClone) error {
-	return v.update(vmClone)
+func (v *VMExportStatusUpdater) UpdateStatus(vmExport *exportv1.VirtualMachineExport) error {
+	return v.update(vmExport)
 }
 
-func NewCloneStatusUpdater(cli kubecli.KubevirtClient) *CloneStatusUpdater {
-	return &CloneStatusUpdater{
-		updater: updater{
-			lock:        sync.Mutex{},
-			subresource: true,
-			cli:         cli,
-		},
-	}
-}
-
-type VMPStatusUpdater struct {
-	updater updater
-}
-
-func (v *VMPStatusUpdater) UpdateStatus(vp *poolv1.VirtualMachinePool) error {
-	return v.updater.update(vp)
-}
-
-func (v *VMPStatusUpdater) PatchStatus(vp *poolv1.VirtualMachinePool, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) error {
-	return v.updater.patch(vp, pt, data, patchOptions)
-}
-
-func NewVMPStatusUpdater(cli kubecli.KubevirtClient) *VMPStatusUpdater {
-	return &VMPStatusUpdater{
+func NewVMExportStatusUpdater(cli kubecli.KubevirtClient) *VMExportStatusUpdater {
+	return &VMExportStatusUpdater{
 		updater: updater{
 			lock:        sync.Mutex{},
 			subresource: true,

@@ -43,8 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/pointer"
 
-	"kubevirt.io/kubevirt/pkg/util/status"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -85,7 +83,6 @@ type SubresourceAPIApp struct {
 	profilerComponentPort   int
 	handlerTLSConfiguration *tls.Config
 	credentialsLock         *sync.Mutex
-	statusUpdater           *status.VMStatusUpdater
 	clusterConfig           *virtconfig.ClusterConfig
 	instancetypeMethods     instancetype.Methods
 	handlerHttpClient       *http.Client
@@ -112,7 +109,6 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		profilerComponentPort:   defaultProfilerComponentPort,
 		credentialsLock:         &sync.Mutex{},
 		handlerTLSConfiguration: tlsConfiguration,
-		statusUpdater:           status.NewVMStatusUpdater(virtCli),
 		clusterConfig:           clusterConfig,
 		instancetypeMethods:     instancetypeMethods,
 		handlerHttpClient:       httpClient,
@@ -262,7 +258,8 @@ func (app *SubresourceAPIApp) patchVMStatusStopped(vmi *v1.VirtualMachineInstanc
 		return nil, err
 	}
 	log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
-	return app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun}), nil
+	_, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+	return err, nil
 }
 
 func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -386,7 +383,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	}
 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+	_, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	if err != nil {
 		if strings.Contains(err.Error(), jsonpatchTestErr) {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
@@ -521,7 +518,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 				return
 			}
 			log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
-			patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+			_, patchErr = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		} else {
 			patchString := getRunningJson(vm, true)
 			log.Log.Object(vm).V(4).Infof(patchingVMFmt, patchString)
@@ -552,7 +549,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
-		patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		_, patchErr = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	case v1.RunStrategyAlways, v1.RunStrategyOnce:
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", runStrategy)), response)
 		return
@@ -1246,7 +1243,7 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 
 	dryRunOption := app.getDryRunOption(volumeRequest)
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -1446,7 +1443,7 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace str
 	}
 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{}); err != nil {
+	if _, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {

@@ -604,11 +604,17 @@ func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
 				Name:    exportv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 			{
 				Name:    exportv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 		},
 		Scope: "Namespaced",

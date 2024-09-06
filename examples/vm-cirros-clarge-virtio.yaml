@@ -12,7 +12,7 @@ spec:
   preference:
     kind: VirtualMachinePreference
     name: virtio
-  running: false
+  runStrategy: Halted
   template:
     metadata:
       labels:

@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 var _ = Describe("Restore controller", func() {
@@ -310,7 +309,6 @@ var _ = Describe("Restore controller", func() {
 				StorageClassInformer:      storageClassInformer,
 				DataVolumeInformer:        dataVolumeInformer,
 				Recorder:                  recorder,
-				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
 				VolumeSnapshotProvider:    fakeVolumeSnapshotProvider,
 				CRInformer:                crInformer,
 			}

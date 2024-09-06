@@ -335,7 +335,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 		if phaseChanged {
 			log.Log.Object(vmClone).Infof("Changing phase to %s", vmClone.Status.Phase)
 		}
-		err := ctrl.cloneStatusUpdater.UpdateStatus(vmClone)
+		_, err := ctrl.client.VirtualMachineClone(vmClone.Namespace).UpdateStatus(context.Background(), vmClone, v1.UpdateOptions{})
 		if err != nil {
 			return err
 		}

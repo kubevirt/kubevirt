@@ -831,7 +831,8 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 	if equality.Semantic.DeepEqual(vmCopy.Status.VolumeSnapshotStatuses, vm.Status.VolumeSnapshotStatuses) {
 		return nil
 	}
-	return ctrl.vmStatusUpdater.UpdateStatus(vmCopy)
+	_, err := ctrl.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+	return err
 }
 
 func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.VirtualMachine, volume *kubevirtv1.Volume) kubevirtv1.VolumeSnapshotStatus {
@@ -1035,15 +1036,6 @@ func (ctrl *VMSnapshotController) getVMI(vm *kubevirtv1.VirtualMachine) (*kubevi
 func (ctrl *VMSnapshotController) checkVMIRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
 	_, exists, err := ctrl.getVMI(vm)
 	return exists, err
-}
-
-func checkVMRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
-	rs, err := vm.RunStrategy()
-	if err != nil {
-		return false, err
-	}
-
-	return rs == kubevirtv1.RunStrategyAlways || rs == kubevirtv1.RunStrategyRerunOnFailure, nil
 }
 
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {

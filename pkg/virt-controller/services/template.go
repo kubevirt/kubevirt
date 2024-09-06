@@ -50,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -114,6 +113,8 @@ const (
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 	// Default: limits.memory = 2*requests.memory
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
+
+	FailedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 )
 
 type netBindingPluginMemoryCalculator interface {
@@ -1327,17 +1328,6 @@ func (t *templateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance)
 	maps.Copy(annotationsSet, filterVMIAnnotationsForPod(vmi.Annotations))
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
-
-	annotationsSet[velero.PreBackupHookContainerAnnotation] = "compute"
-	annotationsSet[velero.PreBackupHookCommandAnnotation] = fmt.Sprintf(
-		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
-		vmi.GetObjectMeta().GetName(),
-		vmi.GetObjectMeta().GetNamespace())
-	annotationsSet[velero.PostBackupHookContainerAnnotation] = "compute"
-	annotationsSet[velero.PostBackupHookCommandAnnotation] = fmt.Sprintf(
-		"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
-		vmi.GetObjectMeta().GetName(),
-		vmi.GetObjectMeta().GetNamespace())
 
 	// Set this annotation now to indicate that the newly created virt-launchers will use
 	// unix sockets as a transport for migration

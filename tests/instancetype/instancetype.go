@@ -243,9 +243,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			clusterPreference := builder.NewClusterPreference()
-			preferredCPUTopology := instancetypev1beta1.Sockets
 			clusterPreference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
-				PreferredCPUTopology: &preferredCPUTopology,
+				PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
 			}
 
 			clusterPreference, err = virtClient.VirtualMachineClusterPreference().
@@ -277,9 +276,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			preference := builder.NewPreference()
-			preferredCPUTopology := instancetypev1beta1.Sockets
 			preference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
-				PreferredCPUTopology: &preferredCPUTopology,
+				PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
 			}
 			preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 				PreferredDiskBus: virtv1.DiskBusSATA,
@@ -526,10 +524,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating a VirtualMachinePreference")
 			preference := builder.NewPreference()
-			preferredCPUTopology := instancetypev1beta1.Sockets
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: &preferredCPUTopology,
+					PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
 				},
 			}
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
@@ -777,10 +774,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating a VirtualMachinePreference")
 			preference = builder.NewPreference()
-			preferredCPUTopology := instancetypev1beta1.Cores
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: &preferredCPUTopology,
+					PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
 				},
 			}
 			preference, err = virtClient.VirtualMachinePreference(namespace).Create(context.Background(), preference, metav1.CreateOptions{})
@@ -1328,7 +1324,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachinePreferencev1beta1,
 			),
 			Entry("VirtualMachinePreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				preferredCPUTopology := instancetypev1beta1.Cores
 				createdObj, err := virtClient.VirtualMachinePreference(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -1339,7 +1334,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: &preferredCPUTopology,
+							PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
 						},
 					},
 				}, metav1.CreateOptions{})
@@ -1395,7 +1390,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineClusterPreferencev1beta1,
 			),
 			Entry("VirtualMachineClusterPreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				preferredCPUTopology := instancetypev1beta1.Cores
 				createdObj, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), &instancetypev1beta1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -1406,7 +1400,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: &preferredCPUTopology,
+							PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
 						},
 					},
 				}, metav1.CreateOptions{})
@@ -1421,12 +1415,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("VirtualMachine using preference resource requirements", func() {
-		var (
-			preferCores   = instancetypev1beta1.Cores
-			preferThreads = instancetypev1beta1.Threads
-			preferAny     = instancetypev1beta1.Any
-		)
-
 		DescribeTable("should be accepted when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *virtv1.VirtualMachine) {
 			var err error
 			if instancetype != nil {
@@ -1573,7 +1561,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: &preferCores,
+							PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
 						},
 						Requirements: &instancetypev1beta1.PreferenceRequirements{
 							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -1644,7 +1632,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: &preferThreads,
+							PreferredCPUTopology: pointer.P(instancetypev1beta1.Threads),
 						},
 						Requirements: &instancetypev1beta1.PreferenceRequirements{
 							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -1684,7 +1672,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: &preferAny,
+							PreferredCPUTopology: pointer.P(instancetypev1beta1.Any),
 						},
 						Requirements: &instancetypev1beta1.PreferenceRequirements{
 							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -1904,7 +1892,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: &preferCores,
+							PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
 						},
 						Requirements: &instancetypev1beta1.PreferenceRequirements{
 							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -1945,7 +1933,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: &preferThreads,
+							PreferredCPUTopology: pointer.P(instancetypev1beta1.Threads),
 						},
 						Requirements: &instancetypev1beta1.PreferenceRequirements{
 							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -1986,7 +1974,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: &preferAny,
+							PreferredCPUTopology: pointer.P(instancetypev1beta1.Any),
 						},
 						Requirements: &instancetypev1beta1.PreferenceRequirements{
 							CPU: &instancetypev1beta1.CPUPreferenceRequirement{

@@ -6,7 +6,7 @@ metadata:
     kubevirt.io/vm: vm-cirros-with-sidecar-hook-configmap
   name: vm-cirros-with-sidecar-hook-configmap
 spec:
-  running: false
+  runStrategy: Halted
   template:
     metadata:
       annotations:

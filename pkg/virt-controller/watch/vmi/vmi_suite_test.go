@@ -1,4 +1,4 @@
-package status_test
+package vmi
 
 import (
 	"testing"
@@ -6,6 +6,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestStatus(t *testing.T) {
+func TestVMI(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

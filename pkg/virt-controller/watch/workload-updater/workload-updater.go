@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
-	"kubevirt.io/kubevirt/pkg/util/status"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 )
@@ -70,7 +69,6 @@ type WorkloadUpdateController struct {
 	migrationExpectations *controller.UIDTrackingControllerExpectations
 	kubeVirtStore         cache.Store
 	clusterConfig         *virtconfig.ClusterConfig
-	statusUpdater         *status.KVStatusUpdater
 	launcherImage         string
 
 	lastDeletionBatch time.Time
@@ -111,7 +109,6 @@ func NewWorkloadUpdateController(
 		kubeVirtStore:         kubeVirtInformer.GetStore(),
 		recorder:              recorder,
 		clientset:             clientset,
-		statusUpdater:         status.NewKubeVirtStatusUpdater(clientset),
 		launcherImage:         launcherImage,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
@@ -484,7 +481,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		if err != nil {
 			return err
 		}
-		err = c.statusUpdater.PatchStatus(kv, types.JSONPatchType, patchBytes)
+		_, err = c.clientset.KubeVirt(kv.Namespace).PatchStatus(context.Background(), kv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch kubevirt obj status to update the outdatedVirtualMachineInstanceWorkloads valued: %v", err)
 		}

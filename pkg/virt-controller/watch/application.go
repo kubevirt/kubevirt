@@ -38,6 +38,7 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 
@@ -90,6 +91,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
+	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 )
 
 const (
@@ -141,7 +143,7 @@ type VirtControllerApp struct {
 	nodeController *NodeController
 
 	vmiCache      cache.Store
-	vmiController *VMIController
+	vmiController *vmi.Controller
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
@@ -626,13 +628,13 @@ func (vca *VirtControllerApp) initCommon() {
 			}),
 		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
 		services.WithNetBindingPluginMemoryCalculator(netbinding.MemoryCalculator{}),
-		services.WithAnnotationsGenerators(netAnnotationsGenerator),
+		services.WithAnnotationsGenerators(netAnnotationsGenerator, storageannotations.Generator{}),
 		services.WithNetTargetAnnotationsGenerator(netAnnotationsGenerator),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
 
-	vca.vmiController, err = NewVMIController(vca.templateService,
+	vca.vmiController, err = vmi.NewController(vca.templateService,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.kvPodInformer,

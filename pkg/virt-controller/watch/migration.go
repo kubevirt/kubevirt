@@ -49,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
-	"kubevirt.io/kubevirt/pkg/util/status"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -107,7 +106,6 @@ type MigrationController struct {
 	podExpectations      *controller.UIDTrackingControllerExpectations
 	migrationStartLock   *sync.Mutex
 	clusterConfig        *virtconfig.ClusterConfig
-	statusUpdater        *status.MigrationStatusUpdater
 	hasSynced            func() bool
 
 	// the set of cancelled migrations before being handed off to virt-handler.
@@ -149,7 +147,6 @@ func NewMigrationController(templateService services.TemplateService,
 		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		migrationStartLock:   &sync.Mutex{},
 		clusterConfig:        clusterConfig,
-		statusUpdater:        status.NewMigrationStatusUpdater(clientset),
 		handOffMap:           make(map[string]struct{}),
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
@@ -508,7 +505,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	controller.SetSourcePod(migrationCopy, vmi, c.podIndexer)
 
 	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
-		err := c.statusUpdater.UpdateStatus(migrationCopy)
+		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).UpdateStatus(context.Background(), migrationCopy, v1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -719,7 +716,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	if err != nil {
 		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
 			err = fmt.Errorf("failed to create target pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, err)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, services.FailedToRenderLaunchManifestErrFormat, err)
 
 		} else {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating pod: %v", err)

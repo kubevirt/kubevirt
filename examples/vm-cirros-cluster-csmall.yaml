@@ -9,7 +9,7 @@ spec:
   instancetype:
     kind: VirtualMachineClusterInstancetype
     name: cluster-csmall
-  running: false
+  runStrategy: Halted
   template:
     metadata:
       labels:

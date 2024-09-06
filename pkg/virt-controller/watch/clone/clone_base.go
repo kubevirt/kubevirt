@@ -19,7 +19,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
-	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 type Event string
@@ -50,10 +49,8 @@ type VMCloneController struct {
 	pvcStore             cache.Store
 	recorder             record.EventRecorder
 
-	vmCloneQueue       workqueue.RateLimitingInterface
-	vmStatusUpdater    *status.VMStatusUpdater
-	cloneStatusUpdater *status.CloneStatusUpdater
-	hasSynced          func() bool
+	vmCloneQueue workqueue.RateLimitingInterface
+	hasSynced    func() bool
 }
 
 func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer, snapshotContentInformer, pvcInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*VMCloneController, error) {
@@ -67,8 +64,6 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		pvcStore:             pvcInformer.GetStore(),
 		recorder:             recorder,
 		vmCloneQueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
-		vmStatusUpdater:      status.NewVMStatusUpdater(client),
-		cloneStatusUpdater:   status.NewCloneStatusUpdater(client),
 	}
 
 	ctrl.hasSynced = func() bool {

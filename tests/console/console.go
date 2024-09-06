@@ -213,28 +213,6 @@ func NetBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	return err
 }
 
-// LinuxExpecter should be called early in the VMI boot process.
-// It will catch the first logs printed by the Linux kernel.
-// If this function succeeds, the VMI is guaranteed to be post-firmware (BIOS/EFI).
-func LinuxExpecter(vmi *v1.VirtualMachineInstance) error {
-	virtClient := kubevirt.Client()
-	expecter, _, err := NewExpecter(virtClient, vmi, consoleConnectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer expecter.Close()
-
-	_, _, res, err := expecter.ExpectSwitchCase([]expect.Caser{
-		&expect.Case{R: regexp.MustCompile(`\[ {4}0.0{6}\] Linux version`)},
-		&expect.Case{R: regexp.MustCompile(`systemd\[1\]:`)},
-	}, time.Minute)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Failed to find Linux boot logs in: %+v", res)
-	}
-
-	return err
-}
-
 // NewExpecter will connect to an already logged in VMI console and return the generated expecter it will wait `timeout` for the connection.
 func NewExpecter(
 	virtCli kubecli.KubevirtClient,

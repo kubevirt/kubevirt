@@ -344,8 +344,8 @@ func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
 
 	vmCopy.Status.RestoreInProgress = nil
 	vmCopy.Status.MemoryDumpRequest = nil
-
-	return true, t.controller.vmStatusUpdater.UpdateStatus(vmCopy)
+	_, err := t.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+	return true, err
 }
 
 func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
@@ -364,7 +364,8 @@ func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
 
 		// unfortunately, status Updater does not return the updated resource
 		// but the controller is watching VMs so will get notified
-		return t.controller.vmStatusUpdater.UpdateStatus(vmCopy)
+		_, err := t.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+		return err
 	}
 
 	return nil

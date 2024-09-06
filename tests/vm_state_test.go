@@ -5,18 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
@@ -28,9 +20,14 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.RequiresRWXFilesystemStorage, func() {
@@ -46,12 +43,12 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 		startVM := func(vm *v1.VirtualMachine) {
 			By("Starting the VM")
 			vm = libvmops.StartVirtualMachine(vm)
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the firmware is done so we don't send any keystroke to it")
-			err = console.LinuxExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			// Wait for cloud init to finish and start the agent inside the vmi.
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(4 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)
@@ -129,7 +126,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				}
 			}
 			vm := libvmi.NewVirtualMachine(vmi)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi.Namespace = vm.Namespace
 
@@ -161,7 +158,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			By("Stopping and removing the VM")
 			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, k8smetav1.DeleteOptions{})
+			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("[test_id:10818]TPM across migration and restart", true, false, "migrate", "restart"),
@@ -180,22 +177,22 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 
 			By("Waiting for the VMI to start")
 			Eventually(func() error {
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				return err
 			}, 300*time.Second, 1*time.Second).Should(Succeed())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Removing the VMI")
-			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, k8smetav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the PVC gets deleted")
 			Eventually(func() error {
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				if !errors.IsNotFound(err) {
 					return fmt.Errorf("VM %s not removed: %v", vmi.Name, err)
 				}
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), backendstorage.PVCForVMI(vmi), k8smetav1.GetOptions{})
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), backendstorage.PVCForVMI(vmi), metav1.GetOptions{})
 				if !errors.IsNotFound(err) {
 					return fmt.Errorf("PVC %s not removed: %v", backendstorage.PVCForVMI(vmi), err)
 				}
