@@ -242,10 +242,6 @@ func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
 	return config.isFeatureGateEnabled(AutoResourceLimitsGate)
 }
 
-func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.CommonInstancetypesDeploymentGate)
-}
-
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(AlignCPUsGate)
 }
