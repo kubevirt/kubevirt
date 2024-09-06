@@ -1,4 +1,4 @@
-package watch
+package vm
 
 import (
 	"context"
@@ -1173,7 +1173,7 @@ var _ = Describe("VirtualMachine", func() {
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulCreateReason)
 		},
 			Entry("with runStrategy set to Always", v1.RunStrategyAlways),
 			Entry("with runStrategy set to Once", v1.RunStrategyOnce),
@@ -1209,7 +1209,7 @@ var _ = Describe("VirtualMachine", func() {
 			controller.dataVolumeStore.Add(existingDataVolume)
 
 			sanityExecute(vm)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulCreateReason)
 
 			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).To(Succeed())
@@ -1251,7 +1251,7 @@ var _ = Describe("VirtualMachine", func() {
 			controller.dataVolumeStore.Add(existingDataVolume)
 
 			sanityExecute(vm)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulCreateReason)
 
 			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).To(Succeed())
@@ -1296,7 +1296,7 @@ var _ = Describe("VirtualMachine", func() {
 			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute(vm)
-			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulDeleteReason)
 
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(ContainSubstring("not found")))
@@ -1474,7 +1474,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				sanityExecute(vm)
 
-				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				testutils.ExpectEvent(recorder, successfulDeleteReason)
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
 
@@ -1510,7 +1510,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				sanityExecute(vm)
 
-				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				testutils.ExpectEvent(recorder, successfulDeleteReason)
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
 
@@ -1603,7 +1603,7 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 				if runStrategy != v1.RunStrategyManual && runStrategy != v1.RunStrategyOnce {
-					testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+					testutils.ExpectEvent(recorder, successfulDeleteReason)
 				}
 			},
 
@@ -1886,7 +1886,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.Created).To(BeFalse())
 			Expect(vm.Status.Ready).To(BeFalse())
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulCreateReason)
 
 			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1916,7 +1916,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.Created).To(BeFalse())
 			Expect(vm.Status.Ready).To(BeFalse())
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulCreateReason)
 
 			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1963,7 +1963,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmi).ToNot(BeNil())
 				}
 
-				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+				testutils.ExpectEvent(recorder, successfulCreateReason)
 
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2490,7 +2490,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmi).ToNot(BeNil())
 			}
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulCreateReason)
 
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -2517,7 +2517,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.Created).To(BeFalse())
 			Expect(vm.Status.Ready).To(BeFalse())
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulCreateReason)
 
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -2598,7 +2598,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			sanityExecute(vm)
 
-			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulDeleteReason)
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(ContainSubstring("not found")))
 		})
@@ -2647,7 +2647,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			sanityExecute(vm)
 
-			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulDeleteReason)
 
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(ContainSubstring("not found")))
@@ -2721,7 +2721,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			sanityExecute(vm)
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, successfulCreateReason)
 
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -2823,7 +2823,7 @@ var _ = Describe("VirtualMachine", func() {
 				"Status":  Equal(k8sv1.ConditionTrue),
 			}))
 
-			testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+			testutils.ExpectEvents(recorder, failedCreateReason)
 
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(ContainSubstring("not found")))
@@ -2855,7 +2855,7 @@ var _ = Describe("VirtualMachine", func() {
 				"Status":  Equal(k8sv1.ConditionTrue),
 			}))
 
-			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
+			testutils.ExpectEvents(recorder, failedDeleteReason)
 		})
 
 		unmarkReady := func(vmi *v1.VirtualMachineInstance) {
@@ -3107,7 +3107,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
-			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
+			testutils.ExpectEvents(recorder, failedDeleteReason)
 		})
 
 		It("should copy annotations from spec.template to vmi", func() {
@@ -4651,7 +4651,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Status":  Equal(k8sv1.ConditionTrue),
 					}))
 
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					testutils.ExpectEvents(recorder, failedCreateReason)
 
 				})
 
@@ -4677,7 +4677,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Reason": Equal("FailedCreate"),
 					}))
 
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					testutils.ExpectEvents(recorder, failedCreateReason)
 
 				})
 
@@ -4703,7 +4703,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Reason": Equal("FailedCreate"),
 					}))
 
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					testutils.ExpectEvents(recorder, failedCreateReason)
 
 				})
 
@@ -4738,7 +4738,7 @@ var _ = Describe("VirtualMachine", func() {
 							ContainSubstring("spec.template.spec.domain.cpu"),
 						),
 					}))
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					testutils.ExpectEvents(recorder, failedCreateReason)
 				})
 
 				It("should reject if an existing ControllerRevision is found with unexpected VirtualMachineInstancetypeSpec data", func() {
@@ -4771,7 +4771,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Message": ContainSubstring("found existing ControllerRevision with unexpected data"),
 					}))
 
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					testutils.ExpectEvents(recorder, failedCreateReason)
 				})
 			})
 
@@ -5164,7 +5164,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Message": ContainSubstring("got unexpected kind in PreferenceMatcher"),
 					}))
 
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					testutils.ExpectEvents(recorder, failedCreateReason)
 				})
 
 				It("should reject the request if a VirtualMachinePreference cannot be found", func() {
@@ -5189,7 +5189,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Reason": Equal("FailedCreate"),
 					}))
 
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					testutils.ExpectEvents(recorder, failedCreateReason)
 				})
 
 				It("should reject the request if a VirtualMachineClusterPreference cannot be found", func() {
@@ -5215,7 +5215,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Reason": Equal("FailedCreate"),
 					}))
 
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					testutils.ExpectEvents(recorder, failedCreateReason)
 
 				})
 
@@ -5253,7 +5253,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Message": ContainSubstring("found existing ControllerRevision with unexpected data"),
 					}))
 
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					testutils.ExpectEvents(recorder, failedCreateReason)
 				})
 
 				It("should apply preferences to default network interface", func() {

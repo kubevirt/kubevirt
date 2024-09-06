@@ -58,7 +58,7 @@ var _ = Describe("Pool", func() {
 		vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 
 		for _, name := range existing {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := defaultVirtualMachine()
 			vm.Name = name
 			vm.Namespace = namespace
 			vm.GenerateName = ""
@@ -273,8 +273,8 @@ var _ = Describe("Pool", func() {
 				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 				Name:               vm.ObjectMeta.Name,
 				UID:                vm.ObjectMeta.UID,
-				Controller:         &t,
-				BlockOwnerDeletion: &t,
+				Controller:         pointer.P(true),
+				BlockOwnerDeletion: pointer.P(true),
 			}}
 
 			markVmAsReady(vm)
@@ -334,8 +334,8 @@ var _ = Describe("Pool", func() {
 				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 				Name:               vm.ObjectMeta.Name,
 				UID:                vm.ObjectMeta.UID,
-				Controller:         &t,
-				BlockOwnerDeletion: &t,
+				Controller:         pointer.P(true),
+				BlockOwnerDeletion: pointer.P(true),
 			}}
 
 			vmi.Labels[v1.VirtualMachinePoolRevisionName] = oldPoolRevision.Name
@@ -740,4 +740,28 @@ func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine
 	virtcontroller.SetLatestApiVersionAnnotation(vm)
 	virtcontroller.SetLatestApiVersionAnnotation(pool)
 	return pool, vm.DeepCopy()
+}
+
+func defaultVirtualMachine() (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+	vmi := api.NewMinimalVMI("testvmi")
+	vmi.GenerateName = "prettyrandom"
+	vmi.Status.Phase = v1.Running
+	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineControllerFinalizer)
+	vm := watchtesting.VirtualMachineFromVMI("testvmi", vmi, true)
+	vm.Finalizers = append(vm.Finalizers, v1.VirtualMachineControllerFinalizer)
+	vmi.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+		Name:               vm.ObjectMeta.Name,
+		UID:                vm.ObjectMeta.UID,
+		Controller:         pointer.P(true),
+		BlockOwnerDeletion: pointer.P(true),
+	}}
+	virtcontroller.SetLatestApiVersionAnnotation(vmi)
+	virtcontroller.SetLatestApiVersionAnnotation(vm)
+	return vm, vmi
+}
+
+func markVmAsReady(vm *v1.VirtualMachine) {
+	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{Type: v1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
 }

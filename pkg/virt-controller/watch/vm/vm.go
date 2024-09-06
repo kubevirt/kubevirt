@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package vm
 
 import (
 	"context"
@@ -30,13 +30,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-
-	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
-	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
@@ -65,12 +58,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 )
 
@@ -108,15 +106,17 @@ const (
 )
 
 const (
-	HotPlugVolumeErrorReason  = "HotPlugVolumeError"
-	HotPlugCPUErrorReason     = "HotPlugCPUError"
-	MemoryDumpErrorReason     = "MemoryDumpError"
-	FailedUpdateErrorReason   = "FailedUpdateError"
-	FailedCreateReason        = "FailedCreate"
-	VMIFailedDeleteReason     = "FailedDelete"
-	AffinityChangeErrorReason = "AffinityChangeError"
-	HotPlugMemoryErrorReason  = "HotPlugMemoryError"
-	VolumesUpdateErrorReason  = "VolumesUpdateError"
+	hotPlugVolumeErrorReason  = "HotPlugVolumeError"
+	hotPlugCPUErrorReason     = "HotPlugCPUError"
+	hotPlugMemoryErrorReason  = "HotPlugMemoryError"
+	memoryDumpErrorReason     = "MemoryDumpError"
+	failedUpdateErrorReason   = "FailedUpdateError"
+	failedCreateReason        = "FailedCreate"
+	failedDeleteReason        = "FailedDelete"
+	successfulCreateReason    = "SuccessfulCreate"
+	successfulDeleteReason    = "SuccessfulDelete"
+	affinityChangeErrorReason = "AffinityChangeError"
+	volumesUpdateErrorReason  = "VolumesUpdateError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -1018,7 +1018,7 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Errorf(fetchingVMKeyErrFmt, err)
-		return vm, common.NewSyncError(err, FailedCreateReason)
+		return vm, common.NewSyncError(err, failedCreateReason)
 	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
@@ -1042,7 +1042,7 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 				vm, err = c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason)
+					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), failedDeleteReason)
 				}
 				// return to let the controller pick up the expected deletion
 			}
@@ -1060,7 +1060,7 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
 		vm, err = c.startVMI(vm)
 		if err != nil {
-			return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason)
+			return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), failedCreateReason)
 		}
 		return vm, nil
 
@@ -1081,12 +1081,12 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 				vm, err = c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason)
+					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), failedDeleteReason)
 				}
 
 				if vmiFailed {
 					if err := c.addStartRequest(vm); err != nil {
-						return vm, common.NewSyncError(fmt.Errorf("failed to patch VM with start action: %v", err), VMIFailedDeleteReason)
+						return vm, common.NewSyncError(fmt.Errorf("failed to patch VM with start action: %v", err), failedDeleteReason)
 					}
 				}
 			}
@@ -1109,7 +1109,7 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
 		vm, err = c.startVMI(vm)
 		if err != nil {
-			return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason)
+			return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), failedCreateReason)
 		}
 		return vm, nil
 
@@ -1123,7 +1123,7 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 				vm, err = c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason)
+					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), failedDeleteReason)
 				}
 				// return to let the controller pick up the expected deletion
 				return vm, nil
@@ -1134,7 +1134,7 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 
 				vm, err = c.startVMI(vm)
 				if err != nil {
-					return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason)
+					return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), failedCreateReason)
 				}
 			}
 		}
@@ -1155,14 +1155,14 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 					vmCopy.Spec.Running = &running
 				}
 				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
-				return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason)
+				return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), failedCreateReason)
 			}
 			return vm, nil
 		}
 		log.Log.Object(vm).Infof("%s with VMI in phase %s due to runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
 		vm, err = c.stopVMI(vm, vmi)
 		if err != nil {
-			return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason)
+			return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), failedDeleteReason)
 		}
 		return vm, nil
 	case virtv1.RunStrategyOnce:
@@ -1171,13 +1171,13 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 
 			vm, err = c.startVMI(vm)
 			if err != nil {
-				return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason)
+				return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), failedCreateReason)
 			}
 		}
 
 		return vm, nil
 	default:
-		return vm, common.NewSyncError(fmt.Errorf("unknown runstrategy: %s", runStrategy), FailedCreateReason)
+		return vm, common.NewSyncError(fmt.Errorf("unknown runstrategy: %s", runStrategy), failedCreateReason)
 	}
 }
 
@@ -1302,7 +1302,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	preferenceSpec, err := c.applyDevicePreferences(vm, vmi)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, failedCreateReason, "Error applying device preferences again: %v", err)
 		return vm, err
 	}
 
@@ -1318,7 +1318,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	err = c.applyInstancetypeToVmi(vm, vmi, preferenceSpec)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, failedCreateReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
 		return vm, err
 	}
 
@@ -1336,11 +1336,11 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s", controller.NamespacedKey(vmi.Namespace, vmi.Name))
 		c.expectations.CreationObserved(vmKey)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, failedCreateReason, "Error creating virtual machine instance: %v", err)
 		return vm, err
 	}
 	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
-	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
+	c.recorder.Eventf(vm, k8score.EventTypeNormal, successfulCreateReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 
 	return vm, nil
 }
@@ -1616,7 +1616,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	if err != nil {
 		// We can't observe a delete if it was not accepted by the server
 		c.expectations.DeletionObserved(vmKey, controller.VirtualMachineInstanceKey(vmi))
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", vmi.ObjectMeta.Name, err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, failedDeleteReason, "Error deleting virtual machine instance %s: %v", vmi.ObjectMeta.Name, err)
 		return vm, err
 	}
 
@@ -1626,7 +1626,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		return vm, nil
 	}
 
-	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
+	c.recorder.Eventf(vm, k8score.EventTypeNormal, successfulDeleteReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
 	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s with phase %s", controller.NamespacedKey(vmi.Namespace, vmi.Name), vmi.Status.Phase)
 
 	return vm, nil
@@ -3090,7 +3090,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			vm, err = c.stopVMI(vm, vmi)
 			if err != nil {
 				log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-				return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason), nil
+				return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), failedDeleteReason), nil
 			}
 		}
 		return vm, nil, nil
@@ -3108,29 +3108,29 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
-		return vm, common.NewSyncError(fmt.Errorf(fetchingRunStrategyErrFmt, err), FailedCreateReason), err
+		return vm, common.NewSyncError(fmt.Errorf(fetchingRunStrategyErrFmt, err), failedCreateReason), err
 	}
 
 	// Ensure we have ControllerRevisions of any instancetype or preferences referenced by the VM
 	err = c.instancetypeMethods.StoreControllerRevisions(vm)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to store Instancetype ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
-		return vm, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), FailedCreateVirtualMachineReason), nil
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, failedCreateReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
+		return vm, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), failedCreateReason), nil
 	}
 
 	// Once we have ControllerRevisions make sure they are fully up to date before proceeding
 	if err := c.instancetypeMethods.Upgrade(vm); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("failed to upgrade instancetype.kubevirt.io ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
-		return vm, common.NewSyncError(fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), FailedCreateVirtualMachineReason), nil
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, failedCreateReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
+		return vm, common.NewSyncError(fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), failedCreateReason), nil
 	}
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
 	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {
 		dataVolumesReady, err := c.handleDataVolumes(vm)
 		if err != nil {
-			return vm, common.NewSyncError(fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason), nil
+			return vm, common.NewSyncError(fmt.Errorf("Error encountered while creating DataVolumes: %v", err), failedCreateReason), nil
 		}
 
 		// not sure why we allow to proceed when halted but preserving legacy behavior
@@ -3170,36 +3170,36 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	}
 
 	if err := c.handleVolumeRequests(vmCopy, vmi); err != nil {
-		return vm, common.NewSyncError(fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason), nil
+		return vm, common.NewSyncError(fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), hotPlugVolumeErrorReason), nil
 	}
 
 	if err := c.handleMemoryDumpRequest(vmCopy, vmi); err != nil {
-		return vm, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), MemoryDumpErrorReason), nil
+		return vm, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memoryDumpErrorReason), nil
 	}
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
 	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() && !restartRequired && !conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
 		if err := c.handleCPUChangeRequest(vmCopy, vmi); err != nil {
-			return vm, common.NewSyncError(fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason), nil
+			return vm, common.NewSyncError(fmt.Errorf("Error encountered while handling CPU change request: %v", err), hotPlugCPUErrorReason), nil
 		}
 
 		if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
-			return vm, common.NewSyncError(fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason), nil
+			return vm, common.NewSyncError(fmt.Errorf("Error encountered while handling node affinity change request: %v", err), affinityChangeErrorReason), nil
 		}
 
 		if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
-			return vm, common.NewSyncError(fmt.Errorf("error encountered while handling memory hotplug requests: %v", err), HotPlugMemoryErrorReason), nil
+			return vm, common.NewSyncError(fmt.Errorf("error encountered while handling memory hotplug requests: %v", err), hotPlugMemoryErrorReason), nil
 		}
 
 		if err := c.handleVolumeUpdateRequest(vmCopy, vmi); err != nil {
-			return vm, common.NewSyncError(fmt.Errorf("error encountered while handling volumes update requests: %v", err), VolumesUpdateErrorReason), nil
+			return vm, common.NewSyncError(fmt.Errorf("error encountered while handling volumes update requests: %v", err), volumesUpdateErrorReason), nil
 		}
 	}
 
 	if !equality.Semantic.DeepEqual(vm.Spec, vmCopy.Spec) || !equality.Semantic.DeepEqual(vm.ObjectMeta, vmCopy.ObjectMeta) {
 		updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
-			return vm, common.NewSyncError(fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason), nil
+			return vm, common.NewSyncError(fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), failedUpdateErrorReason), nil
 		}
 		vm = updatedVm
 	} else {
