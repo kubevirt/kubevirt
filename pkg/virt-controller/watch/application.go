@@ -166,7 +166,7 @@ type VirtControllerApp struct {
 	poolController *PoolController
 	poolInformer   cache.SharedIndexInformer
 
-	vmController *vm.VMController
+	vmController *vm.Controller
 	vmInformer   cache.SharedIndexInformer
 
 	controllerRevisionInformer cache.SharedIndexInformer
@@ -722,7 +722,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		Clientset:                vca.clientSet,
 	}
 
-	vca.vmController, err = vm.NewVMController(
+	vca.vmController, err = vm.NewController(
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,

@@ -145,7 +145,7 @@ var _ = Describe("Application", func() {
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
 		)
 		app.rsController, _ = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
-		app.vmController, _ = vm.NewVMController(vmiInformer,
+		app.vmController, _ = vm.NewController(vmiInformer,
 			vmInformer,
 			dataVolumeInformer,
 			dataSourceInformer,

@@ -120,7 +120,7 @@ const (
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
 
-func NewVMController(vmiInformer cache.SharedIndexInformer,
+func NewController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	dataSourceInformer cache.SharedIndexInformer,
@@ -133,9 +133,9 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	netSynchronizer synchronizer,
-) (*VMController, error) {
+) (*Controller, error) {
 
-	c := &VMController{
+	c := &Controller{
 		Queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vm"),
 		vmiIndexer:             vmiInformer.GetIndexer(),
 		vmIndexer:              vmInformer.GetIndexer(),
@@ -232,7 +232,7 @@ type synchronizer interface {
 	Sync(*v1.VirtualMachine, *v1.VirtualMachineInstance) (*v1.VirtualMachine, error)
 }
 
-type VMController struct {
+type Controller struct {
 	clientset              kubecli.KubevirtClient
 	Queue                  workqueue.RateLimitingInterface
 	vmiIndexer             cache.Indexer
@@ -253,7 +253,7 @@ type VMController struct {
 	netSynchronizer synchronizer
 }
 
-func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
+func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting VirtualMachine controller.")
@@ -270,18 +270,18 @@ func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Stopping VirtualMachine controller.")
 }
 
-func (c *VMController) runWorker() {
+func (c *Controller) runWorker() {
 	for c.Execute() {
 	}
 }
 
-func (c *VMController) satisfiedExpectations(key string) bool {
+func (c *Controller) satisfiedExpectations(key string) bool {
 	return c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
 }
 
 var virtControllerVMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
-func (c *VMController) Execute() bool {
+func (c *Controller) Execute() bool {
 	key, quit := c.Queue.Get()
 	if quit {
 		return false
@@ -302,7 +302,7 @@ func (c *VMController) Execute() bool {
 	return true
 }
 
-func (c *VMController) execute(key string) error {
+func (c *Controller) execute(key string) error {
 	obj, exists, err := c.vmIndexer.GetByKey(key)
 	if err != nil {
 		return nil
@@ -405,7 +405,7 @@ func (c *VMController) execute(key string) error {
 	return syncErr
 }
 
-func (c *VMController) handleCloneDataVolume(vm *v1.VirtualMachine, dv *cdiv1.DataVolume) error {
+func (c *Controller) handleCloneDataVolume(vm *v1.VirtualMachine, dv *cdiv1.DataVolume) error {
 	if dv.Spec.SourceRef != nil {
 		return fmt.Errorf("DataVolume sourceRef not supported")
 	}
@@ -436,7 +436,7 @@ func (c *VMController) handleCloneDataVolume(vm *v1.VirtualMachine, dv *cdiv1.Da
 	return nil
 }
 
-func (c *VMController) authorizeDataVolume(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
+func (c *Controller) authorizeDataVolume(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
 	serviceAccountName := "default"
 	for _, vol := range vm.Spec.Template.Spec.Volumes {
 		if vol.ServiceAccount != nil {
@@ -457,7 +457,7 @@ func (c *VMController) authorizeDataVolume(vm *v1.VirtualMachine, dataVolume *cd
 	return nil
 }
 
-func (c *VMController) handleDataVolumes(vm *v1.VirtualMachine) (bool, error) {
+func (c *Controller) handleDataVolumes(vm *v1.VirtualMachine) (bool, error) {
 	ready := true
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
@@ -558,7 +558,7 @@ func applyMemoryDumpVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpe
 	return vmiSpec
 }
 
-func (c *VMController) generateVMIMemoryDumpVolumePatch(vmi *v1.VirtualMachineInstance, request *v1.VirtualMachineMemoryDumpRequest, addVolume bool) error {
+func (c *Controller) generateVMIMemoryDumpVolumePatch(vmi *v1.VirtualMachineInstance, request *v1.VirtualMachineMemoryDumpRequest, addVolume bool) error {
 	foundRemoveVol := false
 	for _, volume := range vmi.Spec.Volumes {
 		if request.ClaimName == volume.Name {
@@ -605,7 +605,7 @@ func needUpdatePVCMemoryDumpAnnotation(pvc *k8sv1.PersistentVolumeClaim, request
 	return !hasAnnotation || (request.Phase == v1.MemoryDumpUnmounting && annotation != *request.FileName) || (request.Phase == v1.MemoryDumpFailed && annotation != failedMemoryDump)
 }
 
-func (c *VMController) updatePVCMemoryDumpAnnotation(vm *v1.VirtualMachine) error {
+func (c *Controller) updatePVCMemoryDumpAnnotation(vm *v1.VirtualMachine) error {
 	request := vm.Status.MemoryDumpRequest
 	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.pvcStore)
 	if err != nil {
@@ -634,7 +634,7 @@ func (c *VMController) updatePVCMemoryDumpAnnotation(vm *v1.VirtualMachine) erro
 	return nil
 }
 
-func (c *VMController) VMICPUsPatch(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) VMICPUsPatch(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	patchSet := patch.New(
 		patch.WithTest("/spec/domain/cpu/sockets", vmi.Spec.Domain.CPU.Sockets),
 		patch.WithReplace("/spec/domain/cpu/sockets", vm.Spec.Template.Spec.Domain.CPU.Sockets),
@@ -681,7 +681,7 @@ func (c *VMController) VMICPUsPatch(vm *v1.VirtualMachine, vmi *v1.VirtualMachin
 	return err
 }
 
-func (c *VMController) handleCPUChangeRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) handleCPUChangeRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return nil
 	}
@@ -735,7 +735,7 @@ func (c *VMController) handleCPUChangeRequest(vm *v1.VirtualMachine, vmi *v1.Vir
 	return nil
 }
 
-func (c *VMController) VMNodeSelectorPatch(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) VMNodeSelectorPatch(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	patchset := patch.New()
 	if vm.Spec.Template.Spec.NodeSelector != nil {
 		vmNodeSelector := maps.Clone(vm.Spec.Template.Spec.NodeSelector)
@@ -761,7 +761,7 @@ func (c *VMController) VMNodeSelectorPatch(vm *v1.VirtualMachine, vmi *v1.Virtua
 	return err
 }
 
-func (c *VMController) VMIAffinityPatch(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) VMIAffinityPatch(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	patchset := patch.New()
 	if vm.Spec.Template.Spec.Affinity != nil {
 		if vmi.Spec.Affinity == nil {
@@ -784,7 +784,7 @@ func (c *VMController) VMIAffinityPatch(vm *v1.VirtualMachine, vmi *v1.VirtualMa
 	return err
 }
 
-func (c *VMController) handleAffinityChangeRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) handleAffinityChangeRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return nil
 	}
@@ -817,7 +817,7 @@ func (c *VMController) handleAffinityChangeRequest(vm *v1.VirtualMachine, vmi *v
 	return nil
 }
 
-func (c *VMController) handleMemoryDumpRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) handleMemoryDumpRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	if vm.Status.MemoryDumpRequest == nil {
 		return nil
 	}
@@ -874,7 +874,7 @@ func (c *VMController) handleMemoryDumpRequest(vm *v1.VirtualMachine, vmi *v1.Vi
 	return nil
 }
 
-func (c *VMController) handleVolumeRequests(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) handleVolumeRequests(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	if len(vm.Status.VolumeRequests) == 0 {
 		return nil
 	}
@@ -915,7 +915,7 @@ func (c *VMController) handleVolumeRequests(vm *v1.VirtualMachine, vmi *v1.Virtu
 	return nil
 }
 
-func (c *VMController) handleVolumeUpdateRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) handleVolumeUpdateRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	if !c.clusterConfig.VolumesUpdateStrategyEnabled() {
 		return nil
 	}
@@ -997,7 +997,7 @@ func (c *VMController) handleVolumeUpdateRequest(vm *v1.VirtualMachine, vmi *v1.
 	return nil
 }
 
-func (c *VMController) addStartRequest(vm *v1.VirtualMachine) error {
+func (c *Controller) addStartRequest(vm *v1.VirtualMachine) error {
 	desiredStateChangeRequests := append(vm.Status.StateChangeRequests, v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
 	patchSet := patch.New()
 	patchSet.AddOption(patch.WithAdd("/status/stateChangeRequests", desiredStateChangeRequests))
@@ -1013,7 +1013,7 @@ func (c *VMController) addStartRequest(vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func (c *VMController) syncRunStrategy(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, runStrategy v1.VirtualMachineRunStrategy) (*v1.VirtualMachine, common.SyncError) {
+func (c *Controller) syncRunStrategy(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, runStrategy v1.VirtualMachineRunStrategy) (*v1.VirtualMachine, common.SyncError) {
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Errorf(fetchingVMKeyErrFmt, err)
@@ -1181,7 +1181,7 @@ func (c *VMController) syncRunStrategy(vm *v1.VirtualMachine, vmi *v1.VirtualMac
 }
 
 // isVMIStartExpected determines whether a VMI is expected to be started for this VM.
-func (c *VMController) isVMIStartExpected(vm *v1.VirtualMachine) bool {
+func (c *Controller) isVMIStartExpected(vm *v1.VirtualMachine) bool {
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Errorf(fetchingVMKeyErrFmt, err)
@@ -1198,7 +1198,7 @@ func (c *VMController) isVMIStartExpected(vm *v1.VirtualMachine) bool {
 }
 
 // isVMIStopExpected determines whether a VMI is expected to be stopped for this VM.
-func (c *VMController) isVMIStopExpected(vm *v1.VirtualMachine) bool {
+func (c *Controller) isVMIStopExpected(vm *v1.VirtualMachine) bool {
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Errorf(fetchingVMKeyErrFmt, err)
@@ -1248,7 +1248,7 @@ func isSetToStart(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	}
 }
 
-func (c *VMController) cleanupRestartRequired(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func (c *Controller) cleanupRestartRequired(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if vmConditionManager.HasCondition(vm, v1.VirtualMachineRestartRequired) {
 		vmConditionManager.RemoveCondition(vm, v1.VirtualMachineRestartRequired)
@@ -1257,7 +1257,7 @@ func (c *VMController) cleanupRestartRequired(vm *v1.VirtualMachine) (*v1.Virtua
 	return vm, c.deleteVMRevisions(vm)
 }
 
-func (c *VMController) startVMI(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func (c *Controller) startVMI(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	ready, err := c.handleDataVolumes(vm)
 	if err != nil {
 		return vm, err
@@ -1354,7 +1354,7 @@ func setGenerationAnnotationOnVmi(generation int64, vmi *v1.VirtualMachineInstan
 	vmi.SetAnnotations(annotations)
 }
 
-func (c *VMController) patchVmGenerationAnnotationOnVmi(generation int64, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) patchVmGenerationAnnotationOnVmi(generation int64, vmi *v1.VirtualMachineInstance) error {
 	origVmi := vmi.DeepCopy()
 
 	setGenerationAnnotationOnVmi(generation, vmi)
@@ -1429,7 +1429,7 @@ type VirtualMachineRevisionData struct {
 //
 // Note that if only the Run Strategy of the VM has changed, the generaiton
 // annotation will still be bumped, since this does not affect the VMI.
-func (c *VMController) conditionallyBumpGenerationAnnotationOnVmi(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) conditionallyBumpGenerationAnnotationOnVmi(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	if vmi == nil || vm == nil {
 		return nil
 	}
@@ -1595,7 +1595,7 @@ func syncStartFailureStatus(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 }
 
 // here is stop
-func (c *VMController) stopVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
+func (c *Controller) stopVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		// nothing to do
 		return vm, nil
@@ -1660,7 +1660,7 @@ func patchVMRevision(vm *v1.VirtualMachine) ([]byte, error) {
 	return patch, err
 }
 
-func (c *VMController) deleteOlderVMRevision(vm *v1.VirtualMachine) (bool, error) {
+func (c *Controller) deleteOlderVMRevision(vm *v1.VirtualMachine) (bool, error) {
 	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return false, err
@@ -1695,7 +1695,7 @@ func (c *VMController) deleteOlderVMRevision(vm *v1.VirtualMachine) (bool, error
 	return createNotNeeded, nil
 }
 
-func (c *VMController) deleteVMRevisions(vm *v1.VirtualMachine) error {
+func (c *Controller) deleteVMRevisions(vm *v1.VirtualMachine) error {
 	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return err
@@ -1726,7 +1726,7 @@ func (c *VMController) deleteVMRevisions(vm *v1.VirtualMachine) error {
 
 // getControllerRevision attempts to get the controller revision by name and
 // namespace. It will return (nil, nil) if the controller revision is not found.
-func (c *VMController) getControllerRevision(namespace string, name string) (*appsv1.ControllerRevision, error) {
+func (c *Controller) getControllerRevision(namespace string, name string) (*appsv1.ControllerRevision, error) {
 	cr, err := c.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		if apiErrors.IsNotFound(err) {
@@ -1738,7 +1738,7 @@ func (c *VMController) getControllerRevision(namespace string, name string) (*ap
 	return cr, nil
 }
 
-func (c *VMController) getVMSpecForKey(key string) (*v1.VirtualMachineSpec, error) {
+func (c *Controller) getVMSpecForKey(key string) (*v1.VirtualMachineSpec, error) {
 	obj, exists, err := c.crIndexer.GetByKey(key)
 	if err != nil {
 		return nil, err
@@ -1767,7 +1767,7 @@ func genFromKey(key string) (int64, error) {
 	return strconv.ParseInt(genString, 10, 64)
 }
 
-func (c *VMController) getLastVMRevisionSpec(vm *v1.VirtualMachine) (*v1.VirtualMachineSpec, error) {
+func (c *Controller) getLastVMRevisionSpec(vm *v1.VirtualMachine) (*v1.VirtualMachineSpec, error) {
 	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return nil, err
@@ -1803,7 +1803,7 @@ func (c *VMController) getLastVMRevisionSpec(vm *v1.VirtualMachine) (*v1.Virtual
 	return c.getVMSpecForKey(key)
 }
 
-func (c *VMController) createVMRevision(vm *v1.VirtualMachine) (string, error) {
+func (c *Controller) createVMRevision(vm *v1.VirtualMachine) (string, error) {
 	vmRevisionName := getVMRevisionName(vm.UID, vm.Generation)
 	createNotNeeded, err := c.deleteOlderVMRevision(vm)
 	if err != nil || createNotNeeded {
@@ -1835,7 +1835,7 @@ func hasCompletedMemoryDump(vm *v1.VirtualMachine) bool {
 }
 
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
-func (c *VMController) setupVMIFromVM(vm *v1.VirtualMachine) *v1.VirtualMachineInstance {
+func (c *Controller) setupVMIFromVM(vm *v1.VirtualMachine) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
 	vmi.ObjectMeta = *vm.Spec.Template.ObjectMeta.DeepCopy()
 	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
@@ -1864,7 +1864,7 @@ func (c *VMController) setupVMIFromVM(vm *v1.VirtualMachine) *v1.VirtualMachineI
 	return vmi
 }
 
-func (c *VMController) applyInstancetypeToVmi(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+func (c *Controller) applyInstancetypeToVmi(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 
 	instancetypeSpec, err := c.instancetypeMethods.FindInstancetypeSpec(vm)
 	if err != nil {
@@ -1944,7 +1944,7 @@ func setupStableFirmwareUUID(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstan
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
 // from the VirtualMachine cache which run in this namespace
-func (c *VMController) listControllerFromNamespace(namespace string) ([]*v1.VirtualMachine, error) {
+func (c *Controller) listControllerFromNamespace(namespace string) ([]*v1.VirtualMachine, error) {
 	objs, err := c.vmIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
@@ -1960,7 +1960,7 @@ func (c *VMController) listControllerFromNamespace(namespace string) ([]*v1.Virt
 // getMatchingControllers returns the list of VirtualMachines which matches
 // the labels of the VirtualMachineInstance from the listener cache. If there are no matching
 // controllers nothing is returned
-func (c *VMController) getMatchingControllers(vmi *v1.VirtualMachineInstance) (vms []*v1.VirtualMachine) {
+func (c *Controller) getMatchingControllers(vmi *v1.VirtualMachineInstance) (vms []*v1.VirtualMachine) {
 	controllers, err := c.listControllerFromNamespace(vmi.ObjectMeta.Namespace)
 	if err != nil {
 		return nil
@@ -1977,7 +1977,7 @@ func (c *VMController) getMatchingControllers(vmi *v1.VirtualMachineInstance) (v
 }
 
 // When a vmi is created, enqueue the VirtualMachine that manages it and update its expectations.
-func (c *VMController) addVirtualMachineInstance(obj interface{}) {
+func (c *Controller) addVirtualMachineInstance(obj interface{}) {
 	vmi := obj.(*v1.VirtualMachineInstance)
 
 	log.Log.Object(vmi).V(4).Info("VirtualMachineInstance added.")
@@ -2026,7 +2026,7 @@ func (c *VMController) addVirtualMachineInstance(obj interface{}) {
 // When a vmi is updated, figure out what VirtualMachine manage it and wake them
 // up. If the labels of the vmi have changed we need to awaken both the old
 // and new VirtualMachine. old and cur must be *metav1.VirtualMachineInstance types.
-func (c *VMController) updateVirtualMachineInstance(old, cur interface{}) {
+func (c *Controller) updateVirtualMachineInstance(old, cur interface{}) {
 	curVMI := cur.(*v1.VirtualMachineInstance)
 	oldVMI := old.(*v1.VirtualMachineInstance)
 	if curVMI.ResourceVersion == oldVMI.ResourceVersion {
@@ -2091,7 +2091,7 @@ func (c *VMController) updateVirtualMachineInstance(old, cur interface{}) {
 
 // When a vmi is deleted, enqueue the VirtualMachine that manages the vmi and update its expectations.
 // obj could be an *metav1.VirtualMachineInstance, or a DeletionFinalStateUnknown marker item.
-func (c *VMController) deleteVirtualMachineInstance(obj interface{}) {
+func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 
 	// When a delete is dropped, the relist will notice a vmi in the store not
@@ -2128,7 +2128,7 @@ func (c *VMController) deleteVirtualMachineInstance(obj interface{}) {
 	c.enqueueVm(vm)
 }
 
-func (c *VMController) addDataVolume(obj interface{}) {
+func (c *Controller) addDataVolume(obj interface{}) {
 	dataVolume := obj.(*cdiv1.DataVolume)
 	if dataVolume.DeletionTimestamp != nil {
 		c.deleteDataVolume(dataVolume)
@@ -2152,7 +2152,7 @@ func (c *VMController) addDataVolume(obj interface{}) {
 	}
 	c.queueVMsForDataVolume(dataVolume)
 }
-func (c *VMController) updateDataVolume(old, cur interface{}) {
+func (c *Controller) updateDataVolume(old, cur interface{}) {
 	curDataVolume := cur.(*cdiv1.DataVolume)
 	oldDataVolume := old.(*cdiv1.DataVolume)
 	if curDataVolume.ResourceVersion == oldDataVolume.ResourceVersion {
@@ -2185,7 +2185,7 @@ func (c *VMController) updateDataVolume(old, cur interface{}) {
 	c.queueVMsForDataVolume(curDataVolume)
 }
 
-func (c *VMController) deleteDataVolume(obj interface{}) {
+func (c *Controller) deleteDataVolume(obj interface{}) {
 	dataVolume, ok := obj.(*cdiv1.DataVolume)
 	// When a delete is dropped, the relist will notice a dataVolume in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -2213,7 +2213,7 @@ func (c *VMController) deleteDataVolume(obj interface{}) {
 	c.queueVMsForDataVolume(dataVolume)
 }
 
-func (c *VMController) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
+func (c *Controller) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 	var vmOwner string
 	if controllerRef := metav1.GetControllerOf(dataVolume); controllerRef != nil {
 		if vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef); vm != nil {
@@ -2245,19 +2245,19 @@ func (c *VMController) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 	}
 }
 
-func (c *VMController) addVirtualMachine(obj interface{}) {
+func (c *Controller) addVirtualMachine(obj interface{}) {
 	c.enqueueVm(obj)
 }
 
-func (c *VMController) deleteVirtualMachine(obj interface{}) {
+func (c *Controller) deleteVirtualMachine(obj interface{}) {
 	c.enqueueVm(obj)
 }
 
-func (c *VMController) updateVirtualMachine(_, curr interface{}) {
+func (c *Controller) updateVirtualMachine(_, curr interface{}) {
 	c.enqueueVm(curr)
 }
 
-func (c *VMController) enqueueVm(obj interface{}) {
+func (c *Controller) enqueueVm(obj interface{}) {
 	logger := log.Log
 	vm := obj.(*v1.VirtualMachine)
 	key, err := controller.KeyFunc(vm)
@@ -2268,14 +2268,14 @@ func (c *VMController) enqueueVm(obj interface{}) {
 	c.Queue.Add(key)
 }
 
-func (c *VMController) getPatchFinalizerOps(oldFinalizers, newFinalizers []string) ([]byte, error) {
+func (c *Controller) getPatchFinalizerOps(oldFinalizers, newFinalizers []string) ([]byte, error) {
 	return patch.New(
 		patch.WithTest("/metadata/finalizers", oldFinalizers),
 		patch.WithReplace("/metadata/finalizers", newFinalizers)).
 		GeneratePayload()
 }
 
-func (c *VMController) removeVMIFinalizer(vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) removeVMIFinalizer(vmi *v1.VirtualMachineInstance) error {
 	if !controller.HasFinalizer(vmi, v1.VirtualMachineControllerFinalizer) {
 		return nil
 	}
@@ -2299,7 +2299,7 @@ func (c *VMController) removeVMIFinalizer(vmi *v1.VirtualMachineInstance) error 
 	return err
 }
 
-func (c *VMController) removeVMFinalizer(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func (c *Controller) removeVMFinalizer(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	if !controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer) {
 		return vm, nil
 	}
@@ -2323,7 +2323,7 @@ func (c *VMController) removeVMFinalizer(vm *v1.VirtualMachine) (*v1.VirtualMach
 	return vm, err
 }
 
-func (c *VMController) addVMFinalizer(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func (c *Controller) addVMFinalizer(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	if controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer) {
 		return vm, nil
 	}
@@ -2367,7 +2367,7 @@ func parseGeneration(revisionName string, logger *log.FilteredLogger) *int64 {
 // the corresponding controller revision, and then patch the vmi with the
 // generation annotation. If the controller revision does not exist,
 // (nil, nil) will be returned.
-func (c *VMController) patchVmGenerationFromControllerRevision(vmi *v1.VirtualMachineInstance, logger *log.FilteredLogger) (generation *int64, err error) {
+func (c *Controller) patchVmGenerationFromControllerRevision(vmi *v1.VirtualMachineInstance, logger *log.FilteredLogger) (generation *int64, err error) {
 	generation = nil
 
 	cr, err := c.getControllerRevision(vmi.Namespace, vmi.Status.VirtualMachineRevisionName)
@@ -2389,7 +2389,7 @@ func (c *VMController) patchVmGenerationFromControllerRevision(vmi *v1.VirtualMa
 
 // syncGenerationInfo will update the vm.Status with the ObservedGeneration
 // from the vmi and the DesiredGeneration from the vm current generation.
-func (c *VMController) syncGenerationInfo(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+func (c *Controller) syncGenerationInfo(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, logger *log.FilteredLogger) error {
 	if vm == nil || vmi == nil {
 		return errors.New("passed nil pointer")
 	}
@@ -2416,7 +2416,7 @@ func (c *VMController) syncGenerationInfo(vm *v1.VirtualMachine, vmi *v1.Virtual
 	return nil
 }
 
-func (c *VMController) updateStatus(vm, vmOrig *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, syncErr common.SyncError, logger *log.FilteredLogger) error {
+func (c *Controller) updateStatus(vm, vmOrig *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, syncErr common.SyncError, logger *log.FilteredLogger) error {
 	key := controller.VirtualMachineKey(vmOrig)
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: vmOrig.Name})
 
@@ -2469,7 +2469,7 @@ func (c *VMController) updateStatus(vm, vmOrig *v1.VirtualMachine, vmi *v1.Virtu
 	return nil
 }
 
-func (c *VMController) setPrintableStatus(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
+func (c *Controller) setPrintableStatus(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
 	// For each status, there's a separate function that evaluates
 	// whether the status is "true" for the given VM.
 	//
@@ -2511,7 +2511,7 @@ func (c *VMController) setPrintableStatus(vm *v1.VirtualMachine, vmi *v1.Virtual
 }
 
 // isVirtualMachineStatusCrashLoopBackOff determines whether the VM status field should be set to "CrashLoop".
-func (c *VMController) isVirtualMachineStatusCrashLoopBackOff(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusCrashLoopBackOff(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	if vmi != nil && !vmi.IsFinal() {
 		return false
 	} else if c.isVMIStartExpected(vm) {
@@ -2534,7 +2534,7 @@ func (c *VMController) isVirtualMachineStatusCrashLoopBackOff(vm *v1.VirtualMach
 }
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Stopped".
-func (c *VMController) isVirtualMachineStatusStopped(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusStopped(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	if vmi != nil {
 		return vmi.IsFinal()
 	}
@@ -2543,12 +2543,12 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *v1.VirtualMachine, vmi 
 }
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
-func (c *VMController) isVirtualMachineStatusProvisioning(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusProvisioning(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	return storagetypes.HasDataVolumeProvisioning(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeStore)
 }
 
 // isVirtualMachineStatusWaitingForVolumeBinding
-func (c *VMController) isVirtualMachineStatusWaitingForVolumeBinding(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusWaitingForVolumeBinding(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	if !isSetToStart(vm, vmi) {
 		return false
 	}
@@ -2557,7 +2557,7 @@ func (c *VMController) isVirtualMachineStatusWaitingForVolumeBinding(vm *v1.Virt
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
-func (c *VMController) isVirtualMachineStatusStarting(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusStarting(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	if vmi == nil {
 		return c.isVMIStartExpected(vm)
 	}
@@ -2566,7 +2566,7 @@ func (c *VMController) isVirtualMachineStatusStarting(vm *v1.VirtualMachine, vmi
 }
 
 // isVirtualMachineStatusRunning determines whether the VM status field should be set to "Running".
-func (c *VMController) isVirtualMachineStatusRunning(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusRunning(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	if vmi == nil {
 		return false
 	}
@@ -2578,7 +2578,7 @@ func (c *VMController) isVirtualMachineStatusRunning(vm *v1.VirtualMachine, vmi 
 }
 
 // isVirtualMachineStatusPaused determines whether the VM status field should be set to "Paused".
-func (c *VMController) isVirtualMachineStatusPaused(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusPaused(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	if vmi == nil {
 		return false
 	}
@@ -2590,23 +2590,23 @@ func (c *VMController) isVirtualMachineStatusPaused(vm *v1.VirtualMachine, vmi *
 }
 
 // isVirtualMachineStatusStopping determines whether the VM status field should be set to "Stopping".
-func (c *VMController) isVirtualMachineStatusStopping(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusStopping(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	return vmi != nil && !vmi.IsFinal() &&
 		(vmi.IsMarkedForDeletion() || c.isVMIStopExpected(vm))
 }
 
 // isVirtualMachineStatusTerminating determines whether the VM status field should be set to "Terminating".
-func (c *VMController) isVirtualMachineStatusTerminating(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusTerminating(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	return vm.ObjectMeta.DeletionTimestamp != nil
 }
 
 // isVirtualMachineStatusMigrating determines whether the VM status field should be set to "Migrating".
-func (c *VMController) isVirtualMachineStatusMigrating(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusMigrating(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	return vmi != nil && migrations.IsMigrating(vmi)
 }
 
 // isVirtualMachineStatusUnschedulable determines whether the VM status field should be set to "FailedUnschedulable".
-func (c *VMController) isVirtualMachineStatusUnschedulable(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusUnschedulable(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
 		v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
 		k8sv1.ConditionFalse,
@@ -2614,19 +2614,19 @@ func (c *VMController) isVirtualMachineStatusUnschedulable(vm *v1.VirtualMachine
 }
 
 // isVirtualMachineStatusErrImagePull determines whether the VM status field should be set to "ErrImagePull"
-func (c *VMController) isVirtualMachineStatusErrImagePull(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusErrImagePull(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	syncCond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, v1.VirtualMachineInstanceSynchronized)
 	return syncCond != nil && syncCond.Status == k8sv1.ConditionFalse && syncCond.Reason == controller.ErrImagePullReason
 }
 
 // isVirtualMachineStatusImagePullBackOff determines whether the VM status field should be set to "ImagePullBackOff"
-func (c *VMController) isVirtualMachineStatusImagePullBackOff(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusImagePullBackOff(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	syncCond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, v1.VirtualMachineInstanceSynchronized)
 	return syncCond != nil && syncCond.Status == k8sv1.ConditionFalse && syncCond.Reason == controller.ImagePullBackOffReason
 }
 
 // isVirtualMachineStatusPvcNotFound determines whether the VM status field should be set to "FailedPvcNotFound".
-func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusPvcNotFound(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
 		v1.VirtualMachineInstanceSynchronized,
 		k8sv1.ConditionFalse,
@@ -2634,7 +2634,7 @@ func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *v1.VirtualMachine, 
 }
 
 // isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"
-func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func (c *Controller) isVirtualMachineStatusDataVolumeError(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
 	err := storagetypes.HasDataVolumeErrors(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeStore)
 	if err != nil {
 		log.Log.Object(vm).Errorf("%v", err)
@@ -2753,7 +2753,7 @@ func processFailureCondition(vm *v1.VirtualMachine, syncErr common.SyncError) {
 	})
 }
 
-func (c *VMController) isTrimFirstChangeRequestNeeded(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (clearChangeRequest bool) {
+func (c *Controller) isTrimFirstChangeRequestNeeded(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (clearChangeRequest bool) {
 	if len(vm.Status.StateChangeRequests) == 0 {
 		return false
 	}
@@ -2797,7 +2797,7 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *v1.VirtualMachine, vmi
 	return false
 }
 
-func (c *VMController) updateMemoryDumpRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
+func (c *Controller) updateMemoryDumpRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
 	if vm.Status.MemoryDumpRequest == nil {
 		return
 	}
@@ -2880,7 +2880,7 @@ func (c *VMController) updateMemoryDumpRequest(vm *v1.VirtualMachine, vmi *v1.Vi
 	vm.Status.MemoryDumpRequest = updatedMemoryDumpReq
 }
 
-func (c *VMController) trimDoneVolumeRequests(vm *v1.VirtualMachine) {
+func (c *Controller) trimDoneVolumeRequests(vm *v1.VirtualMachine) {
 	if len(vm.Status.VolumeRequests) == 0 {
 		return
 	}
@@ -3006,7 +3006,7 @@ func setRestartRequired(vm *v1.VirtualMachine, message string) {
 }
 
 // addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
-func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *v1.VirtualMachineSpec, vm *v1.VirtualMachine) bool {
+func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *v1.VirtualMachineSpec, vm *v1.VirtualMachine) bool {
 	if lastSeenVMSpec == nil {
 		return false
 	}
@@ -3058,7 +3058,7 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *v1.VirtualMach
 	return false
 }
 
-func (c *VMController) sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, key string) (*v1.VirtualMachine, common.SyncError, error) {
+func (c *Controller) sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, key string) (*v1.VirtualMachine, common.SyncError, error) {
 
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
@@ -3211,7 +3211,7 @@ func (c *VMController) sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
-func (c *VMController) resolveControllerRef(namespace string, controllerRef *metav1.OwnerReference) *v1.VirtualMachine {
+func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav1.OwnerReference) *v1.VirtualMachine {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
 	if controllerRef.Kind != v1.VirtualMachineGroupVersionKind.Kind {
@@ -3249,7 +3249,7 @@ func autoAttachInputDevice(vmi *v1.VirtualMachineInstance) {
 	)
 }
 
-func (c *VMController) applyDevicePreferences(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
+func (c *Controller) applyDevicePreferences(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	if vm.Spec.Preference != nil {
 		preferenceSpec, err := c.instancetypeMethods.FindPreferenceSpec(vm)
 		if err != nil {
@@ -3262,7 +3262,7 @@ func (c *VMController) applyDevicePreferences(vm *v1.VirtualMachine, vmi *v1.Vir
 	return nil, nil
 }
 
-func (c *VMController) handleMemoryHotplugRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
+func (c *Controller) handleMemoryHotplugRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) error {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return nil
 	}
