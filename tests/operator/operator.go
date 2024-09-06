@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -2677,17 +2678,45 @@ spec:
 
 	Context("[Serial] Deployment of common-instancetypes", Serial, func() {
 		var (
-			fgEnabled     bool
-			appComponent  string
-			labelSelector string
+			originalConfig *v1.CommonInstancetypesDeployment
+			appComponent   string
+			labelSelector  string
 		)
 
+		updateConfigAndWait := func(config v1.KubeVirtConfiguration) {
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+			testsuite.EnsureKubevirtReady()
+		}
+
+		defaultDeployment := func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.CommonInstancetypesDeployment = nil
+			updateConfigAndWait(kv.Spec.Configuration)
+		}
+
+		enableDeployment := func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
+				Enabled: pointer.Bool(true),
+			}
+			updateConfigAndWait(kv.Spec.Configuration)
+		}
+
+		disableDeployment := func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
+				Enabled: pointer.Bool(false),
+			}
+			updateConfigAndWait(kv.Spec.Configuration)
+		}
+
 		BeforeEach(func() {
-			if fgEnabled = checks.HasFeature(virtconfig.CommonInstancetypesDeploymentGate); fgEnabled {
-				// Disable feature gate for cases in which the feature gate was enabled
-				// prior to running any of these tests. (e.g. in downstream)
-				tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-				testsuite.EnsureKubevirtReady()
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			originalConfig = kv.Spec.Configuration.CommonInstancetypesDeployment.DeepCopy()
+
+			// Do nothing if the deployment is already default
+			if originalConfig != nil {
+				defaultDeployment()
 			}
 
 			appComponent = apply.GetAppComponent(util2.GetCurrentKv(virtClient))
@@ -2698,13 +2727,14 @@ spec:
 		})
 
 		AfterEach(func() {
-			// Reset the feature gate to its original value after running any of these tests.
-			if fgEnabled {
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-			} else {
-				tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			// Do nothing if the current config already matches the original
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			if reflect.DeepEqual(originalConfig, kv.Spec.Configuration.CommonInstancetypesDeployment) {
+				return
 			}
-			testsuite.EnsureKubevirtReady()
+
+			kv.Spec.Configuration.CommonInstancetypesDeployment = originalConfig.DeepCopy()
+			updateConfigAndWait(kv.Spec.Configuration)
 		})
 
 		expectResourcesToNotExist := func() {
@@ -2727,27 +2757,25 @@ spec:
 			Expect(preferences.Items).ToNot(BeEmpty())
 		}
 
-		It("Should not deploy common-instancetypes when feature gate is disabled", func() {
-			expectResourcesToNotExist()
-		})
-
-		It("Should deploy common-instancetypes when feature gate is enabled", func() {
-			tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-			testsuite.EnsureKubevirtReady()
+		It("Should deploy common-instancetypes by default", func() {
 			expectResourcesToExist()
 		})
 
-		It("Should remove common-instancetypes when feature gate is disabled", func() {
+		It("Should not deploy common-instancetypes when disabled", func() {
+			disableDeployment()
 			expectResourcesToNotExist()
+		})
 
-			tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-			testsuite.EnsureKubevirtReady()
+		It("Should deploy common-instancetypes when enabled", func() {
+			enableDeployment()
+			expectResourcesToExist()
+		})
 
+		It("Should remove common-instancetypes when disabled after being explictly enabled", func() {
+			enableDeployment()
 			expectResourcesToExist()
 
-			tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-			testsuite.EnsureKubevirtReady()
-
+			disableDeployment()
 			expectResourcesToNotExist()
 		})
 
@@ -2756,6 +2784,11 @@ spec:
 				appComponentChanged = "something"
 				managedByChanged    = "someone"
 			)
+
+			BeforeEach(func() {
+				By("Ensuring deployment is disabled")
+				disableDeployment()
+			})
 
 			It("of instancetypes", func() {
 				By("Getting instancetypes to be deployed by virt-operator")
@@ -2776,9 +2809,8 @@ spec:
 				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, appComponentChanged))
 				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, managedByChanged))
 
-				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-				testsuite.EnsureKubevirtReady()
+				By("Enabling deployment and waiting for KubeVirt to be ready")
+				enableDeployment()
 
 				By("Verifying virt-operator took ownership of the instancetype")
 				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Get(context.Background(), instancetype.Name, metav1.GetOptions{})
@@ -2806,9 +2838,8 @@ spec:
 				Expect(preference.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, appComponentChanged))
 				Expect(preference.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, managedByChanged))
 
-				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-				testsuite.EnsureKubevirtReady()
+				By("Enabling deployment and waiting for KubeVirt to be ready")
+				enableDeployment()
 
 				By("Verifying virt-operator took ownership of the preference")
 				preference, err = virtClient.VirtualMachineClusterPreference().Get(context.Background(), preference.Name, metav1.GetOptions{})
@@ -2819,12 +2850,6 @@ spec:
 		})
 
 		Context("Should delete resources not in install strategy", func() {
-			BeforeEach(func() {
-				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-				testsuite.EnsureKubevirtReady()
-			})
-
 			It("with instancetypes", func() {
 				instancetype := &v1beta1.VirtualMachineClusterInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2882,10 +2907,6 @@ spec:
 			var preferredTopology = v1beta1.PreferThreads
 
 			It("to instancetypes", func() {
-				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-				testsuite.EnsureKubevirtReady()
-
 				By("Getting the deployed instancetypes")
 				instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred())
@@ -2919,10 +2940,6 @@ spec:
 			})
 
 			It("to preferences", func() {
-				By("Enabling the feature gate and waiting for KubeVirt to be ready")
-				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
-				testsuite.EnsureKubevirtReady()
-
 				By("Getting the deployed preferencess")
 				preferences, err := virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred())
