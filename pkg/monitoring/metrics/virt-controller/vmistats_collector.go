@@ -20,6 +20,7 @@
 package virt_controller
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
@@ -61,7 +62,7 @@ var (
 			Name: "kubevirt_vmi_info",
 			Help: "Information about VirtualMachineInstances.",
 		},
-		[]string{"node", "namespace", "name", "phase", "os", "workload", "flavor", "instance_type", "preference", "guest_os_kernel_release", "guest_os_machine", "guest_os_name", "guest_os_version_id"},
+		[]string{"node", "namespace", "name", "phase", "os", "workload", "flavor", "instance_type", "preference", "guest_os_kernel_release", "guest_os_machine", "guest_os_name", "guest_os_version_id", "evictable"},
 	)
 
 	vmiEvictionBlocker = operatormetrics.NewGaugeVec(
@@ -114,6 +115,7 @@ func collectVMIInfo(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Coll
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				getVMIPhase(vmi), os, workload, flavor, instanceType, preference,
 				kernelRelease, machine, name, versionID,
+				strconv.FormatBool(isVMEvictable(vmi)),
 			},
 			Value: 1.0,
 		})
@@ -243,18 +245,22 @@ func getEvictionBlocker(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.
 	var cr []operatormetrics.CollectorResult
 
 	for _, vmi := range vmis {
+		nonEvictable := 1.0
+		if isVMEvictable(vmi) {
+			nonEvictable = 0.0
+		}
+
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmiEvictionBlocker,
 			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name},
-			Value:  getNonEvictableVM(vmi),
+			Value:  nonEvictable,
 		})
 	}
 
 	return cr
 }
 
-func getNonEvictableVM(vmi *k6tv1.VirtualMachineInstance) float64 {
-	setVal := 0.0
+func isVMEvictable(vmi *k6tv1.VirtualMachineInstance) bool {
 	if migrations.VMIMigratableOnEviction(clusterConfig, vmi) {
 		vmiIsMigratableCond := controller.NewVirtualMachineInstanceConditionManager().
 			GetCondition(vmi, k6tv1.VirtualMachineInstanceIsMigratable)
@@ -262,9 +268,9 @@ func getNonEvictableVM(vmi *k6tv1.VirtualMachineInstance) float64 {
 		// As this metric is used for user alert we refer to be conservative - so if the VirtualMachineInstanceIsMigratable
 		// condition is still not set we treat the VM as if it's "not migratable"
 		if vmiIsMigratableCond == nil || vmiIsMigratableCond.Status == k8sv1.ConditionFalse {
-			setVal = 1.0
+			return false
 		}
 
 	}
-	return setVal
+	return true
 }

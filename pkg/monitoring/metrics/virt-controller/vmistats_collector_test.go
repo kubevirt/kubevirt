@@ -37,6 +37,8 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("VMI Stats Collector", func() {
+	clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
+
 	Context("VMI info", func() {
 		setupTestVMICollector()
 
@@ -129,7 +131,7 @@ var _ = Describe("VMI Stats Collector", func() {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(13))
+				Expect(cr.Labels).To(HaveLen(14))
 
 				Expect(cr.Labels[3]).To(Equal(getVMIPhase(vmis[i])))
 				os, workload, flavor := getVMISystemInfo(vmis[i])
@@ -161,7 +163,7 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(13))
+			Expect(cr.Labels).To(HaveLen(14))
 			Expect(cr.Labels[7]).To(Equal(expected))
 		},
 			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
@@ -194,7 +196,7 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(13))
+			Expect(cr.Labels).To(HaveLen(14))
 			Expect(cr.Labels[8]).To(Equal(expected))
 		},
 			Entry("with no preference expect <none>", k6tv1.PreferenceAnnotation, "", "<none>"),
@@ -211,7 +213,6 @@ var _ = Describe("VMI Stats Collector", func() {
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
 		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
 			vmiInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
-			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
 
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
