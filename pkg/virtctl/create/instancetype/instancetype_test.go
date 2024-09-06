@@ -19,6 +19,8 @@
 package instancetype_test
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -26,13 +28,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 
+	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/instancetype"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -104,7 +110,7 @@ var _ = Describe("create instancetype", func() {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
 			Expect(err).ToNot(HaveOccurred())
 
-			spec, err := getInstancetypeSpec(bytes, namespaced)
+			spec, err := testAdmissionAndGetSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.CPU.Guest).To(Equal(uint32(2)))
 			Expect(spec.Memory.Guest).To(Equal(resource.MustParse("256Mi")))
@@ -125,7 +131,7 @@ var _ = Describe("create instancetype", func() {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
 			Expect(err).ToNot(HaveOccurred())
 
-			spec, err := getInstancetypeSpec(bytes, namespaced)
+			spec, err := testAdmissionAndGetSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.GPUs).To(HaveLen(1))
 			Expect(spec.GPUs[0].Name).To(Equal("gpu1"))
@@ -147,7 +153,7 @@ var _ = Describe("create instancetype", func() {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
 			Expect(err).ToNot(HaveOccurred())
 
-			spec, err := getInstancetypeSpec(bytes, namespaced)
+			spec, err := testAdmissionAndGetSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.HostDevices).To(HaveLen(1))
 			Expect(spec.HostDevices[0].Name).To(Equal("device1"))
@@ -169,7 +175,7 @@ var _ = Describe("create instancetype", func() {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
 			Expect(err).ToNot(HaveOccurred())
 
-			spec, err := getInstancetypeSpec(bytes, namespaced)
+			spec, err := testAdmissionAndGetSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*spec.IOThreadsPolicy).To(Equal(policy))
 		},
@@ -203,7 +209,7 @@ func setFlag(flag, parameter string) string {
 	return fmt.Sprintf("--%s=%s", flag, parameter)
 }
 
-func getInstancetypeSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
+func testAdmissionAndGetSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -211,12 +217,36 @@ func getInstancetypeSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.Vi
 	case *instancetypev1beta1.VirtualMachineInstancetype:
 		Expect(namespaced).To(BeTrue())
 		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.SingularResourceName))
+		Expect(testAdmission(obj, instancetype.PluralResourceName, &admitters.InstancetypeAdmitter{})).To(BeTrue())
 		return &obj.Spec, nil
 	case *instancetypev1beta1.VirtualMachineClusterInstancetype:
 		Expect(namespaced).To(BeFalse())
 		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.ClusterSingularResourceName))
+		Expect(testAdmission(obj, instancetype.ClusterPluralResourceName, &admitters.ClusterInstancetypeAdmitter{})).To(BeTrue())
 		return &obj.Spec, nil
 	}
 
 	return nil, errors.New("object must be VirtualMachineInstance or VirtualMachineClusterInstancetype")
+}
+
+func testAdmission(obj runtime.Object, resource string, admitter validating_webhooks.Admitter) bool {
+	bytes, err := json.Marshal(obj)
+	Expect(err).ToNot(HaveOccurred())
+
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	ar := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Operation: admissionv1.Create,
+			Resource: metav1.GroupVersionResource{
+				Group:    gvk.Group,
+				Version:  gvk.Version,
+				Resource: resource,
+			},
+			Object: runtime.RawExtension{
+				Raw: bytes,
+			},
+		},
+	}
+
+	return admitter.Admit(context.Background(), ar).Allowed
 }

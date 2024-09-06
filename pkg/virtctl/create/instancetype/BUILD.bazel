@@ -26,6 +26,8 @@ go_test(
     ],
     deps = [
         ":go_default_library",
+        "//pkg/util/webhooks/validating-webhooks:go_default_library",
+        "//pkg/virt-api/webhooks/validating-webhook/admitters:go_default_library",
         "//pkg/virtctl/create:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
@@ -35,7 +37,9 @@ go_test(
         "//tests/clientcmd:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/admission/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
     ],
 )
