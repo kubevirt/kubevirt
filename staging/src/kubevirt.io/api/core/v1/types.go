@@ -2503,6 +2503,16 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	// +kubebuilder:validation:Enum=Stage;LiveUpdate
 	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
+
+	// CommonInstancetypesDeployment controls the deployment of common-instancetypes resources
+	// +nullable
+	CommonInstancetypesDeployment *CommonInstancetypesDeployment `json:"commonInstancetypesDeployment,omitempty"`
+}
+
+type CommonInstancetypesDeployment struct {
+	// Enabled controls the deployment of common-instancetypes resources, defaults to True.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 type VMRolloutStrategy string
