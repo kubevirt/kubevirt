@@ -19,18 +19,24 @@
 package preference_test
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 
+	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/preference"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -74,7 +80,7 @@ var _ = Describe("create preference", func() {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
 			Expect(err).ToNot(HaveOccurred())
 
-			spec, err := getPreferenceSpec(bytes, namespaced)
+			spec, err := testAdmissionAndGetSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.Volumes.PreferredStorageClassName).To(Equal(storageClass))
 		},
@@ -92,7 +98,7 @@ var _ = Describe("create preference", func() {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
 			Expect(err).ToNot(HaveOccurred())
 
-			spec, err := getPreferenceSpec(bytes, namespaced)
+			spec, err := testAdmissionAndGetSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.Machine.PreferredMachineType).To(Equal(machineType))
 		},
@@ -110,7 +116,7 @@ var _ = Describe("create preference", func() {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
 			Expect(err).ToNot(HaveOccurred())
 
-			spec, err := getPreferenceSpec(bytes, namespaced)
+			spec, err := testAdmissionAndGetSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.CPU.PreferredCPUTopology).ToNot(BeNil())
 			Expect(*spec.CPU.PreferredCPUTopology).To(Equal(topology))
@@ -140,7 +146,7 @@ func setFlag(flag, parameter string) string {
 	return fmt.Sprintf("--%s=%s", flag, parameter)
 }
 
-func getPreferenceSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
+func testAdmissionAndGetSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -148,12 +154,36 @@ func getPreferenceSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.Virt
 	case *instancetypev1beta1.VirtualMachinePreference:
 		Expect(namespaced).To(BeTrue())
 		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.SingularPreferenceResourceName))
+		Expect(testAdmission(obj, instancetype.PluralPreferenceResourceName, &admitters.PreferenceAdmitter{})).To(BeTrue())
 		return &obj.Spec, nil
 	case *instancetypev1beta1.VirtualMachineClusterPreference:
 		Expect(namespaced).To(BeFalse())
 		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.ClusterSingularPreferenceResourceName))
+		Expect(testAdmission(obj, instancetype.ClusterPluralPreferenceResourceName, &admitters.ClusterPreferenceAdmitter{})).To(BeTrue())
 		return &obj.Spec, nil
 	}
 
 	return nil, fmt.Errorf("object must be VirtualMachinePreference or VirtualMachineClusterPreference")
+}
+
+func testAdmission(obj runtime.Object, resource string, admitter validating_webhooks.Admitter) bool {
+	bytes, err := json.Marshal(obj)
+	Expect(err).ToNot(HaveOccurred())
+
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	ar := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Operation: admissionv1.Create,
+			Resource: metav1.GroupVersionResource{
+				Group:    gvk.Group,
+				Version:  gvk.Version,
+				Resource: resource,
+			},
+			Object: runtime.RawExtension{
+				Raw: bytes,
+			},
+		},
+	}
+
+	return admitter.Admit(context.Background(), ar).Allowed
 }
