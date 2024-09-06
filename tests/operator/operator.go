@@ -2757,21 +2757,13 @@ spec:
 			Expect(preferences.Items).ToNot(BeEmpty())
 		}
 
-		It("Should deploy common-instancetypes by default", func() {
+		It("Should deploy common-instancetypes according to KubeVirt configurable", func() {
+			// Default is to deploy the resources
 			expectResourcesToExist()
-		})
 
-		It("Should not deploy common-instancetypes when disabled", func() {
 			disableDeployment()
 			expectResourcesToNotExist()
-		})
 
-		It("Should deploy common-instancetypes when enabled", func() {
-			enableDeployment()
-			expectResourcesToExist()
-		})
-
-		It("Should remove common-instancetypes when disabled after being explictly enabled", func() {
 			enableDeployment()
 			expectResourcesToExist()
 
