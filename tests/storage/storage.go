@@ -77,6 +77,8 @@ const (
 	startingVMInstance           = "Starting VirtualMachineInstance"
 	hostDiskName                 = "host-disk"
 	diskImgName                  = "disk.img"
+	customHostPath               = "custom-host-path"
+	diskCustomHostPath           = "disk-custom-host-path"
 )
 
 const (
@@ -529,15 +531,15 @@ var _ = SIGDescribe("Storage", func() {
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
-				libstorage.CreateHostPathPv(tests.CustomHostPath, testsuite.GetTestNamespace(nil), testsuite.HostPathCustom)
-				libstorage.CreateHostPathPVC(tests.CustomHostPath, testsuite.GetTestNamespace(nil), "1Gi")
+				libstorage.CreateHostPathPv(customHostPath, testsuite.GetTestNamespace(nil), testsuite.HostPathCustom)
+				libstorage.CreateHostPathPVC(customHostPath, testsuite.GetTestNamespace(nil), "1Gi")
 			})
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3138]should start vmi multiple times", func() {
 				vmi = libvmi.New(
 					libvmi.WithPersistentVolumeClaim("disk0", tests.DiskAlpineHostPath),
-					libvmi.WithPersistentVolumeClaim("disk1", tests.DiskCustomHostPath),
+					libvmi.WithPersistentVolumeClaim("disk1", diskCustomHostPath),
 					libvmi.WithResourceMemory("256Mi"),
 					libvmi.WithRng())
 

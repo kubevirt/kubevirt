@@ -60,9 +60,7 @@ import (
 )
 
 const (
-	CustomHostPath     = "custom-host-path"
 	DiskAlpineHostPath = "disk-alpine-host-path"
-	DiskCustomHostPath = "disk-custom-host-path"
 )
 
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
