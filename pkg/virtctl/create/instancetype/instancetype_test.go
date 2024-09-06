@@ -27,12 +27,15 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/instancetype"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -108,6 +111,7 @@ var _ = Describe("create instancetype", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.CPU.Guest).To(Equal(uint32(2)))
 			Expect(spec.Memory.Guest).To(Equal(resource.MustParse("256Mi")))
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
 		},
 			Entry("VirtualMachineInstancetype", true),
 			Entry("VirtualMachineClusterInstancetype", false),
@@ -130,6 +134,7 @@ var _ = Describe("create instancetype", func() {
 			Expect(spec.GPUs).To(HaveLen(1))
 			Expect(spec.GPUs[0].Name).To(Equal("gpu1"))
 			Expect(spec.GPUs[0].DeviceName).To(Equal("nvidia"))
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
 		},
 			Entry("VirtualMachineInstancetype", true),
 			Entry("VirtualMachineClusterInstancetype", false),
@@ -152,6 +157,7 @@ var _ = Describe("create instancetype", func() {
 			Expect(spec.HostDevices).To(HaveLen(1))
 			Expect(spec.HostDevices[0].Name).To(Equal("device1"))
 			Expect(spec.HostDevices[0].DeviceName).To(Equal("intel"))
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
 		},
 			Entry("VirtualMachineInstancetype", true),
 			Entry("VirtualMachineClusterInstancetype", false),
@@ -172,6 +178,7 @@ var _ = Describe("create instancetype", func() {
 			spec, err := getInstancetypeSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*spec.IOThreadsPolicy).To(Equal(policy))
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
 		},
 			Entry("VirtualMachineInstacetype set to auto", v1.IOThreadsPolicyAuto, true),
 			Entry("VirtualMachineInstacetype set to shared", v1.IOThreadsPolicyShared, true),
@@ -219,4 +226,8 @@ func getInstancetypeSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.Vi
 	}
 
 	return nil, errors.New("object must be VirtualMachineInstance or VirtualMachineClusterInstancetype")
+}
+
+func validateInstancetypeSpec(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) []k8sv1.StatusCause {
+	return admitters.ValidateInstanceTypeSpec(field.NewPath("spec"), spec)
 }

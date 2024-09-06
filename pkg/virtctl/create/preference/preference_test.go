@@ -25,12 +25,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/preference"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -77,6 +80,7 @@ var _ = Describe("create preference", func() {
 			spec, err := getPreferenceSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.Volumes.PreferredStorageClassName).To(Equal(storageClass))
+			Expect(validatePreferenceSpec(spec)).To(BeEmpty())
 		},
 			Entry("VirtualMachinePreference", "testing-storage", true),
 			Entry("VirtualMachineClusterPreference", "hostpath-provisioner", false),
@@ -95,6 +99,7 @@ var _ = Describe("create preference", func() {
 			spec, err := getPreferenceSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.Machine.PreferredMachineType).To(Equal(machineType))
+			Expect(validatePreferenceSpec(spec)).To(BeEmpty())
 		},
 			Entry("VirtualMachinePreference", "pc-i440fx-2.10", true),
 			Entry("VirtualMachineClusterPreference", "pc-q35-2.10", false),
@@ -114,6 +119,7 @@ var _ = Describe("create preference", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec.CPU.PreferredCPUTopology).ToNot(BeNil())
 			Expect(*spec.CPU.PreferredCPUTopology).To(Equal(topology))
+			Expect(validatePreferenceSpec(spec)).To(BeEmpty())
 		},
 			Entry("VirtualMachinePreference", instancetypev1beta1.DeprecatedPreferCores, true),
 			Entry("VirtualMachineClusterPreference", instancetypev1beta1.DeprecatedPreferThreads, false),
@@ -156,4 +162,8 @@ func getPreferenceSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.Virt
 	}
 
 	return nil, fmt.Errorf("object must be VirtualMachinePreference or VirtualMachineClusterPreference")
+}
+
+func validatePreferenceSpec(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) []k8sv1.StatusCause {
+	return admitters.ValidatePreferenceSpec(field.NewPath("spec"), spec)
 }
