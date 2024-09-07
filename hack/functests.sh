@@ -59,7 +59,6 @@ function functest() {
 	    -conn-check-ipv6-address=${conn_check_ipv6_address} \
 	    -conn-check-dns=${conn_check_dns} \
 	    -migration-network-nic=${migration_network_nic} \
-	    -disable-custom-selinux-policy \
 	    ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-sriov).* ]] || [[ ${KUBEVIRT_SINGLE_STACK} == "true" ]]; then
         echo "Will skip test asserting the cluster is in dual-stack mode."
