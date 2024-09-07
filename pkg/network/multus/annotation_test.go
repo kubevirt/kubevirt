@@ -137,7 +137,7 @@ var _ = Describe("Multus annotations", func() {
 
 	Context("a multus annotation pool with elements", func() {
 		BeforeEach(func() {
-			multusAnnotationPool := multus.NetworkAnnotationPool{}
+			multusAnnotationPool = multus.NetworkAnnotationPool{}
 			multusAnnotationPool.Add(multus.NewAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, "net1"))
 		})
 
