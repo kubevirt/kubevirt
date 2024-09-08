@@ -111,6 +111,10 @@ func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 
 	n.logger.Infof("node-labeller is running")
 
+	if !n.hasTSCCounter() {
+		n.logger.Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
+	}
+
 	n.clusterConfig.SetConfigModifiedCallback(func() {
 		n.queue.Add(n.host)
 	})
@@ -247,8 +251,6 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 	if n.hasTSCCounter() {
 		newLabels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", n.cpuCounter.Frequency)
 		newLabels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%t", n.cpuCounter.Scaling == "yes")
-	} else {
-		n.logger.Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
 	}
 
 	for feature := range hostCpuModel.requiredFeatures {
