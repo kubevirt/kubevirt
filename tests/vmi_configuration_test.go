@@ -2782,10 +2782,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
 
-				emulator, err := tests.GetRunningVMIEmulator(vmi)
+				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				emulator = filepath.Base(emulator)
 
+				emulator := filepath.Base(domSpec.Devices.Emulator)
 				pidCmd := []string{"pidof", emulator}
 				qemuPid, err := exec.ExecuteCommandOnPod(readyPod, "compute", pidCmd)
 				// do not check for kvm-pit thread if qemu is not in use

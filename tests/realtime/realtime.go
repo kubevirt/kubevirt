@@ -88,9 +88,9 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			By("Validating VCPU scheduler placement information")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			emulator, err := tests.GetRunningVMIEmulator(vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			emulator = filepath.Base(emulator)
+			emulator := filepath.Base(domSpec.Devices.Emulator)
 			psOutput, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
@@ -131,9 +131,9 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 			By("Validating VCPU scheduler placement information")
-			emulator, err := tests.GetRunningVMIEmulator(vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			emulator = filepath.Base(emulator)
+			emulator := filepath.Base(domSpec.Devices.Emulator)
 			psOutput, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",

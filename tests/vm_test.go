@@ -1066,9 +1066,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Triggering a segfault in qemu")
-					emulator, err := tests.GetRunningVMIEmulator(vmi)
+					domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 					Expect(err).ToNot(HaveOccurred())
-					emulator = filepath.Base(emulator)
+					emulator := filepath.Base(domSpec.Devices.Emulator)
 					libpod.RunCommandOnVmiPod(vmi, []string{"killall", "-11", emulator})
 
 					By("Ensuring the VM stops")
