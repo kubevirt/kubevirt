@@ -485,7 +485,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot2)
 				vmSource.Add(vm)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -506,7 +506,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -529,7 +529,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				}
 				vmSource.Add(vm)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot2)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -566,7 +566,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				addVirtualMachineSnapshot(vmSnapshot)
 				expectVMSnapshotContentDelete(vmSnapshotClient, content.Name)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
 
@@ -591,7 +591,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 					IncludedVolumes: []string{diskName},
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 				updatedSnapshot2 := updatedSnapshot.DeepCopy()
 				updatedSnapshot2.Finalizers = []string{}
 
@@ -630,7 +630,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSnapshotContentSource.Add(content)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 				expectVMSnapshotPatch(vmSnapshotClient, updatedSnapshot, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -657,7 +657,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContentSource.Add(content)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				expectVMSnapshotContentDelete(vmSnapshotClient, updatedContent.Name)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 				expectVMSnapshotPatch(vmSnapshotClient, updatedSnapshot, updatedSnapshot2)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -680,7 +680,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -704,7 +704,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -728,7 +728,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -748,7 +748,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				vmSnapshotSource.Add(vmSnapshot)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
@@ -773,7 +773,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -797,7 +797,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -827,7 +827,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -859,7 +859,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -880,7 +880,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -910,7 +910,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -931,7 +931,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
@@ -965,7 +965,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
@@ -1027,7 +1027,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
@@ -1064,7 +1064,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
@@ -1094,7 +1094,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSource.Add(vm)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -1134,7 +1134,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSource.Add(vm)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -1158,7 +1158,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				updatedSnapshot.Status.Error = vmSnapshotContent.Status.Error
 
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
 			})
@@ -1180,7 +1180,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError))
 
 				expectVMSnapshotContentDelete(vmSnapshotClient, vmSnapshotContent.Name)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
 			})
@@ -1202,7 +1202,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				updatedSnapshot.Status.Indications = append(updatedSnapshot.Status.Indications, snapshotv1.VMSnapshotGuestAgentIndication)
 
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
 			})
@@ -1239,7 +1239,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				expectVMSnapshotContentDelete(vmSnapshotClient, vmSnapshotContent.Name)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
 			})
@@ -1355,7 +1355,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					pvcSource.Add(&pvcs[i])
 				}
 
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedVMSnapshot)
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
@@ -1410,7 +1410,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(nil)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedVMSnapshot)
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
@@ -1617,7 +1617,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				if ct != nil {
 					vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(nil)
 				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedVMSnapshot)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
@@ -2190,8 +2190,8 @@ var _ = Describe("Snapshot controlleer", func() {
 					expectedSnapshotUpdate2 := expectedSnapshotUpdate.DeepCopy()
 					expectedSnapshotUpdate.ResourceVersion = "2"
 
-					expectVMSnapshotUpdate(vmSnapshotClient, expectedSnapshotUpdate2)
-					expectVMSnapshotUpdate(vmSnapshotClient, expectedSnapshotUpdate)
+					expectVMSnapshotUpdateStatus(vmSnapshotClient, expectedSnapshotUpdate2)
+					expectVMSnapshotUpdateStatus(vmSnapshotClient, expectedSnapshotUpdate)
 
 					instancetypeObj = createInstancetype()
 					instancetypeCR, err = instancetype.CreateControllerRevision(vm, instancetypeObj)
@@ -2353,14 +2353,15 @@ func expectVMSnapshotContentPatch(client *kubevirtfake.Clientset, orig, newObj *
 	})
 }
 
-func expectVMSnapshotUpdate(client *kubevirtfake.Clientset, vmSnapshot *snapshotv1.VirtualMachineSnapshot) {
+func expectVMSnapshotUpdateStatus(client *kubevirtfake.Clientset, vmSnapshot *snapshotv1.VirtualMachineSnapshot) {
 	client.Fake.PrependReactor("update", "virtualmachinesnapshots", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		update, ok := action.(testing.UpdateAction)
 		Expect(ok).To(BeTrue())
+		Expect(update.GetSubresource()).To(Equal("status"))
 
 		updateObj := update.GetObject().(*snapshotv1.VirtualMachineSnapshot)
 
-		return reflect.DeepEqual(updateObj, vmSnapshot), update.GetObject(), nil
+		return reflect.DeepEqual(updateObj.Status, vmSnapshot.Status), update.GetObject(), nil
 	})
 }
 
