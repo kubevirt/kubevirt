@@ -13,7 +13,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // ThisPod fetches the latest state of the pod. If the object does not exist, nil is returned.
@@ -87,13 +87,13 @@ func AllPDBs(namespace string) func() ([]policyv1.PodDisruptionBudget, error) {
 }
 
 // ThisDV fetches the latest state of the DataVolume. If the object does not exist, nil is returned.
-func ThisDV(dv *v1beta1.DataVolume) func() (*v1beta1.DataVolume, error) {
+func ThisDV(dv *cdiv1.DataVolume) func() (*cdiv1.DataVolume, error) {
 	return ThisDVWith(dv.Namespace, dv.Name)
 }
 
 // ThisDVWith fetches the latest state of the DataVolume based on namespace and name. If the object does not exist, nil is returned.
-func ThisDVWith(namespace string, name string) func() (*v1beta1.DataVolume, error) {
-	return func() (p *v1beta1.DataVolume, err error) {
+func ThisDVWith(namespace string, name string) func() (*cdiv1.DataVolume, error) {
+	return func() (p *cdiv1.DataVolume, err error) {
 		virtClient := kubevirt.Client()
 		p, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {

@@ -28,7 +28,7 @@ import (
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/memorydump"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
@@ -77,8 +77,8 @@ var _ = Describe("MemoryDump", func() {
 	updateCDIConfig := func() {
 		config, err := cdiClient.CdiV1beta1().CDIConfigs().Get(context.Background(), configName, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		config.Status.FilesystemOverhead.StorageClass = make(map[string]v1beta1.Percent)
-		config.Status.FilesystemOverhead.StorageClass["fakeSC"] = v1beta1.Percent("0.1")
+		config.Status.FilesystemOverhead.StorageClass = make(map[string]cdiv1.Percent)
+		config.Status.FilesystemOverhead.StorageClass["fakeSC"] = cdiv1.Percent("0.1")
 		_, err = cdiClient.CdiV1beta1().CDIConfigs().Update(context.Background(), config, k8smetav1.UpdateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -493,17 +493,17 @@ var _ = Describe("MemoryDump", func() {
 	})
 })
 
-func cdiConfigInit() (cdiConfig *v1beta1.CDIConfig) {
-	cdiConfig = &v1beta1.CDIConfig{
+func cdiConfigInit() (cdiConfig *cdiv1.CDIConfig) {
+	cdiConfig = &cdiv1.CDIConfig{
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name: configName,
 		},
-		Spec: v1beta1.CDIConfigSpec{
+		Spec: cdiv1.CDIConfigSpec{
 			UploadProxyURLOverride: nil,
 		},
-		Status: v1beta1.CDIConfigStatus{
-			FilesystemOverhead: &v1beta1.FilesystemOverhead{
-				Global: v1beta1.Percent(defaultFSOverhead),
+		Status: cdiv1.CDIConfigStatus{
+			FilesystemOverhead: &cdiv1.FilesystemOverhead{
+				Global: cdiv1.Percent(defaultFSOverhead),
 			},
 		},
 	}

@@ -39,7 +39,7 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
@@ -619,9 +619,9 @@ func (t *vmRestoreTarget) reconcileDataVolumes(restoredVM *kubevirtv1.VirtualMac
 		}
 		if dv != nil {
 			waitingDV = waitingDV ||
-				(dv.Status.Phase != v1beta1.Succeeded &&
-					dv.Status.Phase != v1beta1.WaitForFirstConsumer &&
-					dv.Status.Phase != v1beta1.PendingPopulation)
+				(dv.Status.Phase != cdiv1.Succeeded &&
+					dv.Status.Phase != cdiv1.WaitForFirstConsumer &&
+					dv.Status.Phase != cdiv1.PendingPopulation)
 			continue
 		}
 		created, err := t.createDataVolume(restoredVM, dvt)
@@ -778,7 +778,7 @@ func (t *vmRestoreTarget) createDataVolume(restoredVM *kubevirtv1.VirtualMachine
 		newDataVolume.Annotations = make(map[string]string)
 	}
 	newDataVolume.Annotations[RestoreNameAnnotation] = t.vmRestore.Name
-	newDataVolume.Annotations[v1beta1.AnnPrePopulated] = "true"
+	newDataVolume.Annotations[cdiv1.AnnPrePopulated] = "true"
 
 	if _, err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(restoredVM.Namespace).Create(context.Background(), newDataVolume, metav1.CreateOptions{}); err != nil {
 		t.controller.Recorder.Eventf(t.vm, corev1.EventTypeWarning, restoreDataVolumeCreateErrorEvent, "Error creating restore DataVolume %s: %v", newDataVolume.Name, err)
@@ -926,7 +926,7 @@ func patchVM(vm *kubevirtv1.VirtualMachine, patches []string) (*kubevirtv1.Virtu
 	return vm, nil
 }
 
-func (ctrl *VMRestoreController) getDV(namespace, name string) (*v1beta1.DataVolume, error) {
+func (ctrl *VMRestoreController) getDV(namespace, name string) (*cdiv1.DataVolume, error) {
 	objKey := cacheKeyFunc(namespace, name)
 	obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(objKey)
 	if err != nil {
@@ -937,7 +937,7 @@ func (ctrl *VMRestoreController) getDV(namespace, name string) (*v1beta1.DataVol
 		return nil, nil
 	}
 
-	return obj.(*v1beta1.DataVolume).DeepCopy(), nil
+	return obj.(*cdiv1.DataVolume).DeepCopy(), nil
 }
 
 func (ctrl *VMRestoreController) getPVC(namespace, name string) (*corev1.PersistentVolumeClaim, error) {
