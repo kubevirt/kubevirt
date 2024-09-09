@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
@@ -183,7 +183,7 @@ func (ctrl *VMRestoreController) handleDataVolume(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if dv, ok := obj.(*v1beta1.DataVolume); ok {
+	if dv, ok := obj.(*cdiv1.DataVolume); ok {
 		restoreName, ok := dv.Annotations[RestoreNameAnnotation]
 		if !ok {
 			return

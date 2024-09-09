@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -78,7 +78,7 @@ func WithRunStrategy(strategy v1.VirtualMachineRunStrategy) VMOption {
 	}
 }
 
-func WithDataVolumeTemplate(datavolume *v1beta1.DataVolume) VMOption {
+func WithDataVolumeTemplate(datavolume *cdiv1.DataVolume) VMOption {
 	return func(vm *v1.VirtualMachine) {
 		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates,
 			v1.DataVolumeTemplateSpec{
