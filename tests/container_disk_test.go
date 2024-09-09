@@ -63,7 +63,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachine", func() {
 		Context("with ephemeral registry disk", func() {
-			It("[test_id:1463][Conformance] should success multiple times", func() {
+			It("[test_id:1463][Conformance] should success multiple times", decorators.Conformance, func() {
 				By("Creating the VirtualMachine")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -207,6 +207,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 	Describe("Bogus container disk path", func() {
 		Context("that points to outside of the volume", func() {
+			//TODO this could be unit test
 			It("should be rejected on VMI creation", func() {
 				vmi := libvmifact.NewAlpine()
 				vmi.Spec.Volumes[0].ContainerDisk.Path = "../test"
