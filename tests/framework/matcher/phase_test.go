@@ -9,7 +9,7 @@ import (
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v13 "kubevirt.io/api/core/v1"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/tests/framework/matcher/helper"
 )
@@ -40,7 +40,7 @@ var _ = Describe("Matcher", func() {
 		},
 	}
 
-	var nameAndKindDV = &v1beta1.DataVolume{
+	var nameAndKindDV = &cdiv1.DataVolume{
 		ObjectMeta: v12.ObjectMeta{
 			Name: "testdv",
 		},
@@ -64,7 +64,7 @@ var _ = Describe("Matcher", func() {
 		},
 	}
 
-	var onlyKindDV = &v1beta1.DataVolume{
+	var onlyKindDV = &cdiv1.DataVolume{
 		TypeMeta: v12.TypeMeta{
 			Kind: "DataVolume",
 		},
@@ -82,7 +82,7 @@ var _ = Describe("Matcher", func() {
 		},
 	}
 
-	var onlyNameDV = &v1beta1.DataVolume{
+	var onlyNameDV = &cdiv1.DataVolume{
 		ObjectMeta: v12.ObjectMeta{
 			Name: "testdv",
 		},
@@ -162,7 +162,7 @@ var _ = Describe("Matcher", func() {
 		Entry("with a DataVolume having only name", onlyNameDV, onlyNameDV.Kind, onlyNameDV.Name),
 		Entry("with a VirtualMachineInstance having only name", onlyNameVMI, onlyNameVMI.Kind, onlyNameVMI.Name),
 		Entry("with a Pod having no kind and name", &v1.Pod{}, "", ""),
-		Entry("with a DataVolume having no kind and name", &v1beta1.DataVolume{}, "", ""),
+		Entry("with a DataVolume having no kind and name", &cdiv1.DataVolume{}, "", ""),
 		Entry("with a VirtualMachineInstance having no kind and name", &v13.VirtualMachineInstance{}, "", ""),
 	)
 })
