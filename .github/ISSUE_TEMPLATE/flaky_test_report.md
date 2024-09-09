@@ -41,7 +41,7 @@ Add any other context about the problem here.
 * Keep this issue open until the testcase does not fail anymore
 
 ### **The flake is non-critical or an issue that is hard to fix**
-* **Quarantine the test** by creating a pull request assigning [QUARANTINE] tag to test name
+* **Quarantine the test** by creating a pull request assigning [QUARANTINE] tag to test name and [Quarantine decorator](https://github.com/kubevirt/kubevirt/blob/f85a8117b8a90fd913ec0719faae9506866d1525/tests/decorators/decorators.go#L7) to the test
 * Reference this issue on the PR
 
 ### There was an infrastructure issue
