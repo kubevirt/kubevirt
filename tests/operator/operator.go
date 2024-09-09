@@ -67,8 +67,6 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -128,7 +126,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	)
 
 	var originalKv *v1.KubeVirt
-	var originalCDI *cdiv1.CDI
 	var originalOperatorVersion string
 	var err error
 	var workDir string
@@ -219,14 +216,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			const prefix = ":"
 			Expect(strings.HasPrefix(version, ":")).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
 			originalOperatorVersion = strings.TrimPrefix(version, prefix)
-		}
-
-		if libstorage.HasDataVolumeCRD() {
-			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(cdiList.Items).To(HaveLen(1))
-
-			originalCDI = &cdiList.Items[0]
 		}
 
 		generateMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
@@ -552,44 +541,6 @@ spec:
 		By("Waiting for original KV to stabilize")
 		waitForKvWithTimeout(originalKv, 420)
 		allKvInfraPodsAreReady(originalKv)
-
-		// repost original CDI object if it doesn't still exist
-		// in order to restore original environment
-		if originalCDI != nil {
-			cdiExists := false
-
-			// ensure we wait for cdi to finish deleting before restoring it
-			// in the event that cdi has the deletionTimestamp set.
-			Eventually(func() bool {
-				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
-				if err != nil && errors.IsNotFound(err) {
-					// cdi isn't deleting and doesn't exist.
-					return true
-				} else {
-					Expect(err).ToNot(HaveOccurred())
-				}
-
-				// wait for cdi to delete if deletionTimestamp is set
-				if cdi.DeletionTimestamp != nil {
-					return false
-				}
-
-				cdiExists = true
-				return true
-			}, 240*time.Second, 1*time.Second).Should(BeTrue())
-
-			if cdiExists {
-				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				if !equality.Semantic.DeepEqual(cdi.Spec, originalCDI.Spec) {
-					cdi.Spec = originalCDI.Spec
-					_, err := virtClient.CdiClient().CdiV1beta1().CDIs().Update(context.Background(), cdi, metav1.UpdateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}
-			} else if !cdiExists {
-				createCdi(originalCDI)
-			}
-		}
 
 		// make sure virt deployments use shasums again after each test
 		ensureShasums()
@@ -2995,26 +2946,6 @@ func createKv(newKv *v1.KubeVirt) {
 		_, err := kubevirt.Client().KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
 		return err
 	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
-}
-
-func createCdi(originalCDI *cdiv1.CDI) {
-	newCDI := &cdiv1.CDI{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        originalCDI.Name,
-			Namespace:   originalCDI.Namespace,
-			Labels:      originalCDI.ObjectMeta.Labels,
-			Annotations: originalCDI.ObjectMeta.Annotations,
-		},
-		Spec: *originalCDI.Spec.DeepCopy(),
-	}
-
-	_, err := kubevirt.Client().CdiClient().CdiV1beta1().CDIs().Create(context.Background(), newCDI, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	Eventually(func() bool {
-		cdi, err := kubevirt.Client().CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
-		return err == nil && cdi.Status.Phase == sdkapi.PhaseDeployed
-	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(BeTrue())
 }
 
 func eventuallyDeploymentNotFound(name string) {
