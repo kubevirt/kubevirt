@@ -1763,7 +1763,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						libdv.WithPVC(libdv.PVCWithStorageClass(sourceSC)),
 						libdv.WithForceBindAnnotation(),
 					)
-
 					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Create(context.Background(), source, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					sourceDV = source
@@ -1779,6 +1778,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				})
 
 				AfterEach(func() {
+					// Make sure we recreate the alternative namespace when completing the tests
+					_, err := virtClient.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testsuite.NamespaceTestAlternative}}, metav1.CreateOptions{})
+					if err != nil && !errors.IsAlreadyExists(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+
 					if sourceDV != nil {
 						libstorage.DeleteDataVolume(&sourceDV)
 					}
@@ -1828,21 +1833,32 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					return vm
 				}
 
-				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM, deleteSourcePVC bool) {
+				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM, deleteSourcePVC, deleteSourceNamespace bool) {
 					vm, vmi = createAndStartVM(createNetworkCloneVMFromSource())
 
 					checkCloneAnnotations(vm, true)
-					if deleteSourcePVC {
+					if deleteSourceNamespace {
+						err = virtClient.CoreV1().Namespaces().Delete(context.Background(), testsuite.NamespaceTestAlternative, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Eventually(func() error {
+							return virtClient.CoreV1().Namespaces().Delete(context.Background(), testsuite.NamespaceTestAlternative, metav1.DeleteOptions{})
+						}, 120*time.Second, 2*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfully delete namespace '%s'", testsuite.NamespaceTestAlternative))
+						sourceDV = nil
+						cloneRole = nil
+						cloneRoleBinding = nil
+					} else if deleteSourcePVC {
 						libstorage.DeleteDataVolume(&sourceDV)
 					}
 
 					doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)
 				},
-					Entry("to the same VM", false, false),
-					Entry("to a new VM", true, false),
-					Entry("to the same VM, no source pvc", false, true),
-					Entry("to a new VM, no source pvc", true, true),
+					Entry("to the same VM", false, false, false),
+					Entry("to a new VM", true, false, false),
+					Entry("to the same VM, no source pvc", false, true, false),
+					Entry("to a new VM, no source pvc", true, true, false),
+					Entry("to the same VM, no source namespace", false, false, true),
+					Entry("to a new VM, no source namespace", true, false, true),
 				)
 
 				DescribeTable("should restore a vm that boots from a network cloned datavolume (not template)", func(restoreToNewVM, deleteSourcePVC bool) {
