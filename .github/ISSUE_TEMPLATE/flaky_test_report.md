@@ -48,7 +48,7 @@ Add any other context about the problem here.
 
 An infra issue is anything "below" the testcase
 
-* Add label commenting `/triage not-reproducible`
+* Add label commenting `/triage infra-issue`
 * Close the issue, adding a comment with details about the infrastructure issue.
 
 After the flake has been fixed, document the learning from it inside the fix PR
