@@ -37,7 +37,7 @@ import (
 
 	v13 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
@@ -64,7 +64,7 @@ func AddDataVolumeDisk(vmi *v13.VirtualMachineInstance, diskName, dataVolumeName
 	return vmi
 }
 
-func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolume) {
+func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *cdiv1.DataVolume) {
 	dvt := &v13.DataVolumeTemplateSpec{}
 
 	dvt.Spec = *dataVolume.Spec.DeepCopy()
@@ -73,7 +73,7 @@ func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolum
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 }
 
-func AddDataVolume(vm *v13.VirtualMachine, diskName string, dataVolume *v1beta1.DataVolume) {
+func AddDataVolume(vm *v13.VirtualMachine, diskName string, dataVolume *cdiv1.DataVolume) {
 	vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v13.Disk{
 		Name: diskName,
 		DiskDevice: v13.DiskDevice{
@@ -92,7 +92,7 @@ func AddDataVolume(vm *v13.VirtualMachine, diskName string, dataVolume *v1beta1.
 	})
 }
 
-func EventuallyDV(dv *v1beta1.DataVolume, timeoutSec int, matcher gomegatypes.GomegaMatcher) {
+func EventuallyDV(dv *cdiv1.DataVolume, timeoutSec int, matcher gomegatypes.GomegaMatcher) {
 	Expect(dv).ToNot(BeNil())
 	EventuallyDVWith(dv.Namespace, dv.Name, timeoutSec, matcher)
 }
@@ -106,8 +106,8 @@ func EventuallyDVWith(namespace, name string, timeoutSec int, matcher gomegatype
 	}
 
 	ginkgo.By("Verifying DataVolume garbage collection")
-	var dv *v1beta1.DataVolume
-	Eventually(func() *v1beta1.DataVolume {
+	var dv *cdiv1.DataVolume
+	Eventually(func() *cdiv1.DataVolume {
 		var err error
 		dv, err = ThisDVWith(namespace, name)()
 		Expect(err).ToNot(HaveOccurred())
@@ -115,7 +115,7 @@ func EventuallyDVWith(namespace, name string, timeoutSec int, matcher gomegatype
 	}, timeoutSec, time.Second).Should(Or(BeNil(), matcher))
 
 	if dv != nil {
-		if dv.Status.Phase != v1beta1.Succeeded {
+		if dv.Status.Phase != cdiv1.Succeeded {
 			return
 		}
 		if dv.Annotations["cdi.kubevirt.io/storage.deleteAfterCompletion"] == "true" {
@@ -130,7 +130,7 @@ func EventuallyDVWith(namespace, name string, timeoutSec int, matcher gomegatype
 	}, timeoutSec, time.Second).Should(BeTrue())
 }
 
-func DeleteDataVolume(dv **v1beta1.DataVolume) {
+func DeleteDataVolume(dv **cdiv1.DataVolume) {
 	Expect(dv).ToNot(BeNil())
 	if *dv == nil {
 		return
@@ -175,7 +175,7 @@ func IsDataVolumeGC(virtCli kubecli.KubevirtClient) bool {
 	return config.Spec.DataVolumeTTLSeconds != nil && *config.Spec.DataVolumeTTLSeconds >= 0
 }
 
-func GetCDI(virtCli kubecli.KubevirtClient) *v1beta1.CDI {
+func GetCDI(virtCli kubecli.KubevirtClient) *cdiv1.CDI {
 	cdiList, err := virtCli.CdiClient().CdiV1beta1().CDIs().List(context.Background(), v12.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cdiList.Items).To(HaveLen(1))
