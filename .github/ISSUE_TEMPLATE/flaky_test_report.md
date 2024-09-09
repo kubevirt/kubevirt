@@ -33,7 +33,7 @@ Add any other context about the problem here.
 
 ## Then decide on one of the following actions:
 
-### **The flake is a critical bug**
+### **The flake is a bug**
 
 * Add label commenting `/triage accepted`
 * **Create a PR to fix the bug**
