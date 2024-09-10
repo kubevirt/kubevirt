@@ -21,15 +21,12 @@ func NewConfigCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 Supported actions are:
 - set <key> <value>: Set a configuration option
 - get <key>: Retrieve the value of a configuration option
-- reset: Reset all configuration options to default
 
 Usage Examples:
 # Set the path to the ssh binary
 kube config set ssh /usr/bin/ssh
 # Get the configured ssh path
 kube config get ssh
-# Reset all configurations
-kube config reset
 		`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -55,14 +52,8 @@ kube config reset
 				fmt.Printf("Configuration %s: %s\n", key, value)
 				return nil
 
-			case "reset":
-				if len(args) != 1 {
-					return fmt.Errorf("reset does not accept any arguments. Usage: config reset")
-				}
-				return resetConfig()
-
 			default:
-				return fmt.Errorf("invalid action: %s. Supported actions: set, get, reset", action)
+				return fmt.Errorf("invalid action: %s. Supported actions: set, get", action)
 			}
 		},
 	}
@@ -89,16 +80,6 @@ func getConfigOption(key string) (string, error) {
 		return value, nil
 	}
 	return "", fmt.Errorf("configuration for %s not found", key)
-}
-
-func resetConfig() error {
-	configFilePath := filepath.Join(os.Getenv("HOME"), ".kube", "config")
-	err := os.Remove(configFilePath)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	fmt.Println("Configuration reset to defaults")
-	return nil
 }
 
 func loadConfig(filePath string) map[string]string {
