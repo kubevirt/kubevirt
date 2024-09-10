@@ -1994,7 +1994,7 @@ func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*
 	return sum, nil
 }
 
-// findRunningMigrations calcules how many migrations are running or in flight to be triggered to running
+// findRunningMigrations calculates how many migrations are running or in flight to be triggered to running
 // Migrations which are in running phase are added alongside with migrations which are still pending but
 // where we already see a target pod.
 func (c *Controller) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
