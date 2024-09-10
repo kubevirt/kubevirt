@@ -68,7 +68,6 @@ const (
 type restoreTarget interface {
 	Ready() (bool, error)
 	Reconcile() (bool, error)
-	Cleanup() error
 	Own(obj metav1.Object)
 	UpdateDoneRestore() (bool, error)
 	UpdateRestoreInProgress() error
@@ -175,7 +174,7 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 	}
 
-	if err = target.Cleanup(); err != nil {
+	if err = ctrl.deleteObsoleteDataVolumes(vmRestoreOut); err != nil {
 		logger.Reason(err).Error("Error cleaning up")
 		return 0, ctrl.doUpdateError(vmRestoreIn, err)
 	}
@@ -820,16 +819,16 @@ func (t *vmRestoreTarget) Own(obj metav1.Object) {
 	})
 }
 
-func (t *vmRestoreTarget) Cleanup() error {
-	for _, dvName := range t.vmRestore.Status.DeletedDataVolumes {
-		objKey := cacheKeyFunc(t.vmRestore.Namespace, dvName)
-		_, exists, err := t.controller.DataVolumeInformer.GetStore().GetByKey(objKey)
+func (ctrl *VMRestoreController) deleteObsoleteDataVolumes(vmRestore *snapshotv1.VirtualMachineRestore) error {
+	for _, dvName := range vmRestore.Status.DeletedDataVolumes {
+		objKey := cacheKeyFunc(vmRestore.Namespace, dvName)
+		_, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(objKey)
 		if err != nil {
 			return err
 		}
 
 		if exists {
-			err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(t.vmRestore.Namespace).
+			err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(vmRestore.Namespace).
 				Delete(context.Background(), dvName, metav1.DeleteOptions{})
 			if err != nil {
 				return err
