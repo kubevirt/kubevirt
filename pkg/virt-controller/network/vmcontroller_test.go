@@ -43,12 +43,12 @@ import (
 
 var _ = Describe("VM Network Controller", func() {
 	It("sync does nothing when the hotplug FG is unset", func() {
-		c := network.NewVMNetController(fake.NewSimpleClientset(), stubClusterConfig{}, stubPodGetter{})
+		c := network.NewVMNetController(fake.NewSimpleClientset(), stubClusterConfig{}, stubPodGetter{}, nil)
 		Expect(c.Sync(newEmptyVM(), libvmi.New())).To(Equal(newEmptyVM()))
 	})
 
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, podGetter stubPodGetter) {
-		c := network.NewVMNetController(fake.NewSimpleClientset(), stubClusterConfig{netHotplugEnabled: true}, podGetter)
+		c := network.NewVMNetController(fake.NewSimpleClientset(), stubClusterConfig{netHotplugEnabled: true}, podGetter, nil)
 		originalVM := vm.DeepCopy()
 		Expect(c.Sync(vm, vmi)).To(Equal(originalVM))
 	},
@@ -85,6 +85,7 @@ var _ = Describe("VM Network Controller", func() {
 			fake.NewSimpleClientset(),
 			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{err: errors.New("test")},
+			nil,
 		)
 		updatedVM, err := c.Sync(newEmptyVM(), libvmi.New())
 		Expect(err).To(MatchError(isSyncErrorType, "syncError"))
@@ -97,6 +98,7 @@ var _ = Describe("VM Network Controller", func() {
 			clientset,
 			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: &k8sv1.Pod{}},
+			nil,
 		)
 
 		// Setup `Patch` to fail.
@@ -130,6 +132,7 @@ var _ = Describe("VM Network Controller", func() {
 			clientset,
 			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: &k8sv1.Pod{}},
+			nil,
 		)
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -163,6 +166,7 @@ var _ = Describe("VM Network Controller", func() {
 			clientset,
 			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: &k8sv1.Pod{}},
+			nil,
 		)
 		unpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding("foonet")
 		unpluggedIface.State = v1.InterfaceStateAbsent
@@ -201,6 +205,7 @@ var _ = Describe("VM Network Controller", func() {
 			clientset,
 			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: nil},
+			nil,
 		)
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -254,6 +259,7 @@ var _ = Describe("VM Network Controller", func() {
 			clientset,
 			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: pod},
+			nil,
 		)
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

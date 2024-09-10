@@ -217,6 +217,7 @@ lint:
 	if [ $$(wc -l < tests/utils.go) -gt 1401 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
 	hack/dockerized "golangci-lint run --timeout 20m --verbose \
 	  pkg/instancetype/... \
+	  pkg/preference/... \
 	  pkg/libvmi/... \
 	  pkg/network/admitter/... \
 	  pkg/network/namescheme/... \

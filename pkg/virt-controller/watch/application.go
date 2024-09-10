@@ -77,6 +77,8 @@ import (
 
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	"kubevirt.io/kubevirt/pkg/preference"
+	networkPreference "kubevirt.io/kubevirt/pkg/preference/network"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -259,6 +261,11 @@ type VirtControllerApp struct {
 	leaderElector            *leaderelection.LeaderElector
 
 	onOpenshift bool
+}
+
+type networkPreferenceHandler struct {
+	preference.Finder
+	networkPreference.Applier
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -721,6 +728,16 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		Clientset:                vca.clientSet,
 	}
 
+	networkPreferenceHandler := &networkPreferenceHandler{
+		Finder: preference.Finder{
+			PreferenceStore:         vca.preferenceInformer.GetStore(),
+			ClusterPreferenceStore:  vca.clusterPreferenceInformer.GetStore(),
+			ControllerRevisionStore: vca.controllerRevisionInformer.GetStore(),
+			Clientset:               vca.clientSet,
+		},
+		Applier: networkPreference.Applier{},
+	}
+
 	vca.vmController, err = NewVMController(
 		vca.vmiInformer,
 		vca.vmInformer,
@@ -738,6 +755,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 			vca.clientSet.GeneratedKubeVirtClient(),
 			vca.clusterConfig,
 			controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
+			networkPreferenceHandler,
 		),
 	)
 	if err != nil {

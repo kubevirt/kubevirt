@@ -21,6 +21,7 @@ set -e
 
 coveredpaths="\
   pkg/instancetype \
+  pkg/preference \
   pkg/libvmi \
   pkg/network/admitter \
   pkg/network/namescheme \

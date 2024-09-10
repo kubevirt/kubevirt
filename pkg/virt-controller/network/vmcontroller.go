@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	kubevirt "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	"kubevirt.io/client-go/log"
@@ -43,9 +44,15 @@ type clusterConfigChecker interface {
 }
 
 type VMNetController struct {
-	clientset     kubevirt.Interface
-	clusterConfig clusterConfigChecker
-	podGetter     podFromVMIGetter
+	clientset         kubevirt.Interface
+	clusterConfig     clusterConfigChecker
+	podGetter         podFromVMIGetter
+	preferenceHandler preferenceHandler
+}
+
+type preferenceHandler interface {
+	Find(vm *v1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+	Apply(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec
 }
 
 type podFromVMIGetter interface {
@@ -73,11 +80,12 @@ const (
 	hotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 )
 
-func NewVMNetController(clientset kubevirt.Interface, clusterConfig clusterConfigChecker, podGetter podFromVMIGetter) *VMNetController {
+func NewVMNetController(clientset kubevirt.Interface, clusterConfig clusterConfigChecker, podGetter podFromVMIGetter, preferenceHandler preferenceHandler) *VMNetController {
 	return &VMNetController{
-		clientset:     clientset,
-		clusterConfig: clusterConfig,
-		podGetter:     podGetter,
+		clientset:         clientset,
+		clusterConfig:     clusterConfig,
+		podGetter:         podGetter,
+		preferenceHandler: preferenceHandler,
 	}
 }
 
@@ -115,6 +123,14 @@ func (v *VMNetController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInst
 		}
 	}
 	updatedVmiSpec := ApplyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
+	vmiCopy.Spec = *updatedVmiSpec
+
+	preferenceSpec, err := v.preferenceHandler.Find(vmCopy)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedVmiSpec = v.preferenceHandler.Apply(preferenceSpec, vmiCopy.Spec)
 	vmiCopy.Spec = *updatedVmiSpec
 
 	if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
