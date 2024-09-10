@@ -61,4 +61,7 @@ var (
 
 	// Kubernetes versions
 	Kubernetes130 = []interface{}{Label("kubernetes130")}
+
+	// WG archs
+	WgS390x = []interface{}{Label("wg-s390x")}
 )

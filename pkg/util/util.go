@@ -293,3 +293,24 @@ func GenerateKubeVirtGroupVersionKind(obj runtime.Object) (runtime.Object, error
 
 	return objCopy, nil
 }
+
+/*
+TranslateBuildArch translates the build_arch to arch
+
+	case1:
+	  build_arch is crossbuild-s390x, which will be translated to s390x arch
+	case2:
+	  build_arch is s390x, which will be translated to s390x arch
+*/
+func TranslateBuildArch() string {
+	buildArch := os.Getenv("BUILD_ARCH")
+
+	if buildArch == "" {
+		return ""
+	}
+	archElements := strings.Split(buildArch, "-")
+	if len(archElements) == 2 {
+		return archElements[1]
+	}
+	return archElements[0]
+}
