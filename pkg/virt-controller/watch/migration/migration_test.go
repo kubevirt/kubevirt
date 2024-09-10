@@ -314,16 +314,15 @@ var _ = Describe("Migration watcher", func() {
 		if len(vmi.Labels) == 0 {
 			vmi.Labels = nil
 		}
-		controller.vmiStore.Add(vmi)
-		key, err := virtcontroller.KeyFunc(vmi)
+		err := controller.vmiStore.Add(vmi)
 		Expect(err).To(Not(HaveOccurred()))
-		mockQueue.Add(key)
 		_, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addMigration := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		controller.migrationIndexer.Add(migration)
+		err := controller.migrationIndexer.Add(migration)
+		Expect(err).To(Not(HaveOccurred()))
 		key, err := virtcontroller.KeyFunc(migration)
 		Expect(err).To(Not(HaveOccurred()))
 		mockQueue.Add(key)
@@ -1298,7 +1297,7 @@ var _ = Describe("Migration watcher", func() {
 
 			const oldMigrationUID = "oldmigrationuid"
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-				MigrationUID: types.UID(oldMigrationUID),
+				MigrationUID: oldMigrationUID,
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -2226,6 +2225,59 @@ var _ = Describe("Migration watcher", func() {
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 			expectTargetPodWithSELinuxLevel(vmi.Namespace, vmi.UID, migration.UID, "")
 		})
+	})
+
+	Context("Secondary queue", func() {
+		It("should properly flush when a migration finishes", func() {
+			By("Creating 1 pending migration. It will be picked up by the first call to Execute()")
+			vmi := newVirtualMachine("testvmipending", virtv1.Running)
+			migration := newMigration("testmigrationpending", vmi.Name, virtv1.MigrationPending)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			By("Creating a migration that's ready to complete. It will be picked up by the second call to Execute()")
+			vmi = newVirtualMachine("testvmi", virtv1.Running)
+			addNodeNameToVMI(vmi, "node02")
+			migration = newMigration("testmigration", vmi.Name, virtv1.MigrationRunning)
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			targetPod.Spec.NodeName = "node01"
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID:                   migration.UID,
+				TargetNode:                     "node01",
+				SourceNode:                     "node02",
+				TargetNodeAddress:              "10.10.10.10:1234",
+				StartTimestamp:                 pointer.P(metav1.Now()),
+				EndTimestamp:                   pointer.P(metav1.Now()),
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				Failed:                         false,
+				Completed:                      true,
+			}
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(targetPod)
+
+			By("Creating 5 running migrations")
+			for i := 0; i < 5; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), virtv1.Running)
+				migration := newMigration(fmt.Sprintf("testmigration%d", i), vmi.Name, virtv1.MigrationRunning)
+				pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				addPod(pod)
+			}
+
+			By("Executing the controller and expecting the pending migration in the secondary queue")
+			controller.Execute()
+			Expect(controller.pendingQueue.GetQueue()).To(Equal([]string{"default/testmigrationpending"}))
+
+			By("Executing the controller again and expecting the secondary queue to be empty")
+			controller.Execute()
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulMigrationReason)
+			Expect(controller.pendingQueue.GetQueue()).To(BeEmpty())
+		})
+
 	})
 })
 
