@@ -22,26 +22,18 @@ package infrastructure
 import (
 	"context"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	v1ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-
-	"kubevirt.io/client-go/kubecli"
-
 	crds "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
 var _ = DescribeInfra("CRDs", func() {
-	var virtClient kubecli.KubevirtClient
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
-
 	It("[test_id:5177]Should have structural schema", func() {
 		ourCRDs := []string{
 			crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
@@ -52,7 +44,7 @@ var _ = DescribeInfra("CRDs", func() {
 		}
 
 		for _, name := range ourCRDs {
-			crd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(
+			crd, err := kubevirt.Client().ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(
 				context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
