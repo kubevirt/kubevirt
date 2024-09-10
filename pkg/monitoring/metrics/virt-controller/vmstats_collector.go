@@ -50,7 +50,7 @@ var (
 			"instance_type", "preference",
 
 			// Status
-			"status",
+			"status", "status_group",
 		},
 	)
 
@@ -182,7 +182,7 @@ func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 				vm.Name, vm.Namespace,
 				os, workload, flavor,
 				instanceType, preference,
-				string(vm.Status.PrintableStatus),
+				string(vm.Status.PrintableStatus), getVMStatusGroup(vm.Status.PrintableStatus),
 			},
 			Value: 1.0,
 		})
@@ -225,6 +225,23 @@ func getVMPreference(vm *k6tv1.VirtualMachine) string {
 	}
 
 	return none
+}
+
+func getVMStatusGroup(status k6tv1.VirtualMachinePrintableStatus) string {
+	switch {
+	case containsStatus(status, startingStatuses):
+		return "starting"
+	case containsStatus(status, runningStatuses):
+		return "running"
+	case containsStatus(status, migratingStatuses):
+		return "migrating"
+	case containsStatus(status, nonRunningStatuses):
+		return "non_running"
+	case containsStatus(status, errorStatuses):
+		return "error"
+	}
+
+	return "<unknown>"
 }
 
 func CollectResourceRequests(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {

@@ -147,7 +147,7 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(8))
+				Expect(cr.Labels).To(HaveLen(9))
 
 				os, workload, flavor := getSystemInfoFromAnnotations(vms[i].Spec.Template.ObjectMeta.Annotations)
 				Expect(cr.Labels[2]).To(Equal(os))
@@ -155,6 +155,7 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(cr.Labels[4]).To(Equal(flavor))
 
 				Expect(cr.Labels[7]).To(Equal("CrashLoopBackOff"))
+				Expect(cr.Labels[8]).To(Equal("error"))
 			}
 		})
 
@@ -175,7 +176,7 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(8))
+			Expect(cr.Labels).To(HaveLen(9))
 			Expect(cr.Labels[5]).To(Equal(expected))
 		},
 			Entry("with no instance type expect <none>", "VirtualMachineInstancetype", "", "<none>"),
@@ -203,7 +204,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(8))
+			Expect(cr.Labels).To(HaveLen(9))
 			Expect(cr.Labels[6]).To(Equal(expected))
 		},
 			Entry("with no preference expect <none>", "VirtualMachinePreference", "", "<none>"),
