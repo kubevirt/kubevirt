@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -326,6 +327,19 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 	return vmiSpec
 }
 
+func CurrentVMIPodFromClient(vmi *v1.VirtualMachineInstance, cli kubecli.KubevirtClient) (*k8sv1.Pod, error) {
+	listedPods, err := cli.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	pods := []*k8sv1.Pod{}
+	for _, p := range listedPods.Items {
+		pod := &p
+		pods = append(pods, pod)
+	}
+	return currentVMIPodFromPods(vmi, pods)
+}
+
 func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k8sv1.Pod, error) {
 
 	// current pod is the most recent pod created on the current VMI node
@@ -342,6 +356,10 @@ func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k
 		pods = append(pods, pod)
 	}
 
+	return currentVMIPodFromPods(vmi, pods)
+}
+
+func currentVMIPodFromPods(vmi *v1.VirtualMachineInstance, pods []*k8sv1.Pod) (*k8sv1.Pod, error) {
 	var curPod *k8sv1.Pod = nil
 	for _, pod := range pods {
 		if !IsControlledBy(pod, vmi) {

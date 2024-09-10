@@ -293,6 +293,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
+	deletePod := func(pod *k8sv1.Pod) {
+		Expect(controller.podIndexer.Delete(pod)).To(Succeed())
+		err := kubeClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	addDataVolumePVC := func(dvPVC *k8sv1.PersistentVolumeClaim) {
 		Expect(controller.pvcIndexer.Add(dvPVC)).To(Succeed())
 		_, err := kubeClient.CoreV1().PersistentVolumeClaims(dvPVC.Namespace).Create(context.Background(), dvPVC, metav1.CreateOptions{})
@@ -937,7 +943,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(err).To(Not(HaveOccurred()))
 			mockQueue.Add(key)
 			controller.podIndexer.Update(modifiedPod)
-			controller.podExpectations.SetExpectations(key, 0, 0)
 
 			controller.Execute()
 			expectVMIFailedState(vmi)
@@ -970,7 +975,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(virtClientset.Actions()).To(HaveLen(1))
 			Expect(virtClientset.Actions()[0].GetVerb()).To(Equal("create"))
 			Expect(virtClientset.Actions()[0].GetResource().Resource).To(Equal("virtualmachineinstances"))
-			Expect(kubeClient.Actions()).To(BeEmpty())
+			Expect(kubeClient.Actions()).To(HaveLen(1))
+			Expect(kubeClient.Actions()[0].GetVerb()).To(Equal("list"))
+			Expect(kubeClient.Actions()[0].GetResource().Resource).To(Equal("pods"))
 		})
 
 		It("should set an error condition if creating the pod fails", func() {
@@ -1088,8 +1095,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				key, err := kvcontroller.KeyFunc(vmi)
 				Expect(err).To(Not(HaveOccurred()))
 				mockQueue.Add(key)
-				// in previous loop we have updated the status
-				controller.vmiExpectations.SetExpectations(key, 0, 0)
 
 				controller.Execute()
 				Expect(controller.Queue.Len()).To(Equal(0))
@@ -1498,7 +1503,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			mockQueue.Add(key)
 
 			controller.podIndexer.Update(pod)
-			controller.podExpectations.SetExpectations(key, 0, 0)
 
 			controller.Execute()
 			expectVMIScheduledState(vmi)
@@ -1519,7 +1523,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(err).To(Not(HaveOccurred()))
 			mockQueue.Add(key)
 
-			controller.podIndexer.Delete(pod)
+			deletePod(pod)
 
 			controller.Execute()
 			expectVMIFailedState(vmi)
@@ -1537,6 +1541,25 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 			expectVMIFailedState(vmi)
 		})
+
+		It("should list pods to check if launcher exist if informers are not synced", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
+
+			addVirtualMachine(vmi)
+			_, err := kubeClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			controller.Execute()
+
+			key, err := kvcontroller.KeyFunc(vmi)
+			Expect(err).To(Not(HaveOccurred()))
+			mockQueue.Add(key)
+
+			controller.Execute()
+			expectVMISchedulingState(vmi)
+		})
+
 		DescribeTable("should remove the fore ground finalizer if no pod is present and the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase) {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
