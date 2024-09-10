@@ -1478,9 +1478,6 @@ func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) e
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pod.Name)
 	}
-	if err := c.deleteAllAttachmentPods(vmi); err != nil {
-		return err
-	}
 	return nil
 }
 
