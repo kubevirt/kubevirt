@@ -24,9 +24,9 @@ Supported actions are:
 
 Usage Examples:
 # Set the path to the ssh binary
-kube config set ssh /usr/bin/ssh
+virtctl config set ssh /usr/bin/ssh
 # Get the configured ssh path
-kube config get ssh
+virtctl config get ssh
 		`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
