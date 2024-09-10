@@ -8,46 +8,46 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
-	"kubevirt.io/api/core"
+
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
-var _ = Describe("Credentials", func() {
+var _ = Describe("Credentials remove-ssh-key", func() {
 	const (
 		vmName     = "test-vm"
 		secretName = "test-secret"
 		userName   = "test-user"
+		testKey    = "test-key"
 	)
 
 	var (
 		kubeClient *fake.Clientset
+		virtClient *kubevirtfake.Clientset
 
-		vmi *v1.VirtualMachineInstance
-		vm  *v1.VirtualMachine
+		vmi    *v1.VirtualMachineInstance
+		vm     *v1.VirtualMachine
+		secret *corev1.Secret
 	)
-
-	const testKey = "test-key"
 
 	BeforeEach(func() {
 		kubeClient = fake.NewSimpleClientset()
+		virtClient = kubevirtfake.NewSimpleClientset()
 
 		kubeClient.Fake.PrependReactor("create", "secrets", func(action k8stesting.Action) (bool, runtime.Object, error) {
 			created, ok := action.(k8stesting.CreateAction)
@@ -61,29 +61,29 @@ var _ = Describe("Credentials", func() {
 			return false, secret, nil
 		})
 
-		vmi = api.NewMinimalVMI(vmName)
-		vmi.Spec.AccessCredentials = []v1.AccessCredential{{
-			SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
-				Source: v1.SSHPublicKeyAccessCredentialSource{
-					Secret: &v1.AccessCredentialSecretSource{
-						SecretName: secretName,
-					},
-				},
-				PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-					QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
-						Users: []string{userName},
-					},
-				},
-			},
-		}}
+		ctrl := gomock.NewController(GinkgoT())
+		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
+		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
+			virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
+			virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		vm = kubecli.NewMinimalVM(vmName)
-		vm.Namespace = metav1.NamespaceDefault
-		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
-			Spec: vmi.Spec,
-		}
+		vmi = libvmi.New(
+			libvmi.WithNamespace(metav1.NamespaceDefault),
+			libvmi.WithName(vmName),
+			libvmi.WithAccessCredentialSSHPublicKey(secretName, userName),
+		)
+		var err error
+		vmi, err = virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).
+			Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vm, err = virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).
+			Create(context.Background(), libvmi.NewVirtualMachine(vmi), metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		secret := &corev1.Secret{
+		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
 				Namespace: metav1.NamespaceDefault,
@@ -100,73 +100,8 @@ var _ = Describe("Credentials", func() {
 			},
 		}
 
-		_, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+		secret, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		ctrl := gomock.NewController(GinkgoT())
-		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
-		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
-
-		vmiInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
-
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachineInstance, error) {
-				if name == vmName && vmi != nil {
-					return vmi, nil
-				}
-				return nil, errors.NewNotFound(schema.GroupResource{
-					Group:    core.GroupName,
-					Resource: "VirtualMachineInstance",
-				}, name)
-			}).AnyTimes()
-
-		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachine, error) {
-				if name == vmName && vm != nil {
-					return vm, nil
-				}
-				return nil, errors.NewNotFound(schema.GroupResource{
-					Group:    core.GroupName,
-					Resource: "VirtualMachine",
-				}, name)
-			}).AnyTimes()
-
-		vmInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), types.JSONPatchType, gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ any, name string, _ any, patchData []byte, _ any, _ ...any) (*v1.VirtualMachine, error) {
-				if name != vmName || vm == nil {
-					return nil, errors.NewNotFound(schema.GroupResource{
-						Group:    core.GroupName,
-						Resource: "VirtualMachine",
-					}, name)
-				}
-
-				patch, err := jsonpatch.DecodePatch(patchData)
-				if err != nil {
-					return nil, err
-				}
-
-				vmJSON, err := json.Marshal(vm)
-				if err != nil {
-					return nil, err
-				}
-
-				modifiedVMJSON, err := patch.Apply(vmJSON)
-				if err != nil {
-					return nil, err
-				}
-
-				err = json.Unmarshal(modifiedVMJSON, vm)
-				if err != nil {
-					return nil, err
-				}
-
-				return vm, nil
-			}).AnyTimes()
 	})
 
 	It("should fail if no key is specified", func() {
@@ -200,7 +135,7 @@ var _ = Describe("Credentials", func() {
 			"--value", testKey,
 			vmName,
 		)
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("required flag(s) \"user\" not set")))
 	})
 
 	It("should remove key from secret", func() {
@@ -220,10 +155,9 @@ var _ = Describe("Credentials", func() {
 		const thirdKeyValue = "third-key"
 		const multipleKeys = "multiple-keys"
 
-		updateSecret(kubeClient, secretName, func(secret *corev1.Secret) {
-			secret.Data[secondDataKey] = []byte(secondDataValue)
-			secret.Data[multipleKeys] = []byte(testKey + "\n" + thirdKeyValue)
-		})
+		secret.Data[secondDataKey] = []byte(secondDataValue)
+		secret.Data[multipleKeys] = []byte(testKey + "\n" + thirdKeyValue)
+		patchSecret(kubeClient, secret.Name, patch.WithReplace("/data", secret.Data))
 
 		err := runRemoveKeyCommand(
 			"--user", userName,
@@ -232,9 +166,8 @@ var _ = Describe("Credentials", func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 
-		secret, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+		secret, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), secretName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
 		Expect(secret.Data).To(HaveLen(2))
 		Expect(secret.Data).To(HaveKeyWithValue(secondDataKey, []byte(secondDataValue)))
 		Expect(secret.Data).To(HaveKeyWithValue(multipleKeys, []byte(thirdKeyValue)))
@@ -271,7 +204,6 @@ var _ = Describe("Credentials", func() {
 				"test-file": []byte(testKey),
 			},
 		}
-
 		_, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secondSecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -290,6 +222,13 @@ var _ = Describe("Credentials", func() {
 					},
 				},
 			})
+		payload, err := patch.New(
+			patch.WithReplace("/spec/template/spec/accessCredentials", vm.Spec.Template.Spec.AccessCredentials),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).
+			Patch(context.Background(), vm.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		err = runRemoveKeyCommand(
 			"--user", userName,
@@ -303,9 +242,7 @@ var _ = Describe("Credentials", func() {
 	})
 
 	It("should fail if secret is not owned by the VM", func() {
-		updateSecret(kubeClient, secretName, func(secret *corev1.Secret) {
-			secret.OwnerReferences = nil
-		})
+		patchSecret(kubeClient, secret.Name, patch.WithRemove("/metadata/ownerReferences"))
 
 		err := runRemoveKeyCommand(
 			"--user", userName,
@@ -316,9 +253,7 @@ var _ = Describe("Credentials", func() {
 	})
 
 	It("should patch secret not owned by VM, with --force option", func() {
-		updateSecret(kubeClient, secretName, func(secret *corev1.Secret) {
-			secret.OwnerReferences = nil
-		})
+		patchSecret(kubeClient, secret.Name, patch.WithRemove("/metadata/ownerReferences"))
 
 		err := runRemoveKeyCommand(
 			"--user", userName,
@@ -332,21 +267,18 @@ var _ = Describe("Credentials", func() {
 	})
 })
 
-func updateSecret(cli kubernetes.Interface, name string, updateFunc func(secret *corev1.Secret)) {
-	secret, err := cli.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), name, metav1.GetOptions{})
+func patchSecret(kubeClient kubernetes.Interface, name string, option patch.PatchOption) {
+	payload, err := patch.New(option).GeneratePayload()
 	Expect(err).ToNot(HaveOccurred())
-
-	updateFunc(secret)
-
-	_, err = cli.CoreV1().Secrets(metav1.NamespaceDefault).Update(context.Background(), secret, metav1.UpdateOptions{})
+	_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).
+		Patch(context.Background(), name, types.JSONPatchType, payload, metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func expectSecretToBeEmpty(cli kubernetes.Interface, name string) {
-	secret, err := cli.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), name, metav1.GetOptions{})
+func expectSecretToBeEmpty(kubeClient kubernetes.Interface, name string) {
+	secret, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-
-	ExpectWithOffset(1, secret.Data).To(BeEmpty())
+	Expect(secret.Data).To(BeEmpty())
 }
 
 func runRemoveKeyCommand(args ...string) error {
