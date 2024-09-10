@@ -163,8 +163,10 @@ var _ = Describe("create vm", func() {
 		},
 			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
 			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
-			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
+			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and explicit inference with pvc source", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
+			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")}, "my-containerdisk", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and explicit inference with registry source", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferInstancetypeFlag, "true")}, "my-containerdisk", nil),
 		)
 
 		DescribeTable("VM with boot order and inferred instancetype", func(explicit bool) {
@@ -283,8 +285,10 @@ var _ = Describe("create vm", func() {
 		},
 			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
 			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-pvc,name:volume-import")}, "volume-import", &ignoreInferFromVolumeFailure),
-			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-pvc,name:volume-import"), setFlag(InferPreferenceFlag, "true")}, "volume-import", nil),
+			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and explicit inference with pvc source", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
+			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")}, "my-containerdisk", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and explicit inference with registry source", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferPreferenceFlag, "true")}, "my-containerdisk", nil),
 		)
 
 		DescribeTable("VM with boot order and inferred preference", func(explicit bool) {
@@ -429,7 +433,7 @@ var _ = Describe("create vm", func() {
 			Entry("with namespace, name, size and bootorder", "my-ns", "my-dv", "my-dvt", "10Gi", 8, "src:my-ns/my-dv,name:my-dvt,size:10Gi,bootorder:8"),
 		)
 
-		DescribeTable("VM with specified volume source", func(params, size string, source *cdiv1.DataVolumeSource, inferVolume string) {
+		DescribeTable("VM with specified volume source", func(params, size string, source *cdiv1.DataVolumeSource) {
 			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -442,14 +446,15 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).To(Equal(source))
 
-			if source.PVC != nil {
+			if source.PVC != nil || source.Registry != nil || source.Snapshot != nil {
 				// In this case inference should be possible
+				const importedVolume = "imported-volume"
 				Expect(vm.Spec.Instancetype).ToNot(BeNil())
-				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(inferVolume))
+				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(importedVolume))
 				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
 				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 				Expect(vm.Spec.Preference).ToNot(BeNil())
-				Expect(vm.Spec.Preference.InferFromVolume).To(Equal(inferVolume))
+				Expect(vm.Spec.Preference.InferFromVolume).To(Equal(importedVolume))
 				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
 				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			} else {
@@ -458,18 +463,18 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Preference).To(BeNil())
 			}
 		},
-			Entry("with blank source", "type:blank,size:256Mi", "256Mi", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, ""),
-			Entry("with GCS source", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials", "256Mi", &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, ""),
-			Entry("with http source", "type:http,size:256Mi,url:http://url.com", "256Mi", &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, ""),
-			Entry("with imageio source", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, ""),
-			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, "imported-volume"),
-			Entry("with PVC source without size", "type:pvc,src:default/pvc,name:imported-volume", "", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, "imported-volume"),
-			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: ptr.To("my-cert"), PullMethod: (*cdiv1.RegistryPullMethod)(ptr.To("pod")), URL: ptr.To("http://url.com"), SecretRef: ptr.To("secret-ref")}}, ""),
-			Entry("with S3 source", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, ""),
-			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials", "256Mi", &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, ""),
-			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, "imported-volume"),
-			Entry("with Snapshot source without size", "type:snapshot,src:default/snapshot,name:imported-volume", "", &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, "imported-volume"),
-			Entry("with blank source and name", "type:blank,size:256Mi,name:blank-name", "256Mi", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, ""),
+			Entry("with blank source", "type:blank,size:256Mi", "256Mi", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}),
+			Entry("with GCS source", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials", "256Mi", &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}),
+			Entry("with http source", "type:http,size:256Mi,url:http://url.com", "256Mi", &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}),
+			Entry("with imageio source", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}),
+			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}),
+			Entry("with PVC source without size", "type:pvc,src:default/pvc,name:imported-volume", "", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}),
+			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: ptr.To("my-cert"), PullMethod: (*cdiv1.RegistryPullMethod)(ptr.To("pod")), URL: ptr.To("http://url.com"), SecretRef: ptr.To("secret-ref")}}),
+			Entry("with S3 source", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}),
+			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials", "256Mi", &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}),
+			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}),
+			Entry("with Snapshot source without size", "type:snapshot,src:default/snapshot,name:imported-volume", "", &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}),
+			Entry("with blank source and name", "type:blank,size:256Mi,name:blank-name", "256Mi", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}),
 		)
 
 		DescribeTable("VM with multiple volume-import sources and name", func(source1 *cdiv1.DataVolumeSource, source2 *cdiv1.DataVolumeSource, size string, flags ...string) {
@@ -875,20 +880,20 @@ var _ = Describe("create vm", func() {
 			Entry("PreferenceFlag, InferPreferenceFlag and InferPreferenceFromFlag", []string{setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")}, "infer-preference infer-preference-from preference"),
 		)
 
-		DescribeTable("Volume to explicitly infer from needs to be valid", func(args []string) {
+		DescribeTable("Volume to explicitly infer from needs to be valid", func(args []string, errMsg string) {
 			out, err := runCmd(args...)
 
-			Expect(err).To(MatchError("inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"))
+			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("explicit inference of instancetype with ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")}),
-			Entry("inference of instancetype from ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")}),
-			Entry("explicit inference of preference with ContainerdiskVolumeFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")}),
-			Entry("inference of preference from ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")}),
-			Entry("explicit inference of instancetype with VolumeImportFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")}),
-			Entry("inference of instancetype from VolumeImportFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")}),
-			Entry("explicit inference of preference with VolumeImportFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")}),
-			Entry("inference of preference from VolumeImportFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")}),
+			Entry("explicit inference of instancetype with ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")}, InvalidInferenceVolumeError),
+			Entry("inference of instancetype from ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")}, InvalidInferenceVolumeError),
+			Entry("explicit inference of preference with ContainerdiskVolumeFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")}, InvalidInferenceVolumeError),
+			Entry("inference of preference from ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")}, InvalidInferenceVolumeError),
+			Entry("explicit inference of instancetype with VolumeImportFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")}, DVInvalidInferenceVolumeError),
+			Entry("inference of instancetype from VolumeImportFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")}, DVInvalidInferenceVolumeError),
+			Entry("explicit inference of preference with VolumeImportFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")}, DVInvalidInferenceVolumeError),
+			Entry("inference of preference from VolumeImportFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")}, DVInvalidInferenceVolumeError),
 		)
 
 		DescribeTable("Invalid arguments to DataSourceVolumeFlag", func(flag, errMsg string) {

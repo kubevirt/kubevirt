@@ -73,7 +73,8 @@ const (
 	vddk          = "vddk"
 	snapshot      = "snapshot"
 
-	InvalidInferenceVolumeError = "inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"
+	InvalidInferenceVolumeError   = "inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"
+	DVInvalidInferenceVolumeError = "this DataVolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
 )
 
 type createVM struct {
@@ -366,7 +367,7 @@ func volumeShouldNotExist(flag string, vm *v1.VirtualMachine, name string) error
 
 func volumeValidToInferFrom(vm *v1.VirtualMachine, vol *v1.Volume) error {
 	if vol.DataVolume != nil {
-		return dataVolumeValidToInferFrom(vm, vol)
+		return dataVolumeValidToInferFrom(vm, vol.DataVolume.Name)
 	}
 
 	if vol.PersistentVolumeClaim != nil {
@@ -376,21 +377,18 @@ func volumeValidToInferFrom(vm *v1.VirtualMachine, vol *v1.Volume) error {
 	return fmt.Errorf(InvalidInferenceVolumeError)
 }
 
-func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, vol *v1.Volume) error {
+func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
 	for _, dvt := range vm.Spec.DataVolumeTemplates {
-		if dvt.Name == vol.DataVolume.Name {
-			if dvt.Spec.Source != nil && dvt.Spec.Source.PVC != nil {
+		if dvt.Name == name {
+			if dvt.Spec.Source != nil && (dvt.Spec.Source.PVC != nil || dvt.Spec.Source.Registry != nil || dvt.Spec.Source.Snapshot != nil) {
 				return nil
 			}
-
 			if dvt.Spec.SourceRef != nil && dvt.Spec.SourceRef.Kind == "DataSource" {
 				return nil
 			}
-
-			return fmt.Errorf(InvalidInferenceVolumeError)
+			return fmt.Errorf(DVInvalidInferenceVolumeError)
 		}
 	}
-
 	return nil
 }
 
