@@ -1,0 +1,6 @@
+FROM mcr.microsoft.com/cbl-mariner/base/core:2.0 as builder
+WORKDIR /workspace
+
+RUN --mount=type=cache,target=/var/cache/tdnf \
+    tdnf -y install gcc golang pkgconfig build-essential libvirt-devel git glibc-static
+

@@ -153,6 +153,7 @@ var gracePeriod = int64(0)
 
 func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
 	return &v1.VirtualMachineInstanceSpec{
+		Hypervisor:                    "qemu",
 		TerminationGracePeriodSeconds: &gracePeriod,
 		Domain: v1.DomainSpec{
 			Resources: v1.ResourceRequirements{
@@ -556,6 +557,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 	_true := true
 	_false := false
 	vmi.Spec = v1.VirtualMachineInstanceSpec{
+		Hypervisor:                    "qemu",
 		TerminationGracePeriodSeconds: &gracePeriod,
 		Domain: v1.DomainSpec{
 			CPU: &v1.CPU{Cores: 2},

@@ -14,6 +14,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/container-disk:go_default_library",
+        "//pkg/hypervisor:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//pkg/util:go_default_library",

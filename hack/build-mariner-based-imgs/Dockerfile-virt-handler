@@ -1,0 +1,43 @@
+ARG BUILDER_IMAGE
+FROM $BUILDER_IMAGE as builder
+WORKDIR /workspace
+
+RUN --mount=type=bind,rw,target=. \
+    hack/build-mariner-based-imgs/slim-build.sh /build \
+      cmd/virt-handler \
+      cmd/virt-chroot
+
+
+FROM mcr.microsoft.com/cbl-mariner/base/core:2.0
+
+
+RUN tdnf install -y mariner-repos-preview
+RUN tdnf -y install \
+  curl \
+  ca-certificates \
+  dbus \
+  iproute \
+  iptables \
+  lsscsi \
+  nftables \
+  procps \
+  qemu-tools \
+  qemu-user \
+  tar \
+  util-linux \
+  && tdnf clean all
+
+
+COPY --from=builder /build/_out/cmd/container-disk-v2alpha/container-disk /usr/bin/
+COPY --from=builder /build/_out/cmd/virt-chroot/virt-chroot /usr/bin/
+COPY --from=builder /build/_out/cmd/virt-handler/virt-handler /usr/bin/
+
+COPY --from=builder /build/cmd/virt-handler/virt_launcher.cil /
+
+RUN mkdir -p /usr/share/kube-virt/virt-handler
+COPY --from=builder /build/cmd/virt-handler/nsswitch.conf /usr/share/kube-virt/virt-handler/
+
+RUN ls /usr/bin/virt-handler
+
+ENTRYPOINT [ "/usr/bin/virt-handler" ]
+

@@ -1316,6 +1316,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	hypervisorKubeVirtDevice := strings.TrimPrefix(c.Hypervisor.GetHypervisorDevice(), "devices.kubevirt.io/")
 	hypervisorPath := fmt.Sprintf("/dev/%s", hypervisorKubeVirtDevice)
+
+	domain.Spec.Type = "hyperv" // TODO Refactor to use hypervisor type from hypervisor
+
 	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(hypervisorPath, c.AllowEmulation); err != nil {
 		return err
 	} else if softwareEmulation {

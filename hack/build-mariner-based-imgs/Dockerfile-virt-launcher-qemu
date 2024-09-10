@@ -1,0 +1,77 @@
+ARG BUILDER_IMAGE
+FROM $BUILDER_IMAGE as builder
+WORKDIR /workspace
+
+RUN --mount=type=bind,rw,target=. \
+    hack/build-mariner-based-imgs/slim-build.sh /build \
+      cmd/virt-launcher \
+      cmd/virt-launcher-monitor \
+      cmd/virt-freezer \
+      cmd/virt-probe
+
+
+FROM mcr.microsoft.com/cbl-mariner/base/core:2.0
+ARG TARGETARCH="amd64"
+
+RUN tdnf -y install mariner-repos-extended.noarch
+RUN tdnf -y install mariner-repos-preview
+RUN tdnf -y install \
+  augeas \
+  ca-certificates \
+  iptables \
+  libcap \
+  libvirt-client \
+  libvirt-daemon-driver-qemu \
+  nftables \
+  qemu-device-usb-redirect \
+  qemu-tools \
+  socat \
+  tar \
+  xorriso \
+  procps
+
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+    # required for OVMF files \
+    tdnf -y install  edk2-ovmf; \
+    tdnf -y install qemu-system-x86; \
+    ln -s ../edk2/ovmf/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.cc.fd; \
+    fi;
+
+# XXX - This will not run as edk2 is not built for arm64
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+    # required for OVMF files  \
+    tdnf -y install  edk2-aarch64; \
+    tdnf -y install qemu-system-aarch64; \
+    fi;
+
+RUN  tdnf clean all \
+   && cd /var && rm -rf run && ln -s ../run . \
+   && chown qemu:qemu /var/run
+
+
+# Copy files from the builder container
+COPY --from=builder /build/_out/cmd/container-disk-v2alpha/container-disk /usr/bin/
+COPY --from=builder /build/_out/cmd/virt-launcher/virt-launcher /usr/bin/
+COPY --from=builder /build/_out/cmd/virt-launcher-monitor/virt-launcher-monitor /usr/bin/
+COPY --from=builder /build/_out/cmd/virt-freezer/virt-freezer /usr/bin/
+COPY --from=builder /build/_out/cmd/virt-probe/virt-probe /usr/bin/
+COPY --from=builder /build/cmd/virt-launcher/node-labeller/node-labeller.sh /usr/bin/
+
+RUN mkdir -p /usr/share/kube-virt/virt-launcher
+COPY --from=builder /build/cmd/virt-launcher/qemu.conf /usr/share/kube-virt/virt-launcher/
+COPY --from=builder /build/cmd/virt-launcher/virtqemud.conf /usr/share/kube-virt/virt-launcher/
+COPY --from=builder /build/cmd/virt-launcher/nsswitch.conf /usr/share/kube-virt/virt-launcher/
+
+# Setup permissions and capabilities for non-root VMIs. KubeVirt sets
+# XDG_* directories to /var/run.
+RUN setcap 'cap_net_bind_service=+ep' /usr/bin/virt-launcher
+RUN setcap 'cap_net_bind_service=+ep' /usr/bin/virt-launcher-monitor
+RUN chmod 0755 /etc/libvirt
+
+RUN cp /usr/share/kube-virt/virt-launcher/qemu.conf /etc/libvirt/
+RUN cp /usr/share/kube-virt/virt-launcher/virtqemud.conf /etc/libvirt/
+RUN cp /usr/share/kube-virt/virt-launcher/nsswitch.conf /etc/
+
+RUN ls /usr/bin/virt-launcher
+
+ENTRYPOINT [ "/usr/bin/virt-launcher" ]

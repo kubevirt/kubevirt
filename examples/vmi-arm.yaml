@@ -21,6 +21,7 @@ spec:
     resources:
       requests:
         memory: 256Mi
+  hypervisor: qemu
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

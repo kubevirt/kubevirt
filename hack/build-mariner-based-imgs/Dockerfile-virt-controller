@@ -1,0 +1,26 @@
+ARG BUILDER_IMAGE
+FROM $BUILDER_IMAGE as builder
+WORKDIR /workspace
+
+RUN --mount=type=bind,rw,target=. \
+    hack/build-mariner-based-imgs/slim-build.sh /build \
+      cmd/virt-controller
+
+
+FROM mcr.microsoft.com/cbl-mariner/base/core:2.0
+
+RUN tdnf install -y mariner-repos-preview
+RUN  tdnf -y install \
+  ca-certificates \
+  shadow-utils \
+  tar \
+  && tdnf clean all
+
+RUN  adduser -u 1001 --create-home -s /bin/bash virt-controller
+USER 1001
+
+COPY --from=builder /build/_out/cmd/virt-controller/virt-controller /usr/bin/
+
+RUN ls /usr/bin/virt-controller
+
+ENTRYPOINT [ "/usr/bin/virt-controller" ]

@@ -18,6 +18,7 @@ spec:
     resources:
       requests:
         memory: 128Mi
+  hypervisor: qemu
   networks:
   - name: default
     pod: {}

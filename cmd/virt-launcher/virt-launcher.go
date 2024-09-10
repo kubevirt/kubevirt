@@ -328,7 +328,7 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 }
 
 func main() {
-	vmm := pflag.String("vmm", "qemu", "VMM to be used. Can be either \"qemu\" or \"ch\"")
+	hypervisor := pflag.String("hypervisor", "qemu", "VMM to be used. Can be either \"qemu\" or \"ch\"")
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := pflag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
@@ -399,7 +399,7 @@ func main() {
 	// Start virtqemud, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
 
-	l := util.NewLibvirtWrapper(*runWithNonRoot, *vmm)
+	l := util.NewLibvirtWrapper(*runWithNonRoot, *hypervisor)
 	err = l.SetupLibvirt(libvirtLogFilters)
 	if err != nil {
 		panic(err)

@@ -18,4 +18,5 @@ spec:
     resources:
       requests:
         memory: 1Gi
+  hypervisor: qemu
   terminationGracePeriodSeconds: 0

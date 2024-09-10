@@ -1,0 +1,26 @@
+ARG BUILDER_IMAGE
+FROM $BUILDER_IMAGE as builder
+WORKDIR /workspace
+
+RUN --mount=type=bind,rw,target=. \
+    hack/build-mariner-based-imgs/slim-build.sh /build \
+      cmd/virt-api
+
+
+FROM mcr.microsoft.com/cbl-mariner/base/core:2.0
+
+RUN tdnf install -y mariner-repos-preview
+RUN tdnf -y install \
+  ca-certificates \
+  shadow-utils \
+  tar \
+  && tdnf clean all
+
+COPY --from=builder /build/_out/cmd/virt-api/virt-api /usr/bin/
+
+RUN  adduser -u 1001 --create-home -s /bin/bash virt-api
+USER 1001
+
+RUN ls /usr/bin/virt-api
+
+ENTRYPOINT [ "/usr/bin/virt-api" ]

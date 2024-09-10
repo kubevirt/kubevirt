@@ -111,7 +111,7 @@ func removeSerialConsoleTermFile(uid string) {
 
 func main() {
 
-	vmm := pflag.String("vmm", "qemu", "VMM to be used. Can be either \"qemu\" or \"ch\"")
+	hypervisor := pflag.String("hypervisor", "qemu", "VMM to be used. Can be either \"qemu\" or \"ch\"")
 	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run virtqemud with the 'virt' user")
 	containerDiskDir := pflag.String("container-disk-dir", "/var/run/kubevirt/container-disks", "Base directory for container disk data")
 	keepAfterFailure := pflag.Bool("keep-after-failure", false, "virt-launcher will be kept alive after failure for debugging if set to true")
@@ -135,7 +135,7 @@ func main() {
 		}
 	}
 
-	libvirtWrapper := virtWrap.NewLibvirtWrapper(*runWithNonRoot, *vmm)
+	libvirtWrapper := virtWrap.NewLibvirtWrapper(*runWithNonRoot, *hypervisor)
 
 	exitCode, err := RunAndMonitor(*containerDiskDir, *uid, libvirtWrapper)
 	if *keepAfterFailure && (exitCode != 0 || err != nil) {

@@ -3156,9 +3156,14 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		err = d.claimDeviceOwnership(virtLauncherRootMount, "kvm")
+		hypervisor := hypervisor.NewHypervisor(vmi.Spec.Hypervisor)
+		hypervisorDevice := hypervisor.GetHypervisorDevice()
+		// Get substring in hypervisorDevice string after "devices.kubevirt.io/"
+		hypervisorDevice = strings.TrimPrefix(hypervisorDevice, "devices.kubevirt.io/")
+
+		err = d.claimDeviceOwnership(virtLauncherRootMount, hypervisorDevice)
 		if err != nil {
-			return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
+			return fmt.Errorf("failed to set up file ownership for /dev/%s: %v", hypervisorDevice, err)
 		}
 		if virtutil.IsAutoAttachVSOCK(vmi) {
 			if err := d.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {

@@ -24,6 +24,7 @@ spec:
               bus: virtio
             name: cloudinitdisk
         resources: {}
+      hypervisor: qemu
       terminationGracePeriodSeconds: 0
       volumes:
       - containerDisk:
