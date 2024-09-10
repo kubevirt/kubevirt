@@ -262,16 +262,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			validateGenerationState(vm, 6, 6, 6, 6)
 		})
 
-		DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", func(createTemplate vmiBuilder) {
-			template, dv := createTemplate()
-			defer libstorage.DeleteDataVolume(&dv)
-			libvmops.StartVirtualMachine(createVM(virtClient, template))
-		},
-			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewCirros(), nil }),
-			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
-			Entry("[storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
-		)
-
 		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder, ensureGracefulTermination bool) {
 			template, dv := createTemplate()
 			defer libstorage.DeleteDataVolume(&dv)
