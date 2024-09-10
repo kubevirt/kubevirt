@@ -69,6 +69,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/watcher"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -284,23 +285,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			if !ensureGracefulTermination {
 				return
 			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			// Under default settings, termination is graceful (shutdown instead of destroy)
-			virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func(g Gomega) string {
-				out, err := virtClient.CoreV1().
-					Pods(virtHandlerPod.GetNamespace()).
-					GetLogs(virtHandlerPod.GetName(), &k8sv1.PodLogOptions{
-						SinceTime: &metav1.Time{Time: CurrentSpecReport().StartTime},
-						Container: "virt-handler",
-					}).
-					DoRaw(context.Background())
-				g.Expect(err).ToNot(HaveOccurred(), "Should get the virthandler logs")
-				return string(out)
-			}, time.Minute, 2*time.Second).Should(
-				MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Shutdown","name":"%s"`, vmi.GetName()),
-				"Logs should confirm graceful shutdown",
-			)
+			event := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(75*time.Second).WaitFor(ctx, watcher.NormalEvent, v1.ShuttingDown)
+			Expect(event).ToNot(BeNil(), "There should be a shutdown event")
 		},
 			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewCirros(), nil }, false),
 			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk, true),
