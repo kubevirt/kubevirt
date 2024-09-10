@@ -214,7 +214,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			))
-			vm.Spec.Running = nil
 			vm.Spec.RunStrategy = &runStrategy
 
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -1316,7 +1315,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					By("Creating a VM with RunStrategyManual")
 					vm := libvmi.NewVirtualMachine(vmi)
-					vm.Spec.Running = nil
 					vm.Spec.RunStrategy = &runStrategyManual
 
 					By("Annotate the VM with regard for leaving launcher pod after qemu exit")
@@ -1618,7 +1616,6 @@ status:
 				By("Checking VM Running spec does not change")
 				actualVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(actualVM.Spec.Running).To(BeEquivalentTo(originalVM.Spec.Running))
 				actualRunStrategy, err := actualVM.RunStrategy()
 				Expect(err).ToNot(HaveOccurred())
 				originalRunStrategy, err := originalVM.RunStrategy()

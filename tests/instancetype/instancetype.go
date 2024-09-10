@@ -1458,7 +1458,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Instancetype: &virtv1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
@@ -1501,7 +1501,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Instancetype: &virtv1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
@@ -1535,7 +1535,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1575,7 +1575,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1612,7 +1612,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1646,7 +1646,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1686,7 +1686,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1723,7 +1723,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1786,7 +1786,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Instancetype: &virtv1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
@@ -1830,7 +1830,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Instancetype: &virtv1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
@@ -1865,7 +1865,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1906,7 +1906,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1947,7 +1947,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1988,7 +1988,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2026,7 +2026,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: virtv1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},

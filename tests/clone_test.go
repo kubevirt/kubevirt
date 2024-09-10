@@ -688,7 +688,6 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 							),
 						)
 						sourceVM = libstorage.RenderVMWithDataVolumeTemplate(dv)
-						sourceVM.Spec.Running = nil
 						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
 						sourceVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 							Name: instancetype.Name,

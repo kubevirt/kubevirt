@@ -202,7 +202,6 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			It("[test_id:3174]Should not restart when VM is not running", func() {
 				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.RunStrategy = &manual
-				vm.Spec.Running = nil
 
 				By("Creating VM")
 				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -216,7 +215,6 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			It("[test_id:3175]Should restart when VM is running", func() {
 				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.RunStrategy = &manual
-				vm.Spec.Running = nil
 
 				By("Creating VM")
 				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -256,7 +254,6 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			It("[test_id:3176]Should restart the VM", func() {
 				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.RunStrategy = &restartOnError
-				vm.Spec.Running = nil
 
 				By("Creating VM")
 				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})

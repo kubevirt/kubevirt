@@ -1373,7 +1373,7 @@ spec:
 					}
 					updatedVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return updatedVM.Spec.Running == nil && updatedVM.Spec.RunStrategy != nil && *updatedVM.Spec.RunStrategy == runStrategyHalted
+					return updatedVM.Spec.RunStrategy != nil && *updatedVM.Spec.RunStrategy == runStrategyHalted
 				}, 30*time.Second, 3*time.Second).Should(BeTrue())
 
 				By(fmt.Sprintf("Ensure vm %s can be restored from vmsnapshots", vmYaml.vmName))

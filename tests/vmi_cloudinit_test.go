@@ -229,11 +229,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					fedoraPassword,
 				)
 				vmi := libvmifact.NewFedora(libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData)))
-				// runStrategy := v1.RunStrategyManual
 				vm := &v1.VirtualMachine{
 					ObjectMeta: vmi.ObjectMeta,
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.P(false),
+						RunStrategy: pointer.P(v1.RunStrategyManual),
 						Template: &v1.VirtualMachineInstanceTemplateSpec{
 							Spec: vmi.Spec,
 						},

@@ -57,7 +57,6 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Name).ToNot(BeEmpty())
 			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
 			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(int64(180)))
-			Expect(vm.Spec.Running).To(BeNil())
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
 			Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
 			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
@@ -182,7 +181,6 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 
 			Expect(vm.Name).To(Equal(vmName))
 
-			Expect(vm.Spec.Running).To(BeNil())
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
 			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
 
@@ -293,7 +291,6 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 
 			Expect(vm.Name).To(Equal(vmName))
 
-			Expect(vm.Spec.Running).To(BeNil())
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
 			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
 
@@ -430,7 +427,6 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 
 		Expect(vm.Name).To(Equal(vmName))
 
-		Expect(vm.Spec.Running).To(BeNil())
 		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
 		Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
 

@@ -86,12 +86,12 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	}
 
 	doScale := func(name string, scale int32) {
-
 		By(fmt.Sprintf("Scaling to %d", scale))
 		pool, err := virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Patch(context.Background(), name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)), metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		running := *pool.Spec.VirtualMachineTemplate.Spec.Running
+		runStrategy := pool.Spec.VirtualMachineTemplate.Spec.RunStrategy
+		running := runStrategy != nil && *runStrategy == v1.RunStrategyAlways
 		By("Checking the number of replicas")
 		Eventually(func() int32 {
 			pool, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Get(context.Background(), name, metav1.GetOptions{})
@@ -138,8 +138,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			Spec:       vm.Spec.Template.Spec,
 		})
 		newPool.Spec.VirtualMachineTemplate.Spec.DataVolumeTemplates = vm.Spec.DataVolumeTemplates
-		running := true
-		newPool.Spec.VirtualMachineTemplate.Spec.Running = &running
+		newPool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 		newPool, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -149,8 +148,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	newVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
 		pool := newPoolFromVMI(libvmi.New(libvmi.WithResourceMemory("2Mi")))
-		running := true
-		pool.Spec.VirtualMachineTemplate.Spec.Running = &running
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 		return createVirtualMachinePool(pool)
 	}
 
@@ -177,7 +175,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}
 
 		newPool.Spec.VirtualMachineTemplate.Spec.RunStrategy = nil
-		newPool.Spec.VirtualMachineTemplate.Spec.Running = nil
 		newPool.Spec.VirtualMachineTemplate.ObjectMeta.Labels = map[string]string{}
 		_, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
 		Expect(err.Error()).To(ContainSubstring("selector does not match labels"))
@@ -590,7 +587,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
 	selector := "pool" + rand.String(5)
-	running := false
 	replicas := int32(0)
 	pool := &poolv1.VirtualMachinePool{
 		ObjectMeta: metav1.ObjectMeta{Name: "pool" + rand.String(5)},
@@ -604,7 +600,7 @@ func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
 					Labels: map[string]string{"select": selector},
 				},
 				Spec: v1.VirtualMachineSpec{
-					Running: &running,
+					RunStrategy: pointer.P(v1.RunStrategyManual),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"select": selector},
