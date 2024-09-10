@@ -12,126 +12,115 @@ import (
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-    log.InitializeLogging("config")
+	log.InitializeLogging("config")
 
-    cmd := &cobra.Command{
-        Use:   "config SUBCOMMAND",
-        Short: "Manage kubevirt configuration",
-        Long: `The 'config' command allows you to manage configuration options for kubevirt, such as specifying paths for SSH binaries or VNC clients. 
-This command supports setting, retrieving, and resetting configurations, which will be stored in a local configuration file.
-    Usage Examples:
-    # Set the path to the ssh binary
-    virtctl config set ssh /usr/bin/ssh
-    # Get the configured ssh path
-    virtctl config get ssh
-    # Reset all configurations
-    virtctl config reset
-        `,
-    }
+	cmd := &cobra.Command{
+		Use:   "config <action> [key] [value]",
+		Short: "Manage kubevirt configuration",
+		Long: `The 'config' command allows you to manage configuration options for kubevirt, such as specifying paths for SSH binaries or VNC clients.
+Supported actions are:
+- set <key> <value>: Set a configuration option
+- get <key>: Retrieve the value of a configuration option
+- reset: Reset all configuration options to default
 
-    // Add subcommands here
-    cmd.AddCommand(newSetCommand())
-    cmd.AddCommand(newGetCommand())
-    cmd.AddCommand(newResetCommand())
+Usage Examples:
+# Set the path to the ssh binary
+virtctl config set ssh /usr/bin/ssh
+# Get the configured ssh path
+virtctl config get ssh
+# Reset all configurations
+virtctl config reset
+		`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			action := args[0]
 
-    return cmd
-}
+			switch action {
+			case "set":
+				if len(args) != 3 {
+					return fmt.Errorf("invalid number of arguments for 'set'. Usage: config set <key> <value>")
+				}
+				key, value := args[1], args[2]
+				return setConfigOption(key, value)
 
+			case "get":
+				if len(args) != 2 {
+					return fmt.Errorf("invalid number of arguments for 'get'. Usage: config get <key>")
+				}
+				key := args[1]
+				value, err := getConfigOption(key)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Configuration %s: %s\n", key, value)
+				return nil
 
-func newSetCommand() *cobra.Command {
-    var key, value string
-    cmd := &cobra.Command{
-        Use:   "set <key> <value>",
-        Short: "Set a configuration option",
-        Args:  cobra.ExactArgs(2),
-        RunE: func(cmd *cobra.Command, args []string) error {
-            key = args[0]
-            value = args[1]
-            err := setConfigOption(key, value)
-            if err != nil {
-                return err
-            }
-            fmt.Printf("Configuration %s set to %s\n", key, value)
-            return nil
-        },
-    }
-    return cmd
-}
+			case "reset":
+				if len(args) != 1 {
+					return fmt.Errorf("reset does not accept any arguments. Usage: config reset")
+				}
+				return resetConfig()
 
-func newGetCommand() *cobra.Command {
-    var key string
-    cmd := &cobra.Command{
-        Use:   "get <key>",
-        Short: "Get a configuration option",
-        Args:  cobra.ExactArgs(1),
-        RunE: func(cmd *cobra.Command, args []string) error {
-            key = args[0]
-            value, err := getConfigOption(key)
-            if err != nil {
-                return err
-            }
-            fmt.Printf("Configuration %s: %s\n", key, value)
-            return nil
-        },
-    }
-    return cmd
-}
+			default:
+				return fmt.Errorf("invalid action: %s. Supported actions: set, get, reset", action)
+			}
+		},
+	}
 
-func newResetCommand() *cobra.Command {
-    cmd := &cobra.Command{
-        Use:   "reset",
-        Short: "Reset all configuration options to default",
-        RunE: func(cmd *cobra.Command, args []string) error {
-            err := resetConfig()
-            if err != nil {
-                return err
-            }
-            fmt.Println("Configuration reset to defaults")
-            return nil
-        },
-    }
-    return cmd
+	return cmd
 }
 
 func setConfigOption(key, value string) error {
-    configFilePath := filepath.Join(os.Getenv("HOME"), ".virtctl", "config")
-    config := loadConfig(configFilePath)
-    config[key] = value
-    return saveConfig(configFilePath, config)
+	configFilePath := filepath.Join(os.Getenv("HOME"), ".virtctl", "config")
+	config := loadConfig(configFilePath)
+	config[key] = value
+	err := saveConfig(configFilePath, config)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Configuration %s set to %s\n", key, value)
+	return nil
 }
 
 func getConfigOption(key string) (string, error) {
-    configFilePath := filepath.Join(os.Getenv("HOME"), ".virtctl", "config")
-    config := loadConfig(configFilePath)
-    if value, exists := config[key]; exists {
-        return value, nil
-    }
-    return "", fmt.Errorf("configuration for %s not found", key)
+	configFilePath := filepath.Join(os.Getenv("HOME"), ".virtctl", "config")
+	config := loadConfig(configFilePath)
+	if value, exists := config[key]; exists {
+		return value, nil
+	}
+	return "", fmt.Errorf("configuration for %s not found", key)
 }
 
 func resetConfig() error {
-    configFilePath := filepath.Join(os.Getenv("HOME"), ".virtctl", "config")
-    return os.Remove(configFilePath)
+	configFilePath := filepath.Join(os.Getenv("HOME"), ".virtctl", "config")
+	err := os.Remove(configFilePath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	fmt.Println("Configuration reset to defaults")
+	return nil
 }
 
 func loadConfig(filePath string) map[string]string {
-    config := make(map[string]string)
-    file, err := os.Open(filePath)
-    if err != nil {
-        return config
-    }
-    defer file.Close()
-    // Load config (assuming JSON format for simplicity)
-    json.NewDecoder(file).Decode(&config)
-    return config
+	config := make(map[string]string)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return config
+	}
+	defer file.Close()
+	json.NewDecoder(file).Decode(&config)
+	return config
 }
 
 func saveConfig(filePath string, config map[string]string) error {
-    os.MkdirAll(filepath.Dir(filePath), 0755)
-    file, err := os.Create(filePath)
-    if err != nil {
-        return err
-    }
-    defer file.Close()
-    return json.NewEncoder(file).Encode(config)
+	err := os.MkdirAll(filepath.Dir(filePath), 0755)
+	if err != nil {
+		return err
+	}
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return json.NewEncoder(file).Encode(config)
 }
