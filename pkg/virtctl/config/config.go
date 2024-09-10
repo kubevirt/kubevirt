@@ -11,7 +11,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewConfigCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	log.InitializeLogging("config")
 
 	cmd := &cobra.Command{
@@ -25,11 +25,11 @@ Supported actions are:
 
 Usage Examples:
 # Set the path to the ssh binary
-virtctl config set ssh /usr/bin/ssh
+kube config set ssh /usr/bin/ssh
 # Get the configured ssh path
-virtctl config get ssh
+kube config get ssh
 # Reset all configurations
-virtctl config reset
+kube config reset
 		`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,7 +71,7 @@ virtctl config reset
 }
 
 func setConfigOption(key, value string) error {
-	configFilePath := filepath.Join(os.Getenv("HOME"), ".virtctl", "config")
+	configFilePath := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 	config := loadConfig(configFilePath)
 	config[key] = value
 	err := saveConfig(configFilePath, config)
@@ -83,7 +83,7 @@ func setConfigOption(key, value string) error {
 }
 
 func getConfigOption(key string) (string, error) {
-	configFilePath := filepath.Join(os.Getenv("HOME"), ".virtctl", "config")
+	configFilePath := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 	config := loadConfig(configFilePath)
 	if value, exists := config[key]; exists {
 		return value, nil
@@ -92,7 +92,7 @@ func getConfigOption(key string) (string, error) {
 }
 
 func resetConfig() error {
-	configFilePath := filepath.Join(os.Getenv("HOME"), ".virtctl", "config")
+	configFilePath := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 	err := os.Remove(configFilePath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
