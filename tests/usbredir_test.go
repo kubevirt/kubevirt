@@ -168,6 +168,8 @@ func runConnectGoroutine(
 	ctx context.Context,
 	errch chan error,
 ) {
+	defer GinkgoRecover()
+
 	usbredirStream, err := virtClient.VirtualMachineInstance(namespace).USBRedir(name)
 	if err != nil {
 		errch <- err
@@ -209,6 +211,7 @@ func usbredirConnect(
 
 	run := make(chan error)
 	go func() {
+		defer GinkgoRecover()
 		run <- usbredirClient.Redirect("dead:beef")
 	}()
 
