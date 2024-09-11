@@ -899,14 +899,17 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		return 0, false
 	}
 
-	usableSize, err := getUsableDiskSize(getSourceFile(disk))
-	if err != nil {
-		log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
-		usableSize = *disk.Capacity
+	preferredSize := *disk.Capacity
+	if isBlock := disk.Source.Dev != ""; !isBlock {
+		usableSize, err := getUsableDiskSize(getSourceFile(disk))
+		if err != nil {
+			log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
+			usableSize = preferredSize
+		}
+		preferredSize = min(usableSize, preferredSize)
 	}
-	preferredSize := float64(min(usableSize, *disk.Capacity))
 
-	size := int64((1 - filesystemOverhead) * preferredSize)
+	size := int64((1 - filesystemOverhead) * float64(preferredSize))
 	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
 	if size == 0 {
 		return 0, false
