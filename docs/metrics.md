@@ -243,6 +243,9 @@ Histogram of VM phase transitions duration from deletion time in seconds. Type: 
 ### kubevirt_vmi_phase_transition_time_seconds
 Histogram of VM phase transitions duration between different phases in seconds. Type: Histogram.
 
+### kubevirt_vmi_status_addresses
+The addresses of a VirtualMachineInstance. Type: Gauge.
+
 ### kubevirt_vmi_storage_flush_requests_total
 Total storage flush requests. Type: Counter.
 
