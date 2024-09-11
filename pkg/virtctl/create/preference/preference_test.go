@@ -20,107 +20,125 @@ package preference_test
 
 import (
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
+	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/preference"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
-const (
-	create     = "create"
-	namespaced = "--namespaced"
-)
+var _ = Describe("create preference", func() {
+	DescribeTable("should fail with invalid CPU topology values", func(topology string, namespaced bool) {
+		args := []string{create.CREATE, Preference,
+			setFlag(CPUTopologyFlag, topology),
+		}
+		if namespaced {
+			args = append(args, setFlag(NamespacedFlag, "true"))
+		}
+		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+		Expect(cmd()).To(MatchError(ContainSubstring(CPUTopologyErr)))
+	},
+		Entry("VirtualMachinePreference", "invalidCPU", true),
+		Entry("VirtualMachineClusterPreference", "clusterInvalidCPU", false),
+	)
 
-var _ = Describe("create", func() {
-	Context("preference without arguments", func() {
-		DescribeTable("should succeed", func(namespacedFlag string, namespaced bool) {
-			err := clientcmd.NewRepeatableVirtctlCommand(create, Preference, namespacedFlag)()
-			Expect(err).ToNot(HaveOccurred())
+	Context("should succeed", func() {
+		DescribeTable("without arguments", func(namespaced bool) {
+			args := []string{create.CREATE, Preference}
+			if namespaced {
+				args = append(args, setFlag(NamespacedFlag, "true"))
+			}
+			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+			Expect(cmd()).To(Succeed())
 		},
-			Entry("VirtualMachinePreference", namespaced, true),
-			Entry("VirtualMachineClusterPreference", "", false),
+			Entry("VirtualMachinePreference", true),
+			Entry("VirtualMachineClusterPreference", false),
+		)
+
+		DescribeTable("with defined preferred storage class", func(storageClass string, namespaced bool) {
+			args := []string{create.CREATE, Preference,
+				setFlag(VolumeStorageClassFlag, storageClass),
+			}
+			if namespaced {
+				args = append(args, setFlag(NamespacedFlag, "true"))
+			}
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
+			Expect(err).ToNot(HaveOccurred())
+
+			spec, err := getPreferenceSpec(bytes, namespaced)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(spec.Volumes.PreferredStorageClassName).To(Equal(storageClass))
+			Expect(validatePreferenceSpec(spec)).To(BeEmpty())
+		},
+			Entry("VirtualMachinePreference", "testing-storage", true),
+			Entry("VirtualMachineClusterPreference", "hostpath-provisioner", false),
+		)
+
+		DescribeTable("with defined machine type", func(machineType string, namespaced bool) {
+			args := []string{create.CREATE, Preference,
+				setFlag(MachineTypeFlag, machineType),
+			}
+			if namespaced {
+				args = append(args, setFlag(NamespacedFlag, "true"))
+			}
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
+			Expect(err).ToNot(HaveOccurred())
+
+			spec, err := getPreferenceSpec(bytes, namespaced)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(spec.Machine.PreferredMachineType).To(Equal(machineType))
+			Expect(validatePreferenceSpec(spec)).To(BeEmpty())
+		},
+			Entry("VirtualMachinePreference", "pc-i440fx-2.10", true),
+			Entry("VirtualMachineClusterPreference", "pc-q35-2.10", false),
+		)
+
+		DescribeTable("with defined CPU topology", func(topology instancetypev1beta1.PreferredCPUTopology, namespaced bool) {
+			args := []string{create.CREATE, Preference,
+				setFlag(CPUTopologyFlag, string(topology)),
+			}
+			if namespaced {
+				args = append(args, setFlag(NamespacedFlag, "true"))
+			}
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
+			Expect(err).ToNot(HaveOccurred())
+
+			spec, err := getPreferenceSpec(bytes, namespaced)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(spec.CPU.PreferredCPUTopology).ToNot(BeNil())
+			Expect(*spec.CPU.PreferredCPUTopology).To(Equal(topology))
+			Expect(validatePreferenceSpec(spec)).To(BeEmpty())
+		},
+			Entry("VirtualMachinePreference", instancetypev1beta1.DeprecatedPreferCores, true),
+			Entry("VirtualMachineClusterPreference", instancetypev1beta1.DeprecatedPreferThreads, false),
 		)
 	})
 
-	Context("preference with arguments", func() {
-		var preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec
+	It("should create namespaced object and apply namespace when namespace is specified", func() {
+		const namespace = "my-namespace"
+		bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create.CREATE, Preference,
+			setFlag("namespace", namespace),
+		)()
+		Expect(err).ToNot(HaveOccurred())
 
-		DescribeTable("should succeed with defined preferred storage class", func(namespacedFlag, PreferredstorageClass string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference, namespacedFlag,
-				setFlag(VolumeStorageClassFlag, PreferredstorageClass),
-			)()
-			Expect(err).ToNot(HaveOccurred())
+		decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
+		Expect(err).ToNot(HaveOccurred())
 
-			preferenceSpec, err = getPreferenceSpec(bytes, namespaced)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(preferenceSpec.Volumes.PreferredStorageClassName).To(Equal(PreferredstorageClass))
-		},
-			Entry("VirtualMachinePreference", namespaced, "testing-storage", true),
-			Entry("VirtualMachineClusterPreference", "", "hostpath-provisioner", false),
-		)
-
-		DescribeTable("should succeed with defined machine type", func(namespacedFlag, machineType string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference, namespacedFlag,
-				setFlag(MachineTypeFlag, machineType),
-			)()
-			Expect(err).ToNot(HaveOccurred())
-
-			preferenceSpec, err = getPreferenceSpec(bytes, namespaced)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(preferenceSpec.Machine.PreferredMachineType).To(Equal(machineType))
-		},
-			Entry("VirtualMachinePreference", namespaced, "pc-i440fx-2.10", true),
-			Entry("VirtualMachineClusterPreference", "", "pc-q35-2.10", false),
-		)
-
-		DescribeTable("should succeed with defined CPU topology", func(namespacedFlag, CPUTopology string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference, namespacedFlag,
-				setFlag(CPUTopologyFlag, CPUTopology),
-			)()
-			Expect(err).ToNot(HaveOccurred())
-
-			preferenceSpec, err = getPreferenceSpec(bytes, namespaced)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(preferenceSpec.CPU.PreferredCPUTopology).ToNot(BeNil())
-			Expect(*preferenceSpec.CPU.PreferredCPUTopology).To(Equal(instancetypev1beta1.PreferredCPUTopology(CPUTopology)))
-		},
-			Entry("VirtualMachinePreference", namespaced, "preferCores", true),
-			Entry("VirtualMachineClusterPreference", "", "preferThreads", false),
-		)
-
-		It("should create namespaced object and apply namespace when namespace is specified", func() {
-			const namespace = "my-namespace"
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference,
-				setFlag("namespace", namespace),
-			)()
-			Expect(err).ToNot(HaveOccurred())
-
-			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
-			Expect(err).ToNot(HaveOccurred())
-
-			preference, ok := decodedObj.(*instancetypev1beta1.VirtualMachinePreference)
-			Expect(ok).To(BeTrue())
-			Expect(preference.Namespace).To(Equal(namespace))
-		})
-
-		DescribeTable("should fail with invalid CPU topology values", func(namespacedFlag, CPUTopology string, namespaced bool) {
-			err := clientcmd.NewRepeatableVirtctlCommand(create, Preference, namespacedFlag,
-				setFlag(CPUTopologyFlag, CPUTopology),
-			)()
-
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(CPUTopologyFlag))
-			Expect(err.Error()).To(ContainSubstring(CPUTopologyErr))
-		},
-			Entry("VirtualMachinePreference", namespaced, "invalidCPU", true),
-			Entry("VirtualMachineClusterPreference", "", "clusterInvalidCPU", false),
-		)
-
+		preference, ok := decodedObj.(*instancetypev1beta1.VirtualMachinePreference)
+		Expect(ok).To(BeTrue())
+		Expect(preference.Namespace).To(Equal(namespace))
 	})
 })
 
@@ -130,18 +148,22 @@ func setFlag(flag, parameter string) string {
 
 func getPreferenceSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	switch obj := decodedObj.(type) {
 	case *instancetypev1beta1.VirtualMachinePreference:
-		ExpectWithOffset(1, namespaced).To(BeTrue(), "expected VirtualMachinePreference to be created")
-		ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachinePreference"))
+		Expect(namespaced).To(BeTrue())
+		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.SingularPreferenceResourceName))
 		return &obj.Spec, nil
 	case *instancetypev1beta1.VirtualMachineClusterPreference:
-		ExpectWithOffset(1, namespaced).To(BeFalse(), "expected VirtualMachineClusterPreference to be created")
-		ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineClusterPreference"))
+		Expect(namespaced).To(BeFalse())
+		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.ClusterSingularPreferenceResourceName))
 		return &obj.Spec, nil
-	default:
-		return nil, fmt.Errorf("object must be VirtualMachinePreference or VirtualMachineClusterPreference")
 	}
+
+	return nil, fmt.Errorf("object must be VirtualMachinePreference or VirtualMachineClusterPreference")
+}
+
+func validatePreferenceSpec(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) []k8sv1.StatusCause {
+	return admitters.ValidatePreferenceSpec(field.NewPath("spec"), spec)
 }
