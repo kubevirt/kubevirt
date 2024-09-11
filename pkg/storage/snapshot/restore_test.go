@@ -79,6 +79,7 @@ var _ = Describe("Restore controller", func() {
 
 	createRestoreWithOwner := func() *snapshotv1.VirtualMachineRestore {
 		r := createRestore()
+		r.Finalizers = []string{"snapshot.kubevirt.io/vmrestore-protection"}
 		r.OwnerReferences = []metav1.OwnerReference{
 			{
 				APIVersion:         v1.GroupVersion.String(),
@@ -893,6 +894,7 @@ var _ = Describe("Restore controller", func() {
 
 					By("Creating VM restore")
 					vmRestore := createRestore()
+					vmRestore.Finalizers = []string{"snapshot.kubevirt.io/vmrestore-protection"}
 					vmRestore.Spec.Target.Name = newVM.Name
 					addVolumeRestores(vmRestore)
 					addVirtualMachineRestore(vmRestore)
