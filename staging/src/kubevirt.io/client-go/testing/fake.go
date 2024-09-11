@@ -26,11 +26,17 @@ import (
 	"k8s.io/client-go/testing"
 )
 
-// FilterActions returns the actions which satisfy the passed verb and resource name.
-func FilterActions(fake *testing.Fake, verb, resourceName string) []testing.Action {
+// FilterActions returns the actions which satisfy the passed verb and optionally the resource and subresource name.
+func FilterActions(fake *testing.Fake, verb string, resources ...string) []testing.Action {
 	var filtered []testing.Action
 	for _, action := range fake.Actions() {
-		if action.GetVerb() == verb && action.GetResource().Resource == resourceName {
+		if action.GetVerb() == verb {
+			if len(resources) > 0 && action.GetResource().Resource != resources[0] {
+				continue
+			}
+			if len(resources) > 1 && action.GetSubresource() != resources[1] {
+				continue
+			}
 			filtered = append(filtered, action)
 		}
 	}
