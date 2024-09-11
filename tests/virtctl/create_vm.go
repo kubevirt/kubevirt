@@ -16,7 +16,7 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
@@ -522,8 +522,8 @@ func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1beta1.Vi
 	return preference
 }
 
-func createAnnotatedDataSource(virtClient kubecli.KubevirtClient, instancetypeName, preferenceName string) *v1beta1.DataSource {
-	dataSource := &v1beta1.DataSource{
+func createAnnotatedDataSource(virtClient kubecli.KubevirtClient, instancetypeName, preferenceName string) *cdiv1.DataSource {
+	dataSource := &cdiv1.DataSource{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-datasource-",
 			Labels: map[string]string{
@@ -533,8 +533,8 @@ func createAnnotatedDataSource(virtClient kubecli.KubevirtClient, instancetypeNa
 				apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
 			},
 		},
-		Spec: v1beta1.DataSourceSpec{
-			Source: v1beta1.DataSourceSource{},
+		Spec: cdiv1.DataSourceSpec{
+			Source: cdiv1.DataSourceSource{},
 		},
 	}
 	dataSource, err := virtClient.CdiClient().CdiV1beta1().DataSources(testsuite.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
