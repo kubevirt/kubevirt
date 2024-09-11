@@ -9,22 +9,26 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
+
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
+	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/yaml"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 const (
+	cloudInitDiskName = "cloudinitdisk"
 	cloudInitUserData = `#cloud-config
 user: user
 password: password
 chpasswd: { expire: False }`
-
 	cloudInitNetworkData = `network:
   version: 1
   config:
@@ -35,20 +39,20 @@ chpasswd: { expire: False }`
 )
 
 var _ = Describe("create vm", func() {
-	ignoreInferFromVolumeFailure := v1.IgnoreInferFromVolumeFailure
-
 	Context("Manifest is created successfully", func() {
 		It("VM with random name", func() {
 			out, err := runCmd()
 			Expect(err).ToNot(HaveOccurred())
-			_ = unmarshalVM(out)
+			_, err = decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("VM with specified namespace", func() {
 			const namespace = "my-namespace"
 			out, err := runCmd(setFlag("namespace", namespace))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Namespace).To(Equal(namespace))
 		})
@@ -57,7 +61,8 @@ var _ = Describe("create vm", func() {
 			const name = "my-vm"
 			out, err := runCmd(setFlag(NameFlag, name))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).To(Equal(name))
 		})
@@ -65,7 +70,8 @@ var _ = Describe("create vm", func() {
 		It("RunStrategy is set to Always by default", func() {
 			out, err := runCmd()
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Running).To(BeNil())
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
@@ -76,7 +82,8 @@ var _ = Describe("create vm", func() {
 			const runStrategy = v1.RunStrategyManual
 			out, err := runCmd(setFlag(RunStrategyFlag, string(runStrategy)))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Running).To(BeNil())
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
@@ -86,7 +93,9 @@ var _ = Describe("create vm", func() {
 		It("Termination grace period defaults to 180", func() {
 			out, err := runCmd()
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
 			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
 			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(int64(180)))
 		})
@@ -95,7 +104,8 @@ var _ = Describe("create vm", func() {
 			const terminationGracePeriod int64 = 123
 			out, err := runCmd(setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
 			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
@@ -105,7 +115,8 @@ var _ = Describe("create vm", func() {
 			const defaultMemory = "512Mi"
 			out, err := runCmd()
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
 			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(defaultMemory)))
@@ -115,7 +126,8 @@ var _ = Describe("create vm", func() {
 			const memory = "1Gi"
 			out, err := runCmd(setFlag(MemoryFlag, string(memory)))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
 			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(memory)))
@@ -124,7 +136,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with specified instancetype", func(flag, name, kind string) {
 			out, err := runCmd(setFlag(InstancetypeFlag, flag))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Name).To(Equal(name))
@@ -141,7 +154,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with inferred instancetype", func(args []string, inferFromVolume string, inferFromVolumePolicy *v1.InferFromVolumeFailurePolicy) {
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
@@ -161,11 +175,11 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 			}
 		},
-			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure)),
 			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure)),
 			Entry("VolumeImportFlag and explicit inference with pvc source", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")}, "my-containerdisk", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")}, "my-containerdisk", pointer.P(v1.IgnoreInferFromVolumeFailure)),
 			Entry("VolumeImportFlag and explicit inference with registry source", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferInstancetypeFlag, "true")}, "my-containerdisk", nil),
 		)
 
@@ -178,10 +192,10 @@ var _ = Describe("create vm", func() {
 			if explicit {
 				args = append(args, setFlag(InferInstancetypeFlag, "true"))
 			}
-
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
@@ -211,7 +225,8 @@ var _ = Describe("create vm", func() {
 				setFlag(DataSourceVolumeFlag, "src:my-ds-2,name:my-ds-2"),
 				setFlag(InferInstancetypeFromFlag, "my-ds-2"))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
@@ -226,7 +241,8 @@ var _ = Describe("create vm", func() {
 				setFlag(DataSourceVolumeFlag, "src:my-ds"),
 				setFlag(InferInstancetypeFlag, "false"))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype).To(BeNil())
@@ -238,7 +254,8 @@ var _ = Describe("create vm", func() {
 				setFlag(MemoryFlag, memory),
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-ds"))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
 			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(memory)))
@@ -254,7 +271,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with specified preference", func(flag, name, kind string) {
 			out, err := runCmd(setFlag(PreferenceFlag, flag))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Name).To(Equal(name))
@@ -270,7 +288,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with inferred preference", func(args []string, inferFromVolume string, inferFromVolumePolicy *v1.InferFromVolumeFailurePolicy) {
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
@@ -283,11 +302,11 @@ var _ = Describe("create vm", func() {
 				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(*inferFromVolumePolicy))
 			}
 		},
-			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure)),
 			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure)),
 			Entry("VolumeImportFlag and explicit inference with pvc source", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")}, "my-containerdisk", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")}, "my-containerdisk", pointer.P(v1.IgnoreInferFromVolumeFailure)),
 			Entry("VolumeImportFlag and explicit inference with registry source", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferPreferenceFlag, "true")}, "my-containerdisk", nil),
 		)
 
@@ -303,7 +322,8 @@ var _ = Describe("create vm", func() {
 
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
@@ -326,7 +346,8 @@ var _ = Describe("create vm", func() {
 				setFlag(DataSourceVolumeFlag, "src:my-ds-2,name:my-ds-2"),
 				setFlag(InferPreferenceFromFlag, "my-ds-2"))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
@@ -340,7 +361,8 @@ var _ = Describe("create vm", func() {
 				setFlag(DataSourceVolumeFlag, "src:my-ds"),
 				setFlag(InferPreferenceFlag, "false"))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Preference).To(BeNil())
 		})
@@ -348,7 +370,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with specified containerdisk", func(containerdisk, volName string, bootOrder int, params string) {
 			out, err := runCmd(setFlag(ContainerdiskVolumeFlag, params))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			if volName == "" {
 				volName = fmt.Sprintf("%s-containerdisk-0", vm.Name)
@@ -376,7 +399,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with specified datasource", func(dsNamespace, dsName, dvtName, dvtSize string, bootOrder int, params string) {
 			out, err := runCmd(setFlag(DataSourceVolumeFlag, params))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			if dvtName == "" {
 				dvtName = fmt.Sprintf("%s-ds-%s", vm.Name, dsName)
@@ -436,7 +460,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with specified volume source", func(params, size string, source *cdiv1.DataVolumeSource) {
 			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			if size == "" {
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage).To(BeNil())
@@ -480,7 +505,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with multiple volume-import sources and name", func(source1 *cdiv1.DataVolumeSource, source2 *cdiv1.DataVolumeSource, size string, flags ...string) {
 			out, err := runCmd(flags...)
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
@@ -502,7 +528,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with specified clone pvc", func(pvcNamespace, pvcName, dvtName, dvtSize string, bootOrder int, params string) {
 			out, err := runCmd(setFlag(ClonePvcVolumeFlag, params))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			if dvtName == "" {
 				dvtName = fmt.Sprintf("%s-pvc-%s", vm.Name, pvcName)
@@ -549,7 +576,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with specified pvc", func(pvcName, volName string, bootOrder int, params string) {
 			out, err := runCmd(setFlag(PvcVolumeFlag, params))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			if volName == "" {
 				volName = pvcName
@@ -583,7 +611,8 @@ var _ = Describe("create vm", func() {
 		DescribeTable("VM with blank disk", func(blankName, blankSize, params string) {
 			out, err := runCmd(setFlag(BlankVolumeFlag, params))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			if blankName == "" {
 				blankName = fmt.Sprintf("%s-blank-0", vm.Name)
@@ -610,10 +639,11 @@ var _ = Describe("create vm", func() {
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 			out, err := runCmd(setFlag(CloudInitUserDataFlag, userDataB64))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("cloudinitdisk"))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDiskName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -630,10 +660,11 @@ var _ = Describe("create vm", func() {
 			networkDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))
 			out, err := runCmd(setFlag(CloudInitNetworkDataFlag, networkDataB64))
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("cloudinitdisk"))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDiskName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64).To(Equal(networkDataB64))
 
@@ -654,10 +685,11 @@ var _ = Describe("create vm", func() {
 				setFlag(CloudInitNetworkDataFlag, networkDataB64),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("cloudinitdisk"))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDiskName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64).To(Equal(networkDataB64))
@@ -698,7 +730,8 @@ var _ = Describe("create vm", func() {
 				setFlag(CloudInitUserDataFlag, userDataB64),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			vm := unmarshalVM(out)
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).To(Equal(vmName))
 
@@ -739,7 +772,7 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(pvcName))
 			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
-			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal("cloudinitdisk"))
+			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(cloudInitDiskName))
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -756,7 +789,6 @@ var _ = Describe("create vm", func() {
 	Describe("Manifest is not created successfully", func() {
 		DescribeTable("Invalid values for RunStrategy", func(runStrategy string) {
 			out, err := runCmd(setFlag(RunStrategyFlag, runStrategy))
-
 			Expect(err).To(MatchError(fmt.Sprintf("failed to parse \"--run-strategy\" flag: invalid RunStrategy \"%s\", supported values are: Always, Manual, Halted, Once, RerunOnFailure", runStrategy)))
 			Expect(out).To(BeEmpty())
 		},
@@ -767,7 +799,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid values for TerminationGracePeriodFlag", func(terminationGracePeriod string) {
 			out, err := runCmd(setFlag(TerminationGracePeriodFlag, terminationGracePeriod))
-
 			Expect(err).To(MatchError(fmt.Sprintf("invalid argument \"%s\" for \"--termination-grace-period\" flag: strconv.ParseInt: parsing \"%s\": invalid syntax", terminationGracePeriod, terminationGracePeriod)))
 			Expect(out).To(BeEmpty())
 		},
@@ -777,7 +808,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid arguments to MemoryFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(MemoryFlag, flag))
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -787,7 +817,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid arguments to InstancetypeFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(InstancetypeFlag, flag))
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -798,24 +827,18 @@ var _ = Describe("create vm", func() {
 
 		It("Invalid argument to InferInstancetypeFlag", func() {
 			out, err := runCmd(setFlag(InferInstancetypeFlag, "not-a-bool"))
-
 			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--infer-instancetype\" flag: strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"))
 			Expect(out).To(BeEmpty())
 		})
 
 		It("InferInstancetypeFlag needs at least one volume", func() {
 			out, err := runCmd(setFlag(InferInstancetypeFlag, "true"))
-
 			Expect(err).To(MatchError("at least one volume is needed to infer an instance type or preference"))
 			Expect(out).To(BeEmpty())
 		})
 
 		It("Volume specified in InferInstancetypeFromFlag should exist", func() {
-			args := []string{
-				setFlag(InferInstancetypeFromFlag, "does-not-exist"),
-			}
-			out, err := runCmd(args...)
-
+			out, err := runCmd(setFlag(InferInstancetypeFromFlag, "does-not-exist"))
 			Expect(err).To(MatchError("there is no volume with name 'does-not-exist'"))
 			Expect(out).To(BeEmpty())
 		})
@@ -836,7 +859,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid arguments to PreferenceFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(PreferenceFlag, flag))
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -847,24 +869,18 @@ var _ = Describe("create vm", func() {
 
 		It("Invalid argument to InferPreferenceFlag", func() {
 			out, err := runCmd(setFlag(InferPreferenceFlag, "not-a-bool"))
-
 			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--infer-preference\" flag: strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"))
 			Expect(out).To(BeEmpty())
 		})
 
 		It("InferPreferenceFlag needs at least one volume", func() {
 			out, err := runCmd(setFlag(InferPreferenceFlag, "true"))
-
 			Expect(err).To(MatchError("at least one volume is needed to infer an instance type or preference"))
 			Expect(out).To(BeEmpty())
 		})
 
 		It("Volume specified in InferPreferenceFromFlag should exist", func() {
-			args := []string{
-				setFlag(InferPreferenceFromFlag, "does-not-exist"),
-			}
-			out, err := runCmd(args...)
-
+			out, err := runCmd(setFlag(InferPreferenceFromFlag, "does-not-exist"))
 			Expect(err).To(MatchError("there is no volume with name 'does-not-exist'"))
 			Expect(out).To(BeEmpty())
 		})
@@ -882,7 +898,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Volume to explicitly infer from needs to be valid", func(args []string, errMsg string) {
 			out, err := runCmd(args...)
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -898,7 +913,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid arguments to DataSourceVolumeFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(DataSourceVolumeFlag, flag))
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -916,7 +930,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid arguments to VolumeImportFlag", func(errMsg string, flags ...string) {
 			out, err := runCmd(flags...)
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -957,7 +970,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid arguments to ContainerdiskVolumeFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(ContainerdiskVolumeFlag, flag))
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -972,7 +984,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid arguments to ClonePvcVolumeFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(ClonePvcVolumeFlag, flag))
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -991,7 +1002,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid arguments to PvcVolumeFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(PvcVolumeFlag, flag))
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -1009,7 +1019,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Invalid arguments to BlankVolumeFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(BlankVolumeFlag, flag))
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -1021,7 +1030,6 @@ var _ = Describe("create vm", func() {
 
 		DescribeTable("Duplicate DataVolumeTemplates or Volumes are not allowed", func(errMsg string, flags ...string) {
 			out, err := runCmd(flags...)
-
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
@@ -1076,7 +1084,6 @@ var _ = Describe("create vm", func() {
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,bootorder:1"),
 				setFlag(DataSourceVolumeFlag, "src:my-ds,bootorder:1"),
 			)
-
 			Expect(err).To(MatchError("failed to parse \"--volume-datasource\" flag: bootorder 1 was specified multiple times"))
 			Expect(out).To(BeEmpty())
 		})
@@ -1088,14 +1095,21 @@ func setFlag(flag, parameter string) string {
 }
 
 func runCmd(args ...string) ([]byte, error) {
-	_args := append([]string{"create", VM}, args...)
+	_args := append([]string{create.CREATE, VM}, args...)
 	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
 }
 
-func unmarshalVM(bytes []byte) *v1.VirtualMachine {
-	vm := &v1.VirtualMachine{}
-	Expect(yaml.Unmarshal(bytes, vm)).To(Succeed())
-	Expect(vm.Kind).To(Equal("VirtualMachine"))
-	Expect(vm.APIVersion).To(Equal("kubevirt.io/v1"))
-	return vm
+func decodeVM(bytes []byte) (*v1.VirtualMachine, error) {
+	decoded, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
+	if err != nil {
+		return nil, err
+	}
+	switch obj := decoded.(type) {
+	case *v1.VirtualMachine:
+		Expect(obj.Kind).To(Equal(v1.VirtualMachineGroupVersionKind.Kind))
+		Expect(obj.APIVersion).To(Equal(v1.VirtualMachineGroupVersionKind.GroupVersion().String()))
+		return obj, nil
+	default:
+		return nil, fmt.Errorf("unexpected type %T", obj)
+	}
 }
