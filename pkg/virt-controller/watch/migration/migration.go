@@ -227,6 +227,9 @@ func (c *Controller) runWorker() {
 }
 
 func (c *Controller) Execute() bool {
+	if c.Queue.Len() == 0 {
+		c.pendingQueue.FlushTo(c.Queue)
+	}
 	key, quit := c.Queue.Get()
 	if quit {
 		return false
@@ -399,9 +402,9 @@ func (c *Controller) canMigrateVMI(migration *virtv1.VirtualMachineInstanceMigra
 
 }
 
-// flushPendingQueue checks if a migration just finished.
+// flushPendingQueueOnMigrationCompletion checks if a migration just finished.
 // If it did, it will enqueue all items from the pendingQueue to the main queue and empty the pendingQueue.
-func (c *Controller) flushPendingQueue(oldVMIM, newVMIM *virtv1.VirtualMachineInstanceMigration) {
+func (c *Controller) flushPendingQueueOnMigrationCompletion(oldVMIM, newVMIM *virtv1.VirtualMachineInstanceMigration) {
 	if oldVMIM.Status.Phase == newVMIM.Status.Phase || !newVMIM.IsFinal() {
 		return
 	}
@@ -527,7 +530,7 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		}
 	}
 
-	c.flushPendingQueue(migration, migrationCopy)
+	c.flushPendingQueueOnMigrationCompletion(migration, migrationCopy)
 
 	return nil
 }
