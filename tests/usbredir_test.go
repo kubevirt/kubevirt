@@ -109,16 +109,17 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				time.Sleep(100 * time.Millisecond)
 			}
 
+			numOfErrors := 0
 			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
 				select {
 				case err := <-errors[i]:
 					Expect(err).To(MatchError(ContainSubstring("websocket: bad handshake")))
-					Expect(i).To(Equal(v1.UsbClientPassthroughMaxNumberOf))
+					numOfErrors++
 				case <-time.After(time.Second):
 					cancelFns[i]()
-					Expect(i).ToNot(Equal(v1.UsbClientPassthroughMaxNumberOf))
 				}
 			}
+			Expect(numOfErrors).To(Equal(1), "Only one connection should fail")
 		})
 
 		It("Should work in parallel", func() {
