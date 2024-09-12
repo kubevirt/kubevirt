@@ -654,6 +654,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.cdiConfigInformer,
 		vca.clusterConfig,
 		topologyHinter,
+		netAnnotationsGenerator,
 		netvmicontroller.UpdateStatus,
 	)
 	if err != nil {

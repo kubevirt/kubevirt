@@ -54,7 +54,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
@@ -260,6 +259,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			cdiConfigInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
+			stubNetworkAnnotationsGenerator{},
 			stubNetStatusUpdate,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -743,80 +743,45 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	})
 
-	Context("with network-status annotation", func() {
+	Context("network annotations generation", func() {
 		const (
-			defaultNetworkName = "default"
-			sriovNetworkName   = "network1"
-			netAttachDefName   = "default/nad1"
-			selectedPCIAddress = "0000:04:02.5"
+			key1   = "key1"
+			value1 = "value1"
+			key2   = "key2"
+			value2 = "value2"
 		)
 
-		It("should not patch network-info annotation when no SR-IOV/binding plugin networks exist", func() {
+		It("should patch the pod's annotations when network annotations generator returns custom annotations", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Running
-			vmi = addDefaultNetwork(vmi, defaultNetworkName)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			pod.Annotations[networkv1.NetworkStatusAnnot] = `
-			[
-			{
-			"name": "kindnet",
-			"interface": "eth0",
-			"ips": [
-			  "10.244.2.131"
-			],
-			"mac": "82:cf:7c:98:43:7e",
-			"default": true,
-			"dns": {}
-			}
-			]`
+
 			addVirtualMachine(vmi)
 			addPod(pod)
 			addActivePods(vmi, pod.UID, "")
 
+			controller.netAnnotationsGenerator = stubNetworkAnnotationsGenerator{
+				annotations: map[string]string{key1: value1, key2: value2},
+			}
 			controller.Execute()
-			expectPodAnnotations(pod, Not(HaveKey(downwardapi.NetworkInfoAnnot)))
+			expectPodAnnotations(pod, HaveKeyWithValue(key1, value1), HaveKeyWithValue(key2, value2))
 		})
 
-		It("should patch network-info annotation when SR-IOV networks exist", func() {
+		It("should not patch the pod's annotations when network annotations generator returns an empty map", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Running
-			vmi = addDefaultNetwork(vmi, defaultNetworkName)
-			vmi = addDefaultNetworkStatus(vmi, defaultNetworkName)
-			vmi = addSRIOVNetwork(vmi, sriovNetworkName, netAttachDefName)
-			vmi = addDefaultNetworkStatus(vmi, sriovNetworkName)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			pod.Annotations[networkv1.NetworkStatusAnnot] = `
-			[
-			{
-			"name": "kindnet",
-			"interface": "eth0",
-			"ips": [
-			  "10.244.2.131"
-			],
-			"mac": "82:cf:7c:98:43:7e",
-			"default": true,
-			"dns": {}
-			},
-			{
-			"name": "` + netAttachDefName + `",
-			"interface": "poda7662f44d65",
-			"dns": {},
-			"device-info": {
-			  "type": "pci",
-			  "version": "1.0.0",
-			  "pci": {
-			    "pci-address": "` + selectedPCIAddress + `"
-			  }
-			}
-			}
-			]`
+
 			addVirtualMachine(vmi)
 			addPod(pod)
 			addActivePods(vmi, pod.UID, "")
 
+			controller.netAnnotationsGenerator = stubNetworkAnnotationsGenerator{annotations: map[string]string{}}
 			controller.Execute()
 
-			Expect(pod.Annotations).To(HaveKey(downwardapi.NetworkInfoAnnot))
+			expectPodAnnotations(pod, Not(HaveKeyWithValue(key1, value1)), Not(HaveKeyWithValue(key2, value2)))
 		})
 	})
 
@@ -4001,57 +3966,6 @@ func addActivePods(vmi *virtv1.VirtualMachineInstance, podUID types.UID, hostNam
 	return vmi
 }
 
-func addDefaultNetwork(vmi *virtv1.VirtualMachineInstance, networkName string) *virtv1.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, newMasqueradePrimaryInterface(networkName))
-	vmi.Spec.Networks = append(vmi.Spec.Networks, newMasqueradeDefaultNetwork(networkName))
-	return vmi
-}
-
-func addDefaultNetworkStatus(vmi *virtv1.VirtualMachineInstance, networkName string) *virtv1.VirtualMachineInstance {
-	vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{Name: networkName})
-	return vmi
-}
-
-func addSRIOVNetwork(vmi *virtv1.VirtualMachineInstance, networkName, nadName string) *virtv1.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, newSRIOVInterface(networkName))
-	vmi.Spec.Networks = append(vmi.Spec.Networks, newMultusNetwork(networkName, nadName))
-	return vmi
-}
-
-func newSRIOVInterface(name string) virtv1.Interface {
-	return virtv1.Interface{
-		Name:                   name,
-		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{SRIOV: &virtv1.InterfaceSRIOV{}},
-	}
-}
-
-func newMasqueradePrimaryInterface(name string) virtv1.Interface {
-	return virtv1.Interface{
-		Name:                   name,
-		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Masquerade: &virtv1.InterfaceMasquerade{}},
-	}
-}
-
-func newMasqueradeDefaultNetwork(name string) virtv1.Network {
-	return virtv1.Network{
-		Name: name,
-		NetworkSource: virtv1.NetworkSource{
-			Pod: &virtv1.PodNetwork{},
-		},
-	}
-}
-
-func newMultusNetwork(name, networkName string) virtv1.Network {
-	return virtv1.Network{
-		Name: name,
-		NetworkSource: virtv1.NetworkSource{
-			Multus: &virtv1.MultusNetwork{
-				NetworkName: networkName,
-			},
-		},
-	}
-}
-
 func newNetwork(netAttachDefName string, name string) virtv1.Network {
 	return virtv1.Network{
 		Name: name,
@@ -4078,4 +3992,12 @@ func (alc *fakeAllocator) Allocate(_ *virtv1.VirtualMachineInstance) error {
 
 func (alc *fakeAllocator) Remove(key string) {
 	alc.calls = append(alc.calls, "Remove")
+}
+
+type stubNetworkAnnotationsGenerator struct {
+	annotations map[string]string
+}
+
+func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
+	return s.annotations
 }
