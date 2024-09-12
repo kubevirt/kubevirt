@@ -59,7 +59,6 @@ import (
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -88,26 +87,28 @@ func NewController(templateService services.TemplateService,
 	cdiConfigInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
+	netStatusUpdater statusUpdater,
 ) (*Controller, error) {
 
 	c := &Controller{
-		templateService:   templateService,
-		Queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
-		vmiIndexer:        vmiInformer.GetIndexer(),
-		vmStore:           vmInformer.GetStore(),
-		podIndexer:        podInformer.GetIndexer(),
-		pvcIndexer:        pvcInformer.GetIndexer(),
-		recorder:          recorder,
-		clientset:         clientset,
-		podExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		vmiExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeIndexer: dataVolumeInformer.GetIndexer(),
-		cdiStore:          cdiInformer.GetStore(),
-		cdiConfigStore:    cdiConfigInformer.GetStore(),
-		clusterConfig:     clusterConfig,
-		topologyHinter:    topologyHinter,
-		cidsMap:           vsock.NewCIDsMap(),
-		backendStorage:    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
+		templateService:     templateService,
+		Queue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
+		vmiIndexer:          vmiInformer.GetIndexer(),
+		vmStore:             vmInformer.GetStore(),
+		podIndexer:          podInformer.GetIndexer(),
+		pvcIndexer:          pvcInformer.GetIndexer(),
+		recorder:            recorder,
+		clientset:           clientset,
+		podExpectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiExpectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeIndexer:   dataVolumeInformer.GetIndexer(),
+		cdiStore:            cdiInformer.GetStore(),
+		cdiConfigStore:      cdiConfigInformer.GetStore(),
+		clusterConfig:       clusterConfig,
+		topologyHinter:      topologyHinter,
+		cidsMap:             vsock.NewCIDsMap(),
+		backendStorage:      backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
+		updateNetworkStatus: netStatusUpdater,
 	}
 
 	c.hasSynced = func() bool {
@@ -171,25 +172,28 @@ func (i informalSyncError) RequiresRequeue() bool {
 	return false
 }
 
+type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
+
 type Controller struct {
-	templateService   services.TemplateService
-	clientset         kubecli.KubevirtClient
-	Queue             workqueue.RateLimitingInterface
-	vmiIndexer        cache.Indexer
-	vmStore           cache.Store
-	podIndexer        cache.Indexer
-	pvcIndexer        cache.Indexer
-	topologyHinter    topology.Hinter
-	recorder          record.EventRecorder
-	podExpectations   *controller.UIDTrackingControllerExpectations
-	vmiExpectations   *controller.UIDTrackingControllerExpectations
-	dataVolumeIndexer cache.Indexer
-	cdiStore          cache.Store
-	cdiConfigStore    cache.Store
-	clusterConfig     *virtconfig.ClusterConfig
-	cidsMap           vsock.Allocator
-	backendStorage    *backendstorage.BackendStorage
-	hasSynced         func() bool
+	templateService     services.TemplateService
+	clientset           kubecli.KubevirtClient
+	Queue               workqueue.RateLimitingInterface
+	vmiIndexer          cache.Indexer
+	vmStore             cache.Store
+	podIndexer          cache.Indexer
+	pvcIndexer          cache.Indexer
+	topologyHinter      topology.Hinter
+	recorder            record.EventRecorder
+	podExpectations     *controller.UIDTrackingControllerExpectations
+	vmiExpectations     *controller.UIDTrackingControllerExpectations
+	dataVolumeIndexer   cache.Indexer
+	cdiStore            cache.Store
+	cdiConfigStore      cache.Store
+	clusterConfig       *virtconfig.ClusterConfig
+	cidsMap             vsock.Allocator
+	backendStorage      *backendstorage.BackendStorage
+	hasSynced           func() bool
+	updateNetworkStatus statusUpdater
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -577,7 +581,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 					return err
 				}
 
-				if err := c.updateInterfaceStatus(vmiCopy, pod); err != nil {
+				if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
 					log.Log.Errorf("failed to update the interface status: %v", err)
 				}
 
@@ -641,7 +645,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return err
 		}
 
-		if err := c.updateInterfaceStatus(vmiCopy, pod); err != nil {
+		if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
 			log.Log.Errorf("failed to update the interface status: %v", err)
 		}
 
@@ -2147,33 +2151,6 @@ func (c *Controller) updateMultusAnnotation(namespace string, interfaces []virtv
 			return err
 		}
 		*pod = *patchedPod
-	}
-
-	return nil
-}
-
-func (c *Controller) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	indexedMultusStatusIfaces := network.NonDefaultMultusNetworksIndexedByIfaceName(pod)
-	ifaceNamingScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
-	for _, network := range vmi.Spec.Networks {
-		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
-		podIfaceName, wasFound := ifaceNamingScheme[network.Name]
-		if !wasFound {
-			return fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
-		}
-
-		_, exists := indexedMultusStatusIfaces[podIfaceName]
-		switch {
-		case exists && vmiIfaceStatus == nil:
-			vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
-				Name:       network.Name,
-				InfoSource: vmispec.InfoSourceMultusStatus,
-			})
-		case exists && vmiIfaceStatus != nil:
-			vmiIfaceStatus.InfoSource = vmispec.AddInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
-		case !exists && vmiIfaceStatus != nil:
-			vmiIfaceStatus.InfoSource = vmispec.RemoveInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
-		}
 	}
 
 	return nil
