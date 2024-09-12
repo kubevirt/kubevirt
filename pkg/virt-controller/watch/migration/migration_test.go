@@ -2277,7 +2277,23 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulMigrationReason)
 			Expect(controller.pendingQueue.GetQueue()).To(BeEmpty())
 		})
+		It("should flush the pending queue when the main one is empty and only then", func() {
+			By("Adding 3 items to the pending queue")
+			controller.pendingQueue.Add("testns/testmig1")
+			controller.pendingQueue.Add("testns/testmig2")
+			controller.pendingQueue.Add("testns/testmig3")
 
+			By("Executing the controller and expecting an empty pending queue and 2 items left in the main queue")
+			controller.Execute()
+			Expect(controller.pendingQueue.GetQueue()).To(BeEmpty())
+			Expect(controller.Queue.Len()).To(Equal(2))
+
+			By("Adding 1 item to the pending queue, executing the controller and expecting no pending queue flush")
+			controller.pendingQueue.Add("testns/testmig4")
+			controller.Execute()
+			Expect(controller.pendingQueue.GetQueue()).To(HaveLen(1))
+			Expect(controller.Queue.Len()).To(Equal(1))
+		})
 	})
 })
 
