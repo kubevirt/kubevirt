@@ -21,7 +21,6 @@ package compute
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -49,94 +48,98 @@ import (
 var _ = SIGDescribe("Guest Access Credentials", func() {
 
 	const (
-		fedoraRunningTimeout    = 120
-		guestAgentConnetTimeout = 2 * time.Minute
-		denyListTimeout         = 2 * time.Minute
-		fedoraPassword          = "fedora"
+		fedoraRunningTimeout     = 120
+		guestAgentConnectTimeout = 2 * time.Minute
+		denyListTimeout          = 2 * time.Minute
+		fedoraPassword           = "fedora"
+		pubKeySecretID           = "my-pub-key"
+		userPassSecretID         = "my-user-pass"
+		userData                 = "#cloud-config\nchpasswd: { expire: False }\n"
 	)
 
-	Context("with qemu guest agent", func() {
-		withQuestAgentPropagationMethod := v1.SSHPublicKeyAccessCredentialPropagationMethod{
-			QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
-				Users: []string{"fedora"},
-			},
-		}
+	keysSecretData := libsecret.DataBytes{
+		"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
+		"my-key2": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"),
+		"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
+	}
 
-		withPassword := func(secretName string) libvmi.Option {
-			return func(vmi *v1.VirtualMachineInstance) {
-				vmi.Spec.AccessCredentials = append(vmi.Spec.AccessCredentials,
-					v1.AccessCredential{
-						UserPassword: &v1.UserPasswordAccessCredential{
-							Source: v1.UserPasswordAccessCredentialSource{
-								Secret: &v1.AccessCredentialSecretSource{
-									SecretName: secretName,
-								},
-							},
-							PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-								QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
-							},
-						},
-					})
-			}
-		}
+	DescribeTable("should have ssh-key under authorized keys added", func(withQEMUAccessCredential bool, options ...libvmi.Option) {
+		By("Creating a secret with three ssh keys")
+		createNewSecret(testsuite.GetTestNamespace(nil), pubKeySecretID, keysSecretData)
 
-		It("[test_id:6220]should propagate public ssh keys", func() {
-			const secretID = "my-pub-key"
-			vmi := libvmifact.NewFedora(withSSHPK(secretID, withQuestAgentPropagationMethod))
+		vmi := libvmifact.NewFedora(options...)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
-			By("Creating a secret with three ssh keys")
-			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
-				"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
-				"my-key2": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"),
-				"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
-			})
+		By("Waiting for agent to connect")
+		Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
-
-			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
+		if withQEMUAccessCredential {
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
 			Eventually(matcher.ThisVMI(vmi), denyListTimeout, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
+		}
 
-			By("Verifying all three pub ssh keys in secret are in VMI guest")
-			Expect(console.ExpectBatch(vmi,
-				[]expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "login:"},
-					&expect.BSnd{S: "fedora\n"},
-					&expect.BExp{R: "Password:"},
-					&expect.BSnd{S: fedoraPassword + "\n"},
-					&expect.BExp{R: "\\$"},
-					&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-					&expect.BExp{R: "test-ssh-key1"},
-					&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-					&expect.BExp{R: "test-ssh-key2"},
-					&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-					&expect.BExp{R: "test-ssh-key3"},
-				}, 3*time.Minute)).To(Succeed())
-		})
+		By("Verifying all three pub ssh keys in secret are in VMI guest")
+		Expect(console.ExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "login:"},
+			&expect.BSnd{S: "fedora\n"},
+			&expect.BExp{R: "Password:"},
+			&expect.BSnd{S: fedoraPassword + "\n"},
+			&expect.BExp{R: "\\$"},
+			&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+			&expect.BExp{R: "test-ssh-key1"},
+			&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+			&expect.BExp{R: "test-ssh-key2"},
+			&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+			&expect.BExp{R: "test-ssh-key3"},
+		}, 3*time.Minute)).To(Succeed())
+	},
+		Entry("[test_id:6220] using qemu guest agent", true,
+			withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
+				QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+					Users: []string{"fedora"},
+				},
+			}),
+		),
+		Entry("[test_id:6224] using configdrive", false,
+			libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData)),
+			withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
+				ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
+			}),
+		),
+		Entry("using nocloud", false,
+			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userData)),
+			withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
+				NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+			}),
+		),
+	)
+
+	Context("with qemu guest agent", func() {
+		const customPassword = "imadethisup"
+
+		pubKeyData := libsecret.DataBytes{
+			"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
+		}
+
+		userPassData := libsecret.DataBytes{
+			"fedora": []byte(customPassword),
+		}
 
 		It("[test_id:6221]should propagate user password", func() {
-			const secretID = "my-user-pass"
-			vmi := libvmifact.NewFedora(withPassword(secretID))
-
-			customPassword := "imadethisup"
+			vmi := libvmifact.NewFedora(libvmi.WithAccessCredentialUserPassword(userPassSecretID))
 
 			By("Creating a secret with custom password")
-			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
-				"fedora": []byte(customPassword),
-			})
+			createNewSecret(testsuite.GetTestNamespace(vmi), userPassSecretID, userPassData)
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
 			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Waiting on access credentials to sync")
-			// this ensures the keys have propagated before we attempt to read
 			Eventually(matcher.ThisVMI(vmi), denyListTimeout, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
 
 			By("Verifying signin with custom password works")
@@ -152,104 +155,35 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 
 		})
 
-		It("[test_id:6222]should update guest agent for public ssh keys", func() {
-			const secretID = "my-pub-key"
-			vmi := libvmifact.NewFedora(
-				withSSHPK(secretID, withQuestAgentPropagationMethod),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
-					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-ssh-add-authorized-keys"),
-				)),
-			)
+		DescribeTable("should update to unsupported agent", func(secretID string, secretData libsecret.DataBytes, options ...libvmi.Option) {
+			vmi := libvmifact.NewFedora(options...)
 
 			By("Creating a secret with an ssh key")
-			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
-				"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
-			})
-
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
-
-			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-			By("Checking that denylisted commands triggered unsupported guest agent condition")
-			Eventually(matcher.ThisVMI(vmi), denyListTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
-		})
-
-		It("[test_id:6223]should update guest agent for user password", func() {
-			const secretID = "my-user-pass"
-			vmi := libvmifact.NewFedora(
-				withPassword(secretID),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
-					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password"),
-				)),
-			)
-
-			customPassword := "imadethisup"
-
-			By("Creating a secret with custom password")
-			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
-				"fedora": []byte(customPassword),
-			})
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
-
-			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-			By("Checking that denylisted commands triggered unsupported guest agent condition")
-			Eventually(matcher.ThisVMI(vmi), denyListTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
-		})
-	})
-	Context("with secret and cloudInit propagation", func() {
-		const secretID = "my-pub-key"
-		userData := fmt.Sprintf(
-			"#cloud-config\npassword: %s\nchpasswd: { expire: False }\n",
-			fedoraPassword,
-		)
-
-		secretData := map[string][]byte{
-			"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
-			"my-key2": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"),
-			"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
-		}
-
-		verifySSHKeys := func(vmi *v1.VirtualMachineInstance) {
-			By("Verifying all three pub ssh keys in secret are in VMI guest")
-			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "login:"},
-				&expect.BSnd{S: "fedora\n"},
-				&expect.BExp{R: "Password:"},
-				&expect.BSnd{S: fedoraPassword + "\n"},
-				&expect.BExp{R: "\\$"},
-				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-				&expect.BExp{R: "test-ssh-key1"},
-				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-				&expect.BExp{R: "test-ssh-key2"},
-				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-				&expect.BExp{R: "test-ssh-key3"},
-			}, 3*time.Minute)).To(Succeed())
-		}
-
-		DescribeTable("should have ssh-key under authorized keys added ", func(vmi *v1.VirtualMachineInstance) {
-			By("Creating a secret with three ssh keys")
 			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, secretData)
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
-			verifySSHKeys(vmi)
+
+			By("Waiting for agent to connect")
+			Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Checking that denylisted commands triggered unsupported guest agent condition")
+			Eventually(matcher.ThisVMI(vmi), denyListTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
+
 		},
-			Entry("[test_id:6224]using configdrive", libvmifact.NewFedora(
-				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData)),
-				withSSHPK(secretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
-					ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
+			Entry("[test_id:6222]for public ssh keys", pubKeySecretID, pubKeyData,
+				withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
+					QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+						Users: []string{"fedora"},
+					},
 				}),
-			)),
-			Entry("using nocloud", libvmifact.NewFedora(
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userData)),
-				withSSHPK(secretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
-					NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
-				}),
-			)),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
+					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-ssh-add-authorized-keys"),
+				))),
+			Entry("[test_id:6223] for user password", userPassSecretID, userPassData,
+				libvmi.WithAccessCredentialUserPassword(userPassSecretID),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
+					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password"),
+				))),
 		)
 	})
 })
