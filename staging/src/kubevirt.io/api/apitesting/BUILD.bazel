@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "go_default_test",
-    srcs = ["roundtrip_test.go"],
+    srcs = [
+        "apitesting_suite_test.go",
+        "roundtrip_test.go",
+    ],
     data = glob(["testdata/**"]),
     deps = [
         "//staging/src/kubevirt.io/api/apitesting/roundtrip:go_default_library",

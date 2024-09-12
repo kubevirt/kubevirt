@@ -40,7 +40,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["websocket_test.go"],
+    srcs = [
+        "v1_suite_test.go",
+        "websocket_test.go",
+    ],
     embed = [":go_default_library"],
     deps = [
         "//vendor/github.com/gorilla/websocket:go_default_library",
