@@ -721,10 +721,6 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 	}(l, vmi)
 }
 
-func isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Status.MigrationMethod == v1.BlockMigration
-}
-
 func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string, domSpec *api.DomainSpec) (*libvirt.DomainMigrateParameters, error) {
 	bandwidth, err := vcpu.QuantityToMebiByte(options.Bandwidth)
 	if err != nil {
@@ -937,7 +933,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	if err != nil {
 		return fmt.Errorf("failed to retrive domain state")
 	}
-	migrateFlags := generateMigrationFlags(isBlockMigration(vmi), migratePaused, options)
+	migrateFlags := generateMigrationFlags(vmi.IsBlockMigration(), migratePaused, options)
 
 	// anything that modifies the domain needs to be performed with the domainModifyLock held
 	// The domain params and unHotplug need to be performed in a critical section together.
