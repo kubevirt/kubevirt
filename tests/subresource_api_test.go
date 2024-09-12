@@ -54,8 +54,6 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	manual := v1.RunStrategyManual
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
@@ -158,35 +156,25 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 	Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component] VirtualMachine subresource", func() {
 		Context("with a restart endpoint", func() {
-			It("[test_id:1305][posneg:negative] should return an error when VM is not running", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
+			DescribeTable("should return an error when VM is not running", func(errMsg string, opts ...libvmi.VMOption) {
+				By("Creating VM")
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), opts...)
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
+				By("Trying to start VM via Restart subresource")
 				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-				Expect(err).To(HaveOccurred())
-			})
+				Expect(err).To(MatchError(ContainSubstring(errMsg)))
+			},
+				Entry("[test_id:1305][posneg:negative] with RunStrategyHalted", "RunStategy Halted does not support manual restart requests", libvmi.WithRunStrategy(v1.RunStrategyHalted)),
+				Entry("[test_id:3174] with RunStrategyManual", "VM is not running: Halted", libvmi.WithRunStrategy(v1.RunStrategyManual)),
+			)
 
 			It("[test_id:2265][posneg:negative] should return an error when VM has not been found but VMI is running", func() {
 				vmi := libvmifact.NewGuestless()
 				libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 				err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Restart(context.Background(), vmi.Name, &v1.RestartOptions{})
-				Expect(err).To(HaveOccurred())
-			})
-		})
-
-		Context("With manual RunStrategy", func() {
-			It("[test_id:3174]Should not restart when VM is not running", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-				vm.Spec.RunStrategy = &manual
-
-				By("Creating VM")
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Trying to start VM via Restart subresource")
-				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 		})
