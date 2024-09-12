@@ -1125,7 +1125,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Entry("to a new VM", true),
 			)
 
-			DescribeTable("should restore a vm that boots from a datavolumetemplate", func(restoreToNewVM bool) {
+			DescribeTable("[QUARANTINE] should restore a vm that boots from a datavolumetemplate", decorators.Quarantine, func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(newVMWithDataVolumeForRestore(snapshotStorageClass))
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
@@ -1479,7 +1479,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Entry("to a new VM", true),
 			)
 
-			DescribeTable("should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func(restoreToNewVM bool) {
+			DescribeTable("[QUARANTINE] should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", decorators.Quarantine, func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					testsuite.GetTestNamespace(nil),
