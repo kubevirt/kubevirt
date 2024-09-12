@@ -201,7 +201,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		logger.V(3).Info("Setting up TCP proxies to support incoming legacy VMI migration")
 		loopbackAddress := ip.GetLoopbackAddress()
 
-		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
+		migrationPortsRange := migrationproxy.GetMigrationPortsList(vmi.IsBlockMigration())
 		for _, port := range migrationPortsRange {
 			// Prepare the direct migration proxy
 			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
