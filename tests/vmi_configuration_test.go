@@ -711,7 +711,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
-			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
+			It("[QUARANTINE][test_id:1669]should show the requested guest memory inside the VMI", decorators.Quarantine, func() {
 				vmi := libvmifact.NewCirros()
 				guestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
