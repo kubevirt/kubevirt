@@ -585,6 +585,7 @@ rules:
   resources:
   - virtualmachineexports
   - virtualmachineexports/status
+  - virtualmachineexports/finalizers
   verbs:
   - get
   - list
