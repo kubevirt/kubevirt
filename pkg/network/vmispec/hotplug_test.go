@@ -25,12 +25,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-)
-
-const (
-	extraNetworkName           = "othernet"
-	extraNetworkAttachmentName = "othernad"
 )
 
 var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
@@ -39,16 +36,24 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 		nadName        = "nad1"
 		networkName    = "n1"
 	)
-
 	DescribeTable("NetworksToHotplugWhosePodIfacesAreReady", func(vmi *v1.VirtualMachineInstance, networksToHotplug ...v1.Network) {
 		Expect(vmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)).To(ConsistOf(networksToHotplug))
 	},
-		Entry("VMI without networks in spec does not have anything to hotplug", newVMI()),
+		Entry("VMI without networks in spec does not have anything to hotplug", libvmi.New()),
 		Entry("VMI with networks in spec, but not marked as ready in the status are *not* subject to hotplug",
-			dummyVMIWithoutStatus(networkName, nadName),
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName, nadName)),
+			),
 		),
 		Entry("VMI with networks in spec, marked as ready in the status, but not yet available in the domain *is* subject to hotplug",
-			dummyVMIWithAttachmentToPlug(networkName, nadName, guestIfaceName),
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName, nadName)),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+					Name: networkName, InterfaceName: guestIfaceName, InfoSource: vmispec.InfoSourceMultusStatus,
+				}))),
+			),
 			v1.Network{
 				Name: networkName,
 				NetworkSource: v1.NetworkSource{
@@ -59,84 +64,13 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 			},
 		),
 		Entry("VMI with networks in spec, marked as ready in the status, but already present in the domain *not* subject to hotplug",
-			dummyVMIWithAttachmentAlreadyAvailableOnDomain(networkName, nadName, guestIfaceName),
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName, nadName)),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+					Name: networkName, InterfaceName: guestIfaceName, InfoSource: vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceMultusStatus),
+				}))),
+			),
 		),
 	)
 })
-
-func dummyVMIWithoutStatus(networkName string, nadName string) *v1.VirtualMachineInstance {
-	vmi := newVMI()
-	vmi.Spec.Networks = []v1.Network{
-		{
-			Name:          networkName,
-			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: nadName}},
-		}}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-		{
-			Name:                   networkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-		}}
-	return vmi
-}
-
-func dummyVMIWithOneNetworkAndOneIfaceOnSpecAndStatus(networkName string, nadName string) *v1.VirtualMachineInstance {
-	dummyVMI := dummyVMIWithoutStatus(networkName, nadName)
-	dummyVMI.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-		{
-			Name:          networkName,
-			InterfaceName: "eno123",
-		},
-	}
-	return dummyVMI
-}
-
-func dummyVMIWithMultipleNetworksAndIfacesOnSpec(networkName string, nadName string) *v1.VirtualMachineInstance {
-	dummyVMI := dummyVMIWithoutStatus(networkName, nadName)
-	dummyVMI.Spec.Domain.Devices.Interfaces = append(dummyVMI.Spec.Domain.Devices.Interfaces, v1.Interface{
-		Name:                   extraNetworkName,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-	})
-	dummyVMI.Spec.Networks = append(dummyVMI.Spec.Networks, v1.Network{
-		Name: extraNetworkName,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: extraNetworkAttachmentName,
-			}},
-	})
-	return dummyVMI
-}
-
-func dummyVMIWithAttachmentToPlug(networkName string, netAttachDefName string, guestIfaceName string) *v1.VirtualMachineInstance {
-	vmi := dummyVMIWithoutStatus(networkName, netAttachDefName)
-	vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-		{Name: networkName, InterfaceName: guestIfaceName, InfoSource: vmispec.InfoSourceMultusStatus},
-	}
-	return vmi
-}
-
-func dummyVMIWithAttachmentAlreadyAvailableOnDomain(networkName string, netAttachDefName string, guestIfaceName string) *v1.VirtualMachineInstance {
-	vmi := dummyVMIWithAttachmentToPlug(networkName, netAttachDefName, guestIfaceName)
-	for i := range vmi.Status.Interfaces {
-		vmi.Status.Interfaces[i].InfoSource = vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceMultusStatus)
-	}
-	return vmi
-}
-
-func dummyVMIWithStatusOnly(networkName string, ifaceName string) *v1.VirtualMachineInstance {
-	vmi := newVMI()
-	vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-		{
-			Name:          networkName,
-			InterfaceName: ifaceName,
-			InfoSource:    vmispec.InfoSourceMultusStatus,
-		},
-	}
-	return vmi
-}
-
-func newVMI() *v1.VirtualMachineInstance {
-	const vmName = "pepe"
-	vmi := v1.NewVMIReferenceFromNameWithNS("", vmName)
-	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
-	return vmi
-}
