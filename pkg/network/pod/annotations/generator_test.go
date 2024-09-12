@@ -42,21 +42,12 @@ import (
 )
 
 var _ = Describe("Annotations Generator", func() {
-	const testNamespace = "default"
+	const (
+		kubevirtCRName    = "kubevirt"
+		kubevirtNamespace = "kubevirt"
 
-	var clusterConfig *virtconfig.ClusterConfig
-
-	BeforeEach(func() {
-		const (
-			kubevirtCRName    = "kubevirt"
-			kubevirtNamespace = "kubevirt"
-		)
-
-		kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
-		kv.Namespace = kubevirtNamespace
-
-		clusterConfig = newClusterConfig(kv)
-	})
+		testNamespace = "default"
+	)
 
 	Context("Multus", func() {
 		const (
@@ -68,6 +59,15 @@ var _ = Describe("Annotations Generator", func() {
 			networkAttachmentDefinitionName1       = "test1"
 			networkAttachmentDefinitionName2       = "other-namespace/test1"
 		)
+
+		var clusterConfig *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+			kv.Namespace = kubevirtNamespace
+
+			clusterConfig = newClusterConfig(kv)
+		})
 
 		It("should generate the Multus networks annotation", func() {
 			vmi := libvmi.New(
@@ -139,6 +139,15 @@ var _ = Describe("Annotations Generator", func() {
 	})
 
 	Context("Istio annotations", func() {
+		var clusterConfig *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+			kv.Namespace = kubevirtNamespace
+
+			clusterConfig = newClusterConfig(kv)
+		})
+
 		It("should generate Istio annotation when VMI is connected to pod network using masquerade binding", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
@@ -170,7 +179,10 @@ var _ = Describe("Annotations Generator", func() {
 	})
 
 	Context("Network naming scheme conversion during migration", func() {
-		var vmi *v1.VirtualMachineInstance
+		var (
+			clusterConfig *virtconfig.ClusterConfig
+			vmi           *v1.VirtualMachineInstance
+		)
 
 		BeforeEach(func() {
 			const (
@@ -180,6 +192,11 @@ var _ = Describe("Annotations Generator", func() {
 				networkName2                     = "red"
 				networkAttachmentDefinitionName2 = "other-namespace/test1"
 			)
+
+			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+			kv.Namespace = kubevirtNamespace
+
+			clusterConfig = newClusterConfig(kv)
 
 			vmi = libvmi.New(
 				libvmi.WithNamespace(testNamespace),
