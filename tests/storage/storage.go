@@ -78,6 +78,7 @@ const (
 	hostDiskName                 = "host-disk"
 	diskImgName                  = "disk.img"
 	customHostPath               = "custom-host-path"
+	diskAlpineHostPath           = "disk-alpine-host-path"
 	diskCustomHostPath           = "disk-custom-host-path"
 )
 
@@ -282,7 +283,7 @@ var _ = SIGDescribe("Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 						pvName = createNFSPvAndPvc(family, nfsPod)
 					} else {
-						pvName = tests.DiskAlpineHostPath
+						pvName = diskAlpineHostPath
 					}
 					vmi = newVMI(pvName)
 
@@ -304,7 +305,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 			DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
-				vmi = newVMI(tests.DiskAlpineHostPath)
+				vmi = newVMI(diskAlpineHostPath)
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
@@ -427,7 +428,7 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 				AfterEach(func() {
-					if pvName != "" && pvName != tests.DiskAlpineHostPath {
+					if pvName != "" && pvName != diskAlpineHostPath {
 						// PVs can't be reused
 						By("Deleting PV and PVC")
 						deletePvAndPvc(pvName)
@@ -444,7 +445,7 @@ var _ = SIGDescribe("Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 						pvName = createNFSPvAndPvc(family, nfsPod)
 					} else {
-						pvName = tests.DiskAlpineHostPath
+						pvName = diskAlpineHostPath
 					}
 
 					vmi = libvmi.New(
@@ -472,7 +473,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithResourceMemory("256Mi"),
-					libvmi.WithEphemeralPersistentVolumeClaim("disk0", tests.DiskAlpineHostPath),
+					libvmi.WithEphemeralPersistentVolumeClaim("disk0", diskAlpineHostPath),
 				)
 
 				By("Starting the VirtualMachineInstance")
@@ -538,7 +539,7 @@ var _ = SIGDescribe("Storage", func() {
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3138]should start vmi multiple times", func() {
 				vmi = libvmi.New(
-					libvmi.WithPersistentVolumeClaim("disk0", tests.DiskAlpineHostPath),
+					libvmi.WithPersistentVolumeClaim("disk0", diskAlpineHostPath),
 					libvmi.WithPersistentVolumeClaim("disk1", diskCustomHostPath),
 					libvmi.WithResourceMemory("256Mi"),
 					libvmi.WithRng())
