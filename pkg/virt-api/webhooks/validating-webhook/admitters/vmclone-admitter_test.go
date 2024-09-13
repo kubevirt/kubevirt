@@ -28,7 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/testing"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
-	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	"kubevirt.io/client-go/kubevirt/fake"
 
 	"github.com/golang/mock/gomock"
 	admissionv1 "k8s.io/api/admission/v1"

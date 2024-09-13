@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
-	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	kvtesting "kubevirt.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"

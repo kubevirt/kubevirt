@@ -45,9 +45,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 
-	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
-	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-	instancetypeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
+	cdifake "kubevirt.io/client-go/containerized-data-importer/fake"
+	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
+	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/testutils"

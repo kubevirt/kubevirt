@@ -30,7 +30,7 @@ import (
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
-	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
+	clonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -40,17 +40,17 @@ import (
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
-	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
-	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
-	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
-	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
-	exportv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1beta1"
-	instancetypev1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
-	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
-	poolv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
-	snapshotv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1beta1"
-	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
-	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
+	cdiclient "kubevirt.io/client-go/containerized-data-importer"
+	k8ssnapshotclient "kubevirt.io/client-go/external-snapshotter"
+	generatedclient "kubevirt.io/client-go/kubevirt"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
+	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	migrationsv1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
+	poolv1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
+	networkclient "kubevirt.io/client-go/network-attachment-definition-client"
+	promclient "kubevirt.io/client-go/prometheus-operator"
 	"kubevirt.io/client-go/version"
 )
 

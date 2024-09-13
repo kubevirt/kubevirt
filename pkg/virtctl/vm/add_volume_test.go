@@ -36,9 +36,9 @@ import (
 	kvtesting "kubevirt.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
-	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
-	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	cdifake "kubevirt.io/client-go/containerized-data-importer/fake"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
