@@ -38,7 +38,7 @@ type GuestfsInfo struct {
 	GsImage     string `json:"gsImage"`
 }
 
-func (k *kubevirt) GuestfsVersion() *GuestfsVersion {
+func (k *kubevirtClient) GuestfsVersion() *GuestfsVersion {
 	return &GuestfsVersion{
 		restClient: k.restClient,
 		resource:   "guestfs",

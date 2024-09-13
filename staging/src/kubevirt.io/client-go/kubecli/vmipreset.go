@@ -30,7 +30,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 )
 
-func (k *kubevirt) VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface {
+func (k *kubevirtClient) VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface {
 	return &vmiPresets{
 		k.GeneratedKubeVirtClient().KubevirtV1().VirtualMachineInstancePresets(namespace),
 		k.restClient,

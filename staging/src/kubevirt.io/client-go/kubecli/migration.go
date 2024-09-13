@@ -30,7 +30,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 )
 
-func (k *kubevirt) VirtualMachineInstanceMigration(namespace string) VirtualMachineInstanceMigrationInterface {
+func (k *kubevirtClient) VirtualMachineInstanceMigration(namespace string) VirtualMachineInstanceMigrationInterface {
 	return &migration{
 		VirtualMachineInstanceMigrationInterface: k.GeneratedKubeVirtClient().KubevirtV1().VirtualMachineInstanceMigrations(namespace),
 		restClient:                               k.restClient,

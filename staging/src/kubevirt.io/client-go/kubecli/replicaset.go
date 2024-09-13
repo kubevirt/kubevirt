@@ -30,7 +30,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 )
 
-func (k *kubevirt) ReplicaSet(namespace string) ReplicaSetInterface {
+func (k *kubevirtClient) ReplicaSet(namespace string) ReplicaSetInterface {
 	return &rc{
 		k.GeneratedKubeVirtClient().KubevirtV1().VirtualMachineInstanceReplicaSets(namespace),
 		k.restClient,

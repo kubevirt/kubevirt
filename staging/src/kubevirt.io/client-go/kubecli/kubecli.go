@@ -210,7 +210,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
-	return &kubevirt{
+	return &kubevirtClient{
 		master,
 		kubeconfig,
 		restClient,
@@ -406,7 +406,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
-	return &kubevirt{
+	return &kubevirtClient{
 		master,
 		kubeconfig,
 		restClient,

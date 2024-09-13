@@ -30,7 +30,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 )
 
-func (k *kubevirt) KubeVirt(namespace string) KubeVirtInterface {
+func (k *kubevirtClient) KubeVirt(namespace string) KubeVirtInterface {
 	return &kv{
 		KubeVirtInterface: k.GeneratedKubeVirtClient().KubevirtV1().KubeVirts(namespace),
 		restClient:        k.restClient,
