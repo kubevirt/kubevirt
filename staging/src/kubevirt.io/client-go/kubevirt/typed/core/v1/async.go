@@ -148,8 +148,12 @@ func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (ht
 	}
 
 	// Configure the websocket dialer
+	proxy := http.ProxyFromEnvironment
+	if config.Proxy != nil {
+		proxy = config.Proxy
+	}
 	dialer := &websocket.Dialer{
-		Proxy:           http.ProxyFromEnvironment,
+		Proxy:           proxy,
 		TLSClientConfig: tlsConfig,
 		WriteBufferSize: WebsocketMessageBufferSize,
 		ReadBufferSize:  WebsocketMessageBufferSize,
