@@ -45,10 +45,8 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		mutator := &mutators.MigrationCreateMutator{}
-
-		expectedJSONPatch, err := expectedJSONPatchForVMIMCreation(
-			expectedMigrationObjectMeta(migration.ObjectMeta, migration.Spec.VMIName),
-		)
+		expectedObjectMeta := expectedMigrationObjectMeta(migration.ObjectMeta, migration.Spec.VMIName)
+		expectedJSONPatch, err := patch.New(patch.WithReplace("/metadata", expectedObjectMeta)).GeneratePayload()
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(mutator.Mutate(admissionReview)).To(Equal(
@@ -99,14 +97,4 @@ func expectedMigrationObjectMeta(currentObjectMeta k8smetav1.ObjectMeta, vmiName
 	expectedObjectMeta.Finalizers = []string{v1.VirtualMachineInstanceMigrationFinalizer}
 
 	return expectedObjectMeta
-}
-
-func expectedJSONPatchForVMIMCreation(expectedObjectMeta k8smetav1.ObjectMeta) ([]byte, error) {
-	return patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/metadata",
-			Value: expectedObjectMeta,
-		},
-	)
 }

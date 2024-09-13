@@ -278,13 +278,7 @@ func updateDeploymentResourcesRequest(virtClient kubecli.KubevirtClient, deploym
 }
 
 func patchDeployment(virtClient kubecli.KubevirtClient, deployment *appsv1.Deployment) {
-	patchOp := patch.PatchOperation{
-		Op:    "replace",
-		Path:  "/spec",
-		Value: deployment.Spec,
-	}
-
-	payload, err := patch.GeneratePatchPayload(patchOp)
+	payload, err := patch.New(patch.WithReplace("/spec", deployment.Spec)).GeneratePayload()
 	Expect(err).ToNot(HaveOccurred())
 
 	_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, payload, metav1.PatchOptions{})

@@ -130,28 +130,12 @@ func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) [
 }
 
 func PatchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
-	patchData, err := patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchTestOp,
-			Path:  "/spec/template/spec/networks",
-			Value: vm.Spec.Template.Spec.Networks,
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/spec/template/spec/networks",
-			Value: append(vm.Spec.Template.Spec.Networks, newNetwork),
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchTestOp,
-			Path:  "/spec/template/spec/domain/devices/interfaces",
-			Value: vm.Spec.Template.Spec.Domain.Devices.Interfaces,
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/spec/template/spec/domain/devices/interfaces",
-			Value: append(vm.Spec.Template.Spec.Domain.Devices.Interfaces, newIface),
-		},
-	)
+	patchData, err := patch.New(
+		patch.WithTest("/spec/template/spec/networks", vm.Spec.Template.Spec.Networks),
+		patch.WithReplace("/spec/template/spec/networks", append(vm.Spec.Template.Spec.Networks, newNetwork)),
+		patch.WithTest("/spec/template/spec/domain/devices/interfaces", vm.Spec.Template.Spec.Domain.Devices.Interfaces),
+		patch.WithReplace("/spec/template/spec/domain/devices/interfaces", append(vm.Spec.Template.Spec.Domain.Devices.Interfaces, newIface)),
+	).GeneratePayload()
 	if err != nil {
 		return err
 	}

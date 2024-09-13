@@ -396,11 +396,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Get(context.Background(), newPool.ObjectMeta.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		patchData, err := patch.GeneratePatchPayload(patch.PatchOperation{
-			Op:    patch.PatchAddOp,
-			Path:  fmt.Sprintf("/spec/virtualMachineTemplate/metadata/labels/%s", newLabelKey),
-			Value: newLabelValue,
-		})
+		patchData, err := patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -455,11 +453,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err).ToNot(HaveOccurred())
 
 		// Make a VMI template change
-		patchData, err := patch.GeneratePatchPayload(patch.PatchOperation{
-			Op:    patch.PatchAddOp,
-			Path:  fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey),
-			Value: newLabelValue,
-		})
+		patchData, err := patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())

@@ -20,6 +20,8 @@
 package config
 
 import (
+	"fmt"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/log"
@@ -28,49 +30,25 @@ import (
 )
 
 func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugin) error {
-	return RegisterKubevirtConfigChange(func(c v1.KubeVirtConfiguration) ([]patch.PatchOperation, error) {
+	return RegisterKubevirtConfigChange(func(c v1.KubeVirtConfiguration) (*patch.PatchSet, error) {
 		return registerBindingPugins(c, name, netBindingPlugin)
 	})
 }
 
 func registerBindingPugins(config v1.KubeVirtConfiguration, name string, binding v1.InterfaceBindingPlugin) (
-	[]patch.PatchOperation, error) {
-	var changePatchOperations []patch.PatchOperation
+	*patch.PatchSet, error) {
+	patchSet := patch.New()
 
 	if config.NetworkConfiguration == nil {
-		changePatchOperations = append(changePatchOperations, networkInitPatch())
+		patchSet.AddOption(patch.WithAdd("/spec/configuration/network", v1.NetworkConfiguration{}))
 	}
 	if config.NetworkConfiguration.Binding == nil {
-		changePatchOperations = append(changePatchOperations, networkBindingInitPatch())
+		patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
 	}
 
-	changePatchOperations = append(changePatchOperations, networkBindingPatch(name, binding))
+	patchSet.AddOption(patch.WithAdd(fmt.Sprintf("/spec/configuration/network/binding/%s", name), binding))
 
 	log.Log.Infof("registering binding plugin: %s, %+v", name, binding)
 
-	return changePatchOperations, nil
-}
-
-func networkInitPatch() patch.PatchOperation {
-	return patch.PatchOperation{
-		Op:    patch.PatchAddOp,
-		Path:  "/spec/configuration/network",
-		Value: v1.NetworkConfiguration{},
-	}
-}
-
-func networkBindingInitPatch() patch.PatchOperation {
-	return patch.PatchOperation{
-		Op:    patch.PatchAddOp,
-		Path:  "/spec/configuration/network/binding",
-		Value: map[string]v1.InterfaceBindingPlugin{},
-	}
-}
-
-func networkBindingPatch(name string, binding v1.InterfaceBindingPlugin) patch.PatchOperation {
-	return patch.PatchOperation{
-		Op:    patch.PatchAddOp,
-		Path:  "/spec/configuration/network/binding/" + name,
-		Value: binding,
-	}
+	return patchSet, nil
 }

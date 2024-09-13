@@ -201,28 +201,12 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 			By("Hotplug Memory and CPU")
 			newGuestMemory := resource.MustParse("1042Mi")
-			patchData, err := patch.GeneratePatchPayload(
-				patch.PatchOperation{
-					Op:    patch.PatchTestOp,
-					Path:  "/spec/template/spec/domain/memory/guest",
-					Value: guest.String(),
-				},
-				patch.PatchOperation{
-					Op:    patch.PatchReplaceOp,
-					Path:  "/spec/template/spec/domain/memory/guest",
-					Value: newGuestMemory.String(),
-				},
-				patch.PatchOperation{
-					Op:    patch.PatchTestOp,
-					Path:  "/spec/template/spec/domain/cpu/sockets",
-					Value: vmi.Spec.Domain.CPU.Sockets,
-				},
-				patch.PatchOperation{
-					Op:    patch.PatchReplaceOp,
-					Path:  "/spec/template/spec/domain/cpu/sockets",
-					Value: newSockets,
-				},
-			)
+			patchData, err := patch.New(
+				patch.WithTest("/spec/template/spec/domain/memory/guest", guest.String()),
+				patch.WithReplace("/spec/template/spec/domain/memory/guest", newGuestMemory.String()),
+				patch.WithTest("/spec/template/spec/domain/cpu/sockets", vmi.Spec.Domain.CPU.Sockets),
+				patch.WithReplace("/spec/template/spec/domain/cpu/sockets", newSockets),
+			).GeneratePayload()
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())

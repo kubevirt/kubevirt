@@ -124,18 +124,10 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	mutator.setDefaultMachineType(&vm, preferenceSpec)
 	mutator.setPreferenceStorageClassName(&vm, preferenceSpec)
 
-	patchBytes, err := patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/spec",
-			Value: vm.Spec,
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/metadata",
-			Value: vm.ObjectMeta,
-		},
-	)
+	patchBytes, err := patch.New(
+		patch.WithReplace("/spec", vm.Spec),
+		patch.WithReplace("/metadata", vm.ObjectMeta),
+	).GeneratePayload()
 
 	if err != nil {
 		log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
