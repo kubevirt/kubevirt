@@ -464,6 +464,11 @@ func (v *VirtualMachineInstance) IsMigratable() bool {
 	return false
 }
 
+func (v *VirtualMachineInstance) IsBlockMigration() bool {
+	return v.Status.MigrationMethod == BlockMigration ||
+		len(v.Status.MigratedVolumes) > 0
+}
+
 func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
