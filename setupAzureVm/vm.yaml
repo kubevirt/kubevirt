@@ -1,0 +1,57 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: kubevirt-ch-vm-1
+  name: kubevirt-ch-vm-1
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: kubevirt-ch-vm-1
+    spec:
+      hypervisor: ch
+      domain:
+        firmware:
+          kernelBoot:
+            container:
+              image: harshitg/hypervisor-fw:mariner
+              kernelPath: /boot/hypervisor-fw
+              imagePullPolicy: Always
+        devices:
+          autoattachSerialConsole: false
+          logSerialConsole: false
+          autoattachGraphicsDevice: false
+          autoattachMemBalloon: false
+          disks:
+          - disk:
+              bus: virtio
+            name: rootfs 
+          - disk:
+              bus: virtio
+            name: cloudinit
+        cpu:
+          cores: 2
+          model: host-passthrough
+        resources:
+          requests:
+            memory: 1024Mi
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - dataVolume:
+          name: ch-test-dv
+        name: rootfs
+      - cloudInitNoCloud:
+          userData: |
+            #cloud-config
+            users:
+            - name: cloud
+              plain_text_passwd: cloud123
+              lock_passwd: False
+              shell: /bin/bash
+              ssh-authorized-keys:
+              - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDCGHQwG2ZzS4pjeYf71lnQHevngHXQuXQsPHgZANN1IRsLQz1NeUCjTvCThTm7qtTBgNXmyqNfsvxrX3rTWFxEzzHnuqXdtqEYkFBcmwweQm3BRpr+fMkd2435VD7XY6OAzVywNT3m666msf4ACIRxJVvLSuWzRSWM5BUMCJCv419UeFb4FBX+q/NiNpMU9FNHMzyTdjxzna0J/pAxCA2AXy0/IdP52bp4nibFuBQoRYq2G649jlVWzyeAkn0sk6XCXwBefgbVfyQaVZwkKIVH6HAd8aQIW8bdtoQsK7EZouhfi0sT543YDsTMY53dys1ICUuD+HMQ4MB1Cv0NbJpceWwPH/r56NB24qwlFqsX/94/tP3KeaJGarXX68xq9UiPEk/bkY7C9B/EcGJ26RLKXIupxv0rvky23jmHR9RFQJZ1fm2MhCZ1P2ifaHjYx0heGigW6sraY2Y7y+C4bwYfI96PRpM50NtaIL91jXHcBxvpE5cL+JjcHPeCEzYeRes= ubuntu@vashishtha
+            runcmd:
+              - mount /dev/vdc /mnt/
+        name: cloudinit

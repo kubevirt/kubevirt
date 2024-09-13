@@ -1,0 +1,19 @@
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: ch-test-dv
+  labels:
+    name: ch-test-dv
+  annotations:
+    cdi.kubevirt.io/storage.bind.immediate.requested: ""
+spec:
+  source:
+    registry:
+      url: "docker://docker.io/harshitg/ch-test-disk:mariner"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: "local-path"
