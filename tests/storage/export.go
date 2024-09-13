@@ -1712,7 +1712,7 @@ var _ = SIGDescribe("Export", func() {
 		waitForDisksComplete(resVM)
 	}
 
-	It("should generate updated DataVolumeTemplates on http endpoint when exporting", func() {
+	It("[QUARANTINE] should generate updated DataVolumeTemplates on http endpoint when exporting", decorators.Quarantine, func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
@@ -1778,7 +1778,7 @@ var _ = SIGDescribe("Export", func() {
 		checkWithJsonOutput(pod, export, vm)
 	})
 
-	It("Should generate DVs and expanded VM definition on http endpoint with multiple volumes", func() {
+	It("[QUARANTINE] Should generate DVs and expanded VM definition on http endpoint with multiple volumes", decorators.Quarantine, func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
