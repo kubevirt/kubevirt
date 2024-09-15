@@ -42,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"kubevirt.io/api/migrations/v1alpha1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -267,14 +268,28 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(err.Error()).To(ContainSubstring("InterfaceNotLiveMigratable"))
 			})
 		})
-		Context("[Serial] with bandwidth limitations", Serial, func() {
+		Context("with bandwidth limitations", func() {
 
-			var repeatedlyMigrateWithBandwidthLimitation = func(vmi *v1.VirtualMachineInstance, bandwidth string, repeat int) time.Duration {
+			updateMigrationPolicyBandwidth := func(migrationPolicy *v1alpha1.MigrationPolicy, bandwidth resource.Quantity) {
+				migrationPolicy, err = virtClient.MigrationPolicy().Get(context.Background(), migrationPolicy.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if policyBandwidth := migrationPolicy.Spec.BandwidthPerMigration; policyBandwidth != nil && policyBandwidth.Equal(bandwidth) {
+					return
+				}
+
+				patchPayload, err := patch.New(
+					patch.WithAdd("/spec/bandwidthPerMigration", pointer.P(bandwidth)),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+
+				migrationPolicy, err = virtClient.MigrationPolicy().Patch(context.Background(), migrationPolicy.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			repeatedlyMigrateWithBandwidthLimitation := func(vmi *v1.VirtualMachineInstance, migrationPolicy *v1alpha1.MigrationPolicy, bandwidth string, repeat int) time.Duration {
 				var migrationDurationTotal time.Duration
-				config := getCurrentKvConfig(virtClient)
-				limit := resource.MustParse(bandwidth)
-				config.MigrationConfiguration.BandwidthPerMigration = &limit
-				tests.UpdateKubeVirtConfigValueAndWait(config)
+				updateMigrationPolicyBandwidth(migrationPolicy, resource.MustParse(bandwidth))
 
 				for x := 0; x < repeat; x++ {
 					By("Checking that the VirtualMachineInstance console has expected output")
@@ -298,11 +313,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:6968]should apply them and result in different migration durations", func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
+				migrationPolicy := CreateMigrationPolicy(virtClient, GeneratePolicyAndAlignVMI(vmi))
+
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
-				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "10Mi", 3)
-				durationHighBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "128Mi", 3)
+				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "10Mi", 3)
+				durationHighBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "128Mi", 3)
 				Expect(durationHighBandwidth.Seconds() * 2).To(BeNumerically("<", durationLowBandwidth.Seconds()))
 			})
 		})
