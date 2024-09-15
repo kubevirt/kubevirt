@@ -203,6 +203,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			err = nil
 		}
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			_, err = virtClient.VirtualMachineRestore(r.Namespace).Get(context.Background(), r.Name, metav1.GetOptions{})
+			return err
+		}, 30*time.Second, 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 	}
 
 	deleteWebhook := func(wh *admissionregistrationv1.ValidatingWebhookConfiguration) {
@@ -1304,7 +1308,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Entry("to a new VM", true),
 			)
 
-			It("should reject vm start if restore in progress", func() {
+			DescribeTable("should reject vm start if restore in progress", func(deleteFunc string) {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
 
 				By(stoppingVM)
@@ -1379,10 +1383,17 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot start VM until restore %q completes", restore.Name)))
 
-				deleteWebhook(webhook)
-				webhook = nil
+				switch deleteFunc {
+				case "deleteWebhook":
+					deleteWebhook(webhook)
+					webhook = nil
 
-				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+					restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				case "deleteRestore":
+					deleteRestore(restore)
+				default:
+					Fail("Delete function not valid")
+				}
 
 				Eventually(func() bool {
 					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1392,7 +1403,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				vm = libvmops.StartVirtualMachine(vm)
 				deleteRestore(restore)
-			})
+			},
+				Entry("and allow it to start after completion", "deleteWebhook"),
+				Entry("and allow it to start after vmrestore deletion", "deleteRestore"),
+			)
 
 			DescribeTable("should restore a vm from an online snapshot", func(restoreToNewVM bool) {
 				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
