@@ -2224,8 +2224,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
-			libstorage.CreateHostPathPv("alpine-host-path", testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
-			libstorage.CreateHostPathPVC("alpine-host-path", testsuite.GetTestNamespace(nil), "1Gi")
+			const alpineHostPath = "alpine-host-path"
+			libstorage.CreateHostPathPv(alpineHostPath, testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
+			libstorage.CreateHostPathPVC(alpineHostPath, testsuite.GetTestNamespace(nil), "1Gi")
 			vmi := libvmi.New(
 				libvmi.WithResourceMemory("128Mi"),
 				// disk[0]
@@ -2233,7 +2234,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				// disk[1]:  Block, no user-input, cache=none
 				libvmi.WithPersistentVolumeClaim("block-pvc", dataVolume.Name),
 				// disk[2]: File, not-sparsed, no user-input, cache=none
-				libvmi.WithPersistentVolumeClaim("hostpath-pvc", tests.DiskAlpineHostPath),
+				libvmi.WithPersistentVolumeClaim("hostpath-pvc", fmt.Sprintf("disk-%s", alpineHostPath)),
 				// disk[3]
 				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 			)

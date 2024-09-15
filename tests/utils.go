@@ -59,10 +59,6 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const (
-	DiskAlpineHostPath = "disk-alpine-host-path"
-)
-
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
