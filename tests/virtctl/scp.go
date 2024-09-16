@@ -146,8 +146,13 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 	)
 
 	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSsh, func() {
-		cmd := clientcmd.NewRepeatableVirtctlCommand("scp", "--local1-ssh=false")
-		Expect(cmd()).To(MatchError("unknown flag: --local-ssh"))
+		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
+		// Running the command through NewRepeatableVirtctlCommand would test the test binary instead.
+		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "scp", "--local-ssh=false")
+		Expect(err).ToNot(HaveOccurred())
+		out, err := cmd.CombinedOutput()
+		Expect(err).To(HaveOccurred(), "out[%s]", string(out))
+		Expect(string(out)).To(Equal("unknown flag: --local-ssh\n"))
 	})
 })
 
