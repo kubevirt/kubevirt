@@ -188,6 +188,7 @@ func usbredirConnect(
 	Expect(err).ToNot(HaveOccurred())
 
 	usbredirClient.ClientConnect = func(inCtx context.Context, device, address string) error {
+		defer GinkgoRecover()
 		conn, err := net.Dial("tcp", address)
 		Expect(err).ToNot(HaveOccurred())
 		defer conn.Close()
