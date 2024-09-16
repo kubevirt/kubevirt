@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	utils "kubevirt.io/kubevirt/pkg/util"
 )
@@ -194,7 +195,8 @@ func (m *InstancetypeMethods) checkForInstancetypeConflicts(instancetypeSpec *in
 func (m *InstancetypeMethods) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	switch strings.ToLower(vm.Spec.Instancetype.Kind) {
 	case apiinstancetype.SingularResourceName, apiinstancetype.PluralResourceName:
-		instancetype, err := m.findInstancetype(vm)
+		finder := find.NewInstancetypeFinder(m.InstancetypeStore, m.Clientset)
+		instancetype, err := finder.Find(vm)
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +210,8 @@ func (m *InstancetypeMethods) createInstancetypeRevision(vm *virtv1.VirtualMachi
 		return CreateControllerRevision(vm, instancetype)
 
 	case apiinstancetype.ClusterSingularResourceName, apiinstancetype.ClusterPluralResourceName:
-		clusterInstancetype, err := m.findClusterInstancetype(vm)
+		finder := find.NewClusterInstancetypeFinder(m.InstancetypeStore, m.Clientset)
+		clusterInstancetype, err := finder.Find(vm)
 		if err != nil {
 			return nil, err
 		}
@@ -667,124 +670,7 @@ func (m *InstancetypeMethods) findClusterPreferenceByClient(resourceName string)
 }
 
 func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-	if vm.Spec.Instancetype == nil {
-		return nil, nil
-	}
-
-	if vm.Spec.Instancetype.RevisionName != "" {
-		return m.findInstancetypeSpecRevision(types.NamespacedName{
-			Namespace: vm.Namespace,
-			Name:      vm.Spec.Instancetype.RevisionName,
-		})
-	}
-
-	switch strings.ToLower(vm.Spec.Instancetype.Kind) {
-	case apiinstancetype.SingularResourceName, apiinstancetype.PluralResourceName:
-		instancetype, err := m.findInstancetype(vm)
-		if err != nil {
-			return nil, err
-		}
-		return &instancetype.Spec, nil
-
-	case apiinstancetype.ClusterSingularResourceName, apiinstancetype.ClusterPluralResourceName, "":
-		clusterInstancetype, err := m.findClusterInstancetype(vm)
-		if err != nil {
-			return nil, err
-		}
-		return &clusterInstancetype.Spec, nil
-
-	default:
-		return nil, fmt.Errorf("got unexpected kind in InstancetypeMatcher: %s", vm.Spec.Instancetype.Kind)
-	}
-}
-
-func (m *InstancetypeMethods) findInstancetypeSpecRevision(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-	var (
-		err      error
-		revision *appsv1.ControllerRevision
-	)
-
-	if m.ControllerRevisionStore != nil {
-		revision, err = m.getControllerRevisionByInformer(namespacedName)
-	} else {
-		revision, err = m.getControllerRevisionByClient(namespacedName)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return compatibility.GetInstancetypeSpec(revision)
-}
-
-func (m *InstancetypeMethods) findInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetype, error) {
-	if vm.Spec.Instancetype == nil {
-		return nil, nil
-	}
-	namespacedName := types.NamespacedName{
-		Namespace: vm.Namespace,
-		Name:      vm.Spec.Instancetype.Name,
-	}
-	if m.InstancetypeStore != nil {
-		return m.findInstancetypeByInformer(namespacedName)
-	}
-	return m.findInstancetypeByClient(namespacedName)
-}
-
-func (m *InstancetypeMethods) findInstancetypeByInformer(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachineInstancetype, error) {
-	obj, exists, err := m.InstancetypeStore.GetByKey(namespacedName.String())
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return m.findInstancetypeByClient(namespacedName)
-	}
-	instancetype, ok := obj.(*instancetypev1beta1.VirtualMachineInstancetype)
-	if !ok {
-		return nil, fmt.Errorf("unknown object type found in VirtualMachineInstancetype informer")
-	}
-	return instancetype, nil
-}
-
-func (m *InstancetypeMethods) findInstancetypeByClient(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachineInstancetype, error) {
-	instancetype, err := m.Clientset.VirtualMachineInstancetype(namespacedName.Namespace).Get(context.Background(), namespacedName.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return instancetype, nil
-}
-
-func (m *InstancetypeMethods) findClusterInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
-	if vm.Spec.Instancetype == nil {
-		return nil, nil
-	}
-	if m.ClusterInstancetypeStore != nil {
-		return m.findClusterInstancetypeByInformer(vm.Spec.Instancetype.Name)
-	}
-	return m.findClusterInstancetypeByClient(vm.Spec.Instancetype.Name)
-}
-
-func (m *InstancetypeMethods) findClusterInstancetypeByInformer(resourceName string) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
-	obj, exists, err := m.ClusterInstancetypeStore.GetByKey(resourceName)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return m.findClusterInstancetypeByClient(resourceName)
-	}
-	instancetype, ok := obj.(*instancetypev1beta1.VirtualMachineClusterInstancetype)
-	if !ok {
-		return nil, fmt.Errorf("unknown object type found in VirtualMachineClusterInstancetype informer")
-	}
-	return instancetype, nil
-}
-
-func (m *InstancetypeMethods) findClusterInstancetypeByClient(resourceName string) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
-	instancetype, err := m.Clientset.VirtualMachineClusterInstancetype().Get(context.Background(), resourceName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return instancetype, nil
+	return find.NewSpecFinder(m.InstancetypeStore, m.ClusterInstancetypeStore, m.ControllerRevisionStore, m.Clientset).Find(vm)
 }
 
 func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine) error {
