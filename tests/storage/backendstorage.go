@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -42,14 +43,13 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = SIGDescribe("[Serial]Backend Storage", Serial, func() {
+var _ = SIGDescribe("[Serial]Backend Storage", Serial, decorators.RequiresRWXFilesystemStorage, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
-	// TODO: create a RequiresRWXFilesystemStorage decorator to remove the skip?
 	It("Should use RWO when RWX is not supported", func() {
 		var storageClass string
 
@@ -76,9 +76,6 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, func() {
 				storageClass = *sp.Status.StorageClass
 				break
 			}
-		}
-		if storageClass == "" {
-			Skip("Failed to find a suitable storage class") // See TODO above
 		}
 
 		By("Setting the VM storage class to it")
