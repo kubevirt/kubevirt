@@ -121,7 +121,7 @@ var _ = Describe("PatchSet", func() {
 	It("should unmarshal each single patch", func() {
 		p := []byte(`[{"op":"remove","path":"/abcd"},{"op":"add","path":"/abcd","value":"test1"},{"op":"replace","path":"/abcd","value":"test2"},{"op":"test","path":"/abcd","value":"test3"}]`)
 		patchSet := patch.New()
-		Expect(patchSet.AddPatch(p)).ToNot(HaveOccurred())
+		Expect(patchSet.AddRawPatch(p)).ToNot(HaveOccurred())
 		patches, err := patchSet.Unmarshal()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(patches).To(HaveLen(4))
