@@ -29,6 +29,8 @@ default_targets="
     virt-controller
     virt-handler
     virt-launcher
+    virt-exportserver
+    virt-exportproxy
     alpine-container-disk-demo
     fedora-with-test-tooling-container-disk
     vm-killer
@@ -39,8 +41,6 @@ case ${ARCHITECTURE} in
 "s390x" | "crossbuild-s390x") ;;
 *)
     default_targets+="
-        virt-exportserver
-        virt-exportproxy
         conformance
         libguestfs-tools
         pr-helper
