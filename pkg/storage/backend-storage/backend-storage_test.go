@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -51,7 +51,7 @@ var _ = Describe("Backend Storage", func() {
 		kubevirtFakeConfig := &virtv1.KubeVirtConfiguration{}
 		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
-		storageProfileInformer, _ = testutils.NewFakeInformerFor(&v1beta1.StorageProfile{})
+		storageProfileInformer, _ = testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&v1.PersistentVolumeClaim{})
 
 		backendStorage = NewBackendStorage(virtClient, config, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer())
@@ -103,13 +103,13 @@ var _ = Describe("Backend Storage", func() {
 	Context("Access mode", func() {
 		BeforeEach(func() {
 			By("Creating a storage profile with no access/volume mode")
-			sp := &v1beta1.StorageProfile{
+			sp := &cdiv1.StorageProfile{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name: "nomode",
 				},
-				Spec: v1beta1.StorageProfileSpec{},
-				Status: v1beta1.StorageProfileStatus{
-					ClaimPropertySets: []v1beta1.ClaimPropertySet{},
+				Spec: cdiv1.StorageProfileSpec{},
+				Status: cdiv1.StorageProfileStatus{
+					ClaimPropertySets: []cdiv1.ClaimPropertySet{},
 				},
 			}
 			err := storageProfileInformer.GetStore().Add(sp)
@@ -118,7 +118,7 @@ var _ = Describe("Backend Storage", func() {
 			By("Creating a storage profile with RWO FS as its only mode")
 			sp = sp.DeepCopy()
 			sp.Name = "onlyrwo"
-			sp.Status.ClaimPropertySets = []v1beta1.ClaimPropertySet{{
+			sp.Status.ClaimPropertySets = []cdiv1.ClaimPropertySet{{
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
 				VolumeMode:  pointer.P(v1.PersistentVolumeFilesystem),
 			}}
@@ -128,7 +128,7 @@ var _ = Describe("Backend Storage", func() {
 			By("Creating a storage profile that supports FS in both RWO and RWX")
 			sp = sp.DeepCopy()
 			sp.Name = "both"
-			sp.Status.ClaimPropertySets = []v1beta1.ClaimPropertySet{{
+			sp.Status.ClaimPropertySets = []cdiv1.ClaimPropertySet{{
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany, v1.ReadWriteOnce},
 				VolumeMode:  pointer.P(v1.PersistentVolumeFilesystem),
 			}}

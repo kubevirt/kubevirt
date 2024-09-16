@@ -24,7 +24,7 @@ import (
 	"fmt"
 
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -126,7 +126,7 @@ func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentV
 		log.Log.Infof("no storage profile found for %s, defaulting to %s", storageClass, accessMode)
 		return accessMode
 	}
-	storageProfile := obj.(*v1beta1.StorageProfile)
+	storageProfile := obj.(*cdiv1.StorageProfile)
 
 	if storageProfile.Status.ClaimPropertySets == nil || len(storageProfile.Status.ClaimPropertySets) == 0 {
 		log.Log.Infof("no ClaimPropertySets in storage profile %s, defaulting to %s", storageProfile.Name, accessMode)

@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
@@ -34,12 +34,12 @@ const (
 )
 
 // dvOption is an option type for the NewDataVolume function
-type dvOption func(*v1beta1.DataVolume)
+type dvOption func(*cdiv1.DataVolume)
 
 // NewDataVolume Set up a new DataVolume with a random name, a namespace and an optional list of options
-func NewDataVolume(options ...dvOption) *v1beta1.DataVolume {
+func NewDataVolume(options ...dvOption) *cdiv1.DataVolume {
 	name := randName()
-	dv := &v1beta1.DataVolume{
+	dv := &cdiv1.DataVolume{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "cdi.kubevirt.io/v1beta1",
 			Kind:       "DataVolume",
@@ -57,13 +57,13 @@ func NewDataVolume(options ...dvOption) *v1beta1.DataVolume {
 }
 
 func WithNamespace(namespace string) dvOption {
-	return func(dv *v1beta1.DataVolume) {
+	return func(dv *cdiv1.DataVolume) {
 		dv.Namespace = namespace
 	}
 }
 
 func WithName(name string) dvOption {
-	return func(dv *v1beta1.DataVolume) {
+	return func(dv *cdiv1.DataVolume) {
 		dv.ObjectMeta.Name = name
 	}
 }
@@ -92,31 +92,31 @@ func WithPVC(options ...pvcOption) dvOption {
 		opt(pvc)
 	}
 
-	return func(dv *v1beta1.DataVolume) {
+	return func(dv *cdiv1.DataVolume) {
 		dv.Spec.PVC = pvc
 	}
 }
 
 // withSource is a dvOption to add a DataVolumeSource to the DataVolume
-func withSource(s v1beta1.DataVolumeSource) dvOption {
-	return func(dv *v1beta1.DataVolume) {
+func withSource(s cdiv1.DataVolumeSource) dvOption {
+	return func(dv *cdiv1.DataVolume) {
 		dv.Spec.Source = &s
 	}
 }
 
 // WithRegistryURLSource is a dvOption to add a DataVolumeSource to the DataVolume, with a registry and a URL
 func WithRegistryURLSource(imageURL string) dvOption {
-	return withSource(v1beta1.DataVolumeSource{
-		Registry: &v1beta1.DataVolumeSourceRegistry{
+	return withSource(cdiv1.DataVolumeSource{
+		Registry: &cdiv1.DataVolumeSourceRegistry{
 			URL: &imageURL,
 		},
 	})
 }
 
 // WithRegistryURLSourceAndPullMethod is a dvOption to add a DataVolumeSource to the DataVolume, with a registry and URL + pull method
-func WithRegistryURLSourceAndPullMethod(imageURL string, pullMethod v1beta1.RegistryPullMethod) dvOption {
-	return withSource(v1beta1.DataVolumeSource{
-		Registry: &v1beta1.DataVolumeSourceRegistry{
+func WithRegistryURLSourceAndPullMethod(imageURL string, pullMethod cdiv1.RegistryPullMethod) dvOption {
+	return withSource(cdiv1.DataVolumeSource{
+		Registry: &cdiv1.DataVolumeSourceRegistry{
 			URL:        &imageURL,
 			PullMethod: &pullMethod,
 		},
@@ -125,15 +125,15 @@ func WithRegistryURLSourceAndPullMethod(imageURL string, pullMethod v1beta1.Regi
 
 // WithBlankImageSource is a dvOption to add a blank DataVolumeSource to the DataVolume
 func WithBlankImageSource() dvOption {
-	return withSource(v1beta1.DataVolumeSource{
-		Blank: &v1beta1.DataVolumeBlankImage{},
+	return withSource(cdiv1.DataVolumeSource{
+		Blank: &cdiv1.DataVolumeBlankImage{},
 	})
 }
 
 // WithPVCSource is a dvOption to add a DataVolumeSource to the DataVolume, with a PVC source
 func WithPVCSource(namespace, name string) dvOption {
-	return withSource(v1beta1.DataVolumeSource{
-		PVC: &v1beta1.DataVolumeSourcePVC{
+	return withSource(cdiv1.DataVolumeSource{
+		PVC: &cdiv1.DataVolumeSourcePVC{
 			Namespace: namespace,
 			Name:      name,
 		},
@@ -143,7 +143,7 @@ func WithPVCSource(namespace, name string) dvOption {
 // WithForceBindAnnotation adds the "cdi.kubevirt.io/storage.bind.immediate.requested" annotation to the DV,
 // with the value of "true"
 func WithForceBindAnnotation() dvOption {
-	return func(dv *v1beta1.DataVolume) {
+	return func(dv *cdiv1.DataVolume) {
 		if dv.Annotations == nil {
 			dv.Annotations = make(map[string]string)
 		}
