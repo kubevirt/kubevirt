@@ -95,12 +95,12 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 func updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	virtClient := kubevirt.Client()
 	ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	currentGen := ds.Status.ObservedGeneration
 	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
-	Eventually(func() bool {
+	EventuallyWithOffset(1, func() bool {
 		ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		gen := ds.Status.ObservedGeneration
 		if gen > currentGen {
 			return true

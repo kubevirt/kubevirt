@@ -81,7 +81,7 @@ func PatchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubec
 		patch.WithAdd("/spec/configuration/vmRolloutStrategy", rolloutStrategy),
 		patch.WithAdd("/spec/configuration/developerConfiguration/featureGates", fgs),
 	).GeneratePayload()
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	EventuallyWithOffset(1, func() error {
 		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, patch, metav1.PatchOptions{})
 		return err

@@ -555,13 +555,13 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Expect(err).ToNot(HaveOccurred())
 			fgDisabled = !checks.HasFeature(virtconfig.HotplugVolumesGate)
 			if fgDisabled {
-				tests.EnableFeatureGate(virtconfig.HotplugVolumesGate)
+				config.EnableFeatureGate(virtconfig.HotplugVolumesGate)
 			}
 
 		})
 		AfterEach(func() {
 			if fgDisabled {
-				tests.DisableFeatureGate(virtconfig.HotplugVolumesGate)
+				config.DisableFeatureGate(virtconfig.HotplugVolumesGate)
 			}
 		})
 
