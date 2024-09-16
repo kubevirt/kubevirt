@@ -216,11 +216,15 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		metrics.NewVMCreated(&vm)
 	}
 
-	return &admissionv1.AdmissionResponse{
-		Allowed:  true,
-		Warnings: warnDeprecatedAPIs(&vm.Spec.Template.Spec, admitter.ClusterConfig),
+	warnings := warnDeprecatedAPIs(&vm.Spec.Template.Spec, admitter.ClusterConfig)
+	if vm.Spec.Running != nil {
+		warnings = append(warnings, "spec.running is deprecated, please use spec.runStrategy instead.")
 	}
 
+	return &admissionv1.AdmissionResponse{
+		Allowed:  true,
+		Warnings: warnings,
+	}
 }
 
 func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
