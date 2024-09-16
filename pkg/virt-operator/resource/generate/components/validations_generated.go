@@ -4729,6 +4729,7 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             Running controls whether the associatied VirtualMachineInstance is created or not
             Mutually exclusive with RunStrategy
+            Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
           type: boolean
         template:
           description: Template is the direct specification of VirtualMachineInstance
@@ -19949,6 +19950,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     Running controls whether the associatied VirtualMachineInstance is created or not
                     Mutually exclusive with RunStrategy
+                    Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
                   type: boolean
                 template:
                   description: Template is the direct specification of VirtualMachineInstance
@@ -25110,6 +25112,7 @@ var CRDsValidation map[string]string = map[string]string{
                       description: |-
                         Running controls whether the associatied VirtualMachineInstance is created or not
                         Mutually exclusive with RunStrategy
+                        Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
                       type: boolean
                     template:
                       description: Template is the direct specification of VirtualMachineInstance
