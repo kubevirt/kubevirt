@@ -31,6 +31,7 @@ import (
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v12 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/migrations"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	apicdi "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -140,14 +141,14 @@ func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 		reason = "due to use of programmatic focus container"
 	}
 	By(fmt.Sprintf("Collecting Logs %s", reason))
-	r.DumpTestNamespaces(specReport.RunTime)
+	r.DumpTestNamespacesAndClusterObjects(specReport.RunTime)
 }
 
-func (r *KubernetesReporter) DumpTestNamespaces(duration time.Duration) {
+func (r *KubernetesReporter) DumpTestNamespacesAndClusterObjects(duration time.Duration) {
 	r.dumpTestObjects(duration, testsuite.TestNamespaces)
 }
 
-func (r *KubernetesReporter) DumpAllNamespaces(duration time.Duration) {
+func (r *KubernetesReporter) DumpTestObjects(duration time.Duration) {
 	r.dumpTestObjects(duration, []string{v1.NamespaceAll})
 }
 
@@ -229,6 +230,7 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 
 	r.logCloudInit(virtCli, vmiNamespaces)
 	r.logVirtualMachinePools(virtCli)
+	r.logMigrationPolicies(virtCli)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -1413,4 +1415,14 @@ func (r *KubernetesReporter) logVirtualMachinePools(virtCli kubecli.KubevirtClie
 	}
 
 	r.logObjects(pools, "virtualmachinepools")
+}
+
+func (r *KubernetesReporter) logMigrationPolicies(virtCli kubecli.KubevirtClient) {
+	policies, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		printError("failed to fetch migration policies: %v", err)
+		return
+	}
+
+	r.logObjects(policies, migrations.ResourceMigrationPolicies)
 }
