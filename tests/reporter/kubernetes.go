@@ -117,7 +117,7 @@ func (r *KubernetesReporter) Report(report types.Report) {
 
 	printInfo("Test suite failed, collect artifacts in %s", r.artifactsDir)
 
-	r.dumpNamespaces(report.RunTime, testsuite.TestNamespaces)
+	r.dumpTestObjects(report.RunTime, testsuite.TestNamespaces)
 }
 
 func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
@@ -144,14 +144,14 @@ func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 }
 
 func (r *KubernetesReporter) DumpTestNamespaces(duration time.Duration) {
-	r.dumpNamespaces(duration, testsuite.TestNamespaces)
+	r.dumpTestObjects(duration, testsuite.TestNamespaces)
 }
 
 func (r *KubernetesReporter) DumpAllNamespaces(duration time.Duration) {
-	r.dumpNamespaces(duration, []string{v1.NamespaceAll})
+	r.dumpTestObjects(duration, []string{v1.NamespaceAll})
 }
 
-func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespaces []string) {
+func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespaces []string) {
 	cfg, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		printError("failed to get client config: %v", err)
