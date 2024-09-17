@@ -5674,70 +5674,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(maxSocketsFromSpec))
 				})
 
-				It("should use maximum sockets configured in cluster config when its not set in VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
-									MaxCpuSockets: kvpointer.P(maxSocketsFromConfig),
-								},
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi, err := controller.setupVMIFromVM(vm)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(maxSocketsFromConfig))
-				})
-
-				It("should calculate max sockets to be 4x times the configured sockets when no max sockets defined", func() {
-					const cpuSockets uint32 = 4
-					vm, _ := DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-						Sockets: cpuSockets,
-					}
-
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi, err := controller.setupVMIFromVM(vm)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(cpuSockets * 4))
-				})
-
-				It("should calculate max sockets to be 4x times the default sockets when default CPU topology used", func() {
-					const defaultSockets uint32 = 1
-					vm, _ := DefaultVirtualMachine(true)
-
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi, err := controller.setupVMIFromVM(vm)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(defaultSockets * 4))
-				})
-
 				DescribeTable("should patch VMI when CPU hotplug is requested", func(resources v1.ResourceRequirements) {
 					vm, _ := DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Resources = resources
@@ -5916,53 +5852,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromSpec))
 				})
 
-				It("should use maxGuest configured in cluster config when its not set in VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("1Gi")
-					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-					vm.Spec.Template.Spec.Architecture = "amd64"
-
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
-									MaxGuest: &maxGuestFromConfig,
-								},
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi, err := controller.setupVMIFromVM(vm)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromConfig))
-				})
-
-				It("should calculate maxGuest to be `MaxHotplugRatio` times the configured guest memory when no maxGuest is defined", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("1Gi")
-					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-					vm.Spec.Template.Spec.Architecture = "amd64"
-
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi, err := controller.setupVMIFromVM(vm)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Spec.Domain.Memory.MaxGuest.Value()).To(Equal(guestMemory.Value() * int64(config.GetMaxHotplugRatio())))
-				})
-
 				DescribeTable("should patch VMI when memory hotplug is requested", func(resources v1.ResourceRequirements) {
 					vm, _ := DefaultVirtualMachine(true)
 					newMemory := resource.MustParse("2Gi")
@@ -6106,45 +5995,6 @@ var _ = Describe("VirtualMachine", func() {
 					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
 					Expect(vmConditionController.HasCondition(vm, v1.VirtualMachineRestartRequired)).To(BeTrue())
 				})
-
-				DescribeTable("should always set memory.guest", func(setupVM func(*v1.VirtualMachineInstanceSpec)) {
-					vm, _ := DefaultVirtualMachine(false)
-					// clear out domain to prevent conflicts
-					vm.Spec.Template.Spec.Domain = v1.DomainSpec{}
-
-					setupVM(&vm.Spec.Template.Spec)
-					vmi, err := controller.setupVMIFromVM(vm)
-					Expect(err).ToNot(HaveOccurred())
-
-					Expect(vmi.Spec.Domain.Memory.Guest).ToNot(BeNil())
-					Expect(vmi.Spec.Domain.Memory.Guest.String()).To(Equal("1Gi"))
-				},
-					Entry("when requests are set",
-						func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-							vmiSpec.Domain.Resources = v1.ResourceRequirements{
-								Requests: k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")},
-							}
-						}),
-					Entry("when limits are set",
-						func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-							vmiSpec.Domain.Resources = v1.ResourceRequirements{
-								Limits: k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")},
-							}
-						}),
-					Entry("when both requests and limits are set",
-						func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-							vmiSpec.Domain.Resources = v1.ResourceRequirements{
-								Requests: k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")},
-								Limits:   k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")},
-							}
-						}),
-					Entry("when only hugepages pagesize is set",
-						func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-							vmiSpec.Domain.Memory = &v1.Memory{
-								Hugepages: &v1.Hugepages{PageSize: "1Gi"},
-							}
-						}),
-				)
 
 				It("should set a restartRequired condition if VM does not support memory hotplug", func() {
 					guestMemory := resource.MustParse("2Gi")
@@ -6413,173 +6263,6 @@ var _ = Describe("VirtualMachine", func() {
 					),
 				)
 
-				It("setupVMIFromVM should handle vm.spec.template.spec.domain.memory being nil and populate MaxGuest", func() {
-					fakeInstancetypeClients := fake.NewSimpleClientset().InstancetypeV1beta1()
-					fakeInstancetypeClient := fakeInstancetypeClients.VirtualMachineInstancetypes(metav1.NamespaceDefault)
-					virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
-
-					controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-						Clientset: virtClient,
-					}
-
-					vm, _ := DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Architecture = "amd64"
-					vm.Spec.Template.Spec.Domain.CPU = nil
-					vm.Spec.Template.Spec.Domain.Memory = nil
-					vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
-
-					instancetypeMemoryGuest := resource.MustParse("1Gi")
-					instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "instancetype",
-						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
-								Guest: 1,
-							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
-								Guest: instancetypeMemoryGuest,
-							},
-						},
-					}
-					instancetype, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.TODO(), instancetype, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: instancetype.Name,
-						Kind: instancetypeapi.SingularResourceName,
-					}
-
-					vmi, err := controller.setupVMIFromVM(vm)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Spec.Domain.Memory).ToNot(BeNil())
-					Expect(vmi.Spec.Domain.Memory.Guest).ToNot(BeNil())
-					Expect(vmi.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeMemoryGuest.Value()))
-					Expect(vmi.Spec.Domain.Memory.MaxGuest).ToNot(BeNil())
-					Expect(vmi.Spec.Domain.Memory.MaxGuest.Value()).To(Equal(instancetypeMemoryGuest.Value() * int64(controller.clusterConfig.GetMaxHotplugRatio())))
-				})
-			})
-		})
-
-		Context("CPU topology", func() {
-			When("isn't set in VMI template", func() {
-				It("Set default CPU topology in VMI status", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Status.Created).To(BeFalse())
-					Expect(vm.Status.Ready).To(BeFalse())
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Status.CurrentCPUTopology).To(Not(BeNil()))
-					Expect(*vmi.Status.CurrentCPUTopology).To(Equal(v1.CPUTopology{
-						Cores:   1,
-						Sockets: 1,
-						Threads: 1,
-					}))
-
-					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-				})
-
-				It("Sets the instance type derived CPU topology in VMI status", func() {
-					fakeInstancetypeClients := fake.NewSimpleClientset().InstancetypeV1beta1()
-					fakeInstancetypeClient := fakeInstancetypeClients.VirtualMachineInstancetypes(metav1.NamespaceDefault)
-					virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
-
-					controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-						Clientset: virtClient,
-					}
-
-					vm, _ := DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Domain.CPU = nil
-					vm.Spec.Template.Spec.Domain.Memory = nil
-					vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
-
-					const vCPUsProvidedByInstancetype = 2
-					instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "instancetype",
-						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
-								Guest: vCPUsProvidedByInstancetype,
-							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
-								Guest: resource.MustParse("128Mi"),
-							},
-						},
-					}
-					instancetype, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.TODO(), instancetype, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: instancetype.Name,
-						Kind: instancetypeapi.SingularResourceName,
-					}
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Status.Created).To(BeFalse())
-					Expect(vm.Status.Ready).To(BeFalse())
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Status.CurrentCPUTopology).To(Not(BeNil()))
-					Expect(*vmi.Status.CurrentCPUTopology).To(Equal(v1.CPUTopology{
-						Cores:   1,
-						Sockets: vCPUsProvidedByInstancetype,
-						Threads: 1,
-					}))
-
-					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-				})
-			})
-			When("set in VMI template", func() {
-				It("copy CPU topology to VMI status", func() {
-					const (
-						numOfSockets uint32 = 8
-						numOfCores   uint32 = 8
-						numOfThreads uint32 = 8
-					)
-					vm, _ := DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-						Sockets: numOfSockets,
-						Cores:   numOfCores,
-						Threads: numOfThreads,
-					}
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Status.CurrentCPUTopology).To(Not(BeNil()))
-					Expect(*vmi.Status.CurrentCPUTopology).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Sockets": Equal(numOfSockets),
-						"Cores":   Equal(numOfCores),
-						"Threads": Equal(numOfThreads),
-					}))
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Status.Created).To(BeFalse())
-					Expect(vm.Status.Ready).To(BeFalse())
-
-					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-				})
 			})
 		})
 
@@ -6714,12 +6397,9 @@ var _ = Describe("VirtualMachine", func() {
 			It("should appear when VM doesn't specify maxSockets and sockets go above cluster-wide maxSockets", func() {
 				var maxSockets uint32 = 8
 
-				By("Setting a cluster-wide CPU maxSockets value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = kvpointer.P(maxSockets)
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
-
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
+				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = maxSockets
 				crSource.Add(createVMRevision(vm))
 
 				By("Creating a VMI with cluster max")
@@ -6744,12 +6424,9 @@ var _ = Describe("VirtualMachine", func() {
 			It("should appear when VM doesn't specify maxGuest and guest memory goes above cluster-wide maxGuest", func() {
 				var maxGuest = resource.MustParse("256Mi")
 
-				By("Setting a cluster-wide Memory maxGuest value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxGuest = &maxGuest
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
-
 				By("Creating a VM with guest memory set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &maxGuest
+				vm.Spec.Template.Spec.Domain.Memory.MaxGuest = &maxGuest
 				crSource.Add(createVMRevision(vm))
 				syncCache(controller.crInformer.GetIndexer(), 1)
 
@@ -6821,6 +6498,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Creating a VM with CPU sockets set to 2")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
+				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = 8
 				crSource.Add(createVMRevision(vm))
 				syncCache(controller.crInformer.GetIndexer(), 1)
 
