@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	utils "kubevirt.io/kubevirt/pkg/util"
 )
@@ -251,13 +252,13 @@ func (m *InstancetypeMethods) storeInstancetypeRevision(vm *virtv1.VirtualMachin
 func (m *InstancetypeMethods) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	switch strings.ToLower(vm.Spec.Preference.Kind) {
 	case apiinstancetype.SingularPreferenceResourceName, apiinstancetype.PluralPreferenceResourceName:
-		preference, err := m.findPreference(vm)
+		preference, err := preferenceFind.NewPreferenceFinder(m.PreferenceStore, m.Clientset).Find(vm)
 		if err != nil {
 			return nil, err
 		}
 		return CreateControllerRevision(vm, preference)
 	case apiinstancetype.ClusterSingularPreferenceResourceName, apiinstancetype.ClusterPluralPreferenceResourceName:
-		clusterPreference, err := m.findClusterPreference(vm)
+		clusterPreference, err := preferenceFind.NewClusterPreferenceFinder(m.ClusterPreferenceStore, m.Clientset).Find(vm)
 		if err != nil {
 			return nil, err
 		}
@@ -526,54 +527,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 }
 
 func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-	if vm.Spec.Preference == nil {
-		return nil, nil
-	}
-
-	if vm.Spec.Preference.RevisionName != "" {
-		return m.findPreferenceSpecRevision(types.NamespacedName{
-			Namespace: vm.Namespace,
-			Name:      vm.Spec.Preference.RevisionName,
-		})
-	}
-
-	switch strings.ToLower(vm.Spec.Preference.Kind) {
-	case apiinstancetype.SingularPreferenceResourceName, apiinstancetype.PluralPreferenceResourceName:
-		preference, err := m.findPreference(vm)
-		if err != nil {
-			return nil, err
-		}
-		return &preference.Spec, nil
-
-	case apiinstancetype.ClusterSingularPreferenceResourceName, apiinstancetype.ClusterPluralPreferenceResourceName, "":
-		clusterPreference, err := m.findClusterPreference(vm)
-		if err != nil {
-			return nil, err
-		}
-		return &clusterPreference.Spec, nil
-
-	default:
-		return nil, fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", vm.Spec.Preference.Kind)
-	}
-}
-
-func (m *InstancetypeMethods) findPreferenceSpecRevision(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-	var (
-		err      error
-		revision *appsv1.ControllerRevision
-	)
-
-	if m.ControllerRevisionStore != nil {
-		revision, err = m.getControllerRevisionByInformer(namespacedName)
-	} else {
-		revision, err = m.getControllerRevisionByClient(namespacedName)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return compatibility.GetPreferenceSpec(revision)
+	return preferenceFind.NewSpecFinder(m.PreferenceStore, m.ClusterPreferenceStore, m.ControllerRevisionStore, m.Clientset).Find(vm)
 }
 
 func (m *InstancetypeMethods) getControllerRevisionByInformer(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
@@ -597,76 +551,6 @@ func (m *InstancetypeMethods) getControllerRevisionByClient(namespacedName types
 		return nil, err
 	}
 	return revision, nil
-}
-
-func (m *InstancetypeMethods) findPreference(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreference, error) {
-	if vm.Spec.Preference == nil {
-		return nil, nil
-	}
-	namespacedName := types.NamespacedName{
-		Namespace: vm.Namespace,
-		Name:      vm.Spec.Preference.Name,
-	}
-	if m.PreferenceStore != nil {
-		return m.findPreferenceByInformer(namespacedName)
-	}
-	return m.findPreferenceByClient(namespacedName)
-}
-
-func (m *InstancetypeMethods) findPreferenceByInformer(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachinePreference, error) {
-	obj, exists, err := m.PreferenceStore.GetByKey(namespacedName.String())
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return m.findPreferenceByClient(namespacedName)
-	}
-	preference, ok := obj.(*instancetypev1beta1.VirtualMachinePreference)
-	if !ok {
-		return nil, fmt.Errorf("unknown object type found in VirtualMachinePreference informer")
-	}
-	return preference, nil
-}
-
-func (m *InstancetypeMethods) findPreferenceByClient(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachinePreference, error) {
-	preference, err := m.Clientset.VirtualMachinePreference(namespacedName.Namespace).Get(context.Background(), namespacedName.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return preference, nil
-}
-
-func (m *InstancetypeMethods) findClusterPreference(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineClusterPreference, error) {
-	if vm.Spec.Preference == nil {
-		return nil, nil
-	}
-	if m.ClusterPreferenceStore != nil {
-		return m.findClusterPreferenceByInformer(vm.Spec.Preference.Name)
-	}
-	return m.findClusterPreferenceByClient(vm.Spec.Preference.Name)
-}
-
-func (m *InstancetypeMethods) findClusterPreferenceByInformer(resourceName string) (*instancetypev1beta1.VirtualMachineClusterPreference, error) {
-	obj, exists, err := m.PreferenceStore.GetByKey(resourceName)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return m.findClusterPreferenceByClient(resourceName)
-	}
-	preference, ok := obj.(*instancetypev1beta1.VirtualMachineClusterPreference)
-	if !ok {
-		return nil, fmt.Errorf("unknown object type found in VirtualMachineClusterPreference informer")
-	}
-	return preference, nil
-}
-
-func (m *InstancetypeMethods) findClusterPreferenceByClient(resourceName string) (*instancetypev1beta1.VirtualMachineClusterPreference, error) {
-	preference, err := m.Clientset.VirtualMachineClusterPreference().Get(context.Background(), resourceName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return preference, nil
 }
 
 func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
