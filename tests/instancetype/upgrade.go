@@ -178,11 +178,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(decodedObj.GetObjectKind().GroupVersionKind().Version).To(Equal(instancetypeapi.LatestVersion))
 		}, 30*time.Second, time.Second).Should(Succeed())
 
-		// If a new CR has been created assert that the old CR has been deleted
+		// If a new CR has been created assert that the old CR is eventually deleted
 		if originalTestRevisionName != revisionName {
-			_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), originalTestRevisionName, metav1.GetOptions{})
-			Expect(err).Should(HaveOccurred())
-			Expect(errors.ReasonForError(err)).Should(Equal(metav1.StatusReasonNotFound))
+			Eventually(func() error {
+				_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), originalTestRevisionName, metav1.GetOptions{})
+				return err
+			}, 30*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "errors.IsNotFound"), "ControllerRevision %s has not been deleted", originalTestRevisionName)
 		}
 	},
 		Entry("VirtualMachineInstancetype from v1beta1 without labels to latest",
