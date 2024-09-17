@@ -73,7 +73,7 @@ type restoreTarget interface {
 	UpdateDoneRestore() (bool, error)
 	UpdateRestoreInProgress() error
 	UpdateTarget(obj metav1.Object)
-	DoesTargetVMExist() bool
+	Exists() bool
 }
 
 type vmRestoreTarget struct {
@@ -259,7 +259,7 @@ func (ctrl *VMRestoreController) handleVMRestoreDeletion(vmRestore *snapshotv1.V
 	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, "VM restore is deleting"))
 	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"))
 
-	if target.DoesTargetVMExist() {
+	if target.Exists() {
 		updated, err := target.UpdateDoneRestore()
 		if err != nil {
 			logger.Reason(err).Error("Error updating done restore")
@@ -373,7 +373,7 @@ func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClai
 }
 
 func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
-	if !t.DoesTargetVMExist() {
+	if !t.Exists() {
 		return false, fmt.Errorf("At this point target should exist")
 	}
 
@@ -390,7 +390,7 @@ func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
 }
 
 func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
-	if !t.DoesTargetVMExist() || hasLastRestoreAnnotation(t.vmRestore, t.vm) {
+	if !t.Exists() || hasLastRestoreAnnotation(t.vmRestore, t.vm) {
 		return nil
 	}
 
@@ -412,7 +412,7 @@ func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
 }
 
 func (t *vmRestoreTarget) Ready() (bool, error) {
-	if !t.DoesTargetVMExist() {
+	if !t.Exists() {
 		return true, nil
 	}
 
@@ -441,7 +441,7 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 }
 
 func (t *vmRestoreTarget) Reconcile() (bool, error) {
-	if t.DoesTargetVMExist() && hasLastRestoreAnnotation(t.vmRestore, t.vm) {
+	if t.Exists() && hasLastRestoreAnnotation(t.vmRestore, t.vm) {
 		return false, nil
 	}
 
@@ -542,7 +542,7 @@ func (t *vmRestoreTarget) generateRestoredVMSpec() (*kubevirtv1.VirtualMachine, 
 	}
 
 	var newVM *kubevirtv1.VirtualMachine
-	if !t.DoesTargetVMExist() {
+	if !t.Exists() {
 		newVM = &kubevirtv1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        t.vmRestore.Spec.Target.Name,
@@ -582,7 +582,7 @@ func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (
 		return false, err
 	}
 
-	if !t.DoesTargetVMExist() {
+	if !t.Exists() {
 		restoredVM, err = patchVM(restoredVM, t.vmRestore.Spec.Patches)
 		if err != nil {
 			return false, fmt.Errorf("error patching VM %s: %v", restoredVM.Name, err)
@@ -673,7 +673,7 @@ func (t *vmRestoreTarget) reconcileDataVolumes(restoredVM *kubevirtv1.VirtualMac
 		createdDV = createdDV || created
 	}
 
-	if t.DoesTargetVMExist() {
+	if t.Exists() {
 		deletedDataVolumes := findDatavolumesForDeletion(t.vm.Spec.DataVolumeTemplates, restoredVM.Spec.DataVolumeTemplates)
 		if !equality.Semantic.DeepEqual(t.vmRestore.Status.DeletedDataVolumes, deletedDataVolumes) {
 			t.vmRestore.Status.DeletedDataVolumes = deletedDataVolumes
@@ -713,7 +713,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 	// If the target VirtualMachine already exists it's likely that the original ControllerRevision is already present.
 	// Check that here by attempting to lookup the CR using the generated restoredCRName.
 	// Ignore any NotFound errors raised allowing the CR to be restored below.
-	if t.DoesTargetVMExist() {
+	if t.Exists() {
 		existingCR, err := t.getControllerRevision(vm.Namespace, restoredCRName)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
@@ -844,7 +844,7 @@ func (t *vmRestoreTarget) createDataVolume(restoredVM *kubevirtv1.VirtualMachine
 }
 
 func (t *vmRestoreTarget) Own(obj metav1.Object) {
-	if !t.DoesTargetVMExist() {
+	if !t.Exists() {
 		return
 	}
 
@@ -881,7 +881,7 @@ func (ctrl *VMRestoreController) deleteObsoleteDataVolumes(vmRestore *snapshotv1
 	return nil
 }
 
-func (t *vmRestoreTarget) DoesTargetVMExist() bool {
+func (t *vmRestoreTarget) Exists() bool {
 	return t.vm != nil
 }
 
