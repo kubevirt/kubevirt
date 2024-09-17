@@ -2588,6 +2588,10 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
 	}
 
+	if len(vmi.Status.MigratedVolumes) > 0 {
+		blockMigrate = true
+	}
+
 	// Check if all VMI volumes can be shared between the source and the destination
 	// of a live migration. blockMigrate will be returned as false, only if all volumes
 	// are shared and the VMI has no local disks
@@ -2667,8 +2671,7 @@ func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMac
 	baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
 	migrationTargetSockets = append(migrationTargetSockets, socketFile)
 
-	isBlockMigration := vmi.Status.MigrationMethod == v1.BlockMigration
-	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+	migrationPortsRange := migrationproxy.GetMigrationPortsList(vmi.IsBlockMigration())
 	for _, port := range migrationPortsRange {
 		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 		// a proxy between the target direct qemu channel and the connector in the destination pod
