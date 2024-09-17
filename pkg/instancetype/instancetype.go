@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/defaults"
+	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	utils "kubevirt.io/kubevirt/pkg/util"
@@ -390,11 +391,11 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 }
 
 func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
-	if err := decodeControllerRevision(revisionA); err != nil {
+	if err := compatibility.Decode(revisionA); err != nil {
 		return false, err
 	}
 
-	if err := decodeControllerRevision(revisionB); err != nil {
+	if err := compatibility.Decode(revisionB); err != nil {
 		return false, err
 	}
 
@@ -617,7 +618,7 @@ func (m *InstancetypeMethods) findPreferenceSpecRevision(namespacedName types.Na
 		return nil, err
 	}
 
-	return getPreferenceSpecFromControllerRevision(revision)
+	return compatibility.GetPreferenceSpec(revision)
 }
 
 func (m *InstancetypeMethods) getControllerRevisionByInformer(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
@@ -761,7 +762,7 @@ func (m *InstancetypeMethods) findInstancetypeSpecRevision(namespacedName types.
 		return nil, err
 	}
 
-	return getInstancetypeSpecFromControllerRevision(revision)
+	return compatibility.GetInstancetypeSpec(revision)
 }
 
 func (m *InstancetypeMethods) findInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetype, error) {
