@@ -70,7 +70,7 @@ type restoreTarget interface {
 	Ready() (bool, error)
 	Reconcile() (bool, error)
 	Own(obj metav1.Object)
-	UpdateDoneRestore() (bool, error)
+	UpdateDoneRestore() error
 	UpdateRestoreInProgress() error
 	UpdateTarget(obj metav1.Object)
 	Exists() bool
@@ -189,15 +189,10 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdateError(vmRestoreIn, err)
 	}
 
-	updated, err = target.UpdateDoneRestore()
+	err = target.UpdateDoneRestore()
 	if err != nil {
 		logger.Reason(err).Error("Error updating done restore")
 		return 0, ctrl.doUpdateError(vmRestoreIn, err)
-	}
-	if updated {
-		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Updating target status"))
-		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for target update"))
-		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 	}
 
 	ctrl.Recorder.Eventf(
@@ -256,20 +251,16 @@ func (ctrl *VMRestoreController) handleVMRestoreDeletion(vmRestore *snapshotv1.V
 	}
 
 	vmRestoreCpy := vmRestore.DeepCopy()
-	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, "VM restore is deleting"))
-	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"))
-
 	if target.Exists() {
-		updated, err := target.UpdateDoneRestore()
+		err := target.UpdateDoneRestore()
 		if err != nil {
 			logger.Reason(err).Error("Error updating done restore")
 			return ctrl.doUpdateError(vmRestoreCpy, err)
 		}
-		if updated {
-			return ctrl.doUpdate(vmRestore, vmRestoreCpy)
-		}
 	}
 
+	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, "VM restore is deleting"))
+	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"))
 	controller.RemoveFinalizer(vmRestoreCpy, vmRestoreFinalizer)
 	return ctrl.doUpdate(vmRestore, vmRestoreCpy)
 }
@@ -372,21 +363,25 @@ func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClai
 	return sc.VolumeBindingMode, nil
 }
 
-func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
+func (t *vmRestoreTarget) UpdateDoneRestore() error {
 	if !t.Exists() {
-		return false, fmt.Errorf("At this point target should exist")
+		return fmt.Errorf("At this point target should exist")
 	}
 
 	if t.vm.Status.RestoreInProgress == nil || *t.vm.Status.RestoreInProgress != t.vmRestore.Name {
-		return false, nil
+		return nil
 	}
 
 	vmCopy := t.vm.DeepCopy()
 
 	vmCopy.Status.RestoreInProgress = nil
 	vmCopy.Status.MemoryDumpRequest = nil
-	_, err := t.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
-	return true, err
+	vmCopy, err := t.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	t.vm = vmCopy
+	return nil
 }
 
 func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
@@ -403,11 +398,13 @@ func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
 	if vmCopy.Status.RestoreInProgress == nil {
 		vmCopy.Status.RestoreInProgress = &t.vmRestore.Name
 
-		// unfortunately, status Updater does not return the updated resource
-		// but the controller is watching VMs so will get notified
-		_, err := t.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
-		return err
+		var err error
+		vmCopy, err = t.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
 	}
+	t.vm = vmCopy
 
 	return nil
 }
