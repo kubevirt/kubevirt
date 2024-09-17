@@ -568,6 +568,9 @@ const (
 
 	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
 	VirtualMachineInstanceDataVolumesReady VirtualMachineInstanceConditionType = "DataVolumesReady"
+
+	// Indicates whether the VMI is live migratable
+	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
 )
 
 // These are valid reasons for VMI conditions.
@@ -596,6 +599,9 @@ const (
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and not running
 	VirtualMachineInstanceReasonAllDVsReady = "AllDVsReady"
+
+	// Indicates a generic reason that the VMI isn't migratable and more details are spiecified in the condition message.
+	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
 )
 
 const (

@@ -563,6 +563,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Type:   v1.VirtualMachineInstanceIsMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 			}
 
 			mockWatchdog.CreateFile(vmi)
@@ -633,6 +637,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Type:   v1.VirtualMachineInstanceIsMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 			}
 			vmi = addActivePods(vmi, podTestUUID, host)
 
@@ -657,6 +665,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 			}
@@ -702,6 +714,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 			}
@@ -767,6 +783,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
 					Type:          v1.VirtualMachineInstanceAgentConnected,
 					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
@@ -803,6 +823,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 				{
@@ -862,6 +886,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Type:   v1.VirtualMachineInstanceIsMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 			}
 			vmi = addActivePods(vmi, podTestUUID, host)
 
@@ -883,6 +911,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 			}
@@ -929,6 +961,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Type:   v1.VirtualMachineInstanceIsMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 			}
 
 			vmiFeeder.Add(vmi)
@@ -958,6 +994,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 			}
@@ -999,6 +1039,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Type:   v1.VirtualMachineInstanceIsMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 			}
 
 			mockWatchdog.CreateFile(vmi)
@@ -1014,6 +1058,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiCopy.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 				{
@@ -1058,6 +1106,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
 					Type:   v1.VirtualMachineInstancePaused,
 					Status: k8sv1.ConditionTrue,
 				},
@@ -1081,6 +1133,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 			}
@@ -1179,6 +1235,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 			}
@@ -1904,6 +1964,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Type:   v1.VirtualMachineInstanceIsMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 			}
 			vmi = addActivePods(vmi, podTestUUID, host)
 
@@ -1947,6 +2011,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Type:   v1.VirtualMachineInstanceIsMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 			}
 			vmi = addActivePods(vmi, podTestUUID, host)
 
@@ -1981,6 +2049,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 			}
@@ -3384,6 +3456,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
 					Status: k8sv1.ConditionTrue,
 				},
 			}

@@ -964,11 +964,21 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 		}
 		// Validate if the update volumes can be migrated
 		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
+			log.Log.Object(vm).Errorf("cannot migrate the VM. Volumes are invalid: %v", err)
 			setRestartRequired(vm, err.Error())
 			return nil
 		}
-
-		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, c.pvcStore, vmi, vm); err != nil {
+		migVols, err := volumemig.GenerateMigratedVolumes(c.pvcStore, vmi, vm)
+		if err != nil {
+			log.Log.Object(vm).Errorf("cannot generate the migrated volumes: %v", err)
+			return nil
+		}
+		if err := volumemig.ValidateVolumesUpdateMigration(vmi, vm, migVols); err != nil {
+			log.Log.Object(vm).Errorf("cannot migrate the VMI: %v", err)
+			setRestartRequired(vm, err.Error())
+			return nil
+		}
+		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, vmi, migVols); err != nil {
 			log.Log.Object(vm).Errorf("failed to update migrating volumes for vmi:%v", err)
 			return err
 		}
