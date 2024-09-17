@@ -103,7 +103,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		pause.NewCommand(clientConfig),
 		unpause.NewCommand(clientConfig),
 		softreboot.NewSoftRebootCommand(clientConfig),
-		expose.NewExposeCommand(clientConfig),
+		expose.NewCommand(clientConfig),
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),
 		guestfs.NewGuestfsShellCommand(clientConfig),
