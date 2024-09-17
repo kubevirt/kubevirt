@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 )
 
 type Upgrader interface {
@@ -115,7 +116,7 @@ func (m *InstancetypeMethods) upgradeControllerRevision(vm *virtv1.VirtualMachin
 	log.Log.Object(vm).Infof("upgrading instancetype.kubevirt.io ControllerRevision %s (%s)", crName, jsonPath)
 
 	// Upgrade the stashed object to the latest version
-	err = decodeControllerRevision(original)
+	err = compatibility.Decode(original)
 	if err != nil {
 		return nil, err
 	}
