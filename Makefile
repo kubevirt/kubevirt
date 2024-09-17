@@ -223,6 +223,7 @@ lint:
 	  pkg/network/domainspec/... \
 	  pkg/network/deviceinfo/... \
 	  pkg/network/pod/annotations/... \
+	  pkg/storage/pod/annotations/... \
 	  pkg/virtctl/credentials/... \
 	  tests/console/... \
 	  tests/instancetype/... \
