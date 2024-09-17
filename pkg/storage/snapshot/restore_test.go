@@ -442,7 +442,6 @@ var _ = Describe("Restore controller", func() {
 					},
 				}
 				vmSource.Add(vm)
-				expectUpdateVMRestoreInProgress(vm)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()

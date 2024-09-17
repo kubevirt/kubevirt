@@ -140,14 +140,14 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	}
 	controller.AddFinalizer(vmRestoreOut, vmRestoreFinalizer)
 
-	err = target.UpdateRestoreInProgress()
-	if err != nil {
-		return 0, err
-	}
-
 	// let's make sure everything is initialized properly before continuing
 	if !equality.Semantic.DeepEqual(vmRestoreIn, vmRestoreOut) {
 		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
+	}
+
+	err = target.UpdateRestoreInProgress()
+	if err != nil {
+		return 0, err
 	}
 
 	updated, err := ctrl.reconcileVolumeRestores(vmRestoreOut, target)
