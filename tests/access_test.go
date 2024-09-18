@@ -23,24 +23,23 @@ import (
 	"context"
 	"fmt"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
-	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authClientV1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
 	"kubevirt.io/api/core"
-
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	pool "kubevirt.io/api/pool"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+
+	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 type rightsEntry struct {
@@ -215,7 +214,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	})
 
 	Describe("With default kubevirt service accounts", func() {
-		DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(group string, resource string, clusterWide bool, accessRights ...rights) {
+		DescribeTable("should verify permissions on resources are correct for view, edit, and admin", decorators.Conformance, func(group string, resource string, clusterWide bool, accessRights ...rights) {
 			namespace := testsuite.GetTestNamespace(nil)
 			for _, accessRight := range accessRights {
 				for _, entry := range accessRight.list() {
@@ -354,7 +353,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyModificationsFor("default")),
 		)
 
-		DescribeTable("should verify permissions on subresources are correct for view, edit, admin and default", func(resource string, subresource string, accessRights ...rights) {
+		DescribeTable("should verify permissions on subresources are correct for view, edit, admin and default", decorators.Conformance, func(resource string, subresource string, accessRights ...rights) {
 			namespace := testsuite.GetTestNamespace(nil)
 			for _, accessRight := range accessRights {
 				for _, entry := range accessRight.list() {
