@@ -122,7 +122,9 @@ var (
 // HTTPClientCreator is a function that creates http clients
 type HTTPClientCreator func(bool) *http.Client
 
-var httpClientCreatorFunc HTTPClientCreator
+var defaultHTTPClientCreator = getHTTPClient
+
+var httpClientCreatorFunc HTTPClientCreator = defaultHTTPClientCreator
 
 type processingCompleteFunc func(kubernetes.Interface, string, string, time.Duration, time.Duration) error
 
@@ -137,11 +139,7 @@ func SetHTTPClientCreator(f HTTPClientCreator) {
 
 // SetDefaultHTTPClientCreator sets the http client creator back to default
 func SetDefaultHTTPClientCreator() {
-	httpClientCreatorFunc = getHTTPClient
-}
-
-func init() {
-	SetDefaultHTTPClientCreator()
+	httpClientCreatorFunc = defaultHTTPClientCreator
 }
 
 // NewImageUploadCommand returns a cobra.Command for handling the uploading of VM images
