@@ -28,22 +28,19 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
 var _ = Describe("Validate interface with SLIRP binding", func() {
 	It("should be rejected if not enabled in the Kubevirt CR", func() {
-		vmi := v1.VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name: "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{},
-			},
-		}}
-		vmi.Spec.Networks = []v1.Network{{
-			Name:          "default",
-			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-		}}
+		vmi := libvmi.New(
+			libvmi.WithInterface(v1.Interface{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
+			}),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
@@ -52,18 +49,13 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 	})
 
 	It("should be rejected without a pod network", func() {
-		vmi := v1.VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name: "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{},
-			},
-		}}
-		vmi.Spec.Networks = []v1.Network{{
-			Name:          "default",
-			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}},
-		}}
-
+		vmi := libvmi.New(
+			libvmi.WithInterface(v1.Interface{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
+			}),
+			libvmi.WithNetwork(libvmi.MultusNetwork("default", "net")),
+		)
 		config := stubClusterConfigChecker{slirpEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, config)
 		causes := validator.Validate()
@@ -72,17 +64,13 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 	})
 
 	It("should be accepted with a pod network when SLIRP is enabled in the Kubevirt CR", func() {
-		vmi := v1.VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name: "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{},
-			},
-		}}
-		vmi.Spec.Networks = []v1.Network{{
-			Name:          "default",
-			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-		}}
+		vmi := libvmi.New(
+			libvmi.WithInterface(v1.Interface{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
+			}),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
 		config := stubClusterConfigChecker{slirpEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -92,17 +80,13 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 
 var _ = Describe("Validate creation of interface with SLIRP binding", func() {
 	It("should be rejected", func() {
-		vmi := v1.VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name: "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{},
-			},
-		}}
-		vmi.Spec.Networks = []v1.Network{{
-			Name:          "default",
-			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-		}}
+		vmi := libvmi.New(
+			libvmi.WithInterface(v1.Interface{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
+			}),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		causes := validator.ValidateCreation()
