@@ -990,21 +990,18 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				// We first delete the source PVC and DataVolume to force a clone without source
 				err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-				if !errors.IsNotFound(err) {
-					Expect(err).ToNot(HaveOccurred())
-				}
-				err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestAlternative).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(Or(
+					Not(HaveOccurred()),
+					Satisfy(errors.IsNotFound),
+				))
+				Eventually(ThisPVCWith(testsuite.NamespaceTestAlternative, dataVolume.Name), 10*time.Second, 1*time.Second).Should(BeGone())
 
 				// We check if the VM is succesfully created
 				By("Creating VM")
-				Eventually(func() bool {
+				Eventually(func() error {
 					_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-					if err != nil {
-						return false
-					}
-					return true
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+					return err
+				}, 90*time.Second, 1*time.Second).Should(Succeed())
 
 				// Check for owner reference
 				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeOwned())
