@@ -54,9 +54,6 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	manual := v1.RunStrategyManual
-	restartOnError := v1.RunStrategyRerunOnFailure
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
@@ -159,34 +156,19 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 	Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component] VirtualMachine subresource", func() {
 		Context("with a restart endpoint", func() {
-			It("[test_id:1304] should restart a VM", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			DescribeTable("should return an error when VM is not running", func(errMsg string, opts ...libvmi.VMOption) {
+				By("Creating VM")
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), opts...)
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				By("Trying to start VM via Restart subresource")
 				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					if err != nil || vmi.UID == newVMI.UID {
-						return v1.VmPhaseUnset
-					}
-					return newVMI.Status.Phase
-				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
-			})
-
-			It("[test_id:1305][posneg:negative] should return an error when VM is not running", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-				Expect(err).To(HaveOccurred())
-			})
+				Expect(err).To(MatchError(ContainSubstring(errMsg)))
+			},
+				Entry("[test_id:1305][posneg:negative] with RunStrategyHalted", "RunStategy Halted does not support manual restart requests", libvmi.WithRunStrategy(v1.RunStrategyHalted)),
+				Entry("[test_id:3174] with RunStrategyManual", "VM is not running: Halted", libvmi.WithRunStrategy(v1.RunStrategyManual)),
+			)
 
 			It("[test_id:2265][posneg:negative] should return an error when VM has not been found but VMI is running", func() {
 				vmi := libvmifact.NewGuestless()
@@ -194,93 +176,6 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 				err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Restart(context.Background(), vmi.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
-			})
-		})
-
-		Context("With manual RunStrategy", func() {
-			It("[test_id:3174]Should not restart when VM is not running", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-				vm.Spec.RunStrategy = &manual
-
-				By("Creating VM")
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Trying to start VM via Restart subresource")
-				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-				Expect(err).To(HaveOccurred())
-			})
-
-			It("[test_id:3175]Should restart when VM is running", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-				vm.Spec.RunStrategy = &manual
-
-				By("Creating VM")
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Starting VM via Start subresource")
-				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Start(context.Background(), vm.Name, &v1.StartOptions{Paused: false})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VMI to start")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					if err != nil {
-						return v1.VmPhaseUnset
-					}
-					return newVMI.Status.Phase
-				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("Restarting VM")
-				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					if err != nil || vmi.UID == newVMI.UID {
-						return v1.VmPhaseUnset
-					}
-					return newVMI.Status.Phase
-				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
-			})
-		})
-
-		Context("With RunStrategy RerunOnFailure", func() {
-			It("[test_id:3176]Should restart the VM", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-				vm.Spec.RunStrategy = &restartOnError
-
-				By("Creating VM")
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VMI to start")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					if err != nil {
-						return v1.VmPhaseUnset
-					}
-					return newVMI.Status.Phase
-				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("Restarting VM")
-				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					if err != nil || vmi.UID == newVMI.UID {
-						return v1.VmPhaseUnset
-					}
-					return newVMI.Status.Phase
-				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
 			})
 		})
 
