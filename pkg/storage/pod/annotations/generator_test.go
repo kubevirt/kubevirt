@@ -38,11 +38,16 @@ var _ = Describe("Annotations Generator", func() {
 		annotations, err := generator.Generate(libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithName(vmiName)))
 		Expect(err).NotTo(HaveOccurred())
 
+		const (
+			expectedPreHookBackupCommand  = `["/usr/bin/virt-freezer", "--freeze", "--name", "testvmi", "--namespace", "testns"]`
+			expectedPostHookBackupCommand = `["/usr/bin/virt-freezer", "--unfreeze", "--name", "testvmi", "--namespace", "testns"]`
+		)
+
 		expectedAnnotations := map[string]string{
 			"pre.hook.backup.velero.io/container":  "compute",
-			"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+			"pre.hook.backup.velero.io/command":    expectedPreHookBackupCommand,
 			"post.hook.backup.velero.io/container": "compute",
-			"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+			"post.hook.backup.velero.io/command":   expectedPostHookBackupCommand,
 		}
 
 		Expect(annotations).To(Equal(expectedAnnotations))

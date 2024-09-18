@@ -30,18 +30,18 @@ import (
 type Generator struct{}
 
 func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
-	const ComputeContainerName = "compute"
+	const computeContainerName = "compute"
 
 	return map[string]string{
-		velero.PreBackupHookContainerAnnotation: ComputeContainerName,
+		velero.PreBackupHookContainerAnnotation: computeContainerName,
 		velero.PreBackupHookCommandAnnotation: fmt.Sprintf(
-			"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
+			"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", %q, \"--namespace\", %q]",
 			vmi.Name,
 			vmi.Namespace,
 		),
-		velero.PostBackupHookContainerAnnotation: ComputeContainerName,
+		velero.PostBackupHookContainerAnnotation: computeContainerName,
 		velero.PostBackupHookCommandAnnotation: fmt.Sprintf(
-			"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
+			"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", %q, \"--namespace\", %q]",
 			vmi.Name,
 			vmi.Namespace,
 		),
