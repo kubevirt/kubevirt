@@ -211,6 +211,89 @@ var _ = Describe("Template", func() {
 
 			return vmi
 		}
+
+		emulation := func(pod *k8sv1.Pod) bool {
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					for _, cmd := range container.Command {
+						if cmd == "--allow-emulation" {
+							return true
+						}
+					}
+					return false
+				}
+			}
+			Fail("should not happen")
+			return false
+		}
+
+		It("should not enable emulation by default", func() {
+			_, kvStore, svc = configFactory(defaultArch)
+			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(emulation(pod)).To(BeFalse(), "emulation should not be enabled by default")
+		})
+
+		It("should enable emulation when cluster conifg enables it", func() {
+			_, kvStore, svc = configFactory(defaultArch)
+			kvConfig := kv.DeepCopy()
+			if kvConfig.Spec.Configuration.DeveloperConfiguration == nil {
+				kvConfig.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+			}
+
+			kvConfig.Spec.Configuration.DeveloperConfiguration.UseEmulation = true
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(emulation(pod)).To(BeTrue(), "emulation should be enabled when specified in config")
+		})
+
+		kvm := k8sv1.ResourceName("devices.kubevirt.io/kvm")
+		tun := k8sv1.ResourceName("devices.kubevirt.io/tun")
+
+		It("should request kvm & tun device by default", func() {
+			_, kvStore, svc = configFactory(defaultArch)
+
+			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
+			Expect(err).NotTo(HaveOccurred())
+
+			haveKVMandTUN := And(HaveKey(kvm), HaveKey(tun))
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					Expect(container.Resources.Limits).To(haveKVMandTUN, "Container should have KVM & Tun device in limits")
+					// TODO
+					// Expect(container.Resources.Requests).To(haveKVMandTUN, "Container should have requested KVM & Tun device")
+				}
+			}
+		})
+
+		PIt("should not request kvm device but should request tun when emulation is enabled", func() {
+			_, kvStore, svc = configFactory(defaultArch)
+			kvConfig := kv.DeepCopy()
+			if kvConfig.Spec.Configuration.DeveloperConfiguration == nil {
+				kvConfig.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+			}
+
+			kvConfig.Spec.Configuration.DeveloperConfiguration.UseEmulation = true
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
+			Expect(err).NotTo(HaveOccurred())
+
+			notHaveKVMButHaveTUN := (And(Not(HaveKey(kvm)), HaveKey(tun)))
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					Expect(container.Resources.Limits).To(notHaveKVMButHaveTUN,
+						"Container should not have KVM & Tun device in limits")
+					Expect(container.Resources.Requests).To(notHaveKVMButHaveTUN,
+						"Container should not have requested KVM & Tun device")
+				}
+			}
+		})
+
 		It("should not set seccomp profile by default", func() {
 			_, kvStore, svc = configFactory(defaultArch)
 			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
