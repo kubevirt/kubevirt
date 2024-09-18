@@ -1482,8 +1482,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 	})
 
-	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Delete a VirtualMachineInstance's Pod", decorators.WgS390x, func() {
-		It("[test_id:1650]should result in the VirtualMachineInstance moving to a finalized state", func() {
+	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Delete a VirtualMachineInstance's Pod (API)", decorators.WgS390x, func() {
+		It("[test_id:1650]should result in the VirtualMachineInstance moving to a finalized state", decorators.Conformance, func() {
 			By("Creating the VirtualMachineInstance")
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
@@ -1493,9 +1493,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			// Delete the Pod
 			By("Deleting the VirtualMachineInstance's pod")
-			Eventually(func() error {
-				return kubevirt.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
-			}, 10*time.Second, 1*time.Second).Should(Succeed(), "Should delete VMI pod")
+			err = kubevirt.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying VirtualMachineInstance's pod terminates")
+			Eventually(matcher.ThisPod(pod)).WithTimeout(10*time.Second).Should(matcher.BeGone(), "There should be no pods")
 
 			// Wait for VirtualMachineInstance to finalize
 			By("Waiting for the VirtualMachineInstance to move to a finalized state")
