@@ -1637,25 +1637,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			By("Killing the VirtualMachineInstance")
 			Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			watcher.New(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
-
-			By("Checking that the VirtualMachineInstance has 'Failed' phase")
-			Eventually(matcher.ThisVMI(vmi)).WithTimeout(10 * time.Second).WithPolling(time.Second).Should(matcher.BeInPhase(v1.Failed))
-		})
-
-		It("[test_id:1657]should be left alone by virt-handler", func() {
-			By("Starting a VirtualMachineInstance")
-			vmi := libvmifact.NewAlpine()
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
-			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Killing the VirtualMachineInstance")
-			Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
-
 			// Wait for stop event of the VirtualMachineInstance
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -1674,8 +1655,12 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			By("Checking that virt-handler does not try to sync stopped VirtualMachineInstance")
 			stoppedVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should refresh VMI to get its current resourceVersion")
+			// This is not optimal as we always spend 10 seconds here. Optimally we should wait for the Failed test and verify that no warning were fired.
 			event := watcher.New(stoppedVMI).Timeout(10*time.Second).SinceWatchedObjectResourceVersion().WaitNotFor(ctx, watcher.WarningEvent, v1.SyncFailed)
 			Expect(event).To(BeNil(), "virt-handler tried to sync on a VirtualMachineInstance in final state")
+
+			By("Checking that the VirtualMachineInstance has 'Failed' phase")
+			Expect(matcher.ThisVMI(stoppedVMI)()).To(matcher.BeInPhase(v1.Failed))
 		})
 	})
 })
