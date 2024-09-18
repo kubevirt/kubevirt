@@ -1567,27 +1567,10 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			)
 		})
 		Context("with grace period greater than 0", func() {
-			It("[test_id:1655]should run graceful shutdown", func() {
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				node := nodes.Items[0].Name
-
-				virtHandlerPod, err := libnode.GetVirtHandlerPod(kubevirt.Client(), node)
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler for node")
-
-				handlerName := virtHandlerPod.GetObjectMeta().GetName()
-				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
-				seconds := int64(120)
-				logsQuery := kubevirt.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
-
+			It("[test_id:1655]should run graceful shutdown", decorators.Conformance, func() {
 				By("Setting a VirtualMachineInstance termination grace period to 5")
-				var gracePeriod int64
-				gracePeriod = int64(5)
-				vmi := libvmifact.NewAlpine()
 				// Give the VirtualMachineInstance a custom grace period
-				vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
-				// Make sure we schedule the VirtualMachineInstance to master
-				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
+				vmi := libvmifact.NewAlpine(libvmi.WithTerminationGracePeriod(5))
 
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
@@ -1595,26 +1578,22 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI gracefully")
+
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
-				event := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(75*time.Second).WaitFor(ctx, watcher.NormalEvent, v1.Deleted)
-				Expect(event).ToNot(BeNil(), "There should be a delete event")
 
 				// Check if the graceful shutdown was logged
 				By("Checking that virt-handler logs VirtualMachineInstance graceful shutdown")
-				Eventually(func() string {
-					data, err := logsQuery.DoRaw(context.Background())
-					Expect(err).ToNot(HaveOccurred(), "Should get the logs")
-					return string(data)
-				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())), "Should log graceful shutdown")
+				event := watcher.New(vmi).Timeout(30*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "ShuttingDown")
+				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
 
 				// Verify VirtualMachineInstance is killed after grace period expires
+				// 5 seconds is grace period, doubling to prevent flakiness
 				By("Checking that the VirtualMachineInstance does not exist after grace period")
-				Eventually(func() string {
-					data, err := logsQuery.DoRaw(context.Background())
-					Expect(err).ToNot(HaveOccurred(), "Should get logs")
-					return string(data)
-				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())), "Should log graceful kill")
+				event = watcher.New(vmi).Timeout(10*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "Deleted")
+				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
+
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(15 * time.Second).WithPolling(time.Second).Should(matcher.BeGone())
 			})
 		})
 	})
