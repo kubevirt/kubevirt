@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "bindingplugin.go",
         "dual_stack_cluster.go",
-        "expose.go",
         "framework.go",
         "hotplug.go",
         "hotplug_bridge.go",
@@ -82,7 +81,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
