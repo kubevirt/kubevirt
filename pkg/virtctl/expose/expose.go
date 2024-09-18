@@ -175,13 +175,15 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 		if err != nil {
 			return nil, nil, fmt.Errorf("error fetching VirtualMachineInstanceReplicaSet: %v", err)
 		}
-		if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
-			return nil, nil, fmt.Errorf("cannot expose VirtualMachineInstanceReplicaSet with match expressions")
-		}
 		if vmirs.Spec.Template != nil {
 			ports = podNetworkPorts(&vmirs.Spec.Template.Spec)
 		}
-		serviceSelector = vmirs.Spec.Selector.MatchLabels
+		if vmirs.Spec.Selector != nil {
+			if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
+				return nil, nil, fmt.Errorf("cannot expose VirtualMachineInstanceReplicaSet with match expressions")
+			}
+			serviceSelector = vmirs.Spec.Selector.MatchLabels
+		}
 	default:
 		return nil, nil, fmt.Errorf("unsupported resource type: %s", vmType)
 	}
