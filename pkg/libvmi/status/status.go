@@ -126,3 +126,10 @@ func WithMigrationState(migrationState v1.VirtualMachineInstanceMigrationState) 
 		vmiStatus.MigrationState = &migrationState
 	}
 }
+
+// WithInterfaceStatus adds an interface status
+func WithInterfaceStatus(interfaceStatus v1.VirtualMachineInstanceNetworkInterface) Option {
+	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
+		vmiStatus.Interfaces = append(vmiStatus.Interfaces, interfaceStatus)
+	}
+}
