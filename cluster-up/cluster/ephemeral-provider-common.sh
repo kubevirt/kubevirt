@@ -138,6 +138,10 @@ function _add_common_params() {
         params=" --single-stack $params"
     fi
 
+    if [ $KUBEVIRT_NO_ETCD_FSYNC == "true" ]; then
+        params=" --no-etcd-fsync $params"
+    fi
+
     if [ $KUBEVIRT_ENABLE_AUDIT == "true" ]; then
         params=" --enable-audit $params"
     fi
@@ -180,6 +184,59 @@ function _add_common_params() {
     if [ -n "$KUBEVIRT_FIPS" ]; then
         params=" --enable-fips $params"
     fi
+
+    if [ "$KUBEVIRT_WITH_MULTUS_V3" == "true" ]; then
+        params=" --deploy-multus $params"
+    fi
+
+    if [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
+        params=" --enable-cnao $params"
+    fi
+
+    if [ "$KUBEVIRT_DEPLOY_CDI" == "true" ]; then
+        params=" --deploy-cdi $params"
+    fi
+
+    if [ -n "$KUBEVIRT_CUSTOM_CDI_VERSION" ]; then
+        params=" --cdi-version=$KUBEVIRT_CUSTOM_CDI_VERSION $params"
+    fi
+
+    if [ "$KUBEVIRT_DEPLOY_AAQ" == "true" ]; then
+        params=" --deploy-aaq $params"
+    fi
+
+    if [ -n "$KUBEVIRT_CUSTOM_AAQ_VERSION" ]; then
+        params=" --aaq-version=$KUBEVIRT_CUSTOM_AAQ_VERSION $params"
+    fi
+
+    if [ "$KUBEVIRT_KSM_ON" == "true" ]; then
+        params=" --enable-ksm $params"
+    fi
+
+    if [ ! -z $KUBEVIRT_KSM_SLEEP_BETWEEN_SCANS_MS ]; then
+        params=" --ksm-scan-interval=$KUBEVIRT_KSM_SLEEP_BETWEEN_SCANS_MS $params"
+    fi
+
+    if [ ! -z $KUBEVIRT_KSM_PAGES_TO_SCAN ]; then
+        params=" --ksm-page-count=$KUBEVIRT_KSM_PAGES_TO_SCAN $params"
+    fi
+
+    if [ "$KUBEVIRT_SWAP_ON" == "true" ]; then
+        params=" --enable-swap $params"
+    fi
+
+    if [ ! -z $KUBEVIRT_SWAP_SIZE_IN_GB  ]; then
+        params=" --swap-size=$KUBEVIRT_SWAP_SIZE_IN_GB $params"
+    fi
+
+    if [ ! -z $KUBEVIRT_SWAPPINESS ]; then
+        params=" --swapiness=$KUBEVIRT_SWAPPINESS $params"
+    fi
+
+    if [ $KUBEVIRT_UNLIMITEDSWAP == "true" ]; then
+        params=" --unlimited-swap $params"
+    fi
+
 
     if [ -n "$KUBEVIRTCI_PROXY" ]; then
         params=" --docker-proxy=$KUBEVIRTCI_PROXY $params"
