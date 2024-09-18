@@ -21,6 +21,7 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -29,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	expect "github.com/google/goexpect"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -137,4 +139,25 @@ func lookupComputeContainer(containers []k8sv1.Container) *k8sv1.Container {
 		}
 	}
 	return nil
+}
+
+func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string, loginTo console.LoginToFunction, sudoNeeded bool) {
+	Expect(loginTo(vmi)).To(Succeed())
+
+	sudoPrefix := ""
+	if sudoNeeded {
+		sudoPrefix = "sudo "
+	}
+
+	serverCommand := fmt.Sprintf("%snc -klp %d -e echo -e 'Hello World!'&\n", sudoPrefix, testPort)
+	if protocol == "udp" {
+		// nc has to be in a while loop in case of UDP, since it exists after one message
+		serverCommand = fmt.Sprintf("%ssh -c \"while true; do nc -uklp %d -e echo -e 'Hello UDP World!';done\"&\n", sudoPrefix, testPort)
+	}
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: serverCommand},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
+		&expect.BExp{R: console.RetValue("0")},
+	}, 60)).To(Succeed())
 }
