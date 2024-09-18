@@ -43,14 +43,14 @@ the VMI's pod and receives lifecycle commands from virt-handler.
 
 ### Scripts
 
- * `cluster-up/kubectl.sh`: This is a wrapper around Kubernetes' kubectl command so
+ * `kubevirtci/cluster-up/kubectl.sh`: This is a wrapper around Kubernetes' kubectl command so
    that it can be run directly from this checkout without logging into a node.
- * `cluster-up/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
+ * `kubevirtci/cluster-up/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
    virtual machine specific commands with it. It is supplement to `kubectl`.
-   e.g. `cluster-up/virtctl.sh console testvm`.
- * `cluster-up/cli.sh` helps you create ephemeral kubernetes and openshift
+   e.g. `kubevirtci/cluster-up/virtctl.sh console testvm`.
+ * `kubevirtci/cluster-up/cli.sh` helps you create ephemeral kubernetes and openshift
    clusters for testing. This is helpful when direct management or access to
-   cluster nodes is necessary. e.g. `cluster-up/cli.sh ssh node01`.
+   cluster nodes is necessary. e.g. `kubevirtci/cluster-up/cli.sh ssh node01`.
 
 ### Makefile Commands
 

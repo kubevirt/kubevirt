@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 #
 # This file is part of the KubeVirt project
 #
@@ -14,34 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2021 Red Hat, Inc.
+# Copyright the KubeVirt Authors.
+#
 #
 
-set -e
-set -x
-
-source hack/config-kubevirtci.sh
-
-TEMP_FILE=$(mktemp -p /tmp -t kubevirt.deploy.XXXX)
-
-trap 'rm -f $TEMP_FILE' EXIT SIGINT
-
-function main() {
-    ./hack/cluster-clean.sh >$TEMP_FILE 2>&1 &
-    CLEAN_PID=$!
-
-    ./hack/cluster-build.sh
-    ./hack/manifests.sh
-
-    echo "waiting for cluster-clean to finish"
-    if ! wait $CLEAN_PID; then
-        echo "cluster-clean failed, output was:"
-        cat $TEMP_FILE
-        exit 1
-    fi
-
-    ./hack/deploy-to-nodes.sh
-    ./hack/cluster-deploy.sh
-}
-
-main "$@"
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+KUBEVIRTCI_PATH="${BASE_DIR}/kubevirtci/cluster-up/"
+KUBEVIRTCI_CONFIG_PATH="${BASE_DIR}/kubevirtci/_ci-configs"
