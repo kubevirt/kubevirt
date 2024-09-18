@@ -25,8 +25,8 @@ TEMP_DIR=$(mktemp -d /tmp/git-tmp.XXXXXX)
 trap 'rm -rf $TEMP_DIR' EXIT SIGINT
 
 function main() {
-    CURRENT=$(git diff cluster-up/version.txt | grep -v "\-\-" | grep -v "++" | grep "^+" | cut -d - -f 2)
-    PREVIOUS=$(git diff cluster-up/version.txt | grep -v "\-\-" | grep -v "++" | grep "^-" | cut -d - -f 3)
+    CURRENT=$(git diff kubevirtci/cluster-up/version.txt | grep -v "\-\-" | grep -v "++" | grep "^+" | cut -d - -f 2)
+    PREVIOUS=$(git diff kubevirtci/cluster-up/version.txt | grep -v "\-\-" | grep -v "++" | grep "^-" | cut -d - -f 3)
 
     if [[ -z $CURRENT ]] || [[ -z $PREVIOUS ]]; then
         exit 0

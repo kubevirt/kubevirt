@@ -23,8 +23,8 @@ fail_if_cri_bin_missing() {
     fi
 }
 
-if [ -f cluster-up/hack/common.sh ]; then
-    source cluster-up/hack/common.sh
+if [ -f kubevirtci/cluster-up/hack/common.sh ]; then
+    source kubevirtci/cluster-up/hack/common.sh
 fi
 
 export GOFLAGS="$GOFLAGS -mod=vendor"

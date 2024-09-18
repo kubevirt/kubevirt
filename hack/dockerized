@@ -100,9 +100,9 @@ _rsync \
     --exclude 'bazel-kubevirt' \
     --exclude 'bazel-out' \
     --exclude 'bazel-testlogs' \
-    --exclude 'cluster-up/cluster/**/.kubectl' \
-    --exclude 'cluster-up/cluster/**/.oc' \
-    --exclude 'cluster-up/cluster/**/.kubeconfig' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubectl' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.oc' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubeconfig' \
     --exclude "_out" \
     --exclude ".vagrant" \
     --exclude ".bazeldnf" \
@@ -176,9 +176,9 @@ _rsync \
     --exclude 'bazel-kubevirt' \
     --exclude 'bazel-out' \
     --exclude 'bazel-testlogs' \
-    --exclude 'cluster-up/cluster/**/.kubectl' \
-    --exclude 'cluster-up/cluster/**/.oc' \
-    --exclude 'cluster-up/cluster/**/.kubeconfig' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubectl' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.oc' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubeconfig' \
     --exclude "_out" \
     --exclude "vendor" \
     --exclude ".vagrant" \

@@ -127,7 +127,7 @@ if (( $# > 0 )); then
 else
     # We only want to use stable providers for flake testing, thus we fetch the k8s version file from kubevirtci.
     # we stop at the first provider that is stable (aka doesn't have an rc or beta or alpha version)
-    for k8s_provider in $(cd cluster-up/cluster && ls -rd k8s-[0-9]\.[0-9][0-9]); do
+    for k8s_provider in $(cd kubevirtci/cluster-up/cluster && ls -rd k8s-[0-9]\.[0-9][0-9]); do
         # shellcheck disable=SC2154
         k8s_provider_version=$(curl --fail "https://raw.githubusercontent.com/kubevirt/kubevirtci/${kubevirtci_git_hash}/cluster-provision/k8s/${k8s_provider#"k8s-"}/version")
         if [[ "${k8s_provider_version}" =~ -(rc|alpha|beta) ]]; then
@@ -143,7 +143,7 @@ else
     fi
 fi
 echo "Test lane: ${TEST_LANE}"
-[ -d "cluster-up/cluster/${TEST_LANE}" ] || ( echo "provider ${TEST_LANE} does not exist!"; exit 1 )
+[ -d "kubevirtci/cluster-up/cluster/${TEST_LANE}" ] || ( echo "provider ${TEST_LANE} does not exist!"; exit 1 )
 
 if [[ -z ${TARGET_COMMIT-} ]]; then
     # if there's no commit provided default to the latest merge commit
