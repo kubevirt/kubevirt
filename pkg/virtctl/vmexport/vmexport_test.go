@@ -12,6 +12,8 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +81,11 @@ var _ = Describe("vmexport", func() {
 			Expect(ok).To(BeTrue())
 			secret, ok := create.GetObject().(*v1.Secret)
 			Expect(ok).To(BeTrue())
+			Expect(secret.OwnerReferences).To(
+				ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"BlockOwnerDeletion": HaveValue(BeFalse()),
+				})), "owner ref BlockOwnerDeletion should be false for secret",
+			)
 			return true, secret, nil
 		})
 	}

@@ -7,6 +7,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/vmexport",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/pointer:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -45,6 +46,7 @@ go_test(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
