@@ -1199,7 +1199,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
                     If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
                   format: int64
                   type: integer
                 disableTLS:
@@ -13460,7 +13460,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
                     If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
                   format: int64
                   type: integer
                 disableTLS:
@@ -13874,7 +13874,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
                     If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
                   format: int64
                   type: integer
                 disableTLS:
