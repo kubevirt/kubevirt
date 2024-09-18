@@ -59,27 +59,6 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
-	name := "replicaset" + rand.String(5)
-	rs := &v1.VirtualMachineInstanceReplicaSet{
-		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(5)},
-		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
-			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"name": name},
-			},
-			Template: &v1.VirtualMachineInstanceTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"name": name},
-					Name:   vmi.ObjectMeta.Name,
-				},
-				Spec: vmi.Spec,
-			},
-		},
-	}
-	return rs
-}
-
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
 	// get current vmi
 	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
