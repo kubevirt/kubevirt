@@ -38,17 +38,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func SetDefaultVirtualMachine(clusterConfig *virtconfig.ClusterConfig, vm *v1.VirtualMachine) error {
-	if err := setDefaultVirtualMachineInstanceSpec(clusterConfig, &vm.Spec.Template.Spec); err != nil {
-		return err
-	}
-	setDefaultFeatures(&vm.Spec.Template.Spec)
-	v1.SetObjectDefaults_VirtualMachine(vm)
-	setDefaultHypervFeatureDependencies(&vm.Spec.Template.Spec)
-	setDefaultCPUArch(clusterConfig, &vm.Spec.Template.Spec)
-	return nil
-}
-
 func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, instancetypeMethods instancetype.Methods) {
 	setDefaultInstancetypeKind(vm)
 	setDefaultPreferenceKind(vm)
@@ -130,7 +119,7 @@ func setDefaultPreferenceKind(vm *v1.VirtualMachine) {
 }
 
 func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) error {
-	if err := setDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec); err != nil {
+	if err := SetDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec); err != nil {
 		return err
 	}
 	setDefaultFeatures(&vmi.Spec)
@@ -243,7 +232,7 @@ func setDefaultHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-func setDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error {
+func SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error {
 	setDefaultArchitecture(clusterConfig, spec)
 	setDefaultMachineType(clusterConfig, spec)
 	setDefaultResourceRequests(clusterConfig, spec)

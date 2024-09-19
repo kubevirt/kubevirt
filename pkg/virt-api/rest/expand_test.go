@@ -169,7 +169,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			expectedVm := vm.DeepCopy()
 
-			Expect(webhooks.SetDefaultVirtualMachine(app.clusterConfig, expectedVm)).To(Succeed())
+			Expect(webhooks.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
 
 			util.SetDefaultVolumeDisk(&expectedVm.Spec.Template.Spec)
 			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
@@ -207,7 +207,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			expectedVm := vm.DeepCopy()
 
-			Expect(webhooks.SetDefaultVirtualMachine(app.clusterConfig, expectedVm)).To(Succeed())
+			Expect(webhooks.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
 
 			util.SetDefaultVolumeDisk(&expectedVm.Spec.Template.Spec)
 			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
