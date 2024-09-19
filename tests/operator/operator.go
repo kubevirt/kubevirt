@@ -2596,12 +2596,10 @@ spec:
 				managedByChanged    = "someone"
 			)
 
-			BeforeEach(func() {
+			It("of instancetypes and preferences", func() {
 				By("Ensuring deployment is disabled")
 				disableDeployment()
-			})
 
-			It("of instancetypes", func() {
 				By("Getting instancetypes to be deployed by virt-operator")
 				instancetypes, err := components.NewClusterInstancetypes()
 				Expect(err).ToNot(HaveOccurred())
@@ -2620,17 +2618,6 @@ spec:
 				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, appComponentChanged))
 				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, managedByChanged))
 
-				By("Enabling deployment and waiting for KubeVirt to be ready")
-				enableDeployment()
-
-				By("Verifying virt-operator took ownership of the instancetype")
-				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Get(context.Background(), instancetype.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, appComponent))
-				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
-			})
-
-			It("of preferences", func() {
 				By("Getting preferences to be deployed by virt-operator")
 				preferences, err := components.NewClusterPreferences()
 				Expect(err).ToNot(HaveOccurred())
@@ -2652,6 +2639,12 @@ spec:
 				By("Enabling deployment and waiting for KubeVirt to be ready")
 				enableDeployment()
 
+				By("Verifying virt-operator took ownership of the instancetype")
+				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Get(context.Background(), instancetype.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, appComponent))
+				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
+
 				By("Verifying virt-operator took ownership of the preference")
 				preference, err = virtClient.VirtualMachineClusterPreference().Get(context.Background(), preference.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2661,7 +2654,7 @@ spec:
 		})
 
 		Context("Should delete resources not in install strategy", func() {
-			It("with instancetypes", func() {
+			It("with instancetypes and preferences", func() {
 				instancetype := &v1beta1.VirtualMachineClusterInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "clusterinstancetype-",
@@ -2682,9 +2675,7 @@ spec:
 					g.Expect(err).Should(HaveOccurred())
 					g.Expect(errors.ReasonForError(err)).Should(Equal(metav1.StatusReasonNotFound))
 				}, 1*time.Minute, 5*time.Second).Should(Succeed())
-			})
 
-			It("with preferences", func() {
 				preference := &v1beta1.VirtualMachineClusterPreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "clusterpreference-",
@@ -2717,7 +2708,7 @@ spec:
 
 			var preferredTopology = v1beta1.Threads
 
-			It("to instancetypes", func() {
+			It("to instancetypes and preferences", func() {
 				By("Getting the deployed instancetypes")
 				instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred())
@@ -2748,9 +2739,7 @@ spec:
 					g.Expect(instancetype.Labels).To(Equal(originalInstancetype.Labels))
 					g.Expect(instancetype.Spec).To(Equal(originalInstancetype.Spec))
 				}, 1*time.Minute, 5*time.Second).Should(Succeed())
-			})
 
-			It("to preferences", func() {
 				By("Getting the deployed preferencess")
 				preferences, err := virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred())
