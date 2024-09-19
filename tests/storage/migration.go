@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -584,18 +583,18 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			volumeSource := &v1.HotplugVolumeSource{
-				DataVolume: &v1.DataVolumeSource{
+			volumeSource := &virtv1.HotplugVolumeSource{
+				DataVolume: &virtv1.DataVolumeSource{
 					Name: dv.Name,
 				},
 			}
 
 			// Add the volume
-			addOpts := &v1.AddVolumeOptions{
+			addOpts := &virtv1.AddVolumeOptions{
 				Name: volName,
-				Disk: &v1.Disk{
+				Disk: &virtv1.Disk{
 					DiskDevice: virtv1.DiskDevice{
-						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+						Disk: &virtv1.DiskTarget{Bus: virtv1.DiskBusSCSI},
 					},
 					Serial: volName,
 				},
@@ -618,7 +617,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
 
 			// Remove the volume
-			removeOpts := &v1.RemoveVolumeOptions{
+			removeOpts := &virtv1.RemoveVolumeOptions{
 				Name: volName,
 			}
 			if persist {
