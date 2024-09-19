@@ -96,12 +96,22 @@ var _ = Describe("Restore controller", func() {
 		return r
 	}
 
+	addInitialVolumeRestores := func(r *snapshotv1.VirtualMachineRestore) {
+		r.Status.Restores = []snapshotv1.VolumeRestore{
+			{
+				VolumeName:                diskName,
+				PersistentVolumeClaimName: "restore-uid-disk1",
+				VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
+			},
+		}
+	}
 	addVolumeRestores := func(r *snapshotv1.VirtualMachineRestore) {
 		r.Status.Restores = []snapshotv1.VolumeRestore{
 			{
 				VolumeName:                "disk1",
 				PersistentVolumeClaimName: "restore-uid-disk1",
 				VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
+				DataVolumeName:            pointer.P("restore-uid-disk1"),
 			},
 		}
 	}
@@ -459,9 +469,9 @@ var _ = Describe("Restore controller", func() {
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
 					},
 				}
+				addInitialVolumeRestores(rc)
 				vmSource.Add(vm)
 				expectUpdateVMRestoreInProgress(vm)
-				addVolumeRestores(rc)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
@@ -515,6 +525,81 @@ var _ = Describe("Restore controller", func() {
 				expectUpdateVMRestoreInProgress(vm)
 				expectPVCCreates(k8sClient, r, pvcSize)
 				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
+			})
+
+			It("should create pvcs for both datavolume and pvc restore volumes", func() {
+				r := createRestoreWithOwner()
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: pointer.P(false),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
+					},
+				}
+				addVolumeRestores(r)
+				r.Status.Restores = append(r.Status.Restores, snapshotv1.VolumeRestore{
+					VolumeName:                "disk2",
+					PersistentVolumeClaimName: "restore-uid-disk2",
+					VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk2",
+				})
+
+				vm := createModifiedVM()
+				// create extra pvc
+				pvcs := createPVCsForVM(vm)
+				pvcs = append(pvcs, corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: vm.Namespace,
+						Name:      "extra-pvc",
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("2Gi"),
+							},
+						},
+						VolumeName:       "volume2",
+						StorageClassName: &storageClass.Name,
+					},
+				})
+				//add pvc volume and disk to vm
+				disk := kubevirtv1.Disk{
+					Name: "disk2",
+					DiskDevice: kubevirtv1.DiskDevice{
+						Disk: &kubevirtv1.DiskTarget{
+							Bus: kubevirtv1.DiskBusVirtio,
+						},
+					},
+				}
+				volume := kubevirtv1.Volume{
+					Name: "disk2",
+					VolumeSource: kubevirtv1.VolumeSource{
+						PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "extra-pvc"}},
+					},
+				}
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
+				// delete previous vmsnapshotcontent
+				vmSnapshotContentSource.Delete(sc)
+				// create ct vmSnapshotContent with the relevant info
+				sc = createVirtualMachineSnapshotContent(s, vm, pvcs)
+				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					CreationTime: timeFunc(),
+					ReadyToUse:   pointer.P(true),
+				}
+				vmSnapshotContentSource.Add(sc)
+				pvcSize := resource.MustParse("2Gi")
+				vs1 := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, pvcSize)
+				vs2 := createVolumeSnapshot(r.Status.Restores[1].VolumeSnapshotName, pvcSize)
+				fakeVolumeSnapshotProvider.Add(vs1)
+				fakeVolumeSnapshotProvider.Add(vs2)
+
+				vmSource.Add(vm)
+				addVirtualMachineRestore(r)
+
+				expectUpdateVMRestoreInProgress(vm)
+				expectPVCCreates(k8sClient, r, pvcSize)
 				controller.processVMRestoreWorkItem()
 			})
 
@@ -585,7 +670,7 @@ var _ = Describe("Restore controller", func() {
 				controller.processVMRestoreWorkItem()
 			})
 
-			It("should update restore status with datavolume", func() {
+			It("should wait for target to be ready", func() {
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: &f,
@@ -647,6 +732,91 @@ var _ = Describe("Restore controller", func() {
 					pvc.Status.Phase = corev1.ClaimBound
 					addPVC(&pvc)
 				}
+				controller.processVMRestoreWorkItem()
+			})
+
+			It("should update correctly restore VolumeRestores with multiple volumes and update relevant PVCs", func() {
+				vm := createModifiedVM()
+				vm.Status.RestoreInProgress = &vmRestoreName
+				// create extra pvc
+				pvcs := createPVCsForVM(vm)
+				pvcs = append(pvcs, corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: vm.Namespace,
+						Name:      "extra-pvc",
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						VolumeName:       "volume2",
+						StorageClassName: &storageClass.Name,
+					},
+				})
+				//add pvc volume and disk to vm
+				disk := kubevirtv1.Disk{
+					Name: "disk2",
+					DiskDevice: kubevirtv1.DiskDevice{
+						Disk: &kubevirtv1.DiskTarget{
+							Bus: kubevirtv1.DiskBusVirtio,
+						},
+					},
+				}
+				volume := kubevirtv1.Volume{
+					Name: "disk2",
+					VolumeSource: kubevirtv1.VolumeSource{
+						PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "extra-pvc"}},
+					},
+				}
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
+				// delete previous vmsnapshotcontent
+				vmSnapshotContentSource.Delete(sc)
+				// create ct vmSnapshotContent with the relevant info
+				sc = createVirtualMachineSnapshotContent(s, vm, pvcs)
+				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					CreationTime: timeFunc(),
+					ReadyToUse:   pointer.P(true),
+				}
+				vmSnapshotContentSource.Add(sc)
+
+				r := createRestoreWithOwner()
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: pointer.P(false),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
+					},
+				}
+				// note here we dont add the datavolumename
+				addInitialVolumeRestores(r)
+				r.Status.Restores = append(r.Status.Restores, snapshotv1.VolumeRestore{
+					VolumeName:                "disk2",
+					PersistentVolumeClaimName: "restore-uid-disk2",
+					VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk2",
+				})
+				restorePVCs := getRestorePVCs(r)
+				for i := range restorePVCs {
+					restorePVCs[i].Status.Phase = corev1.ClaimBound
+					pvcSource.Add(&restorePVCs[i])
+				}
+
+				rc := r.DeepCopy()
+				rc.ResourceVersion = "1"
+				rc.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionTrue, "Updating target spec"),
+					newReadyCondition(corev1.ConditionFalse, "Waiting for target update"),
+				}
+				addVolumeRestores(rc)
+				// note here we dont expect the datavolumename
+				rc.Status.Restores = append(rc.Status.Restores, snapshotv1.VolumeRestore{
+					VolumeName:                "disk2",
+					PersistentVolumeClaimName: "restore-uid-disk2",
+					VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk2",
+				})
+				vmSource.Add(vm)
+				addVirtualMachineRestore(r)
+
+				expectPVCUpdates(k8sClient, rc)
+				expectVMRestoreUpdate(kubevirtClient, rc)
 				controller.processVMRestoreWorkItem()
 			})
 
