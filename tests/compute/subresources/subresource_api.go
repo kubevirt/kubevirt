@@ -17,7 +17,7 @@
  *
  */
 
-package tests_test
+package subresources
 
 import (
 	"context"
@@ -40,6 +40,7 @@ import (
 	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/tests/compute"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -50,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
+var _ = compute.SIGDescribe("Subresource Api", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
