@@ -17,29 +17,27 @@
  *
  */
 
-package tests_test
+package compute
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	expect "github.com/google/goexpect"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/compute"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -65,7 +63,7 @@ func withoutACPI() libvmi.Option {
 	}
 }
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Soft reboot", decorators.SigCompute, func() {
+var _ = compute.SIGDescribe("[crit:medium][vendor:cnv-qe@redhat.com][level:component]Soft reboot", func() {
 	const vmiLaunchTimeout = 360
 
 	var virtClient kubecli.KubevirtClient

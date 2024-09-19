@@ -17,7 +17,7 @@
  *
  */
 
-package tests_test
+package compute
 
 import (
 	"context"
@@ -41,8 +41,8 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/compute"
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Pausing", decorators.SigCompute, func() {
+var _ = compute.SIGDescribe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component] Pausing", func() {
 
 	var virtClient kubecli.KubevirtClient
 
