@@ -445,6 +445,9 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	if t.Exists() && hasLastRestoreAnnotation(t.vmRestore, t.vm) {
 		return false, nil
 	}
+	if updated, err := t.updateVMRestoreRestores(); updated || err != nil {
+		return updated, err
+	}
 
 	restoredVM, err := t.generateRestoredVMSpec()
 	if err != nil {
@@ -455,6 +458,56 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	}
 
 	return t.reconcileSpec(restoredVM)
+}
+
+func (t *vmRestoreTarget) updateVMRestoreRestores() (bool, error) {
+
+	content, err := t.controller.getSnapshotContent(t.vmRestore)
+	if err != nil {
+		return false, err
+	}
+
+	snapshotVM := content.Spec.Source.VirtualMachine
+	if snapshotVM == nil {
+		return false, fmt.Errorf("unexpected snapshot source")
+	}
+	var restores = make([]snapshotv1.VolumeRestore, len(t.vmRestore.Status.Restores))
+	for i, t := range t.vmRestore.Status.Restores {
+		t.DeepCopyInto(&restores[i])
+	}
+	for k := range restores {
+		restore := &restores[k]
+		for _, volume := range snapshotVM.Spec.Template.Spec.Volumes {
+			if volume.Name != restore.VolumeName {
+				continue
+			}
+			if volume.DataVolume != nil {
+				templateIndex := findDVTemplateIndex(volume.DataVolume.Name, snapshotVM)
+				if templateIndex >= 0 {
+					dvName := restoreDVName(t.vmRestore, restore.VolumeName)
+					pvc, err := t.controller.getPVC(t.vmRestore.Namespace, restore.PersistentVolumeClaimName)
+					if err != nil {
+						return false, err
+					}
+
+					if pvc == nil {
+						return false, fmt.Errorf("pvc %s/%s does not exist and should", t.vmRestore.Namespace, restore.PersistentVolumeClaimName)
+					}
+
+					if err = t.updatePVCPopulatedForAnnotation(pvc, dvName); err != nil {
+						return false, err
+					}
+					restore.DataVolumeName = &dvName
+					break
+				}
+			}
+		}
+	}
+	if !equality.Semantic.DeepEqual(t.vmRestore.Status.Restores, restores) {
+		t.vmRestore.Status.Restores = restores
+		return true, nil
+	}
+	return false, nil
 }
 
 func (t *vmRestoreTarget) UpdateTarget(obj metav1.Object) {
@@ -484,19 +537,9 @@ func (t *vmRestoreTarget) generateRestoredVMSpec() (*kubevirtv1.VirtualMachine, 
 	for _, v := range snapshotVM.Spec.Template.Spec.Volumes {
 		nv := v.DeepCopy()
 		if nv.DataVolume != nil || nv.PersistentVolumeClaim != nil {
-			for k := range t.vmRestore.Status.Restores {
-				vr := &t.vmRestore.Status.Restores[k]
+			for _, vr := range t.vmRestore.Status.Restores {
 				if vr.VolumeName != nv.Name {
 					continue
-				}
-
-				pvc, err := t.controller.getPVC(t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
-				if err != nil {
-					return nil, err
-				}
-
-				if pvc == nil {
-					return nil, fmt.Errorf("pvc %s/%s does not exist and should", t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
 				}
 
 				if nv.DataVolume == nil {
@@ -507,13 +550,7 @@ func (t *vmRestoreTarget) generateRestoredVMSpec() (*kubevirtv1.VirtualMachine, 
 				templateIndex := findDVTemplateIndex(v.DataVolume.Name, snapshotVM)
 				if templateIndex >= 0 {
 					if vr.DataVolumeName == nil {
-						dvName := restoreDVName(t.vmRestore, vr.VolumeName)
-						err = t.updatePVCPopulatedForAnnotation(pvc, dvName)
-						if err != nil {
-							return nil, err
-						}
-
-						vr.DataVolumeName = &dvName
+						return nil, fmt.Errorf("DataVolumeName for dv %s should have been updated already", v.DataVolume.Name)
 					}
 
 					dv := snapshotVM.Spec.DataVolumeTemplates[templateIndex].DeepCopy()
@@ -826,19 +863,6 @@ func (t *vmRestoreTarget) createDataVolume(restoredVM *kubevirtv1.VirtualMachine
 	if _, err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(restoredVM.Namespace).Create(context.Background(), newDataVolume, v1.CreateOptions{}); err != nil {
 		t.controller.Recorder.Eventf(t.vm, corev1.EventTypeWarning, restoreDataVolumeCreateErrorEvent, "Error creating restore DataVolume %s: %v", newDataVolume.Name, err)
 		return false, fmt.Errorf("Failed to create restore DataVolume: %v", err)
-	}
-	// Update restore DataVolumeName
-	for _, v := range restoredVM.Spec.Template.Spec.Volumes {
-		if v.DataVolume == nil || v.DataVolume.Name != dvt.Name {
-			continue
-		}
-		for k := range t.vmRestore.Status.Restores {
-			vr := &t.vmRestore.Status.Restores[k]
-			if vr.VolumeName == v.Name {
-				vr.DataVolumeName = &dvt.Name
-				break
-			}
-		}
 	}
 
 	return true, nil
