@@ -73,7 +73,7 @@ function create_file_based_catalog() {
 
   rm -rf fbc-catalog
   mkdir fbc-catalog
-  ${OPM} alpha render-template semver index-template.yaml > fbc-catalog/catalog.json
+  ${OPM} alpha render-template semver --migrate-level=bundle-object-to-csv-metadata index-template.yaml > fbc-catalog/catalog.json
   ${OPM} validate fbc-catalog
   rm -f fbc-catalog.Dockerfile
   ${OPM} generate dockerfile fbc-catalog
