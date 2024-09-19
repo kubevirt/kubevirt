@@ -464,7 +464,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			// Create dest PVC
 			createUnschedulablePVC(destPVC, ns, size)
 			By("Update volumes")
-			updateVMWithPVC(vm, volName, destPVC)
+			updateVMWithPVC(vm.Name, volName, destPVC)
 			waitMigrationToExist(vm.Name, ns)
 			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 			By("Stopping the VM during the volume migration")
@@ -480,7 +480,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			vm := createVMWithDV(dv, volName)
 			createUnschedulablePVC(destPVC, ns, size)
 			By("Update volumes")
-			updateVMWithPVC(vm, volName, destPVC)
+			updateVMWithPVC(vm.Name, volName, destPVC)
 			waitMigrationToExist(vm.Name, ns)
 			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 			Eventually(func() []virtv1.StorageMigratedVolumeInfo {
@@ -504,7 +504,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				}), "The volumes migrated should be set",
 			)
 			By("Cancel the volume migration")
-			updateVMWithPVC(vm, volName, dv.Name)
+			updateVMWithPVC(vm.Name, volName, dv.Name)
 			Eventually(func() *virtv1.VolumeMigrationState {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
