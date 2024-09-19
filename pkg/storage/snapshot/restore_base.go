@@ -69,6 +69,7 @@ func (ctrl *VMRestoreController) Init() error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMRestore,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMRestore(newObj) },
+			DeleteFunc: ctrl.handleVMRestore,
 		},
 	)
 
