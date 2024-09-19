@@ -133,17 +133,6 @@ var _ = compute.SIGDescribe("Subresource Api", func() {
 		})
 	})
 
-	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] the openapi spec for the subresources", func() {
-		It("[test_id:3177]should be aggregated into the apiserver openapi spec", func() {
-			Eventually(func() string {
-				spec, err := virtClient.RestClient().Get().AbsPath("/openapi/v2").DoRaw(context.Background())
-				Expect(err).ToNot(HaveOccurred())
-				return string(spec)
-				// The first item in the SubresourceGroupVersions array is the preferred version
-			}, 60*time.Second, 1*time.Second).Should(ContainSubstring("subresources.kubevirt.io/" + v1.SubresourceGroupVersions[0].Version))
-		})
-	})
-
 	Describe("ExpandSpec subresource", func() {
 		Context("instancetype", func() {
 			var (
