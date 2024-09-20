@@ -7,12 +7,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,6 +83,11 @@ var _ = Describe("vmexport", func() {
 			Expect(ok).To(BeTrue())
 			secret, ok := create.GetObject().(*v1.Secret)
 			Expect(ok).To(BeTrue())
+			Expect(secret.OwnerReferences).To(
+				ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"BlockOwnerDeletion": HaveValue(BeFalse()),
+				})), "owner ref BlockOwnerDeletion should be false for secret",
+			)
 			return true, secret, nil
 		})
 	}
@@ -123,7 +131,7 @@ var _ = Describe("vmexport", func() {
 
 		It("VirtualMachineExport doesn't exist when using 'download' without source type", func() {
 			testInit(defaultHandler)
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "output.img"))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "output.img")))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(ContainSubstring("unable to get 'default/test-vme' VirtualMachineExport"))
@@ -132,7 +140,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport processing fails when using 'download'", func() {
 			testInit(defaultHandler)
 			virtctlvmexport.ExportProcessingComplete = utils.WaitExportCompleteError
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal("processing failed: Test error"))
@@ -144,7 +152,7 @@ var _ = Describe("vmexport", func() {
 			vme.Status = utils.GetVMEStatus(nil, secretName)
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			expectedError := fmt.Sprintf("unable to access the volume info from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vmexportName)
@@ -166,7 +174,7 @@ var _ = Describe("vmexport", func() {
 			}, secretName)
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			expectedError := fmt.Sprintf("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vmexportName)
@@ -188,7 +196,7 @@ var _ = Describe("vmexport", func() {
 			}, secretName)
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			expectedError := fmt.Sprintf("detected more than one downloadable volume in '%s/%s' VirtualMachineExport: Select the expected volume using the --volume flag", metav1.NamespaceDefault, vmexportName)
@@ -201,7 +209,7 @@ var _ = Describe("vmexport", func() {
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{{Name: volumeName}}, secretName)
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			expectedError := fmt.Sprintf("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vmexportName)
@@ -219,7 +227,7 @@ var _ = Describe("vmexport", func() {
 			}, secretName)
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			expectedError := fmt.Sprintf("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vmexportName)
@@ -239,7 +247,7 @@ var _ = Describe("vmexport", func() {
 			// Adding a new reactor so the client returns a nil secret
 			kubeClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) { return false, nil, nil })
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			expectedError := fmt.Sprintf("secrets \"%s\" not found", secretName)
@@ -260,7 +268,7 @@ var _ = Describe("vmexport", func() {
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 			utils.HandleSecretGet(kubeClient, secretName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.RETRY_FLAG, "2"))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.RETRY_FLAG, "2"))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal("retry count reached, exiting unsuccesfully"))
@@ -286,7 +294,7 @@ var _ = Describe("vmexport", func() {
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 			utils.HandleSecretGet(kubeClient, secretName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.RETRY_FLAG, "2"))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.RETRY_FLAG, "2"))
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -372,7 +380,7 @@ var _ = Describe("vmexport", func() {
 			utils.HandleSecretGet(kubeClient, secretName)
 			utils.HandleVMExportGet(vmExportClient, vmexport, vmexportName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")), virtctlvmexport.INSECURE_FLAG)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -399,7 +407,7 @@ var _ = Describe("vmexport", func() {
 				return true, nil, nil
 			})
 
-			args := []string{commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG, "-n", metav1.NamespaceDefault}
+			args := []string{commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")), virtctlvmexport.INSECURE_FLAG, "-n", metav1.NamespaceDefault}
 			if arg != "" {
 				args = append(args, arg)
 			}
@@ -423,7 +431,7 @@ var _ = Describe("vmexport", func() {
 			utils.HandleSecretGet(kubeClient, secretName)
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")), virtctlvmexport.INSECURE_FLAG)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -459,7 +467,7 @@ var _ = Describe("vmexport", func() {
 			utils.HandleSecretGet(kubeClient, secretName)
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.FORMAT_FLAG, virtctlvmexport.RAW_FORMAT), setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.FORMAT_FLAG, virtctlvmexport.RAW_FORMAT), setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")), virtctlvmexport.INSECURE_FLAG)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -475,7 +483,7 @@ var _ = Describe("vmexport", func() {
 			utils.HandleSecretGet(kubeClient, secretName)
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.FORMAT_FLAG, virtctlvmexport.RAW_FORMAT), setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.FORMAT_FLAG, virtctlvmexport.RAW_FORMAT), setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")), virtctlvmexport.INSECURE_FLAG)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -491,7 +499,7 @@ var _ = Describe("vmexport", func() {
 			utils.HandleSecretGet(kubeClient, secretName)
 			utils.HandleVMExportGet(vmExportClient, vmexport, vmexportName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")), virtctlvmexport.INSECURE_FLAG)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -508,7 +516,7 @@ var _ = Describe("vmexport", func() {
 			utils.HandleSecretGet(kubeClient, secretName)
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -525,7 +533,7 @@ var _ = Describe("vmexport", func() {
 			utils.HandleSecretGet(kubeClient, secretName)
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")))
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -806,7 +814,7 @@ var _ = Describe("vmexport", func() {
 		It("VirtualMachineExport download fails when using port-forward with an invalid port", func() {
 			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 321)
 			utils.HandlePodList(kubeClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal("Service virt-export-test-vme does not have a service port 443"))
@@ -814,7 +822,7 @@ var _ = Describe("vmexport", func() {
 
 		It("VirtualMachineExport download with port-forward fails when the service doesn't have a valid pod ", func() {
 			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.LOCAL_PORT_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.LOCAL_PORT_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal("no pods found for the service virt-export-test-vme"))
@@ -832,7 +840,7 @@ var _ = Describe("vmexport", func() {
 			vme.Status.Links.Internal = vme.Status.Links.External
 			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
 			utils.HandlePodList(kubeClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")))
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
