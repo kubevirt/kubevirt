@@ -21135,7 +21135,7 @@ func schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref common.ReferenceC
 					},
 					"maxCpuSockets": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
+							Description: "MaxCpuSockets provides a MaxSockets value for VMs that do not provide their own. For VMs with more sockets than maximum the MaxSockets will be set to equal number of sockets.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
