@@ -241,7 +241,7 @@ var _ = Describe("Volume Migration", func() {
 			volMig, err := volumemigration.GenerateMigratedVolumes(pvcStore, vmi, vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(volumemigration.PatchVMIStatusWithMigratedVolumes(virtClient, vmi, volMig)).ToNot(HaveOccurred())
+			Expect(volumemigration.PatchVMIStatusWithMigratedVolumes(virtClient, volMig, vmi)).ToNot(HaveOccurred())
 
 			if len(expectedMigVols) > 0 {
 				updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})

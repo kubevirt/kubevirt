@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -983,15 +984,15 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 		}
 		migVols, err := volumemig.GenerateMigratedVolumes(c.pvcStore, vmi, vm)
 		if err != nil {
-			log.Log.Object(vm).Errorf("cannot generate the migrated volumes: %v", err)
-			return nil
+			log.Log.Object(vm).Errorf("failed to generate the migrating volumes for vm: %v", err)
+			return err
 		}
 		if err := volumemig.ValidateVolumesUpdateMigration(vmi, vm, migVols); err != nil {
 			log.Log.Object(vm).Errorf("cannot migrate the VMI: %v", err)
 			setRestartRequired(vm, err.Error())
 			return nil
 		}
-		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, vmi, migVols); err != nil {
+		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, migVols, vmi); err != nil {
 			log.Log.Object(vm).Errorf("failed to update migrating volumes for vmi:%v", err)
 			return err
 		}
@@ -1001,6 +1002,15 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 			return err
 		}
 		log.Log.Object(vm).Infof("Updated volumes for vmi")
+		if vm.Status.VolumeUpdateState == nil {
+			vm.Status.VolumeUpdateState = &virtv1.VolumeUpdateState{}
+		}
+		if len(migVols) > 0 {
+			vm.Status.VolumeUpdateState.VolumeMigrationState = &virtv1.VolumeMigrationState{
+				MigratedVolumes: migVols,
+			}
+		}
+
 	default:
 		return fmt.Errorf("updateVolumes strategy not recognized: %s", *vm.Spec.UpdateVolumesStrategy)
 	}
@@ -1601,6 +1611,32 @@ func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			LastFailedVMIUID:     vmi.UID,
 			RetryAfterTimestamp:  &retryAfter,
 			ConsecutiveFailCount: count,
+		}
+	}
+}
+
+func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	if vm.Status.VolumeUpdateState == nil || vm.Status.VolumeUpdateState.VolumeMigrationState == nil {
+		return
+	}
+	vmCond := controller.NewVirtualMachineConditionManager()
+	vmiCond := controller.NewVirtualMachineInstanceConditionManager()
+	// Something went wrong with the VMI while the volume migration was in progress
+	if vmi == nil && vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
+		vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired = pointer.P(true)
+	}
+	if vmi == nil {
+		return
+	}
+	// Check if the volume update wasn't successful
+	cond := vmiCond.GetCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
+	if cond != nil && cond.Status == k8score.ConditionFalse {
+		// The volume migration has been cancelled
+		if cond.Reason == virtv1.VirtualMachineInstanceReasonVolumesChangeCancellation {
+			vm.Status.VolumeUpdateState.VolumeMigrationState = nil
+		} else {
+			// The volume migration failed for some reasons
+			vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired = pointer.P(true)
 		}
 	}
 }
@@ -2458,6 +2494,9 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	}
 
 	syncStartFailureStatus(vm, vmi)
+	// On a successful migration, the volume change condition is removed and we need to detect the removal before the synchronization of the VMI
+	// condition to the VM
+	syncVolumeMigration(vm, vmi)
 	syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
 

@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -245,6 +244,37 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes[i].VolumeSource.DataVolume.Name).To(Equal(name))
+		}
+
+		checkVolumeMigrationOnVM := func(vm *virtv1.VirtualMachine, volName, src, dst string) {
+			Eventually(func() []virtv1.StorageMigratedVolumeInfo {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if vm.Status.VolumeUpdateState == nil || vm.Status.VolumeUpdateState.VolumeMigrationState == nil {
+					return nil
+				}
+				return vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes
+			}).WithTimeout(120*time.Second).WithPolling(time.Second).Should(
+				ContainElement(virtv1.StorageMigratedVolumeInfo{
+					VolumeName: volName,
+					SourcePVCInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName:  src,
+						VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					},
+					DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName:  dst,
+						VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					},
+				}), "The volumes migrated should be set",
+			)
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired == nil {
+					return false
+				}
+				return *vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired
+			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeTrue())
 		}
 
 		BeforeEach(func() {
@@ -458,6 +488,64 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				})), "The RestartRequired condition should be false",
 			)
 		})
+
+		It("should mark the volume migration as failed if the VM is shutdown", func() {
+			volName := "volume"
+			dv := createDV()
+			vm := createVMWithDV(dv, volName)
+			// Create dest PVC
+			createUnschedulablePVC(destPVC, ns, size)
+			By("Update volumes")
+			updateVMWithPVC(vm, volName, destPVC)
+			waitMigrationToExist(vm.Name, ns)
+			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
+			By("Stopping the VM during the volume migration")
+			stopOptions := &virtv1.StopOptions{GracePeriod: pointer.P(int64(0))}
+			err := virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOptions)
+			Expect(err).ToNot(HaveOccurred())
+			checkVolumeMigrationOnVM(vm, volName, dv.Name, destPVC)
+		})
+
+		It("should cancel the migration and clear the volume migration state", func() {
+			volName := "volume"
+			dv := createDV()
+			vm := createVMWithDV(dv, volName)
+			createUnschedulablePVC(destPVC, ns, size)
+			By("Update volumes")
+			updateVMWithPVC(vm, volName, destPVC)
+			waitMigrationToExist(vm.Name, ns)
+			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
+			Eventually(func() []virtv1.StorageMigratedVolumeInfo {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if vm.Status.VolumeUpdateState == nil {
+					return nil
+				}
+				return vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes
+			}).WithTimeout(120*time.Second).WithPolling(time.Second).Should(
+				ContainElement(virtv1.StorageMigratedVolumeInfo{
+					VolumeName: volName,
+					SourcePVCInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName:  dv.Name,
+						VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					},
+					DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName:  destPVC,
+						VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					},
+				}), "The volumes migrated should be set",
+			)
+			By("Cancel the volume migration")
+			updateVMWithPVC(vm, volName, dv.Name)
+			Eventually(func() *virtv1.VolumeMigrationState {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if vm.Status.VolumeUpdateState == nil {
+					return nil
+				}
+				return vm.Status.VolumeUpdateState.VolumeMigrationState
+			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeNil())
+		})
 	})
 
 	Describe("Hotplug volumes", func() {
@@ -495,18 +583,18 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			volumeSource := &v1.HotplugVolumeSource{
-				DataVolume: &v1.DataVolumeSource{
+			volumeSource := &virtv1.HotplugVolumeSource{
+				DataVolume: &virtv1.DataVolumeSource{
 					Name: dv.Name,
 				},
 			}
 
 			// Add the volume
-			addOpts := &v1.AddVolumeOptions{
+			addOpts := &virtv1.AddVolumeOptions{
 				Name: volName,
-				Disk: &v1.Disk{
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+				Disk: &virtv1.Disk{
+					DiskDevice: virtv1.DiskDevice{
+						Disk: &virtv1.DiskTarget{Bus: virtv1.DiskBusSCSI},
 					},
 					Serial: volName,
 				},
@@ -529,7 +617,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
 
 			// Remove the volume
-			removeOpts := &v1.RemoveVolumeOptions{
+			removeOpts := &virtv1.RemoveVolumeOptions{
 				Name: volName,
 			}
 			if persist {
