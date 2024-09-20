@@ -352,12 +352,12 @@ to add virt-viewer installation folder to their `PATH`.
 Then, after you made sure that the VMI `vmi-ephemeral` is running, type:
 
 ```
-kubevirtci/cluster-up/virtctl.sh vnc vmi-ephemeral
+hack/virtctl.sh vnc vmi-ephemeral
 ```
 
 This will start a remote session with `remote-viewer`.
 
-`kubevirtci/cluster-up/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
+`hack/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
 virtual machine specific commands with it and is a supplement to `kubectl`.
 
 **Note:** If accessing your cluster through ssh, be sure to forward your X11 session in order to launch `virtctl vnc`.
