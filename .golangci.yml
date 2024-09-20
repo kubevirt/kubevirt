@@ -41,9 +41,6 @@ linters-settings:
       - '^ExpectWithOffset$'
       - '^console\.ExpectBatch$'
       - '^console\.RunCommand$'
-    ignored-files:
-      - 'pkg/instancetype/instancetype.go$'
-      - 'tests/instancetype/instancetype.go$'
   govet:
     enable:
       - shadow
