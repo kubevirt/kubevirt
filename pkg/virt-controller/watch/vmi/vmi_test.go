@@ -56,7 +56,6 @@ import (
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -69,11 +68,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
-
-type PodVmIfaceStatus struct {
-	podIfaceStatus *networkv1.NetworkStatus
-	vmIfaceStatus  *virtv1.VirtualMachineInstanceNetworkInterface
-}
 
 var _ = Describe("VirtualMachineInstance watcher", func() {
 	var config *virtconfig.ClusterConfig
@@ -245,6 +239,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		var qemuGid int64 = 107
+
+		stubNetStatusUpdate := func(vmi *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) error {
+			vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate"})
+			return nil
+		}
+
 		controller, _ = NewController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
@@ -260,6 +260,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			cdiConfigInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
+			stubNetStatusUpdate,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -1243,6 +1244,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 			expectVMIScheduledState(vmi)
+
+			updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVMI.Status.Interfaces).To(Equal([]virtv1.VirtualMachineInstanceNetworkInterface{{Name: "stubNetStatusUpdate"}}), "Network status update wasn't called")
 		},
 			Entry("with running compute container and no infra container",
 				[]k8sv1.ContainerStatus{{
@@ -3519,77 +3524,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				),
 			)
 		})
-
-		Context("interface status", func() {
-			const (
-				ifaceName   = "iface1"
-				networkName = "meganet"
-			)
-
-			DescribeTable("updateInterfaceStatus", func(vmi *virtv1.VirtualMachineInstance, ifaceStatus ...PodVmIfaceStatus) {
-				var (
-					podIfaceStatus []networkv1.NetworkStatus
-					vmIfaceStatus  []virtv1.VirtualMachineInstanceNetworkInterface
-				)
-				for i, ifaceState := range ifaceStatus {
-					if ifaceState.podIfaceStatus != nil {
-						podIfaceStatus = append(podIfaceStatus, *ifaceStatus[i].podIfaceStatus)
-					}
-					if ifaceState.vmIfaceStatus != nil {
-						vmIfaceStatus = append(vmIfaceStatus, *ifaceStatus[i].vmIfaceStatus)
-					}
-				}
-				pod, err := newPodForVirtualMachineWithMultusAnnotations(vmi, k8sv1.PodRunning, config, podIfaceStatus...)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(controller.updateInterfaceStatus(vmi, pod)).To(Succeed())
-				Expect(vmi.Status.Interfaces).To(ConsistOf(vmIfaceStatus))
-			},
-				Entry("VMI without interfaces on spec does not generate new interface status", api.NewMinimalVMI(vmName)),
-				Entry("VMI with an interface on spec (not matched on status) generates new interface status",
-					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-					PodVmIfaceStatus{}),
-				Entry("VMI with an interface on spec (matched on status) does not generate new interface status",
-					newVMIWithOneIfaceStatus(newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName), ifaceName),
-					PodVmIfaceStatus{
-						vmIfaceStatus: simpleIfaceStatus(ifaceName),
-					}),
-				Entry("VMI with an interface on spec (matched on status) with the pod interface ready",
-					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-					PodVmIfaceStatus{
-						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName),
-						podIfaceStatus: &networkv1.NetworkStatus{
-							Name:      networkName,
-							Interface: "pod7e0055a6880",
-						},
-					}),
-				Entry("VMI with an interface on spec, (matched on status), with the pod interface ready and ordinal name",
-					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-					PodVmIfaceStatus{
-						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName),
-						podIfaceStatus: &networkv1.NetworkStatus{
-							Name:      networkName,
-							Interface: "net1",
-						},
-					}),
-				Entry("VMI with a guest agent interface",
-					newVMIWithGuestAgentInterface(
-						newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-						ifaceName,
-					),
-					PodVmIfaceStatus{
-						vmIfaceStatus: &virtv1.VirtualMachineInstanceNetworkInterface{
-							InterfaceName: ifaceName,
-							InfoSource:    vmispec.InfoSourceGuestAgent,
-						},
-					}),
-				Entry("VMI with an interface on spec (matched on status) with pod interface *not* ready",
-					newVMIWithOneIfaceStatus(newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName), ifaceName),
-					PodVmIfaceStatus{
-						vmIfaceStatus: simpleIfaceStatus(ifaceName),
-					}),
-			)
-		})
 	})
 
 	Context("Aggregating DataVolume conditions", func() {
@@ -4127,52 +4061,6 @@ func newNetwork(netAttachDefName string, name string) virtv1.Network {
 			},
 		},
 	}
-}
-
-func newVMIWithOneIface(vmi *virtv1.VirtualMachineInstance, networkName string, ifaceName string) *virtv1.VirtualMachineInstance {
-	vmi.Spec.Networks = append(
-		vmi.Spec.Networks,
-		virtv1.Network{
-			Name: ifaceName,
-			NetworkSource: virtv1.NetworkSource{
-				Multus: &virtv1.MultusNetwork{
-					NetworkName: networkName,
-				},
-			},
-		})
-	vmi.Spec.Domain.Devices.Interfaces = append(
-		vmi.Spec.Domain.Devices.Interfaces,
-		virtv1.Interface{
-			Name: ifaceName,
-		})
-	return vmi
-}
-
-func newVMIWithOneIfaceStatus(vmi *virtv1.VirtualMachineInstance, ifaceName string) *virtv1.VirtualMachineInstance {
-	vmi.Status.Interfaces = append(vmi.Status.Interfaces, *simpleIfaceStatus(ifaceName))
-	return vmi
-}
-
-func simpleIfaceStatus(ifaceName string) *virtv1.VirtualMachineInstanceNetworkInterface {
-	return &virtv1.VirtualMachineInstanceNetworkInterface{
-		Name:          ifaceName,
-		InterfaceName: ifaceName,
-	}
-}
-
-func readyHotpluggedIfaceStatus(ifaceName string) *virtv1.VirtualMachineInstanceNetworkInterface {
-	return &virtv1.VirtualMachineInstanceNetworkInterface{
-		Name:       ifaceName,
-		InfoSource: vmispec.InfoSourceMultusStatus,
-	}
-}
-
-func newVMIWithGuestAgentInterface(vmi *virtv1.VirtualMachineInstance, ifaceName string) *virtv1.VirtualMachineInstance {
-	vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
-		InterfaceName: ifaceName,
-		InfoSource:    vmispec.InfoSourceGuestAgent,
-	})
-	return vmi
 }
 
 type fakeAllocator struct {

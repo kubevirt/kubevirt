@@ -96,6 +96,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
+	netvmicontroller "kubevirt.io/kubevirt/pkg/network/vmicontroller"
 	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 )
 
@@ -653,6 +654,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.cdiConfigInformer,
 		vca.clusterConfig,
 		topologyHinter,
+		netvmicontroller.UpdateStatus,
 	)
 	if err != nil {
 		panic(err)
