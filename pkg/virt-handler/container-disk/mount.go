@@ -222,6 +222,12 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error) {
 	record := vmiMountTargetRecord{}
 	disksInfo := map[string]*containerdisk.DiskInfo{}
+	kb := vmi.Spec.Domain.Firmware.KernelBoot.Container
+
+	if kb.KernelPath == "" {
+		return nil, fmt.Errorf(
+			"Invalid kernel or initrd in image '%s'.", kb.Image)
+	}
 
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
