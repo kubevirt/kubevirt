@@ -21,6 +21,8 @@ package vm_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,6 +45,10 @@ import (
 )
 
 type verifyFn func(*v1.AddVolumeOptions)
+
+const (
+	concurrentErrorAdd = "the server rejected our request due to an error in our request"
+)
 
 var _ = Describe("Add volume command", func() {
 	const (
@@ -104,7 +110,7 @@ var _ = Describe("Add volume command", func() {
 	)
 
 	Context("addvolume cmd", func() {
-		expectVMIEndpointAddVolume := func(verifyFns []verifyFn) {
+		expectVMIEndpointAddVolume := func(verifyFns ...verifyFn) {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
 				VirtualMachineInstance(metav1.NamespaceDefault).
@@ -128,12 +134,12 @@ var _ = Describe("Add volume command", func() {
 			})
 		}
 
-		expectVMEndpointAddVolume := func(verifyFns []verifyFn) {
+		expectVMEndpointAddVolumeErrorFunc := func(errFunc func() error, verifyFns ...verifyFn) {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
 				VirtualMachine(metav1.NamespaceDefault).
 				Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).
-				Times(1)
+				AnyTimes()
 			virtClient.PrependReactor("put", "virtualmachines/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				switch action := action.(type) {
 				case kvtesting.PutAction[*v1.AddVolumeOptions]:
@@ -144,7 +150,10 @@ var _ = Describe("Add volume command", func() {
 					for _, verifyFn := range verifyFns {
 						verifyFn(volumeOptions)
 					}
-					return true, nil, nil
+					if errFunc == nil {
+						return true, nil, nil
+					}
+					return true, nil, errFunc()
 				default:
 					Fail("unexpected action type on addvolume")
 					return false, nil, nil
@@ -152,7 +161,11 @@ var _ = Describe("Add volume command", func() {
 			})
 		}
 
-		runCmd := func(persist bool, extraArg string) {
+		expectVMEndpointAddVolume := func(verifyFns ...verifyFn) {
+			expectVMEndpointAddVolumeErrorFunc(nil, verifyFns...)
+		}
+
+		runCmd := func(persist bool, extraArg string) error {
 			args := []string{"addvolume", vmiName, "--volume-name=" + volumeName}
 			if persist {
 				args = append(args, "--persist")
@@ -161,7 +174,7 @@ var _ = Describe("Add volume command", func() {
 				args = append(args, extraArg)
 			}
 			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
-			Expect(cmd()).To(Succeed())
+			return cmd()
 		}
 
 		Context("with DataVolume", func() {
@@ -180,8 +193,8 @@ var _ = Describe("Add volume command", func() {
 
 			DescribeTable("should call VMI endpoint without persist and with", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyDVVolumeSource)
-				expectVMIEndpointAddVolume(verifyFns)
-				runCmd(false, arg)
+				expectVMIEndpointAddVolume(verifyFns...)
+				Expect(runCmd(false, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachineinstances", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
@@ -196,8 +209,8 @@ var _ = Describe("Add volume command", func() {
 
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyDVVolumeSource)
-				expectVMEndpointAddVolume(verifyFns)
-				runCmd(true, arg)
+				expectVMEndpointAddVolume(verifyFns...)
+				Expect(runCmd(true, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
@@ -209,6 +222,34 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
 			)
+
+			It("should fail immediately on non concurrent error", func() {
+				expectVMEndpointAddVolumeErrorFunc(func() error { return fmt.Errorf("fatal error") }, verifyDVVolumeSource)
+				Expect(runCmd(true, "")).To(MatchError(ContainSubstring("fatal error")))
+				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
+			})
+
+			It("should retry on error", func() {
+				count := 0
+				expectVMEndpointAddVolumeErrorFunc(func() error {
+					if count == 0 {
+						count++
+						return errors.New(concurrentErrorAdd)
+					} else {
+						return nil
+					}
+				}, verifyDVVolumeSource)
+				Expect(runCmd(true, "")).To(Succeed())
+				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(2))
+			})
+
+			It("should fail after 15 retries", func() {
+				expectVMEndpointAddVolumeErrorFunc(func() error {
+					return errors.New(concurrentErrorAdd)
+				}, verifyDVVolumeSource)
+				Expect(runCmd(true, "")).To(MatchError(ContainSubstring(("error adding volume after 15 retries"))))
+				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(15))
+			})
 		})
 
 		Context("with PVC", func() {
@@ -228,8 +269,8 @@ var _ = Describe("Add volume command", func() {
 
 			DescribeTable("should call VMI endpoint without persist and with", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyPVCVolumeSource)
-				expectVMIEndpointAddVolume(verifyFns)
-				runCmd(false, arg)
+				expectVMIEndpointAddVolume(verifyFns...)
+				Expect(runCmd(false, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachineinstances", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
@@ -244,8 +285,8 @@ var _ = Describe("Add volume command", func() {
 
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyPVCVolumeSource)
-				expectVMEndpointAddVolume(verifyFns)
-				runCmd(true, arg)
+				expectVMEndpointAddVolume(verifyFns...)
+				Expect(runCmd(true, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
