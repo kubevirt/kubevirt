@@ -1,4 +1,4 @@
-package storage
+package virtctl
 
 import (
 	"bytes"
@@ -46,7 +46,7 @@ const (
 	insecureArg          = "--insecure"
 )
 
-var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
+var _ = Describe("[sig-storage][Serial][virtctl]ImageUpload", decorators.SigStorage, Serial, func() {
 	var kubectlCmd *exec.Cmd
 
 	pvcSize := "100Mi"
