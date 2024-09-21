@@ -22,7 +22,6 @@ package migration
 import (
 	"context"
 	"crypto/tls"
-	"encoding/xml"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -2619,10 +2618,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				domSpec := &api.DomainSpec{}
-				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
 				Expect(domSpec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo("on"))
 
 				By("starting the migration")
@@ -2631,10 +2628,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
-				domXml, err = tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				domSpec = &api.DomainSpec{}
-				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
 				Expect(domSpec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo("on"))
 			})
 
