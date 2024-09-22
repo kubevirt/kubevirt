@@ -1244,7 +1244,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			var agentVMI *v1.VirtualMachineInstance
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
-				// TODO: actually review this once the VM image is present
 				agentVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 
 				By("Starting a VirtualMachineInstance")
@@ -2504,7 +2503,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			var vmiCondition v1.VirtualMachineInstanceCondition
-			// TODO
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
