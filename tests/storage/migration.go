@@ -181,7 +181,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 			)
 			vm := libvmi.NewVirtualMachine(vmi,
-				libvmi.WithRunning(),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 				libvmi.WithDataVolumeTemplate(dv),
 			)
 			vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -376,7 +376,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				libvmi.WithPersistentVolumeClaim(volName, srcPVC),
 			)
 			vm := libvmi.NewVirtualMachine(vmi,
-				libvmi.WithRunning(),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 			)
 			vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -467,7 +467,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 			)
 			vm := libvmi.NewVirtualMachine(vmi,
-				libvmi.WithRunning(),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 				libvmi.WithDataVolumeTemplate(dv1),
 			)
 			vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -576,7 +576,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 			)
 			vm := libvmi.NewVirtualMachine(vmi,
-				libvmi.WithRunning(),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 			)
 			vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

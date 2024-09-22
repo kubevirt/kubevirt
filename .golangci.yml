@@ -117,10 +117,6 @@ linters:
 
 issues:
   exclude-rules:
-    # We should steer users towards RunStrategy
-    - text: 'SA1019: libvmi.WithRunning'
-      linters:
-        - staticcheck
     - text: 'SA1019: checks.SkipTestIfNoCPUManager'
       linters:
         - staticcheck

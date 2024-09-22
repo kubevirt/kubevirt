@@ -314,7 +314,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			BeforeEach(func() {
 				var err error
 				vmi := libvmifact.NewCirros()
-				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
@@ -352,7 +352,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				var err error
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 				vmi.Namespace = testsuite.GetTestNamespace(vmi)
-				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {

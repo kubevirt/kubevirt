@@ -146,7 +146,7 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 
 func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vmi := libvmifact.NewFedora(libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
-	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
