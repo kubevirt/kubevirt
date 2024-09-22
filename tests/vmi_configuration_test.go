@@ -1049,8 +1049,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			var hugepagesVmi *v1.VirtualMachineInstance
 
 			verifyHugepagesConsumption := func() bool {
-				// TODO: we need to check hugepages state via node allocated resources, but currently it has the issue
-				// https://github.com/kubernetes/kubernetes/issues/64691
 				pods, err := virtClient.CoreV1().Pods(hugepagesVmi.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(hugepagesVmi))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pods.Items).To(HaveLen(1))
