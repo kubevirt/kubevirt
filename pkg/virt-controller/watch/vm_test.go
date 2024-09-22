@@ -2572,6 +2572,21 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
 		})
 
+		It("should have different firmware UUIDs when having the same name but a different namespace", func() {
+			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vmi1 := controller.setupVMIFromVM(vm1)
+
+			// intentionally use the same names
+			vm2, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vm2.Namespace = "other-namespace"
+			vmi2 := controller.setupVMIFromVM(vm2)
+
+			Expect(vm1.Name).To(Equal(vmi2.Name))
+			Expect(vmi1.Namespace).ToNot(Equal(vmi2.Namespace))
+
+			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi2.Spec.Domain.Firmware.UUID))
+		})
+
 		It("should honour any firmware UUID present in the template", func() {
 			uid := uuid.NewString()
 			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
