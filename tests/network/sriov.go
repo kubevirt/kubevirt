@@ -22,7 +22,6 @@ package network
 import (
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"os"
 	"strings"
@@ -126,11 +125,9 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
 			nic := domSpec.Devices.HostDevices[0]
 			// find the SRIOV interface
 			for _, iface := range domSpec.Devices.HostDevices {
@@ -192,11 +189,9 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
 			nic := domSpec.Devices.HostDevices[0]
 			// find the SRIOV interface
 			for _, iface := range domSpec.Devices.HostDevices {
