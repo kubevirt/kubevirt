@@ -2697,17 +2697,15 @@ spec:
 				Expect(preferences.Items).ToNot(BeEmpty())
 
 				By("Modifying a preference")
-				originalPreference := preferences.Items[0].DeepCopy()
-				preference := originalPreference.DeepCopy()
-				preference.Annotations[keyTest] = valModified
-				preference.Labels[keyTest] = valModified
-				preference.Spec = v1beta1.VirtualMachinePreferenceSpec{
-					CPU: &v1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferredTopology,
-					},
-				}
+				patchDataBytes, err := patch.New(
+					patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", keyTest), valModified),
+					patch.WithAdd(fmt.Sprintf("/metadata/labels/%s", keyTest), valModified),
+					patch.WithAdd("/spec/cpu", &v1beta1.CPUPreferences{PreferredCPUTopology: &preferredTopology}),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
 
-				preference, err = virtClient.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{})
+				originalPreference := preferences.Items[0].DeepCopy()
+				preference, err := virtClient.VirtualMachineClusterPreference().Patch(context.Background(), originalPreference.Name, types.JSONPatchType, patchDataBytes, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(preference.Annotations).To(HaveKeyWithValue(keyTest, valModified))
 				Expect(preference.Labels).To(HaveKeyWithValue(keyTest, valModified))
