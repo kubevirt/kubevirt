@@ -2663,16 +2663,14 @@ spec:
 
 				By("Modifying an instancetype")
 				originalInstancetype := instancetypes.Items[0].DeepCopy()
-				instancetype := originalInstancetype.DeepCopy()
-				instancetype.Annotations[keyTest] = valModified
-				instancetype.Labels[keyTest] = valModified
-				instancetype.Spec = v1beta1.VirtualMachineInstancetypeSpec{
-					CPU: v1beta1.CPUInstancetype{
-						Guest: cpu,
-					},
-				}
+				patchDataBytes, err := patch.New(
+					patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", keyTest), valModified),
+					patch.WithAdd(fmt.Sprintf("/metadata/labels/%s", keyTest), valModified),
+					patch.WithReplace("/spec/cpu", v1beta1.CPUInstancetype{Guest: cpu}),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
 
-				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{})
+				instancetype, err := virtClient.VirtualMachineClusterInstancetype().Patch(context.Background(), originalInstancetype.Name, types.JSONPatchType, patchDataBytes, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(instancetype.Annotations).To(HaveKeyWithValue(keyTest, valModified))
 				Expect(instancetype.Labels).To(HaveKeyWithValue(keyTest, valModified))
