@@ -87,28 +87,30 @@ func NewController(templateService services.TemplateService,
 	cdiConfigInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
+	netAnnotationsGenerator annotationsGenerator,
 	netStatusUpdater statusUpdater,
 ) (*Controller, error) {
 
 	c := &Controller{
-		templateService:     templateService,
-		Queue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
-		vmiIndexer:          vmiInformer.GetIndexer(),
-		vmStore:             vmInformer.GetStore(),
-		podIndexer:          podInformer.GetIndexer(),
-		pvcIndexer:          pvcInformer.GetIndexer(),
-		recorder:            recorder,
-		clientset:           clientset,
-		podExpectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		vmiExpectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeIndexer:   dataVolumeInformer.GetIndexer(),
-		cdiStore:            cdiInformer.GetStore(),
-		cdiConfigStore:      cdiConfigInformer.GetStore(),
-		clusterConfig:       clusterConfig,
-		topologyHinter:      topologyHinter,
-		cidsMap:             vsock.NewCIDsMap(),
-		backendStorage:      backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
-		updateNetworkStatus: netStatusUpdater,
+		templateService:         templateService,
+		Queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
+		vmiIndexer:              vmiInformer.GetIndexer(),
+		vmStore:                 vmInformer.GetStore(),
+		podIndexer:              podInformer.GetIndexer(),
+		pvcIndexer:              pvcInformer.GetIndexer(),
+		recorder:                recorder,
+		clientset:               clientset,
+		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeIndexer:       dataVolumeInformer.GetIndexer(),
+		cdiStore:                cdiInformer.GetStore(),
+		cdiConfigStore:          cdiConfigInformer.GetStore(),
+		clusterConfig:           clusterConfig,
+		topologyHinter:          topologyHinter,
+		cidsMap:                 vsock.NewCIDsMap(),
+		backendStorage:          backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
+		netAnnotationsGenerator: netAnnotationsGenerator,
+		updateNetworkStatus:     netStatusUpdater,
 	}
 
 	c.hasSynced = func() bool {
@@ -172,28 +174,33 @@ func (i informalSyncError) RequiresRequeue() bool {
 	return false
 }
 
+type annotationsGenerator interface {
+	GenerateFromActivePod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) map[string]string
+}
+
 type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
 
 type Controller struct {
-	templateService     services.TemplateService
-	clientset           kubecli.KubevirtClient
-	Queue               workqueue.RateLimitingInterface
-	vmiIndexer          cache.Indexer
-	vmStore             cache.Store
-	podIndexer          cache.Indexer
-	pvcIndexer          cache.Indexer
-	topologyHinter      topology.Hinter
-	recorder            record.EventRecorder
-	podExpectations     *controller.UIDTrackingControllerExpectations
-	vmiExpectations     *controller.UIDTrackingControllerExpectations
-	dataVolumeIndexer   cache.Indexer
-	cdiStore            cache.Store
-	cdiConfigStore      cache.Store
-	clusterConfig       *virtconfig.ClusterConfig
-	cidsMap             vsock.Allocator
-	backendStorage      *backendstorage.BackendStorage
-	hasSynced           func() bool
-	updateNetworkStatus statusUpdater
+	templateService         services.TemplateService
+	clientset               kubecli.KubevirtClient
+	Queue                   workqueue.RateLimitingInterface
+	vmiIndexer              cache.Indexer
+	vmStore                 cache.Store
+	podIndexer              cache.Indexer
+	pvcIndexer              cache.Indexer
+	topologyHinter          topology.Hinter
+	recorder                record.EventRecorder
+	podExpectations         *controller.UIDTrackingControllerExpectations
+	vmiExpectations         *controller.UIDTrackingControllerExpectations
+	dataVolumeIndexer       cache.Indexer
+	cdiStore                cache.Store
+	cdiConfigStore          cache.Store
+	clusterConfig           *virtconfig.ClusterConfig
+	cidsMap                 vsock.Allocator
+	backendStorage          *backendstorage.BackendStorage
+	hasSynced               func() bool
+	netAnnotationsGenerator annotationsGenerator
+	updateNetworkStatus     statusUpdater
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -1047,7 +1054,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 
 	if !isTempPod(pod) && controller.IsPodReady(pod) {
 		newAnnotations := map[string]string{descheduler.EvictOnlyAnnotation: ""}
-		maps.Copy(newAnnotations, network.GeneratePodAnnotations(vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot], c.clusterConfig.GetNetworkBindings()))
+		maps.Copy(newAnnotations, c.netAnnotationsGenerator.GenerateFromActivePod(vmi, pod))
 
 		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
 		if err != nil {

@@ -20,6 +20,8 @@
 package annotations_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -34,6 +36,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/pod/annotations"
@@ -42,21 +45,12 @@ import (
 )
 
 var _ = Describe("Annotations Generator", func() {
-	const testNamespace = "default"
+	const (
+		kubevirtCRName    = "kubevirt"
+		kubevirtNamespace = "kubevirt"
 
-	var clusterConfig *virtconfig.ClusterConfig
-
-	BeforeEach(func() {
-		const (
-			kubevirtCRName    = "kubevirt"
-			kubevirtNamespace = "kubevirt"
-		)
-
-		kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
-		kv.Namespace = kubevirtNamespace
-
-		clusterConfig = newClusterConfig(kv)
-	})
+		testNamespace = "default"
+	)
 
 	Context("Multus", func() {
 		const (
@@ -68,6 +62,15 @@ var _ = Describe("Annotations Generator", func() {
 			networkAttachmentDefinitionName1       = "test1"
 			networkAttachmentDefinitionName2       = "other-namespace/test1"
 		)
+
+		var clusterConfig *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+			kv.Namespace = kubevirtNamespace
+
+			clusterConfig = newClusterConfig(kv)
+		})
 
 		It("should generate the Multus networks annotation", func() {
 			vmi := libvmi.New(
@@ -139,6 +142,15 @@ var _ = Describe("Annotations Generator", func() {
 	})
 
 	Context("Istio annotations", func() {
+		var clusterConfig *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+			kv.Namespace = kubevirtNamespace
+
+			clusterConfig = newClusterConfig(kv)
+		})
+
 		It("should generate Istio annotation when VMI is connected to pod network using masquerade binding", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
@@ -170,7 +182,10 @@ var _ = Describe("Annotations Generator", func() {
 	})
 
 	Context("Network naming scheme conversion during migration", func() {
-		var vmi *v1.VirtualMachineInstance
+		var (
+			clusterConfig *virtconfig.ClusterConfig
+			vmi           *v1.VirtualMachineInstance
+		)
 
 		BeforeEach(func() {
 			const (
@@ -180,6 +195,11 @@ var _ = Describe("Annotations Generator", func() {
 				networkName2                     = "red"
 				networkAttachmentDefinitionName2 = "other-namespace/test1"
 			)
+
+			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+			kv.Namespace = kubevirtNamespace
+
+			clusterConfig = newClusterConfig(kv)
 
 			vmi = libvmi.New(
 				libvmi.WithNamespace(testNamespace),
@@ -228,6 +248,223 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(annotations).To(BeEmpty())
+		})
+	})
+
+	Context("Network Info annotation", func() {
+		const (
+			networkName1                     = "boo"
+			networkAttachmentDefinitionName1 = "default/no-device-info"
+			networkName2                     = "foo"
+			networkAttachmentDefinitionName2 = "default/with-device-info"
+			networkName3                     = "doo"
+			networkAttachmentDefinitionName3 = "default/sriov"
+			networkName4                     = "goo"
+			networkAttachmentDefinitionName4 = "default/br-net"
+
+			deviceInfoPlugin    = "deviceinfo"
+			nonDeviceInfoPlugin = "non_deviceinfo"
+		)
+
+		const (
+			multusNetworkStatusWithPrimaryAndSecondaryNetsWithoutDeviceInfo = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				`{"name":"default/no-device-info","interface":"pod6446d58d6df","mac":"8a:37:d9:e7:0f:18","dns":{}}` +
+				`]`
+
+			multusNetworkStatusEntryForDeviceInfo = `
+{
+  "name": "default/with-device-info",
+  "interface": "pod2c26b46b68f",
+  "dns": {},
+  "device-info": {
+    "type": "pci",
+    "version": "1.0.0",
+    "pci": {
+      "pci-address": "0000:65:00.2"
+    }
+  }
+}`
+
+			multusNetworkStatusEntryForSRIOV = `
+{
+  "name": "default/sriov",
+  "interface": "pod778c553efa0",
+  "dns": {},
+  "device-info": {
+    "type": "pci",
+    "version": "1.0.0",
+    "pci": {
+      "pci-address": "0000:65:00.3"
+    }
+  }
+}`
+		)
+
+		var clusterConfig *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+			kv.Namespace = kubevirtNamespace
+
+			kv.Spec.Configuration = v1.KubeVirtConfiguration{
+				NetworkConfiguration: &v1.NetworkConfiguration{
+					Binding: map[string]v1.InterfaceBindingPlugin{
+						deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
+						nonDeviceInfoPlugin: {},
+					},
+				},
+			}
+
+			clusterConfig = newClusterConfig(kv)
+		})
+
+		It("Should not generate the network info annotation when there are no networks", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithAutoAttachPodInterface(false))
+
+			const multusNetworkStatusWithPrimaryNet = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}}` +
+				`]`
+
+			podAnnotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			actualAnnotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(actualAnnotations).To(Not(HaveKey(downwardapi.NetworkInfoAnnot)))
+		})
+
+		It("Should not generate the network info annotation when there are no networks with binding plugin / SR-IOV", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName1, networkAttachmentDefinitionName1)),
+			)
+
+			podAnnotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSecondaryNetsWithoutDeviceInfo}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			actualAnnotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(actualAnnotations).To(Not(HaveKey(downwardapi.NetworkInfoAnnot)))
+		})
+
+		It("Should not generate the network info annotation when there are networks with binding plugin but none with device-info", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin(networkName1, v1.PluginBinding{Name: nonDeviceInfoPlugin})),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName1, networkAttachmentDefinitionName1)),
+			)
+
+			podAnnotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSecondaryNetsWithoutDeviceInfo}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			actualAnnotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(actualAnnotations).To(Not(HaveKey(downwardapi.NetworkInfoAnnot)))
+		})
+
+		It("Should generate the network info annotation when there is one binding plugin with device info", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin(networkName2, v1.PluginBinding{Name: deviceInfoPlugin})),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName2, networkAttachmentDefinitionName2)),
+			)
+
+			const multusNetworkStatusWithPrimaryAndSecondaryNetsWithDeviceInfo = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				multusNetworkStatusEntryForDeviceInfo +
+				`]`
+
+			podAnnotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSecondaryNetsWithDeviceInfo}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			actualAnnotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(actualAnnotations).To(HaveKeyWithValue(
+				downwardapi.NetworkInfoAnnot,
+				`{"interfaces":[{"network":"foo","deviceInfo":{"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:65:00.2"}}}]}`,
+			))
+		})
+
+		It("Should generate the network info annotation when there is an SR-IOV interface", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(networkName3)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName3, networkAttachmentDefinitionName3)),
+			)
+
+			const multusNetworkStatusWithPrimaryAndSRIOVSecondaryNet = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				multusNetworkStatusEntryForSRIOV +
+				`]`
+
+			podAnnotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSRIOVSecondaryNet}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			actualAnnotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(actualAnnotations).To(HaveKeyWithValue(
+				downwardapi.NetworkInfoAnnot,
+				`{"interfaces":[{"network":"doo","deviceInfo":{"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:65:00.3"}}}]}`,
+			))
+		})
+
+		It("Should generate the network info annotation when there is SR-IOV interface and binding plugin interface with device-info", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin(networkName2, v1.PluginBinding{Name: deviceInfoPlugin})),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(networkName3)),
+				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin(networkName1, v1.PluginBinding{Name: nonDeviceInfoPlugin})),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName4)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName2, networkAttachmentDefinitionName2)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName3, networkAttachmentDefinitionName3)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName1, networkAttachmentDefinitionName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName4, networkAttachmentDefinitionName4)),
+			)
+
+			const multusNetworkStatusWithPrimaryAndFourSecondaryNets = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				multusNetworkStatusEntryForDeviceInfo + "," +
+				multusNetworkStatusEntryForSRIOV + "," +
+				`{"name":"default/no-device-info","interface":"pod6446d58d6df","mac":"8a:37:d9:e7:0f:18","dns":{}},` +
+				`{"name":"default/br-net","interface":"podeeea394806a","mac":"6a:1f:28:23:58:40","dns":{}}` +
+				`]`
+
+			podAnnotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndFourSecondaryNets}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			actualAnnotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(actualAnnotations).To(HaveKey(downwardapi.NetworkInfoAnnot))
+
+			var actualNetInfo downwardapi.NetworkInfo
+			Expect(json.Unmarshal([]byte(actualAnnotations[downwardapi.NetworkInfoAnnot]), &actualNetInfo)).To(Succeed())
+
+			expectedNetInfo := []downwardapi.Interface{
+				{
+					Network: networkName2,
+					DeviceInfo: &networkv1.DeviceInfo{
+						Type:    "pci",
+						Version: "1.0.0",
+						Pci: &networkv1.PciDevice{
+							PciAddress: "0000:65:00.2",
+						},
+					},
+				},
+				{
+					Network: networkName3,
+					DeviceInfo: &networkv1.DeviceInfo{
+						Type:    "pci",
+						Version: "1.0.0",
+						Pci: &networkv1.PciDevice{
+							PciAddress: "0000:65:00.3",
+						},
+					},
+				},
+			}
+
+			Expect(actualNetInfo.Interfaces).To(Equal(expectedNetInfo))
 		})
 	})
 })

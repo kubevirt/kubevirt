@@ -146,6 +146,7 @@ var _ = Describe("Application", func() {
 			cdiConfigInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
+			nil,
 			func(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) error { return nil },
 		)
 		app.rsController, _ = replicaset.NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))

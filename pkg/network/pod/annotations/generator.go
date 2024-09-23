@@ -26,6 +26,10 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
@@ -44,6 +48,7 @@ func NewGenerator(clusterConfig *virtconfig.ClusterConfig) Generator {
 	}
 }
 
+// Generate generates network related annotations for a newly created virt-launcher pod
 func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State != v1.InterfaceStateAbsent
@@ -76,6 +81,7 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	return annotations, nil
 }
 
+// GenerateFromSource generates ordinal pod interfaces naming scheme for a migration target in case the migration source pod uses it
 func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8Scorev1.Pod) (map[string]string, error) {
 	annotations := map[string]string{}
 
@@ -96,6 +102,27 @@ func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod 
 	}
 
 	return annotations, nil
+}
+
+// GenerateFromActivePod generates additional pod annotations, bases on information that exists on a live virt-launcher pod
+func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8Scorev1.Pod) map[string]string {
+	ifaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.SRIOV != nil || vmispec.HasBindingPluginDeviceInfo(iface, g.clusterConfig.GetNetworkBindings())
+	})
+
+	networkStatusAnnotation := pod.Annotations[networkv1.NetworkStatusAnnot]
+	networkDeviceInfoMap, err := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, networkStatusAnnotation, ifaces)
+	if err != nil {
+		log.Log.Warningf("failed to create network device-info-map: %v", err)
+	}
+
+	if len(networkDeviceInfoMap) == 0 {
+		return nil
+	}
+
+	networkDeviceInfoAnnotation := downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)
+
+	return map[string]string{downwardapi.NetworkInfoAnnot: networkDeviceInfoAnnotation}
 }
 
 func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
