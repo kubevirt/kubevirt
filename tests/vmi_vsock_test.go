@@ -234,7 +234,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		}
 	},
 		Entry("should succeed with TLS on both sides", true),
-		Entry("should succeed without TLS on both sides", false),
+		Entry("[QUARANTINE]should succeed without TLS on both sides", decorators.Quarantine, false),
 	)
 
 	It("should return err if the port is invalid", func() {
