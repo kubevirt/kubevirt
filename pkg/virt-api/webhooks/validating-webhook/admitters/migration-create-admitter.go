@@ -32,14 +32,20 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
+	kubevirt "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 type MigrationCreateAdmitter struct {
-	VirtClient kubecli.KubevirtClient
+	virtClient kubevirt.Interface
+}
+
+func NewMigrationCreateAdmitter(virtClient kubevirt.Interface) *MigrationCreateAdmitter {
+	return &MigrationCreateAdmitter{
+		virtClient: virtClient,
+	}
 }
 
 func isMigratable(vmi *v1.VirtualMachineInstance) error {
@@ -52,12 +58,12 @@ func isMigratable(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func ensureNoMigrationConflict(ctx context.Context, virtClient kubecli.KubevirtClient, vmiName string, namespace string) error {
+func ensureNoMigrationConflict(ctx context.Context, virtClient kubevirt.Interface, vmiName string, namespace string) error {
 	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmiName))
 	if err != nil {
 		return err
 	}
-	list, err := virtClient.VirtualMachineInstanceMigration(namespace).List(ctx, metav1.ListOptions{
+	list, err := virtClient.KubevirtV1().VirtualMachineInstanceMigrations(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 	if err != nil {
@@ -90,7 +96,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(migration.Namespace).Get(ctx, migration.Spec.VMIName, metav1.GetOptions{})
+	vmi, err := admitter.virtClient.KubevirtV1().VirtualMachineInstances(migration.Namespace).Get(ctx, migration.Spec.VMIName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// ensure VMI exists for the migration
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("the VMI \"%s/%s\" does not exist", migration.Namespace, migration.Spec.VMIName))
@@ -111,7 +117,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 
 	// Don't allow new migration jobs to be introduced when previous migration jobs
 	// are already in flight.
-	err = ensureNoMigrationConflict(ctx, admitter.VirtClient, migration.Spec.VMIName, migration.Namespace)
+	err = ensureNoMigrationConflict(ctx, admitter.virtClient, migration.Spec.VMIName, migration.Namespace)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}

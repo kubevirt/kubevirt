@@ -17,13 +17,12 @@
  *
  */
 
-package admitters
+package admitters_test
 
 import (
 	"context"
 	"encoding/json"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -31,35 +30,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 )
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
-	// Mock VirtualMachineInstanceMigration
-	var ctrl *gomock.Controller
-	var virtClient *kubecli.MockKubevirtClient
-	var migrationCreateAdmitter *MigrationCreateAdmitter
-	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
-	var mockVMIClient *kubecli.MockVirtualMachineInstanceInterface
-
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
-		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().VirtualMachineInstanceMigration("default").Return(migrationInterface).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient).AnyTimes()
-		migrationCreateAdmitter = &MigrationCreateAdmitter{VirtClient: virtClient}
-	})
-
 	It("should reject Migration spec on create when another VMI migration is in-flight", func() {
-		vmi := api.NewMinimalVMI("testmigratevmi2")
-		inFlightMigration := v1.VirtualMachineInstanceMigration{
+		vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+		inFlightMigration := &v1.VirtualMachineInstanceMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: vmi.Namespace,
+				Labels:    map[string]string{v1.MigrationSelectorLabel: vmi.Name},
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: vmi.Name,
+			},
+		}
+
+		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: vmi.Namespace,
 			},
@@ -67,41 +59,18 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				VMIName: vmi.Name,
 			},
 		}
-		mockVMIClient.EXPECT().Get(gomock.Any(), inFlightMigration.Spec.VMIName, gomock.Any()).Return(vmi, nil)
-		migrationInterface.EXPECT().List(gomock.Any(), gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
-
-		migration := v1.VirtualMachineInstanceMigration{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: vmi.Namespace,
-			},
-			Spec: v1.VirtualMachineInstanceMigrationSpec{
-				VMIName: vmi.Name,
-			},
-		}
-		migrationBytes, _ := json.Marshal(&migration)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.MigrationGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: migrationBytes,
-				},
-			},
-		}
+		virtClient := kubevirtfake.NewSimpleClientset(vmi, inFlightMigration)
+		migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+		ar, err := newAdmissionReviewForVMIMCreation(migration)
+		Expect(err).ToNot(HaveOccurred())
 
 		resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
 	Context("with no conflicting migration", func() {
-
-		BeforeEach(func() {
-			migrationInterface.EXPECT().List(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
-
-		})
-
 		It("should reject invalid Migration spec on create", func() {
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 				},
@@ -109,16 +78,11 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 					VMIName: "",
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
+			virtClient := kubevirtfake.NewSimpleClientset()
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -127,97 +91,75 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		})
 
 		It("should accept valid Migration spec on create", func() {
-			vmi := api.NewMinimalVMI("testvmimigrate1")
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 
-			mockVMIClient.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
-
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
 				},
 				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: "testvmimigrate1",
+					VMIName: vmi.Name,
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
+			virtClient := kubevirtfake.NewSimpleClientset(vmi)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("should accept Migration spec on create when previous VMI migration completed", func() {
-			vmi := api.NewMinimalVMI("testmigratevmi4")
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: "123",
 				Completed:    true,
 				Failed:       false,
 			}
 
-			mockVMIClient.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
-
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
 				},
 				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: "testmigratevmi4",
+					VMIName: vmi.Name,
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
+			virtClient := kubevirtfake.NewSimpleClientset(vmi)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("should reject Migration spec on create when VMI is finalized", func() {
-			vmi := api.NewMinimalVMI("testmigratevmi3")
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vmi.Status.Phase = v1.Succeeded
 
-			mockVMIClient.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
-
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
+					Namespace: vmi.Namespace,
 				},
 				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: "testmigratevmi3",
+					VMIName: vmi.Name,
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
+			virtClient := kubevirtfake.NewSimpleClientset(vmi)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 		})
 
 		It("should reject Migration spec for non-migratable VMIs", func() {
-			vmi := api.NewMinimalVMI("testmigratevmi3")
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vmi.Status.Phase = v1.Running
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -232,26 +174,19 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			mockVMIClient.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
-
-			migration := v1.VirtualMachineInstanceMigration{
+			migration := &v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
+					Namespace: vmi.Namespace,
 				},
 				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: "testmigratevmi3",
+					VMIName: vmi.Name,
 				},
 			}
-			migrationBytes, _ := json.Marshal(&migration)
+			virtClient := kubevirtfake.NewSimpleClientset(vmi)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.MigrationGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: migrationBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -278,14 +213,31 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				migrationCreateAdmitter.Admit,
+				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset()).Admit,
 			),
 			Entry("Migration update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				migrationCreateAdmitter.Admit,
+				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset()).Admit,
 			),
 		)
 	})
 })
+
+func newAdmissionReviewForVMIMCreation(migration *v1.VirtualMachineInstanceMigration) (*admissionv1.AdmissionReview, error) {
+	migrationBytes, err := json.Marshal(migration)
+	if err != nil {
+		return nil, err
+	}
+
+	return &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: webhooks.MigrationGroupVersionResource,
+			Object: runtime.RawExtension{
+				Raw: migrationBytes,
+			},
+			Operation: admissionv1.Create,
+		},
+	}, nil
+}
