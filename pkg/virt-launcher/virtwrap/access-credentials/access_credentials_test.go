@@ -17,6 +17,7 @@
  *
  */
 
+//nolint:goconst,gocritic,gosec,lll
 package accesscredentials
 
 import (
@@ -246,10 +247,10 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(secretDirs).To(HaveLen(1))
 
 		secretDir := secretDirs[0]
-		Expect(os.Mkdir(secretDir, 0755)).To(Succeed())
+		Expect(os.Mkdir(secretDir, 0o755)).To(Succeed())
 
 		authorizedKeys := "first key\nsecond key\n"
-		Expect(os.WriteFile(filepath.Join(secretDirs[0], "authorized_keys"), []byte(authorizedKeys), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], "authorized_keys"), []byte(authorizedKeys), 0o644)).To(Succeed())
 
 		keysLoaded := make(chan struct{})
 
@@ -309,12 +310,12 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(secretDirs[0]).To(Equal(fmt.Sprintf("%s/%s-access-cred", tmpDir, secretID)))
 
 		for _, dir := range secretDirs {
-			Expect(os.Mkdir(dir, 0755)).To(Succeed())
+			Expect(os.Mkdir(dir, 0o755)).To(Succeed())
 			Expect(manager.watcher.Add(dir)).To(Succeed())
 		}
 
 		// Write the file
-		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o644)).To(Succeed())
 
 		cmdPing := `{"execute":"guest-ping"}`
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
@@ -329,7 +330,6 @@ var _ = Describe("AccessCredentials", func() {
 		mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(xml), nil)
 
 		mockLibvirt.ConnectionEXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
-
 			match := `			<accessCredential>
 				<succeeded>true</succeeded>
 			</accessCredential>`
@@ -354,7 +354,7 @@ var _ = Describe("AccessCredentials", func() {
 		// Another execute command should occur with the updated password
 		manager.stopCh = make(chan struct{})
 		password = password + "morefake"
-		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o644)).To(Succeed())
 
 		mockLibvirt.DomainEXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).MinTimes(1).Return(nil)
 

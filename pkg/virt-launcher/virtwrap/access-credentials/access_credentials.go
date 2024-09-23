@@ -17,6 +17,7 @@
  *
  */
 
+//nolint:errcheck,funlen,gocritic,gocyclo,lll,misspell,unused,whitespace,gosimple,govet,mnd,stylecheck,staticcheck
 package accesscredentials
 
 import (
@@ -110,17 +111,14 @@ func getSecretDir(secretName string) string {
 }
 
 func getSecretBaseDir() string {
-
 	if unitTestSecretDir != "" {
 		return unitTestSecretDir
 	}
 
 	return config.SecretSourceDir
-
 }
 
-func (l *AccessCredentialManager) writeGuestFile(contents string, domName string, filePath string, owner string, fileExists bool) error {
-
+func (l *AccessCredentialManager) writeGuestFile(contents, domName, filePath, owner string, fileExists bool) error {
 	// ensure the directory exists with the correct permissions
 	err := l.agentCreateDirectory(domName, filepath.Dir(filePath), "700", owner)
 	if err != nil {
@@ -130,7 +128,6 @@ func (l *AccessCredentialManager) writeGuestFile(contents string, domName string
 	if fileExists {
 		// ensure the file has the correct permissions for writing
 		l.agentSetFilePermissions(domName, filePath, "600", owner)
-
 	}
 
 	// write the file
@@ -167,7 +164,7 @@ func (l *AccessCredentialManager) writeGuestFile(contents string, domName string
 	return nil
 }
 
-func (l *AccessCredentialManager) readGuestFile(domName string, filePath string) (string, error) {
+func (l *AccessCredentialManager) readGuestFile(domName, filePath string) (string, error) {
 	contents := ""
 
 	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s", "mode":"r" } }`, filePath)
@@ -184,7 +181,6 @@ func (l *AccessCredentialManager) readGuestFile(domName string, filePath string)
 
 	cmdReadFile := fmt.Sprintf(`{"execute": "guest-file-read", "arguments": { "handle": %d } }`, openRes.Return)
 	readOutput, err := l.virConn.QemuAgentCommand(cmdReadFile, domName)
-
 	if err != nil {
 		return contents, err
 	}
@@ -212,12 +208,12 @@ func (l *AccessCredentialManager) readGuestFile(domName string, filePath string)
 	return contents, nil
 }
 
-func (l *AccessCredentialManager) agentGuestExec(domName string, command string, args []string) (string, error) {
+func (l *AccessCredentialManager) agentGuestExec(domName, command string, args []string) (string, error) {
 	return agent.GuestExec(l.virConn, domName, command, args, 10)
 }
 
 // Requires usage of mkdir, chown, chmod
-func (l *AccessCredentialManager) agentCreateDirectory(domName string, dir string, permissions string, owner string) error {
+func (l *AccessCredentialManager) agentCreateDirectory(domName, dir, permissions, owner string) error {
 	// Ensure the directory exists
 	_, err := l.agentGuestExec(domName, "mkdir", []string{"-p", dir})
 	if err != nil {
@@ -237,7 +233,7 @@ func (l *AccessCredentialManager) agentCreateDirectory(domName string, dir strin
 	return nil
 }
 
-func (l *AccessCredentialManager) agentGetUserInfo(domName string, user string) (string, string, string, error) {
+func (l *AccessCredentialManager) agentGetUserInfo(domName, user string) (string, string, string, error) {
 	passwdEntryStr, err := l.agentGuestExec(domName, "getent", []string{"passwd", user})
 	if err != nil {
 		return "", "", "", fmt.Errorf("Unable to detect home directory of user %s: %s", user, err.Error())
@@ -255,7 +251,7 @@ func (l *AccessCredentialManager) agentGetUserInfo(domName string, user string) 
 	return filePath, uid, gid, nil
 }
 
-func (l *AccessCredentialManager) agentGetFileOwnership(domName string, filePath string) (string, error) {
+func (l *AccessCredentialManager) agentGetFileOwnership(domName, filePath string) (string, error) {
 	ownerStr, err := l.agentGuestExec(domName, "stat", []string{"-c", "%U:%G", filePath})
 	if err != nil {
 		return "", fmt.Errorf("Unable to detect ownership of access credential at %s: %s", filePath, err.Error())
@@ -270,7 +266,7 @@ func (l *AccessCredentialManager) agentGetFileOwnership(domName string, filePath
 }
 
 // Requires usage of chown, chmod
-func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePath string, permissions string, owner string) error {
+func (l *AccessCredentialManager) agentSetFilePermissions(domName, filePath, permissions, owner string) error {
 	// set ownership/permissions of directory using parent directory owner
 	_, err := l.agentGuestExec(domName, "chown", []string{owner, filePath})
 	if err != nil {
@@ -284,7 +280,7 @@ func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePa
 	return nil
 }
 
-func (l *AccessCredentialManager) agentSetUserPassword(domName string, user string, password string) error {
+func (l *AccessCredentialManager) agentSetUserPassword(domName, user, password string) error {
 	domain, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		return fmt.Errorf("domain lookup failed: %w", err)
@@ -300,7 +296,7 @@ func (l *AccessCredentialManager) pingAgent(domName string) error {
 	return err
 }
 
-func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName string, user string, authorizedKeys []string) error {
+func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName, user string, authorizedKeys []string) error {
 	err := func() error {
 		domain, err := l.virConn.LookupDomainByName(domName)
 		if err != nil {
@@ -331,7 +327,7 @@ func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName string, user st
 	)
 }
 
-func (l *AccessCredentialManager) agentWriteAuthorizedKeysFile(domName string, user string, desiredAuthorizedKeys string) (err error) {
+func (l *AccessCredentialManager) agentWriteAuthorizedKeysFile(domName, user, desiredAuthorizedKeys string) (err error) {
 	curAuthorizedKeys := ""
 	fileExists := true
 
@@ -377,7 +373,6 @@ func isSSHPublicKey(accessCred *v1.AccessCredential) bool {
 }
 
 func isUserPassword(accessCred *v1.AccessCredential) bool {
-
 	if accessCred.UserPassword != nil && accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
 		return true
 	}
