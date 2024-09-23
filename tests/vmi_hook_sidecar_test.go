@@ -88,18 +88,6 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 	})
 
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
-		getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, bool, error) {
-			podSelector := tests.UnfinishedVMIPodSelector(vmi)
-			vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), podSelector)
-
-			if err != nil {
-				return nil, false, fmt.Errorf("could not retrieve the VMI pod: %v", err)
-			} else if len(vmiPods.Items) == 0 {
-				return nil, false, nil
-			}
-			return &vmiPods.Items[0], true, nil
-		}
-
 		Context("set sidecar resources", func() {
 			var originalConfig v1.KubeVirtConfiguration
 			BeforeEach(func() {
@@ -190,16 +178,12 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			It("should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
 				vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi = libvmops.RunVMIAndExpectScheduling(vmi, 90)
 				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
 
 				Eventually(func() bool {
-					vmiPod, exists, err := getVMIPod(vmi)
-					if err != nil {
-						Expect(err).NotTo(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
-					} else if !exists {
-						return false
-					}
+					vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+					Expect(err).NotTo(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
 
 					for _, container := range vmiPod.Status.ContainerStatuses {
 						if container.Name == sidecarContainerName && container.State.Terminated != nil {
@@ -222,9 +206,8 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func(g Gomega) {
-					vmiPod, exists, err := getVMIPod(vmi)
-					g.Expect(err).ToNot(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
-					g.Expect(exists).To(BeTrue())
+					vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+					Expect(err).ToNot(HaveOccurred())
 
 					var tailLines int64 = 100
 					logsRaw, err := virtClient.CoreV1().
@@ -247,9 +230,8 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				vmi.ObjectMeta.Annotations = RenderSidecar(hookVersion)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 360)
 
-				sourcePod, exists, err := getVMIPod(vmi)
+				sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
-				Expect(exists).To(BeTrue())
 
 				sourcePodName := sourcePod.GetObjectMeta().GetName()
 				sourcePodUID := sourcePod.GetObjectMeta().GetUID()
@@ -257,9 +239,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
 				libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
-				targetPod, exists, err := getVMIPod(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(exists).To(BeTrue())
+				targetPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				Expect(err).ToNot(HaveOccurred())
 
 				targetPodUID := targetPod.GetObjectMeta().GetUID()
 				Expect(sourcePodUID).ToNot(Equal(targetPodUID))
