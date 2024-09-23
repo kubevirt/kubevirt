@@ -38,7 +38,7 @@ type Scraper struct {
 func (s *Scraper) Complete() {}
 
 func (s *Scraper) Scrape(socketFile string, vmi *k6sv1.VirtualMachineInstance) {
-	if !vmi.IsRunning() || !downwardmetrics.HasDownwardMetricDisk(vmi) {
+	if !vmi.IsRunning() || !downwardmetrics.HasDownwardMetricDisk(vmi.Spec.Volumes) {
 		return
 	}
 

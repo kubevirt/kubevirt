@@ -30,8 +30,8 @@ func FormatDownwardMetricPath(pid int) string {
 	return filepath.Join("/proc", strconv.Itoa(pid), "/root", config.DownwardMetricDisk)
 }
 
-func HasDownwardMetricDisk(vmi *v1.VirtualMachineInstance) bool {
-	for _, volume := range vmi.Spec.Volumes {
+func HasDownwardMetricDisk(volumes []v1.Volume) bool {
+	for _, volume := range volumes {
 		if volume.DownwardMetrics != nil {
 			return true
 		}
