@@ -29,36 +29,34 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libcloudinit "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-
-	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
-	libcloudinit "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/console"
 )
 
 const (
