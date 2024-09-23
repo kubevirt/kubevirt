@@ -2,6 +2,7 @@ package admitters
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8scorev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -22,6 +24,20 @@ import (
 type PodEvictionAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
 	VirtClient    kubecli.KubevirtClient
+}
+
+func isDryRun(ar *admissionv1.AdmissionReview) bool {
+	dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
+
+	if !dryRun {
+		evictionObject := policyv1.Eviction{}
+		if err := json.Unmarshal(ar.Request.Object.Raw, &evictionObject); err == nil {
+			if evictionObject.DeleteOptions != nil && len(evictionObject.DeleteOptions.DryRun) > 0 {
+				dryRun = evictionObject.DeleteOptions.DryRun[0] == metav1.DryRunAll
+			}
+		}
+	}
+	return dryRun
 }
 
 func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -67,8 +83,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 	}
 
 	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == pod.Spec.NodeName {
-		dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
-		err := admitter.markVMI(ar, vmi.Name, vmi.Status.NodeName, dryRun)
+		err := admitter.markVMI(ar, vmi.Name, vmi.Status.NodeName, isDryRun(ar))
 		if err != nil {
 			// As with the previous case, it is up to the user to issue a retry.
 			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
