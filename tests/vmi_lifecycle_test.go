@@ -167,7 +167,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		})
 
-		It("Should prevent eviction when EvictionStratgy: External", decorators.WgS390x, func() {
+		It("Should prevent eviction when EvictionStratgy: External", decorators.WgS390x, decorators.Conformance, func() {
 			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyExternal))
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
@@ -178,21 +178,20 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			err = kubevirt.Client().CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 			// The "too many requests" err is what get's returned when an
 			// eviction would invalidate a pdb. This is what we want to see here.
-			Expect(k8serrors.IsTooManyRequests(err)).To(BeTrue())
+			Expect(err).To(MatchError(k8serrors.IsTooManyRequests, "too many requests should be returned as way of blocking eviction"))
+			Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
 
 			By("should have evacuation node name set on vmi status")
-			Consistently(func() error {
+			vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.EvacuationNodeName).To(Equal(pod.Spec.NodeName), "Should have evacuation node name set to where the Pod is running")
 
+			By("should not delete the Pod")
+			Consistently(func() *metav1.Time {
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(pod.DeletionTimestamp).To(BeNil())
-
-				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(vmi.Status.EvacuationNodeName).ToNot(Equal(""))
-				return nil
-			}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+				return pod.DeletionTimestamp
+			}, 10*time.Second, 1*time.Second).Should(BeNil(), "Should not delete the Pod")
 		})
 
 		It("[test_id:1622]should log libvirtd logs", decorators.WgS390x, func() {
