@@ -40,7 +40,7 @@ var _ = Describe("VMI Stats Collector", func() {
 	clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
 
 	Context("VMI info", func() {
-		setupTestVMICollector()
+		setupTestCollector()
 
 		It("should handle no VMIs", func() {
 			cr := collectVMIInfo([]*k6tv1.VirtualMachineInstance{})
@@ -134,7 +134,7 @@ var _ = Describe("VMI Stats Collector", func() {
 				Expect(cr.Labels).To(HaveLen(14))
 
 				Expect(cr.Labels[3]).To(Equal(getVMIPhase(vmis[i])))
-				os, workload, flavor := getVMISystemInfo(vmis[i])
+				os, workload, flavor := getSystemInfoFromAnnotations(vmis[i].Annotations)
 				Expect(cr.Labels[4]).To(Equal(os))
 				Expect(cr.Labels[5]).To(Equal(workload))
 				Expect(cr.Labels[6]).To(Equal(flavor))
@@ -265,7 +265,7 @@ func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableC
 	return vmis
 }
 
-func setupTestVMICollector() {
+func setupTestCollector() {
 	instanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
 	clusterInstanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
 	preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
