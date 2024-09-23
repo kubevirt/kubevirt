@@ -815,37 +815,40 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("with affinity", func() {
-			var nodes *k8sv1.NodeList
+			var node *k8sv1.Node
 
 			BeforeEach(func() {
-				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
+				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+				node = nodes.Items[0].DeepCopy()
 			})
 
-			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", func() {
-				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "Updated VMI name run on the same node")
+			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", decorators.Conformance, func() {
+				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(node.Name))
+
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).To(Not(HaveOccurred()))
+				vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Scheduled, v1.Running}, libwait.WithTimeout(startupTimeout))
+
+				By("Asserting that VMI is scheduled on the pre-picked node")
+				Expect(vmi.Status.NodeName).To(Equal(node.Name), "Updated VMI name run on the same node")
 
 			})
 
-			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", func() {
-				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "VMI should run on the same node")
+			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", decorators.Conformance, func() {
+				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(node.Name))
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).To(Not(HaveOccurred()))
+				vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Scheduled, v1.Running}, libwait.WithTimeout(startupTimeout))
 
-				vmiB := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
+				secondVMI := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(node.Name))
 
-				vmiB.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
+				secondVMI.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{Key: v1.CreatedByLabel, Operator: metav1.LabelSelectorOpIn, Values: []string{string(curVMI.GetUID())}},
+									{Key: v1.CreatedByLabel, Operator: metav1.LabelSelectorOpIn, Values: []string{string(vmi.GetUID())}},
 								},
 							},
 							TopologyKey: k8sv1.LabelHostname,
@@ -853,12 +856,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				}
 
-				vmiB, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmiB)).Create(context.Background(), vmiB, metav1.CreateOptions{})
+				secondVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(secondVMI)).Create(context.Background(), secondVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMIB")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
 				Eventually(func() string {
-					curVmiB, err := kubevirt.Client().VirtualMachineInstance(vmiB.Namespace).Get(context.Background(), vmiB.Name, metav1.GetOptions{})
+					curVmiB, err := kubevirt.Client().VirtualMachineInstance(secondVMI.Namespace).Get(context.Background(), secondVMI.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMIB")
 					scheduledCond := controller.NewVirtualMachineInstanceConditionManager().
 						GetCondition(curVmiB, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
