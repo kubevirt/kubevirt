@@ -327,11 +327,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verifying a new pod backs the VMI")
 			currentVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			pods, err := virtClient.CoreV1().Pods(vm.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(currentVMI))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(currentVMI, testsuite.GetTestNamespace(currentVMI))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pods.Items).To(HaveLen(1))
-			pod := pods.Items[0]
-			Expect(pod.Name).ToNot(Equal(firstPod.Name))
+			Expect(vmiPod.Name).ToNot(Equal(firstPod.Name))
 		})
 
 		DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(createTemplate vmiBuilder) {
