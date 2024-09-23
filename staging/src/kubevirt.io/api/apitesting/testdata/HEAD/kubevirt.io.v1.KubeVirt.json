@@ -886,7 +886,8 @@
           "handlerKey": "handlerValue"
         }
       }
-    }
+    },
+    "downwardMetrics": {}
   },
   "status": {
     "phase": "phaseValue",

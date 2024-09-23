@@ -532,6 +532,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 		"configuration":           "holds kubevirt configurations.\nsame as the virt-configMap",
 		"infra":                   "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
 		"workloads":               "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
+		"downwardMetrics":         "DownwardMetrics controls if the feature can be used by VMs\n+optional",
 	}
 }
 
@@ -750,6 +751,12 @@ func (ReloadableComponentConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "ReloadableComponentConfiguration holds all generic k8s configuration options which can\nbe reloaded by components without requiring a restart.",
 		"restClient": "RestClient can be used to tune certain aspects of the k8s client in use.",
+	}
+}
+
+func (DownwardMetricsConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DownwardMetricsConfiguration enables the downward metrics feature.",
 	}
 }
 

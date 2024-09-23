@@ -580,6 +580,9 @@ const (
 
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
+
+	// Indiates that the VMI has a configuration out of sync with the cluster-wide configuration
+	VirtualMachineInstanceOutOfSyncConfiguration VirtualMachineInstanceConditionType = "FeatureConfigurationOutOfSync"
 )
 
 // These are valid reasons for VMI conditions.
@@ -2025,6 +2028,10 @@ type KubeVirtSpec struct {
 	Workloads *ComponentConfig `json:"workloads,omitempty"`
 
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
+
+	// DownwardMetrics controls if the feature can be used by VMs
+	// +optional
+	DownwardMetrics *DownwardMetricsConfiguration `json:"downwardMetrics,omitempty"`
 }
 
 type CustomizeComponents struct {
@@ -2455,6 +2462,9 @@ type ReloadableComponentConfiguration struct {
 	//RestClient can be used to tune certain aspects of the k8s client in use.
 	RestClient *RESTClientConfiguration `json:"restClient,omitempty"`
 }
+
+// DownwardMetricsConfiguration enables the downward metrics feature.
+type DownwardMetricsConfiguration struct{}
 
 // KubeVirtConfiguration holds all kubevirt configurations
 type KubeVirtConfiguration struct {

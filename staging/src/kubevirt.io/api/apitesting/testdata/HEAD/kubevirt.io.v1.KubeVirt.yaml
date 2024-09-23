@@ -249,6 +249,7 @@ spec:
       resourceName: resourceNameValue
       resourceType: resourceTypeValue
       type: typeValue
+  downwardMetrics: {}
   imagePullPolicy: imagePullPolicyValue
   imagePullSecrets:
   - name: nameValue
