@@ -46,6 +46,13 @@ function remove_finalizers() {
         patch_remove_finalizers -n $ns vmsnapshots $name
     done
 
+    _kubectl get vmrestores --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmrestore-protection | while read p; do
+        local arr=($p)
+        local name="${arr[0]}"
+        local ns="${arr[1]}"
+        patch_remove_finalizers -n $ns vmrestores $name
+    done
+
     _kubectl get vmsnapshotcontents --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshotcontent-protection | while read p; do
         local arr=($p)
         local name="${arr[0]}"
