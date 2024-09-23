@@ -79,8 +79,8 @@ require (
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
 	kubevirt.io/qe-tools v0.1.8
-	libvirt.org/go/libvirt v1.10005.0
-	libvirt.org/go/libvirtxml v1.10005.0
+	libvirt.org/go/libvirt v1.10008.0
+	libvirt.org/go/libvirtxml v1.10008.0
 	mvdan.cc/sh/v3 v3.8.0
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
 	sigs.k8s.io/yaml v1.3.0

@@ -396,23 +396,29 @@ func connectAuthCallback(ccredlist C.virConnectCredentialPtr, ncred C.uint, call
 // See also https://libvirt.org/html/libvirt-libvirt-host.html#virConnectOpenAuth
 func NewConnectWithAuth(uri string, auth *ConnectAuth, flags ConnectFlags) (*Connect, error) {
 	var cUri *C.char
-
-	ccredtype := make([]C.int, len(auth.CredType))
-
-	for i := 0; i < len(auth.CredType); i++ {
-		ccredtype[i] = C.int(auth.CredType[i])
-	}
+	var err C.virError
+	var ptr C.virConnectPtr
 
 	if uri != "" {
 		cUri = C.CString(uri)
 		defer C.free(unsafe.Pointer(cUri))
 	}
 
-	callbackID := registerCallbackId(auth.Callback)
+	if auth == nil || len(auth.CredType) == 0 {
+		ptr = C.virConnectOpenAuthWrapper(cUri, nil, C.uint(flags), &err)
+	} else {
+		ccredtype := make([]C.int, len(auth.CredType))
 
-	var err C.virError
-	ptr := C.virConnectOpenAuthHelper(cUri, &ccredtype[0], C.uint(len(auth.CredType)), C.int(callbackID), C.uint(flags), &err)
-	freeCallbackId(callbackID)
+		for i := 0; i < len(auth.CredType); i++ {
+			ccredtype[i] = C.int(auth.CredType[i])
+		}
+
+		callbackID := registerCallbackId(auth.Callback)
+
+		ptr = C.virConnectOpenAuthHelper(cUri, &ccredtype[0], C.uint(len(auth.CredType)), C.int(callbackID), C.uint(flags), &err)
+		freeCallbackId(callbackID)
+	}
+
 	if ptr == nil {
 		return nil, makeError(&err)
 	}
@@ -961,12 +967,17 @@ func (c *Connect) DomainCreateXML(xmlConfig string, flags DomainCreateFlags) (*D
 func (c *Connect) DomainCreateXMLWithFiles(xmlConfig string, files []os.File, flags DomainCreateFlags) (*Domain, error) {
 	cXml := C.CString(string(xmlConfig))
 	defer C.free(unsafe.Pointer(cXml))
-	cfiles := make([]C.int, len(files))
-	for i := 0; i < len(files); i++ {
+	nfiles := len(files)
+	cfiles := make([]C.int, nfiles)
+	for i := 0; i < nfiles; i++ {
 		cfiles[i] = C.int(files[i].Fd())
 	}
 	var err C.virError
-	ptr := C.virDomainCreateXMLWithFilesWrapper(c.ptr, cXml, C.uint(len(files)), (&cfiles[0]), C.uint(flags), &err)
+	var cfilesPtr *C.int = nil
+	if nfiles > 0 {
+		cfilesPtr = &cfiles[0]
+	}
+	ptr := C.virDomainCreateXMLWithFilesWrapper(c.ptr, cXml, C.uint(nfiles), cfilesPtr, C.uint(flags), &err)
 	if ptr == nil {
 		return nil, makeError(&err)
 	}
@@ -1841,8 +1852,9 @@ func (c *Connect) InterfaceChangeRollback(flags uint32) error {
 
 // See also https://libvirt.org/html/libvirt-libvirt-host.html#virNodeAllocPages
 func (c *Connect) AllocPages(pageSizes map[int]int64, startCell int, cellCount uint, flags NodeAllocPagesFlags) (int, error) {
-	cpages := make([]C.uint, len(pageSizes))
-	ccounts := make([]C.ulonglong, len(pageSizes))
+	npageSizes := len(pageSizes)
+	cpages := make([]C.uint, npageSizes)
+	ccounts := make([]C.ulonglong, npageSizes)
 
 	i := 0
 	for key, val := range pageSizes {
@@ -1852,8 +1864,14 @@ func (c *Connect) AllocPages(pageSizes map[int]int64, startCell int, cellCount u
 	}
 
 	var err C.virError
-	ret := C.virNodeAllocPagesWrapper(c.ptr, C.uint(len(pageSizes)), (*C.uint)(unsafe.Pointer(&cpages[0])),
-		(*C.ulonglong)(unsafe.Pointer(&ccounts[0])), C.int(startCell), C.uint(cellCount), C.uint(flags), &err)
+	var cpagesPtr *C.uint = nil
+	var ccountsPtr *C.ulonglong = nil
+	if npageSizes > 0 {
+		cpagesPtr = &cpages[0]
+		ccountsPtr = &ccounts[0]
+	}
+	ret := C.virNodeAllocPagesWrapper(c.ptr, C.uint(len(pageSizes)), cpagesPtr, ccountsPtr,
+		C.int(startCell), C.uint(cellCount), C.uint(flags), &err)
 	if ret == -1 {
 		return 0, makeError(&err)
 	}
@@ -1975,16 +1993,23 @@ func (c *Connect) GetFreeMemory() (uint64, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-host.html#virNodeGetFreePages
 func (c *Connect) GetFreePages(pageSizes []uint64, startCell int, maxCells uint, flags uint32) ([]uint64, error) {
-	cpageSizes := make([]C.uint, len(pageSizes))
-	ccounts := make([]C.ulonglong, len(pageSizes)*int(maxCells))
+	npageSizes := len(pageSizes)
+	cpageSizes := make([]C.uint, npageSizes)
+	ccounts := make([]C.ulonglong, npageSizes*int(maxCells))
 
 	for i := 0; i < len(pageSizes); i++ {
 		cpageSizes[i] = C.uint(pageSizes[i])
 	}
 
 	var err C.virError
-	ret := C.virNodeGetFreePagesWrapper(c.ptr, C.uint(len(pageSizes)), (*C.uint)(unsafe.Pointer(&cpageSizes[0])), C.int(startCell),
-		C.uint(maxCells), (*C.ulonglong)(unsafe.Pointer(&ccounts[0])), C.uint(flags), &err)
+	var cpageSizesPtr *C.uint = nil
+	var ccountsPtr *C.ulonglong = nil
+	if npageSizes > 0 {
+		cpageSizesPtr = &cpageSizes[0]
+		ccountsPtr = &ccounts[0]
+	}
+	ret := C.virNodeGetFreePagesWrapper(c.ptr, C.uint(len(pageSizes)), cpageSizesPtr, C.int(startCell),
+		C.uint(maxCells), ccountsPtr, C.uint(flags), &err)
 	if ret == -1 {
 		return []uint64{}, makeError(&err)
 	}
@@ -2217,14 +2242,19 @@ func (c *Connect) DomainSaveImageGetXMLDesc(file string, flags DomainSaveImageXM
 
 // See also https://libvirt.org/html/libvirt-libvirt-host.html#virConnectBaselineCPU
 func (c *Connect) BaselineCPU(xmlCPUs []string, flags ConnectBaselineCPUFlags) (string, error) {
-	cxmlCPUs := make([]*C.char, len(xmlCPUs))
-	for i := 0; i < len(xmlCPUs); i++ {
+	nxmlCPUs := len(xmlCPUs)
+	cxmlCPUs := make([]*C.char, nxmlCPUs)
+	for i := 0; i < nxmlCPUs; i++ {
 		cxmlCPUs[i] = C.CString(xmlCPUs[i])
 		defer C.free(unsafe.Pointer(cxmlCPUs[i]))
 	}
 
 	var err C.virError
-	ret := C.virConnectBaselineCPUWrapper(c.ptr, &cxmlCPUs[0], C.uint(len(xmlCPUs)), C.uint(flags), &err)
+	var cxmlCPUsPtr **C.char = nil
+	if nxmlCPUs > 0 {
+		cxmlCPUsPtr = &cxmlCPUs[0]
+	}
+	ret := C.virConnectBaselineCPUWrapper(c.ptr, cxmlCPUsPtr, C.uint(nxmlCPUs), C.uint(flags), &err)
 	if ret == nil {
 		return "", makeError(&err)
 	}
@@ -2253,15 +2283,20 @@ func (c *Connect) BaselineHypervisorCPU(emulator string, arch string, machine st
 		cvirttype = C.CString(virttype)
 		defer C.free(unsafe.Pointer(cvirttype))
 	}
-	cxmlCPUs := make([]*C.char, len(xmlCPUs))
-	for i := 0; i < len(xmlCPUs); i++ {
+	nxmlCPUs := len(xmlCPUs)
+	cxmlCPUs := make([]*C.char, nxmlCPUs)
+	for i := 0; i < nxmlCPUs; i++ {
 		cxmlCPUs[i] = C.CString(xmlCPUs[i])
 		defer C.free(unsafe.Pointer(cxmlCPUs[i]))
 	}
 
 	var err C.virError
+	var cxmlCPUsPtr **C.char = nil
+	if nxmlCPUs > 0 {
+		cxmlCPUsPtr = &cxmlCPUs[0]
+	}
 	ret := C.virConnectBaselineHypervisorCPUWrapper(c.ptr, cemulator, carch, cmachine, cvirttype,
-		&cxmlCPUs[0], C.uint(len(xmlCPUs)), C.uint(flags), &err)
+		cxmlCPUsPtr, C.uint(len(xmlCPUs)), C.uint(flags), &err)
 	if ret == nil {
 		return "", makeError(&err)
 	}
