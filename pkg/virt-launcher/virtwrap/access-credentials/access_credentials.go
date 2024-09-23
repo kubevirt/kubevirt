@@ -17,7 +17,7 @@
  *
  */
 
-//nolint:errcheck,funlen,gocritic,gocyclo,lll,misspell,unused,whitespace,gosimple,govet,mnd,stylecheck,staticcheck
+//nolint:errcheck,funlen,gocritic,gocyclo,lll,unused
 package accesscredentials
 
 import (
@@ -41,6 +41,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
+
+const logVerbosityDebug = 4
 
 type openReturn struct {
 	Return int `json:"return"`
@@ -192,9 +194,9 @@ func (l *AccessCredentialManager) readGuestFile(domName, filePath string) (strin
 	}
 
 	if readRes.Return.Count > 0 {
-		readBytes, err := base64.StdEncoding.DecodeString(readRes.Return.BufB64)
-		if err != nil {
-			return contents, err
+		readBytes, decodingErr := base64.StdEncoding.DecodeString(readRes.Return.BufB64)
+		if decodingErr != nil {
+			return contents, decodingErr
 		}
 		contents = string(readBytes)
 	}
@@ -209,7 +211,8 @@ func (l *AccessCredentialManager) readGuestFile(domName, filePath string) (strin
 }
 
 func (l *AccessCredentialManager) agentGuestExec(domName, command string, args []string) (string, error) {
-	return agent.GuestExec(l.virConn, domName, command, args, 10)
+	var timeoutInSeconds int32 = 10
+	return agent.GuestExec(l.virConn, domName, command, args, timeoutInSeconds)
 }
 
 // Requires usage of mkdir, chown, chmod
@@ -236,12 +239,14 @@ func (l *AccessCredentialManager) agentCreateDirectory(domName, dir, permissions
 func (l *AccessCredentialManager) agentGetUserInfo(domName, user string) (string, string, string, error) {
 	passwdEntryStr, err := l.agentGuestExec(domName, "getent", []string{"passwd", user})
 	if err != nil {
-		return "", "", "", fmt.Errorf("Unable to detect home directory of user %s: %s", user, err.Error())
+		return "", "", "", fmt.Errorf("unable to detect home directory of user %s: %s", user, err.Error())
 	}
 	passwdEntryStr = strings.TrimSpace(passwdEntryStr)
 	entries := strings.Split(passwdEntryStr, ":")
-	if len(entries) < 6 {
-		return "", "", "", fmt.Errorf("Unable to detect home directory of user %s", user)
+
+	const expectedPasswdEntries = 6
+	if len(entries) < expectedPasswdEntries {
+		return "", "", "", fmt.Errorf("unable to detect home directory of user %s", user)
 	}
 
 	filePath := entries[5]
@@ -254,11 +259,11 @@ func (l *AccessCredentialManager) agentGetUserInfo(domName, user string) (string
 func (l *AccessCredentialManager) agentGetFileOwnership(domName, filePath string) (string, error) {
 	ownerStr, err := l.agentGuestExec(domName, "stat", []string{"-c", "%U:%G", filePath})
 	if err != nil {
-		return "", fmt.Errorf("Unable to detect ownership of access credential at %s: %s", filePath, err.Error())
+		return "", fmt.Errorf("unable to detect ownership of access credential at %s: %s", filePath, err.Error())
 	}
 	ownerStr = strings.TrimSpace(ownerStr)
 	if ownerStr == "" {
-		return "", fmt.Errorf("Unable to detect ownership of access credential at %s", filePath)
+		return "", fmt.Errorf("unable to detect ownership of access credential at %s", filePath)
 	}
 
 	log.Log.Infof("Detected owner %s for quest path %s", ownerStr, filePath)
@@ -311,7 +316,7 @@ func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName, user string, a
 		return nil
 	}
 
-	log.Log.V(4).Infof("Could not set SSH key using guest-ssh-add-authorized-keys: %v", err)
+	log.Log.V(logVerbosityDebug).Infof("Could not set SSH key using guest-ssh-add-authorized-keys: %v", err)
 
 	// If AuthorizedSSHKeysSet method failed, use the old method
 	desiredAuthorizedKeys := strings.Join(authorizedKeys, "\n")
@@ -401,8 +406,7 @@ func (l *AccessCredentialManager) reportAccessCredentialResult(succeeded bool, m
 		Message:   message,
 	}
 	l.metadataCache.AccessCredential.Store(acMetadata)
-	log.Log.V(4).Infof("Access credential set in metadata: %v", acMetadata)
-	return
+	log.Log.V(logVerbosityDebug).Infof("Access credential set in metadata: %v", acMetadata)
 }
 
 func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
@@ -414,7 +418,8 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 	domName := util.VMINamespaceKeyFunc(vmi)
 
 	// guest agent will force a resync of changes every 'x' minutes
-	forceResyncTicker := time.NewTicker(5 * time.Minute)
+	const resyncInterval = 5 * time.Minute
+	forceResyncTicker := time.NewTicker(resyncInterval)
 	defer forceResyncTicker.Stop()
 
 	// guest agent will aggregate all changes to secrets and apply them
@@ -439,7 +444,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				logger.Info("Reloading access credentials because secret changed")
 			}
 		case <-l.stopCh:
-			logger.Info("Signalled to stop watching access credential secrets")
+			logger.Info("Signaled to stop watching access credential secrets")
 			return
 		}
 
@@ -619,7 +624,6 @@ func (a *accessCredentialsInfo) addAccessCredential(accessCred *v1.AccessCredent
 		if len(authorizedKeys) > 0 {
 			a.secretMap[secretName] = authorizedKeys
 		}
-
 	} else if isUserPassword(accessCred) {
 		for _, file := range files {
 			// Mounted secret directory contains directories prefixed by "..".
