@@ -36,6 +36,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	expect "github.com/google/goexpect"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -160,8 +162,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 			buf, err := json.Marshal(metadataStruct)
 			Expect(err).ToNot(HaveOccurred())
 			By("mouting cloudinit iso")
-			mountCloudInitConfigDrive := tests.MountCloudInitFunc("config-2")
-			mountCloudInitConfigDrive(vmi)
+			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
 			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
@@ -220,8 +221,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 			buf, err := json.Marshal(metadataStruct)
 			Expect(err).ToNot(HaveOccurred())
 			By("mouting cloudinit iso")
-			mountCloudInitConfigDrive := tests.MountCloudInitFunc("config-2")
-			mountCloudInitConfigDrive(vmi)
+			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
 			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
@@ -783,4 +783,16 @@ func sriovNodeName(sriovResourceName string) (string, error) {
 		return "", fmt.Errorf("failed to detect nodes with allocatable resources (%s)", sriovResourceName)
 	}
 	return sriovNodes[0].Name, nil
+}
+
+func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
+	cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
+	return console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "sudo su -\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: console.EchoLastReturnValue},
+		&expect.BExp{R: console.RetValue("0")},
+	}, 15)
 }
