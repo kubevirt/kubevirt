@@ -582,7 +582,7 @@ const (
 	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
 
 	// Indiates that the VMI has a configuration out of sync with the cluster-wide configuration
-	VirtualMachineInstanceOutOfSyncConfiguration VirtualMachineInstanceConditionType = "FeatureConfigurationOutOfSync"
+	VirtualMachineInstanceConfigurationOutOfSync VirtualMachineInstanceConditionType = "FeatureConfigurationOutOfSync"
 )
 
 // These are valid reasons for VMI conditions.

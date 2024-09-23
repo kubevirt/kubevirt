@@ -98,6 +98,7 @@ message ClusterConfig{
   bool FreePageReportingDisabled = 2;
   bool BochsDisplayForEFIGuests = 3;
   bool SerialConsoleLogDisabled = 4;
+  bool DownwardMetricsEnabled = 5;
 }
 
 message InterfaceBindingMigration{

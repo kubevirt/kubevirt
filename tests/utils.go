@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -112,4 +113,25 @@ func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData s
 	if err != nil {
 		Expect(res[1].Output).To(ContainSubstring(testData))
 	}
+}
+
+func DisableDownwardMetrics(client kubecli.KubevirtClient) {
+	kv := libkubevirt.GetCurrentKv(client)
+	kv.Spec.DownwardMetrics = nil
+
+	updateKubevirtSpec(kv)
+}
+
+func EnableDownwardMetrics(client kubecli.KubevirtClient) {
+	kv := libkubevirt.GetCurrentKv(client)
+	kv.Spec.DownwardMetrics = &v1.DownwardMetricsConfiguration{}
+
+	updateKubevirtSpec(kv)
+}
+
+func updateKubevirtSpec(kv *v1.KubeVirt) {
+	_, err := kubevirt.Client().KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+	Expect(err).ToNot(HaveOccurred(), "Should update kubevirt spec fields")
+	testsuite.EnsureKubevirtReady()
+	//TODO: additional check to ensure KV is up to date?
 }

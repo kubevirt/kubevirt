@@ -75,6 +75,11 @@ func AdjustKubeVirtResource() {
 		},
 	}}
 
+	// Add the DownwardMetrics configuration, it will avoid to make some test to run on serial
+	if kv.Spec.DownwardMetrics == nil {
+		kv.Spec.DownwardMetrics = &v1.DownwardMetricsConfiguration{}
+	}
+
 	// match default kubevirt-config testing resource
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}

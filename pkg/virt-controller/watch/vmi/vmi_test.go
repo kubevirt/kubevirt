@@ -3491,6 +3491,44 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 	})
 
+	Context("feature configurables conditions", func() {
+		It("should update the conditions if the downwardMetrics feature is disabled in a running VM", func() {
+			vmi := newPendingVirtualMachine("testvm")
+			vmi.Spec.Domain.Devices.DownwardMetrics = &virtv1.DownwardMetrics{}
+			vmi.Status.Phase = virtv1.Running
+			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			addPod(pod)
+			addVirtualMachine(vmi)
+
+			controller.Execute()
+
+			expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+				Fields{
+					"Type":    Equal(virtv1.VirtualMachineInstanceConfigurationOutOfSync),
+					"Status":  Equal(k8sv1.ConditionFalse),
+					"Message": Equal("The DownwardMetrics feature is disabled but still in use"),
+				})),
+			)
+		})
+
+		It("should stay in Pending and add the conditions if downwardMetrics is requested but no enabled", func() {
+			vmi := newPendingVirtualMachine("testvm")
+			vmi.Spec.Domain.Devices.DownwardMetrics = &virtv1.DownwardMetrics{}
+			addVirtualMachine(vmi)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, kvcontroller.FeatureNotEnabled)
+			expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+				Fields{
+					"Type":    Equal(virtv1.VirtualMachineInstanceSynchronized),
+					"Status":  Equal(k8sv1.ConditionFalse),
+					"Reason":  Equal(kvcontroller.FeatureNotEnabled),
+					"Message": Equal("virtual machine is requesting a disabled feature: DownwardMetrics"),
+				})),
+			)
+		})
+	})
 	Context("Aggregating DataVolume conditions", func() {
 
 		dvVolumeSource1 := virtv1.VolumeSource{

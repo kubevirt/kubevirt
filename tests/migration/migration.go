@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	apimetrics "kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -483,15 +484,16 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("checking if the metrics are still updated after the migration")
+				var metrics *apimetrics.Metrics
 				Eventually(func() error {
-					_, err := metricsGetter(vmi)
+					metrics, err = metricsGetter(vmi)
 					return err
 				}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-				metrics, err := metricsGetter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+
 				timestamp := libinfra.GetTimeFromMetrics(metrics)
+
 				Eventually(func() int {
-					metrics, err := metricsGetter(vmi)
+					metrics, err = metricsGetter(vmi)
 					Expect(err).ToNot(HaveOccurred())
 					return libinfra.GetTimeFromMetrics(metrics)
 				}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
@@ -749,6 +751,56 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				isPaused, err = libvirtDomainIsPaused(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
 				Expect(isPaused).To(BeFalse(), "The VMI should be running, but it is not.")
+			})
+		})
+
+		Context("[Serial] already running", Serial, func() {
+			var vmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				tests.EnableDownwardMetrics(virtClient)
+
+				vmi = libvmifact.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDownwardMetricsChannel(),
+				)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				tests.DisableDownwardMetrics(virtClient)
+			})
+
+			AfterEach(func() {
+				tests.EnableDownwardMetrics(virtClient)
+			})
+
+			It("should be able to live migrate even if the downwardMetrics feature is disabled", func() {
+				By("starting the migration")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+				By("checking if the metrics are still updated after the migration")
+				var metrics *apimetrics.Metrics
+				Eventually(func() error {
+					metrics, err = libinfra.GetDownwardMetricsVirtio(vmi)
+					return err
+				}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+				timestamp := libinfra.GetTimeFromMetrics(metrics)
+
+				Eventually(func() int {
+					metrics, err = libinfra.GetDownwardMetricsVirtio(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					return libinfra.GetTimeFromMetrics(metrics)
+				}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
+
+				By("checking that the new nodename is reflected in the downward metrics")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
 			})
 		})
 

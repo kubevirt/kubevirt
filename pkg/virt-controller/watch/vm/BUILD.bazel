@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/liveupdate/memory:go_default_library",
         "//pkg/network/admitter:go_default_library",
@@ -57,6 +58,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",

@@ -107,6 +107,10 @@ func IsS390X(arch string) bool {
 	return arch == "s390x"
 }
 
+func (c *ClusterConfig) IsDownwardMetricsFeatureEnabled() bool {
+	return c.GetConfigFromKubeVirtCR().Spec.DownwardMetrics != nil
+}
+
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
 	return *c.GetConfig().MemBalloonStatsPeriod
 }

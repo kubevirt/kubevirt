@@ -1,6 +1,7 @@
 package downwardmetrics
 
 import (
+	"errors"
 	"path/filepath"
 	"strconv"
 
@@ -9,6 +10,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd"
 	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -16,6 +18,8 @@ const (
 	DownwardMetricsChannelDir       = util.VirtPrivateDir + "/downwardmetrics-channel"
 	DownwardMetricsChannelSocket    = DownwardMetricsChannelDir + "/downwardmetrics.sock"
 )
+
+var DownwardMetricsNotEnabledError = errors.New("DownwardMetrics feature is not enabled")
 
 func CreateDownwardMetricDisk(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
@@ -45,4 +49,8 @@ func HasDevice(spec *v1.VirtualMachineInstanceSpec) bool {
 
 func ChannelSocketPathOnHost(pid int) string {
 	return filepath.Join("/proc", strconv.Itoa(pid), "root", DownwardMetricsChannelSocket)
+}
+
+func IsDownwardMetricsConfigurationInvalid(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) bool {
+	return !clusterConfig.IsDownwardMetricsFeatureEnabled() && (HasDevice(spec) || HasDownwardMetricDisk(spec.Volumes))
 }

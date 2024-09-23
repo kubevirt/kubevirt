@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
@@ -1349,6 +1350,12 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	}
 	if validateErr := errors.Join(validateErrors...); validateErrors != nil {
 		return vm, fmt.Errorf("failed create validation: %v", validateErr)
+	}
+
+	if downwardmetrics.IsDownwardMetricsConfigurationInvalid(c.clusterConfig, &vmi.Spec) {
+		log.Log.Object(vm).Infof("Failed create validation: %v", downwardmetrics.DownwardMetricsNotEnabledError)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", downwardmetrics.DownwardMetricsNotEnabledError)
+		return vm, downwardmetrics.DownwardMetricsNotEnabledError
 	}
 
 	c.expectations.ExpectCreations(vmKey, 1)
@@ -3253,6 +3260,12 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		vm = updatedVm
 	} else {
 		vm = vmCopy
+	}
+
+	if vmi == nil {
+		if downwardmetrics.IsDownwardMetricsConfigurationInvalid(c.clusterConfig, &vm.Spec.Template.Spec) {
+			return vm, common.NewSyncError(downwardmetrics.DownwardMetricsNotEnabledError, controller.FeatureNotEnabled), nil
+		}
 	}
 
 	return vm, nil, nil

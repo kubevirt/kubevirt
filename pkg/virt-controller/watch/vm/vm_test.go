@@ -41,6 +41,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -7010,7 +7011,46 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		})
 
+		Context("feature configurables", func() {
+			DescribeTable("should update the VM conditions if the downwardMetrics is not enabled but requested by a ", func(started bool) {
+				vm, _ := watchtesting.DefaultVirtualMachine(started)
+				vm.Spec.Template.Spec.Domain.Devices.DownwardMetrics = &v1.DownwardMetrics{}
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+				Expect(cond).ToNot(BeNil())
+
+				if started {
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineFailure),
+						"Reason":  Equal(common.FailedCreateVirtualMachineReason),
+						"Message": ContainSubstring("Failure while starting VMI: %s", downwardmetrics.DownwardMetricsNotEnabledError.Error()),
+						"Status":  Equal(k8sv1.ConditionTrue),
+					}))
+					testutils.ExpectEvent(recorder, common.FailedCreateVirtualMachineReason)
+				} else {
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineFailure),
+						"Reason":  Equal(virtcontroller.FeatureNotEnabled),
+						"Message": Equal(downwardmetrics.DownwardMetricsNotEnabledError.Error()),
+						"Status":  Equal(k8sv1.ConditionTrue),
+					}))
+				}
+			},
+				Entry("stopped VM", false),
+				Entry("started VM", true),
+			)
+		})
 	})
+
 	Context("syncConditions", func() {
 		var vm *v1.VirtualMachine
 		var vmi *v1.VirtualMachineInstance

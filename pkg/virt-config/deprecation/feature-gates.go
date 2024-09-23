@@ -38,12 +38,12 @@ const (
 )
 
 const (
-	LiveMigrationGate      = "LiveMigration"      // GA
-	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // GA
-	NonRoot                = "NonRoot"            // GA
-	PSA                    = "PSA"                // GA
-	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
-	NUMAFeatureGate        = "NUMA"               // GA
+	LiveMigrationGate          = "LiveMigration"      // GA
+	SRIOVLiveMigrationGate     = "SRIOVLiveMigration" // GA
+	NonRoot                    = "NonRoot"            // GA
+	PSA                        = "PSA"                // GA
+	CPUNodeDiscoveryGate       = "CPUNodeDiscovery"   // GA
+	NUMAFeatureGate            = "NUMA"               // GA
 	DownwardMetricsFeatureGate = "DownwardMetrics"    // GA
 	// Owner: @lyarwood
 	// Alpha: v1.1.0
