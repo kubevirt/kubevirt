@@ -44,6 +44,7 @@ const (
 	PSA                    = "PSA"                // GA
 	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
 	NUMAFeatureGate        = "NUMA"               // GA
+	DownwardMetricsFeatureGate = "DownwardMetrics"    // GA
 	// Owner: @lyarwood
 	// Alpha: v1.1.0
 	// Beta:  v1.2.0
@@ -72,6 +73,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: NUMAFeatureGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: CommonInstancetypesDeploymentGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
