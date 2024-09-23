@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"context"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -29,28 +28,21 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
-var _ = Describe("[sig-compute]Health Monitoring", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Watchdog", decorators.SigCompute, func() {
 
-	var virtClient kubecli.KubevirtClient
+	Context("A VirtualMachineInstance with a watchdog device", func() {
 
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
-
-	Describe("A VirtualMachineInstance with a watchdog device", func() {
-		It("[test_id:4641]should be shut down when the watchdog expires", func() {
+		It("[test_id:4641]should be shut down when the watchdog expires", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(
 				libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff)), 360)
 
@@ -65,17 +57,11 @@ var _ = Describe("[sig-compute]Health Monitoring", decorators.SigCompute, func()
 				&expect.BExp{R: console.RetValue("0")},
 			}, 250)).To(Succeed())
 
-			namespace := vmi.ObjectMeta.Namespace
-			name := vmi.ObjectMeta.Name
-
 			By("Checking that the VirtualMachineInstance has Failed status")
-			Eventually(func() v1.VirtualMachineInstancePhase {
-				startedVMI, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
-
-				Expect(err).ToNot(HaveOccurred())
-				return startedVMI.Status.Phase
-			}, 40*time.Second).Should(Equal(v1.Failed))
-
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(40 * time.Second).WithPolling(time.Second).
+				Should(matcher.BeInPhase(v1.Failed))
 		})
+
 	})
+
 })
