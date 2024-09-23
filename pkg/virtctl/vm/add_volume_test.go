@@ -34,7 +34,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
@@ -57,8 +57,8 @@ var _ = Describe("Add volume command", func() {
 		coreClient = fake.NewSimpleClientset()
 	})
 
-	createTestDataVolume := func() *v1beta1.DataVolume {
-		return &v1beta1.DataVolume{
+	createTestDataVolume := func() *cdiv1.DataVolume {
+		return &cdiv1.DataVolume{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name: "testvolume",
 			},

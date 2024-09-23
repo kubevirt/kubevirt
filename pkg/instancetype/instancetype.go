@@ -25,7 +25,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	utils "kubevirt.io/kubevirt/pkg/util"
@@ -868,7 +868,7 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMach
 	return m.inferDefaultsFromDataVolumeSpec(&dv.Spec, defaultNameLabel, defaultKindLabel, vm.Namespace)
 }
 
-func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1beta1.DataVolumeSpec, defaultNameLabel, defaultKindLabel, vmNameSpace string) (defaultName, defaultKind string, err error) {
+func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *cdiv1.DataVolumeSpec, defaultNameLabel, defaultKindLabel, vmNameSpace string) (defaultName, defaultKind string, err error) {
 	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil && dataVolumeSpec.Source.PVC != nil {
 		return m.inferDefaultsFromPVC(dataVolumeSpec.Source.PVC.Name, dataVolumeSpec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
 	}
@@ -894,7 +894,7 @@ func (m *InstancetypeMethods) inferDefaultsFromDataSource(dataSourceName, dataSo
 	return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC"))
 }
 
-func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace string) (defaultName, defaultKind string, err error) {
+func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *cdiv1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace string) (defaultName, defaultKind string, err error) {
 	if sourceRef.Kind == "DataSource" {
 		// The namespace can be left blank here with the assumption that the DataSource is in the same namespace as the VM
 		namespace := vmNameSpace
