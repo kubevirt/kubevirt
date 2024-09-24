@@ -30,7 +30,6 @@ aliases:
     - vladikr
     - enp0s3
     - jean-edouard
-    - AlonaKaplan
     - mhenriks
     - EdDev
     - acardace
@@ -63,7 +62,6 @@ aliases:
   # Owns anything related to networking.
   #
   sig-network-reviewers:
-    - AlonaKaplan
     - EdDev
     - RamLavi
     - ormergi
