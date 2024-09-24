@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
 	virtapi "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	virthandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
@@ -153,5 +154,5 @@ func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 }
 
 func gomegaContainsMetricMatcher(metric operatormetrics.Metric, labels map[string]string) types.GomegaMatcher {
-	return &libmonitoring.MetricMatcher{Metric: metric, Labels: labels}
+	return &testing.MetricMatcher{Metric: metric, Labels: labels}
 }

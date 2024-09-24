@@ -99,11 +99,23 @@ func TakeMetricsWithPrefix(output, prefix string) []string {
 func ParseMetricsToMap(lines []string) (map[string]float64, error) {
 	metrics := make(map[string]float64)
 	for _, line := range lines {
+		// <metric_name>{<labels...>} <timestamp> <value>
+		// timestamp might not be present
 		items := strings.Split(line, " ")
-		if len(items) != 2 {
+		lengthItems := len(items)
+
+		var v float64
+		var err error
+
+		switch lengthItems {
+		case 2: // no timestamp
+			v, err = strconv.ParseFloat(items[1], 64)
+		case 3: // with timestamp
+			v, err = strconv.ParseFloat(items[2], 64)
+		default:
 			return nil, fmt.Errorf("can't split properly line '%s'", line)
 		}
-		v, err := strconv.ParseFloat(items[1], 64)
+
 		if err != nil {
 			return nil, err
 		}

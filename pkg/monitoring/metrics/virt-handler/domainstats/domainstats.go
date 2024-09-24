@@ -57,6 +57,10 @@ func newVirtualMachineInstanceReport(vmi *k6tv1.VirtualMachineInstance, vmiStats
 	return vmiReport
 }
 
+func (vmiReport *VirtualMachineInstanceReport) GetVmiStats() VirtualMachineInstanceStats {
+	return *vmiReport.vmiStats
+}
+
 func (vmiReport *VirtualMachineInstanceReport) buildRuntimeLabels() {
 	vmiReport.runtimeLabels = map[string]string{}
 

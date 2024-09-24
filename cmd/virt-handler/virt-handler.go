@@ -365,14 +365,6 @@ func (app *virtHandlerApp) Run() {
 		app.VirtShareDir,
 	)
 
-	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer); err != nil {
-		panic(err)
-	}
-
-	if err := downwardmetrics.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector); err != nil {
-		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
-	}
-
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
 
@@ -403,6 +395,14 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, factory.KubeVirt().HasSynced)
+
+	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer); err != nil {
+		panic(err)
+	}
+
+	if err := downwardmetrics.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector); err != nil {
+		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
+	}
 
 	// This callback can only be called only after the KubeVirt CR has synced,
 	// to avoid installing the SELinux policy when the feature gate is set

@@ -26,6 +26,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
+
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -44,13 +46,8 @@ type QueryRequestResult struct {
 }
 
 type promData struct {
-	ResultType string       `json:"resultType"`
-	Result     []promResult `json:"result"`
-}
-
-type promResult struct {
-	Metric map[string]string `json:"metric"`
-	Value  []interface{}     `json:"value"`
+	ResultType string               `json:"resultType"`
+	Result     []testing.PromResult `json:"result"`
 }
 
 func GetAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
@@ -130,7 +127,7 @@ func findMetricWithLabels(result *QueryRequestResult, labels map[string]string) 
 	return nil
 }
 
-func labelsMatch(pr promResult, labels map[string]string) bool {
+func labelsMatch(pr testing.PromResult, labels map[string]string) bool {
 	for k, v := range labels {
 		if pr.Metric[k] != v {
 			return false

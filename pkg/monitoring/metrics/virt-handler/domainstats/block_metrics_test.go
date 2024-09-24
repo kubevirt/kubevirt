@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k6tv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -70,7 +71,7 @@ var _ = Describe("block metrics", func() {
 
 		DescribeTable("should collect metrics values", func(metric operatormetrics.Metric, expectedValue float64) {
 			crs := blockMetrics{}.Collect(vmiReport)
-			Expect(crs).To(ContainElement(gomegaContainsMetricMatcher(metric, expectedValue)))
+			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(metric, expectedValue)))
 		},
 			Entry("kubevirt_vmi_storage_iops_read_total", storageIopsRead, 1.0),
 			Entry("kubevirt_vmi_storage_iops_write_total", storageIopsWrite, 2.0),

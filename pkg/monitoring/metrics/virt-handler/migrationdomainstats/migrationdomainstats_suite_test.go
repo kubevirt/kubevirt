@@ -17,7 +17,7 @@
  *
  */
 
-package domainstats
+package migrationdomainstats
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestDomainstats(t *testing.T) {
+func TestMigrationDomainStats(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }
