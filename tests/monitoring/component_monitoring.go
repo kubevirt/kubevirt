@@ -26,17 +26,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	appsv1 "k8s.io/api/apps/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -254,14 +251,6 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 		})
 	})
 })
-
-func patchDeployment(virtClient kubecli.KubevirtClient, deployment *appsv1.Deployment) {
-	payload, err := patch.New(patch.WithReplace("/spec", deployment.Spec)).GeneratePayload()
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-}
 
 func waitUntilComponentsAlertsDoNotExist(virtClient kubecli.KubevirtClient) {
 	componentsAlerts := []string{
