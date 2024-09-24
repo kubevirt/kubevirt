@@ -27,10 +27,6 @@ func (d *Defaulter) IsS390X() bool {
 	return d.Architecture == "s390x"
 }
 
-func (d *Defaulter) SetDefaults_Devices(devices *Devices) {
-
-}
-
 func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 	ostype.OS = "hvm"
 
@@ -82,5 +78,4 @@ func (d *Defaulter) SetObjectDefaults_Domain(in *Domain) {
 	if in.Spec.SysInfo != nil {
 		d.SetDefaults_SysInfo(in.Spec.SysInfo)
 	}
-	d.SetDefaults_Devices(&in.Spec.Devices)
 }
