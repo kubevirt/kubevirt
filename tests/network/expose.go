@@ -821,7 +821,7 @@ func runJobAgainstService(svc *k8sv1.Service, namespace string, jobFactory func(
 		servicePort := strconv.Itoa(int(svc.Spec.Ports[0].Port))
 		err := createAndWaitForJobToSucceed(jobFactory(ip, servicePort), namespace, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))
 		if err != nil {
-			return fmt.Errorf("failed running job against service with ClusterIP %s", ip)
+			return fmt.Errorf("failed running job against service with ClusterIP %s: %w", ip, err)
 		}
 	}
 	return nil
