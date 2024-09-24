@@ -52,17 +52,20 @@ func basePVC(vmi *corev1.VirtualMachineInstance) string {
 	return PVCPrefix + "-" + vmi.Name
 }
 
-func PVCForVMI(pvcIndexer cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
+func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
 	var legacyPVC *v1.PersistentVolumeClaim
 
-	objs := pvcIndexer.List()
+	objs := pvcStore.List()
 	for _, obj := range objs {
 		pvc := obj.(*v1.PersistentVolumeClaim)
+		if pvc.Namespace != vmi.Namespace {
+			continue
+		}
 		vmName, found := pvc.Labels[PVCPrefix]
 		if found && vmName == vmi.Name {
 			return pvc
 		}
-		if pvc.Name == basePVC(vmi) && pvc.Namespace == vmi.Namespace {
+		if pvc.Name == basePVC(vmi) {
 			legacyPVC = pvc
 		}
 	}
@@ -72,6 +75,36 @@ func PVCForVMI(pvcIndexer cache.Store, vmi *corev1.VirtualMachineInstance) *v1.P
 	}
 
 	return nil
+}
+
+func pvcForMigrationTargetFromStore(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) *v1.PersistentVolumeClaim {
+	objs := pvcStore.List()
+	for _, obj := range objs {
+		pvc := obj.(*v1.PersistentVolumeClaim)
+		if pvc.Namespace != migration.Namespace {
+			continue
+		}
+		migrationName, found := pvc.Labels[corev1.MigrationNameLabel]
+		if found && migrationName == migration.Name {
+			return pvc
+		}
+	}
+
+	return nil
+
+}
+
+func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) string {
+	if migration.Status.MigrationState != nil && migration.Status.MigrationState.TargetPersistentStatePVCName != "" {
+		return migration.Status.MigrationState.TargetPersistentStatePVCName
+	}
+
+	pvc := pvcForMigrationTargetFromStore(pvcStore, migration)
+	if pvc != nil {
+		return pvc.Name
+	}
+
+	return ""
 }
 
 func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
@@ -109,7 +142,7 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 	return HasPersistentTPMDevice(&vm.Spec.Template.Spec)
 }
 
-func MigrationHandoff(client kubecli.KubevirtClient, migration *corev1.VirtualMachineInstanceMigration) error {
+func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
 	if migration == nil || migration.Status.MigrationState == nil ||
 		migration.Status.MigrationState.SourcePersistentStatePVCName == "" ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
@@ -126,9 +159,9 @@ func MigrationHandoff(client kubecli.KubevirtClient, migration *corev1.VirtualMa
 
 	// Let's label the target first, then remove the source.
 	// The target might already be labelled if this function was already called for this migration
-	target, err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Get(context.Background(), targetPVC, metav1.GetOptions{})
-	if err != nil {
-		return err
+	target := pvcForMigrationTargetFromStore(pvcStore, migration)
+	if target == nil {
+		return fmt.Errorf("target PVC not found for migration %s/%s", migration.Namespace, migration.Name)
 	}
 	labels := target.Labels
 	if labels == nil {
@@ -136,19 +169,17 @@ func MigrationHandoff(client kubecli.KubevirtClient, migration *corev1.VirtualMa
 	}
 
 	existing, ok := labels[PVCPrefix]
-	if !ok || existing != migration.Spec.VMIName {
-		if ok && existing != migration.Spec.VMIName {
-			return fmt.Errorf("target PVC for %s is already labelled for another VMI: %s", migration.Spec.VMIName, existing)
-		}
-		labelPatch := patch.New()
-		if len(labels) == 0 {
-			labels[PVCPrefix] = migration.Spec.VMIName
-			labelPatch.AddOption(patch.WithAdd("/metadata/labels", labels))
-		} else {
-			labelPatch.AddOption(patch.WithReplace("/metadata/labels/"+PVCPrefix, migration.Spec.VMIName))
-		}
+	if ok && existing != migration.Spec.VMIName {
+		return fmt.Errorf("target PVC for %s is already labelled for another VMI: %s", migration.Spec.VMIName, existing)
+	}
 
-		labelPatchPayload, err := labelPatch.GeneratePayload()
+	if _, migrationLabelExists := target.Labels[corev1.MigrationNameLabel]; migrationLabelExists {
+		labelPatchPayload, err := patch.New(
+			patch.WithReplace("/metadata/labels/"+PVCPrefix, migration.Spec.VMIName),
+			patch.WithTest("/metadata/labels/"+patch.EscapeJSONPointer(corev1.MigrationNameLabel), migration.Name),
+			patch.WithRemove("/metadata/labels/"+patch.EscapeJSONPointer(corev1.MigrationNameLabel)),
+		).GeneratePayload()
+
 		if err != nil {
 			return fmt.Errorf("failed to generate PVC patch: %v", err)
 		}
@@ -158,7 +189,7 @@ func MigrationHandoff(client kubecli.KubevirtClient, migration *corev1.VirtualMa
 		}
 	}
 
-	err = client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
+	err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete PVC: %v", err)
 	}
@@ -279,7 +310,7 @@ func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentV
 	return accessMode
 }
 
-func (bs *BackendStorage) updateVolumeStatus(vmi *corev1.VirtualMachineInstance, pvc *v1.PersistentVolumeClaim) {
+func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance, pvc *v1.PersistentVolumeClaim) {
 	if vmi.Status.VolumeStatus == nil {
 		vmi.Status.VolumeStatus = []corev1.VolumeStatus{}
 	}
@@ -302,26 +333,10 @@ func (bs *BackendStorage) updateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 	})
 }
 
-func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.VirtualMachineInstance, migrationTarget bool) (string, error) {
-	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
-		return "", nil
-	}
-
-	// TODO: if the pvc was just created and the pvcStore doesn't yet know about it, we'll create a second PVC...
-	// We probably need an API call instead
-	pvc := PVCForVMI(bs.pvcStore, vmi)
-
-	if (!migrationTarget && pvc != nil) ||
-		(migrationTarget && len(pvc.Status.AccessModes) > 0 && pvc.Status.AccessModes[0] == v1.ReadWriteMany) {
-		// We're not a migration target and the PVC already exists, or we are a migration target and the PVC is RWX
-		// In both cases, we just return the existing PVC.
-		bs.updateVolumeStatus(vmi, pvc)
-		return pvc.Name, nil
-	}
-
+func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels map[string]string) (*v1.PersistentVolumeClaim, error) {
 	storageClass, err := bs.getStorageClass()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	mode := v1.PersistentVolumeFilesystem
 	accessMode := bs.getAccessMode(storageClass, mode)
@@ -335,10 +350,11 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
 		}
 	}
-	pvc = &v1.PersistentVolumeClaim{
+	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName:    basePVC(vmi) + "-",
 			OwnerReferences: ownerReferences,
+			Labels:          labels,
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
 			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
@@ -349,19 +365,35 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			VolumeMode:       &mode,
 		},
 	}
-	if !migrationTarget {
-		// If the PVC is for a migration target, we'll set the label at the end of the migration
-		pvc.Labels = map[string]string{PVCPrefix: vmi.Name}
-	}
 
 	pvc, err = bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	bs.updateVolumeStatus(vmi, pvc)
+	return pvc, nil
+}
 
-	return pvc.Name, nil
+func (bs *BackendStorage) CreatePVCForVMI(vmi *corev1.VirtualMachineInstance) (*v1.PersistentVolumeClaim, error) {
+	pvc := PVCForVMI(bs.pvcStore, vmi)
+
+	if pvc != nil {
+		// A PVC already exists for this VMI, nothing to do
+		return pvc, nil
+	}
+
+	return bs.createPVC(vmi, map[string]string{PVCPrefix: vmi.Name})
+}
+
+func (bs *BackendStorage) CreatePVCForMigrationTarget(vmi *corev1.VirtualMachineInstance, migrationName string) (*v1.PersistentVolumeClaim, error) {
+	pvc := PVCForVMI(bs.pvcStore, vmi)
+
+	if len(pvc.Status.AccessModes) > 0 && pvc.Status.AccessModes[0] == v1.ReadWriteMany {
+		// The source PVC is RWX, so it can be used for the target too
+		return pvc, nil
+	}
+
+	return bs.createPVC(vmi, map[string]string{corev1.MigrationNameLabel: migrationName})
 }
 
 // IsPVCReady returns true if either:

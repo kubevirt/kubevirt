@@ -173,6 +173,7 @@ var _ = Describe("Backend Storage", func() {
 			vmiName       = "testvmi"
 			sourcePVCName = "sourcepvc"
 			targetPVCName = "targetpvc"
+			migrationName = "migration"
 		)
 
 		BeforeEach(func() {
@@ -186,16 +187,21 @@ var _ = Describe("Backend Storage", func() {
 			}
 			targetPVC := &v1.PersistentVolumeClaim{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: targetPVCName,
+					Name:   targetPVCName,
+					Labels: map[string]string{"kubevirt.io/migrationName": migrationName},
 				},
 			}
-			_, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(), sourcePVC, k8smetav1.CreateOptions{})
+			pvc, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(), sourcePVC, k8smetav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(), targetPVC, k8smetav1.CreateOptions{})
+			err = pvcStore.Add(pvc)
+			Expect(err).NotTo(HaveOccurred())
+			pvc, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(), targetPVC, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			err = pvcStore.Add(pvc)
 			Expect(err).NotTo(HaveOccurred())
 			migration = &virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name:      "migration",
+					Name:      migrationName,
 					Namespace: nsName,
 				},
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
@@ -210,7 +216,7 @@ var _ = Describe("Backend Storage", func() {
 			}
 		})
 		It("Should label the target PVC and remove the source PVC on migration success", func() {
-			err := MigrationHandoff(virtClient, migration)
+			err := MigrationHandoff(virtClient, pvcStore, migration)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).To(HaveOccurred())
@@ -229,7 +235,7 @@ var _ = Describe("Backend Storage", func() {
 		})
 		It("Should keep the shared PVC on migration success", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
-			err := MigrationHandoff(virtClient, migration)
+			err := MigrationHandoff(virtClient, pvcStore, migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())

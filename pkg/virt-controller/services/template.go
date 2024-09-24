@@ -134,7 +134,7 @@ type targetAnnotationsGenerator interface {
 }
 
 type TemplateService interface {
-	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
+	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
@@ -266,15 +266,21 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
 		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
 		backendStoragePVCName = backendStoragePVC.Name
+		if backendStoragePVCName == "" {
+			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
+		}
 	}
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true)
 }
 
-func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
+func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
 	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
 	backendStoragePVCName := ""
-	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) && vmi.Status.MigrationState != nil {
-		backendStoragePVCName = vmi.Status.MigrationState.TargetPersistentStatePVCName
+	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		backendStoragePVCName = backendstorage.PVCForMigrationTarget(t.persistentVolumeClaimStore, migration)
+		if backendStoragePVCName == "" {
+			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
+		}
 	}
 	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, backendStoragePVCName, false)
 	if err != nil {
@@ -297,6 +303,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	backendStoragePVCName := ""
 	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
 		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
+		if backendStoragePVC == nil {
+			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
+		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false)
