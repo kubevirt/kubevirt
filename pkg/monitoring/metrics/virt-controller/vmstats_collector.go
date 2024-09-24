@@ -58,7 +58,7 @@ var (
 			Name: "kubevirt_vm_resource_requests",
 			Help: "Resources requested by Virtual Machine. Reports memory and CPU requests.",
 		},
-		[]string{"vmi", "namespace", "resource", "unit"},
+		[]string{"name", "namespace", "resource", "unit"},
 	)
 
 	timestampMetrics = []operatormetrics.Metric{
