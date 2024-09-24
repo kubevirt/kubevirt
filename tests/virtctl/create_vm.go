@@ -25,6 +25,7 @@ import (
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -39,7 +40,7 @@ password: password
 chpasswd: { expire: False }`
 )
 
-var _ = Describe("[sig-compute][virtctl]create vm", func() {
+var _ = Describe("[sig-compute][virtctl]create vm", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
