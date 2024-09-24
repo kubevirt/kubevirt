@@ -131,7 +131,6 @@ aliases:
   sig-observability-reviewers:
     - machadovilaca
     - avlitman
-    - assafad
 
   #
   # SIG Release
