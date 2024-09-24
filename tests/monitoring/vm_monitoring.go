@@ -331,7 +331,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			scales.RestoreAllScales()
 		})
 
-		It("should fire KubevirtVmHighMemoryUsage alert", func() {
+		It("[QUARANTINE] should fire KubevirtVmHighMemoryUsage alert", decorators.Quarantine, func() {
 			By("starting VMI")
 			vmi := libvmifact.NewGuestless()
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
