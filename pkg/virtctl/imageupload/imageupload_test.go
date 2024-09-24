@@ -900,19 +900,32 @@ var _ = Describe("ImageUpload", func() {
 			Expect(cmd()).NotTo(Succeed())
 		})
 
-		It("Upload fails when using a nonexistent storageClass", func() {
+		DescribeTable("Upload fails when using a nonexistent storageClass", func(resource string) {
+			const (
+				errFmt              = "storageclasses.storage.k8s.io \"%s\" not found"
+				invalidStorageClass = "no-sc"
+			)
+
 			testInit(http.StatusInternalServerError)
-			invalidStorageClass := "no-sc"
 			kubeClient.Fake.PrependReactor("get", "storageclasses", func(action testing.Action) (bool, runtime.Object, error) {
 				_, ok := action.(testing.GetAction)
 				Expect(ok).To(BeTrue())
-				return false, nil, nil
+				return true, nil, fmt.Errorf(errFmt, invalidStorageClass)
 			})
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
-				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--storage-class", invalidStorageClass)
-			Expect(cmd()).NotTo(Succeed())
-		})
+			err := clientcmd.NewRepeatableVirtctlCommand(commandName,
+				resource, targetName,
+				"--size", pvcSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--image-path", imagePath,
+				"--storage-class", invalidStorageClass,
+			)()
+			Expect(err).To(MatchError(ContainSubstring(errFmt, invalidStorageClass)))
+		},
+			Entry("DataVolume", "dv"),
+			Entry("PVC", "pvc"),
+		)
 
 		DescribeTable("Bad args", func(errString string, args []string) {
 			testInit(http.StatusOK)
