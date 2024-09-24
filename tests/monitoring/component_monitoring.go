@@ -126,7 +126,6 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 		AfterEach(func() {
 			scales.RestoreAllScales()
 
-			time.Sleep(10 * time.Second)
 			alerts := []string{
 				virtOperator.downAlert, virtOperator.noReadyAlert, virtOperator.lowCountAlert,
 				virtController.downAlert, virtController.noReadyAlert, virtController.lowCountAlert,
@@ -201,7 +200,6 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			Expect(err).To(Or(Not(HaveOccurred()), MatchError(errors.IsAlreadyExists, "IsAlreadyExists")))
 			scales.RestoreAllScales()
 
-			time.Sleep(10 * time.Second)
 			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtOperator.downAlert, virtApi.downAlert, virtController.downAlert, virtHandler.downAlert)
 		})
 
