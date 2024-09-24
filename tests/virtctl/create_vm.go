@@ -67,7 +67,7 @@ chpasswd: { expire: False }`
 	})
 
 	It("[test_id:9840]VM with random name and default settings", func() {
-		out, err := runCmd()
+		out, err := runCreateVmCmd()
 		Expect(err).ToNot(HaveOccurred())
 		vm, err := decodeVM(out)
 		Expect(err).ToNot(HaveOccurred())
@@ -91,7 +91,7 @@ chpasswd: { expire: False }`
 		preference := createPreference(virtClient)
 		pvc := createAnnotatedSourcePVC(instancetype.Name, preference.Name)
 
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,src:%s/%s,name:%s", size, pvc.Namespace, pvc.Name, volName)),
 		)
@@ -141,7 +141,7 @@ chpasswd: { expire: False }`
 		)
 		cdSource := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:registry,size:%s,url:%s,name:%s", size, cdSource, volName)),
 		)
@@ -179,7 +179,7 @@ chpasswd: { expire: False }`
 	It("Example with volume-import flag and Blank type", func() {
 		const runStrategy = v1.RunStrategyAlways
 
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(VolumeImportFlag, "type:blank,size:"+size),
 		)
@@ -227,7 +227,7 @@ chpasswd: { expire: False }`
 		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), testsuite.GetTestNamespace(nil), size, nil)
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(NameFlag, vmName),
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
@@ -336,7 +336,7 @@ chpasswd: { expire: False }`
 		pvc := createAnnotatedSourcePVC(instancetype.Name, "something")
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(NameFlag, vmName),
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
@@ -432,7 +432,7 @@ chpasswd: { expire: False }`
 		preference := createPreference(virtClient)
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(NameFlag, vmName),
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
@@ -502,7 +502,7 @@ chpasswd: { expire: False }`
 		cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
@@ -559,7 +559,7 @@ chpasswd: { expire: False }`
 		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
 		sshKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
 
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
 			setFlag(UserFlag, user),
 			setFlag(PasswordFileFlag, path), // This is required to unlock the alpine user
@@ -616,7 +616,7 @@ chpasswd: { expire: False }`
 		secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
 			setFlag(AccessCredFlag, fmt.Sprintf("type:ssh,src:%s,method:ga,user:%s", secret.Name, user)),
 		)
@@ -666,7 +666,7 @@ chpasswd: { expire: False }`
 		volumeName := "imported-volume"
 
 		By("Creating a VM with implicit inference (inference enabled by default)")
-		out, err := runCmd(
+		out, err := runCreateVmCmd(
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,src:%s/%s,name:%s", size, pvc.Namespace, pvc.Name, volumeName)),
 		)
 		vm, err := decodeVM(out)
@@ -714,9 +714,9 @@ func setFlag(flag, parameter string) string {
 	return fmt.Sprintf("--%s=%s", flag, parameter)
 }
 
-func runCmd(extraArgs ...string) ([]byte, error) {
-	args := append([]string{create.CREATE, "vm"}, extraArgs...)
-	return clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
+func runCreateVmCmd(args ...string) ([]byte, error) {
+	_args := append([]string{create.CREATE, "vm"}, args...)
+	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
 }
 
 func decodeVM(bytes []byte) (*v1.VirtualMachine, error) {
