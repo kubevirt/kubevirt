@@ -335,14 +335,6 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 	}).Times(times)
 }
 
-func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
-	update := k.kvInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{})
-	update.Do(func(kv *v1.KubeVirt) {
-		k.controller.stores.KubeVirtCache.Update(kv)
-		update.Return(kv, nil)
-	}).Times(times)
-}
-
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatus(times int) {
 	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
