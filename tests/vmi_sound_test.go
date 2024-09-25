@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"context"
-	"encoding/xml"
 	"fmt"
 
 	expect "github.com/google/goexpect"
@@ -102,10 +101,8 @@ func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.
 }
 
 func checkXMLSoundCard(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, model string) {
-	domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+	domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 	Expect(err).ToNot(HaveOccurred())
-	domSpec := &api.DomainSpec{}
-	Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 	Expect(domSpec.Devices.SoundCards).To(HaveLen(1))
 	Expect(domSpec.Devices.SoundCards).To(ContainElement(api.SoundCard{
 		Alias: api.NewUserDefinedAlias("test-audio-device"),

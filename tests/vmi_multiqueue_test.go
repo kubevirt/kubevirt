@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"context"
-	"encoding/xml"
 	"fmt"
 	"strconv"
 
@@ -41,7 +40,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -123,10 +121,8 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			Expect(*newVMI.Spec.Domain.Devices.BlockMultiQueue).To(BeTrue())
 
 			By("Fetching Domain XML from running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 
 			By("Ensuring each disk has three queues assigned")
 			for _, disk := range domSpec.Devices.Disks {
@@ -146,10 +142,8 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Fetching Domain XML from running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 
 			for i, iface := range domSpec.Devices.Interfaces {
 				expectedIfaceName := fmt.Sprintf("tap%d", i)
