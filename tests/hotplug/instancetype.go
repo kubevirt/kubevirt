@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -36,11 +35,6 @@ import (
 var _ = Describe("[sig-compute][Serial]Instance Type and Preference Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateFeaturesGate, Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
-		vm         *virtv1.VirtualMachine
-		vmi        *virtv1.VirtualMachineInstance
-
-		originalGuest resource.Quantity
-		maxGuest      resource.Quantity
 	)
 
 	const (
@@ -63,25 +57,19 @@ var _ = Describe("[sig-compute][Serial]Instance Type and Preference Hotplug", de
 			currentKv.ResourceVersion,
 			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
+	})
 
-		vmi = libvmifact.NewAlpine(
+	DescribeTable("should plug extra resources from new instance type", func(withMaxGuestSockets bool) {
+		vmi := libvmifact.NewAlpine(
 			libnet.WithMasqueradeNetworking(),
 			libvmi.WithResourceMemory("1Gi"),
 		)
 		vmi.Namespace = testsuite.GetTestNamespace(vmi)
 
-		originalGuest = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
-		maxGuest = originalGuest.DeepCopy()
+		originalGuest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+		maxGuest := originalGuest.DeepCopy()
 		maxGuest.Add(resource.MustParse("128Mi"))
 
-		vmi.Spec.Domain.CPU = nil
-		vmi.Spec.Domain.Memory = nil
-		vmi.Spec.Domain.Resources = virtv1.ResourceRequirements{}
-
-		vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-	})
-
-	DescribeTable("should plug extra resources from new instance type", func(withMaxGuestSockets bool) {
 		originalInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "original-instancetype",
@@ -124,13 +112,8 @@ var _ = Describe("[sig-compute][Serial]Instance Type and Preference Hotplug", de
 		maxInstancetype, err = virtClient.VirtualMachineInstancetype(vmi.Namespace).Create(context.Background(), maxInstancetype, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		// TODO - Move this into libvmi as a VMOption for the above NewVirtualMachine call
-		vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-			Name: originalInstancetype.Name,
-			Kind: instancetypeapi.SingularResourceName,
-		}
-
-		vm, err = virtClient.VirtualMachine(vmi.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(virtv1.RunStrategyAlways), libvmi.WithInstancetype(originalInstancetype.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 		libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
