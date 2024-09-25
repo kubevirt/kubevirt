@@ -41,7 +41,7 @@ const (
 	MigrationAllowAutoConverge               bool   = false
 	MigrationAllowPostCopy                   bool   = false
 	MigrationProgressTimeout                 int64  = 150
-	MigrationCompletionTimeoutPerGiB         int64  = 800
+	MigrationCompletionTimeoutPerGiB         int64  = 150
 	DefaultAMD64MachineType                         = "q35"
 	DefaultPPC64LEMachineType                       = "pseries"
 	DefaultAARCH64MachineType                       = "virt"

@@ -1796,10 +1796,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			options := &cmdclient.MigrationOptions{
 				Bandwidth:               resource.MustParse("0Mi"),
-				ProgressTimeout:         150,
-				CompletionTimeoutPerGiB: 800,
-				UnsafeMigration:         false,
-				AllowPostCopy:           false,
+				ProgressTimeout:         virtconfig.MigrationProgressTimeout,
+				CompletionTimeoutPerGiB: virtconfig.MigrationCompletionTimeoutPerGiB,
+				UnsafeMigration:         virtconfig.DefaultUnsafeMigrationOverride,
+				AllowPostCopy:           virtconfig.MigrationAllowPostCopy,
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, options)
 			controller.Execute()
