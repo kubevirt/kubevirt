@@ -867,84 +867,103 @@ var _ = Describe("Validating VM Admitter", func() {
 			false),
 	)
 
-	It("should accept valid DataVolumeTemplate", func() {
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "testdisk",
+	Context("validateDataVolumeTemplate", func() {
+		var vm *v1.VirtualMachine
+		apiGroup := "kubevirt.io"
+
+		BeforeEach(func() {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+
+			vm = &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: &notRunning,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
 		})
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "testdisk",
-			VolumeSource: v1.VolumeSource{
-				DataVolume: &v1.DataVolumeSource{
+
+		It("should accept valid DataVolumeTemplate", func() {
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
-			},
-		})
-
-		vm := &v1.VirtualMachine{
-			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
-				Template: &v1.VirtualMachineInstanceTemplateSpec{
-					Spec: vmi.Spec,
+				Spec: cdiv1.DataVolumeSpec{
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+					Source: &cdiv1.DataVolumeSource{
+						Blank: &cdiv1.DataVolumeBlankImage{},
+					},
 				},
-			},
-		}
+			})
 
-		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "dv1",
-			},
-			Spec: cdiv1.DataVolumeSpec{
-				PVC: &k8sv1.PersistentVolumeClaimSpec{},
-			},
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Result).To(BeNil())
+			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		testutils.AddDataVolumeAPI(crdInformer)
-		resp := admitVm(vmsAdmitter, vm)
-		Expect(resp.Allowed).To(BeTrue())
-	})
+		It("should accept DataVolumeTemplate with deleted sourceRef if vm is going to be deleted", func() {
+			now := metav1.Now()
+			vm.DeletionTimestamp = &now
 
-	It("should accept DataVolumeTemplate with deleted sourceRef if vm is going to be deleted", func() {
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "testdisk",
-		})
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "testdisk",
-			VolumeSource: v1.VolumeSource{
-				DataVolume: &v1.DataVolumeSource{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
-			},
+				Spec: cdiv1.DataVolumeSpec{
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+					SourceRef: &cdiv1.DataVolumeSourceRef{
+						Kind: "DataSource",
+						Name: "fakeName",
+					},
+				},
+			})
+
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		vm := &v1.VirtualMachine{
-			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
-				Template: &v1.VirtualMachineInstanceTemplateSpec{
-					Spec: vmi.Spec,
+		It("should reject invalid DataVolumeTemplate with no Volume reference in VMI template", func() {
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "WRONG-DATAVOLUME",
+					},
 				},
-			},
-		}
-		now := metav1.Now()
-		vm.DeletionTimestamp = &now
+			}}
 
-		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "dv1",
-			},
-			Spec: cdiv1.DataVolumeSpec{
-				PVC: &k8sv1.PersistentVolumeClaimSpec{},
-				SourceRef: &cdiv1.DataVolumeSourceRef{
-					Kind: "DataSource",
-					Name: "fakeName",
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
 				},
-			},
+				Spec: cdiv1.DataVolumeSpec{
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+					Source: &cdiv1.DataVolumeSource{
+						Blank: &cdiv1.DataVolumeBlankImage{},
+					},
+				},
+			})
+
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
 		})
-
-		testutils.AddDataVolumeAPI(crdInformer)
-		resp := admitVm(vmsAdmitter, vm)
-		Expect(resp.Allowed).To(BeTrue())
 	})
 
 	It("should reject VM with DataVolumeTemplate in another namespace", func() {
@@ -980,6 +999,9 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 			Spec: cdiv1.DataVolumeSpec{
 				PVC: &k8sv1.PersistentVolumeClaimSpec{},
+				Source: &cdiv1.DataVolumeSource{
+					Blank: &cdiv1.DataVolumeBlankImage{},
+				},
 			},
 		})
 
@@ -987,46 +1009,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal("Embedded DataVolume namespace another-namespace differs from VM namespace vm-namespace"))
-	})
-
-	It("should reject invalid DataVolumeTemplate with no Volume reference in VMI template", func() {
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "testdisk",
-		})
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "testdisk",
-			VolumeSource: v1.VolumeSource{
-				DataVolume: &v1.DataVolumeSource{
-					Name: "WRONG-DATAVOLUME",
-				},
-			},
-		})
-
-		vm := &v1.VirtualMachine{
-			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
-				Template: &v1.VirtualMachineInstanceTemplateSpec{
-					Spec: vmi.Spec,
-				},
-			},
-		}
-
-		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "dv1",
-			},
-			// this is needed as we have 'better' openapi spec now
-			Spec: cdiv1.DataVolumeSpec{
-				PVC: &k8sv1.PersistentVolumeClaimSpec{},
-			},
-		})
-
-		testutils.AddDataVolumeAPI(crdInformer)
-		resp := admitVm(vmsAdmitter, vm)
-		Expect(resp.Allowed).To(BeFalse())
-		Expect(resp.Result.Details.Causes).To(HaveLen(1))
-		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
 	})
 
 	Context("with Volume", func() {
