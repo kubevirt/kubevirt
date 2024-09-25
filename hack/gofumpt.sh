@@ -19,23 +19,5 @@
 
 set -e
 
-coveredpaths="\
-  pkg/instancetype \
-  pkg/libvmi \
-  pkg/network/admitter \
-  pkg/network/namescheme \
-  pkg/network/domainspec \
-  pkg/network/deviceinfo \
-  pkg/virtctl/credentials \
-  tests/console \
-  tests/libnet \
-  tests/libnode \
-  tests/libconfigmap \
-  tests/libpod \
-  tests/libvmifact \
-  tests/libsecret \
-  tests/libinstancetype \
-  tests/instancetype \
-  ${NULL}"
-
-gofumpt -l -w -extra ${coveredpaths}
+covered_paths=$(cat hack/lint-paths.txt | tr '\n' ' ')
+gofumpt -l -w -extra ${covered_paths}
