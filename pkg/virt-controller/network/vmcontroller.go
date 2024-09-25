@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
@@ -138,7 +139,7 @@ func (v *VMNetController) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInst
 		// This is an old virt-launcher that uses ordinal network interface names.
 		return true, nil
 	}
-	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(NonDefaultMultusNetworksIndexedByIfaceName(pod))
+	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(multus.NonDefaultMultusNetworksIndexedByIfaceName(pod))
 	return hasOrdinalIfaces, nil
 }
 

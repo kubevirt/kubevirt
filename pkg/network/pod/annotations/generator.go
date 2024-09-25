@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 )
 
 type Generator struct {
@@ -85,7 +84,7 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8Scorev1.Pod) (map[string]string, error) {
 	annotations := map[string]string{}
 
-	if namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(sourcePod)) {
+	if namescheme.PodHasOrdinalInterfaceName(multus.NonDefaultMultusNetworksIndexedByIfaceName(sourcePod)) {
 		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
 		multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
 			vmi.Namespace,
