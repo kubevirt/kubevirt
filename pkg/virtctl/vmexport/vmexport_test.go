@@ -18,54 +18,53 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
+	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
-const (
-	commandName = "vmexport"
-	vmeName     = "test-vme"
-	volumeName  = "test-volume"
-	secretName  = "secret-test-vme"
-
-	manifestUrl = "https://test.something.somewhere/test/all"
-	secretUrl   = "https://test.something.somewhere/test/secret"
-)
+const vmeName = "test-vme"
 
 var _ = Describe("vmexport", func() {
+	const (
+		pvcName    = "test-pvc"
+		volumeName = "test-volume"
+	)
+
 	var (
 		kubeClient *fakek8sclient.Clientset
 		virtClient *kubevirtfake.Clientset
 		server     *httptest.Server
+
+		vme    *exportv1.VirtualMachineExport
+		secret *k8sv1.Secret
 	)
+
+	vmeStatusReady := func(volumes []exportv1.VirtualMachineExportVolume) *exportv1.VirtualMachineExportStatus {
+		return &exportv1.VirtualMachineExportStatus{
+			Phase: exportv1.Ready,
+			Links: &exportv1.VirtualMachineExportLinks{
+				External: &exportv1.VirtualMachineExportLink{
+					Volumes: volumes,
+				},
+			},
+			TokenSecretRef: &secret.Name,
+		}
+	}
 
 	BeforeEach(func() {
 		kubeClient = fakek8sclient.NewSimpleClientset()
 		virtClient = kubevirtfake.NewSimpleClientset()
-
-		kubeClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (bool, runtime.Object, error) {
-			create, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			secret, ok := create.GetObject().(*v1.Secret)
-			Expect(ok).To(BeTrue())
-			Expect(secret.OwnerReferences).To(
-				ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"BlockOwnerDeletion": HaveValue(BeFalse()),
-				})), "owner ref BlockOwnerDeletion should be false for secret",
-			)
-			return true, secret, nil
-		})
 
 		ctrl := gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
@@ -82,12 +81,32 @@ var _ = Describe("vmexport", func() {
 			return nil
 		}
 		vmexport.GetHTTPClientFn = func(_ *http.Transport, _ bool) *http.Client {
+			DeferCleanup(server.Close)
 			return server.Client()
 		}
-		vmexport.RunPortForwardFn = func(_ kubecli.KubevirtClient, _ k8sv1.Pod, _ string, _ []string, _, readyChan chan struct{}, portChan chan uint16) error {
-			readyChan <- struct{}{}
-			portChan <- uint16(5432)
-			return nil
+
+		secret = &k8sv1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "secret-" + vmeName,
+			},
+			Type: k8sv1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"token": []byte("test"),
+			},
+		}
+
+		vme = &exportv1.VirtualMachineExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: vmeName,
+			},
+			Spec: exportv1.VirtualMachineExportSpec{
+				TokenSecretRef: &secret.Name,
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &k8sv1.SchemeGroupVersion.Group,
+					Kind:     "PersistentVolumeClaim",
+					Name:     pvcName,
+				},
+			},
 		}
 	})
 
@@ -96,14 +115,14 @@ var _ = Describe("vmexport", func() {
 		vmexport.GetHTTPClientFn = vmexport.GetHTTPClient
 		vmexport.HandleHTTPGetRequestFn = vmexport.HandleHTTPGetRequest
 		vmexport.RunPortForwardFn = vmexport.RunPortForward
-		server.Close()
 	})
 
 	Context("VMExport fails", func() {
 		It("VirtualMachineExport already exists when using 'create'", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
-			err := runCreateCmd(setFlag(vmexport.PVC_FLAG, "test-pvc"))
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runCreateCmd(setFlag(vmexport.PVC_FLAG, pvcName))
 			Expect(err).To(MatchError(ContainSubstring("VirtualMachineExport 'default/test-vme' already exists")))
 		})
 
@@ -117,13 +136,12 @@ var _ = Describe("vmexport", func() {
 
 		It("VirtualMachineExport processing fails when using 'download'", func() {
 			const errMsg = "processing failed: Test error"
-
 			vmexport.WaitForVirtualMachineExportFn = func(_ kubecli.KubevirtClient, _ *vmexport.VMExportInfo, _, _ time.Duration) error {
 				return errors.New(errMsg)
 			}
 
 			err := runDownloadCmd(
-				setFlag(vmexport.PVC_FLAG, "test-pvc"),
+				setFlag(vmexport.PVC_FLAG, pvcName),
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
 			)
@@ -131,105 +149,116 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download fails when there's no volume available", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus(nil, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+			vme.Status = vmeStatusReady(nil)
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
 			)
-			Expect(err).To(MatchError(ContainSubstring("unable to access the volume info from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vmeName)))
+			Expect(err).To(MatchError(ContainSubstring("unable to access the volume info from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vme.Name)))
 		})
 
 		It("VirtualMachineExport download fails when the volumes have a different name than expected", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
 				{
-					Name:    "no-test-volume",
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
+					Name: "no-test-volume",
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtRaw,
+						Url:    server.URL,
+					}},
 				},
 				{
-					Name:    "no-test-volume-2",
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
+					Name: "no-test-volume-2",
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtRaw,
+						Url:    server.URL,
+					}},
 				},
-			}, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+			})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
 			)
-			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vmeName)))
+			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vme.Name)))
 		})
 
 		It("VirtualMachineExport download fails when there are multiple volumes and no volume name has been specified", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
 				{
-					Name:    "no-test-volume",
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtRaw,
+						Url:    server.URL,
+					}},
 				},
 				{
-					Name:    "test-volume",
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
+					Name: "no-test-volume",
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtRaw,
+						Url:    server.URL,
+					}},
 				},
-			}, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+			})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 			)
-			Expect(err).To(MatchError(ContainSubstring("detected more than one downloadable volume in '%s/%s' VirtualMachineExport: Select the expected volume using the --volume flag", metav1.NamespaceDefault, vmeName)))
+			Expect(err).To(MatchError(ContainSubstring("detected more than one downloadable volume in '%s/%s' VirtualMachineExport: Select the expected volume using the --volume flag", metav1.NamespaceDefault, vme.Name)))
 		})
 
 		It("VirtualMachineExport download fails when no format is available", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{{Name: volumeName}}, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{Name: volumeName}})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
 			)
-			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vmeName)))
+			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vme.Name)))
 		})
 
 		It("VirtualMachineExport download fails when the only available format is incompatible with download", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.Dir),
-				},
-			}, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.Dir,
+					Url:    server.URL,
+				}},
+			}})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
 			)
-			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vmeName)))
+			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vme.Name)))
 		})
 
 		It("VirtualMachineExport download fails when the secret token is not attainable", func() {
-			// Add new reactor so the client returns a nil secret
-			kubeClient.Fake.PrependReactor("create", "secrets", func(_ testing.Action) (bool, runtime.Object, error) { return false, nil, nil })
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtRaw,
+					Url:    server.URL,
+				}},
+			}})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
-				},
-			}, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
-
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
 			)
-			Expect(err).To(MatchError(ContainSubstring("secrets \"%s\" not found", secretName)))
+			Expect(err).To(MatchError(ContainSubstring("secrets \"%s\" not found", secret.Name)))
 		})
 
 		It("VirtualMachineExport retries until failure if the server returns a bad status", func() {
@@ -237,17 +266,20 @@ var _ = Describe("vmexport", func() {
 				w.WriteHeader(http.StatusInternalServerError)
 			})
 
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
-				},
-			}, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
-			utils.HandleSecretGet(kubeClient, secretName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtRaw,
+					Url:    server.URL,
+				}},
+			}})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName), setFlag(vmexport.RETRY_FLAG, "2"),
 			)
@@ -255,27 +287,30 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport succeeds after retrying due to bad status", func() {
-			count := 0
+			first := true
 			server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				if count == 0 {
+				if first {
 					w.WriteHeader(http.StatusInternalServerError)
 				} else {
 					w.WriteHeader(http.StatusOK)
 				}
-				count++
+				first = false
 			})
 
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
-				},
-			}, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
-			utils.HandleSecretGet(kubeClient, secretName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtRaw,
+					Url:    server.URL,
+				}},
+			}})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName), setFlag(vmexport.RETRY_FLAG, "2"),
 			)
@@ -293,9 +328,9 @@ var _ = Describe("vmexport", func() {
 			Expect(runFn(args...)).To(MatchError(expected))
 		},
 			Entry("No arguments", "accepts 2 arg(s), received 0", runCmd),
-			Entry("Missing arg", "accepts 2 arg(s), received 1", runCmd, vmexport.CREATE, setFlag(vmexport.PVC_FLAG, vmeName)),
-			Entry("More arguments than expected create", "accepts 2 arg(s), received 3", runCmd, vmexport.CREATE, vmexport.DELETE, vmeName),
-			Entry("More arguments than expected download and 'manifest'", "accepts 2 arg(s), received 3", runCmd, vmexport.DOWNLOAD, vmexport.DELETE, vmexport.MANIFEST_FLAG, vmeName),
+			Entry("Missing arg", "accepts 2 arg(s), received 1", runCmd, vmexport.CREATE, setFlag(vmexport.PVC_FLAG, "test")),
+			Entry("More arguments than expected create", "accepts 2 arg(s), received 3", runCmd, vmexport.CREATE, vmexport.DELETE, "test"),
+			Entry("More arguments than expected download and 'manifest'", "accepts 2 arg(s), received 3", runCmd, vmexport.DOWNLOAD, vmexport.DELETE, vmexport.MANIFEST_FLAG, "test"),
 			Entry("Using 'create' without export type", vmexport.ErrRequiredExportType, runCreateCmd),
 			Entry("Using 'create' with invalid flag", fmt.Sprintf(vmexport.ErrIncompatibleFlag, vmexport.INSECURE_FLAG, vmexport.CREATE), runCreateCmd, setFlag(vmexport.PVC_FLAG, "test"), vmexport.INSECURE_FLAG),
 			Entry("Using 'delete' with export type", vmexport.ErrIncompatibleExportType, runDeleteCmd, setFlag(vmexport.PVC_FLAG, "test")),
@@ -310,16 +345,22 @@ var _ = Describe("vmexport", func() {
 	})
 
 	Context("VMExport succeeds", func() {
-		// Create tests
 		It("VirtualMachineExport is created succesfully", func() {
-			utils.HandleVMExportCreate(virtClient, nil)
-			err := runCreateCmd(setFlag(vmexport.PVC_FLAG, "test-pvc"))
+			err := runCreateCmd(setFlag(vmexport.PVC_FLAG, pvcName))
 			Expect(err).ToNot(HaveOccurred())
+
+			secret, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), secret.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(secret.OwnerReferences).To(
+				ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"BlockOwnerDeletion": HaveValue(BeFalse()),
+				})), "owner ref BlockOwnerDeletion should be false for secret",
+			)
 		})
 
-		// Delete tests
 		It("VirtualMachineExport is deleted succesfully", func() {
-			utils.HandleVMExportDelete(virtClient, vmeName)
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			Expect(runDeleteCmd()).To(Succeed())
 		})
 
@@ -327,180 +368,175 @@ var _ = Describe("vmexport", func() {
 			Expect(runDeleteCmd()).To(Succeed())
 		})
 
-		// Download tests
 		It("Succesfully download from an already existing VirtualMachineExport", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
-				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtGz,
+					Url:    server.URL,
+				}},
+			}})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runDownloadCmd(
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")),
+				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
 				vmexport.INSECURE_FLAG,
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("Succesfully create and download a VirtualMachineExport in different steps", func(expected int, arg string) {
-			utils.HandleVMExportCreate(virtClient, nil)
-			err := runCreateCmd(setFlag(vmexport.PVC_FLAG, "test-pvc"))
+		DescribeTable("Succesfully create and download a VirtualMachineExport in different steps", func(expected bool, extraArgs ...string) {
+			err := runCreateCmd(setFlag(vmexport.PVC_FLAG, pvcName))
 			Expect(err).ToNot(HaveOccurred())
 
-			vme, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vmeName, metav1.GetOptions{})
+			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
-				},
-			}, secretName)
-
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
-			deletes := 0
-			virtClient.Fake.PrependReactor("delete", "virtualmachineexports", func(_ testing.Action) (bool, runtime.Object, error) {
-				deletes++
-				return true, nil, nil
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtGz,
+					Url:    server.URL,
+				}}},
 			})
+			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Update(context.Background(), vme, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			args := []string{
+			args := append([]string{
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")),
+				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
 				vmexport.INSECURE_FLAG,
-				"-n", metav1.NamespaceDefault,
-			}
-			if arg != "" {
-				args = append(args, arg)
-			}
+			}, extraArgs...)
 			err = runDownloadCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(deletes).To(Equal(expected))
+
+			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			if expected {
+				Expect(err).ToNot(HaveOccurred())
+			} else {
+				Expect(err).To(MatchError(k8serrors.IsNotFound, "k8serrors.IsNotFound"))
+			}
 		},
-			Entry("and expect retained VME (default behavior)", 0, ""),
-			Entry("and expect retained VME (using flag)", 0, vmexport.KEEP_FLAG),
-			Entry("and expect deleted VME", 1, vmexport.DELETE_FLAG),
+			Entry("and expect retained VME (default behavior)", true),
+			Entry("and expect retained VME (using flag)", true, vmexport.KEEP_FLAG),
+			Entry("and expect deleted VME", false, vmexport.DELETE_FLAG),
 		)
 
-		It("Succesfully create and download a VirtualMachineExport", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
-				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportCreate(virtClient, vme)
-
-			err := runDownloadCmd(
-				setFlag(vmexport.PVC_FLAG, "test-pvc"),
-				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")),
-				vmexport.INSECURE_FLAG,
-			)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("Succesfully create and download a VirtualMachineExport with raw format", func() {
-			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, _ string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
-				resp := http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewReader([]byte{
-						0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
-						0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
-						0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
-						0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
-						0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
-						0x00, 0x00,
-						0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
-						0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
-						0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
-						0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
-						0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
-						0x00, 0x00,
-					})),
-				}
-				return &resp, nil
+		Context("Successfully create and download", func() {
+			updateVMEStatusOnCreate := func(format exportv1.ExportVolumeFormat) {
+				virtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (bool, runtime.Object, error) {
+					create, ok := action.(testing.CreateAction)
+					Expect(ok).To(BeTrue())
+					vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
+					Expect(ok).To(BeTrue())
+					vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+						Name: volumeName,
+						Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+							Format: format,
+							Url:    server.URL,
+						}}},
+					})
+					return false, vme, nil
+				})
 			}
 
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
-				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportCreate(virtClient, vme)
+			It("a VirtualMachineExport", func() {
+				updateVMEStatusOnCreate(exportv1.KubeVirtGz)
+				err := runDownloadCmd(
+					setFlag(vmexport.PVC_FLAG, pvcName),
+					setFlag(vmexport.VOLUME_FLAG, volumeName),
+					setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
+					vmexport.INSECURE_FLAG,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-			err := runDownloadCmd(
-				setFlag(vmexport.FORMAT_FLAG, vmexport.RAW_FORMAT),
-				setFlag(vmexport.PVC_FLAG, "test-pvc"),
-				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")),
-				vmexport.INSECURE_FLAG,
-			)
-			Expect(err).ToNot(HaveOccurred())
-		})
+			It("a VirtualMachineExport with raw format", func() {
+				vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, _ string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body: io.NopCloser(bytes.NewReader([]byte{
+							0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
+							0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
+							0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
+							0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
+							0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
+							0x00, 0x00,
+							0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
+							0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
+							0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
+							0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
+							0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
+							0x00, 0x00,
+						})),
+					}, nil
+				}
 
-		It("Succesfully download a VirtualMachineExport without decompressing is url is already raw", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
-				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportCreate(virtClient, vme)
+				updateVMEStatusOnCreate(exportv1.KubeVirtGz)
+				err := runDownloadCmd(
+					setFlag(vmexport.FORMAT_FLAG, vmexport.RAW_FORMAT),
+					setFlag(vmexport.PVC_FLAG, pvcName),
+					setFlag(vmexport.VOLUME_FLAG, volumeName),
+					setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
+					vmexport.INSECURE_FLAG,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-			err := runDownloadCmd(
-				setFlag(vmexport.FORMAT_FLAG, vmexport.RAW_FORMAT),
-				setFlag(vmexport.PVC_FLAG, "test-pvc"),
-				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")),
-				vmexport.INSECURE_FLAG,
-			)
-			Expect(err).ToNot(HaveOccurred())
+			It("a VirtualMachineExport without decompressing is url is already raw", func() {
+				updateVMEStatusOnCreate(exportv1.KubeVirtRaw)
+				err := runDownloadCmd(
+					setFlag(vmexport.FORMAT_FLAG, vmexport.RAW_FORMAT),
+					setFlag(vmexport.PVC_FLAG, pvcName),
+					setFlag(vmexport.VOLUME_FLAG, volumeName),
+					setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
+					vmexport.INSECURE_FLAG,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
 		})
 
 		It("Succesfully download a VirtualMachineExport with just 'raw' links", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
-				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtRaw,
+					Url:    server.URL,
+				}}},
+			})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runDownloadCmd(
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "test-pvc")),
+				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
 				vmexport.INSECURE_FLAG,
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("VirtualMachineExport download succeeds when the volume has a different name than expected but there's only one volume", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    "no-test-volume",
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
-				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: "no-test-volume",
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtRaw,
+					Url:    server.URL,
+				}}},
+			})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
 			)
@@ -508,256 +544,233 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download succeeds when there's only one volume and no --volume has been specified", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    "no-test-volume",
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
-				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: "no-test-volume",
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtRaw,
+					Url:    server.URL,
+				}}},
+			})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runDownloadCmd(
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Succesfully create VirtualMachineExport with TTL", func() {
-			vme := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
-				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-
-			virtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (bool, runtime.Object, error) {
-				create, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				Expect(*vme.Spec.TTLDuration).To(Equal(metav1.Duration{Duration: time.Minute}))
-				return true, vme, nil
-			})
-
+			ttl := metav1.Duration{Duration: 2 * time.Minute}
 			err := runCreateCmd(
-				setFlag(vmexport.PVC_FLAG, "test-pvc"),
-				setFlag(vmexport.TTL_FLAG, "1m"),
+				setFlag(vmexport.PVC_FLAG, pvcName),
+				setFlag(vmexport.TTL_FLAG, ttl.Duration.String()),
 			)
 			Expect(err).ToNot(HaveOccurred())
+
+			vme, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*vme.Spec.TTLDuration).To(Equal(ttl))
 		})
 	})
 
 	Context("getUrlFromVirtualMachineExport", func() {
-		var vmeinfo *vmexport.VMExportInfo
-
-		BeforeEach(func() {
-			vmeinfo = &vmexport.VMExportInfo{
-				Name:       vmeName,
+		It("Should get compressed URL even when there's multiple URLs", func() {
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{
+					{
+						Format: exportv1.KubeVirtRaw,
+						Url:    "raw",
+					},
+					{
+						Format: exportv1.KubeVirtRaw,
+						Url:    "raw",
+					},
+					{
+						Format: exportv1.KubeVirtGz,
+						Url:    "compressed",
+					},
+					{
+						Format: exportv1.KubeVirtRaw,
+						Url:    "raw",
+					},
+				}},
+			})
+			vmeInfo := &vmexport.VMExportInfo{
+				Name:       vme.Name,
 				VolumeName: volumeName,
 			}
-		})
 
-		It("Should get compressed URL even when there's multiple URLs", func() {
-			vmExport := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vmExport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name: volumeName,
-					Formats: []exportv1.VirtualMachineExportVolumeFormat{
-						{
-							Format: exportv1.KubeVirtRaw,
-							Url:    "raw",
-						},
-						{
-							Format: exportv1.KubeVirtRaw,
-							Url:    "raw",
-						},
-						{
-							Format: exportv1.KubeVirtGz,
-							Url:    "compressed",
-						},
-						{
-							Format: exportv1.KubeVirtRaw,
-							Url:    "raw",
-						},
-					},
-				},
-			}, secretName)
-
-			url, err := vmexport.GetUrlFromVirtualMachineExport(vmExport, vmeinfo)
+			url, err := vmexport.GetUrlFromVirtualMachineExport(vme, vmeInfo)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(url).Should(Equal("compressed"))
 		})
 
 		It("Should get raw URL when there's no other option", func() {
-			vmExport := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vmExport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat("raw", exportv1.KubeVirtRaw),
-				},
-			}, secretName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{
+					{
+						Format: exportv1.KubeVirtRaw,
+						Url:    "raw",
+					},
+				}},
+			})
+			vmeInfo := &vmexport.VMExportInfo{
+				Name:       vme.Name,
+				VolumeName: volumeName,
+			}
 
-			url, err := vmexport.GetUrlFromVirtualMachineExport(vmExport, vmeinfo)
+			url, err := vmexport.GetUrlFromVirtualMachineExport(vme, vmeInfo)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(url).Should(Equal("raw"))
 		})
 
 		It("Should not get any URL when there's no valid options", func() {
-			vmExport := utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vmExport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.Dir),
-				},
-			}, secretName)
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{
+					{
+						Format: exportv1.Dir,
+						Url:    server.URL,
+					},
+				}},
+			})
+			vmeInfo := &vmexport.VMExportInfo{
+				Name:       vme.Name,
+				VolumeName: volumeName,
+			}
 
-			url, err := vmexport.GetUrlFromVirtualMachineExport(vmExport, vmeinfo)
+			url, err := vmexport.GetUrlFromVirtualMachineExport(vme, vmeInfo)
 			Expect(err).To(HaveOccurred())
 			Expect(url).To(Equal(""))
 		})
 	})
 
 	Context("Manifest", func() {
-		DescribeTable("should successfully create VirtualMachineExport if proper arg supplied", func(arg, expected string) {
+		const (
+			manifestUrl = "https://test.something.somewhere/test/all"
+			secretUrl   = "https://test.something.somewhere/test/secret"
+		)
+
+		DescribeTable("should successfully create VirtualMachineExport if proper arg supplied", func(expected string, extraArgs ...string) {
 			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, headers map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(Equal(manifestUrl))
 				Expect(headers).To(ContainElements(expected))
-				resp := http.Response{
+				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader("data")),
-				}
-				return &resp, nil
+				}, nil
 			}
 
-			vme := utils.VMExportSpecVM(vmeName, metav1.NamespaceDefault, "test", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtGz,
+					Url:    server.URL,
+				}}},
+			})
+			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests,
+				exportv1.VirtualMachineExportManifest{
+					Type: exportv1.AllManifests,
+					Url:  manifestUrl,
 				},
-			}, secretName)
-			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests, exportv1.VirtualMachineExportManifest{
-				Type: exportv1.AllManifests,
-				Url:  manifestUrl,
-			})
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
-			utils.HandleSecretGet(kubeClient, secretName)
+			)
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			virtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (bool, runtime.Object, error) {
-				create, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				return true, vme, nil
-			})
-
-			args := []string{
+			args := append([]string{
 				vmexport.MANIFEST_FLAG,
 				setFlag(vmexport.VM_FLAG, "test"),
-			}
-			if arg != "" {
-				args = append(args, arg)
-			}
-			err := runDownloadCmd(args...)
+			}, extraArgs...)
+			err = runDownloadCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("no output format arguments", "", vmexport.APPLICATION_YAML),
-			Entry("output format json", setFlag(vmexport.OUTPUT_FORMAT_FLAG, vmexport.OUTPUT_FORMAT_JSON), vmexport.APPLICATION_JSON),
-			Entry("output format yaml", setFlag(vmexport.OUTPUT_FORMAT_FLAG, vmexport.OUTPUT_FORMAT_YAML), vmexport.APPLICATION_YAML),
+			Entry("no output format arguments", vmexport.APPLICATION_YAML),
+			Entry("output format json", vmexport.APPLICATION_JSON, setFlag(vmexport.OUTPUT_FORMAT_FLAG, vmexport.OUTPUT_FORMAT_JSON)),
+			Entry("output format yaml", vmexport.APPLICATION_YAML, setFlag(vmexport.OUTPUT_FORMAT_FLAG, vmexport.OUTPUT_FORMAT_YAML)),
 		)
 
-		DescribeTable("should call both manifest and secret url if argument supplied", func(arg string, callCount int) {
-			calls := 0
+		DescribeTable("should call both manifest and secret url if argument supplied", func(withIncludeSecret bool) {
 			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
-				Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
-				calls++
-				resp := http.Response{
+				if withIncludeSecret {
+					Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
+				} else {
+					Expect(downloadUrl).To(Equal(manifestUrl))
+				}
+				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader("data")),
-				}
-				return &resp, nil
+				}, nil
 			}
 
-			vme := utils.VMExportSpecVM(vmeName, metav1.NamespaceDefault, "test", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtGz,
+					Url:    server.URL,
+				}}},
+			})
+			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests,
+				exportv1.VirtualMachineExportManifest{
+					Type: exportv1.AllManifests,
+					Url:  manifestUrl,
 				},
-			}, secretName)
-			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests, exportv1.VirtualMachineExportManifest{
-				Type: exportv1.AllManifests,
-				Url:  manifestUrl,
-			}, exportv1.VirtualMachineExportManifest{
-				Type: exportv1.AuthHeader,
-				Url:  secretUrl,
-			})
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
-			utils.HandleSecretGet(kubeClient, secretName)
-
-			virtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (bool, runtime.Object, error) {
-				create, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				return true, vme, nil
-			})
+				exportv1.VirtualMachineExportManifest{
+					Type: exportv1.AuthHeader,
+					Url:  secretUrl,
+				},
+			)
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			args := []string{
 				vmexport.MANIFEST_FLAG,
 				setFlag(vmexport.VM_FLAG, "test"),
 			}
-			if arg != "" {
-				args = append(args, arg)
+			if withIncludeSecret {
+				args = append(args, vmexport.INCLUDE_SECRET_FLAG)
 			}
-			err := runDownloadCmd(args...)
+			err = runDownloadCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(calls).To(Equal(callCount))
 		},
-			Entry("without --include-secret", "", 1),
-			Entry("with --include-secret", vmexport.INCLUDE_SECRET_FLAG, 2),
+			Entry("without --include-secret", false),
+			Entry("with --include-secret", true),
 		)
 
 		It("should error if http status is error", func() {
 			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
-				resp := http.Response{
+				return &http.Response{
 					StatusCode: http.StatusBadRequest,
 					Body:       io.NopCloser(strings.NewReader("")),
-				}
-				return &resp, nil
+				}, nil
 			}
 
-			vme := utils.VMExportSpecVM(vmeName, metav1.NamespaceDefault, "test", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    volumeName,
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtGz,
+					Url:    server.URL,
+				}}},
+			})
+			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests,
+				exportv1.VirtualMachineExportManifest{
+					Type: exportv1.AllManifests,
+					Url:  manifestUrl,
+				}, exportv1.VirtualMachineExportManifest{
+					Type: exportv1.AuthHeader,
+					Url:  secretUrl,
 				},
-			}, secretName)
-			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests, exportv1.VirtualMachineExportManifest{
-				Type: exportv1.AllManifests,
-				Url:  manifestUrl,
-			}, exportv1.VirtualMachineExportManifest{
-				Type: exportv1.AuthHeader,
-				Url:  secretUrl,
-			})
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
-			utils.HandleSecretGet(kubeClient, secretName)
+			)
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			virtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (bool, runtime.Object, error) {
-				create, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				return true, vme, nil
-			})
-
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				vmexport.MANIFEST_FLAG,
 				setFlag(vmexport.VM_FLAG, "test"),
 			)
@@ -766,27 +779,77 @@ var _ = Describe("vmexport", func() {
 	})
 
 	Context("Port-forward", func() {
+		const (
+			localPort    = uint16(5432)
+			localPortStr = "5432"
+		)
 		var (
-			vme *exportv1.VirtualMachineExport
+			service *k8sv1.Service
+			pod     *k8sv1.Pod
 		)
 
 		BeforeEach(func() {
-			vme = utils.VMExportSpecPVC(vmeName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    "no-test-volume",
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
+			vmexport.RunPortForwardFn = func(_ kubecli.KubevirtClient, _ k8sv1.Pod, _ string, _ []string, _, readyChan chan struct{}, portChan chan uint16) error {
+				readyChan <- struct{}{}
+				portChan <- localPort
+				return nil
+			}
+
+			vme = &exportv1.VirtualMachineExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: vmeName,
 				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportGet(virtClient, vme, vmeName)
+				Spec: exportv1.VirtualMachineExportSpec{
+					TokenSecretRef: &secret.Name,
+					Source: k8sv1.TypedLocalObjectReference{
+						APIGroup: &v1.SchemeGroupVersion.Group,
+						Kind:     "VirtualMachine",
+						Name:     "test-vm",
+					},
+				},
+				Status: vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtRaw,
+						Url:    server.URL,
+					}}},
+				}),
+			}
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			service = &k8sv1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "virt-export-" + vme.Name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: k8sv1.ServiceSpec{
+					Ports: []k8sv1.ServicePort{{
+						Name: "export",
+						Port: int32(443),
+					}},
+				},
+			}
+			_, err = kubeClient.CoreV1().Services(metav1.NamespaceDefault).Create(context.Background(), service, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			pod = &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "virt-export-pod-" + vme.Name,
+				},
+			}
+			_, err = kubeClient.CoreV1().Pods(metav1.NamespaceDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("VirtualMachineExport download fails when using port-forward with an invalid port", func() {
-			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 321)
-			utils.HandlePodList(kubeClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), service.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			service.Spec.Ports[0].Port = 321
+			_, err = kubeClient.CoreV1().Services(metav1.NamespaceDefault).Update(context.Background(), service, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				vmexport.PORT_FORWARD_FLAG,
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 			)
@@ -794,31 +857,33 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download with port-forward fails when the service doesn't have a valid pod ", func() {
-			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
+			err := kubeClient.CoreV1().Pods(metav1.NamespaceDefault).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				vmexport.PORT_FORWARD_FLAG,
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
-				setFlag(vmexport.LOCAL_PORT_FLAG, "5432"),
+				setFlag(vmexport.LOCAL_PORT_FLAG, localPortStr),
 			)
 			Expect(err).To(MatchError("no pods found for the service virt-export-test-vme"))
 		})
 
 		It("VirtualMachineExport download with port-forward succeeds", func() {
 			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
-				Expect(downloadUrl).To(Equal("https://127.0.0.1:5432"))
-				resp := http.Response{
+				Expect(downloadUrl).To(Equal("https://127.0.0.1:" + localPortStr))
+				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader("data")),
-				}
-				return &resp, nil
+				}, nil
 			}
 
+			vme, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			vme.Status.Links.Internal = vme.Status.Links.External
-			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
-			utils.HandlePodList(kubeClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
+			_, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Update(context.Background(), vme, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				vmexport.PORT_FORWARD_FLAG,
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
@@ -833,21 +898,21 @@ func setFlag(flag, parameter string) string {
 }
 
 func runCmd(args ...string) error {
-	_args := append([]string{commandName}, args...)
+	_args := append([]string{"vmexport"}, args...)
 	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
 }
 
 func runCreateCmd(args ...string) error {
-	_args := append([]string{commandName, vmexport.CREATE, vmeName}, args...)
+	_args := append([]string{"vmexport", vmexport.CREATE, vmeName}, args...)
 	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
 }
 
 func runDeleteCmd(args ...string) error {
-	_args := append([]string{commandName, vmexport.DELETE, vmeName}, args...)
+	_args := append([]string{"vmexport", vmexport.DELETE, vmeName}, args...)
 	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
 }
 
 func runDownloadCmd(args ...string) error {
-	_args := append([]string{commandName, vmexport.DOWNLOAD, vmeName}, args...)
+	_args := append([]string{"vmexport", vmexport.DOWNLOAD, vmeName}, args...)
 	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
 }

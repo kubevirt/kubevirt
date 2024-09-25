@@ -185,15 +185,6 @@ func HandlePodList(k8sClient *fakek8sclient.Clientset, podName string) {
 	})
 }
 
-func HandleVMExportDelete(client *kubevirtfake.Clientset, name string) {
-	client.Fake.PrependReactor("delete", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		delete, ok := action.(testing.DeleteAction)
-		Expect(ok).To(BeTrue())
-		Expect(delete.GetName()).To(Equal(name))
-		return true, nil, nil
-	})
-}
-
 func GetExportVolumeFormat(url string, format exportv1.ExportVolumeFormat) []exportv1.VirtualMachineExportVolumeFormat {
 	return []exportv1.VirtualMachineExportVolumeFormat{
 		{
