@@ -464,7 +464,7 @@ var _ = Describe("Annotations Generator", func() {
 				},
 			}
 
-			Expect(actualNetInfo.Interfaces).To(Equal(expectedNetInfo))
+			Expect(actualNetInfo.Interfaces).To(ConsistOf(expectedNetInfo))
 		})
 	})
 })
