@@ -186,7 +186,7 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 				virtconfig.Root,
 				virtconfig.ClusterProfiler,
 				virtconfig.WorkloadEncryptionSEV,
-				virtconfig.DockerSELinuxMCSWorkaround,
+				deprecation.DockerSELinuxMCSWorkaround,
 				deprecation.PSA,
 				virtconfig.VSOCKGate,
 			}
