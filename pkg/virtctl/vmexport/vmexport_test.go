@@ -3,6 +3,7 @@ package vmexport_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -77,18 +78,24 @@ var _ = Describe("vmexport", func() {
 			w.WriteHeader(http.StatusOK)
 		}))
 
-		vmexport.ExportProcessingComplete = utils.WaitExportCompleteDefault
-		vmexport.SetHTTPClientCreator(func(*http.Transport, bool) *http.Client {
+		vmexport.WaitForVirtualMachineExportFn = func(_ kubecli.KubevirtClient, _ *vmexport.VMExportInfo, _, _ time.Duration) error {
+			return nil
+		}
+		vmexport.GetHTTPClientFn = func(_ *http.Transport, _ bool) *http.Client {
 			return server.Client()
-		})
-		vmexport.SetPortForwarder(func(_ kubecli.KubevirtClient, _ k8sv1.Pod, _ string, _ []string, _, readyChan chan struct{}, portChan chan uint16) error {
+		}
+		vmexport.RunPortForwardFn = func(_ kubecli.KubevirtClient, _ k8sv1.Pod, _ string, _ []string, _, readyChan chan struct{}, portChan chan uint16) error {
 			readyChan <- struct{}{}
 			portChan <- uint16(5432)
 			return nil
-		})
+		}
 	})
 
 	AfterEach(func() {
+		vmexport.WaitForVirtualMachineExportFn = vmexport.WaitForVirtualMachineExport
+		vmexport.GetHTTPClientFn = vmexport.GetHTTPClient
+		vmexport.HandleHTTPGetRequestFn = vmexport.HandleHTTPGetRequest
+		vmexport.RunPortForwardFn = vmexport.RunPortForward
 		server.Close()
 	})
 
@@ -109,13 +116,18 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport processing fails when using 'download'", func() {
-			vmexport.ExportProcessingComplete = utils.WaitExportCompleteError
+			const errMsg = "processing failed: Test error"
+
+			vmexport.WaitForVirtualMachineExportFn = func(_ kubecli.KubevirtClient, _ *vmexport.VMExportInfo, _, _ time.Duration) error {
+				return errors.New(errMsg)
+			}
+
 			err := runDownloadCmd(
 				setFlag(vmexport.PVC_FLAG, "test-pvc"),
 				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
 			)
-			Expect(err).To(MatchError("processing failed: Test error"))
+			Expect(err).To(MatchError(errMsg))
 		})
 
 		It("VirtualMachineExport download fails when there's no volume available", func() {
@@ -396,7 +408,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("Succesfully create and download a VirtualMachineExport with raw format", func() {
-			vmexport.HandleHTTPRequest = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, _ string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
+			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, _ string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
 				resp := http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewReader([]byte{
@@ -611,7 +623,7 @@ var _ = Describe("vmexport", func() {
 
 	Context("Manifest", func() {
 		DescribeTable("should successfully create VirtualMachineExport if proper arg supplied", func(arg, expected string) {
-			vmexport.HandleHTTPRequest = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, headers map[string]string) (*http.Response, error) {
+			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, headers map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(Equal(manifestUrl))
 				Expect(headers).To(ContainElements(expected))
 				resp := http.Response{
@@ -660,7 +672,7 @@ var _ = Describe("vmexport", func() {
 
 		DescribeTable("should call both manifest and secret url if argument supplied", func(arg string, callCount int) {
 			calls := 0
-			vmexport.HandleHTTPRequest = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
+			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
 				calls++
 				resp := http.Response{
@@ -711,7 +723,7 @@ var _ = Describe("vmexport", func() {
 		)
 
 		It("should error if http status is error", func() {
-			vmexport.HandleHTTPRequest = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
+			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
 				resp := http.Response{
 					StatusCode: http.StatusBadRequest,
@@ -793,7 +805,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download with port-forward succeeds", func() {
-			vmexport.HandleHTTPRequest = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
+			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(Equal("https://127.0.0.1:5432"))
 				resp := http.Response{
 					StatusCode: http.StatusOK,

@@ -1,9 +1,7 @@
 package utils
 
 import (
-	"fmt"
 	"sync"
-	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -13,14 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
-	"kubevirt.io/client-go/kubecli"
-	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
-
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 )
 
 type AtomicBool struct {
@@ -220,12 +215,4 @@ func GetVMEStatus(volumes []exportv1.VirtualMachineExportVolume, secretName stri
 		},
 		TokenSecretRef: &tokenSecretRef,
 	}
-}
-
-func WaitExportCompleteDefault(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration) error {
-	return nil
-}
-
-func WaitExportCompleteError(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration) error {
-	return fmt.Errorf("processing failed: Test error")
 }
