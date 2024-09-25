@@ -913,7 +913,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(resp.Result).To(BeNil())
 			Expect(resp.Allowed).To(BeTrue())
 		})
-
 		It("should accept DataVolumeTemplate with deleted sourceRef if vm is going to be deleted", func() {
 			now := metav1.Now()
 			vm.DeletionTimestamp = &now
@@ -935,7 +934,137 @@ var _ = Describe("Validating VM Admitter", func() {
 			resp := admitVm(vmsAdmitter, vm)
 			Expect(resp.Allowed).To(BeTrue())
 		})
+		It("should reject invalid DataVolumeTemplate with no dataVolume name", func() {
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: cdiv1.DataVolumeSpec{
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+					Source: &cdiv1.DataVolumeSource{
+						Blank: &cdiv1.DataVolumeBlankImage{},
+					},
+				},
+			})
 
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("'name' field must not be empty for DataVolumeTemplate entry spec.dataVolumeTemplate[0].name."))
+		})
+		It("should reject invalid DataVolumeTemplate with no PVC nor Storage", func() {
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						Blank: &cdiv1.DataVolumeBlankImage{},
+					},
+				},
+			})
+
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Missing Data volume PVC or Storage"))
+		})
+		It("should reject invalid DataVolumeTemplate with both PVC and Storage", func() {
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					PVC:     &k8sv1.PersistentVolumeClaimSpec{},
+					Storage: &cdiv1.StorageSpec{},
+					Source: &cdiv1.DataVolumeSource{
+						Blank: &cdiv1.DataVolumeBlankImage{},
+					},
+				},
+			})
+
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Duplicate storage definition, both target storage and target pvc defined"))
+		})
+		It("should reject invalid DataVolumeTemplate with both datasource and Source", func() {
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					PVC: &k8sv1.PersistentVolumeClaimSpec{
+						DataSource: &k8sv1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+						},
+					},
+					Source: &cdiv1.DataVolumeSource{
+						Blank: &cdiv1.DataVolumeBlankImage{},
+					},
+				},
+			})
+
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("External population is incompatible with Source and SourceRef"))
+		})
+		It("should reject invalid DataVolumeTemplate with no datasource, source or sourceref", func() {
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+				},
+			})
+
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Data volume should have either Source, SourceRef, or be externally populated"))
+		})
+		It("should reject invalid DataVolumeTemplate with no valid Source", func() {
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					PVC:    &k8sv1.PersistentVolumeClaimSpec{},
+					Source: &cdiv1.DataVolumeSource{},
+				},
+			})
+
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Missing dataVolume valid source"))
+		})
+		It("should reject invalid DataVolumeTemplate with multiple Sources", func() {
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+					Source: &cdiv1.DataVolumeSource{
+						Blank: &cdiv1.DataVolumeBlankImage{},
+						HTTP:  &cdiv1.DataVolumeSourceHTTP{},
+					},
+				},
+			})
+
+			testutils.AddDataVolumeAPI(crdInformer)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Multiple dataVolume sources"))
+		})
 		It("should reject invalid DataVolumeTemplate with no Volume reference in VMI template", func() {
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
 				Name: "testdisk",
