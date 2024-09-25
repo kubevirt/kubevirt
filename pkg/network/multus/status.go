@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func NonDefaultMultusNetworksIndexedByIfaceName(pod *k8Scorev1.Pod) map[string]networkv1.NetworkStatus {
+func NonDefaultNetworkStatusIndexedByIfaceName(pod *k8Scorev1.Pod) map[string]networkv1.NetworkStatus {
 	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
 	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
 

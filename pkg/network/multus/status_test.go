@@ -36,7 +36,7 @@ var _ = Describe("Network Status", func() {
 	const multusNetworkStatusWithPrimaryNet = `[{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}}]`
 
 	DescribeTable("It should return empty", func(annotations map[string]string) {
-		result := multus.NonDefaultMultusNetworksIndexedByIfaceName(newStubPod(annotations))
+		result := multus.NonDefaultNetworkStatusIndexedByIfaceName(newStubPod(annotations))
 		Expect(result).To(BeEmpty())
 	},
 		Entry("when network-status is missing", map[string]string{}),
@@ -59,7 +59,7 @@ var _ = Describe("Network Status", func() {
 			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 		}
 
-		result := multus.NonDefaultMultusNetworksIndexedByIfaceName(newStubPod(annotations))
+		result := multus.NonDefaultNetworkStatusIndexedByIfaceName(newStubPod(annotations))
 
 		expectedResult := map[string]networkv1.NetworkStatus{
 			"pod7e0055a6880": {
@@ -87,7 +87,7 @@ var _ = Describe("Network Status", func() {
 			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndOrdinalSecondaryNets,
 		}
 
-		result := multus.NonDefaultMultusNetworksIndexedByIfaceName(newStubPod(annotations))
+		result := multus.NonDefaultNetworkStatusIndexedByIfaceName(newStubPod(annotations))
 
 		expectedResult := map[string]networkv1.NetworkStatus{
 			"net1": {

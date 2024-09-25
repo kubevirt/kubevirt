@@ -32,7 +32,7 @@ import (
 )
 
 func UpdateStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
-	indexedMultusStatusIfaces := multus.NonDefaultMultusNetworksIndexedByIfaceName(pod)
+	indexedMultusStatusIfaces := multus.NonDefaultNetworkStatusIndexedByIfaceName(pod)
 	ifaceNamingScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
 	for _, network := range vmi.Spec.Networks {
 		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)

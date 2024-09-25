@@ -84,7 +84,7 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8Scorev1.Pod) (map[string]string, error) {
 	annotations := map[string]string{}
 
-	if namescheme.PodHasOrdinalInterfaceName(multus.NonDefaultMultusNetworksIndexedByIfaceName(sourcePod)) {
+	if namescheme.PodHasOrdinalInterfaceName(multus.NonDefaultNetworkStatusIndexedByIfaceName(sourcePod)) {
 		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
 		multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
 			vmi.Namespace,

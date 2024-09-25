@@ -139,7 +139,7 @@ func (v *VMNetController) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInst
 		// This is an old virt-launcher that uses ordinal network interface names.
 		return true, nil
 	}
-	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(multus.NonDefaultMultusNetworksIndexedByIfaceName(pod))
+	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(multus.NonDefaultNetworkStatusIndexedByIfaceName(pod))
 	return hasOrdinalIfaces, nil
 }
 
