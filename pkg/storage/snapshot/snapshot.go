@@ -38,6 +38,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 )
 
 const (
@@ -707,6 +708,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 		updateSnapshotSnapshotableVolumes(vmSnapshotCpy, content)
+		metrics.HandleSucceededVMSnapshot(vmSnapshotCpy)
 	} else {
 		vmSnapshotCpy.Status.Phase = snapshotv1.InProgress
 		if source != nil {

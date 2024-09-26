@@ -285,6 +285,9 @@ Returns the amount of space in bytes restored from the source virtual machine. T
 ### kubevirt_vmsnapshot_persistentvolumeclaim_labels
 Returns the labels of the persistent volume claims that are used for restoring virtual machines. Type: Gauge.
 
+### kubevirt_vmsnapshot_succeeded_timestamp_seconds
+Returns the timestamp of successful virtual machine snapshot. Type: Gauge.
+
 ### kubevirt_vnc_active_connections
 Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.
 
