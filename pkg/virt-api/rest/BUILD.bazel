@@ -68,6 +68,7 @@ go_test(
         "authorizer_test.go",
         "dialers_test.go",
         "expand_test.go",
+        "memorydump_test.go",
         "profiler_test.go",
         "rest_suite_test.go",
         "sev_test.go",
@@ -75,6 +76,7 @@ go_test(
         "streamer_race_test.go",
         "streamer_test.go",
         "subresource_test.go",
+        "volumes_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
