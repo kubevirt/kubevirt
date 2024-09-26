@@ -362,7 +362,6 @@ func IsDisconnected(err error) bool {
 	if grpcStatus, ok := status.FromError(err); ok {
 
 		// see https://github.com/grpc/grpc-go/blob/master/codes/codes.go
-		// TODO which other codes might be related to disconnection...?
 		switch grpcStatus.Code() {
 		case codes.Canceled:
 			// e.g. v1client connection closing

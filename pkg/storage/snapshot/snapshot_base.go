@@ -557,7 +557,6 @@ func (ctrl *VMSnapshotController) handleDV(obj interface{}) {
 	if dv, ok := obj.(*cdiv1.DataVolume); ok {
 		key, _ := cache.MetaNamespaceKeyFunc(dv)
 		log.Log.V(3).Infof("Processing DV %s", key)
-		// TODO come back when DV/PVC name may differ
 		for _, idx := range []string{"dv", "pvc"} {
 			keys, err := ctrl.VMInformer.GetIndexer().IndexKeys(idx, key)
 			if err != nil {
