@@ -2,11 +2,13 @@ package vmexport_test
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -351,9 +353,15 @@ var _ = Describe("vmexport", func() {
 	})
 
 	Context("VMExport succeeds", func() {
-		It("VirtualMachineExport is created succesfully", func() {
-			err := runCreateCmd(setFlag(vmexport.PVC_FLAG, pvcName))
+		DescribeTable("VirtualMachineExport is created successfully", func(flag, kind string) {
+			const name = "test"
+			err := runCreateCmd(setFlag(flag, name))
 			Expect(err).ToNot(HaveOccurred())
+
+			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vme.Spec.Source.Kind).To(Equal(kind))
+			Expect(vme.Spec.Source.Name).To(Equal(name))
 
 			secret, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), secret.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -362,13 +370,24 @@ var _ = Describe("vmexport", func() {
 					"BlockOwnerDeletion": HaveValue(BeFalse()),
 				})), "owner ref BlockOwnerDeletion should be false for secret",
 			)
-		})
+		},
+			Entry("using PVC source", vmexport.PVC_FLAG, "PersistentVolumeClaim"),
+			Entry("using Snapshot source", vmexport.SNAPSHOT_FLAG, "VirtualMachineSnapshot"),
+			Entry("using VM source", vmexport.VM_FLAG, "VirtualMachine"),
+		)
 
-		It("VirtualMachineExport is deleted succesfully", func() {
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+		DescribeTable("Delete command runs successfully", func(exists bool) {
+			if exists {
+				_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
 			Expect(runDeleteCmd()).To(Succeed())
-		})
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(k8serrors.IsNotFound, "k8serrors.IsNotFound"))
+		},
+			Entry("when VME exists", true),
+			Entry("when VME does not exist", false),
+		)
 
 		It("VirtualMachineExport doesn't exist when using 'delete'", func() {
 			Expect(runDeleteCmd()).To(Succeed())
@@ -450,16 +469,38 @@ var _ = Describe("vmexport", func() {
 				})
 			}
 
-			It("a VirtualMachineExport", func() {
+			DescribeTable("a VirtualMachineExport", func(flag string) {
+				// Create random bytes to test streaming of data works correctly
+				const length = 100
+				data := make([]byte, length)
+				n, err := cryptorand.Read(data)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(n).To(Equal(length))
+
+				server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					n, err := w.Write(data)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(length))
+				})
+
 				updateVMEStatusOnCreate(exportv1.KubeVirtGz)
-				err := runDownloadCmd(
-					setFlag(vmexport.PVC_FLAG, pvcName),
+				err = runDownloadCmd(
+					setFlag(flag, "source"),
 					setFlag(vmexport.VOLUME_FLAG, volumeName),
 					setFlag(vmexport.OUTPUT_FLAG, outputPath),
 					vmexport.INSECURE_FLAG,
 				)
 				Expect(err).ToNot(HaveOccurred())
-			})
+
+				outputData, err := os.ReadFile(outputPath)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(outputData).To(Equal(data))
+				Expect(outputData).To(HaveLen(length))
+			},
+				Entry("using PVC source", vmexport.PVC_FLAG),
+				Entry("using Snapshot source", vmexport.SNAPSHOT_FLAG),
+				Entry("using VM source", vmexport.VM_FLAG),
+			)
 
 			It("a VirtualMachineExport with raw format", func() {
 				server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
