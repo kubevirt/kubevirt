@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"encoding/xml"
 	"fmt"
 	"io"
 	"net"
@@ -42,8 +41,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -78,10 +75,8 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 
 			By("creating valid libvirt domain")
 
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
 			Expect(domSpec.Devices.VSOCK.CID.Address).To(Equal(*vmi.Status.VSOCKCID))
 
@@ -134,10 +129,8 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
 			By("creating valid libvirt domain")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
 			Expect(domSpec.Devices.VSOCK.CID.Address).To(Equal(*vmi.Status.VSOCKCID))
 
@@ -150,10 +143,9 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
 
 			By("creating valid libvirt domain")
-			domain2, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi2)
+			domSpec2, err := tests.GetRunningVMIDomainSpec(vmi2)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec2 := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain2), domSpec2)).To(Succeed())
+
 			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
 			Expect(domSpec2.Devices.VSOCK.CID.Address).To(Equal(*vmi2.Status.VSOCKCID))
 
@@ -162,10 +154,9 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			migration := libmigration.New(vmi2.Name, vmi2.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
-			domain2, err = tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi2)
+			domSpec2, err = tests.GetRunningVMIDomainSpec(vmi2)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec2 = &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain2), domSpec2)).To(Succeed())
+
 			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
 			Expect(domSpec2.Devices.VSOCK.CID.Address).To(Equal(*vmi2.Status.VSOCKCID))
 		})

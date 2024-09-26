@@ -2,7 +2,6 @@ package tests_test
 
 import (
 	"context"
-	"encoding/xml"
 	"fmt"
 	"strings"
 	"time"
@@ -287,11 +286,8 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			vmi := libvmifact.NewCirros(withHypervPassthrough())
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
 			Expect(domSpec.Features.Hyperv.Mode).To(Equal(api.HypervModePassthrough))
 
 			Eventually(matcher.ThisVMI(vmi), 60*time.Second, 1*time.Second).Should(matcher.HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
