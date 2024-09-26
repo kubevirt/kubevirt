@@ -17,6 +17,7 @@ go_library(
         "subresource.go",
         "usbredir.go",
         "vnc.go",
+        "volumes.go",
         "vsock.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/rest",
