@@ -45,6 +45,7 @@ var _ = Describe("vmexport", func() {
 		kubeClient *fakek8sclient.Clientset
 		virtClient *kubevirtfake.Clientset
 		server     *httptest.Server
+		outputPath string
 
 		vme    *exportv1.VirtualMachineExport
 		secret *k8sv1.Secret
@@ -76,6 +77,8 @@ var _ = Describe("vmexport", func() {
 		server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
+
+		outputPath = filepath.Join(GinkgoT().TempDir(), "disk.img")
 
 		vmexport.WaitForVirtualMachineExportFn = func(_ kubecli.KubevirtClient, _ *vmexport.VMExportInfo, _, _ time.Duration) error {
 			return nil
@@ -122,14 +125,16 @@ var _ = Describe("vmexport", func() {
 			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			err = runCreateCmd(setFlag(vmexport.PVC_FLAG, pvcName))
+			err = runCreateCmd(
+				setFlag(vmexport.PVC_FLAG, pvcName),
+			)
 			Expect(err).To(MatchError(ContainSubstring("VirtualMachineExport 'default/test-vme' already exists")))
 		})
 
 		It("VirtualMachineExport doesn't exist when using 'download' without source type", func() {
 			err := runDownloadCmd(
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "output.img")),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).To(MatchError(ContainSubstring("unable to get 'default/test-vme' VirtualMachineExport")))
 		})
@@ -142,8 +147,8 @@ var _ = Describe("vmexport", func() {
 
 			err := runDownloadCmd(
 				setFlag(vmexport.PVC_FLAG, pvcName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).To(MatchError(errMsg))
 		})
@@ -154,8 +159,8 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).To(MatchError(ContainSubstring("unable to access the volume info from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vme.Name)))
 		})
@@ -181,8 +186,8 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vme.Name)))
 		})
@@ -208,7 +213,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).To(MatchError(ContainSubstring("detected more than one downloadable volume in '%s/%s' VirtualMachineExport: Select the expected volume using the --volume flag", metav1.NamespaceDefault, vme.Name)))
 		})
@@ -219,8 +224,8 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vme.Name)))
 		})
@@ -237,8 +242,8 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL from '%s/%s' VirtualMachineExport", metav1.NamespaceDefault, vme.Name)))
 		})
@@ -255,8 +260,8 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).To(MatchError(ContainSubstring("secrets \"%s\" not found", secret.Name)))
 		})
@@ -280,8 +285,9 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
-				setFlag(vmexport.VOLUME_FLAG, volumeName), setFlag(vmexport.RETRY_FLAG, "2"),
+				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
+				setFlag(vmexport.RETRY_FLAG, "2"),
 			)
 			Expect(err).To(MatchError("retry count reached, exiting unsuccesfully"))
 		})
@@ -311,8 +317,9 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
-				setFlag(vmexport.VOLUME_FLAG, volumeName), setFlag(vmexport.RETRY_FLAG, "2"),
+				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
+				setFlag(vmexport.RETRY_FLAG, "2"),
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -384,7 +391,7 @@ var _ = Describe("vmexport", func() {
 
 			err = runDownloadCmd(
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 				vmexport.INSECURE_FLAG,
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -408,7 +415,7 @@ var _ = Describe("vmexport", func() {
 
 			args := append([]string{
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 				vmexport.INSECURE_FLAG,
 			}, extraArgs...)
 			err = runDownloadCmd(args...)
@@ -449,7 +456,7 @@ var _ = Describe("vmexport", func() {
 				err := runDownloadCmd(
 					setFlag(vmexport.PVC_FLAG, pvcName),
 					setFlag(vmexport.VOLUME_FLAG, volumeName),
-					setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
+					setFlag(vmexport.OUTPUT_FLAG, outputPath),
 					vmexport.INSECURE_FLAG,
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -481,7 +488,7 @@ var _ = Describe("vmexport", func() {
 					setFlag(vmexport.FORMAT_FLAG, vmexport.RAW_FORMAT),
 					setFlag(vmexport.PVC_FLAG, pvcName),
 					setFlag(vmexport.VOLUME_FLAG, volumeName),
-					setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
+					setFlag(vmexport.OUTPUT_FLAG, outputPath),
 					vmexport.INSECURE_FLAG,
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -493,7 +500,7 @@ var _ = Describe("vmexport", func() {
 					setFlag(vmexport.FORMAT_FLAG, vmexport.RAW_FORMAT),
 					setFlag(vmexport.PVC_FLAG, pvcName),
 					setFlag(vmexport.VOLUME_FLAG, volumeName),
-					setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
+					setFlag(vmexport.OUTPUT_FLAG, outputPath),
 					vmexport.INSECURE_FLAG,
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -516,7 +523,7 @@ var _ = Describe("vmexport", func() {
 
 			err = runDownloadCmd(
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), pvcName)),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 				vmexport.INSECURE_FLAG,
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -537,8 +544,8 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -558,7 +565,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -851,7 +858,7 @@ var _ = Describe("vmexport", func() {
 
 			err = runDownloadCmd(
 				vmexport.PORT_FORWARD_FLAG,
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).To(MatchError("Service virt-export-test-vme does not have a service port 443"))
 		})
@@ -862,7 +869,7 @@ var _ = Describe("vmexport", func() {
 
 			err = runDownloadCmd(
 				vmexport.PORT_FORWARD_FLAG,
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 				setFlag(vmexport.LOCAL_PORT_FLAG, localPortStr),
 			)
 			Expect(err).To(MatchError("no pods found for the service virt-export-test-vme"))
@@ -885,8 +892,8 @@ var _ = Describe("vmexport", func() {
 
 			err = runDownloadCmd(
 				vmexport.PORT_FORWARD_FLAG,
-				setFlag(vmexport.OUTPUT_FLAG, filepath.Join(GinkgoT().TempDir(), "disk.img")),
 				setFlag(vmexport.VOLUME_FLAG, volumeName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
