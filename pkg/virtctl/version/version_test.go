@@ -51,7 +51,7 @@ var _ = Describe("Version", func() {
 			var buf bytes.Buffer
 			cmd, clientConfig := virtctl.NewVirtctlCommand()
 			cmd.SetOut(&buf)
-			version.CheckClientServerVersion(&clientConfig)
+			version.CheckClientServerVersion(&clientConfig, cmd)
 			//Print out the captured output to show the test output also in the console
 			fmt.Printf(buf.String())
 			Expect(buf.String()).To(ContainSubstring("You are using a client virtctl version that is different from the KubeVirt version running in the cluster"),

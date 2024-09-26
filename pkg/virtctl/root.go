@@ -133,7 +133,7 @@ func Execute() {
 	log.InitializeLogging(programName)
 	cmd, clientConfig := NewVirtctlCommand()
 	if err := cmd.Execute(); err != nil {
-		version.CheckClientServerVersion(&clientConfig)
+		version.CheckClientServerVersion(&clientConfig, cmd)
 		fmt.Fprintln(cmd.Root().ErrOrStderr(), strings.TrimSpace(err.Error()))
 		os.Exit(1)
 	}
