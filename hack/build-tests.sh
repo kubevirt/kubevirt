@@ -8,14 +8,13 @@ JOB_TYPE="${JOB_TYPE:-}"
 if [ "${JOB_TYPE}" == "travis" ]; then
     go get -v -t ./...
     go install github.com/mattn/goveralls@latest
-    go install github.com/onsi/ginkgo/v2/ginkgo@$(grep github.com/onsi/ginkgo go.mod | cut -d " " -f2)
     go mod vendor
     PKG_PACKAGE_PATH="./pkg/"
     CONTROLLERS_PACKAGE_PATH="./controllers/"
     mkdir -p coverprofiles
     # Workaround - run tests on webhooks first to prevent failure when running all the test in the following line.
-    ginkgo -r ${PKG_PACKAGE_PATH}webhooks
-    ginkgo -cover -output-dir=./coverprofiles -coverprofile=cover.coverprofile -r ${PKG_PACKAGE_PATH} -r ${CONTROLLERS_PACKAGE_PATH}
+    go test ${PKG_PACKAGE_PATH}webhooks/...
+    go test -v -outputdir=./coverprofiles -coverprofile=cover.coverprofile ${PKG_PACKAGE_PATH}... ${CONTROLLERS_PACKAGE_PATH}...
 else
     test_path="./tests/func-tests"
     GOFLAGS='' go install github.com/onsi/ginkgo/v2/ginkgo@$(grep github.com/onsi/ginkgo go.mod | cut -d " " -f2)
