@@ -14,6 +14,7 @@ import (
 	imagev1 "github.com/openshift/api/image/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -164,6 +165,7 @@ func GetScheme() *runtime.Scheme {
 		openshiftconfigv1.Install,
 		csvv1alpha1.AddToScheme,
 		aaqv1alpha1.AddToScheme,
+		deschedulerv1.AddToScheme,
 	} {
 		Expect(f(testScheme)).ToNot(HaveOccurred())
 	}
@@ -307,6 +309,15 @@ func (c ClusterInfoMock) IsConsolePluginImageProvided() bool {
 func (c ClusterInfoMock) IsMonitoringAvailable() bool {
 	return true
 }
+func (c ClusterInfoMock) IsDeschedulerAvailable() bool {
+	return true
+}
+func (c ClusterInfoMock) IsDeschedulerCRDDeployed(_ context.Context, _ client.Client) bool {
+	return true
+}
+func (c ClusterInfoMock) IsDeschedulerMisconfigured() bool {
+	return false
+}
 func (c ClusterInfoMock) IsSingleStackIPv6() bool {
 	return true
 }
@@ -328,6 +339,9 @@ func (ClusterInfoMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityPro
 	}
 }
 func (ClusterInfoMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
+	return nil
+}
+func (ClusterInfoMock) RefreshDeschedulerCR(_ context.Context, _ client.Client) error {
 	return nil
 }
 
@@ -378,11 +392,23 @@ func (ClusterInfoSNOMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurity
 func (ClusterInfoSNOMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
 	return nil
 }
+func (ClusterInfoSNOMock) RefreshDeschedulerCR(_ context.Context, _ client.Client) error {
+	return nil
+}
 func (ClusterInfoSNOMock) IsConsolePluginImageProvided() bool {
 	return true
 }
 func (c ClusterInfoSNOMock) IsMonitoringAvailable() bool {
 	return true
+}
+func (c ClusterInfoSNOMock) IsDeschedulerAvailable() bool {
+	return true
+}
+func (c ClusterInfoSNOMock) IsDeschedulerCRDDeployed(_ context.Context, _ client.Client) bool {
+	return true
+}
+func (c ClusterInfoSNOMock) IsDeschedulerMisconfigured() bool {
+	return false
 }
 func (c ClusterInfoSNOMock) IsSingleStackIPv6() bool {
 	return true
@@ -432,7 +458,16 @@ func (ClusterInfoSRCPHAIMock) IsConsolePluginImageProvided() bool {
 func (ClusterInfoSRCPHAIMock) IsMonitoringAvailable() bool {
 	return true
 }
-func (m ClusterInfoSRCPHAIMock) IsSingleStackIPv6() bool {
+func (ClusterInfoSRCPHAIMock) IsDeschedulerAvailable() bool {
+	return true
+}
+func (ClusterInfoSRCPHAIMock) IsDeschedulerCRDDeployed(_ context.Context, _ client.Client) bool {
+	return true
+}
+func (ClusterInfoSRCPHAIMock) IsDeschedulerMisconfigured() bool {
+	return false
+}
+func (ClusterInfoSRCPHAIMock) IsSingleStackIPv6() bool {
 	return true
 }
 func (ClusterInfoSRCPHAIMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
@@ -442,6 +477,9 @@ func (ClusterInfoSRCPHAIMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecu
 	}
 }
 func (ClusterInfoSRCPHAIMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
+	return nil
+}
+func (ClusterInfoSRCPHAIMock) RefreshDeschedulerCR(_ context.Context, _ client.Client) error {
 	return nil
 }
 

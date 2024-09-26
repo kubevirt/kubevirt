@@ -12,6 +12,7 @@ import (
 	imagev1 "github.com/openshift/api/image/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftroutev1 "github.com/openshift/api/route/v1"
+	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsapiv2 "github.com/operator-framework/api/pkg/operators/v2"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -50,6 +51,8 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/api"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/crd"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/descheduler"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/hyperconverged"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/observability"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
@@ -86,6 +89,7 @@ var (
 		operatorsapiv2.AddToScheme,
 		imagev1.Install,
 		aaqv1alpha1.AddToScheme,
+		deschedulerv1.AddToScheme,
 	}
 )
 
@@ -121,7 +125,7 @@ func main() {
 	needLeaderElection := !ci.IsRunningLocally()
 
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, getManagerOptions(operatorNamespace, needLeaderElection, ci.IsMonitoringAvailable(), ci.IsOpenshift(), scheme))
+	mgr, err := manager.New(cfg, getManagerOptions(operatorNamespace, needLeaderElection, ci, scheme))
 	cmdHelper.ExitOnError(err, "can't initiate manager")
 
 	// register pprof instrumentation if HCO_PPROF_ADDR is set
@@ -165,6 +169,10 @@ func main() {
 	upgradeableCondition, err = hcoutil.NewOperatorCondition(ci, mgr.GetClient(), operatorsapiv2.Upgradeable)
 	cmdHelper.ExitOnError(err, "Cannot create Upgradeable Operator Condition")
 
+	// a channel to trigger a restart of the operator
+	// via a clean cancel of the manager
+	restartCh := make(chan struct{})
+
 	// Create a new reconciler
 	if err := hyperconverged.RegisterReconciler(mgr, ci, upgradeableCondition); err != nil {
 		logger.Error(err, "failed to register the HyperConverged controller")
@@ -172,9 +180,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create a new CRD reconciler
+	if err := crd.RegisterReconciler(mgr, restartCh); err != nil {
+		logger.Error(err, "failed to register the CRD controller")
+		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register CRD controller; "+err.Error())
+		os.Exit(1)
+	}
+
 	if ci.IsOpenshift() {
 		if err = observability.SetupWithManager(mgr); err != nil {
 			logger.Error(err, "unable to create controller", "controller", "Observability")
+			os.Exit(1)
+		}
+	}
+
+	if ci.IsDeschedulerAvailable() {
+		// Create a new reconciler for KubeDescheduler
+		if err := descheduler.RegisterReconciler(mgr); err != nil {
+			logger.Error(err, "failed to register the KubeDescheduler controller")
+			eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register KubeDescheduler controller; "+err.Error())
 			os.Exit(1)
 		}
 	}
@@ -193,8 +217,17 @@ func main() {
 	logger.Info("Starting the Cmd.")
 	eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Init", "Starting the HyperConverged Pod")
 
+	// create context with cancel for the manager
+	mgrCtx, mgrCancel := context.WithCancel(signals.SetupSignalHandler())
+
+	defer mgrCancel()
+	go func() {
+		<-restartCh
+		mgrCancel()
+	}()
+
 	// Start the Cmd
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(mgrCtx); err != nil {
 		logger.Error(err, "Manager exited non-zero")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "UnexpectedError", "HyperConverged crashed; "+err.Error())
 		os.Exit(1)
@@ -203,7 +236,7 @@ func main() {
 
 // Restricts the cache's ListWatch to specific fields/labels per GVK at the specified object to control the memory impact
 // this is used to completely overwrite the NewCache function so all the interesting objects should be explicitly listed here
-func getCacheOption(operatorNamespace string, isMonitoringAvailable, isOpenshift bool) cache.Options {
+func getCacheOption(operatorNamespace string, ci hcoutil.ClusterInfo) cache.Options {
 	namespaceSelector := fields.Set{"metadata.namespace": operatorNamespace}.AsSelector()
 	labelSelector := labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}.AsSelector()
 	labelSelectorForNamespace := labels.Set{hcoutil.KubernetesMetadataName: operatorNamespace}.AsSelector()
@@ -257,6 +290,10 @@ func getCacheOption(operatorNamespace string, isMonitoringAvailable, isOpenshift
 		},
 	}
 
+	cacheOptionsByObjectForDescheduler := map[client.Object]cache.ByObject{
+		&deschedulerv1.KubeDescheduler{}: {},
+	}
+
 	cacheOptionsByObjectForOpenshift := map[client.Object]cache.ByObject{
 		&openshiftroutev1.Route{}: {
 			Namespaces: map[string]cache.Config{
@@ -279,10 +316,13 @@ func getCacheOption(operatorNamespace string, isMonitoringAvailable, isOpenshift
 		},
 	}
 
-	if isMonitoringAvailable {
+	if ci.IsMonitoringAvailable() {
 		maps.Copy(cacheOptions.ByObject, cacheOptionsByObjectForMonitoring)
 	}
-	if isOpenshift {
+	if ci.IsDeschedulerAvailable() {
+		maps.Copy(cacheOptions.ByObject, cacheOptionsByObjectForDescheduler)
+	}
+	if ci.IsOpenshift() {
 		maps.Copy(cacheOptions.ByObject, cacheOptionsByObjectForOpenshift)
 	}
 
@@ -290,7 +330,7 @@ func getCacheOption(operatorNamespace string, isMonitoringAvailable, isOpenshift
 
 }
 
-func getManagerOptions(operatorNamespace string, needLeaderElection, isMonitoringAvailable, isOpenshift bool, scheme *apiruntime.Scheme) manager.Options {
+func getManagerOptions(operatorNamespace string, needLeaderElection bool, ci hcoutil.ClusterInfo, scheme *apiruntime.Scheme) manager.Options {
 	return manager.Options{
 		Metrics: server.Options{
 			BindAddress: fmt.Sprintf("%s:%d", hcoutil.MetricsHost, hcoutil.MetricsPort),
@@ -305,7 +345,7 @@ func getManagerOptions(operatorNamespace string, needLeaderElection, isMonitorin
 		// "configmapsleases". Therefore, having only "leases" should be safe now.
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		LeaderElectionID:           "hyperconverged-cluster-operator-lock",
-		Cache:                      getCacheOption(operatorNamespace, isMonitoringAvailable, isOpenshift),
+		Cache:                      getCacheOption(operatorNamespace, ci),
 		Scheme:                     scheme,
 	}
 }

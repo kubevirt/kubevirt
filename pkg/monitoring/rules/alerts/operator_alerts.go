@@ -11,6 +11,7 @@ const (
 	unsafeModificationAlert       = "UnsupportedHCOModification"
 	installationNotCompletedAlert = "HCOInstallationIncomplete"
 	singleStackIPv6Alert          = "SingleStackIPv6Unsupported"
+	MisconfiguredDeschedulerAlert = "HCOMisconfiguredDescheduler"
 	severityAlertLabelKey         = "severity"
 	healthImpactAlertLabelKey     = "operator_health_impact"
 )
@@ -60,6 +61,18 @@ func operatorAlerts() []promv1.Rule {
 			Annotations: map[string]string{
 				"description": "KubeVirt Hyperconverged is not supported on a single stack IPv6 cluster",
 				"summary":     "KubeVirt Hyperconverged is not supported on a single stack IPv6 cluster",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:     "critical",
+				healthImpactAlertLabelKey: "critical",
+			},
+		},
+		{
+			Alert: MisconfiguredDeschedulerAlert,
+			Expr:  intstr.FromString("kubevirt_hco_misconfigured_descheduler == 1"),
+			Annotations: map[string]string{
+				"description": "Kube Descheduler is not correctly configured for KubeVirt",
+				"summary":     "Kube Descheduler is not correctly configured for KubeVirt",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:     "critical",

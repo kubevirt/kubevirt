@@ -21,6 +21,7 @@ const (
 	HcoMutatingWebhookNS             = "mutate-ns-hco.kubevirt.io"
 	PrometheusRuleCRDName            = "prometheusrules.monitoring.coreos.com"
 	ServiceMonitorCRDName            = "servicemonitors.monitoring.coreos.com"
+	DeschedulerCRDName               = "kubedeschedulers.operator.openshift.io"
 	HcoMutatingWebhookHyperConverged = "mutate-hyperconverged-hco.kubevirt.io"
 	AppLabel                         = "app"
 	UndefinedNamespace               = ""
@@ -69,7 +70,9 @@ const (
 	UIPluginServerPort     int32 = 9443
 	UIProxyServerPort      int32 = 8080
 
-	APIServerCRName = "cluster"
+	APIServerCRName      = "cluster"
+	DeschedulerCRName    = "cluster"
+	DeschedulerNamespace = "openshift-kube-descheduler-operator"
 
 	DataImportCronEnabledAnnotation = "dataimportcrontemplate.kubevirt.io/enable"
 )

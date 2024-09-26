@@ -218,13 +218,16 @@ charts:
 local:
 	./hack/make_local.sh
 
-deploy_cr: deploy_hco_cr deploy_hpp
+deploy_cr: deploy_hco_cr deploy_hpp deploy_fake_kubedescheduler
 
 deploy_hco_cr:
 	./hack/deploy_only_cr.sh
 
 deploy_hpp:
 	./hack/hpp/deploy_hpp.sh
+
+deploy_fake_kubedescheduler:
+	./hack/kubeDescheduler/deploy_fake_kubedescheduler.sh
 
 validate-no-offensive-lang:
 	./hack/validate-no-offensive-lang.sh
@@ -280,6 +283,7 @@ bump-hco:
 		kubevirt-nightly-test \
 		local \
 		deploy_cr \
+		deploy_fake_kubedescheduler \
 		build-docgen \
 		generate \
 		generate-doc \

@@ -13,12 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftroutev1 "github.com/openshift/api/route/v1"
+	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	promApi "github.com/prometheus/client_golang/api"
 	promApiv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	promConfig "github.com/prometheus/common/config"
 	promModel "github.com/prometheus/common/model"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -28,6 +31,8 @@ import (
 
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 
+	hcoalerts "github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/rules/alerts"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
@@ -186,6 +191,187 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
 		verifyOperatorHealthMetricValue(ctx, promClient, hcoClient, initialOperatorHealthMetricValue, warningImpact)
 	})
+
+	Describe("KubeDescheduler", Serial, Ordered, Label(tests.OpenshiftLabel, "monitoring"), func() {
+
+		var (
+			initialDescheduler = &deschedulerv1.KubeDescheduler{}
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			crd := &apiextensionsv1.CustomResourceDefinition{}
+			crdKey := client.ObjectKey{Name: hcoutil.DeschedulerCRDName}
+			key := client.ObjectKey{Namespace: hcoutil.DeschedulerNamespace, Name: hcoutil.DeschedulerCRName}
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				err := cli.Get(ctx, crdKey, crd)
+				if apierrors.IsNotFound(err) {
+					Skip("Skip test when KubeDescheduler CRD is not present")
+				}
+				g.Expect(err).NotTo(HaveOccurred())
+				err = cli.Get(ctx, key, initialDescheduler)
+				if apierrors.IsNotFound(err) {
+					Skip("Skip test when KubeDescheduler CR is not present")
+				}
+				g.Expect(err).NotTo(HaveOccurred())
+			}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
+		})
+
+		AfterAll(func(ctx context.Context) {
+			key := client.ObjectKey{Namespace: hcoutil.DeschedulerNamespace, Name: hcoutil.DeschedulerCRName}
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				descheduler := &deschedulerv1.KubeDescheduler{}
+				err := cli.Get(ctx, key, descheduler)
+				g.Expect(err).NotTo(HaveOccurred())
+				initialDescheduler.Spec.DeepCopyInto(&descheduler.Spec)
+				err = cli.Update(ctx, descheduler)
+				g.Expect(err).NotTo(HaveOccurred())
+			}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
+		})
+
+		It("KubeVirtCRModified alert should fired when KubeDescheduler is installed and not properly configured for KubeVirt", Serial, func(ctx context.Context) {
+
+			const (
+				query                 = `kubevirt_hco_misconfigured_descheduler`
+				jsonPatchMisconfigure = `[{"op": "replace", "path": "/spec", "value": {"managementState": "Managed"}}]`
+				jsonPatchConfigure    = `[{"op": "replace", "path": "/spec", "value": {"managementState": "Managed", "profileCustomizations": {"devEnableEvictionsInBackground": true }}}]`
+			)
+
+			By(fmt.Sprintf("Reading the `%s` metric from HCO prometheus endpoint", query))
+			var valueBefore float64
+			Eventually(func(g Gomega, ctx context.Context) {
+				var err error
+				valueBefore, err = hcoClient.GetHCOMetric(ctx, query)
+				g.Expect(err).NotTo(HaveOccurred())
+			}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
+			GinkgoWriter.Printf("The metric value before the test is: %0.2f\n", valueBefore)
+
+			patchMisconfigure := client.RawPatch(types.JSONPatchType, []byte(jsonPatchMisconfigure))
+			patchConfigure := client.RawPatch(types.JSONPatchType, []byte(jsonPatchConfigure))
+
+			descheduler := &deschedulerv1.KubeDescheduler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hcoutil.DeschedulerCRName,
+					Namespace: hcoutil.DeschedulerNamespace,
+				},
+			}
+
+			By("Misconfiguring the descheduler")
+			Expect(cli.Patch(ctx, descheduler, patchMisconfigure)).To(Succeed())
+			By("checking that the metric reports it as misconfigured (1.0)")
+			Eventually(func(g Gomega, ctx context.Context) float64 {
+				valueAfter, err := hcoClient.GetHCOMetric(ctx, query)
+				g.Expect(err).NotTo(HaveOccurred())
+				return valueAfter
+			}).
+				WithTimeout(60*time.Second).
+				WithPolling(time.Second).
+				WithContext(ctx).
+				Should(
+					Equal(float64(1)),
+					"expected descheduler to be misconfigured; expected value: %0.2f", float64(1),
+				)
+
+			By("checking that the prometheus metric reports it as misconfigured (0.0)")
+			Eventually(func(ctx context.Context) float64 {
+				return getMetricValue(ctx, promClient, query)
+			}).
+				WithTimeout(60*time.Second).
+				WithPolling(time.Second).
+				WithContext(ctx).
+				Should(
+					Equal(float64(1)),
+					"expected descheduler to be misconfigured; expected value: %0.2f", float64(1),
+				)
+
+			By("Checking the alert")
+			Eventually(func(ctx context.Context) *promApiv1.Alert {
+				alerts, err := promClient.Alerts(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				alert := getAlertByName(alerts, hcoalerts.MisconfiguredDeschedulerAlert)
+				return alert
+			}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
+
+			verifyOperatorHealthMetricValue(ctx, promClient, hcoClient, initialOperatorHealthMetricValue, criticalImpact)
+
+			By("Correctly configuring the descheduler for KubeVirt")
+			Expect(cli.Patch(ctx, descheduler, patchConfigure)).To(Succeed())
+			By("checking that the metric doesn't report it as misconfigured (0.0)")
+			Eventually(func(g Gomega, ctx context.Context) float64 {
+				valueAfter, err := hcoClient.GetHCOMetric(ctx, query)
+				g.Expect(err).NotTo(HaveOccurred())
+				return valueAfter
+			}).
+				WithTimeout(60*time.Second).
+				WithPolling(time.Second).
+				WithContext(ctx).
+				Should(
+					Equal(float64(0)),
+					"expected descheduler to NOT be misconfigured; expected value: %0.2f", float64(0),
+				)
+
+			By("checking that the prometheus metric doesn't report it as misconfigured (0.0)")
+			Eventually(func(ctx context.Context) float64 {
+				return getMetricValue(ctx, promClient, query)
+			}).
+				WithTimeout(60*time.Second).
+				WithPolling(time.Second).
+				WithContext(ctx).
+				Should(
+					Equal(float64(0)),
+					"expected descheduler to NOT be misconfigured; expected value: %0.2f", float64(0),
+				)
+
+			By("Checking the alert is not firing")
+			Eventually(func(ctx context.Context) *promApiv1.Alert {
+				alerts, err := promClient.Alerts(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				alert := getAlertByName(alerts, hcoalerts.MisconfiguredDeschedulerAlert)
+				return alert
+			}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).Should(BeNil())
+
+			By("Misconfiguring a second time the descheduler")
+			Expect(cli.Patch(ctx, descheduler, patchMisconfigure)).To(Succeed())
+			By("checking that the metric reports it as misconfigured (1.0)")
+			Eventually(func(g Gomega, ctx context.Context) float64 {
+				valueAfter, err := hcoClient.GetHCOMetric(ctx, query)
+				g.Expect(err).NotTo(HaveOccurred())
+				return valueAfter
+			}).
+				WithTimeout(60*time.Second).
+				WithPolling(time.Second).
+				WithContext(ctx).
+				Should(
+					Equal(float64(1)),
+					"expected descheduler to be misconfigured; expected value: %0.2f", float64(1),
+				)
+
+			By("checking that the prometheus metric reports it as misconfigured (0.0)")
+			Eventually(func(ctx context.Context) float64 {
+				return getMetricValue(ctx, promClient, query)
+			}).
+				WithTimeout(60*time.Second).
+				WithPolling(time.Second).
+				WithContext(ctx).
+				Should(
+					Equal(float64(1)),
+					"expected descheduler to be misconfigured; expected value: %0.2f", float64(1),
+				)
+
+			By("Checking the alert")
+			Eventually(func(ctx context.Context) *promApiv1.Alert {
+				alerts, err := promClient.Alerts(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				alert := getAlertByName(alerts, hcoalerts.MisconfiguredDeschedulerAlert)
+				return alert
+			}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
+
+			verifyOperatorHealthMetricValue(ctx, promClient, hcoClient, initialOperatorHealthMetricValue, criticalImpact)
+
+		})
+	})
+
 })
 
 func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.Alert {

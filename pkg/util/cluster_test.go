@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
+	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -112,10 +116,35 @@ var _ = Describe("test clusterInfo", func() {
 				},
 			},
 		}
+
+		deschedulerCRD = &apiextensionsv1.CustomResourceDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: DeschedulerCRDName,
+			},
+		}
+
+		deschedulerNamespace = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: DeschedulerNamespace,
+				Annotations: map[string]string{
+					OpenshiftNodeSelectorAnn: "",
+				},
+			},
+		}
+
+		deschedulerCR = &deschedulerv1.KubeDescheduler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      DeschedulerCRName,
+				Namespace: DeschedulerNamespace,
+			},
+			Spec: deschedulerv1.KubeDeschedulerSpec{},
+		}
 	)
 
 	testScheme := scheme.Scheme
 	Expect(openshiftconfigv1.Install(testScheme)).To(Succeed())
+	Expect(deschedulerv1.AddToScheme(testScheme)).To(Succeed())
+	Expect(apiextensionsv1.AddToScheme(testScheme)).To(Succeed())
 
 	logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("clusterInfo_test")
 
@@ -140,6 +169,172 @@ var _ = Describe("test clusterInfo", func() {
 		Expect(GetClusterInfo().IsOpenshift()).To(BeFalse(), "should return false for IsOpenshift()")
 		Expect(GetClusterInfo().IsManagedByOLM()).To(BeTrue(), "should return true for IsManagedByOLM()")
 	})
+
+	It("check Init on kubernetes, with KubeDescheduler CRD without any CR for it", func() {
+		cl := fake.NewClientBuilder().
+			WithScheme(testScheme).
+			WithObjects(deschedulerCRD).
+			WithStatusSubresource(deschedulerCRD).
+			Build()
+		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
+
+		Expect(GetClusterInfo().IsOpenshift()).To(BeFalse(), "should return false for IsOpenshift()")
+		Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeTrue(), "should return true for IsDeschedulerAvailable()")
+		Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should return true for IsDeschedulerCRDDeployed(...)")
+		Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(BeFalse(), "should return false for IsDeschedulerMisconfigured()")
+	})
+
+	It("check Init on kubernetes, with KubeDescheduler CRD with a CR for it with default values", func() {
+		cl := fake.NewClientBuilder().
+			WithScheme(testScheme).
+			WithObjects(deschedulerCRD, deschedulerNamespace, deschedulerCR).
+			WithStatusSubresource(deschedulerCRD, deschedulerNamespace, deschedulerCR).
+			Build()
+		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
+
+		Expect(GetClusterInfo().IsOpenshift()).To(BeFalse(), "should return false for IsOpenshift()")
+		Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeTrue(), "should return true for IsDeschedulerAvailable()")
+		Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should return true for IsDeschedulerCRDDeployed(...)")
+		Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(BeTrue(), "should return true for IsDeschedulerMisconfigured()")
+	})
+
+	It("check Init on openshift, with KubeDescheduler CRD without any CR for it", func() {
+		cl := fake.NewClientBuilder().
+			WithScheme(testScheme).
+			WithObjects(clusterVersion, infrastructure, ingress, apiServer, dns, ipv4network, deschedulerCRD).
+			WithStatusSubresource(clusterVersion, infrastructure, ingress, apiServer, dns, ipv4network, deschedulerCRD).
+			Build()
+		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
+
+		Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
+		Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeTrue(), "should return true for IsDeschedulerAvailable()")
+		Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should return true for IsDeschedulerCRDDeployed(...)")
+		Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(BeFalse(), "should return false for IsDeschedulerMisconfigured()")
+	})
+
+	DescribeTable(
+		"check Init on openshift, with KubeDescheduler CRD with a CR for it ...",
+		func(deschedulerCR *deschedulerv1.KubeDescheduler, expectedIsDeschedulerMisconfigured bool) {
+			cl := fake.NewClientBuilder().
+				WithScheme(testScheme).
+				WithObjects(clusterVersion, infrastructure, ingress, apiServer, dns, ipv4network, deschedulerCRD, deschedulerNamespace, deschedulerCR).
+				WithStatusSubresource(clusterVersion, infrastructure, ingress, apiServer, dns, ipv4network, deschedulerCRD, deschedulerNamespace, deschedulerCR).
+				Build()
+			Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
+
+			Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
+			Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeTrue(), "should return true for IsDeschedulerAvailable()")
+			Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should return true for IsDeschedulerCRDDeployed(...)")
+			Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(Equal(expectedIsDeschedulerMisconfigured))
+		},
+		Entry(
+			"with default configuration",
+			&deschedulerv1.KubeDescheduler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      DeschedulerCRName,
+					Namespace: DeschedulerNamespace,
+				},
+				Spec: deschedulerv1.KubeDeschedulerSpec{},
+			},
+			true,
+		),
+		Entry(
+			"with configuration tuned for KubeVirt",
+			&deschedulerv1.KubeDescheduler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      DeschedulerCRName,
+					Namespace: DeschedulerNamespace,
+				},
+				Spec: deschedulerv1.KubeDeschedulerSpec{
+					ProfileCustomizations: &deschedulerv1.ProfileCustomizations{
+						DevEnableEvictionsInBackground: true,
+					},
+				},
+			},
+			false,
+		),
+		Entry(
+			"with wrong configuration 1",
+			&deschedulerv1.KubeDescheduler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      DeschedulerCRName,
+					Namespace: DeschedulerNamespace,
+				},
+				Spec: deschedulerv1.KubeDeschedulerSpec{
+					ProfileCustomizations: &deschedulerv1.ProfileCustomizations{
+						DevEnableEvictionsInBackground: false,
+					},
+				},
+			},
+			true,
+		),
+		Entry(
+			"with wrong configuration 2",
+			&deschedulerv1.KubeDescheduler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      DeschedulerCRName,
+					Namespace: DeschedulerNamespace,
+				},
+				Spec: deschedulerv1.KubeDeschedulerSpec{
+					ProfileCustomizations: &deschedulerv1.ProfileCustomizations{
+						ThresholdPriorityClassName:     "testvalue",
+						Namespaces:                     deschedulerv1.Namespaces{},
+						DevEnableEvictionsInBackground: false,
+					},
+				},
+			},
+			true,
+		),
+		Entry(
+			"with wrong configuration 3",
+			&deschedulerv1.KubeDescheduler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      DeschedulerCRName,
+					Namespace: DeschedulerNamespace,
+				},
+				Spec: deschedulerv1.KubeDeschedulerSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState:  "testvalue",
+						LogLevel:         "testvalue",
+						OperatorLogLevel: "testvalue",
+					},
+					Profiles: []deschedulerv1.DeschedulerProfile{"test1", "test2"},
+					Mode:     "testvalue",
+				},
+			},
+			true,
+		),
+		Entry(
+			"with configuration tuned for KubeVirt but with a wrong name",
+			&deschedulerv1.KubeDescheduler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: DeschedulerNamespace,
+				},
+				Spec: deschedulerv1.KubeDeschedulerSpec{
+					ProfileCustomizations: &deschedulerv1.ProfileCustomizations{
+						DevEnableEvictionsInBackground: true,
+					},
+				},
+			},
+			false,
+		),
+		Entry(
+			"with configuration tuned for KubeVirt but in the wrong namespace",
+			&deschedulerv1.KubeDescheduler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      DeschedulerCRName,
+					Namespace: "test",
+				},
+				Spec: deschedulerv1.KubeDeschedulerSpec{
+					ProfileCustomizations: &deschedulerv1.ProfileCustomizations{
+						DevEnableEvictionsInBackground: true,
+					},
+				},
+			},
+			false,
+		),
+	)
 
 	It("check Init on openshift, with OLM", func() {
 		os.Setenv(OperatorConditionNameEnvVar, "aValue")
@@ -537,6 +732,40 @@ var _ = Describe("test clusterInfo", func() {
 			Expect(GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)).To(Succeed())
 
 			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(updatedTLSSecurityProfile), "should return the updated value")
+
+		})
+
+		It("should detect that KubeDescheduler CRD got deployed if initially unavailable", func() {
+			os.Setenv(OperatorConditionNameEnvVar, "aValue")
+
+			testAPIServer := &openshiftconfigv1.APIServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: openshiftconfigv1.APIServerSpec{},
+			}
+
+			cl := fake.NewClientBuilder().
+				WithScheme(testScheme).
+				WithRuntimeObjects(clusterVersion, infrastructure, ingress, testAPIServer, dns, ipv4network).
+				Build()
+			Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
+
+			Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
+			Expect(GetClusterInfo().IsManagedByOLM()).To(BeTrue(), "should return true for IsManagedByOLM()")
+			Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeFalse(), "should initially return false for IsDeschedulerAvailable()")
+			Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeFalse(), "should initially return false for IsDeschedulerCRDDeployed(...)")
+			Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(BeFalse(), "should initially return false for IsDeschedulerMisconfigured()")
+
+			deschedulerCRD = &apiextensionsv1.CustomResourceDefinition{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: DeschedulerCRDName,
+				},
+			}
+
+			Expect(cl.Create(context.TODO(), deschedulerCRD)).To(Succeed())
+			Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeFalse(), "should still return false for IsDeschedulerAvailable() (until the operator will restart)")
+			Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should now return true for IsDeschedulerCRDDeployed(...)")
 
 		})
 

@@ -455,6 +455,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - operator.openshift.io
+          resources:
+          - kubedeschedulers
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - config.openshift.io
           resources:
           - dnses

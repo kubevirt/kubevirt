@@ -469,6 +469,7 @@ var (
 
 func GetClusterPermissions() []rbacv1.PolicyRule {
 	const configOpenshiftIO = "config.openshift.io"
+	const operatorOpenshiftIO = "operator.openshift.io"
 	return []rbacv1.PolicyRule{
 		{
 			APIGroups: stringListToSlice(util.APIVersionGroup),
@@ -553,6 +554,11 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		{
 			APIGroups: stringListToSlice(configOpenshiftIO),
 			Resources: stringListToSlice("apiservers"),
+			Verbs:     stringListToSlice("get", "list", "watch"),
+		},
+		{
+			APIGroups: stringListToSlice(operatorOpenshiftIO),
+			Resources: stringListToSlice("kubedeschedulers"),
 			Verbs:     stringListToSlice("get", "list", "watch"),
 		},
 		{

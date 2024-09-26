@@ -7,9 +7,11 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	consolev1 "github.com/openshift/api/console/v1"
 	imagev1 "github.com/openshift/api/image/v1"
+	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -83,6 +85,8 @@ func setScheme(cli client.Client) {
 			sspv1beta2.AddToScheme,
 			imagev1.AddToScheme,
 			monitoringv1.AddToScheme,
+			deschedulerv1.AddToScheme,
+			apiextensionsv1.AddToScheme,
 		}
 
 		for _, f := range funcs {

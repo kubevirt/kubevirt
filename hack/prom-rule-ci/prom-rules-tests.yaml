@@ -6,6 +6,7 @@ group_eval_order:
 - kubevirt.hyperconverged.rules
 
 tests:
+
 # Test out-of-bound modification counter
 - interval: 1m
   input_series:
@@ -689,3 +690,83 @@ tests:
     exp_samples:
       - labels: 'kubevirt_hyperconverged_operator_health_status{name="kubevirt-hyperconverged"}'
         value: 2
+
+  # Test kubevirt_hco_misconfigured_descheduler
+- interval: 1m
+  input_series:
+    - series: 'kubevirt_hco_misconfigured_descheduler'
+      # time:  0     1     2 3 4 5 6 7 8 9 10  11 12 13 14 15 16    17    18    19 20 21 22 23 24 25 26 27 28 29 30
+      values: "stale stale 1 1 1 1 1 1 1 1 0   0  0  0  0  1  stale stale stale 1  1  1  1  1  1  1  1  1  1  1  1"
+
+  alert_rule_test:
+    # No metric, no alert
+    - eval_time: 1m
+      alertname: HCOMisconfiguredDescheduler
+      exp_alerts: [ ]
+
+
+    # First increase must trigger an alert
+    - eval_time: 2m
+      alertname: HCOMisconfiguredDescheduler
+      exp_alerts:
+        - exp_annotations:
+            description: "Kube Descheduler is not correctly configured for KubeVirt"
+            summary: "Kube Descheduler is not correctly configured for KubeVirt"
+            runbook_url: "https://kubevirt.io/monitoring/runbooks/HCOMisconfiguredDescheduler"
+          exp_labels:
+            severity: "critical"
+            operator_health_impact: "critical"
+            kubernetes_operator_part_of: "kubevirt"
+            kubernetes_operator_component: "hyperconverged-cluster-operator"
+
+    # The alert should disappear if the configuration gets fixed
+    - eval_time: 10m
+      alertname: HCOMisconfiguredDescheduler
+      exp_alerts: [ ]
+
+    # The alert should reappear if the configuration gets broken again
+    - eval_time: 15m
+      alertname: HCOMisconfiguredDescheduler
+      exp_alerts:
+        - exp_annotations:
+            description: "Kube Descheduler is not correctly configured for KubeVirt"
+            summary: "Kube Descheduler is not correctly configured for KubeVirt"
+            runbook_url: "https://kubevirt.io/monitoring/runbooks/HCOMisconfiguredDescheduler"
+          exp_labels:
+            severity: "critical"
+            operator_health_impact: "critical"
+            kubernetes_operator_part_of: "kubevirt"
+            kubernetes_operator_component: "hyperconverged-cluster-operator"
+
+    # No alerts if down
+    - eval_time: 17m
+      alertname: HCOMisconfiguredDescheduler
+      exp_alerts: [ ]
+
+    # After restart, First increase must trigger an alert again
+    - eval_time: 19m
+      alertname: HCOMisconfiguredDescheduler
+      exp_alerts:
+        - exp_annotations:
+            description: "Kube Descheduler is not correctly configured for KubeVirt"
+            summary: "Kube Descheduler is not correctly configured for KubeVirt"
+            runbook_url: "https://kubevirt.io/monitoring/runbooks/HCOMisconfiguredDescheduler"
+          exp_labels:
+            severity: "critical"
+            operator_health_impact: "critical"
+            kubernetes_operator_part_of: "kubevirt"
+            kubernetes_operator_component: "hyperconverged-cluster-operator"
+
+    # After restart, it should be firing until fixed or silenced
+    - eval_time: 30m
+      alertname: HCOMisconfiguredDescheduler
+      exp_alerts:
+        - exp_annotations:
+            description: "Kube Descheduler is not correctly configured for KubeVirt"
+            summary: "Kube Descheduler is not correctly configured for KubeVirt"
+            runbook_url: "https://kubevirt.io/monitoring/runbooks/HCOMisconfiguredDescheduler"
+          exp_labels:
+            severity: "critical"
+            operator_health_impact: "critical"
+            kubernetes_operator_part_of: "kubevirt"
+            kubernetes_operator_component: "hyperconverged-cluster-operator"

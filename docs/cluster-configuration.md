@@ -1551,3 +1551,32 @@ To enable this `tuningPolicy` profile, the following patch may be applied:
 ```bash
 kubectl patch -n kubevirt-hyperconverged hco kubevirt-hyperconverged --type=json -p='[{"op": "add", "path": "/spec/tuningPolicy", "value": "highBurst"}]'
 ```
+
+## Kube Descheduler integration
+A [Descheduler](https://github.com/kubernetes-sigs/descheduler) is a Kubernetes application that causes the control plane to re-arrange the workloads in a better way.
+It operates every pre-defined period and goes back to sleep after it had performed its job.
+
+The descheduler uses the Kubernetes [eviction API](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/) to evict pods, and receives feedback from `kube-api` whether the eviction request was granted or not.
+On the other side, in order to keep VM live and trigger live-migration, KubeVirt handles eviction requests in a custom way and unfortunately a live migration takes time.
+So from the descheduler's point of view, `virt-launcher` pods fail to be evicted, but they actually migrating to another node in background.
+The descheduler notes the failure to evict the `virt-launcher` pod and keeps trying to evict other pods, typically resulting in it attempting to evict substantially all `virt-launcher` pods from the node triggering a migration storm.
+In other words, the way KubeVirt handles eviction requests causes the descheduler to make wrong decisions and take wrong actions that could destabilize the cluster.
+Using the descheduler operator with the `LowNodeUtilization` strategy results in unstable/oscillatory behavior if the descheduler is used in this way to migrate VMs.
+To correctly handle the special case of `VM` pod evicted triggering a live migration to another node, the `Kube Descheduler Operator` introduced a `profileCustomizations` named `devEnableEvictionsInBackground`
+which is currently considered an `alpha` [feature](https://github.com/kubernetes-sigs/descheduler/tree/master/keps/1397-evictions-in-background) on `Kube Descheduler Operator` side.
+to prevent unexpected behaviours, if the `Kube Descheduler Operator` is installed and configured alongside `HCO`, `HCO` will check its configuration looking for the presence of `devEnableEvictionsInBackground` `profileCustomizations` eventually
+suggesting to the cluster admin to fix the configuration of the `Kube Descheduler Operator` via an `alert` and its linked `runbook`.
+
+In order to fix the configuration of the `Kube Descheduler Operator` to be suitable also for the KubeVirt use case,
+something like:
+```yaml
+apiVersion: operator.openshift.io/v1
+kind: KubeDescheduler
+metadata:
+  name: cluster
+  namespace: openshift-kube-descheduler-operator
+spec:
+  profileCustomizations:
+    devEnableEvictionsInBackground: true
+```
+should be merged in its configuration.

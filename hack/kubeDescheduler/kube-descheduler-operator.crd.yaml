@@ -1,0 +1,275 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: kubedeschedulers.operator.openshift.io
+spec:
+  group: operator.openshift.io
+  names:
+    kind: KubeDescheduler
+    listKind: KubeDeschedulerList
+    plural: kubedeschedulers
+    singular: kubedescheduler
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: KubeDescheduler is the Schema for the deschedulers API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec holds user settable values for configuration
+            properties:
+              deschedulingIntervalSeconds:
+                description: DeschedulingIntervalSeconds is the number of seconds
+                  between descheduler runs
+                format: int32
+                type: integer
+              evictionLimits:
+                description: evictionLimits restrict the number of evictions during
+                  each descheduling run
+                properties:
+                  total:
+                    description: total restricts the maximum number of overall evictions
+                    format: int32
+                    type: integer
+                type: object
+              logLevel:
+                default: Normal
+                description: |-
+                  logLevel is an intent based logging for an overall component.  It does not give fine grained control, but it is a
+                  simple way to manage coarse grained logging choices that operators have to interpret for their operands.
+
+
+                  Valid values are: "Normal", "Debug", "Trace", "TraceAll".
+                  Defaults to "Normal".
+                enum:
+                - ""
+                - Normal
+                - Debug
+                - Trace
+                - TraceAll
+                type: string
+              managementState:
+                description: managementState indicates whether and how the operator
+                  should manage the component
+                pattern: ^(Managed|Unmanaged|Force|Removed)$
+                type: string
+              mode:
+                default: Predictive
+                description: Mode configures the descheduler to either evict pods
+                  (Automatic) or to simulate the eviction (Predictive)
+                enum:
+                - Automatic
+                - Predictive
+                type: string
+              observedConfig:
+                description: |-
+                  observedConfig holds a sparse config that controller has observed from the cluster state.  It exists in spec because
+                  it is an input to the level for the operator
+                nullable: true
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              operatorLogLevel:
+                default: Normal
+                description: |-
+                  operatorLogLevel is an intent based logging for the operator itself.  It does not give fine grained control, but it is a
+                  simple way to manage coarse grained logging choices that operators have to interpret for themselves.
+
+
+                  Valid values are: "Normal", "Debug", "Trace", "TraceAll".
+                  Defaults to "Normal".
+                enum:
+                - ""
+                - Normal
+                - Debug
+                - Trace
+                - TraceAll
+                type: string
+              profileCustomizations:
+                description: ProfileCustomizations contains various parameters for
+                  modifying the default behavior of certain profiles
+                properties:
+                  devEnableEvictionsInBackground:
+                    description: |-
+                      DevEnableEvictionsInBackground enables descheduler's EvictionsInBackground alpha feature.
+                      The EvictionsInBackground alpha feature is a subject to change.
+                      Currently provided as an experimental feature.
+                    type: boolean
+                  devHighNodeUtilizationThresholds:
+                    description: |-
+                      devHighNodeUtilizationThresholds enumerates thresholds for node utilization levels.
+                      The threshold values are subject to change.
+                      Currently provided as an experimental feature.
+                    enum:
+                    - Minimal
+                    - Modest
+                    - Moderate
+                    - ""
+                    type: string
+                  devLowNodeUtilizationThresholds:
+                    description: LowNodeUtilizationThresholds enumerates predefined
+                      experimental thresholds
+                    enum:
+                    - Low
+                    - Medium
+                    - High
+                    - ""
+                    type: string
+                  namespaces:
+                    description: |-
+                      Namespaces overrides included and excluded namespaces while keeping
+                      the default exclusion of all openshift-*, kube-system and hypershift namespaces
+                    properties:
+                      excluded:
+                        items:
+                          type: string
+                        type: array
+                      included:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  podLifetime:
+                    description: |-
+                      PodLifetime is the length of time after which pods should be evicted
+                      This field should be used with profiles that enable the PodLifetime strategy, such as LifecycleAndUtilization
+                    format: duration
+                    type: string
+                  thresholdPriority:
+                    description: |-
+                      ThresholdPriority when set will reject eviction of any pod with priority equal or higher
+                      It is invalid to set it alongside ThresholdPriorityClassName
+                    format: int32
+                    type: integer
+                  thresholdPriorityClassName:
+                    description: |-
+                      ThresholdPriorityClassName when set will reject eviction of any pod with priority equal or higher
+                      It is invalid to set it alongside ThresholdPriority
+                    type: string
+                type: object
+              profiles:
+                description: Profiles sets which descheduler strategy profiles are
+                  enabled
+                items:
+                  description: |-
+                    DeschedulerProfile allows configuring the enabled strategy profiles for the descheduler
+                    it allows multiple profiles to be enabled at once, which will have cumulative effects on the cluster.
+                  enum:
+                  - AffinityAndTaints
+                  - TopologyAndDuplicates
+                  - LifecycleAndUtilization
+                  - DevPreviewLongLifecycle
+                  - LongLifecycle
+                  - SoftTopologyAndDuplicates
+                  - EvictPodsWithLocalStorage
+                  - EvictPodsWithPVC
+                  - CompactAndScale
+                  type: string
+                type: array
+              unsupportedConfigOverrides:
+                description: |-
+                  unsupportedConfigOverrides overrides the final configuration that was computed by the operator.
+                  Red Hat does not support the use of this field.
+                  Misuse of this field could lead to unexpected behavior or conflict with other configuration options.
+                  Seek guidance from the Red Hat support before using this field.
+                  Use of this property blocks cluster upgrades, it must be removed before upgrading your cluster.
+                nullable: true
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            type: object
+          status:
+            description: status holds observed values from the cluster. They may not
+              be overridden.
+            properties:
+              conditions:
+                description: conditions is a list of conditions and their status
+                items:
+                  description: OperatorCondition is just the standard condition fields.
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              generations:
+                description: generations are used to determine when an item needs
+                  to be reconciled or has changed in a way that needs a reaction.
+                items:
+                  description: GenerationStatus keeps track of the generation for
+                    a given resource so that decisions about forced updates can be
+                    made.
+                  properties:
+                    group:
+                      description: group is the group of the thing you're tracking
+                      type: string
+                    hash:
+                      description: hash is an optional field set for resources without
+                        generation that are content sensitive like secrets and configmaps
+                      type: string
+                    lastGeneration:
+                      description: lastGeneration is the last generation of the workload
+                        controller involved
+                      format: int64
+                      type: integer
+                    name:
+                      description: name is the name of the thing you're tracking
+                      type: string
+                    namespace:
+                      description: namespace is where the thing you're tracking is
+                      type: string
+                    resource:
+                      description: resource is the resource type of the thing you're
+                        tracking
+                      type: string
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
+              observedGeneration:
+                description: observedGeneration is the last generation change you've
+                  dealt with
+                format: int64
+                type: integer
+              readyReplicas:
+                description: readyReplicas indicates how many replicas are ready and
+                  at the desired state
+                format: int32
+                type: integer
+              version:
+                description: version is the level this availability applies to
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

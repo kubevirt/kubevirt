@@ -1,6 +1,6 @@
 module github.com/kubevirt/hyperconverged-cluster-operator
 
-go 1.22.4
+go 1.22.5
 
 require (
 	dario.cat/mergo v1.0.1
@@ -16,6 +16,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.2
 	github.com/openshift/api v3.9.1-0.20190517100836-d5b34b957e91+incompatible
+	github.com/openshift/cluster-kube-descheduler-operator v0.0.0-20240916113608-1a30f3be33fa
 	github.com/openshift/custom-resource-status v1.1.2
 	github.com/openshift/library-go v0.0.0-20240830130947-d9523164b328
 	github.com/operator-framework/api v0.27.0
