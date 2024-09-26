@@ -116,8 +116,8 @@ func (app *SubresourceAPIApp) expandSpecResponse(vm *v1.VirtualMachine, errorFun
 		return
 	}
 
-	// Apply defaults to VM after applying instance types to ensure we don't conflict
-	if err := webhooks.SetDefaultVirtualMachine(app.clusterConfig, vm); err != nil {
+	// Apply defaults to VM.Spec.Template.Spec after applying instance types to ensure we don't conflict
+	if err = webhooks.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &vm.Spec.Template.Spec); err != nil {
 		writeError(errorFunc(err), response)
 		return
 	}

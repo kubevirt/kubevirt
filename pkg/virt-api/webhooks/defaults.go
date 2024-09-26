@@ -28,25 +28,98 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	apiinstancetype "kubevirt.io/api/instancetype"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func SetDefaultVirtualMachine(clusterConfig *virtconfig.ClusterConfig, vm *v1.VirtualMachine) error {
-	if err := setDefaultVirtualMachineInstanceSpec(clusterConfig, &vm.Spec.Template.Spec); err != nil {
-		return err
+func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, instancetypeMethods instancetype.Methods) {
+	setDefaultInstancetypeKind(vm)
+	setDefaultPreferenceKind(vm)
+	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
+	preferenceSpec := getPreferenceSpec(vm, instancetypeMethods)
+	setVMDefaultMachineType(vm, preferenceSpec, clusterConfig)
+	setPreferenceStorageClassName(vm, preferenceSpec)
+}
+
+func getPreferenceSpec(vm *v1.VirtualMachine, instancetypeMethods instancetype.Methods) *instancetypev1beta1.VirtualMachinePreferenceSpec {
+	if vm.Spec.Preference == nil {
+		return nil
 	}
-	setDefaultFeatures(&vm.Spec.Template.Spec)
-	v1.SetObjectDefaults_VirtualMachine(vm)
-	setDefaultHypervFeatureDependencies(&vm.Spec.Template.Spec)
-	setDefaultCPUArch(clusterConfig, &vm.Spec.Template.Spec)
-	return nil
+
+	preferenceSpec, _ := instancetypeMethods.FindPreferenceSpec(vm)
+	return preferenceSpec
+}
+
+func setVMDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, clusterConfig *virtconfig.ClusterConfig) {
+	// Nothing to do, let's the validating webhook fail later
+	if vm.Spec.Template == nil {
+		return
+	}
+
+	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil && machine.Type != "" {
+		return
+	}
+
+	if vm.Spec.Template.Spec.Domain.Machine == nil {
+		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{}
+	}
+
+	if preferenceSpec != nil && preferenceSpec.Machine != nil {
+		vm.Spec.Template.Spec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
+	}
+
+	// Only use the cluster default if the user hasn't provided a machine type or referenced a preference with PreferredMachineType
+	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
+		vm.Spec.Template.Spec.Domain.Machine.Type = clusterConfig.GetMachineType(vm.Spec.Template.Spec.Architecture)
+	}
+}
+
+func setPreferenceStorageClassName(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
+	// Nothing to do, let's the validating webhook fail later
+	if vm.Spec.Template == nil {
+		return
+	}
+
+	if preferenceSpec != nil && preferenceSpec.Volumes != nil && preferenceSpec.Volumes.PreferredStorageClassName != "" {
+		for _, dv := range vm.Spec.DataVolumeTemplates {
+			if dv.Spec.PVC != nil && dv.Spec.PVC.StorageClassName == nil {
+				dv.Spec.PVC.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
+			}
+			if dv.Spec.Storage != nil && dv.Spec.Storage.StorageClassName == nil {
+				dv.Spec.Storage.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
+			}
+		}
+	}
+}
+
+func setDefaultInstancetypeKind(vm *v1.VirtualMachine) {
+	if vm.Spec.Instancetype == nil {
+		return
+	}
+
+	if vm.Spec.Instancetype.Kind == "" {
+		vm.Spec.Instancetype.Kind = apiinstancetype.ClusterSingularResourceName
+	}
+}
+
+func setDefaultPreferenceKind(vm *v1.VirtualMachine) {
+	if vm.Spec.Preference == nil {
+		return
+	}
+
+	if vm.Spec.Preference.Kind == "" {
+		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
+	}
 }
 
 func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) error {
-	if err := setDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec); err != nil {
+	if err := SetDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec); err != nil {
 		return err
 	}
 	setDefaultFeatures(&vmi.Spec)
@@ -159,7 +232,7 @@ func setDefaultHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-func setDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error {
+func SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error {
 	setDefaultArchitecture(clusterConfig, spec)
 	setDefaultMachineType(clusterConfig, spec)
 	setDefaultResourceRequests(clusterConfig, spec)
