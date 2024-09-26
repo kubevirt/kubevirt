@@ -170,6 +170,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)
 				Expect(err).ToNot(HaveOccurred())
+
+				By("checking the MAC address of eth0 is inline with vmi status")
+				if vmiHasCustomMacAddress(vmi) {
+					Expect(vmi.Status.Interfaces).NotTo(BeEmpty())
+					Expect(vmi.Status.Interfaces[0].MAC).To(Equal(vmi.Spec.Domain.Devices.Interfaces[0].MacAddress))
+				}
+				Expect(libnet.CheckMacAddress(vmi, "eth0", vmi.Status.Interfaces[0].MAC)).To(Succeed())
+
 			},
 				Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
 				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
@@ -275,25 +283,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			libwait.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
 			// as defined in https://vendev.org/pci/ven_8086/
 			checkNetworkVendor(e1000VMI, "0x8086")
-		})
-	})
-
-	Context("VirtualMachineInstance with custom MAC address", func() {
-		It("[test_id:1771]should configure custom MAC address", func() {
-			By("checking eth0 MAC address")
-			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-			masqIface.MacAddress = "de:ad:00:00:be:af"
-			deadbeafVMI := libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(masqIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())),
-			)
-			var err error
-			deadbeafVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), deadbeafVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			libwait.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
-			libnet.CheckMacAddress(deadbeafVMI, "eth0", deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
 		})
 	})
 
