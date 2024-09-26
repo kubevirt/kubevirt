@@ -98,14 +98,25 @@ func (bs *BackendStorage) getStorageClass() (string, error) {
 		return storageClass, nil
 	}
 
+	k8sDefault := ""
+	kvDefault := ""
 	for _, obj := range bs.scStore.List() {
 		sc := obj.(*storagev1.StorageClass)
+		if sc.Annotations["storageclass.cdi.kubevirt.io/is-default-class"] == "true" {
+			kvDefault = sc.Name
+		}
 		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
-			return sc.Name, nil
+			k8sDefault = sc.Name
 		}
 	}
 
-	return "", fmt.Errorf("no default storage class found")
+	if kvDefault != "" {
+		return kvDefault, nil
+	} else if k8sDefault != "" {
+		return k8sDefault, nil
+	} else {
+		return "", fmt.Errorf("no default storage class found")
+	}
 }
 
 func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentVolumeMode) v1.PersistentVolumeAccessMode {
