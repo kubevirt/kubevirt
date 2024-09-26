@@ -1,7 +1,6 @@
 package vmexport_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -463,25 +462,23 @@ var _ = Describe("vmexport", func() {
 			})
 
 			It("a VirtualMachineExport with raw format", func() {
-				vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, _ string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
-					return &http.Response{
-						StatusCode: http.StatusOK,
-						Body: io.NopCloser(bytes.NewReader([]byte{
-							0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
-							0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
-							0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
-							0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
-							0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
-							0x00, 0x00,
-							0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
-							0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
-							0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
-							0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
-							0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
-							0x00, 0x00,
-						})),
-					}, nil
-				}
+				server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					_, err := w.Write([]byte{
+						0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
+						0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
+						0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
+						0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
+						0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
+						0x00, 0x00,
+						0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
+						0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
+						0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
+						0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
+						0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
+						0x00, 0x00,
+					})
+					Expect(err).ToNot(HaveOccurred())
+				})
 
 				updateVMEStatusOnCreate(exportv1.KubeVirtGz)
 				err := runDownloadCmd(
@@ -660,19 +657,16 @@ var _ = Describe("vmexport", func() {
 
 	Context("Manifest", func() {
 		const (
-			manifestUrl = "https://test.something.somewhere/test/all"
-			secretUrl   = "https://test.something.somewhere/test/secret"
+			manifestUrl = "/test/all"
+			secretUrl   = "/test/secret"
 		)
 
 		DescribeTable("should successfully create VirtualMachineExport if proper arg supplied", func(expected string, extraArgs ...string) {
-			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, headers map[string]string) (*http.Response, error) {
-				Expect(downloadUrl).To(Equal(manifestUrl))
-				Expect(headers).To(ContainElements(expected))
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(strings.NewReader("data")),
-				}, nil
-			}
+			server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.String()).To(Equal(manifestUrl))
+				Expect(r.Header).To(HaveKeyWithValue("Accept", ConsistOf(expected)))
+				w.WriteHeader(http.StatusOK)
+			})
 
 			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
 				Name: volumeName,
@@ -684,10 +678,13 @@ var _ = Describe("vmexport", func() {
 			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests,
 				exportv1.VirtualMachineExportManifest{
 					Type: exportv1.AllManifests,
-					Url:  manifestUrl,
+					Url:  server.URL + manifestUrl,
 				},
 			)
 			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			args := append([]string{
@@ -703,17 +700,14 @@ var _ = Describe("vmexport", func() {
 		)
 
 		DescribeTable("should call both manifest and secret url if argument supplied", func(withIncludeSecret bool) {
-			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
+			server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if withIncludeSecret {
-					Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
+					Expect(r.URL.String()).To(BeElementOf(manifestUrl, secretUrl))
 				} else {
-					Expect(downloadUrl).To(Equal(manifestUrl))
+					Expect(r.URL.String()).To(Equal(manifestUrl))
 				}
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(strings.NewReader("data")),
-				}, nil
-			}
+				w.WriteHeader(http.StatusOK)
+			})
 
 			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
 				Name: volumeName,
@@ -725,14 +719,17 @@ var _ = Describe("vmexport", func() {
 			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests,
 				exportv1.VirtualMachineExportManifest{
 					Type: exportv1.AllManifests,
-					Url:  manifestUrl,
+					Url:  server.URL + manifestUrl,
 				},
 				exportv1.VirtualMachineExportManifest{
 					Type: exportv1.AuthHeader,
-					Url:  secretUrl,
+					Url:  server.URL + secretUrl,
 				},
 			)
 			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			args := []string{
@@ -750,13 +747,10 @@ var _ = Describe("vmexport", func() {
 		)
 
 		It("should error if http status is error", func() {
-			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
-				Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
-				return &http.Response{
-					StatusCode: http.StatusBadRequest,
-					Body:       io.NopCloser(strings.NewReader("")),
-				}, nil
-			}
+			server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.String()).To(BeElementOf(manifestUrl, secretUrl))
+				w.WriteHeader(http.StatusBadRequest)
+			})
 
 			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
 				Name: volumeName,
@@ -768,13 +762,16 @@ var _ = Describe("vmexport", func() {
 			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests,
 				exportv1.VirtualMachineExportManifest{
 					Type: exportv1.AllManifests,
-					Url:  manifestUrl,
+					Url:  server.URL + manifestUrl,
 				}, exportv1.VirtualMachineExportManifest{
 					Type: exportv1.AuthHeader,
-					Url:  secretUrl,
+					Url:  server.URL + secretUrl,
 				},
 			)
 			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
