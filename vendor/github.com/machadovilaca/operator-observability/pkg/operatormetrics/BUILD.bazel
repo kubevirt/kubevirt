@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "collector.go",
+        "collector_result.go",
         "counter.go",
         "counter_vec.go",
         "gauge.go",

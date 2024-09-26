@@ -3,7 +3,6 @@ package operatormetrics
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -20,14 +19,6 @@ type Collector struct {
 	CollectCallback func() []CollectorResult
 }
 
-type CollectorResult struct {
-	Metric      Metric
-	Labels      []string
-	ConstLabels map[string]string
-	Value       float64
-	Timestamp   time.Time
-}
-
 func (c Collector) hash() string {
 	var sb strings.Builder
 
@@ -40,7 +31,7 @@ func (c Collector) hash() string {
 
 func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 	for _, cm := range c.Metrics {
-		cm.getCollector().Describe(ch)
+		cm.GetCollector().Describe(ch)
 	}
 }
 
