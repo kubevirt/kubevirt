@@ -764,6 +764,29 @@ var _ = Describe("SSP Operands", func() {
 					Expect(goldenImageList).To(ContainElements(*statusImage2Enabled, statusImage3, statusImage4))
 				})
 
+				It("should not add user DIC template if it is disabled", func() {
+					dataImportCronTemplateHardCodedMap = nil
+					hco := commontestutils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+
+					disabledUserImage := image1.DeepCopy()
+					disableDict(disabledUserImage)
+					enabledUserImage := image2.DeepCopy()
+					enableDict(enabledUserImage)
+
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*disabledUserImage, *enabledUserImage}
+					goldenImageList, err := getDataImportCronTemplates(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(goldenImageList).To(HaveLen(1))
+
+					statusImageEnabled := hcov1beta1.DataImportCronTemplateStatus{
+						DataImportCronTemplate: *enabledUserImage,
+						Status:                 hcov1beta1.DataImportCronStatus{},
+					}
+
+					Expect(goldenImageList).To(ContainElements(statusImageEnabled))
+				})
+
 				It("Should reject if the CR list contain DIC templates with the same name, when there are also common DIC templates", func() {
 					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
 						image1.Name: image1,

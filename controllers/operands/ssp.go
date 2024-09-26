@@ -284,6 +284,10 @@ func isDataImportCronTemplateEnabled(dict hcov1beta1.DataImportCronTemplate) boo
 
 func getCustomDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[string]hcov1beta1.DataImportCronTemplate) []hcov1beta1.DataImportCronTemplateStatus {
 	for dictName, crDict := range crDicts {
+		if !isDataImportCronTemplateEnabled(crDict) {
+			continue
+		}
+
 		if _, isCommon := dataImportCronTemplateHardCodedMap[dictName]; !isCommon {
 			list = append(list, hcov1beta1.DataImportCronTemplateStatus{
 				DataImportCronTemplate: *crDict.DeepCopy(),
