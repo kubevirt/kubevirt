@@ -22,7 +22,6 @@ package rest
 import (
 	"context"
 	"crypto/tls"
-	goerror "errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -189,23 +188,6 @@ func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, re
 	}
 
 	response.WriteEntity(v)
-}
-
-// get either the interface with the provided name or the first available interface
-// if no interface is present, return error
-func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
-	interfaces := vmi.Status.Interfaces
-	if len(interfaces) < 1 {
-		return "", fmt.Errorf("no network interfaces are present")
-	}
-	return interfaces[0].IP, nil
-}
-
-func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineInstance) (kubecli.VirtHandlerConn, error) {
-	if !vmi.IsRunning() && !vmi.IsScheduled() {
-		return nil, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled))
-	}
-	return kubecli.NewVirtHandlerClient(app.virtCli, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
 
 func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineStateChangeRequest) ([]byte, error) {
