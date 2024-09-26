@@ -581,80 +581,6 @@ var _ = Describe("vmexport", func() {
 		})
 	})
 
-	Context("getUrlFromVirtualMachineExport", func() {
-		It("Should get compressed URL even when there's multiple URLs", func() {
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{
-					{
-						Format: exportv1.KubeVirtRaw,
-						Url:    "raw",
-					},
-					{
-						Format: exportv1.KubeVirtRaw,
-						Url:    "raw",
-					},
-					{
-						Format: exportv1.KubeVirtGz,
-						Url:    "compressed",
-					},
-					{
-						Format: exportv1.KubeVirtRaw,
-						Url:    "raw",
-					},
-				}},
-			})
-			vmeInfo := &vmexport.VMExportInfo{
-				Name:       vme.Name,
-				VolumeName: volumeName,
-			}
-
-			url, err := vmexport.GetUrlFromVirtualMachineExport(vme, vmeInfo)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(url).Should(Equal("compressed"))
-		})
-
-		It("Should get raw URL when there's no other option", func() {
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{
-					{
-						Format: exportv1.KubeVirtRaw,
-						Url:    "raw",
-					},
-				}},
-			})
-			vmeInfo := &vmexport.VMExportInfo{
-				Name:       vme.Name,
-				VolumeName: volumeName,
-			}
-
-			url, err := vmexport.GetUrlFromVirtualMachineExport(vme, vmeInfo)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(url).Should(Equal("raw"))
-		})
-
-		It("Should not get any URL when there's no valid options", func() {
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{
-					{
-						Format: exportv1.Dir,
-						Url:    server.URL,
-					},
-				}},
-			})
-			vmeInfo := &vmexport.VMExportInfo{
-				Name:       vme.Name,
-				VolumeName: volumeName,
-			}
-
-			url, err := vmexport.GetUrlFromVirtualMachineExport(vme, vmeInfo)
-			Expect(err).To(HaveOccurred())
-			Expect(url).To(Equal(""))
-		})
-	})
-
 	Context("Manifest", func() {
 		const (
 			manifestUrl = "/test/all"
@@ -893,6 +819,76 @@ var _ = Describe("vmexport", func() {
 				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("getUrlFromVirtualMachineExport", func() {
+		It("Should get compressed URL even when there's multiple URLs", func() {
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{
+					{
+						Format: exportv1.KubeVirtRaw,
+						Url:    "raw",
+					},
+					{
+						Format: exportv1.KubeVirtRaw,
+						Url:    "raw",
+					},
+					{
+						Format: exportv1.KubeVirtGz,
+						Url:    "compressed",
+					},
+					{
+						Format: exportv1.KubeVirtRaw,
+						Url:    "raw",
+					},
+				}},
+			})
+			vmeInfo := &vmexport.VMExportInfo{
+				Name:       vme.Name,
+				VolumeName: volumeName,
+			}
+
+			url, err := vmexport.GetUrlFromVirtualMachineExport(vme, vmeInfo)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(url).Should(Equal("compressed"))
+		})
+
+		It("Should get raw URL when there's no other option", func() {
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.KubeVirtRaw,
+					Url:    "raw",
+				}}},
+			})
+			vmeInfo := &vmexport.VMExportInfo{
+				Name:       vme.Name,
+				VolumeName: volumeName,
+			}
+
+			url, err := vmexport.GetUrlFromVirtualMachineExport(vme, vmeInfo)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(url).Should(Equal("raw"))
+		})
+
+		It("Should not get any URL when there's no valid options", func() {
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
+				Name: volumeName,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+					Format: exportv1.Dir,
+					Url:    server.URL,
+				}}},
+			})
+			vmeInfo := &vmexport.VMExportInfo{
+				Name:       vme.Name,
+				VolumeName: volumeName,
+			}
+
+			url, err := vmexport.GetUrlFromVirtualMachineExport(vme, vmeInfo)
+			Expect(err).To(MatchError(ContainSubstring("unable to get a valid URL")))
+			Expect(url).To(Equal(""))
 		})
 	})
 })
