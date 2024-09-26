@@ -64,6 +64,7 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
   export KUBEVIRT_DEPLOY_CDI=false
+  export KUBEVIRT_NO_ETCD_FSYNC=true
   # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
   if [[ $TARGET =~ no-istio ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
