@@ -10,6 +10,7 @@ go_library(
         "generated_mock_authorizer.go",
         "portforward.go",
         "profiler.go",
+        "sev.go",
         "streamer.go",
         "subresource.go",
         "usbredir.go",
