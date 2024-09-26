@@ -533,18 +533,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				defer cancel()
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI successfully")
-					return vmi.Status.Phase
-				}, 240*time.Second, 1*time.Second).Should(Equal(v1.Failed), "VMI should be failed")
+				Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Failed), "VMI should be failed")
 
-				By(fmt.Sprintf("Waiting for %q %q event after the resource version %q", watcher.WarningEvent, v1.Stopped, vmi.ResourceVersion))
+				By("Waiting for the vmi to be stopped")
 				watcher.New(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
 
 				By("checking that it can still start VMIs")
-				newVMI := libvmifact.NewCirros()
-				newVMI.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: nodeName}
+				newVMI := libvmifact.NewCirros(libvmi.WithNodeSelectorFor(nodeName))
 				newVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), newVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1636,35 +1631,30 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 		Context("with ACPI and some grace period seconds", decorators.WgS390x, func() {
-			DescribeTable("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]should result in vmi status succeeded", func(gracePeriod int64) {
-				vmi := libvmifact.NewFedora()
 
-				if gracePeriod >= 0 {
-					vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
-				} else {
-					gracePeriod = v1.DefaultGracePeriodSeconds
-					vmi.Spec.TerminationGracePeriodSeconds = nil
-				}
+			withoutTerminationGracePeriodSeconds := func(vmi *v1.VirtualMachineInstance) {
+				vmi.Spec.TerminationGracePeriodSeconds = nil
+			}
+
+			DescribeTable("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]should result in vmi status succeeded", func(option libvmi.Option, gracePeriodSeconds int64) {
+				vmi := libvmifact.NewFedora(option)
 
 				By("Creating the VirtualMachineInstance")
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
-				// wait until booted
+				By("Wait for the login")
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 
 				By("Verifying VirtualMachineInstance's status is Succeeded")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					currVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-					return currVMI.Status.Phase
-				}, gracePeriod+5, 0.5).Should(Equal(v1.Succeeded), "VMI should be succeeded")
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Duration(gracePeriodSeconds) * time.Second).WithPolling(time.Second).Should(
+					matcher.BeInPhase(v1.Succeeded))
 			},
-				Entry("[test_id:1653]with set grace period seconds", int64(10)),
-				Entry("[test_id:1654]with default grace period seconds", int64(-1)),
+				Entry("[test_id:1653]with set grace period seconds", decorators.Conformance, libvmi.WithTerminationGracePeriod(10), int64(10)),
+				Entry("[test_id:1654]with default grace period seconds", decorators.Conformance, withoutTerminationGracePeriodSeconds, v1.DefaultGracePeriodSeconds),
 			)
 		})
 		Context("with grace period greater than 0", func() {
@@ -1703,34 +1693,29 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		It("[test_id:1656]should be in Failed phase", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi := libvmifact.NewAlpine()
-			obj, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
-			vmi = libwait.WaitForSuccessfulVMIStart(obj)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Killing the VirtualMachineInstance")
 			Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			watcher.New(obj).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
+			watcher.New(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
 
 			By("Checking that the VirtualMachineInstance has 'Failed' phase")
-			Eventually(func() v1.VirtualMachineInstancePhase {
-				failedVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				return failedVMI.Status.Phase
-			}, 10, 1).Should(Equal(v1.Failed), "VMI should be failed")
-
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(10 * time.Second).WithPolling(time.Second).Should(matcher.BeInPhase(v1.Failed))
 		})
 
 		It("[test_id:1657]should be left alone by virt-handler", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi := libvmifact.NewAlpine()
-			obj, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
-			vmi = libwait.WaitForSuccessfulVMIStart(obj)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Killing the VirtualMachineInstance")
 			Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
@@ -1738,7 +1723,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			// Wait for stop event of the VirtualMachineInstance
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			objectEventWatcher := watcher.New(obj).Timeout(60 * time.Second).SinceWatchedObjectResourceVersion()
+			objectEventWatcher := watcher.New(vmi).Timeout(60 * time.Second).SinceWatchedObjectResourceVersion()
 			wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{
 				"server error. command SyncVMI failed",
 				"The VirtualMachineInstance crashed",
