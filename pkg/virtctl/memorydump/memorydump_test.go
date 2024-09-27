@@ -18,7 +18,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -36,31 +36,31 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
-const (
-	createClaimFlag = "--create-claim"
-	claimNameFlag   = "--claim-name=testpvc"
-	claimName       = "testpvc"
-	configName      = "config"
-	vmName          = "testvm"
-	scName          = "local"
-
-	defaultFSOverhead = "0.055"
-	scOverhead        = "0.1"
-)
-
-var (
-	cdiClient       *cdifake.Clientset
-	coreClient      *fake.Clientset
-	pvcCreateCalled = &utils.AtomicBool{Lock: &sync.Mutex{}}
-)
-
 var _ = Describe("MemoryDump", func() {
-	var vmInterface *kubecli.MockVirtualMachineInterface
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var ctrl *gomock.Controller
+	const (
+		claimName  = "testpvc"
+		configName = "config"
+		vmName     = "testvm"
+		scName     = "local"
+
+		createClaimFlag = "--create-claim"
+		claimNameFlag   = "--claim-name=testpvc"
+
+		defaultFSOverhead = "0.055"
+		scOverhead        = "0.1"
+	)
+
+	var (
+		cdiClient    *cdifake.Clientset
+		coreClient   *fake.Clientset
+		vmInterface  *kubecli.MockVirtualMachineInterface
+		vmiInterface *kubecli.MockVirtualMachineInstanceInterface
+
+		pvcCreateCalled = &utils.AtomicBool{Lock: &sync.Mutex{}}
+	)
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
+		ctrl := gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
@@ -73,7 +73,7 @@ var _ = Describe("MemoryDump", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 
 		cdiConfig := &cdiv1.CDIConfig{
-			ObjectMeta: k8smetav1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: configName,
 			},
 			Spec: cdiv1.CDIConfigSpec{
@@ -88,14 +88,14 @@ var _ = Describe("MemoryDump", func() {
 				},
 			},
 		}
-		_, err := cdiClient.CdiV1beta1().CDIConfigs().Create(context.Background(), cdiConfig, k8smetav1.CreateOptions{})
+		_, err := cdiClient.CdiV1beta1().CDIConfigs().Create(context.Background(), cdiConfig, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	expectVMEndpointMemoryDump := func(vmName, claimName string) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
-			VirtualMachine(k8smetav1.NamespaceDefault).
+			VirtualMachine(metav1.NamespaceDefault).
 			Return(vmInterface).
 			Times(1)
 		vmInterface.EXPECT().MemoryDump(context.Background(), vmName, gomock.Any()).DoAndReturn(func(ctx context.Context, arg0, arg1 interface{}) interface{} {
@@ -108,7 +108,7 @@ var _ = Describe("MemoryDump", func() {
 	expectVMEndpointRemoveMemoryDump := func(vmName string) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
-			VirtualMachine(k8smetav1.NamespaceDefault).
+			VirtualMachine(metav1.NamespaceDefault).
 			Return(vmInterface).
 			Times(1)
 		vmInterface.EXPECT().RemoveMemoryDump(context.Background(), vmName).DoAndReturn(func(ctx context.Context, arg0 interface{}) interface{} {
@@ -125,7 +125,7 @@ var _ = Describe("MemoryDump", func() {
 		if withAssociatedMemoryDump {
 			vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{}
 		}
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).Times(1)
 		vmInterface.EXPECT().Get(context.Background(), vmName, gomock.Any()).Return(vm, nil).Times(1)
 	}
 
@@ -152,7 +152,7 @@ var _ = Describe("MemoryDump", func() {
 		}
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
-			VirtualMachineInstance(k8smetav1.NamespaceDefault).
+			VirtualMachineInstance(metav1.NamespaceDefault).
 			Return(vmiInterface).
 			Times(1)
 
@@ -161,7 +161,7 @@ var _ = Describe("MemoryDump", func() {
 
 	pvcSpec := func() *k8sv1.PersistentVolumeClaim {
 		return &k8sv1.PersistentVolumeClaim{
-			ObjectMeta: k8smetav1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: claimName,
 			},
 		}
@@ -201,7 +201,7 @@ var _ = Describe("MemoryDump", func() {
 		coreClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
 			get, ok := action.(testing.GetAction)
 			Expect(ok).To(BeTrue())
-			Expect(get.GetNamespace()).To(Equal(k8smetav1.NamespaceDefault))
+			Expect(get.GetNamespace()).To(Equal(metav1.NamespaceDefault))
 			Expect(get.GetName()).To(Equal(claimName))
 			if pvc == nil {
 				return true, nil, errors.NewNotFound(v1.Resource("persistentvolumeclaim"), claimName)
@@ -256,8 +256,8 @@ var _ = Describe("MemoryDump", func() {
 
 	It("should fail call memory dump subresource with create-claim no vmi", func() {
 		expectGetVMNoAssociatedMemoryDump()
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
-		vmiInterface.EXPECT().Get(context.Background(), vmName, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vmName))
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).Times(1)
+		vmiInterface.EXPECT().Get(context.Background(), vmName, metav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vmName))
 
 		err := runGetCmd(claimNameFlag, createClaimFlag)
 		Expect(err).To(MatchError(ContainSubstring("not found")))
@@ -347,7 +347,7 @@ var _ = Describe("MemoryDump", func() {
 			vmExportClient = kubevirtfake.NewSimpleClientset()
 
 			kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(coreClient.StorageV1()).AnyTimes()
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(k8smetav1.NamespaceDefault).Return(vmExportClient.ExportV1beta1().VirtualMachineExports(k8smetav1.NamespaceDefault)).AnyTimes()
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(vmExportClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
 			addDefaultReactors()
 
 			server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -378,7 +378,7 @@ var _ = Describe("MemoryDump", func() {
 			expectVMEndpointMemoryDump("testvm", "")
 			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
 
-			vmexport := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
+			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, claimName, secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    claimName,
@@ -394,7 +394,7 @@ var _ = Describe("MemoryDump", func() {
 
 		It("should call download memory dump", func() {
 			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
-			vmexport := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
+			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, claimName, secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    claimName,
@@ -430,7 +430,7 @@ var _ = Describe("MemoryDump", func() {
 				return &resp, nil
 			}
 			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
-			vmexport := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
+			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, claimName, secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    claimName,
@@ -457,7 +457,7 @@ var _ = Describe("MemoryDump", func() {
 				return &resp, nil
 			}
 			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
-			vme := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
+			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, claimName, secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    claimName,
