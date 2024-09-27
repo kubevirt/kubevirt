@@ -37,12 +37,15 @@ import (
 )
 
 const (
-	createClaimFlag   = "--create-claim"
-	claimNameFlag     = "--claim-name=testpvc"
-	claimName         = "testpvc"
-	configName        = "config"
-	vmName            = "testvm"
+	createClaimFlag = "--create-claim"
+	claimNameFlag   = "--claim-name=testpvc"
+	claimName       = "testpvc"
+	configName      = "config"
+	vmName          = "testvm"
+	scName          = "local"
+
 	defaultFSOverhead = "0.055"
+	scOverhead        = "0.1"
 )
 
 var (
@@ -65,23 +68,29 @@ var _ = Describe("MemoryDump", func() {
 
 		pvcCreateCalled.False()
 		coreClient = fake.NewSimpleClientset()
-		cdiConfig := cdiConfigInit()
-		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
+		cdiClient = cdifake.NewSimpleClientset()
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1()).AnyTimes()
-	})
-
-	handleGetCDIConfig := func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
-	}
 
-	updateCDIConfig := func() {
-		config, err := cdiClient.CdiV1beta1().CDIConfigs().Get(context.Background(), configName, k8smetav1.GetOptions{})
+		cdiConfig := &cdiv1.CDIConfig{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name: configName,
+			},
+			Spec: cdiv1.CDIConfigSpec{
+				UploadProxyURLOverride: nil,
+			},
+			Status: cdiv1.CDIConfigStatus{
+				FilesystemOverhead: &cdiv1.FilesystemOverhead{
+					Global: cdiv1.Percent(defaultFSOverhead),
+					StorageClass: map[string]cdiv1.Percent{
+						scName: scOverhead,
+					},
+				},
+			},
+		}
+		_, err := cdiClient.CdiV1beta1().CDIConfigs().Create(context.Background(), cdiConfig, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		config.Status.FilesystemOverhead.StorageClass = make(map[string]cdiv1.Percent)
-		config.Status.FilesystemOverhead.StorageClass["fakeSC"] = cdiv1.Percent("0.1")
-		_, err = cdiClient.CdiV1beta1().CDIConfigs().Update(context.Background(), config, k8smetav1.UpdateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-	}
+	})
 
 	expectVMEndpointMemoryDump := func(vmName, claimName string) {
 		kubecli.MockKubevirtClientInstance.
@@ -170,7 +179,7 @@ var _ = Describe("MemoryDump", func() {
 			if storageclass != "" {
 				Expect(*pvc.Spec.StorageClassName).To(Equal(storageclass))
 				// 392Mi = (256Mi(vmi memory size) + 100Mi (memory dump overhead)) * 10%fsoverhead for fake storage class rounded to MiB
-				quantity, _ := resource.ParseQuantity("376Mi")
+				quantity, _ := resource.ParseQuantity("392Mi")
 				Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(quantity))
 			} else {
 				// 376Mi = (256Mi(vmi memory size) + 100Mi (memory dump overhead)) * 5.5%fsoverhead rounded to MiB
@@ -255,7 +264,6 @@ var _ = Describe("MemoryDump", func() {
 	})
 
 	DescribeTable("should fail call memory dump subresource with invalid access mode", func(accessMode, expectedErr string) {
-		handleGetCDIConfig()
 		expectGetVMNoAssociatedMemoryDump()
 		expectGetVMI()
 
@@ -270,7 +278,6 @@ var _ = Describe("MemoryDump", func() {
 	)
 
 	DescribeTable("should create pvc for memory dump and call subresource", func(storageclass, accessMode string) {
-		handleGetCDIConfig()
 		expectGetVMNoAssociatedMemoryDump()
 		expectGetVMI()
 		expectPVCCreate(claimName, storageclass, accessMode)
@@ -278,7 +285,6 @@ var _ = Describe("MemoryDump", func() {
 
 		args := []string{claimNameFlag, createClaimFlag}
 		if storageclass != "" {
-			updateCDIConfig()
 			args = append(args, fmt.Sprintf("--storage-class=%s", storageclass))
 		}
 		if accessMode != "" {
@@ -289,7 +295,7 @@ var _ = Describe("MemoryDump", func() {
 		Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
 	},
 		Entry("no other flags", "", ""),
-		Entry("with storageclass flag", "local", ""),
+		Entry("with storageclass flag", scName, ""),
 		Entry("with access mode flag", "", "ReadWriteOnce"),
 	)
 
@@ -480,23 +486,6 @@ var _ = Describe("MemoryDump", func() {
 		})
 	})
 })
-
-func cdiConfigInit() (cdiConfig *cdiv1.CDIConfig) {
-	cdiConfig = &cdiv1.CDIConfig{
-		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: configName,
-		},
-		Spec: cdiv1.CDIConfigSpec{
-			UploadProxyURLOverride: nil,
-		},
-		Status: cdiv1.CDIConfigStatus{
-			FilesystemOverhead: &cdiv1.FilesystemOverhead{
-				Global: cdiv1.Percent(defaultFSOverhead),
-			},
-		},
-	}
-	return
-}
 
 func runCmd(args ...string) error {
 	_args := append([]string{"memory-dump"}, args...)
