@@ -202,12 +202,7 @@ var _ = Describe("MemoryDump", func() {
 	}
 
 	DescribeTable("should fail with missing required or invalid parameters", func(errorString string, args ...string) {
-		commandAndArgs := []string{"memory-dump"}
-		commandAndArgs = append(commandAndArgs, args...)
-		cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-		res := cmdAdd()
-		Expect(res).To(HaveOccurred())
-		Expect(res.Error()).To(ContainSubstring(errorString))
+		Expect(runCmd(args...)).To(MatchError(ContainSubstring(errorString)))
 	},
 		Entry("memorydump no args", "accepts 2 arg(s), received 0"),
 		Entry("memorydump missing action arg", "accepts 2 arg(s), received 1", "testvm"),
@@ -219,65 +214,56 @@ var _ = Describe("MemoryDump", func() {
 
 	It("should call memory dump subresource", func() {
 		expectVMEndpointMemoryDump("testvm", claimName)
-		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag}
-		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-		Expect(cmd.Execute()).To(Succeed())
+
+		err := runGetCmd(claimNameFlag)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should call memory dump subresource without claim-name no create", func() {
 		expectVMEndpointMemoryDump("testvm", "")
-		commandAndArgs := []string{"memory-dump", "get", "testvm"}
-		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-		Expect(cmd.Execute()).To(Succeed())
+
+		Expect(runGetCmd()).To(Succeed())
 	})
 
 	It("should fail call memory dump subresource without claim-name with create-claim", func() {
-		commandAndArgs := []string{"memory-dump", "get", "testvm", createClaimFlag}
-		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-		res := cmd.Execute()
-		Expect(res).To(HaveOccurred())
-		Expect(res.Error()).To(ContainSubstring("missing claim name"))
+		err := runGetCmd(createClaimFlag)
+		Expect(err).To(MatchError(ContainSubstring("missing claim name")))
 	})
 
 	It("should fail call memory dump subresource with create-claim with already associated memory dump pvc", func() {
 		expectGetVMWithAssociatedMemoryDump()
-		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
-		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-		res := cmd.Execute()
-		Expect(res).To(HaveOccurred())
-		Expect(res.Error()).To(ContainSubstring("please remove current memory dump"))
+
+		err := runGetCmd(claimNameFlag, createClaimFlag)
+		Expect(err).To(MatchError(ContainSubstring("please remove current memory dump")))
 	})
 
 	It("should fail call memory dump subresource with create-claim and existing pvc", func() {
 		expectGetVMNoAssociatedMemoryDump()
 		handlePVCGet(pvcSpec())
-		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
-		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-		res := cmd.Execute()
-		Expect(res).To(HaveOccurred())
-		Expect(res.Error()).To(ContainSubstring("already exists"))
+
+		err := runGetCmd(claimNameFlag, createClaimFlag)
+		Expect(err).To(MatchError(ContainSubstring("already exists")))
 	})
 
 	It("should fail call memory dump subresource with create-claim no vmi", func() {
 		expectGetVMNoAssociatedMemoryDump()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().Get(context.Background(), vmName, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vmName))
-		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
-		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-		res := cmd.Execute()
-		Expect(res).To(HaveOccurred())
-		Expect(res.Error()).To(ContainSubstring("not found"))
+
+		err := runGetCmd(claimNameFlag, createClaimFlag)
+		Expect(err).To(MatchError(ContainSubstring("not found")))
 	})
 
 	DescribeTable("should fail call memory dump subresource with invalid access mode", func(accessMode, expectedErr string) {
 		handleGetCDIConfig()
 		expectGetVMNoAssociatedMemoryDump()
 		expectGetVMI()
-		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag, fmt.Sprintf("--access-mode=%s", accessMode)}
-		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-		res := cmd.Execute()
-		Expect(res).To(HaveOccurred())
-		Expect(res.Error()).To(ContainSubstring(expectedErr))
+
+		err := runGetCmd(
+			claimNameFlag, createClaimFlag,
+			fmt.Sprintf("--access-mode=%s", accessMode),
+		)
+		Expect(err).To(MatchError(ContainSubstring(expectedErr)))
 	},
 		Entry("readonly accessMode", "ReadOnlyMany", "cannot dump memory to a readonly pvc"),
 		Entry("invalid accessMode", "RWX", "invalid access mode"),
@@ -289,16 +275,17 @@ var _ = Describe("MemoryDump", func() {
 		expectGetVMI()
 		expectPVCCreate(claimName, storageclass, accessMode)
 		expectVMEndpointMemoryDump("testvm", claimName)
-		commandAndArgs := []string{"memory-dump", "get", "testvm", claimNameFlag, createClaimFlag}
+
+		args := []string{claimNameFlag, createClaimFlag}
 		if storageclass != "" {
 			updateCDIConfig()
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf("--storage-class=%s", storageclass))
+			args = append(args, fmt.Sprintf("--storage-class=%s", storageclass))
 		}
 		if accessMode != "" {
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf("--access-mode=%s", accessMode))
+			args = append(args, fmt.Sprintf("--access-mode=%s", accessMode))
 		}
-		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-		Expect(cmd.Execute()).To(Succeed())
+		err := runGetCmd(args...)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
 	},
 		Entry("no other flags", "", ""),
@@ -308,9 +295,8 @@ var _ = Describe("MemoryDump", func() {
 
 	It("should call remove memory dump subresource", func() {
 		expectVMEndpointRemoveMemoryDump("testvm")
-		commandAndArgs := []string{"memory-dump", "remove", "testvm"}
-		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-		Expect(cmd.Execute()).To(Succeed())
+
+		Expect(runRemoveCmd()).To(Succeed())
 	})
 
 	Context("Download of memory dump", func() {
@@ -396,9 +382,8 @@ var _ = Describe("MemoryDump", func() {
 			utils.HandleSecretGet(coreClient, secretName)
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
-			commandAndArgs := []string{"memory-dump", "get", "testvm", outputFileFlag}
-			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-			Expect(cmd.Execute()).To(Succeed())
+			err := runGetCmd(outputFileFlag)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should call download memory dump", func() {
@@ -413,9 +398,8 @@ var _ = Describe("MemoryDump", func() {
 			utils.HandleSecretGet(coreClient, secretName)
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
-			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag}
-			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-			Expect(cmd.Execute()).To(Succeed())
+			err := runDownloadCmd(outputFileFlag)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should call download memory dump and decompress succesfully", func() {
@@ -450,12 +434,14 @@ var _ = Describe("MemoryDump", func() {
 			utils.HandleSecretGet(coreClient, secretName)
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
-			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag, "--format", "raw"}
-			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-			Expect(cmd.Execute()).To(Succeed())
+			err := runDownloadCmd(
+				outputFileFlag,
+				"--format=raw",
+			)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("should call download memory dump with port-forward", func(commandAndArgs []string) {
+		DescribeTable("should call download memory dump with port-forward", func(extraArgs ...string) {
 			vmexport.HandleHTTPGetRequestFn = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(Equal("https://127.0.0.1:5432"))
 				resp := http.Response{
@@ -477,22 +463,20 @@ var _ = Describe("MemoryDump", func() {
 			utils.HandleVMExportCreate(vmExportClient, vme)
 			utils.HandleServiceGet(coreClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
 			utils.HandlePodList(coreClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
-			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
-			Expect(cmd.Execute()).To(Succeed())
+
+			err := runDownloadCmd(extraArgs...)
+			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("with default port-forward", []string{"memory-dump", "download", "testvm", outputFileFlag, "--port-forward"}),
-			Entry("with port-forward specifying local port", []string{"memory-dump", "download", "testvm", outputFileFlag, "--port-forward", "--local-port", "5432"}),
-			Entry("with port-forward specifying default number on local port", []string{"memory-dump", "download", "testvm", outputFileFlag, "--port-forward", "--local-port", "0"}),
+			Entry("with default port-forward", outputFileFlag, "--port-forward"),
+			Entry("with port-forward specifying local port", outputFileFlag, "--port-forward", "--local-port=5432"),
+			Entry("with port-forward specifying default number on local port", outputFileFlag, "--port-forward", "--local-port=0"),
 		)
 
 		It("should fail download memory dump if not completed succesfully", func() {
 			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpErr
 
-			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag}
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-			err := cmd()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(Equal("memory dump failed: test err"))
+			err := runDownloadCmd(outputFileFlag)
+			Expect(err).Should(MatchError("memory dump failed: test err"))
 		})
 	})
 })
@@ -512,4 +496,24 @@ func cdiConfigInit() (cdiConfig *cdiv1.CDIConfig) {
 		},
 	}
 	return
+}
+
+func runCmd(args ...string) error {
+	_args := append([]string{"memory-dump"}, args...)
+	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+}
+
+func runGetCmd(args ...string) error {
+	_args := append([]string{"memory-dump", "get", "testvm"}, args...)
+	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+}
+
+func runDownloadCmd(args ...string) error {
+	_args := append([]string{"memory-dump", "download", "testvm"}, args...)
+	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+}
+
+func runRemoveCmd(args ...string) error {
+	_args := append([]string{"memory-dump", "remove", "testvm"}, args...)
+	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
 }
