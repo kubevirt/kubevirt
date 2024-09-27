@@ -5,16 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"reflect"
 	"slices"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,11 +26,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/defaults"
+	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	utils "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -63,7 +60,7 @@ type Methods interface {
 	Expand(vm *virtv1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*virtv1.VirtualMachine, error)
 }
 
-type Conflicts []*k8sfield.Path
+type Conflicts apply.Conflicts
 
 func (c Conflicts) String() string {
 	pathStrings := make([]string, 0, len(c))
@@ -128,30 +125,13 @@ func (m *InstancetypeMethods) Expand(vm *virtv1.VirtualMachine, clusterConfig *v
 }
 
 func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
-	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
-		return nil
-	}
-	instancetypeSpec, err := m.FindInstancetypeSpec(vm)
-	if err != nil {
-		return err
-	}
-	preferenceSpec, err := m.FindPreferenceSpec(vm)
-	if err != nil {
-		return err
-	}
-	if conflicts := m.ApplyToVmi(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.ObjectMeta); len(conflicts) > 0 {
-		return fmt.Errorf(VMFieldsConflictsErrorFmt, conflicts.String())
-	}
-	return nil
+	instancetypeFinder := find.NewSpecFinder(m.InstancetypeStore, m.ClusterInstancetypeStore, m.ControllerRevisionStore, m.Clientset)
+	preferenceFinder := preferenceFind.NewSpecFinder(m.PreferenceStore, m.ClusterPreferenceStore, m.ControllerRevisionStore, m.Clientset)
+	return apply.NewVMApplier(instancetypeFinder, preferenceFinder).ApplyToVM(vm)
 }
 
 func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) instancetypev1beta1.PreferredCPUTopology {
-	// Default to PreferSockets when a PreferredCPUTopology isn't provided
-	preferredTopology := instancetypev1beta1.Sockets
-	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != nil {
-		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
-	}
-	return preferredTopology
+	return preferenceApply.GetPreferredTopology(preferenceSpec)
 }
 
 func IsPreferredTopologySupported(topology instancetypev1beta1.PreferredCPUTopology) bool {
@@ -170,23 +150,8 @@ func IsPreferredTopologySupported(topology instancetypev1beta1.PreferredCPUTopol
 	return slices.Contains(supportedTopologies, topology)
 }
 
-const defaultSpreadRatio uint32 = 2
-
 func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) (uint32, instancetypev1beta1.SpreadAcross) {
-	ratio := defaultSpreadRatio
-	if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
-		ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
-	}
-	across := instancetypev1beta1.SpreadAcrossSocketsCores
-	if preferenceSpec.CPU != nil && preferenceSpec.CPU.SpreadOptions != nil {
-		if preferenceSpec.CPU.SpreadOptions.Across != nil {
-			across = *preferenceSpec.CPU.SpreadOptions.Across
-		}
-		if preferenceSpec.CPU.SpreadOptions.Ratio != nil {
-			ratio = *preferenceSpec.CPU.SpreadOptions.Ratio
-		}
-	}
-	return ratio, across
+	return preferenceApply.GetSpreadOptions(preferenceSpec)
 }
 
 func GetRevisionName(vmName, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
@@ -544,34 +509,8 @@ func (m *InstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *inst
 }
 
 func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts {
-	var conflicts Conflicts
-
-	if instancetypeSpec != nil {
-		conflicts = append(conflicts, applyNodeSelector(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applySchedulerName(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyCPU(field, instancetypeSpec, preferenceSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyMemory(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyIOThreadPolicy(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyLaunchSecurity(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyGPUs(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyHostDevices(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
-	}
-
-	if preferenceSpec != nil {
-		// By design Preferences can't conflict with the VMI so we don't return any
-		applyCPUPreferences(preferenceSpec, vmiSpec)
-		ApplyDevicePreferences(preferenceSpec, vmiSpec)
-		applyFeaturePreferences(preferenceSpec, vmiSpec)
-		applyFirmwarePreferences(preferenceSpec, vmiSpec)
-		applyMachinePreferences(preferenceSpec, vmiSpec)
-		applyClockPreferences(preferenceSpec, vmiSpec)
-		applySubdomain(preferenceSpec, vmiSpec)
-		applyTerminationGracePeriodSeconds(preferenceSpec, vmiSpec)
-		applyPreferenceAnnotations(preferenceSpec.Annotations, vmiMetadata)
-	}
-
-	return conflicts
+	conflicts := apply.NewVMIApplier().ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmiSpec, vmiMetadata)
+	return Conflicts(conflicts)
 }
 
 func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
@@ -779,185 +718,6 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1
 	return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind))
 }
 
-func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts Conflicts) {
-	if target.GetAnnotations() == nil {
-		target.SetAnnotations(make(map[string]string))
-	}
-
-	targetAnnotations := target.GetAnnotations()
-	for key, value := range annotations {
-		if targetValue, exists := targetAnnotations[key]; exists {
-			if targetValue != value {
-				conflicts = append(conflicts, k8sfield.NewPath("annotations", key))
-			}
-			continue
-		}
-		targetAnnotations[key] = value
-	}
-
-	return conflicts
-}
-
-func applyPreferenceAnnotations(annotations map[string]string, target metav1.Object) {
-	if target.GetAnnotations() == nil {
-		target.SetAnnotations(make(map[string]string))
-	}
-
-	targetAnnotations := target.GetAnnotations()
-	for key, value := range annotations {
-		if _, exists := targetAnnotations[key]; exists {
-			continue
-		}
-		targetAnnotations[key] = value
-	}
-}
-
-func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if vmiSpec.Domain.CPU == nil {
-		vmiSpec.Domain.CPU = &virtv1.CPU{}
-	}
-
-	// If we have any conflicts return as there's no need to apply the topology below
-	if conflicts := validateCPU(field, instancetypeSpec, vmiSpec); len(conflicts) > 0 {
-		return conflicts
-	}
-
-	if vmiSpec.Domain.CPU.Model == "" && instancetypeSpec.CPU.Model != nil {
-		vmiSpec.Domain.CPU.Model = *instancetypeSpec.CPU.Model
-	}
-
-	if instancetypeSpec.CPU.DedicatedCPUPlacement != nil {
-		vmiSpec.Domain.CPU.DedicatedCPUPlacement = *instancetypeSpec.CPU.DedicatedCPUPlacement
-	}
-
-	if instancetypeSpec.CPU.IsolateEmulatorThread != nil {
-		vmiSpec.Domain.CPU.IsolateEmulatorThread = *instancetypeSpec.CPU.IsolateEmulatorThread
-	}
-
-	if vmiSpec.Domain.CPU.NUMA == nil && instancetypeSpec.CPU.NUMA != nil {
-		vmiSpec.Domain.CPU.NUMA = instancetypeSpec.CPU.NUMA.DeepCopy()
-	}
-
-	if vmiSpec.Domain.CPU.Realtime == nil && instancetypeSpec.CPU.Realtime != nil {
-		vmiSpec.Domain.CPU.Realtime = instancetypeSpec.CPU.Realtime.DeepCopy()
-	}
-
-	if instancetypeSpec.CPU.MaxSockets != nil {
-		vmiSpec.Domain.CPU.MaxSockets = *instancetypeSpec.CPU.MaxSockets
-	}
-
-	applyGuestCPUTopology(instancetypeSpec.CPU.Guest, preferenceSpec, vmiSpec)
-
-	return nil
-}
-
-func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	// Apply the default topology here to avoid duplication below
-	vmiSpec.Domain.CPU.Cores = 1
-	vmiSpec.Domain.CPU.Sockets = 1
-	vmiSpec.Domain.CPU.Threads = 1
-
-	if vCPUs == 1 {
-		return
-	}
-
-	switch GetPreferredTopology(preferenceSpec) {
-	case instancetypev1beta1.DeprecatedPreferCores, instancetypev1beta1.Cores:
-		vmiSpec.Domain.CPU.Cores = vCPUs
-	case instancetypev1beta1.DeprecatedPreferSockets, instancetypev1beta1.DeprecatedPreferAny, instancetypev1beta1.Sockets, instancetypev1beta1.Any:
-		vmiSpec.Domain.CPU.Sockets = vCPUs
-	case instancetypev1beta1.DeprecatedPreferThreads, instancetypev1beta1.Threads:
-		vmiSpec.Domain.CPU.Threads = vCPUs
-	case instancetypev1beta1.DeprecatedPreferSpread, instancetypev1beta1.Spread:
-		ratio, across := GetSpreadOptions(preferenceSpec)
-		switch across {
-		case instancetypev1beta1.SpreadAcrossSocketsCores:
-			vmiSpec.Domain.CPU.Cores = ratio
-			vmiSpec.Domain.CPU.Sockets = vCPUs / ratio
-		case instancetypev1beta1.SpreadAcrossCoresThreads:
-			vmiSpec.Domain.CPU.Threads = ratio
-			vmiSpec.Domain.CPU.Cores = vCPUs / ratio
-		case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
-			const threadsPerCore = 2
-			vmiSpec.Domain.CPU.Threads = threadsPerCore
-			vmiSpec.Domain.CPU.Cores = ratio
-			vmiSpec.Domain.CPU.Sockets = vCPUs / threadsPerCore / ratio
-		}
-	}
-}
-
-func validateCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflicts Conflicts) {
-	if _, hasCPURequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceCPU]; hasCPURequests {
-		conflicts = append(conflicts, field.Child("domain", "resources", "requests", string(k8sv1.ResourceCPU)))
-	}
-
-	if _, hasCPULimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceCPU]; hasCPULimits {
-		conflicts = append(conflicts, field.Child("domain", "resources", "limits", string(k8sv1.ResourceCPU)))
-	}
-
-	if vmiSpec.Domain.CPU.Sockets != 0 {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "sockets"))
-	}
-
-	if vmiSpec.Domain.CPU.Cores != 0 {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "cores"))
-	}
-
-	if vmiSpec.Domain.CPU.Threads != 0 {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "threads"))
-	}
-
-	if vmiSpec.Domain.CPU.Model != "" && instancetypeSpec.CPU.Model != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "model"))
-	}
-
-	if vmiSpec.Domain.CPU.DedicatedCPUPlacement && instancetypeSpec.CPU.DedicatedCPUPlacement != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "dedicatedCPUPlacement"))
-	}
-
-	if vmiSpec.Domain.CPU.IsolateEmulatorThread && instancetypeSpec.CPU.IsolateEmulatorThread != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "isolateEmulatorThread"))
-	}
-
-	if vmiSpec.Domain.CPU.NUMA != nil && instancetypeSpec.CPU.NUMA != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "numa"))
-	}
-
-	if vmiSpec.Domain.CPU.Realtime != nil && instancetypeSpec.CPU.Realtime != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "realtime"))
-	}
-
-	return conflicts
-}
-
-func applyNodeSelector(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if instancetypeSpec.NodeSelector == nil {
-		return nil
-	}
-
-	if vmiSpec.NodeSelector != nil {
-		return Conflicts{field.Child("nodeSelector")}
-	}
-
-	vmiSpec.NodeSelector = maps.Clone(instancetypeSpec.NodeSelector)
-
-	return nil
-}
-
-func applySchedulerName(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if instancetypeSpec.SchedulerName == "" {
-		return nil
-	}
-
-	if vmiSpec.SchedulerName != "" {
-		return Conflicts{field.Child("schedulerName")}
-	}
-
-	vmiSpec.SchedulerName = instancetypeSpec.SchedulerName
-
-	return nil
-}
-
 func AddInstancetypeNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
 	if vm.Spec.Instancetype == nil {
 		return
@@ -990,444 +750,6 @@ func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Objec
 	}
 }
 
-func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if vmiSpec.Domain.Memory != nil {
-		return Conflicts{field.Child("domain", "memory")}
-	}
-
-	if _, hasMemoryRequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory]; hasMemoryRequests {
-		return Conflicts{field.Child("domain", "resources", "requests", string(k8sv1.ResourceMemory))}
-	}
-
-	if _, hasMemoryLimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceMemory]; hasMemoryLimits {
-		return Conflicts{field.Child("domain", "resources", "limits", string(k8sv1.ResourceMemory))}
-	}
-
-	instancetypeMemoryGuest := instancetypeSpec.Memory.Guest.DeepCopy()
-	vmiSpec.Domain.Memory = &virtv1.Memory{
-		Guest: &instancetypeMemoryGuest,
-	}
-
-	// If memory overcommit has been requested, set the memory requests to be
-	// lower than the guest memory by the requested percent.
-	const totalPercentage = 100
-	if instancetypeMemoryOvercommit := instancetypeSpec.Memory.OvercommitPercent; instancetypeMemoryOvercommit > 0 {
-		if vmiSpec.Domain.Resources.Requests == nil {
-			vmiSpec.Domain.Resources.Requests = k8sv1.ResourceList{}
-		}
-		podRequestedMemory := int64(float32(instancetypeSpec.Memory.Guest.Value()) * (1 - float32(instancetypeSpec.Memory.OvercommitPercent)/totalPercentage))
-
-		vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(podRequestedMemory, instancetypeMemoryGuest.Format)
-	}
-
-	if instancetypeSpec.Memory.Hugepages != nil {
-		vmiSpec.Domain.Memory.Hugepages = instancetypeSpec.Memory.Hugepages.DeepCopy()
-	}
-
-	if instancetypeSpec.Memory.MaxGuest != nil {
-		m := instancetypeSpec.Memory.MaxGuest.DeepCopy()
-		vmiSpec.Domain.Memory.MaxGuest = &m
-	}
-
-	return nil
-}
-
-func applyIOThreadPolicy(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if instancetypeSpec.IOThreadsPolicy == nil {
-		return nil
-	}
-
-	if vmiSpec.Domain.IOThreadsPolicy != nil {
-		return Conflicts{field.Child("domain", "ioThreadsPolicy")}
-	}
-
-	instancetypeIOThreadPolicy := *instancetypeSpec.IOThreadsPolicy
-	vmiSpec.Domain.IOThreadsPolicy = &instancetypeIOThreadPolicy
-
-	return nil
-}
-
-func applyLaunchSecurity(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if instancetypeSpec.LaunchSecurity == nil {
-		return nil
-	}
-
-	if vmiSpec.Domain.LaunchSecurity != nil {
-		return Conflicts{field.Child("domain", "launchSecurity")}
-	}
-
-	vmiSpec.Domain.LaunchSecurity = instancetypeSpec.LaunchSecurity.DeepCopy()
-
-	return nil
-}
-
-func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if len(instancetypeSpec.GPUs) == 0 {
-		return nil
-	}
-
-	if len(vmiSpec.Domain.Devices.GPUs) >= 1 {
-		return Conflicts{field.Child("domain", "devices", "gpus")}
-	}
-
-	vmiSpec.Domain.Devices.GPUs = make([]virtv1.GPU, len(instancetypeSpec.GPUs))
-	copy(vmiSpec.Domain.Devices.GPUs, instancetypeSpec.GPUs)
-
-	return nil
-}
-
-func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if len(instancetypeSpec.HostDevices) == 0 {
-		return nil
-	}
-
-	if len(vmiSpec.Domain.Devices.HostDevices) >= 1 {
-		return Conflicts{field.Child("domain", "devices", "hostDevices")}
-	}
-
-	vmiSpec.Domain.Devices.HostDevices = make([]virtv1.HostDevice, len(instancetypeSpec.HostDevices))
-	copy(vmiSpec.Domain.Devices.HostDevices, instancetypeSpec.HostDevices)
-
-	return nil
-}
-
-func applyCPUPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.CPU == nil || len(preferenceSpec.CPU.PreferredCPUFeatures) == 0 {
-		return
-	}
-	// Only apply any preferred CPU features when the same feature has not been provided by a user already
-	cpuFeatureNames := make(map[string]struct{})
-	for _, cpuFeature := range vmiSpec.Domain.CPU.Features {
-		cpuFeatureNames[cpuFeature.Name] = struct{}{}
-	}
-	for _, preferredCPUFeature := range preferenceSpec.CPU.PreferredCPUFeatures {
-		if _, foundCPUFeature := cpuFeatureNames[preferredCPUFeature.Name]; !foundCPUFeature {
-			vmiSpec.Domain.CPU.Features = append(vmiSpec.Domain.CPU.Features, preferredCPUFeature)
-		}
-	}
-}
-
 func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.Devices == nil {
-		return
-	}
-
-	// We only want to apply a preference bool when...
-	//
-	// 1. A preference has actually been provided
-	// 2. The user hasn't defined the corresponding attribute already within the VMI
-	//
-	if preferenceSpec.Devices.PreferredAutoattachGraphicsDevice != nil && vmiSpec.Domain.Devices.AutoattachGraphicsDevice == nil {
-		vmiSpec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(*preferenceSpec.Devices.PreferredAutoattachGraphicsDevice)
-	}
-
-	if preferenceSpec.Devices.PreferredAutoattachMemBalloon != nil && vmiSpec.Domain.Devices.AutoattachMemBalloon == nil {
-		vmiSpec.Domain.Devices.AutoattachMemBalloon = pointer.P(*preferenceSpec.Devices.PreferredAutoattachMemBalloon)
-	}
-
-	if preferenceSpec.Devices.PreferredAutoattachPodInterface != nil && vmiSpec.Domain.Devices.AutoattachPodInterface == nil {
-		vmiSpec.Domain.Devices.AutoattachPodInterface = pointer.P(*preferenceSpec.Devices.PreferredAutoattachPodInterface)
-	}
-
-	if preferenceSpec.Devices.PreferredAutoattachSerialConsole != nil && vmiSpec.Domain.Devices.AutoattachSerialConsole == nil {
-		vmiSpec.Domain.Devices.AutoattachSerialConsole = pointer.P(*preferenceSpec.Devices.PreferredAutoattachSerialConsole)
-	}
-
-	if preferenceSpec.Devices.PreferredUseVirtioTransitional != nil && vmiSpec.Domain.Devices.UseVirtioTransitional == nil {
-		vmiSpec.Domain.Devices.UseVirtioTransitional = pointer.P(*preferenceSpec.Devices.PreferredUseVirtioTransitional)
-	}
-
-	if preferenceSpec.Devices.PreferredBlockMultiQueue != nil && vmiSpec.Domain.Devices.BlockMultiQueue == nil {
-		vmiSpec.Domain.Devices.BlockMultiQueue = pointer.P(*preferenceSpec.Devices.PreferredBlockMultiQueue)
-	}
-
-	if preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue != nil && vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue == nil {
-		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue)
-	}
-
-	if preferenceSpec.Devices.PreferredAutoattachInputDevice != nil && vmiSpec.Domain.Devices.AutoattachInputDevice == nil {
-		vmiSpec.Domain.Devices.AutoattachInputDevice = pointer.P(*preferenceSpec.Devices.PreferredAutoattachInputDevice)
-	}
-
-	// FIXME DisableHotplug isn't a pointer bool so we don't have a way to tell if a user has actually set it, for now override.
-	if preferenceSpec.Devices.PreferredDisableHotplug != nil {
-		vmiSpec.Domain.Devices.DisableHotplug = *preferenceSpec.Devices.PreferredDisableHotplug
-	}
-
-	if preferenceSpec.Devices.PreferredSoundModel != "" && vmiSpec.Domain.Devices.Sound != nil && vmiSpec.Domain.Devices.Sound.Model == "" {
-		vmiSpec.Domain.Devices.Sound.Model = preferenceSpec.Devices.PreferredSoundModel
-	}
-
-	if preferenceSpec.Devices.PreferredRng != nil && vmiSpec.Domain.Devices.Rng == nil {
-		vmiSpec.Domain.Devices.Rng = preferenceSpec.Devices.PreferredRng.DeepCopy()
-	}
-
-	if preferenceSpec.Devices.PreferredTPM != nil && vmiSpec.Domain.Devices.TPM == nil {
-		vmiSpec.Domain.Devices.TPM = preferenceSpec.Devices.PreferredTPM.DeepCopy()
-	}
-
-	applyDiskPreferences(preferenceSpec, vmiSpec)
-	applyInterfacePreferences(preferenceSpec, vmiSpec)
-	applyInputPreferences(preferenceSpec, vmiSpec)
-}
-
-func applyDiskPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	for diskIndex := range vmiSpec.Domain.Devices.Disks {
-		vmiDisk := &vmiSpec.Domain.Devices.Disks[diskIndex]
-		// If we don't have a target device defined default to a DiskTarget so we can apply preferences
-		if vmiDisk.DiskDevice.Disk == nil && vmiDisk.DiskDevice.CDRom == nil && vmiDisk.DiskDevice.LUN == nil {
-			vmiDisk.DiskDevice.Disk = &virtv1.DiskTarget{}
-		}
-
-		if vmiDisk.DiskDevice.Disk != nil {
-			if preferenceSpec.Devices.PreferredDiskBus != "" && vmiDisk.DiskDevice.Disk.Bus == "" {
-				vmiDisk.DiskDevice.Disk.Bus = preferenceSpec.Devices.PreferredDiskBus
-			}
-
-			if preferenceSpec.Devices.PreferredDiskBlockSize != nil && vmiDisk.BlockSize == nil {
-				vmiDisk.BlockSize = preferenceSpec.Devices.PreferredDiskBlockSize.DeepCopy()
-			}
-
-			if preferenceSpec.Devices.PreferredDiskCache != "" && vmiDisk.Cache == "" {
-				vmiDisk.Cache = preferenceSpec.Devices.PreferredDiskCache
-			}
-
-			if preferenceSpec.Devices.PreferredDiskIO != "" && vmiDisk.IO == "" {
-				vmiDisk.IO = preferenceSpec.Devices.PreferredDiskIO
-			}
-
-			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil && vmiDisk.DedicatedIOThread == nil && vmiDisk.DiskDevice.Disk.Bus == virtv1.DiskBusVirtio {
-				vmiDisk.DedicatedIOThread = pointer.P(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
-			}
-		} else if vmiDisk.DiskDevice.CDRom != nil {
-			if preferenceSpec.Devices.PreferredCdromBus != "" && vmiDisk.DiskDevice.CDRom.Bus == "" {
-				vmiDisk.DiskDevice.CDRom.Bus = preferenceSpec.Devices.PreferredCdromBus
-			}
-		} else if vmiDisk.DiskDevice.LUN != nil {
-			if preferenceSpec.Devices.PreferredLunBus != "" && vmiDisk.DiskDevice.LUN.Bus == "" {
-				vmiDisk.DiskDevice.LUN.Bus = preferenceSpec.Devices.PreferredLunBus
-			}
-		}
-	}
-}
-
-func isInterfaceBindingUnset(iface *virtv1.Interface) bool {
-	return reflect.ValueOf(iface.InterfaceBindingMethod).IsZero() && iface.Binding == nil
-}
-
-func isInterfaceOnPodNetwork(interfaceName string, vmiSpec *virtv1.VirtualMachineInstanceSpec) bool {
-	for _, network := range vmiSpec.Networks {
-		if network.Name == interfaceName {
-			return network.Pod != nil
-		}
-	}
-	return false
-}
-
-func applyInterfacePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	for ifaceIndex := range vmiSpec.Domain.Devices.Interfaces {
-		vmiIface := &vmiSpec.Domain.Devices.Interfaces[ifaceIndex]
-		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
-			vmiIface.Model = preferenceSpec.Devices.PreferredInterfaceModel
-		}
-		if preferenceSpec.Devices.PreferredInterfaceMasquerade != nil && isInterfaceBindingUnset(vmiIface) && isInterfaceOnPodNetwork(vmiIface.Name, vmiSpec) {
-			vmiIface.Masquerade = preferenceSpec.Devices.PreferredInterfaceMasquerade.DeepCopy()
-		}
-	}
-}
-
-func applyInputPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	for inputIndex := range vmiSpec.Domain.Devices.Inputs {
-		vmiInput := &vmiSpec.Domain.Devices.Inputs[inputIndex]
-		if preferenceSpec.Devices.PreferredInputBus != "" && vmiInput.Bus == "" {
-			vmiInput.Bus = preferenceSpec.Devices.PreferredInputBus
-		}
-
-		if preferenceSpec.Devices.PreferredInputType != "" && vmiInput.Type == "" {
-			vmiInput.Type = preferenceSpec.Devices.PreferredInputType
-		}
-	}
-}
-
-func applyFeaturePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.Features == nil {
-		return
-	}
-
-	if vmiSpec.Domain.Features == nil {
-		vmiSpec.Domain.Features = &virtv1.Features{}
-	}
-
-	// FIXME vmiSpec.Domain.Features.ACPI isn't a FeatureState pointer so just overwrite if we have a preference for now.
-	if preferenceSpec.Features.PreferredAcpi != nil {
-		vmiSpec.Domain.Features.ACPI = *preferenceSpec.Features.PreferredAcpi.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredApic != nil && vmiSpec.Domain.Features.APIC == nil {
-		vmiSpec.Domain.Features.APIC = preferenceSpec.Features.PreferredApic.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv != nil {
-		applyHyperVFeaturePreferences(preferenceSpec, vmiSpec)
-	}
-
-	if preferenceSpec.Features.PreferredKvm != nil && vmiSpec.Domain.Features.KVM == nil {
-		vmiSpec.Domain.Features.KVM = preferenceSpec.Features.PreferredKvm.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredPvspinlock != nil && vmiSpec.Domain.Features.Pvspinlock == nil {
-		vmiSpec.Domain.Features.Pvspinlock = preferenceSpec.Features.PreferredPvspinlock.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredSmm != nil && vmiSpec.Domain.Features.SMM == nil {
-		vmiSpec.Domain.Features.SMM = preferenceSpec.Features.PreferredSmm.DeepCopy()
-	}
-}
-
-func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if vmiSpec.Domain.Features.Hyperv == nil {
-		vmiSpec.Domain.Features.Hyperv = &virtv1.FeatureHyperv{}
-	}
-
-	// TODO clean this up with reflection?
-	if preferenceSpec.Features.PreferredHyperv.EVMCS != nil && vmiSpec.Domain.Features.Hyperv.EVMCS == nil {
-		vmiSpec.Domain.Features.Hyperv.EVMCS = preferenceSpec.Features.PreferredHyperv.EVMCS.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.Frequencies != nil && vmiSpec.Domain.Features.Hyperv.Frequencies == nil {
-		vmiSpec.Domain.Features.Hyperv.Frequencies = preferenceSpec.Features.PreferredHyperv.Frequencies.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.IPI != nil && vmiSpec.Domain.Features.Hyperv.IPI == nil {
-		vmiSpec.Domain.Features.Hyperv.IPI = preferenceSpec.Features.PreferredHyperv.IPI.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.Reenlightenment != nil && vmiSpec.Domain.Features.Hyperv.Reenlightenment == nil {
-		vmiSpec.Domain.Features.Hyperv.Reenlightenment = preferenceSpec.Features.PreferredHyperv.Reenlightenment.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.Relaxed != nil && vmiSpec.Domain.Features.Hyperv.Relaxed == nil {
-		vmiSpec.Domain.Features.Hyperv.Relaxed = preferenceSpec.Features.PreferredHyperv.Relaxed.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.Reset != nil && vmiSpec.Domain.Features.Hyperv.Reset == nil {
-		vmiSpec.Domain.Features.Hyperv.Reset = preferenceSpec.Features.PreferredHyperv.Reset.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.Runtime != nil && vmiSpec.Domain.Features.Hyperv.Runtime == nil {
-		vmiSpec.Domain.Features.Hyperv.Runtime = preferenceSpec.Features.PreferredHyperv.Runtime.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.Spinlocks != nil && vmiSpec.Domain.Features.Hyperv.Spinlocks == nil {
-		vmiSpec.Domain.Features.Hyperv.Spinlocks = preferenceSpec.Features.PreferredHyperv.Spinlocks.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.SyNIC != nil && vmiSpec.Domain.Features.Hyperv.SyNIC == nil {
-		vmiSpec.Domain.Features.Hyperv.SyNIC = preferenceSpec.Features.PreferredHyperv.SyNIC.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.SyNICTimer != nil && vmiSpec.Domain.Features.Hyperv.SyNICTimer == nil {
-		vmiSpec.Domain.Features.Hyperv.SyNICTimer = preferenceSpec.Features.PreferredHyperv.SyNICTimer.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.TLBFlush != nil && vmiSpec.Domain.Features.Hyperv.TLBFlush == nil {
-		vmiSpec.Domain.Features.Hyperv.TLBFlush = preferenceSpec.Features.PreferredHyperv.TLBFlush.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.VAPIC != nil && vmiSpec.Domain.Features.Hyperv.VAPIC == nil {
-		vmiSpec.Domain.Features.Hyperv.VAPIC = preferenceSpec.Features.PreferredHyperv.VAPIC.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.VPIndex != nil && vmiSpec.Domain.Features.Hyperv.VPIndex == nil {
-		vmiSpec.Domain.Features.Hyperv.VPIndex = preferenceSpec.Features.PreferredHyperv.VPIndex.DeepCopy()
-	}
-
-	if preferenceSpec.Features.PreferredHyperv.VendorID != nil && vmiSpec.Domain.Features.Hyperv.VendorID == nil {
-		vmiSpec.Domain.Features.Hyperv.VendorID = preferenceSpec.Features.PreferredHyperv.VendorID.DeepCopy()
-	}
-}
-
-func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.Firmware == nil {
-		return
-	}
-
-	firmware := preferenceSpec.Firmware
-
-	if vmiSpec.Domain.Firmware == nil {
-		vmiSpec.Domain.Firmware = &virtv1.Firmware{}
-	}
-
-	vmiFirmware := vmiSpec.Domain.Firmware
-
-	if vmiFirmware.Bootloader == nil {
-		vmiFirmware.Bootloader = &virtv1.Bootloader{}
-	}
-
-	if firmware.PreferredUseBios != nil && *firmware.PreferredUseBios && vmiFirmware.Bootloader.BIOS == nil && vmiFirmware.Bootloader.EFI == nil {
-		vmiFirmware.Bootloader.BIOS = &virtv1.BIOS{}
-	}
-
-	if firmware.PreferredUseBiosSerial != nil && vmiFirmware.Bootloader.BIOS != nil && vmiFirmware.Bootloader.BIOS.UseSerial == nil {
-		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
-	}
-
-	if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
-		vmiFirmware.Bootloader.EFI = firmware.PreferredEfi.DeepCopy()
-		// When using PreferredEfi return early to avoid applying PreferredUseEfi or PreferredUseSecureBoot below
-		return
-	}
-
-	if firmware.DeprecatedPreferredUseEfi != nil && *firmware.DeprecatedPreferredUseEfi && vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil {
-		vmiFirmware.Bootloader.EFI = &virtv1.EFI{}
-	}
-
-	if firmware.DeprecatedPreferredUseSecureBoot != nil && vmiFirmware.Bootloader.EFI != nil && vmiFirmware.Bootloader.EFI.SecureBoot == nil {
-		vmiFirmware.Bootloader.EFI.SecureBoot = pointer.P(*firmware.DeprecatedPreferredUseSecureBoot)
-	}
-}
-
-func applyMachinePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.Machine == nil {
-		return
-	}
-
-	if vmiSpec.Domain.Machine == nil {
-		vmiSpec.Domain.Machine = &virtv1.Machine{}
-	}
-
-	if preferenceSpec.Machine.PreferredMachineType != "" && vmiSpec.Domain.Machine.Type == "" {
-		vmiSpec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
-	}
-}
-
-func applyClockPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.Clock == nil {
-		return
-	}
-
-	if vmiSpec.Domain.Clock == nil {
-		vmiSpec.Domain.Clock = &virtv1.Clock{}
-	}
-
-	// We don't want to allow a partial overwrite here as that could lead to some unexpected behavior for users so only replace when nothing is set
-	if preferenceSpec.Clock.PreferredClockOffset != nil && vmiSpec.Domain.Clock.ClockOffset.UTC == nil && vmiSpec.Domain.Clock.ClockOffset.Timezone == nil {
-		vmiSpec.Domain.Clock.ClockOffset = *preferenceSpec.Clock.PreferredClockOffset.DeepCopy()
-	}
-
-	if preferenceSpec.Clock.PreferredTimer != nil && vmiSpec.Domain.Clock.Timer == nil {
-		vmiSpec.Domain.Clock.Timer = preferenceSpec.Clock.PreferredTimer.DeepCopy()
-	}
-}
-
-func applySubdomain(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if vmiSpec.Subdomain == "" && preferenceSpec.PreferredSubdomain != nil {
-		vmiSpec.Subdomain = *preferenceSpec.PreferredSubdomain
-	}
-}
-
-func applyTerminationGracePeriodSeconds(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.PreferredTerminationGracePeriodSeconds != nil && vmiSpec.TerminationGracePeriodSeconds == nil {
-		vmiSpec.TerminationGracePeriodSeconds = pointer.P(*preferenceSpec.PreferredTerminationGracePeriodSeconds)
-	}
+	preferenceApply.ApplyDevicePreferences(preferenceSpec, vmiSpec)
 }
