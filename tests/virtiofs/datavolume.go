@@ -190,7 +190,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libstorage.DeletePV(pvc)
 			}()
 
-			resources := k8sv1.ResourceRequirements{
+			resources := v1.ResourceRequirementsWithoutClaims{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU:    resource.MustParse("2m"),
 					k8sv1.ResourceMemory: resource.MustParse("14M"),

@@ -473,6 +473,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.ReloadableComponentConfiguration":                                   schema_kubevirtio_api_core_v1_ReloadableComponentConfiguration(ref),
 		"kubevirt.io/api/core/v1.RemoveVolumeOptions":                                                schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref),
 		"kubevirt.io/api/core/v1.ResourceRequirements":                                               schema_kubevirtio_api_core_v1_ResourceRequirements(ref),
+		"kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims":                                  schema_kubevirtio_api_core_v1_ResourceRequirementsWithoutClaims(ref),
 		"kubevirt.io/api/core/v1.RestartOptions":                                                     schema_kubevirtio_api_core_v1_RestartOptions(ref),
 		"kubevirt.io/api/core/v1.Rng":                                                                schema_kubevirtio_api_core_v1_Rng(ref),
 		"kubevirt.io/api/core/v1.SEV":                                                                schema_kubevirtio_api_core_v1_SEV(ref),
@@ -20405,14 +20406,14 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref common.ReferenceCa
 					"computeResourceOverhead": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding. version: v1alphav1",
-							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+							Ref:         ref("kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/api/core/v1.InterfaceBindingMigration"},
+			"kubevirt.io/api/core/v1.InterfaceBindingMigration", "kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims"},
 	}
 }
 
@@ -23011,6 +23012,49 @@ func schema_kubevirtio_api_core_v1_ResourceRequirements(ref common.ReferenceCall
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ResourceRequirementsWithoutClaims(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceRequirementsWithoutClaims describes the compute resource requirements. This struct was taken from the k8s.ResourceRequirements and cleaned up the `Claims` field.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"limits": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+					"requests": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_RestartOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -23720,7 +23764,7 @@ func schema_kubevirtio_api_core_v1_SupportContainerResources(ref common.Referenc
 					"resources": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/api/core/v1.ResourceRequirements"),
+							Ref:     ref("kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims"),
 						},
 					},
 				},
@@ -23728,7 +23772,7 @@ func schema_kubevirtio_api_core_v1_SupportContainerResources(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements"},
+			"kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims"},
 	}
 }
 

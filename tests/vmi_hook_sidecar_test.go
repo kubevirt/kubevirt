@@ -111,7 +111,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			})
 
 			It("[test_id:3155][serial]should successfully start with hook sidecar annotation", Serial, func() {
-				resources := k8sv1.ResourceRequirements{
+				resources := v1.ResourceRequirementsWithoutClaims{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceCPU:    resource.MustParse("1m"),
 						k8sv1.ResourceMemory: resource.MustParse("10M"),

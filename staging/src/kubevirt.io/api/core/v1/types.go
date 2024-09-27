@@ -2589,8 +2589,8 @@ const (
 
 // SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.
 type SupportContainerResources struct {
-	Type      SupportContainerType       `json:"type"`
-	Resources k8sv1.ResourceRequirements `json:"resources"`
+	Type      SupportContainerType              `json:"type"`
+	Resources ResourceRequirementsWithoutClaims `json:"resources"`
 }
 
 type TLSProtocolVersion string
@@ -2885,7 +2885,22 @@ type InterfaceBindingPlugin struct {
 	// ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding.
 	// version: v1alphav1
 	// +optional
-	ComputeResourceOverhead *k8sv1.ResourceRequirements `json:"computeResourceOverhead,omitempty"`
+	ComputeResourceOverhead *ResourceRequirementsWithoutClaims `json:"computeResourceOverhead,omitempty"`
+}
+
+// ResourceRequirementsWithoutClaims describes the compute resource requirements.
+// This struct was taken from the k8s.ResourceRequirements and cleaned up the `Claims` field.
+type ResourceRequirementsWithoutClaims struct {
+	// Limits describes the maximum amount of compute resources allowed.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	Limits k8sv1.ResourceList `json:"limits,omitempty" protobuf:"bytes,1,rep,name=limits,casttype=ResourceList,castkey=ResourceName"`
+	// Requests describes the minimum amount of compute resources required.
+	// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+	// otherwise to an implementation-defined value. Requests cannot exceed Limits.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	Requests k8sv1.ResourceList `json:"requests,omitempty" protobuf:"bytes,2,rep,name=requests,casttype=ResourceList,castkey=ResourceName"`
 }
 
 type DomainAttachmentType string

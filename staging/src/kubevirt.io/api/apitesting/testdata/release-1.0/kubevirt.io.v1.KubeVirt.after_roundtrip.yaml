@@ -77,8 +77,6 @@ spec:
         - valuesValue
       matchLabels:
         matchLabelsKey: matchLabelsValue
-    commonInstancetypesDeployment:
-      enabled: true
     controllerConfiguration:
       restClient:
         rateLimiter:
@@ -163,11 +161,6 @@ spec:
     network:
       binding:
         bindingKey:
-          computeResourceOverhead:
-            limits:
-              limitsKey: "0"
-            requests:
-              requestsKey: "0"
           domainAttachmentType: domainAttachmentTypeValue
           downwardAPI: downwardAPIValue
           migration:
@@ -290,10 +283,6 @@ spec:
                   - valuesValue
                 matchLabels:
                   matchLabelsKey: matchLabelsValue
-              matchLabelKeys:
-              - matchLabelKeysValue
-              mismatchLabelKeys:
-              - mismatchLabelKeysValue
               namespaceSelector:
                 matchExpressions:
                 - key: keyValue
@@ -315,10 +304,6 @@ spec:
                 - valuesValue
               matchLabels:
                 matchLabelsKey: matchLabelsValue
-            matchLabelKeys:
-            - matchLabelKeysValue
-            mismatchLabelKeys:
-            - mismatchLabelKeysValue
             namespaceSelector:
               matchExpressions:
               - key: keyValue
@@ -341,10 +326,6 @@ spec:
                   - valuesValue
                 matchLabels:
                   matchLabelsKey: matchLabelsValue
-              matchLabelKeys:
-              - matchLabelKeysValue
-              mismatchLabelKeys:
-              - mismatchLabelKeysValue
               namespaceSelector:
                 matchExpressions:
                 - key: keyValue
@@ -366,10 +347,6 @@ spec:
                 - valuesValue
               matchLabels:
                 matchLabelsKey: matchLabelsValue
-            matchLabelKeys:
-            - matchLabelKeysValue
-            mismatchLabelKeys:
-            - mismatchLabelKeysValue
             namespaceSelector:
               matchExpressions:
               - key: keyValue
@@ -442,10 +419,6 @@ spec:
                   - valuesValue
                 matchLabels:
                   matchLabelsKey: matchLabelsValue
-              matchLabelKeys:
-              - matchLabelKeysValue
-              mismatchLabelKeys:
-              - mismatchLabelKeysValue
               namespaceSelector:
                 matchExpressions:
                 - key: keyValue
@@ -467,10 +440,6 @@ spec:
                 - valuesValue
               matchLabels:
                 matchLabelsKey: matchLabelsValue
-            matchLabelKeys:
-            - matchLabelKeysValue
-            mismatchLabelKeys:
-            - mismatchLabelKeysValue
             namespaceSelector:
               matchExpressions:
               - key: keyValue
@@ -493,10 +462,6 @@ spec:
                   - valuesValue
                 matchLabels:
                   matchLabelsKey: matchLabelsValue
-              matchLabelKeys:
-              - matchLabelKeysValue
-              mismatchLabelKeys:
-              - mismatchLabelKeysValue
               namespaceSelector:
                 matchExpressions:
                 - key: keyValue
@@ -518,10 +483,6 @@ spec:
                 - valuesValue
               matchLabels:
                 matchLabelsKey: matchLabelsValue
-            matchLabelKeys:
-            - matchLabelKeysValue
-            mismatchLabelKeys:
-            - mismatchLabelKeysValue
             namespaceSelector:
               matchExpressions:
               - key: keyValue

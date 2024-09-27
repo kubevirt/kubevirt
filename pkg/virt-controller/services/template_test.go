@@ -1393,7 +1393,7 @@ var _ = Describe("Template", func() {
 					SupportContainerResources: []v1.SupportContainerResources{
 						{
 							Type: v1.SideCar,
-							Resources: k8sv1.ResourceRequirements{
+							Resources: v1.ResourceRequirementsWithoutClaims{
 								Requests: k8sv1.ResourceList{},
 								Limits:   k8sv1.ResourceList{},
 							},
@@ -3308,7 +3308,7 @@ var _ = Describe("Template", func() {
 					SupportContainerResources: []v1.SupportContainerResources{
 						{
 							Type: v1.VirtioFS,
-							Resources: k8sv1.ResourceRequirements{
+							Resources: v1.ResourceRequirementsWithoutClaims{
 								Requests: req,
 								Limits:   lim,
 							},
@@ -3350,7 +3350,7 @@ var _ = Describe("Template", func() {
 					SupportContainerResources: []v1.SupportContainerResources{
 						{
 							Type: v1.VirtioFS,
-							Resources: k8sv1.ResourceRequirements{
+							Resources: v1.ResourceRequirementsWithoutClaims{
 								Requests: k8sv1.ResourceList{},
 								Limits:   k8sv1.ResourceList{},
 							},
@@ -4852,7 +4852,7 @@ var _ = Describe("Template", func() {
 			kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
 				Binding: map[string]v1.InterfaceBindingPlugin{
 					plugin1name: {
-						ComputeResourceOverhead: &k8sv1.ResourceRequirements{
+						ComputeResourceOverhead: &v1.ResourceRequirementsWithoutClaims{
 							Requests: map[k8sv1.ResourceName]resource.Quantity{
 								k8sv1.ResourceMemory: resource.MustParse("500Mi"),
 							},
