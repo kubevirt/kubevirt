@@ -16,7 +16,7 @@ SCRIPT_DIR="$(
 # then we shouldn't alter the existing configuration to avoid the
 # risk of possibly breaking it
 if ! grep -q -E '^enabled$' /proc/sys/fs/binfmt_misc/qemu-aarch64 2>/dev/null; then
-    ${KUBEVIRT_CRI} >&2 run --rm --privileged multiarch/qemu-user-static --reset -p yes
+    ${KUBEVIRT_CRI} >&2 run --rm --privileged docker.io/multiarch/qemu-user-static --reset -p yes
 fi
 
 # shellcheck source=hack/builder/common.sh
