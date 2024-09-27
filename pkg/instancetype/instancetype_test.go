@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 
@@ -233,7 +234,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				clusterInstancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(clusterInstancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(clusterInstancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -275,7 +276,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -422,7 +423,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -464,7 +465,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -686,7 +687,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, clusterPreferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, clusterPreferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -724,7 +725,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, clusterPreferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, clusterPreferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -820,7 +821,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, preferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -858,7 +859,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, preferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})

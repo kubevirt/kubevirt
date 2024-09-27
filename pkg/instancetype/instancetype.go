@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,13 +23,12 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
-	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	utils "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -155,270 +153,24 @@ func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferen
 }
 
 func GetRevisionName(vmName, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
-	return fmt.Sprintf("%s-%s-%s-%s-%d", vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
+	return revision.GenerateName(vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
-	obj, err := utils.GenerateKubeVirtGroupVersionKind(object)
-	if err != nil {
-		return nil, err
-	}
-	metaObj, ok := obj.(metav1.Object)
-	if !ok {
-		return nil, fmt.Errorf("unexpected object format returned from GenerateKubeVirtGroupVersionKind")
-	}
-
-	revisionName := GetRevisionName(vm.Name, metaObj.GetName(), obj.GetObjectKind().GroupVersionKind().Version, metaObj.GetUID(), metaObj.GetGeneration())
-
-	// Removing unnecessary metadata
-	metaObj.SetLabels(nil)
-	metaObj.SetAnnotations(nil)
-	metaObj.SetFinalizers(nil)
-	metaObj.SetOwnerReferences(nil)
-	metaObj.SetManagedFields(nil)
-
-	return &appsv1.ControllerRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            revisionName,
-			Namespace:       vm.Namespace,
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
-			Labels: map[string]string{
-				apiinstancetype.ControllerRevisionObjectGenerationLabel: fmt.Sprintf("%d", metaObj.GetGeneration()),
-				apiinstancetype.ControllerRevisionObjectKindLabel:       obj.GetObjectKind().GroupVersionKind().Kind,
-				apiinstancetype.ControllerRevisionObjectNameLabel:       metaObj.GetName(),
-				apiinstancetype.ControllerRevisionObjectUIDLabel:        string(metaObj.GetUID()),
-				apiinstancetype.ControllerRevisionObjectVersionLabel:    obj.GetObjectKind().GroupVersionKind().Version,
-			},
-		},
-		Data: runtime.RawExtension{
-			Object: obj,
-		},
-	}, nil
-}
-
-func (m *InstancetypeMethods) checkForInstancetypeConflicts(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) error {
-	// Apply the instancetype to a copy of the VMISpec as we don't want to persist any changes here in the VM being passed around
-	vmiSpecCopy := vmiSpec.DeepCopy()
-	conflicts := m.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy, vmiMetadata)
-	if len(conflicts) > 0 {
-		return fmt.Errorf(VMFieldsConflictsErrorFmt, conflicts.String())
-	}
-	return nil
-}
-
-func (m *InstancetypeMethods) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	switch strings.ToLower(vm.Spec.Instancetype.Kind) {
-	case apiinstancetype.SingularResourceName, apiinstancetype.PluralResourceName:
-		finder := find.NewInstancetypeFinder(m.InstancetypeStore, m.Clientset)
-		instancetype, err := finder.Find(vm)
-		if err != nil {
-			return nil, err
-		}
-
-		// There is still a window where the instancetype can be updated between the VirtualMachine validation webhook accepting
-		// the VirtualMachine and the VirtualMachine controller creating a ControllerRevison. As such we need to check one final
-		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
-		if err := m.checkForInstancetypeConflicts(&instancetype.Spec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta); err != nil {
-			return nil, err
-		}
-		return CreateControllerRevision(vm, instancetype)
-
-	case apiinstancetype.ClusterSingularResourceName, apiinstancetype.ClusterPluralResourceName:
-		finder := find.NewClusterInstancetypeFinder(m.InstancetypeStore, m.Clientset)
-		clusterInstancetype, err := finder.Find(vm)
-		if err != nil {
-			return nil, err
-		}
-
-		// There is still a window where the instancetype can be updated between the VirtualMachine validation webhook accepting
-		// the VirtualMachine and the VirtualMachine controller creating a ControllerRevison. As such we need to check one final
-		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
-		if err := m.checkForInstancetypeConflicts(&clusterInstancetype.Spec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta); err != nil {
-			return nil, err
-		}
-		return CreateControllerRevision(vm, clusterInstancetype)
-
-	default:
-		return nil, fmt.Errorf("got unexpected kind in InstancetypeMatcher: %s", vm.Spec.Instancetype.Kind)
-	}
-}
-
-func (m *InstancetypeMethods) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.RevisionName != "" {
-		return nil, nil
-	}
-
-	instancetypeRevision, err := m.createInstancetypeRevision(vm)
-	if err != nil {
-		return nil, err
-	}
-
-	storedRevision, err := storeRevision(instancetypeRevision, m.Clientset)
-	if err != nil {
-		return nil, err
-	}
-
-	vm.Spec.Instancetype.RevisionName = storedRevision.Name
-	return storedRevision, nil
-}
-
-func (m *InstancetypeMethods) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	switch strings.ToLower(vm.Spec.Preference.Kind) {
-	case apiinstancetype.SingularPreferenceResourceName, apiinstancetype.PluralPreferenceResourceName:
-		preference, err := preferenceFind.NewPreferenceFinder(m.PreferenceStore, m.Clientset).Find(vm)
-		if err != nil {
-			return nil, err
-		}
-		return CreateControllerRevision(vm, preference)
-	case apiinstancetype.ClusterSingularPreferenceResourceName, apiinstancetype.ClusterPluralPreferenceResourceName:
-		clusterPreference, err := preferenceFind.NewClusterPreferenceFinder(m.ClusterPreferenceStore, m.Clientset).Find(vm)
-		if err != nil {
-			return nil, err
-		}
-		return CreateControllerRevision(vm, clusterPreference)
-	default:
-		return nil, fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", vm.Spec.Preference.Kind)
-	}
-}
-
-func (m *InstancetypeMethods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Preference == nil || vm.Spec.Preference.RevisionName != "" {
-		return nil, nil
-	}
-
-	preferenceRevision, err := m.createPreferenceRevision(vm)
-	if err != nil {
-		return nil, err
-	}
-
-	storedRevision, err := storeRevision(preferenceRevision, m.Clientset)
-	if err != nil {
-		return nil, err
-	}
-
-	vm.Spec.Preference.RevisionName = storedRevision.Name
-	return storedRevision, nil
-}
-
-func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision) ([]byte, error) {
-	patchSet := patch.New()
-	if instancetypeRevision != nil {
-		patchSet.AddOption(
-			patch.WithTest("/spec/instancetype/revisionName", nil),
-			patch.WithAdd("/spec/instancetype/revisionName", instancetypeRevision.Name),
-		)
-	}
-
-	if preferenceRevision != nil {
-		patchSet.AddOption(
-			patch.WithTest("/spec/preference/revisionName", nil),
-			patch.WithAdd("/spec/preference/revisionName", preferenceRevision.Name),
-		)
-	}
-
-	if patchSet.IsEmpty() {
-		return nil, nil
-	}
-
-	payload, err := patchSet.GeneratePayload()
-	if err != nil {
-		// This is a programmer's error and should not happen
-		return nil, fmt.Errorf("failed to generate patch payload: %w", err)
-	}
-
-	return payload, nil
+	return revision.CreateControllerRevision(vm, object)
 }
 
 func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine) error {
-	// Lazy logger construction
-	logger := func() *log.FilteredLogger { return log.Log.Object(vm) }
-	instancetypeRevision, err := m.storeInstancetypeRevision(vm)
-	if err != nil {
-		logger().Reason(err).Error("Failed to store ControllerRevision of VirtualMachineInstancetypeSpec for the Virtualmachine.")
-		return err
-	}
-
-	preferenceRevision, err := m.storePreferenceRevision(vm)
-	if err != nil {
-		logger().Reason(err).Error("Failed to store ControllerRevision of VirtualMachinePreferenceSpec for the Virtualmachine.")
-		return err
-	}
-
-	// Batch any writes to the VirtualMachine into a single Patch() call to avoid races in the controller.
-	revisionPatch, err := GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision)
-	if err != nil {
-		return err
-	}
-	if len(revisionPatch) > 0 {
-		if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, revisionPatch, metav1.PatchOptions{}); err != nil {
-			logger().Reason(err).Error("Failed to update VirtualMachine with instancetype and preference ControllerRevision references.")
-			return err
-		}
-	}
-
-	return nil
+	return revision.New(
+		m.InstancetypeStore,
+		m.ClusterInstancetypeStore,
+		m.PreferenceStore,
+		m.ClusterInstancetypeStore,
+		m.Clientset).Store(vm)
 }
 
 func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
-	if err := compatibility.Decode(revisionA); err != nil {
-		return false, err
-	}
-
-	if err := compatibility.Decode(revisionB); err != nil {
-		return false, err
-	}
-
-	revisionASpec, err := getInstancetypeAPISpec(revisionA.Data.Object)
-	if err != nil {
-		return false, err
-	}
-
-	revisionBSpec, err := getInstancetypeAPISpec(revisionB.Data.Object)
-	if err != nil {
-		return false, err
-	}
-
-	return equality.Semantic.DeepEqual(revisionASpec, revisionBSpec), nil
-}
-
-func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient) (*appsv1.ControllerRevision, error) {
-	createdRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Create(context.Background(), revision, metav1.CreateOptions{})
-	if err != nil {
-		if !k8serrors.IsAlreadyExists(err) {
-			return nil, fmt.Errorf("failed to create ControllerRevision: %w", err)
-		}
-
-		// Grab the existing revision to check the data it contains
-		existingRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Get(context.Background(), revision.Name, metav1.GetOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to get ControllerRevision: %w", err)
-		}
-
-		equal, err := CompareRevisions(revision, existingRevision)
-		if err != nil {
-			return nil, err
-		}
-		if !equal {
-			return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", revision.Name)
-		}
-		return existingRevision, nil
-	}
-	return createdRevision, nil
-}
-
-func getInstancetypeAPISpec(obj runtime.Object) (interface{}, error) {
-	switch o := obj.(type) {
-	case *instancetypev1beta1.VirtualMachineInstancetype:
-		return &o.Spec, nil
-	case *instancetypev1beta1.VirtualMachineClusterInstancetype:
-		return &o.Spec, nil
-	case *instancetypev1beta1.VirtualMachinePreference:
-		return &o.Spec, nil
-	case *instancetypev1beta1.VirtualMachineClusterPreference:
-		return &o.Spec, nil
-	default:
-		return nil, fmt.Errorf("unexpected type: %T", obj)
-	}
+	return revision.Compare(revisionA, revisionB)
 }
 
 func checkCPUPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (Conflicts, error) {
@@ -525,19 +277,19 @@ func (m *InstancetypeMethods) getControllerRevisionByInformer(namespacedName typ
 	if !exists {
 		return m.getControllerRevisionByClient(namespacedName)
 	}
-	revision, ok := obj.(*appsv1.ControllerRevision)
+	controllerRevision, ok := obj.(*appsv1.ControllerRevision)
 	if !ok {
 		return nil, fmt.Errorf("unknown object type found in ControllerRevision informer")
 	}
-	return revision, nil
+	return controllerRevision, nil
 }
 
 func (m *InstancetypeMethods) getControllerRevisionByClient(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
-	revision, err := m.Clientset.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(context.Background(), namespacedName.Name, metav1.GetOptions{})
+	controllerRevision, err := m.Clientset.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(context.Background(), namespacedName.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return revision, nil
+	return controllerRevision, nil
 }
 
 func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
