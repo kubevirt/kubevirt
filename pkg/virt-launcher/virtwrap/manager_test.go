@@ -40,7 +40,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -1468,7 +1467,7 @@ var _ = Describe("Manager", func() {
 			manager.MarkGracefulShutdownVMI()
 
 			gracePeriod, _ := metadataCache.GracePeriod.Load()
-			Expect(gracePeriod.MarkedForGracefulShutdown).To(Equal(pointer.Bool(true)))
+			Expect(gracePeriod.MarkedForGracefulShutdown).To(Equal(virtpointer.P(true)))
 		})
 
 		It("Should signal graceful shutdown after marked for shutdown", func() {
