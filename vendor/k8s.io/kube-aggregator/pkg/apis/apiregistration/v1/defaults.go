@@ -18,7 +18,7 @@ package v1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
-	utilpointer "k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func addDefaultingFuncs(scheme *runtime.Scheme) error {
@@ -28,6 +28,6 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 // SetDefaults_ServiceReference sets defaults for AuditSync Webhook's ServiceReference
 func SetDefaults_ServiceReference(obj *ServiceReference) {
 	if obj.Port == nil {
-		obj.Port = utilpointer.Int32Ptr(443)
+		obj.Port = pointer.P(int32(443))
 	}
 }

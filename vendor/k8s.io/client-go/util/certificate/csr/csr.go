@@ -39,7 +39,7 @@ import (
 	watchtools "k8s.io/client-go/tools/watch"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 // RequestCertificate will either use an existing (if this process has run
@@ -90,7 +90,7 @@ func RequestCertificate(client clientset.Interface, csrData []byte, name, signer
 }
 
 func DurationToExpirationSeconds(duration time.Duration) *int32 {
-	return pointer.Int32(int32(duration / time.Second))
+	return pointer.P(int32(duration / time.Second))
 }
 
 func ExpirationSecondsToDuration(expirationSeconds int32) time.Duration {
