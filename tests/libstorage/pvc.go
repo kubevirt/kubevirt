@@ -32,10 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -74,10 +74,10 @@ func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.Persi
 						Capabilities: &k8sv1.Capabilities{
 							Drop: []k8sv1.Capability{"ALL"},
 						},
-						Privileged:               pointer.Bool(false),
+						Privileged:               pointer.P(false),
 						RunAsUser:                &nonRootUser,
-						RunAsNonRoot:             pointer.Bool(true),
-						AllowPrivilegeEscalation: pointer.Bool(false),
+						RunAsNonRoot:             pointer.P(true),
+						AllowPrivilegeEscalation: pointer.P(false),
 						SeccompProfile: &k8sv1.SeccompProfile{
 							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 						},

@@ -47,7 +47,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
@@ -311,7 +310,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(md5sum).To(HaveLen(32))
 
 		err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
-			GracePeriodSeconds: pointer.Int64(0),
+			GracePeriodSeconds: virtpointer.P(int64(0)),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		return pvc, md5sum
@@ -630,7 +629,7 @@ var _ = SIGDescribe("Export", func() {
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: pointer.String(token.Name),
+				TokenSecretRef: virtpointer.P(token.Name),
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachineSnapshot",
@@ -984,7 +983,7 @@ var _ = SIGDescribe("Export", func() {
 					Namespace: flags.KubeVirtInstallNamespace,
 				},
 				Spec: networkingv1.IngressSpec{
-					IngressClassName: pointer.String("ingress-class-name"),
+					IngressClassName: virtpointer.P("ingress-class-name"),
 					DefaultBackend: &networkingv1.IngressBackend{
 						Service: &networkingv1.IngressServiceBackend{
 							Name: "virt-exportproxy",
@@ -1890,13 +1889,13 @@ var _ = SIGDescribe("Export", func() {
 		err = yaml.Unmarshal([]byte(split[2]), diskDV)
 		Expect(err).ToNot(HaveOccurred())
 		diskDV.Name = fmt.Sprintf("%s-clone", diskDV.Name)
-		diskDV.Spec.PVC.StorageClassName = pointer.String(sc)
+		diskDV.Spec.PVC.StorageClassName = virtpointer.P(sc)
 		Expect(diskDV.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.CirrosVolumeSize)))
 		blankDv = &cdiv1.DataVolume{}
 		err = yaml.Unmarshal([]byte(split[3]), blankDv)
 		Expect(err).ToNot(HaveOccurred())
 		blankDv.Name = fmt.Sprintf("%s-clone", blankDv.Name)
-		blankDv.Spec.PVC.StorageClassName = pointer.String(sc)
+		blankDv.Spec.PVC.StorageClassName = virtpointer.P(sc)
 		Expect(blankDv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.BlankVolumeSize)))
 
 		By("Getting token secret header")

@@ -61,7 +61,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
@@ -72,6 +71,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -1581,7 +1581,7 @@ spec:
 			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-alt-install"
 			kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-				PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(true),
+				PermitBridgeInterfaceOnPodNetwork: pointer.P(true),
 			}
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 
@@ -2343,7 +2343,7 @@ spec:
 
 				vmProfile := &v1.VirtualMachineInstanceProfile{
 					CustomProfile: &v1.CustomProfile{
-						LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+						LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
 					},
 				}
 				if !enable {
@@ -2438,10 +2438,10 @@ spec:
 				Entry("default should not set profile", nil, nil),
 				Entry("custom should use localhost", &v1.VirtualMachineInstanceProfile{
 					CustomProfile: &v1.CustomProfile{
-						LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+						LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
 					},
 				},
-					&k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeLocalhost, LocalhostProfile: pointer.String("kubevirt/kubevirt.json")}),
+					&k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeLocalhost, LocalhostProfile: pointer.P("kubevirt/kubevirt.json")}),
 			)
 		})
 	})
@@ -2467,7 +2467,7 @@ spec:
 		enableDeployment := func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			}
 			updateConfigAndWait(kv.Spec.Configuration)
 		}
@@ -2475,7 +2475,7 @@ spec:
 		disableDeployment := func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
-				Enabled: pointer.Bool(false),
+				Enabled: pointer.P(false),
 			}
 			updateConfigAndWait(kv.Spec.Configuration)
 		}
