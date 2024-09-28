@@ -72,12 +72,6 @@ const (
 	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
 	AutoResourceLimitsGate = "AutoResourceLimitsGate"
 
-	// Owner: @lyarwood
-	// Alpha: v1.1.0
-	// Beta:  v1.2.0
-	//
-	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
-	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
 
@@ -246,10 +240,6 @@ func (config *ClusterConfig) NetworkBindingPlugingsEnabled() bool {
 
 func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
 	return config.isFeatureGateEnabled(AutoResourceLimitsGate)
-}
-
-func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
-	return config.isFeatureGateEnabled(CommonInstancetypesDeploymentGate)
 }
 
 func (config *ClusterConfig) AlignCPUsEnabled() bool {

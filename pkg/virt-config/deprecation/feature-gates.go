@@ -44,8 +44,16 @@ const (
 	PSA                    = "PSA"                // GA
 	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
 	NUMAFeatureGate        = "NUMA"               // GA
-	PasstGate              = "Passt"              // Deprecated
-	MacvtapGate            = "Macvtap"            // Deprecated
+	// Owner: @lyarwood
+	// Alpha: v1.1.0
+	// Beta:  v1.2.0
+	// GA:	  v1.4.0
+	//
+	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
+	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate" // GA
+
+	PasstGate   = "Passt"   // Deprecated
+	MacvtapGate = "Macvtap" // Deprecated
 )
 
 type FeatureGate struct {
@@ -64,6 +72,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: NUMAFeatureGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: CommonInstancetypesDeploymentGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
