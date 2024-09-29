@@ -25,7 +25,11 @@ jobs:
 
       - id: set_branches
         run: |
-          matrix=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -e "origin/main" -e "origin/release-1.[0-9]\+$" | grep -v "release-1\.[0,1,2,3]$" | sed -r 's/origin\/(.*)/{"branch": "\1"}/g' | jq -s)
+          if [[ ${{ github.event_name }} == "workflow_dispatch" && ${{ github.ref }} != "refs/heads/main" ]]; then
+            matrix="[{\"branch\": \"${GITHUB_REF#refs/heads/}\"}]"
+          else
+            matrix=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -e "origin/main" -e "origin/release-1.[0-9]\+$" | grep -v "release-1\.[0,1,2,3]$" | sed -r 's/origin\/(.*)/{"branch": "\1"}/g' | jq -s)
+          fi
           echo "matrix={\"branches\":$(echo $matrix)}" >> $GITHUB_OUTPUT
 
   bump_components_version:
