@@ -220,6 +220,13 @@ func main() {
 	createTapCmd.Flags().Uint32("queue-number", 0, "the number of queues to use on multi-queued devices")
 	createTapCmd.Flags().Uint32("mtu", 1500, "the link MTU of the tap device")
 
+	createMacvtapCmd := NewCreateMacvtapCommand()
+	createMacvtapCmd.Flags().String("name", "mvt0", "the name of the macvtap device")
+	createMacvtapCmd.Flags().String("lower-device-name", "eth0", "the name of the lower device")
+	createMacvtapCmd.Flags().String("mode", "", "the mode of the macvtap device")
+	createMacvtapCmd.Flags().Uint("uid", 0, "the owner of the tap char device")
+	createMacvtapCmd.Flags().Uint("gid", 0, "the group of the owner of the tap char device")
+
 	createMDEVCmd := NewCreateMDEVCommand()
 	createMDEVCmd.Flags().String("type", "", "the type of a mediated device")
 	createMDEVCmd.Flags().String("parent", "", "id of a parent (e.g. PCI_ID) for the new mediated device")
@@ -277,6 +284,7 @@ func main() {
 		umntCmd,
 		selinuxCmd,
 		createTapCmd,
+		createMacvtapCmd,
 		createMDEVCmd,
 		removeMDEVCmd,
 		cgroupsCmd,
