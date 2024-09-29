@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["tap.go"],
+    srcs = [
+        "tap.go",
+        "virtchroot.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/network/driver/virtchroot",
     visibility = ["//visibility:public"],
     deps = ["//pkg/virt-handler/selinux:go_default_library"],
