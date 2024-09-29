@@ -52,7 +52,8 @@ type Interface struct {
 	Controller  string  `json:"controller,omitempty"`
 	Ethtool     Ethtool `json:"ethtool,omitempty"`
 
-	Tap *TapDevice `json:"tap,omitempty"`
+	Tap     *TapDevice     `json:"tap,omitempty"`
+	Macvtap *MacvtapDevice `json:"mac-vtap,omitempty"`
 
 	IPv4 IP `json:"IPv4,omitempty"`
 	IPv6 IP `json:"IPv6,omitempty"`
@@ -95,6 +96,13 @@ type TapDevice struct {
 	Queues int `json:"queues,omitempty"`
 	UID    int `json:"UID,omitempty"`
 	GID    int `json:"GID,omitempty"`
+}
+
+type MacvtapDevice struct {
+	BaseIface string `json:"base-iface"`
+	Mode      string `json:"mode"`
+	UID       int    `json:"UID,omitempty"`
+	GID       int    `json:"GID,omitempty"`
 }
 
 type LinuxIfaceStack struct {
@@ -165,6 +173,7 @@ type adapter interface {
 	LinkGetProtinfo(vishnetlink.Link) (vishnetlink.Protinfo, error)
 
 	AddTapDeviceWithSELinuxLabel(name string, mtu int, queueCount int, ownerID int, pid int) error
+	AddMacvtapDeviceWithSELinuxLabel(name, lowerDeviceName, mode string, ownerID, pid int) error
 }
 
 type NMState struct {
@@ -195,10 +204,11 @@ type defaultHandler struct {
 }
 
 const (
-	TypeVETH   = "veth"
-	TypeBridge = "bridge"
-	TypeDummy  = "dummy"
-	TypeTap    = "tap"
+	TypeVETH    = "veth"
+	TypeBridge  = "bridge"
+	TypeDummy   = "dummy"
+	TypeTap     = "tap"
+	TypeMacvtap = "mac-vtap"
 )
 
 const (
@@ -222,12 +232,15 @@ func LookupInterface(ifaces []Interface, predicate func(Interface) bool) *Interf
 }
 
 func normalizeLinkTypeName(link vishnetlink.Link) string {
-	typeName := link.Type()
-	if typeName == "tuntap" {
+	linkType := link.Type()
+	switch linkType {
+	case "tuntap":
 		tuntapLink := link.(*vishnetlink.Tuntap)
 		if tuntapLink.Mode == vishnetlink.TUNTAP_MODE_TAP {
-			typeName = TypeTap
+			return TypeTap
 		}
+	case "macvtap":
+		return TypeMacvtap
 	}
-	return typeName
+	return linkType
 }

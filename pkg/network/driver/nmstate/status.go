@@ -76,6 +76,32 @@ func (n NMState) readInterfaces(links []vishnetlink.Link) ([]Interface, error) {
 			iface.Controller = bridgeLink.Attrs().Name
 		}
 
+		if index := link.Attrs().ParentIndex; index > 0 && iface.TypeName == TypeMacvtap {
+			iface.Macvtap = &MacvtapDevice{}
+
+			macvtapLink := link.(*vishnetlink.Macvtap)
+			switch macvtapLink.Mode {
+			case vishnetlink.MACVLAN_MODE_PASSTHRU:
+				iface.Macvtap.Mode = "passthru"
+			case vishnetlink.MACVLAN_MODE_BRIDGE:
+				iface.Macvtap.Mode = "bridge"
+			case vishnetlink.MACVLAN_MODE_VEPA:
+				iface.Macvtap.Mode = "vepa"
+			case vishnetlink.MACVLAN_MODE_PRIVATE:
+				iface.Macvtap.Mode = "private"
+			case vishnetlink.MACVLAN_MODE_SOURCE:
+				iface.Macvtap.Mode = "source"
+			default:
+				iface.Macvtap.Mode = "UNKNOWN"
+			}
+
+			lowerDevice, err := n.adapter.LinkByIndex(index)
+			if err != nil {
+				return nil, err
+			}
+			iface.Macvtap.BaseIface = lowerDevice.Attrs().Name
+		}
+
 		et, err := n.readEthtool(iface.Name)
 		if err != nil {
 			return nil, err

@@ -70,6 +70,10 @@ func (t *testAdapter) AddTapDeviceWithSELinuxLabel(name string, mtu int, queues 
 	return nil
 }
 
+func (t *testAdapter) AddMacvtapDeviceWithSELinuxLabel(name, lowerDevice, mode string, ownerID, pid int) error {
+	return nil
+}
+
 func (t *testAdapter) setIPConfigOnLink(linkIndex int, ipAddresses ...string) error {
 	links, err := t.LinkList()
 	if err != nil {
