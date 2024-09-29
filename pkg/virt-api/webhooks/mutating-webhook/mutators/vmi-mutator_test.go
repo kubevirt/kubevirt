@@ -25,8 +25,6 @@ import (
 	"net/http"
 	rt "runtime"
 
-	"k8s.io/utils/pointer"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -44,7 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -451,7 +449,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					NetworkConfiguration: &v1.NetworkConfiguration{
 						NetworkInterface:               string(v1.DeprecatedSlirpInterface),
-						DeprecatedPermitSlirpInterface: kvpointer.P(true),
+						DeprecatedPermitSlirpInterface: pointer.P(true),
 					},
 				},
 			},
@@ -707,7 +705,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -747,13 +745,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				Runtime: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				Reset: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -762,13 +760,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			Runtime: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			Reset: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 		}
 
@@ -786,10 +784,10 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -798,16 +796,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			VPIndex: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			SyNIC: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 		}
 
@@ -825,14 +823,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				VPIndex: &v1.FeatureState{
-					Enabled: pointer.Bool(false),
+					Enabled: pointer.P(false),
 				},
 				// should enable SyNIC
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -844,19 +842,19 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			VPIndex: &v1.FeatureState{
-				Enabled: pointer.Bool(false),
+				Enabled: pointer.P(false),
 			},
 			SyNIC: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			EVMCS: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			VAPIC: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 		}
 
@@ -985,13 +983,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("if hyperV doesn't contain EVMCS", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			}, nil),
 
 		Entry("if EVMCS is explicitly false ", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
-				EVMCS: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
+				EVMCS: &v1.FeatureState{Enabled: pointer.P(false)},
 			},
 			nil,
 		),
@@ -1005,7 +1003,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		Entry("if EVMCS is explicitly true ", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
-				EVMCS: &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				EVMCS: &v1.FeatureState{Enabled: pointer.P(true)},
 			}, &v1.CPU{
 				Features: cpuFeatures,
 			}),
@@ -1181,7 +1179,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			&v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(true),
+						EncryptedState: pointer.P(true),
 					},
 				},
 			}),
@@ -1218,7 +1216,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			&v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(false),
+						EncryptedState: pointer.P(false),
 					},
 				},
 			}),
@@ -1232,7 +1230,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			&v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(true),
+						EncryptedState: pointer.P(true),
 					},
 				},
 			}),
@@ -1409,7 +1407,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			It("to set MaxSockets to number of sockets when MaxCpuSockets is lower", func() {
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
-					MaxCpuSockets: pointer.Uint32(2),
+					MaxCpuSockets: pointer.P(uint32(2)),
 				}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
 
@@ -1510,7 +1508,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 			DescribeTable("should leave MaxGuest empty when memory hotplug is incompatible", func(vmiSetup func(*v1.VirtualMachineInstanceSpec)) {
 				vmi := api.NewMinimalVMI("testvm")
-				vmi.Spec.Domain.Memory = &v1.Memory{Guest: kvpointer.P(resource.MustParse("128Mi"))}
+				vmi.Spec.Domain.Memory = &v1.Memory{Guest: pointer.P(resource.MustParse("128Mi"))}
 				vmiSetup(&vmi.Spec)
 
 				_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
@@ -1560,8 +1558,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					vmiSpec.Domain.Memory.Guest = &unAlignedMemory
 				}),
 				Entry("guest memory with hugepages is not properly aligned", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-					vmiSpec.Domain.Memory.Guest = kvpointer.P(resource.MustParse("2G"))
-					vmiSpec.Domain.Memory.MaxGuest = kvpointer.P(resource.MustParse("16Gi"))
+					vmiSpec.Domain.Memory.Guest = pointer.P(resource.MustParse("2G"))
+					vmiSpec.Domain.Memory.MaxGuest = pointer.P(resource.MustParse("16Gi"))
 					vmiSpec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: "1Gi"}
 				}),
 				Entry("architecture is not amd64 or arm64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {

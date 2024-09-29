@@ -34,13 +34,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/api"
 
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -592,7 +592,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		res := makeDisks(indexes...)
 		for i, index := range indexes {
 			if i == len(indexes)-1 {
-				res[index].DedicatedIOThread = pointer.BoolPtr(true)
+				res[index].DedicatedIOThread = pointer.P(true)
 			}
 		}
 		return res
