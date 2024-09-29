@@ -1050,17 +1050,16 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			var hugepagesVmi *v1.VirtualMachineInstance
 
 			verifyHugepagesConsumption := func() bool {
-				pods, err := virtClient.CoreV1().Pods(hugepagesVmi.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(hugepagesVmi))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(hugepagesVmi, testsuite.GetTestNamespace(hugepagesVmi))
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pods.Items).To(HaveLen(1))
 
 				hugepagesSize := resource.MustParse(hugepagesVmi.Spec.Domain.Memory.Hugepages.PageSize)
 				hugepagesDir := fmt.Sprintf("/sys/kernel/mm/hugepages/hugepages-%dkB", hugepagesSize.Value()/int64(1024))
 
 				// Get a hugepages statistics from virt-launcher pod
 				output, err := exec.ExecuteCommandOnPod(
-					&pods.Items[0],
-					pods.Items[0].Spec.Containers[0].Name,
+					vmiPod,
+					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat", fmt.Sprintf("%s/nr_hugepages", hugepagesDir)},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -1069,8 +1068,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				output, err = exec.ExecuteCommandOnPod(
-					&pods.Items[0],
-					pods.Items[0].Spec.Containers[0].Name,
+					vmiPod,
+					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat", fmt.Sprintf("%s/free_hugepages", hugepagesDir)},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -1079,8 +1078,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				output, err = exec.ExecuteCommandOnPod(
-					&pods.Items[0],
-					pods.Items[0].Spec.Containers[0].Name,
+					vmiPod,
+					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat", fmt.Sprintf("%s/resv_hugepages", hugepagesDir)},
 				)
 				Expect(err).ToNot(HaveOccurred())
