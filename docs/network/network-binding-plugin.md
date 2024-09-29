@@ -95,7 +95,7 @@ spec:
     network:
       binding:
         my-zero-code-binding:
-          domainAttachment: tap
+          domainAttachmentType: tap
 ```
 
 The VM interface/network spec will include a ref to the binding plugin
