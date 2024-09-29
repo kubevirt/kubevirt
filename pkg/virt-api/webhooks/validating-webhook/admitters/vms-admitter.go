@@ -441,10 +441,8 @@ func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 
 		dataVolumeRefFound := false
 		for _, volume := range spec.Template.Spec.Volumes {
-			if volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == dataVolume.Name {
-				dataVolumeRefFound = true
-				break
-			} else if volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolume.Name {
+			if volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == dataVolume.Name ||
+				volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolume.Name {
 				dataVolumeRefFound = true
 				break
 			}
@@ -489,20 +487,19 @@ func validateDataVolume(field *k8sfield.Path, dataVolume v1.DataVolumeTemplateSp
 	if dataVolume.Spec.PVC != nil {
 		dataSourceRef = dataVolume.Spec.PVC.DataSourceRef
 		dataSource = dataVolume.Spec.PVC.DataSource
-	} else {
+	} else if dataVolume.Spec.Storage != nil {
 		dataSourceRef = dataVolume.Spec.Storage.DataSourceRef
 		dataSource = dataVolume.Spec.Storage.DataSource
 	}
 
 	// dataVolume is externally populated
-	if dataSourceRef != nil || dataSource != nil {
-		if dataVolume.Spec.Source != nil || dataVolume.Spec.SourceRef != nil {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "External population is incompatible with Source and SourceRef",
-				Field:   field.Child("source").String(),
-			}}
-		}
+	if (dataSourceRef != nil || dataSource != nil) &&
+		(dataVolume.Spec.Source != nil || dataVolume.Spec.SourceRef != nil) {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "External population is incompatible with Source and SourceRef",
+			Field:   field.Child("source").String(),
+		}}
 	}
 
 	if dataVolume.Spec.Source == nil && dataVolume.Spec.SourceRef == nil {
