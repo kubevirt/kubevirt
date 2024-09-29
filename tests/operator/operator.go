@@ -1006,12 +1006,19 @@ spec:
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			By("Updating KubeVirt Object")
+			By("Patching KubeVirt Object")
 			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			kv.Spec.ImagePullSecrets = imagePullSecrets
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
-			Expect(err).NotTo(HaveOccurred())
+
+			patchData, err := json.Marshal(map[string]interface{}{
+				"spec": map[string]interface{}{
+					"imagePullSecrets": imagePullSecrets,
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), kv.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
 			waitForKv(kv)
@@ -1031,9 +1038,16 @@ spec:
 			By("Deleting imagePullSecrets from KubeVirt object")
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			kv.Spec.ImagePullSecrets = []k8sv1.LocalObjectReference{}
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
-			Expect(err).NotTo(HaveOccurred())
+
+			patchData, err = json.Marshal(map[string]interface{}{
+				"spec": map[string]interface{}{
+					"imagePullSecrets": []k8sv1.LocalObjectReference{},
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), kv.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
 			waitForKv(kv)
