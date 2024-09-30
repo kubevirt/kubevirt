@@ -135,15 +135,14 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			vmi := libvmifact.NewCirros(
+			vm = libvmi.NewVirtualMachine(libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-			vmi.Namespace = testsuite.NamespaceTestDefault
-			vm = libvmi.NewVirtualMachine(vmi)
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				libvmi.WithNetwork(v1.DefaultPodNetwork())),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			var err error
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vm = libvmops.StartVirtualMachine(vm)
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 		})
 
 		It("[test_id:4598]should signal paused state with condition", func() {
