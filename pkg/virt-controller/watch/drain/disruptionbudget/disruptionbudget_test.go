@@ -323,6 +323,24 @@ var _ = Describe("Disruptionbudget", func() {
 			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
 		})
 
+		DescribeTable("should remove the pdb if the VMI reached Final state", func(vmiPhase v1.VirtualMachineInstancePhase) {
+			vmi := nonMigratableVirtualMachine()
+			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
+
+			pdb := newPodDisruptionBudget(vmi, 1)
+			pdbFeeder.Add(pdb)
+
+			vmi.Status.Phase = vmiPhase
+			vmiFeeder.Add(vmi)
+
+			shouldExpectPDBDeletion(pdb)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
+		},
+			Entry("with Succeeded vmi phase", v1.Succeeded),
+			Entry("with Failed vmi phase", v1.Failed),
+		)
+
 		DescribeTable("should add the pdb, if it does not exist", func(evictionStrategy v1.EvictionStrategy) {
 			vmi := migratableVirtualMachine()
 			vmi.Spec.EvictionStrategy = &evictionStrategy
