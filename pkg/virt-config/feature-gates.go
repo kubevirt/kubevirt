@@ -58,8 +58,6 @@ const (
 	MultiArchitecture = "MultiArchitecture"
 	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
-	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
-	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
 	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
 	// Alpha: v1.1.0
 	// Beta:  v1.4.0
@@ -225,10 +223,6 @@ func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 
 func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
 	return config.isFeatureGateEnabled(VMLiveUpdateFeaturesGate)
-}
-
-func (config *ClusterConfig) BochsDisplayForEFIGuestsEnabled() bool {
-	return config.isFeatureGateEnabled(BochsDisplayForEFIGuests)
 }
 
 func (config *ClusterConfig) NetworkBindingPlugingsEnabled() bool {

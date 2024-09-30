@@ -847,6 +847,11 @@ const (
 	Unknown VirtualMachineInstancePhase = "Unknown"
 )
 
+// Annotations in the KubeVirt custom resource are used to modify KubeVirt's behavior, often serving as workarounds for bugs in other layers.
+const (
+	// VGADisplayForEFIGuestsX86Annotation when set, x86 EFI guests will be started with VGA display instead of Bochs
+	VGADisplayForEFIGuestsX86Annotation string = "kubevirt.io/vga-display-efi-x86"
+)
 const (
 	// AppLabel and AppName labels marks resources that belong to KubeVirt. An optional value
 	// may indicate which specific KubeVirt component a resource belongs to.
