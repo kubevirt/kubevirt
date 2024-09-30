@@ -95,7 +95,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 		})
 	})
 
-	Context("with domain attachment type", func() {
+	Context("with domain attachment tap type", func() {
 		const (
 			macvtapNetworkConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
 			macvtapBindingName    = "macvtap"
@@ -141,6 +141,36 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			Expect(vmi.Status.Interfaces).To(HaveLen(1), "should have a single interface")
 			Expect(vmi.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
 		})
+	})
 
+	Context("with domain attachment managedTap type", func() {
+		const (
+			bindingName = "managed-tap"
+			networkName = "default"
+		)
+
+		BeforeEach(func() {
+			err := config.WithNetBindingPlugin(bindingName, v1.InterfaceBindingPlugin{DomainAttachmentType: v1.ManagedTap})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("can run a virtual machine with one primary managed-tap interface", func() {
+			var vmi *v1.VirtualMachineInstance
+
+			primaryIface := libvmi.InterfaceWithBindingPlugin(
+				networkName, v1.PluginBinding{Name: bindingName},
+			)
+			vmi = libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithInterface(primaryIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine, libwait.WithTimeout(30))
+
+			Expect(vmi.Status.Interfaces).To(HaveLen(1))
+			Expect(vmi.Status.Interfaces[0].Name).To(Equal(primaryIface.Name))
+		})
 	})
 })
