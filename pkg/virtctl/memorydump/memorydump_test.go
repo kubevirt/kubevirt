@@ -45,15 +45,6 @@ var _ = Describe("MemoryDump", func() {
 		pvcName = "test-pvc"
 		scName  = "test-sc"
 
-		accessModeFlag   = "--access-mode"
-		claimNameFlag    = "--claim-name"
-		createClaimFlag  = "--create-claim"
-		formatFlag       = "--format"
-		storageClassFlag = "--storage-class"
-		outputFileFlag   = "--output"
-		portForwardFlag  = "--port-forward"
-		localPortFlag    = "--local-port"
-
 		vmiMemory         = "256Mi"
 		defaultFSOverhead = "0.055"
 		scOverhead        = "0.1"
@@ -143,14 +134,14 @@ var _ = Describe("MemoryDump", func() {
 		Entry("memorydump missing action arg", "accepts 2 arg(s), received 1", vmName),
 		Entry("memorydump missing vm name arg", "accepts 2 arg(s), received 1", "get"),
 		Entry("memorydump wrong action arg", "invalid action type create", "create", vmName),
-		Entry("memorydump name, invalid extra parameter", "unknown flag", "testvm", setFlag(claimNameFlag, pvcName), "--invalid=test"),
-		Entry("memorydump download missing outputFile", "missing outputFile", "download", "testvm", setFlag(claimNameFlag, pvcName)),
+		Entry("memorydump name, invalid extra parameter", "unknown flag", "testvm", setFlag(memorydump.ClaimNameFlag, pvcName), "--invalid=test"),
+		Entry("memorydump download missing outputFile", "missing outputFile", "download", "testvm", setFlag(memorydump.ClaimNameFlag, pvcName)),
 	)
 
 	It("should call memory dump subresource", func() {
 		expectVMEndpointMemoryDump(pvcName)
 		err := runGetCmd(
-			setFlag(claimNameFlag, pvcName),
+			setFlag(memorydump.ClaimNameFlag, pvcName),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "memorydump")).To(HaveLen(1))
@@ -163,7 +154,9 @@ var _ = Describe("MemoryDump", func() {
 	})
 
 	It("should fail call memory dump subresource without claim-name with create-claim", func() {
-		err := runGetCmd(createClaimFlag)
+		err := runGetCmd(
+			setFlag(memorydump.CreateClaimFlag, "true"),
+		)
 		Expect(err).To(MatchError(ContainSubstring("missing claim name")))
 	})
 
@@ -173,8 +166,8 @@ var _ = Describe("MemoryDump", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		err = runGetCmd(
-			setFlag(claimNameFlag, pvcName),
-			createClaimFlag,
+			setFlag(memorydump.ClaimNameFlag, pvcName),
+			setFlag(memorydump.CreateClaimFlag, "true"),
 		)
 		Expect(err).To(MatchError(ContainSubstring("please remove current memory dump")))
 	})
@@ -189,8 +182,8 @@ var _ = Describe("MemoryDump", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		err = runGetCmd(
-			setFlag(claimNameFlag, pvcName),
-			createClaimFlag,
+			setFlag(memorydump.ClaimNameFlag, pvcName),
+			setFlag(memorydump.CreateClaimFlag, "true"),
 		)
 		Expect(err).To(MatchError(ContainSubstring("already exists")))
 	})
@@ -200,17 +193,17 @@ var _ = Describe("MemoryDump", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		err = runGetCmd(
-			setFlag(claimNameFlag, pvcName),
-			createClaimFlag,
+			setFlag(memorydump.ClaimNameFlag, pvcName),
+			setFlag(memorydump.CreateClaimFlag, "true"),
 		)
 		Expect(err).To(MatchError(ContainSubstring("not found")))
 	})
 
 	DescribeTable("should fail call memory dump subresource with invalid access mode", func(accessMode, expectedErr string) {
 		err := runGetCmd(
-			setFlag(accessModeFlag, accessMode),
-			setFlag(claimNameFlag, pvcName),
-			createClaimFlag,
+			setFlag(memorydump.AccessModeFlag, accessMode),
+			setFlag(memorydump.ClaimNameFlag, pvcName),
+			setFlag(memorydump.CreateClaimFlag, "true"),
 		)
 		Expect(err).To(MatchError(ContainSubstring(expectedErr)))
 	},
@@ -221,8 +214,8 @@ var _ = Describe("MemoryDump", func() {
 	It("should create pvc for memory dump and call subresource with no other flags", func() {
 		expectVMEndpointMemoryDump(pvcName)
 		err := runGetCmd(
-			setFlag(claimNameFlag, pvcName),
-			createClaimFlag,
+			setFlag(memorydump.ClaimNameFlag, pvcName),
+			setFlag(memorydump.CreateClaimFlag, "true"),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "memorydump")).To(HaveLen(1))
@@ -235,9 +228,9 @@ var _ = Describe("MemoryDump", func() {
 	It("should create pvc for memory dump and call subresource with storageclass flag", func() {
 		expectVMEndpointMemoryDump(pvcName)
 		err := runGetCmd(
-			setFlag(storageClassFlag, scName),
-			setFlag(claimNameFlag, pvcName),
-			createClaimFlag,
+			setFlag(memorydump.StorageClassFlag, scName),
+			setFlag(memorydump.ClaimNameFlag, pvcName),
+			setFlag(memorydump.CreateClaimFlag, "true"),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "memorydump")).To(HaveLen(1))
@@ -252,9 +245,9 @@ var _ = Describe("MemoryDump", func() {
 		const accessMode = k8sv1.ReadWriteOnce
 		expectVMEndpointMemoryDump(pvcName)
 		err := runGetCmd(
-			setFlag(accessModeFlag, string(accessMode)),
-			setFlag(claimNameFlag, pvcName),
-			createClaimFlag,
+			setFlag(memorydump.AccessModeFlag, string(accessMode)),
+			setFlag(memorydump.ClaimNameFlag, pvcName),
+			setFlag(memorydump.CreateClaimFlag, "true"),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "memorydump")).To(HaveLen(1))
@@ -419,7 +412,7 @@ var _ = Describe("MemoryDump", func() {
 			expectVMEndpointMemoryDump("")
 			updateVMEStatusOnCreate()
 			err := runGetCmd(
-				setFlag(outputFileFlag, outputPath),
+				setFlag(memorydump.OutputFileFlag, outputPath),
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "memorydump")).To(HaveLen(1))
@@ -441,7 +434,7 @@ var _ = Describe("MemoryDump", func() {
 
 			updateVMEStatusOnCreate()
 			err = runDownloadCmd(
-				setFlag(outputFileFlag, outputPath),
+				setFlag(memorydump.OutputFileFlag, outputPath),
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -474,8 +467,8 @@ var _ = Describe("MemoryDump", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
-				setFlag(outputFileFlag, outputPath),
-				setFlag(formatFlag, vmexport.RAW_FORMAT),
+				setFlag(memorydump.OutputFileFlag, outputPath),
+				setFlag(memorydump.FormatFlag, vmexport.RAW_FORMAT),
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -500,15 +493,15 @@ var _ = Describe("MemoryDump", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			args := append([]string{
-				portForwardFlag,
-				setFlag(outputFileFlag, outputPath),
+				setFlag(memorydump.PortForwardFlag, "true"),
+				setFlag(memorydump.OutputFileFlag, outputPath),
 			}, extraArgs...)
 			err = runDownloadCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("with default port-forward"),
-			Entry("with port-forward specifying local port", setFlag(localPortFlag, localPortStr)),
-			Entry("with port-forward specifying default number on local port", setFlag(localPortFlag, "0")),
+			Entry("with port-forward specifying local port", setFlag(memorydump.LocalPortFlag, localPortStr)),
+			Entry("with port-forward specifying default number on local port", setFlag(memorydump.LocalPortFlag, "0")),
 		)
 
 		It("should fail download memory dump if not completed succesfully", func() {
@@ -518,7 +511,7 @@ var _ = Describe("MemoryDump", func() {
 			}
 
 			err := runDownloadCmd(
-				setFlag(outputFileFlag, outputPath),
+				setFlag(memorydump.OutputFileFlag, outputPath),
 			)
 			Expect(err).Should(MatchError(errMsg))
 		})
@@ -526,7 +519,7 @@ var _ = Describe("MemoryDump", func() {
 })
 
 func setFlag(flag, parameter string) string {
-	return fmt.Sprintf("%s=%s", flag, parameter)
+	return fmt.Sprintf("--%s=%s", flag, parameter)
 }
 
 func runCmd(args ...string) error {

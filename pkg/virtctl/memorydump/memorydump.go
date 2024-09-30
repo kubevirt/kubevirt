@@ -44,13 +44,14 @@ import (
 )
 
 const (
-	claimNameArg    = "claim-name"
-	createClaimArg  = "create-claim"
-	storageClassArg = "storage-class"
-	accessModeArg   = "access-mode"
-	portForwardArg  = "port-forward"
-	formatArg       = "format"
-	localPortArg    = "local-port"
+	ClaimNameFlag    = "claim-name"
+	CreateClaimFlag  = "create-claim"
+	StorageClassFlag = "storage-class"
+	AccessModeFlag   = "access-mode"
+	PortForwardFlag  = "port-forward"
+	FormatFlag       = "format"
+	LocalPortFlag    = "local-port"
+	OutputFileFlag   = "output"
 
 	configName         = "config"
 	filesystemOverhead = v1.Percent("0.055")
@@ -113,14 +114,14 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
-	cmd.Flags().BoolVar(&createClaim, createClaimArg, false, "Create the pvc that will conatin the memory dump")
-	cmd.Flags().BoolVar(&portForward, portForwardArg, false, "Configure and set port-forward in a random port to download the memory dump")
-	cmd.Flags().StringVar(&format, formatArg, "", "Specifies the format of the memory dump download (gzipped or raw).")
-	cmd.Flags().StringVar(&localPort, localPortArg, "0", "Specify port for port-forward")
-	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
-	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
-	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the memory dump to be downloaded.")
+	cmd.Flags().StringVar(&claimName, ClaimNameFlag, "", "pvc name to contain the memory dump")
+	cmd.Flags().BoolVar(&createClaim, CreateClaimFlag, false, "Create the pvc that will conatin the memory dump")
+	cmd.Flags().BoolVar(&portForward, PortForwardFlag, false, "Configure and set port-forward in a random port to download the memory dump")
+	cmd.Flags().StringVar(&format, FormatFlag, "", "Specifies the format of the memory dump download (gzipped or raw).")
+	cmd.Flags().StringVar(&localPort, LocalPortFlag, "0", "Specify port for port-forward")
+	cmd.Flags().StringVar(&storageClass, StorageClassFlag, "", "The storage class for the PVC.")
+	cmd.Flags().StringVar(&accessMode, AccessModeFlag, "", "The access mode for the PVC.")
+	cmd.Flags().StringVar(&outputFile, OutputFileFlag, "", "Specifies the output path of the memory dump to be downloaded.")
 
 	return cmd
 }
