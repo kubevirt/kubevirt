@@ -2422,7 +2422,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeTrue())
 		Expect(resp.Result).To(BeNil())
-		Expect(resp.Warnings).To(HaveLen(1))
+		Expect(resp.Warnings).To(HaveLen(2))
+		Expect(resp.Warnings).To(ConsistOf(
+			HavePrefix("feature gate test-deprecated is deprecated"),
+			HavePrefix("spec.running is deprecated, please use spec.runStrategy instead.")))
 	})
 })
 

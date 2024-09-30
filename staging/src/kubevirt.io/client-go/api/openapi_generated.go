@@ -26182,7 +26182,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"running": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Running controls whether the associatied VirtualMachineInstance is created or not Mutually exclusive with RunStrategy",
+							Description: "Running controls whether the associatied VirtualMachineInstance is created or not Mutually exclusive with RunStrategy Deprecated: VirtualMachineInstance field \"Running\" is now deprecated, please use RunStrategy instead.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
