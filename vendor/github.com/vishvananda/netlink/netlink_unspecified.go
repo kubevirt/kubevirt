@@ -52,6 +52,10 @@ func LinkSetVfVlanQos(link Link, vf, vlan, qos int) error {
 	return ErrNotImplemented
 }
 
+func LinkSetVfVlanQosProto(link Link, vf, vlan, qos, proto int) error {
+	return ErrNotImplemented
+}
+
 func LinkSetVfTxRate(link Link, vf, rate int) error {
 	return ErrNotImplemented
 }
@@ -124,6 +128,22 @@ func LinkSetTxQLen(link Link, qlen int) error {
 	return ErrNotImplemented
 }
 
+func LinkSetGSOMaxSize(link Link, maxSize int) error {
+	return ErrNotImplemented
+}
+
+func LinkSetGROMaxSize(link Link, maxSize int) error {
+	return ErrNotImplemented
+}
+
+func LinkSetGSOIPv4MaxSize(link Link, maxSize int) error {
+	return ErrNotImplemented
+}
+
+func LinkSetGROIPv4MaxSize(link Link, maxSize int) error {
+	return ErrNotImplemented
+}
+
 func LinkAdd(link Link) error {
 	return ErrNotImplemented
 }
@@ -180,12 +200,32 @@ func RouteAdd(route *Route) error {
 	return ErrNotImplemented
 }
 
+func RouteAppend(route *Route) error {
+	return ErrNotImplemented
+}
+
+func RouteChange(route *Route) error {
+	return ErrNotImplemented
+}
+
 func RouteDel(route *Route) error {
 	return ErrNotImplemented
 }
 
+func RouteGet(destination net.IP) ([]Route, error) {
+	return nil, ErrNotImplemented
+}
+
 func RouteList(link Link, family int) ([]Route, error) {
 	return nil, ErrNotImplemented
+}
+
+func RouteListFiltered(family int, filter *Route, filterMask uint64) ([]Route, error) {
+	return nil, ErrNotImplemented
+}
+
+func RouteReplace(route *Route) error {
+	return ErrNotImplemented
 }
 
 func XfrmPolicyAdd(policy *XfrmPolicy) error {
@@ -197,6 +237,10 @@ func XfrmPolicyDel(policy *XfrmPolicy) error {
 }
 
 func XfrmPolicyList(family int) ([]XfrmPolicy, error) {
+	return nil, ErrNotImplemented
+}
+
+func XfrmPolicyGet(policy *XfrmPolicy) (*XfrmPolicy, error) {
 	return nil, ErrNotImplemented
 }
 
@@ -237,5 +281,9 @@ func NeighDeserialize(m []byte) (*Neigh, error) {
 }
 
 func SocketGet(local, remote net.Addr) (*Socket, error) {
+	return nil, ErrNotImplemented
+}
+
+func SocketDestroy(local, remote net.Addr) (*Socket, error) {
 	return nil, ErrNotImplemented
 }
