@@ -260,6 +260,30 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Volumes).To(Equal(expected))
 	},
+		Entry("set the ImagePullPolicy to IfNotPresent if sha256",
+			[]v1.Volume{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "test@sha256:9c2b78e11c25b3fd0b24b0ed684a112052dff03eee4ca4bdcc4f3168f9a14396",
+						},
+					},
+				},
+			},
+			[]v1.Volume{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test@sha256:9c2b78e11c25b3fd0b24b0ed684a112052dff03eee4ca4bdcc4f3168f9a14396",
+							ImagePullPolicy: k8sv1.PullIfNotPresent,
+						},
+					},
+				},
+			},
+		),
+
 		Entry("set the ImagePullPolicy to Always if :latest is specified",
 			[]v1.Volume{
 				{
