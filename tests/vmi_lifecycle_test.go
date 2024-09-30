@@ -151,21 +151,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Should(ContainSubstring("Found PID for"))
 		})
 
-		It("[test_id:3195]should carry annotations to pod", decorators.WgS390x, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(
-				libvmi.WithAnnotation("testannotation", "annotation from vmi")),
-				startupTimeout)
-
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
-		})
-
-		It("[test_id:3196]should carry kubernetes and kubevirt annotations to pod", decorators.WgS390x, func() {
+		It("[test_id:3196]should carry kubernetes and kubevirt annotations to pod", decorators.WgS390x, decorators.Conformance, func() {
 			vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(
 				libvmi.WithAnnotation("kubevirt.io/test", "test"),
-				libvmi.WithAnnotation("kubernetes.io/test", "test")),
+				libvmi.WithAnnotation("kubernetes.io/test", "test"),
+				libvmi.WithAnnotation("testannotation", "annotation from vmi")),
 				startupTimeout)
 
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -173,6 +163,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			Expect(pod.Annotations).To(HaveKey("kubevirt.io/test"), "kubevirt annotation should not be carried to the pod")
 			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
+			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
+
 		})
 
 		It("Should prevent eviction when EvictionStratgy: External", decorators.WgS390x, func() {
