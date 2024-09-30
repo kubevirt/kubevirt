@@ -23,6 +23,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,9 +71,14 @@ import (
 )
 
 const (
-	testNamespace  = "default"
-	ingressSecret  = "ingress-secret"
-	currentVersion = "v1beta1"
+	testNamespace   = "default"
+	ingressSecret   = "ingress-secret"
+	currentVersion  = "v1beta1"
+	vmExportName    = "test"
+	labelKey        = "label-key"
+	labelValue      = "label-value"
+	annotationKey   = "annotation-key"
+	annotationValue = "annotation-value"
 )
 
 var (
@@ -742,6 +748,10 @@ var _ = Describe("Export controller", func() {
 			service.Status.Conditions[0].Type = "test"
 			Expect(service.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			Expect(service.Labels).To(And(
+				HaveKeyWithValue(virtv1.AppLabel, "virt-exporter"),
+				HaveKeyWithValue(labelKey, labelValue)))
+			Expect(service.Annotations).To(HaveKeyWithValue(annotationKey, annotationValue))
 			return true, service, nil
 		})
 
@@ -912,7 +922,14 @@ var _ = Describe("Export controller", func() {
 			Name:       testPVC.Name,
 			DevicePath: fmt.Sprintf("%s/%s", blockVolumeMountPath, testPVC.Name),
 		}))
-		Expect(pod.Annotations[annCertParams]).To(Equal("{\"Duration\":7200000000000,\"RenewBefore\":3600000000000}"))
+		Expect(pod.Labels).To(And(
+			HaveKeyWithValue(exportServiceLabel, vmExportName),
+			HaveKeyWithValue(labelKey, labelValue)))
+		Expect(pod.Annotations).To(And(
+			HaveKeyWithValue(annCertParams, fmt.Sprintf("{\"Duration\":%d,\"RenewBefore\":%d}",
+				metav1.Duration{Duration: 2 * time.Hour}.Nanoseconds(),
+				metav1.Duration{Duration: 1 * time.Hour}.Nanoseconds())),
+			HaveKeyWithValue(annotationKey, annotationValue)))
 		Expect(pod.Spec.Containers[0].Env).To(ContainElements(expectedPodEnvVars))
 		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())
 		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()).To(Equal(int64(100)))
@@ -1495,13 +1512,20 @@ func writeCertsToDir(dir string) {
 	Expect(os.WriteFile(filepath.Join(dir, bootstrap.KeyBytesValue), key, 0777)).To(Succeed())
 }
 
+func createVMExportMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:              vmExportName,
+		Namespace:         testNamespace,
+		UID:               uuid.NewUUID(),
+		CreationTimestamp: metav1.Now(),
+		Labels:            map[string]string{labelKey: labelValue},
+		Annotations:       map[string]string{annotationKey: annotationValue},
+	}
+}
+
 func createPVCVMExport() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test",
-			Namespace:         testNamespace,
-			CreationTimestamp: metav1.Now(),
-		},
+		ObjectMeta: createVMExportMeta(),
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &k8sv1.SchemeGroupVersion.Group,
@@ -1515,10 +1539,7 @@ func createPVCVMExport() *exportv1.VirtualMachineExport {
 
 func createPVCVMExportWithoutSecret() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-no-secret",
-			Namespace: testNamespace,
-		},
+		ObjectMeta: createVMExportMeta(),
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &k8sv1.SchemeGroupVersion.Group,
@@ -1531,12 +1552,7 @@ func createPVCVMExportWithoutSecret() *exportv1.VirtualMachineExport {
 
 func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test",
-			Namespace:         testNamespace,
-			UID:               "11111-22222-33333",
-			CreationTimestamp: metav1.Now(),
-		},
+		ObjectMeta: createVMExportMeta(),
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &snapshotv1.SchemeGroupVersion.Group,
@@ -1550,12 +1566,7 @@ func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 
 func createVMVMExport() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test",
-			Namespace:         testNamespace,
-			UID:               "44444-555555-666666",
-			CreationTimestamp: metav1.Now(),
-		},
+		ObjectMeta: createVMExportMeta(),
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &virtv1.SchemeGroupVersion.Group,
