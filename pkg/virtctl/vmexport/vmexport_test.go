@@ -267,6 +267,23 @@ var _ = Describe("vmexport", func() {
 			Expect(err).To(MatchError(ContainSubstring("secrets \"%s\" not found", secret.Name)))
 		})
 
+		It("VirtualMachineExport download fails when readiness timeout", func() {
+			vme.Status = &exportv1.VirtualMachineExportStatus{
+				Phase: exportv1.Pending,
+			}
+			vmexport.WaitForVirtualMachineExportFn = vmexport.WaitForVirtualMachineExport
+
+			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runDownloadCmd(
+				setFlag(vmexport.PVC_FLAG, pvcName),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
+				setFlag(vmexport.READINESS_TIMEOUT_FLAG, "1ns"),
+			)
+			Expect(err).To(MatchError("context deadline exceeded"))
+		})
+
 		It("VirtualMachineExport retries until failure if the server returns a bad status", func() {
 			server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -619,6 +636,27 @@ var _ = Describe("vmexport", func() {
 			vme, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*vme.Spec.TTLDuration).To(Equal(ttl))
+		})
+
+		It("Succesfully create VirtualMachineExport with custom labels and annotations", func() {
+			const (
+				labelKey        = "label-key"
+				labelValue      = "label-value"
+				annotationKey   = "annotation-key"
+				annotationValue = "annotation-key"
+			)
+
+			err := runCreateCmd(
+				setFlag(vmexport.PVC_FLAG, pvcName),
+				setFlag(vmexport.LABELS_FLAG, fmt.Sprintf("%s=%s", labelKey, labelValue)),
+				setFlag(vmexport.ANNOTATIONS_FLAG, fmt.Sprintf("%s=%s", annotationKey, annotationValue)),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			vme, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vme.Labels).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(vme.Annotations).To(HaveKeyWithValue(annotationKey, annotationValue))
 		})
 	})
 

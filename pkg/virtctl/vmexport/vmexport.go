@@ -66,23 +66,26 @@ const (
 	DOWNLOAD = "download"
 
 	// Available vmexport flags
-	OUTPUT_FLAG         = "--output"
-	VOLUME_FLAG         = "--volume"
-	VM_FLAG             = "--vm"
-	SNAPSHOT_FLAG       = "--snapshot"
-	INSECURE_FLAG       = "--insecure"
-	KEEP_FLAG           = "--keep-vme"
-	DELETE_FLAG         = "--delete-vme"
-	FORMAT_FLAG         = "--format"
-	PVC_FLAG            = "--pvc"
-	TTL_FLAG            = "--ttl"
-	MANIFEST_FLAG       = "--manifest"
-	OUTPUT_FORMAT_FLAG  = "--manifest-output-format"
-	SERVICE_URL_FLAG    = "--service-url"
-	INCLUDE_SECRET_FLAG = "--include-secret"
-	PORT_FORWARD_FLAG   = "--port-forward"
-	LOCAL_PORT_FLAG     = "--local-port"
-	RETRY_FLAG          = "--retry"
+	OUTPUT_FLAG            = "--output"
+	VOLUME_FLAG            = "--volume"
+	VM_FLAG                = "--vm"
+	SNAPSHOT_FLAG          = "--snapshot"
+	INSECURE_FLAG          = "--insecure"
+	KEEP_FLAG              = "--keep-vme"
+	DELETE_FLAG            = "--delete-vme"
+	FORMAT_FLAG            = "--format"
+	PVC_FLAG               = "--pvc"
+	TTL_FLAG               = "--ttl"
+	MANIFEST_FLAG          = "--manifest"
+	OUTPUT_FORMAT_FLAG     = "--manifest-output-format"
+	SERVICE_URL_FLAG       = "--service-url"
+	INCLUDE_SECRET_FLAG    = "--include-secret"
+	PORT_FORWARD_FLAG      = "--port-forward"
+	LOCAL_PORT_FLAG        = "--local-port"
+	RETRY_FLAG             = "--retry"
+	LABELS_FLAG            = "--labels"
+	ANNOTATIONS_FLAG       = "--annotations"
+	READINESS_TIMEOUT_FLAG = "--readiness-timeout"
 
 	// Possible output format for manifests
 	OUTPUT_FORMAT_JSON = "json"
@@ -98,8 +101,8 @@ const (
 
 	// processingWaitInterval is the time interval used to wait for a virtualMachineExport to be ready
 	processingWaitInterval = 2 * time.Second
-	// processingWaitTotal is the maximum time used to wait for a virtualMachineExport to be ready
-	processingWaitTotal = 2 * time.Minute
+	// DefaultProcessingWaitTotal is the default maximum time used to wait for a virtualMachineExport to be ready
+	DefaultProcessingWaitTotal = 2 * time.Minute
 
 	// exportTokenHeader is the http header used to download the exported volume using the secret token
 	exportTokenHeader = "x-kubevirt-export-token"
@@ -145,28 +148,34 @@ var (
 	ttl                  string
 	manifestOutputFormat string
 	downloadRetries      int
+	resourceLabels       []string
+	resourceAnnotations  []string
+	readinessTimeout     string
 )
 
 type VMExportInfo struct {
-	ShouldCreate    bool
-	Insecure        bool
-	KeepVme         bool
-	DeleteVme       bool
-	IncludeSecret   bool
-	ExportManifest  bool
-	Decompress      bool
-	PortForward     bool
-	LocalPort       string
-	OutputFile      string
-	OutputWriter    io.Writer
-	VolumeName      string
-	Namespace       string
-	Name            string
-	OutputFormat    string
-	ServiceURL      string
-	ExportSource    k8sv1.TypedLocalObjectReference
-	TTL             metav1.Duration
-	DownloadRetries int
+	ShouldCreate     bool
+	Insecure         bool
+	KeepVme          bool
+	DeleteVme        bool
+	IncludeSecret    bool
+	ExportManifest   bool
+	Decompress       bool
+	PortForward      bool
+	LocalPort        string
+	OutputFile       string
+	OutputWriter     io.Writer
+	VolumeName       string
+	Namespace        string
+	Name             string
+	OutputFormat     string
+	ServiceURL       string
+	ExportSource     k8sv1.TypedLocalObjectReference
+	TTL              metav1.Duration
+	DownloadRetries  int
+	ReadinessTimeout time.Duration
+	Labels           map[string]string
+	Annotations      map[string]string
 }
 
 type command struct {
@@ -256,6 +265,9 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().IntVar(&downloadRetries, "retry", 0, "When export server returns a transient error, we retry this number of times before giving up")
 	cmd.Flags().BoolVar(&includeSecret, "include-secret", false, "When used with manifest and set to true include a secret that contains proper headers for CDI to import using the manifest")
 	cmd.Flags().BoolVar(&exportManifest, "manifest", false, "Instead of downloading a volume, retrieve the VM manifest")
+	cmd.Flags().StringSliceVar(&resourceLabels, "labels", nil, "Specify custom labels to VM export object and its associated pod")
+	cmd.Flags().StringSliceVar(&resourceAnnotations, "annotations", nil, "Specify custom annotations to VM export object and its associated pod")
+	cmd.Flags().StringVar(&readinessTimeout, "readiness-timeout", "", "Specify maximum wait for VM export object to be ready")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -379,7 +391,31 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 		}
 		vmeInfo.TTL = metav1.Duration{Duration: duration}
 	}
+	vmeInfo.ReadinessTimeout = DefaultProcessingWaitTotal
+	if readinessTimeout != "" {
+		duration, err := time.ParseDuration(readinessTimeout)
+		if err != nil {
+			return err
+		}
+		vmeInfo.ReadinessTimeout = duration
+	}
+
+	vmeInfo.Labels = convertSliceToMap(resourceLabels)
+	vmeInfo.Annotations = convertSliceToMap(resourceAnnotations)
+
 	return nil
+}
+
+// Convert a slice of "key=value" strings to a map
+func convertSliceToMap(slice []string) map[string]string {
+	mapResult := make(map[string]string)
+	for _, item := range slice {
+		parts := strings.SplitN(item, "=", 2)
+		if len(parts) == 2 {
+			mapResult[parts[0]] = parts[1]
+		}
+	}
+	return mapResult
 }
 
 // getVirtualMachineExport serves as a wrapper to get the VirtualMachineExport object
@@ -408,8 +444,10 @@ func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 	secretRef := getExportSecretName(vmeInfo.Name)
 	vmexport = &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmeInfo.Name,
-			Namespace: vmeInfo.Namespace,
+			Name:        vmeInfo.Name,
+			Namespace:   vmeInfo.Namespace,
+			Labels:      vmeInfo.Labels,
+			Annotations: vmeInfo.Annotations,
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
 			TokenSecretRef: &secretRef,
@@ -492,7 +530,7 @@ func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 	}
 
 	// Wait for the vmexport object to be ready
-	if err := WaitForVirtualMachineExportFn(client, vmeInfo, processingWaitInterval, processingWaitTotal); err != nil {
+	if err := WaitForVirtualMachineExportFn(client, vmeInfo, processingWaitInterval, vmeInfo.ReadinessTimeout); err != nil {
 		return false, err
 	}
 
@@ -684,7 +722,7 @@ func GetManifestUrlsFromVirtualMachineExport(vmexport *exportv1.VirtualMachineEx
 
 // WaitForVirtualMachineExport waits for the VirtualMachineExport status and external links to be ready
 func WaitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) error {
-	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), interval, timeout, true, func(ctx context.Context) (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
 		if err != nil {
 			return false, err
@@ -950,6 +988,15 @@ func handleDeleteFlags() error {
 	if downloadRetries != 0 {
 		return fmt.Errorf(ErrIncompatibleFlag, RETRY_FLAG, DELETE)
 	}
+	if readinessTimeout != "" {
+		return fmt.Errorf(ErrIncompatibleFlag, READINESS_TIMEOUT_FLAG, DELETE)
+	}
+	if len(resourceLabels) > 0 {
+		return fmt.Errorf(ErrIncompatibleFlag, LABELS_FLAG, DELETE)
+	}
+	if len(resourceAnnotations) > 0 {
+		return fmt.Errorf(ErrIncompatibleFlag, ANNOTATIONS_FLAG, DELETE)
+	}
 
 	return nil
 }
@@ -1035,7 +1082,7 @@ func translateServicePortToTargetPort(localPort string, remotePort string, svc k
 func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) (*k8sv1.Service, error) {
 	service := &k8sv1.Service{}
 	serviceName := fmt.Sprintf("virt-export-%s", vmeInfo.Name)
-	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), interval, timeout, true, func(ctx context.Context) (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
 		if err != nil || vmexport == nil {
 			return false, err
@@ -1046,7 +1093,7 @@ func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExp
 			return false, nil
 		}
 
-		service, err = client.CoreV1().Services(vmeInfo.Namespace).Get(context.TODO(), serviceName, metav1.GetOptions{})
+		service, err = client.CoreV1().Services(vmeInfo.Namespace).Get(ctx, serviceName, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				printToOutput("waiting for service %s to be ready before port-forwarding...\n", serviceName)
@@ -1063,7 +1110,7 @@ func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExp
 // setupPortForward runs a port-forward after initializing all required arguments
 func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (chan struct{}, error) {
 	// Wait for the vmexport object to be ready
-	service, err := waitForExportServiceToBeReady(client, vmeInfo, processingWaitInterval, processingWaitTotal)
+	service, err := waitForExportServiceToBeReady(client, vmeInfo, processingWaitInterval, vmeInfo.ReadinessTimeout)
 	if err != nil {
 		return nil, err
 	}

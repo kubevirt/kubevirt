@@ -339,7 +339,8 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 		LocalPort:    localPort,
 		// Using 2 as retry count to help mitigate a bug that might happen when creating the
 		// exporter pod just after the hotplug pod is deleted: https://issues.redhat.com/browse/CNV-39141
-		DownloadRetries: 2,
+		DownloadRetries:  2,
+		ReadinessTimeout: vmexport.DefaultProcessingWaitTotal,
 	}
 
 	if portForward {
