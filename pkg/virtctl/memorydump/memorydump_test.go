@@ -2,11 +2,13 @@ package memorydump_test
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -424,11 +426,29 @@ var _ = Describe("MemoryDump", func() {
 		})
 
 		It("should call download memory dump", func() {
+			// Create random bytes to test streaming of data works correctly
+			const length = 100
+			data := make([]byte, length)
+			n, err := cryptorand.Read(data)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(length))
+
+			server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				n, err := w.Write(data)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(n).To(Equal(length))
+			})
+
 			updateVMEStatusOnCreate()
-			err := runDownloadCmd(
+			err = runDownloadCmd(
 				setFlag(outputFileFlag, outputPath),
 			)
 			Expect(err).ToNot(HaveOccurred())
+
+			outputData, err := os.ReadFile(outputPath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(outputData).To(Equal(data))
+			Expect(outputData).To(HaveLen(length))
 		})
 
 		It("should call download memory dump and decompress succesfully", func() {
