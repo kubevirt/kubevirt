@@ -75,11 +75,8 @@ type command struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-type memoryDumpCompleteFunc func(kubecli.KubevirtClient, string, string, time.Duration, time.Duration) (string, error)
-
-// WaitMemoryDumpCompleted is used to store the function to wait for the memory dump to be complete.
-// Useful for unit tests.
-var WaitMemoryDumpComplete memoryDumpCompleteFunc = waitForMemoryDump
+// WaitForMemoryDumpCompleteFn allows overriding the function to wait for the memory dump object to be complete (useful for unit testing)
+var WaitForMemoryDumpCompleteFn = WaitForMemoryDumpComplete
 
 func usageMemoryDump() string {
 	usage := `  #Dump memory of a virtual machine instance called 'myvm' to an existing pvc called 'memoryvolume'.
@@ -313,7 +310,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 	}
 
 	// Wait for the memorydump to complete
-	claimName, err := WaitMemoryDumpComplete(virtClient, namespace, vmName, processingWaitInterval, processingWaitTotal)
+	claimName, err := WaitForMemoryDumpCompleteFn(virtClient, namespace, vmName, processingWaitInterval, processingWaitTotal)
 	if err != nil {
 		return err
 	}
@@ -359,7 +356,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 	return vmexport.DownloadVirtualMachineExport(virtClient, vmExportInfo)
 }
 
-func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
+func WaitForMemoryDumpComplete(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
 	var claimName string
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
