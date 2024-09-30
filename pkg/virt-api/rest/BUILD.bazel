@@ -69,6 +69,7 @@ go_test(
         "dialers_test.go",
         "expand_test.go",
         "memorydump_test.go",
+        "portforward_test.go",
         "profiler_test.go",
         "rest_suite_test.go",
         "sev_test.go",

@@ -281,49 +281,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		Context("PortForward", func() {
-			It("should fail with no 'name' path param", func() {
-
-				vmiClient.EXPECT().Get(context.Background(), "", k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no name defined")))
-
-				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-			})
-
-			It("should fail with no 'namespace' path param", func() {
-
-				request.PathParameters()["name"] = testVMIName
-
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no namespace defined")))
-
-				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-			})
-
-			It("should fail if vmi is not found", func() {
-
-				request.PathParameters()["name"] = testVMIName
-				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
-
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachine"), testVMIName))
-
-				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-			})
-
-			It("should fail with internal at fetching vmi errors", func() {
-
-				request.PathParameters()["name"] = testVMIName
-				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
-
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]", testVMIName)))
-
-				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-			})
-
-		})
-
 		Context("console", func() {
 			DescribeTable("request validation", func(autoattachSerialConsole bool, phase v1.VirtualMachineInstancePhase) {
 				request.PathParameters()["name"] = testVMIName
