@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
+	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -46,6 +47,7 @@ const nodeName = "testNode"
 var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var kubeClient *fake.Clientset
+	var cpuCounter *libvirtxml.CapsHostCPUCounter
 
 	initNodeLabeller := func(kubevirt *v1.KubeVirt) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
@@ -53,13 +55,18 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	BeforeEach(func() {
-		node := newNode(nodeName)
+		cpuCounter = &libvirtxml.CapsHostCPUCounter{
+			Name:      "tsc",
+			Frequency: 4008012000,
+			Scaling:   "no",
+		}
 
+		node := newNode(nodeName)
 		kubeClient = fake.NewSimpleClientset(node)
 		initNodeLabeller(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -159,6 +166,33 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(SatisfyAll(
 			HaveKey(v1.CPUModelLabel+"Penryn"),
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Penryn"),
+		))
+	})
+
+	DescribeTable("should add cpu tsc labels if tsc counter exists, its name is tsc and according to scaling value", func(scaling, result string) {
+		nlController.cpuCounter.Scaling = scaling
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(SatisfyAll(
+			HaveKeyWithValue(v1.CPUTimerLabel+"tsc-frequency", fmt.Sprintf("%d", cpuCounter.Frequency)),
+			HaveKeyWithValue(v1.CPUTimerLabel+"tsc-scalable", result),
+		))
+	},
+		Entry("scaling is set to no", "no", "false"),
+		Entry("scaling is set to yes", "yes", "true"),
+	)
+
+	It("should not add cpu tsc labels if counter name isn't tsc", func() {
+		nlController.cpuCounter.Name = ""
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(SatisfyAll(
+			Not(HaveKey(v1.CPUTimerLabel+"tsc-frequency")),
+			Not(HaveKey(v1.CPUTimerLabel+"tsc-scalable")),
 		))
 	})
 
