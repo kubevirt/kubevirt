@@ -95,7 +95,10 @@ var _ = DescribeInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][leve
 				Effect: k8sv1.TaintEffectNoExecute,
 			})
 
-			patchData, err := patch.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, taints)
+			patchData, err := patch.New(
+				patch.WithTest("/spec/taints", selectedNode.Spec.Taints),
+				patch.WithReplace("/spec/taints", taints),
+			).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 			selectedNode, err = virtClient.CoreV1().Nodes().Patch(context.Background(), selectedNode.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -124,7 +127,10 @@ var _ = DescribeInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][leve
 				return
 			}
 
-			patchData, err := patch.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, otherTaints)
+			patchData, err := patch.New(
+				patch.WithTest("/spec/taints", selectedNode.Spec.Taints),
+				patch.WithReplace("/spec/taints", otherTaints),
+			).GeneratePayload()
 			Expect(err).NotTo(HaveOccurred())
 			selectedNode, err = virtClient.CoreV1().Nodes().Patch(context.Background(), selectedNode.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())

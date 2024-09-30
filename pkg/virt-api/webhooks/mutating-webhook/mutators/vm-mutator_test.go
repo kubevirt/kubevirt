@@ -92,17 +92,14 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Expect(resp.Allowed).To(BeTrue())
 
 		By("Getting the VM spec from the response")
-		vmSpec := &v1.VirtualMachineSpec{}
-		vmMeta := &k8smetav1.ObjectMeta{}
-		patchOps := []patch.PatchOperation{
-			{Value: vmSpec},
-			{Value: vmMeta},
-		}
-		err := json.Unmarshal(resp.Patch, &patchOps)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(patchOps).NotTo(BeEmpty())
+		var vmSpec v1.VirtualMachineSpec
+		var vmMeta k8smetav1.ObjectMeta
+		patchSet := patch.New()
+		Expect(patchSet.AddRawPatch(resp.Patch)).ToNot(HaveOccurred())
+		Expect(patchSet.UnmarshalPatchValue("/spec", nil, &vmSpec)).ToNot(HaveOccurred())
+		Expect(patchSet.UnmarshalPatchValue("/metadata", nil, &vmMeta)).ToNot(HaveOccurred())
 
-		return vmSpec, vmMeta
+		return &vmSpec, &vmMeta
 	}
 
 	getResponseFromVMUpdate := func(oldVM *v1.VirtualMachine, newVM *v1.VirtualMachine) *admissionv1.AdmissionResponse {

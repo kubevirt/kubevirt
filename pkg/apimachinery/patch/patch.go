@@ -25,34 +25,40 @@ import (
 	"strings"
 )
 
-type PatchOperation struct {
-	Op    string      `json:"op"`
+type patchOperation struct {
+	Op    PatchOp     `json:"op"`
 	Path  string      `json:"path"`
 	Value interface{} `json:"value"`
 }
 
+type PatchOp string
+
 const (
-	PatchReplaceOp = "replace"
-	PatchTestOp    = "test"
-	PatchAddOp     = "add"
-	PatchRemoveOp  = "remove"
+	PatchReplaceOp PatchOp = "replace"
+	PatchTestOp    PatchOp = "test"
+	PatchAddOp     PatchOp = "add"
+	PatchRemoveOp  PatchOp = "remove"
 )
 
-func (p *PatchOperation) MarshalJSON() ([]byte, error) {
+type PatchSet struct {
+	patches []patchOperation
+}
+
+func (p *patchOperation) MarshalJSON() ([]byte, error) {
 	switch p.Op {
 	// The 'remove' operation is the only patching operation without a value
 	// and it needs to be parsed differently.
 	case PatchRemoveOp:
 		return json.Marshal(&struct {
-			Op   string `json:"op"`
-			Path string `json:"path"`
+			Op   PatchOp `json:"op"`
+			Path string  `json:"path"`
 		}{
 			Op:   p.Op,
 			Path: p.Path,
 		})
 	case PatchTestOp, PatchReplaceOp, PatchAddOp:
 		return json.Marshal(&struct {
-			Op    string      `json:"op"`
+			Op    PatchOp     `json:"op"`
 			Path  string      `json:"path"`
 			Value interface{} `json:"value"`
 		}{
@@ -65,10 +71,6 @@ func (p *PatchOperation) MarshalJSON() ([]byte, error) {
 	}
 }
 
-type PatchSet struct {
-	patches []PatchOperation
-}
-
 type PatchOption func(patches *PatchSet)
 
 func New(opts ...PatchOption) *PatchSet {
@@ -77,18 +79,14 @@ func New(opts ...PatchOption) *PatchSet {
 	return p
 }
 
-func (p *PatchSet) GetPatches() []PatchOperation {
-	return p.patches
-}
-
 func (p *PatchSet) AddOption(opts ...PatchOption) {
 	for _, f := range opts {
 		f(p)
 	}
 }
 
-func (p *PatchSet) addOp(op, path string, value interface{}) {
-	p.patches = append(p.patches, PatchOperation{
+func (p *PatchSet) addOp(op PatchOp, path string, value interface{}) {
+	p.patches = append(p.patches, patchOperation{
 		Op:    op,
 		Path:  path,
 		Value: value,
@@ -120,14 +118,14 @@ func WithRemove(path string) PatchOption {
 }
 
 func (p *PatchSet) GeneratePayload() ([]byte, error) {
-	return GeneratePatchPayload(p.patches...)
+	return generatePatchPayload(p.patches...)
 }
 
 func (p *PatchSet) IsEmpty() bool {
 	return len(p.patches) < 1
 }
 
-func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
+func generatePatchPayload(patches ...patchOperation) ([]byte, error) {
 	if len(patches) == 0 {
 		return nil, fmt.Errorf("list of patches is empty")
 	}
@@ -140,26 +138,50 @@ func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
 	return payloadBytes, nil
 }
 
-func GenerateTestReplacePatch(path string, oldValue, newValue interface{}) ([]byte, error) {
-	return GeneratePatchPayload(
-		PatchOperation{
-			Op:    PatchTestOp,
-			Path:  path,
-			Value: oldValue,
-		},
-		PatchOperation{
-			Op:    PatchReplaceOp,
-			Path:  path,
-			Value: newValue,
-		},
-	)
+func (p *PatchSet) AddRawPatch(patch []byte) error {
+	var ops []patchOperation
+	if err := json.Unmarshal(patch, &ops); err != nil {
+		return err
+	}
+	p.patches = append(p.patches, ops...)
+	return nil
 }
 
-func UnmarshalPatch(patch []byte) ([]PatchOperation, error) {
-	var p []PatchOperation
-	err := json.Unmarshal(patch, &p)
+// UnmarshalPatchValue decodes the value of the first occurance of the specified operation and path. If the operation is empty, then it decodes the first
+// instance of the path.
+func (d *PatchSet) UnmarshalPatchValue(path string, operation *PatchOp, obj any) error {
+	if operation != nil && *operation == PatchRemoveOp {
+		return fmt.Errorf("the remove operation doesn't have any values")
+	}
+	for _, op := range d.patches {
+		if operation != nil && op.Op != *operation {
+			continue
+		}
+		if op.Op == PatchRemoveOp {
+			continue
+		}
+		if op.Path == path {
+			template, err := json.Marshal(op.Value)
+			if err != nil {
+				return err
+			}
+			return json.Unmarshal(template, obj)
+		}
+	}
 
-	return p, err
+	return fmt.Errorf("the path or operation doesn't exist in the patch")
+}
+
+func (p *PatchSet) Unmarshal() ([]string, error) {
+	var patches []string
+	for _, patchOp := range p.patches {
+		payloadBytes, err := patchOp.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		patches = append(patches, string(payloadBytes))
+	}
+	return patches, nil
 }
 
 func EscapeJSONPointer(ptr string) string {

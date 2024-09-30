@@ -20,7 +20,6 @@
 package clone
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -43,24 +42,12 @@ func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.Virt
 	addRemovePatchesFromFilter(patchSet, source.Spec.Template.ObjectMeta.Annotations, cloneSpec.Template.AnnotationFilters, "/spec/template/metadata/annotations")
 	addFirmwareUUIDPatches(patchSet, source.Spec.Template.Spec.Domain.Firmware)
 
-	patches, err := generateStringPatchOperations(patchSet)
+	patches, err := patchSet.Unmarshal()
 	if err != nil {
 		return nil, err
 	}
 
 	log.Log.V(defaultVerbosityLevel).Object(source).Infof("patches generated for vm %s clone: %v", source.Name, patches)
-	return patches, nil
-}
-
-func generateStringPatchOperations(set *patch.PatchSet) ([]string, error) {
-	var patches []string
-	for _, patchOp := range set.GetPatches() {
-		payloadBytes, err := json.Marshal(patchOp)
-		if err != nil {
-			return nil, err
-		}
-		patches = append(patches, string(payloadBytes))
-	}
 	return patches, nil
 }
 

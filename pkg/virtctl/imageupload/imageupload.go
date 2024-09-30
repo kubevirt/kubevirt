@@ -976,21 +976,10 @@ func createNewDataSource(client kubecli.KubevirtClient, name, namespace string) 
 func updateExistingDataSource(client kubecli.KubevirtClient, pvcName, pvcNamespace string, ds *cdiv1.DataSource) error {
 	setDefaultInstancetypeLabels(&ds.ObjectMeta)
 
-	patchBytes, err := patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/metadata/labels",
-			Value: ds.Labels,
-		},
-		patch.PatchOperation{
-			Op:   patch.PatchReplaceOp,
-			Path: "/spec/source/pvc",
-			Value: map[string]string{
-				"name":      pvcName,
-				"namespace": pvcNamespace,
-			},
-		},
-	)
+	patchBytes, err := patch.New(
+		patch.WithReplace("/metadata/labels", ds.Labels),
+		patch.WithReplace("/spec/source/pvc", map[string]string{"name": pvcName, "namespace": pvcNamespace}),
+	).GeneratePayload()
 	if err != nil {
 		return err
 	}

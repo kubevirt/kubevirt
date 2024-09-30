@@ -42,7 +42,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 	})
 
 	Context("Updating VMs node affinity", func() {
-		patchVMNodeSelector := func(newNodeSelectorMap map[string]string, op string, vmName string, vmNamespace string) {
+		patchVMNodeSelector := func(newNodeSelectorMap map[string]string, op patch.PatchOp, vmName string, vmNamespace string) {
 
 			newNodeSelectorJson, err := json.Marshal(newNodeSelectorMap)
 			Expect(err).ToNot(HaveOccurred())
@@ -82,7 +82,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			}
 		}
 
-		patchVMAffinity := func(vmAffinity *k8sv1.Affinity, op string, vmName string, vmNamespace string) {
+		patchVMAffinity := func(vmAffinity *k8sv1.Affinity, op patch.PatchOp, vmName string, vmNamespace string) {
 			newAffinityJson, err := json.Marshal(vmAffinity)
 			Expect(err).ToNot(HaveOccurred())
 
