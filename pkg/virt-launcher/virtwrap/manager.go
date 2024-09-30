@@ -43,7 +43,7 @@ import (
 
 	virtcache "kubevirt.io/kubevirt/tools/cache"
 
-	"k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
@@ -1769,7 +1769,7 @@ func (l *LibvirtDomainManager) SoftRebootVMI(vmi *v1.VirtualMachineInstance) err
 
 func (l *LibvirtDomainManager) MarkGracefulShutdownVMI() {
 	l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
-		gracePeriodMetadata.MarkedForGracefulShutdown = pointer.Bool(true)
+		gracePeriodMetadata.MarkedForGracefulShutdown = pointer.P(true)
 	})
 	log.Log.V(4).Infof("Marked for graceful shutdown in metadata: %s", l.metadataCache.GracePeriod.String())
 }

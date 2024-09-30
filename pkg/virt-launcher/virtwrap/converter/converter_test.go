@@ -41,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -1339,7 +1338,7 @@ var _ = Describe("Converter", func() {
 			func(useVirtioTransitional bool) {
 				cid := uint32(100)
 				vmi.Status.VSOCKCID = &cid
-				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = kubevirtpointer.P(true)
 				c.UseVirtioTransitional = useVirtioTransitional
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 				Expect(domainSpec.Devices.VSOCK).ToNot(BeNil())
@@ -2845,7 +2844,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(true),
+						EncryptedState: kubevirtpointer.P(true),
 					},
 				},
 			}
@@ -2913,7 +2912,7 @@ var _ = Describe("Converter", func() {
 		BeforeEach(func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(fakeFrequency)}
+			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: kubevirtpointer.P(int64(fakeFrequency))}
 			c = &ConverterContext{
 				AllowEmulation: true,
 			}
@@ -2950,7 +2949,7 @@ var _ = Describe("Converter", func() {
 			It("hyperV reenlightenment", func() {
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &v1.FeatureHyperv{
-						Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
+						Reenlightenment: &v1.FeatureState{Enabled: kubevirtpointer.P(true)},
 					},
 				}
 
