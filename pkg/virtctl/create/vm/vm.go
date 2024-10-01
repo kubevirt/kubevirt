@@ -130,9 +130,7 @@ type blankVolume struct {
 	Size *resource.Quantity `param:"size"`
 }
 
-type optionFn func(*createVM, *v1.VirtualMachine) error
-
-var optFns = map[string]optionFn{
+var optFns = map[string]func(*createVM, *v1.VirtualMachine) error{
 	RunStrategyFlag:          withRunStrategy,
 	InstancetypeFlag:         withInstancetype,
 	PreferenceFlag:           withPreference,
@@ -245,9 +243,7 @@ type dataVolumeSourceSnapshot struct {
 	Type   string             `param:"type"`
 }
 
-type volumeImportFn func(string) (*cdiv1.DataVolumeSource, error)
-
-var volumeImportOptions = map[string]volumeImportFn{
+var volumeImportOptions = map[string]func(string) (*cdiv1.DataVolumeSource, error){
 	blank:    withVolumeSourceBlank,
 	gcs:      withVolumeSourceGcs,
 	http:     withVolumeSourceHttp,
