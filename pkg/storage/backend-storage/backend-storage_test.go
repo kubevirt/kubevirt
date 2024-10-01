@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/golang/mock/gomock"
@@ -219,19 +221,19 @@ var _ = Describe("Backend Storage", func() {
 			err := MigrationHandoff(virtClient, pvcStore, migration)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			targetPVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), targetPVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(targetPVC.Labels["persistent-state-for"]).To(Equal(vmiName))
+			Expect(targetPVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
 		It("Should remove the target PVC on migration failure", func() {
 			err := MigrationAbort(virtClient, migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(sourcePVC.Labels["persistent-state-for"]).To(Equal(vmiName))
+			Expect(sourcePVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), targetPVCName, k8smetav1.GetOptions{})
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 		It("Should keep the shared PVC on migration success", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
@@ -239,7 +241,7 @@ var _ = Describe("Backend Storage", func() {
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(sourcePVC.Labels["persistent-state-for"]).To(Equal(vmiName))
+			Expect(sourcePVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
 		It("Should keep the shared PVC on migration failure", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
@@ -247,7 +249,47 @@ var _ = Describe("Backend Storage", func() {
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(sourcePVC.Labels["persistent-state-for"]).To(Equal(vmiName))
+			Expect(sourcePVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
+		})
+	})
+
+	Context("Legacy PVCs", func() {
+		var k8sClient *k8sfake.Clientset
+
+		const (
+			nsName  = "testns"
+			vmiName = "testvmi"
+			pvcName = "persistent-state-for-" + vmiName
+		)
+
+		BeforeEach(func() {
+			k8sClient = k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			legacyPVC := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      pvcName,
+					Namespace: nsName,
+				},
+			}
+			pvc, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(), legacyPVC, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			err = pvcStore.Add(pvc)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should get labelled by CreatePVCForVMI when called with a KubeVirt client", func() {
+			vmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      vmiName,
+					Namespace: nsName,
+				},
+			}
+			pvc, err := backendStorage.CreatePVCForVMI(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvc).NotTo(BeNil())
+			pvc, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), pvcName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvc.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
 	})
 })
