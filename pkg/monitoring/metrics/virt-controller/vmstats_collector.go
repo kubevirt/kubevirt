@@ -40,7 +40,7 @@ var (
 		},
 		[]string{
 			// Basic info
-			"namespace", "name",
+			"name", "namespace",
 
 			// VM annotations
 			"os", "workload", "flavor",

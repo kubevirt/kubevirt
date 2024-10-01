@@ -149,13 +149,16 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(cr.Value).To(BeEquivalentTo(1))
 				Expect(cr.Labels).To(HaveLen(9))
 
-				os, workload, flavor := getSystemInfoFromAnnotations(vms[i].Spec.Template.ObjectMeta.Annotations)
-				Expect(cr.Labels[2]).To(Equal(os))
-				Expect(cr.Labels[3]).To(Equal(workload))
-				Expect(cr.Labels[4]).To(Equal(flavor))
+				Expect(cr.GetLabelValue("name")).To(Equal(vms[i].ObjectMeta.Name))
+				Expect(cr.GetLabelValue("namespace")).To(Equal(vms[i].ObjectMeta.Namespace))
 
-				Expect(cr.Labels[7]).To(Equal("CrashLoopBackOff"))
-				Expect(cr.Labels[8]).To(Equal("error"))
+				os, workload, flavor := getSystemInfoFromAnnotations(vms[i].Spec.Template.ObjectMeta.Annotations)
+				Expect(cr.GetLabelValue("os")).To(Equal(os))
+				Expect(cr.GetLabelValue("workload")).To(Equal(workload))
+				Expect(cr.GetLabelValue("flavor")).To(Equal(flavor))
+
+				Expect(cr.GetLabelValue("status")).To(Equal("CrashLoopBackOff"))
+				Expect(cr.GetLabelValue("status_group")).To(Equal("error"))
 			}
 		})
 
@@ -177,7 +180,7 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
 			Expect(cr.Labels).To(HaveLen(9))
-			Expect(cr.Labels[5]).To(Equal(expected))
+			Expect(cr.GetLabelValue("instance_type")).To(Equal(expected))
 		},
 			Entry("with no instance type expect <none>", "VirtualMachineInstancetype", "", "<none>"),
 			Entry("with managed instance type expect its name", "VirtualMachineInstancetype", "i-managed", "i-managed"),
@@ -205,7 +208,7 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
 			Expect(cr.Labels).To(HaveLen(9))
-			Expect(cr.Labels[6]).To(Equal(expected))
+			Expect(cr.GetLabelValue("preference")).To(Equal(expected))
 		},
 			Entry("with no preference expect <none>", "VirtualMachinePreference", "", "<none>"),
 			Entry("with managed preference expect its name", "VirtualMachinePreference", "p-managed", "p-managed"),
