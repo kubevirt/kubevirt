@@ -2784,6 +2784,7 @@ var _ = Describe("Template", func() {
 
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
 
+				Expect(caps.Add).To(Not(ContainElement(k8sv1.Capability("NET_ADMIN"))), "Compute container should not have NET_ADMIN capability")
 				Expect(caps.Drop).To(ContainElement(k8sv1.Capability("ALL")), "Expected compute container to drop all capabilities")
 			})
 		})
