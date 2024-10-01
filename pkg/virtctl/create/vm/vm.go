@@ -31,10 +31,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
