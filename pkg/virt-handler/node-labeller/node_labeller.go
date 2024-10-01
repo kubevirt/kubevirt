@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"k8s.io/client-go/tools/record"
-	"libvirt.org/go/libvirtxml"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -43,6 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 )
 
 var nodeLabellerLabels = []string{
@@ -73,17 +73,17 @@ type NodeLabeller struct {
 	cpuModelVendor          string
 	volumePath              string
 	domCapabilitiesFileName string
-	cpuCounter              *libvirtxml.CapsHostCPUCounter
+	capabilities            *api.Capabilities
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
 	arch                    string
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, host, nodeLabellerVolumePath, recorder)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:                recorder,
 		nodeClient:              nodeClient,
@@ -93,7 +93,6 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-node-labeller"),
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
-		cpuCounter:              cpuCounter,
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
 		arch:                    runtime.GOARCH,
 	}
@@ -110,10 +109,6 @@ func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 	defer n.queue.ShutDown()
 
 	n.logger.Infof("node-labeller is running")
-
-	if !n.hasTSCCounter() {
-		n.logger.Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
-	}
 
 	n.clusterConfig.SetConfigModifiedCallback(func() {
 		n.queue.Add(n.host)
@@ -165,6 +160,12 @@ func (n *NodeLabeller) loadAll() error {
 	err := n.loadDomCapabilities()
 	if err != nil {
 		n.logger.Errorf("node-labeller could not load host dom capabilities: " + err.Error())
+		return err
+	}
+
+	err = n.loadHostCapabilities()
+	if err != nil {
+		n.logger.Errorf("node-labeller could not load host capabilities: " + err.Error())
 		return err
 	}
 
@@ -248,9 +249,11 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 		newLabels[kubevirtv1.HypervLabel+key] = "true"
 	}
 
-	if n.hasTSCCounter() {
-		newLabels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", n.cpuCounter.Frequency)
-		newLabels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%t", n.cpuCounter.Scaling == "yes")
+	if c, err := n.capabilities.GetTSCCounter(); err == nil && c != nil {
+		newLabels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", c.Frequency)
+		newLabels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%v", c.Scaling)
+	} else if err != nil {
+		n.logger.Reason(err).Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
 	}
 
 	for feature := range hostCpuModel.requiredFeatures {
@@ -293,6 +296,10 @@ func (n *NodeLabeller) addLabellerLabels(node *v1.Node, labels map[string]string
 	}
 }
 
+func (n *NodeLabeller) HostCapabilities() *api.Capabilities {
+	return n.capabilities
+}
+
 // removeLabellerLabels removes labels from node
 func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 	for label := range node.Labels {
@@ -332,8 +339,4 @@ func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostMod
 	warningMsg := fmt.Sprintf("This node has %v host-model cpu that is included in ObsoleteCPUModels: %v", hostModel, ObsoleteCPUModels)
 	n.recorder.Eventf(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
 	return nil
-}
-
-func (n *NodeLabeller) hasTSCCounter() bool {
-	return n.cpuCounter.Name == "tsc"
 }

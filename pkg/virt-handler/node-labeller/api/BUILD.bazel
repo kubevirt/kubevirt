@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["capabilities.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api",
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/util/hardware:go_default_library"],
+)

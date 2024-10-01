@@ -17,23 +17,20 @@ limitations under the License.
 package virthandler
 
 import (
-	"strconv"
-	"strings"
-
 	v1 "kubevirt.io/api/core/v1"
-	"libvirt.org/go/libvirtxml"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 )
 
 func virtualMachineOptions(
 	smbios *v1.SMBiosConfiguration,
 	period uint32,
 	preallocatedVolumes []string,
-	capabilities *libvirtxml.Caps,
+	capabilities *api.Capabilities,
 	disksInfo map[string]*containerdisk.DiskInfo,
 	clusterConfig *virtconfig.ClusterConfig,
 ) *cmdv1.VirtualMachineOptions {
@@ -66,61 +63,61 @@ func virtualMachineOptions(
 	return options
 }
 
-func capabilitiesToTopology(capabilities *libvirtxml.Caps) *cmdv1.Topology {
+func capabilitiesToTopology(capabilities *api.Capabilities) *cmdv1.Topology {
 	topology := &cmdv1.Topology{}
 	if capabilities == nil {
 		return topology
 	}
 
-	for _, cell := range capabilities.Host.NUMA.Cells.Cells {
+	for _, cell := range capabilities.Host.Topology.Cells.Cell {
 		topology.NumaCells = append(topology.NumaCells, cellToCell(cell))
 	}
 	return topology
 }
 
-func cellToCell(cell libvirtxml.CapsHostNUMACell) *cmdv1.Cell {
+func cellToCell(cell api.Cell) *cmdv1.Cell {
 	c := &cmdv1.Cell{
-		Id: uint32(cell.ID),
+		Id: cell.ID,
 		Memory: &cmdv1.Memory{
-			Amount: cell.Memory.Size,
+			Amount: cell.Memory.Amount,
 			Unit:   cell.Memory.Unit,
 		},
 	}
 
-	for _, page := range cell.PageInfo {
+	for _, page := range cell.Pages {
 		c.Pages = append(c.Pages, pageToPage(page))
 	}
 
-	for _, distance := range cell.Distances.Siblings {
+	for _, distance := range cell.Distances.Sibling {
 		c.Distances = append(c.Distances, distanceToDistance(distance))
 	}
 
-	for _, cpu := range cell.CPUS.CPUs {
+	for _, cpu := range cell.Cpus.CPU {
 		c.Cpus = append(c.Cpus, cpuToCPU(cpu))
 	}
 
 	return c
 }
 
-func pageToPage(pages libvirtxml.CapsHostNUMAPageInfo) *cmdv1.Pages {
+func pageToPage(pages api.Pages) *cmdv1.Pages {
 	return &cmdv1.Pages{
 		Count: pages.Count,
 		Unit:  pages.Unit,
-		Size:  uint32(pages.Size),
+		Size:  pages.Size,
 	}
 }
 
-func distanceToDistance(distance libvirtxml.CapsHostNUMASibling) *cmdv1.Sibling {
+func distanceToDistance(distance api.Sibling) *cmdv1.Sibling {
 	return &cmdv1.Sibling{
-		Id:    uint32(distance.ID),
-		Value: uint64(distance.Value),
+		Id:    distance.ID,
+		Value: distance.Value,
 	}
 }
 
-func cpuToCPU(cpu libvirtxml.CapsHostNUMACPU) *cmdv1.CPU {
+func cpuToCPU(cpu api.CPU) *cmdv1.CPU {
 	return &cmdv1.CPU{
-		Id:       uint32(cpu.ID),
-		Siblings: convertListOfIntStringToSlice(cpu.Siblings),
+		Id:       cpu.ID,
+		Siblings: cpu.Siblings,
 	}
 }
 
@@ -137,17 +134,4 @@ func disksInfoToDisksInfo(disksInfo map[string]*containerdisk.DiskInfo) map[stri
 		}
 	}
 	return info
-}
-
-func convertListOfIntStringToSlice(siblings string) []uint32 {
-	var convertedSiblings []uint32
-	for _, sibling := range strings.Split(siblings, ",") {
-		num, err := strconv.ParseUint(sibling, 10, 32)
-		if err != nil {
-			// Sibling must be int, otherwise skip
-			continue
-		}
-		convertedSiblings = append(convertedSiblings, uint32(num))
-	}
-	return convertedSiblings
 }

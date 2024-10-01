@@ -36,8 +36,6 @@ import (
 	"strings"
 	"time"
 
-	"libvirt.org/go/libvirtxml"
-
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -60,6 +58,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
+
+	nodelabellerapi "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -215,7 +215,7 @@ func NewController(
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
 	downwardMetricsManager downwardMetricsManager,
-	capabilities *libvirtxml.Caps,
+	capabilities *nodelabellerapi.Capabilities,
 	hostCpuModel string,
 	netConf netconf,
 	netStat netstat,
@@ -355,7 +355,7 @@ type VirtualMachineController struct {
 	domainNotifyPipes           map[string]string
 	virtLauncherFSRunDirPattern string
 	heartBeat                   *heartbeat.HeartBeat
-	capabilities                *libvirtxml.Caps
+	capabilities                *nodelabellerapi.Capabilities
 	hostCpuModel                string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
 	ioErrorRetryManager         *FailRetryManager
