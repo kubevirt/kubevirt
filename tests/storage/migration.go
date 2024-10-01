@@ -288,6 +288,43 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			waitForMigrationToSucceed(vm.Name, ns)
 		})
 
+		It("should migrate the source volume from a source and destination block RWX DVs", func() {
+			volName := "disk0"
+			sc, exist := libstorage.GetRWXBlockStorageClass()
+			Expect(exist).To(BeTrue())
+			srcDV := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(size),
+					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
+				srcDV, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			destDV := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(size),
+					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
+				destDV, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm := createVMWithDV(srcDV, volName)
+			By("Update volumes")
+			updateVMWithDV(vm.Name, volName, destDV.Name)
+			Eventually(func() bool {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
+					metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
+				return claim == destDV.Name
+			}, 120*time.Second, time.Second).Should(BeTrue())
+			waitForMigrationToSucceed(vm.Name, ns)
+		})
+
 		It("should migrate a PVC with a VM using a containerdisk", func() {
 			volName := "volume"
 			srcPVC := "src-" + rand.String(5)
