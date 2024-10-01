@@ -20,19 +20,22 @@ package client
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
+
+const defaultNone = "none"
 
 type rtWrapper struct {
 	origRoundTripper http.RoundTripper
 }
 
 func (r *rtWrapper) RoundTrip(request *http.Request) (response *http.Response, err error) {
-	var status string
-	var resource string
-	var verb string
-	var host string
+	var (
+		status string
+		host   string
+	)
 
 	response, err = r.origRoundTripper.RoundTrip(request)
 	if err != nil {
@@ -41,58 +44,37 @@ func (r *rtWrapper) RoundTrip(request *http.Request) (response *http.Response, e
 		status = strconv.Itoa(response.StatusCode)
 	}
 
-	host = "none"
+	resource, verb := parseURLResourceOperation(request)
+
 	if request.URL != nil {
 		host = request.URL.Host
+	} else {
+		host = defaultNone
 	}
 
-	resource, verb = parseURLResourceOperation(request)
-	if verb == "" {
-		verb = "none"
-	}
-	if resource == "" {
-		resource = "none"
-	}
 	requestResult.WithLabelValues(status, request.Method, host, resource, verb).Add(1)
 
 	return response, err
 }
 
-func parseURLResourceOperation(request *http.Request) (resource string, verb string) {
+func parseURLResourceOperation(request *http.Request) (resource, verb string) {
 	method := request.Method
-
-	resource = ""
-	verb = ""
-
-	if request.URL.Path == "" || method == "" {
-		return
+	if request.URL == nil || method == "" {
+		return defaultNone, defaultNone
 	}
 
-	for _, r := range resourceParsingRegexs {
-		if resource != "" {
-			break
-		}
-		match := r.FindStringSubmatch(request.URL.Path)
-		if len(match) > 1 {
-			resource = match[1]
-		}
-	}
-
+	resource = findResource(*request.URL)
 	if resource == "" {
-		return
+		return defaultNone, defaultNone
 	}
 
-	switch method {
+	return resource, getVerbFromHTTPVerb(*request.URL, method)
+}
+
+func getVerbFromHTTPVerb(u url.URL, methodOrVerb string) (verb string) {
+	switch methodOrVerb {
 	case "GET":
-		verb = "GET"
-		if strings.Contains(request.URL.Path, "/watch/") {
-			verb = "WATCH"
-		} else if strings.HasSuffix(request.URL.Path, resource) {
-			// If the resource is the last element in the url, then
-			// we're asking to list all resources of that type instead
-			// of getting an individual resource
-			verb = "LIST"
-		}
+		verb = determineGetVerb(u)
 	case "PUT":
 		verb = "UPDATE"
 	case "PATCH":
@@ -101,7 +83,32 @@ func parseURLResourceOperation(request *http.Request) (resource string, verb str
 		verb = "CREATE"
 	case "DELETE":
 		verb = "DELETE"
+	default:
+		verb = methodOrVerb
 	}
 
-	return resource, verb
+	return verb
+}
+
+func determineGetVerb(u url.URL) string {
+	if strings.Contains(u.Path, "/watch/") || u.Query().Get("watch") == "true" {
+		return "WATCH"
+	}
+
+	if resource := findResource(u); resource == "" {
+		return "none"
+	} else if strings.HasSuffix(u.Path, resource) {
+		return "LIST"
+	}
+
+	return "GET"
+}
+
+func findResource(u url.URL) (resource string) {
+	for _, r := range resourceParsingRegexs {
+		if match := r.FindStringSubmatch(u.Path); len(match) > 1 {
+			return match[1]
+		}
+	}
+	return ""
 }
