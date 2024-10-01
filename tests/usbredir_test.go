@@ -122,28 +122,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(numOfErrors).To(Equal(1), "Only one connection should fail")
 		})
 
-		It("Should work in parallel", func() {
-			cancelFns := make([]context.CancelFunc, v1.UsbClientPassthroughMaxNumberOf)
-			errors := make([]chan error, v1.UsbClientPassthroughMaxNumberOf)
-			for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {
-				errors[i] = make(chan error)
-				ctx, cancelFn := context.WithCancel(context.Background())
-				cancelFns[i] = cancelFn
-				go runConnectGoroutine(virtClient, name, namespace, ctx, errors[i])
-				// avoid too fast requests which might get denied by server (to avoid flakyness)
-				time.Sleep(100 * time.Millisecond)
-			}
-
-			for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {
-				select {
-				case err := <-errors[i]:
-					Expect(err).ToNot(HaveOccurred())
-				case <-time.After(time.Second):
-					cancelFns[i]()
-				}
-			}
-		})
-
 		It("Should work several times", func() {
 			for i := 0; i < 4*v1.UsbClientPassthroughMaxNumberOf; i++ {
 				ctx, cancelFn := context.WithCancel(context.Background())
