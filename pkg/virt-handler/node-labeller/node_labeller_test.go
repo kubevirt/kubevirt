@@ -184,8 +184,8 @@ var _ = Describe("Node-labeller ", func() {
 		Entry("scaling is set to yes", "yes", "true"),
 	)
 
-	It("should not add cpu tsc labels if counter name isn't tsc", func() {
-		nlController.cpuCounter.Name = ""
+	DescribeTable("should not add cpu tsc labels", func(counter *libvirtxml.CapsHostCPUCounter) {
+		nlController.cpuCounter = counter
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 
@@ -194,7 +194,10 @@ var _ = Describe("Node-labeller ", func() {
 			Not(HaveKey(v1.CPUTimerLabel+"tsc-frequency")),
 			Not(HaveKey(v1.CPUTimerLabel+"tsc-scalable")),
 		))
-	})
+	},
+		Entry("cpuCounter name is not tsc", &libvirtxml.CapsHostCPUCounter{}),
+		Entry("cpuCounter is nil", nil),
+	)
 
 	It("should remove not found cpu model and migration model", func() {
 		node := retrieveNode(kubeClient)

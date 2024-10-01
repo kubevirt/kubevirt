@@ -335,5 +335,5 @@ func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostMod
 }
 
 func (n *NodeLabeller) hasTSCCounter() bool {
-	return n.cpuCounter.Name == "tsc"
+	return n.cpuCounter != nil && n.cpuCounter.Name == "tsc"
 }
