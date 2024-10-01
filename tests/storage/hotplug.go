@@ -38,7 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -1355,7 +1356,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(podName).ToNot(BeEmpty())
 			foreGround := metav1.DeletePropagationForeground
 			err := virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{
-				GracePeriodSeconds: pointer.Int64(0),
+				GracePeriodSeconds: pointer.P(int64(0)),
 				PropagationPolicy:  &foreGround,
 			})
 			Expect(err).ToNot(HaveOccurred())

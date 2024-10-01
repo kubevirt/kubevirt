@@ -34,7 +34,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -275,9 +274,9 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			}
 
 		},
-			Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", decorators.VMX, &v1.FeatureState{Enabled: pointer.BoolPtr(true)}),
+			Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", decorators.VMX, &v1.FeatureState{Enabled: virtpointer.P(true)}),
 			Entry("EVMCS should be enabled when vmi.Spec.Domain.Features.Hyperv.EVMCS is set but the EVMCS.Enabled field is nil ", decorators.VMX, &v1.FeatureState{Enabled: nil}),
-			Entry("Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: pointer.BoolPtr(false)}),
+			Entry("Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: virtpointer.P(false)}),
 		)
 	})
 
@@ -304,7 +303,7 @@ func withReEnlightenment() libvmi.Option {
 			vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
 		}
 
-		vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
+		vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: virtpointer.P(true)}
 	}
 }
 

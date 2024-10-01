@@ -35,11 +35,11 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -73,7 +73,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			)
 			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
 
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = interfaceModel
 
@@ -99,7 +99,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 
 			cpuResources := strconv.Itoa(int(numCpus))
 			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU(cpuResources), libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -134,7 +134,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			vmi := libvmifact.NewCirros()
 
 			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
 
 			By("Creating and starting the VMI")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})

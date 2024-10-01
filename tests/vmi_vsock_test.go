@@ -36,10 +36,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -69,7 +69,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			By("Creating a VMI with VSOCK enabled")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = &useVirtioTransitional
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
@@ -124,7 +124,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		It("should retain the CID for migration target", func() {
 			By("Creating a VMI with VSOCK enabled")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
@@ -137,7 +137,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			By("Creating a new VMI with VSOCK enabled on the same node")
 			node := vmi.Status.NodeName
 			vmi2 := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi2.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi2.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 			vmi2.Spec.Affinity = affinity(node)
 			vmi2 = libvmops.RunVMIAndExpectLaunch(vmi2, 60)
 			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
@@ -171,7 +171,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
-		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Logging in as root")
@@ -194,7 +194,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		stopChan := make(chan error)
 		go func() {
 			defer GinkgoRecover()
-			vsock, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(1234), UseTLS: pointer.Bool(useTLS)})
+			vsock, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(1234), UseTLS: pointer.P(useTLS)})
 			if err != nil {
 				stopChan <- err
 				return
@@ -233,7 +233,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 
 		By("Creating a VMI with VSOCK enabled")
 		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Connect to the guest on invalide port")
@@ -246,7 +246,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 
 		By("Creating a VMI with VSOCK enabled")
 		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Connect to the guest on the unused port")

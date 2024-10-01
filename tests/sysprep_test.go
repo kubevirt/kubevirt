@@ -32,13 +32,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -388,13 +388,13 @@ func winRMCliPod() *k8sv1.Pod {
 					Command: []string{"sleep"},
 					Args:    []string{"3600"},
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.Bool(false),
+						AllowPrivilegeEscalation: pointer.P(false),
 						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 					},
 				},
 			},
 			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsNonRoot:   pointer.Bool(true),
+				RunAsNonRoot:   pointer.P(true),
 				RunAsUser:      &user,
 				SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault},
 			},
