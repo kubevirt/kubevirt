@@ -281,38 +281,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		Context("console", func() {
-			DescribeTable("request validation", func(autoattachSerialConsole bool, phase v1.VirtualMachineInstancePhase) {
-				request.PathParameters()["name"] = testVMIName
-				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
-
-				vmi := api.NewMinimalVMI(testVMIName)
-				vmi.Status.Phase = phase
-				vmi.ObjectMeta.SetUID(uuid.NewUUID())
-				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &autoattachSerialConsole
-
-				vmiClient.EXPECT().Get(context.Background(), vmi.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
-
-				app.ConsoleRequestHandler(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-			},
-				Entry("should fail if there is no serial console", false, v1.Running),
-				Entry("should fail if vmi is not running", true, v1.Scheduling),
-			)
-
-			It("should fail to connect to the serial console if the VMI is Failed", func() {
-
-				request.PathParameters()["name"] = testVMIName
-				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
-
-				expectVMI(NotRunning, UnPaused)
-
-				app.ConsoleRequestHandler(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-			})
-
-		})
-
 		Context("restart", func() {
 			It("should fail if VirtualMachine not exists", func() {
 				request.PathParameters()["name"] = testVMName

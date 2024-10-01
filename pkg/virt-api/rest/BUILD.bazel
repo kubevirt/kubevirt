@@ -66,6 +66,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "authorizer_test.go",
+        "console_test.go",
         "dialers_test.go",
         "expand_test.go",
         "memorydump_test.go",
