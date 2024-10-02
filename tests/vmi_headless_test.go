@@ -36,18 +36,12 @@ import (
 
 var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, func() {
 
-	var vmi *v1.VirtualMachineInstance
-
-	BeforeEach(func() {
-		vmi = libvmifact.NewAlpine()
-	})
-
 	Describe("[rfe_id:609]Creating a VirtualMachineInstance", func() {
 
 		Context("with headless", func() {
 
 			It("[test_id:709][posneg:positive]should connect to console", func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(withAutoattachGraphicsDevice(false)), 30)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(withAutoattachGraphicsDevice(false)), 30)
 
 				By("checking that console works")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
