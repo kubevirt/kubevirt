@@ -96,6 +96,52 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		}
 	})
 
+	getImageSize := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume) int64 {
+		var imageSize int64
+		var unused string
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		Expect(err).ToNot(HaveOccurred())
+
+		lsOutput, err := exec.ExecuteCommandOnPod(
+			pod,
+			"compute",
+			[]string{"ls", "-s", "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},
+		)
+		Expect(err).ToNot(HaveOccurred())
+		if _, err := fmt.Sscanf(lsOutput, "%d %s", &imageSize, &unused); err != nil {
+			return 0
+		}
+		return imageSize
+	}
+
+	getVirtualSize := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume) int64 {
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		Expect(err).ToNot(HaveOccurred())
+
+		output, err := exec.ExecuteCommandOnPod(
+			pod,
+			"compute",
+			[]string{"qemu-img", "info", "--output", "json", "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		var info struct {
+			VirtualSize int64 `json:"virtual-size"`
+		}
+		err = json.Unmarshal([]byte(output), &info)
+		Expect(err).ToNot(HaveOccurred())
+
+		return info.VirtualSize
+	}
+
+	alignImageSizeTo1MiB := func(size int64) int64 {
+		remainder := size % (1024 * 1024)
+		if remainder == 0 {
+			return size
+		}
+		return size - remainder
+	}
+
 	Context("[storage-req]PVC expansion", decorators.StorageReq, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
@@ -182,6 +228,63 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Entry("with Block PVC", k8sv1.PersistentVolumeBlock),
 			Entry("with Filesystem PVC", k8sv1.PersistentVolumeFilesystem),
 		)
+
+		It("Check disk expansion accounts for actual usable size", func() {
+			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
+
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when Filesystem storage is not present")
+			}
+
+			volumeExpansionAllowed := volumeExpansionAllowed(sc)
+			if !volumeExpansionAllowed {
+				Skip("Skip when volume expansion storage class not available")
+			}
+
+			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize("512Mi"),
+					libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				),
+			)
+			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi := libvmi.New(
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
+
+			By("Expecting the VirtualMachineInstance console")
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			pv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), pvc.Spec.VolumeName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			pvcRequestSize := pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]
+			pvCapacitySize := pv.Spec.Capacity[k8sv1.ResourceStorage]
+
+			By("Checking if PV capacity is larger than PVC request")
+			if pvCapacitySize.Cmp(pvcRequestSize) > 0 {
+				Expect(getVirtualSize(vmi, dataVolume)).To(Equal((pvcRequestSize.Value())))
+			} else {
+				overheadPercentage, err := strconv.ParseFloat(string(*vmi.Status.VolumeStatus[1].PersistentVolumeClaimInfo.FilesystemOverhead), 64)
+				Expect(err).ToNot(HaveOccurred())
+				overheadSize := float64(pvcRequestSize.Value()) * (1.0 - overheadPercentage)
+				expectedSize := alignImageSizeTo1MiB(int64(overheadSize))
+				Expect(getVirtualSize(vmi, dataVolume)).To(Equal(expectedSize))
+			}
+		})
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
@@ -1155,23 +1258,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			} else {
 				return true
 			}
-		}
-		getImageSize := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume) int64 {
-			var imageSize int64
-			var unused string
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).ToNot(HaveOccurred())
-
-			lsOutput, err := exec.ExecuteCommandOnPod(
-				pod,
-				"compute",
-				[]string{"ls", "-s", "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-			if _, err := fmt.Sscanf(lsOutput, "%d %s", &imageSize, &unused); err != nil {
-				return 0
-			}
-			return imageSize
 		}
 
 		noop := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
