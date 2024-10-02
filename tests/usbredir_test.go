@@ -86,6 +86,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][QUARANTINE] A VirtualMachineInstance with usbredir support", decorators.Quarantine, func() {
 
+		type testCase struct {
+			cancel context.CancelFunc
+			err    chan error
+		}
+
 		var vmi *v1.VirtualMachineInstance
 		var name, namespace string
 
@@ -98,13 +103,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("Should fail when limit is reached", func() {
-			cancelFns := make([]context.CancelFunc, v1.UsbClientPassthroughMaxNumberOf+1)
-			errors := make([]chan error, v1.UsbClientPassthroughMaxNumberOf+1)
+			var tests [v1.UsbClientPassthroughMaxNumberOf + 1]testCase
 			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
 				ctx, cancelFn := context.WithCancel(context.Background())
-				cancelFns[i] = cancelFn
-				errors[i] = make(chan error)
-				go runConnectGoroutine(virtClient, name, namespace, ctx, errors[i])
+				tests[i] = testCase{
+					cancel: cancelFn,
+					err:    make(chan error),
+				}
+				go runConnectGoroutine(virtClient, name, namespace, ctx, tests[i].err)
 				// avoid too fast requests which might get denied by server (to avoid flakyness)
 				time.Sleep(100 * time.Millisecond)
 			}
@@ -112,11 +118,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			numOfErrors := 0
 			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
 				select {
-				case err := <-errors[i]:
+				case err := <-tests[i].err:
 					Expect(err).To(MatchError(ContainSubstring("websocket: bad handshake")))
 					numOfErrors++
 				case <-time.After(time.Second):
-					cancelFns[i]()
+					tests[i].cancel()
 				}
 			}
 			Expect(numOfErrors).To(Equal(1), "Only one connection should fail")
