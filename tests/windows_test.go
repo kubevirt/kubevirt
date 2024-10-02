@@ -64,26 +64,22 @@ const (
 
 var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, decorators.Windows, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
-	var windowsVMI *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		const OSWindows = "windows"
 		virtClient = kubevirt.Client()
 		checks.SkipIfMissingRequiredImage(virtClient, libvmifact.WindowsPVCName)
 		libstorage.CreatePVC(OSWindows, testsuite.GetTestNamespace(nil), "30Gi", libstorage.Config.StorageClassWindows, true)
-		windowsVMI = libvmifact.NewWindows(libnet.WithMasqueradeNetworking())
-		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
 	Context("with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
+		var windowsVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
-			winrmcliPod = winRMCliPod()
-
 			var err error
-			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
+			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winRMCliPod(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -92,7 +88,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 			BeforeEach(func() {
 				By("Starting the windows VirtualMachineInstance")
 				var err error
-				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
+				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), libvmifact.NewWindows(withDefaultE1000Networking()), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI)
 			})
@@ -146,7 +142,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 		Context("VMI with subdomain is created", func() {
 			BeforeEach(func() {
-				windowsVMI.Spec.Subdomain = "subdomain"
+				windowsVMI = libvmifact.NewWindows(withDefaultE1000Networking(), libvmi.WithSubdomain("subdomain"))
 
 				By("Starting the windows VirtualMachineInstance with subdomain")
 				var err error
@@ -169,9 +165,10 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 		})
 
 		Context("with bridge binding", func() {
+
 			BeforeEach(func() {
 				By("Starting Windows VirtualMachineInstance with bridge binding")
-				windowsVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)}
+				windowsVMI = libvmifact.NewWindows(libvmi.WithNetwork(v1.DefaultPodNetwork()), libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)))
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -302,5 +299,18 @@ func removeTSCFrequencyFromNode(node k8sv1.Node) {
 				libnode.RemoveLabelFromNode(node.Name, key)
 			}
 		}
+	}
+}
+
+func withDefaultE1000Networking() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		libvmi.WithNetwork(v1.DefaultPodNetwork())(vmi)
+		libvmi.WithInterface(v1.Interface{
+			Name: "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				Masquerade: &v1.InterfaceMasquerade{},
+			},
+			Model: "e1000",
+		})(vmi)
 	}
 }
