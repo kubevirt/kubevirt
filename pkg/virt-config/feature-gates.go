@@ -176,3 +176,11 @@ func (config *ClusterConfig) ImageVolumeEnabled() bool {
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
 }
+
+func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
+	return config.isFeatureGateDefined(featuregate.GPUsWithDRAGate)
+}
+
+func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
+	return config.isFeatureGateDefined(featuregate.HostDevicesWithDRAGate)
+}
