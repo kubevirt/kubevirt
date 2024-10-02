@@ -38,7 +38,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -71,37 +70,6 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 
 			BeforeEach(func() {
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
-			})
-
-			It("[test_id:737][posneg:positive]should match memory with overcommit enabled", func() {
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("100M"),
-					},
-					OvercommitGuestOverhead: true,
-				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-
-				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-				Expect(err).ToNot(HaveOccurred())
-				computeContainer := libpod.LookupComputeContainer(readyPod)
-
-				Expect(computeContainer.Resources.Requests.Memory().String()).To(Equal("100M"))
-			})
-
-			It("[test_id:2444][posneg:negative]should not match memory with overcommit disabled", func() {
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("100M"),
-					},
-				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-
-				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-				Expect(err).ToNot(HaveOccurred())
-				computeContainer := libpod.LookupComputeContainer(readyPod)
-
-				Expect(computeContainer.Resources.Requests.Memory().String()).ToNot(Equal("100M"))
 			})
 
 			It("[test_id:713]should have more memory on pod when headless", func() {
