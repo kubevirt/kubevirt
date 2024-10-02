@@ -77,7 +77,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 	Context("with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
-		var cli []string
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
@@ -96,12 +95,10 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI)
-
-				cli = winrnLoginCommand(windowsVMI)
 			})
 
 			It("[test_id:240]should have correct UUID", func() {
-				command := append(cli, "wmic csproduct get \"UUID\"")
+				command := append(winrmLoginCommand(windowsVMI), "wmic csproduct get \"UUID\"")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				var output string
 				Eventually(func() error {
@@ -118,7 +115,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 			})
 
 			It("[test_id:3159]should have default masquerade IP", func() {
-				command := append(cli, "ipconfig /all")
+				command := append(winrmLoginCommand(windowsVMI), "ipconfig /all")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				var output string
 				Eventually(func() error {
@@ -141,7 +138,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 				runCommandAndExpectOutput(
 					winrmcliPod,
-					cli,
+					winrmLoginCommand(windowsVMI),
 					"wmic nicconfig get dnsdomain",
 					`DNSDomain[\n\r\t ]+`+searchDomain+`[\n\r\t ]+`)
 			})
@@ -156,8 +153,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI)
-
-				cli = winrnLoginCommand(windowsVMI)
 			})
 
 			It("should have the domain set properly with subdomain", func() {
@@ -167,7 +162,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				expectedSearchDomain := windowsVMI.Spec.Subdomain + "." + searchDomain
 				runCommandAndExpectOutput(
 					winrmcliPod,
-					cli,
+					winrmLoginCommand(windowsVMI),
 					"wmic nicconfig get dnsdomain",
 					`DNSDomain[\n\r\t ]+`+expectedSearchDomain+`[\n\r\t ]+`)
 			})
@@ -183,8 +178,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				libwait.WaitForSuccessfulVMIStart(windowsVMI,
 					libwait.WithTimeout(420),
 				)
-
-				cli = winrnLoginCommand(windowsVMI)
 			})
 
 			It("should be recognized by other pods in cluster", func() {
@@ -212,7 +205,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 				virtHandlerPodIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
 
-				command := append(cli, fmt.Sprintf("ping %s", virtHandlerPodIP))
+				command := append(winrmLoginCommand(windowsVMI), fmt.Sprintf("ping %s", virtHandlerPodIP))
 
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
@@ -228,7 +221,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 	})
 })
 
-func winrnLoginCommand(windowsVMI *v1.VirtualMachineInstance) []string {
+func winrmLoginCommand(windowsVMI *v1.VirtualMachineInstance) []string {
 	var err error
 	windowsVMI, err = kubevirt.Client().VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
