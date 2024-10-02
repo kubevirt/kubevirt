@@ -118,6 +118,11 @@ func createMacvtapDevice(name, lowerDeviceName, mode string, uid, gid int) error
 		return fmt.Errorf("failed to create character device %q. Reason: %v", devPath, err)
 	}
 
+	err = unix.Chown(devPath, uid, gid)
+	if err != nil {
+		return fmt.Errorf("failed to chown device %q. Reason: %v", devPath, err)
+	}
+
 	fmt.Printf("Successfully created macvtap device %s", name)
 	return nil
 }
