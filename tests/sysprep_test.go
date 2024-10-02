@@ -29,7 +29,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -217,77 +216,25 @@ func insertProductKeyToAnswerFileTemplate(answerFileTemplate string) string {
 	return fmt.Sprintf(answerFileTemplate, productKey)
 }
 
-// Deprecated: Use libvmi
-func getWindowsSysprepVMISpec() v1.VirtualMachineInstanceSpec {
-	gracePeriod := int64(0)
-	spinlocks := uint32(8191)
-	firmware := types.UID(libvmifact.WindowsFirmware)
-	_false := false
-	return v1.VirtualMachineInstanceSpec{
-		TerminationGracePeriodSeconds: &gracePeriod,
-		Domain: v1.DomainSpec{
-			CPU: &v1.CPU{Cores: 2},
-			Features: &v1.Features{
-				ACPI: v1.FeatureState{},
-				APIC: &v1.FeatureAPIC{},
-				Hyperv: &v1.FeatureHyperv{
-					Relaxed:   &v1.FeatureState{},
-					VAPIC:     &v1.FeatureState{},
-					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
-				},
-			},
-			Clock: &v1.Clock{
-				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
-				Timer: &v1.Timer{
-					HPET:   &v1.HPETTimer{Enabled: &_false},
-					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
-					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
-					Hyperv: &v1.HypervTimer{},
-				},
-			},
-			Firmware: &v1.Firmware{UUID: firmware},
-			Resources: v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
-				},
-			},
-			Devices: v1.Devices{
-				Disks: []v1.Disk{
-					{
-						Name:       windowsSealedDisk,
-						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusSATA}},
-					},
-					{
-						Name:       "sysprep",
-						DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{Bus: v1.DiskBusSATA}},
-					},
-				},
-			},
-		},
-		Volumes: []v1.Volume{
-			{
-				Name: windowsSealedDisk,
-				VolumeSource: v1.VolumeSource{
-					Ephemeral: &v1.EphemeralVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: diskWindowsSysprep,
-						},
-					},
-				},
-			},
-			{
-				Name: "sysprep",
-				VolumeSource: v1.VolumeSource{
-					Sysprep: &v1.SysprepSource{
-						ConfigMap: &k8sv1.LocalObjectReference{
-							Name: "sysprepautounattend",
-						},
-					},
-				},
-			},
-		},
+func withFeatures(features v1.Features) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Features = &features
 	}
+}
 
+func withClock(clock v1.Clock) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Clock = &clock
+	}
+}
+
+func withFirmwareUID(uid types.UID) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		vmi.Spec.Domain.Firmware.UUID = uid
+	}
 }
 
 const (
@@ -308,8 +255,42 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		windowsVMI = libvmi.New(libvmi.WithInterface(e1000DefaultInterface()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()))
-		windowsVMI.Spec = getWindowsSysprepVMISpec()
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithTerminationGracePeriod(0),
+			libvmi.WithCPUCount(2, 0, 0),
+			libvmi.WithEphemeralPersistentVolumeClaim(windowsSealedDisk, diskWindowsSysprep),
+			libvmi.WithCDRomAndVolume(v1.DiskBusSATA, v1.Volume{
+				Name: "sysprep",
+				VolumeSource: v1.VolumeSource{
+					Sysprep: &v1.SysprepSource{
+						ConfigMap: &k8sv1.LocalObjectReference{
+							Name: "sysprepautounattend",
+						},
+					},
+				},
+			}),
+			libvmi.WithResourceMemory("2048Mi"),
+			withFeatures(v1.Features{
+				ACPI: v1.FeatureState{},
+				APIC: &v1.FeatureAPIC{},
+				Hyperv: &v1.FeatureHyperv{
+					Relaxed:   &v1.FeatureState{},
+					VAPIC:     &v1.FeatureState{},
+					Spinlocks: &v1.FeatureSpinlocks{Retries: pointer.P(uint32(8191))},
+				},
+			}),
+			withClock(v1.Clock{
+				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
+				Timer: &v1.Timer{
+					HPET:   &v1.HPETTimer{Enabled: pointer.P(false)},
+					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
+					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
+					Hyperv: &v1.HypervTimer{},
+				},
+			}),
+			withFirmwareUID(types.UID(libvmifact.WindowsFirmware)),
+		)
+
 		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
 		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
 		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
