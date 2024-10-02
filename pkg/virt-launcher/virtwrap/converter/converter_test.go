@@ -37,6 +37,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1631,6 +1632,25 @@ var _ = Describe("Converter", func() {
 			Entry("and add the graphics and video device if it is set to true on arm64", True(), 1, "arm64"),
 			Entry("and not add the graphics and video device if it is set to false on arm64", False(), 0, "arm64"),
 		)
+
+		It("Should have one vnc", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{},
+				},
+			}
+
+			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true})
+			Expect(domain.Spec.Devices.Graphics).To(HaveLen(1))
+			Expect(domain.Spec.Devices.Graphics).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type": Equal("vnc"),
+			})))
+		})
 	})
 
 	Context("HyperV", func() {

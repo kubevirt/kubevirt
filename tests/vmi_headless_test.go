@@ -44,7 +44,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
@@ -74,21 +73,6 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 		})
 
 		Context("without headless", func() {
-
-			It("[test_id:714][posneg:negative]should have one vnc graphic device in xml", func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-
-				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
-
-				vncCount := 0
-				for _, gr := range runningVMISpec.Devices.Graphics {
-					if strings.ToLower(gr.Type) == "vnc" {
-						vncCount += 1
-					}
-				}
-				Expect(vncCount).To(Equal(1), "should have exactly one VNC device")
-			})
 
 			It("[Serial] multiple HTTP calls should re-use connections and not grow the number of open connections in virt-launcher", Serial, func() {
 				getHandlerConnectionCount := func() int {
