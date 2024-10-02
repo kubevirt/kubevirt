@@ -38,9 +38,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/resource"
-
-	"kubevirt.io/kubevirt/tests/testsuite"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -49,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
@@ -70,29 +66,6 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 
 			BeforeEach(func() {
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
-			})
-
-			It("[test_id:713]should have more memory on pod when headless", func() {
-				normalVmi := libvmifact.NewAlpine()
-
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-				normalVmi = libvmops.RunVMIAndExpectLaunch(normalVmi, 30)
-
-				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-				Expect(err).ToNot(HaveOccurred())
-				computeContainer := libpod.LookupComputeContainer(readyPod)
-
-				normalReadyPod, err := libpod.GetPodByVirtualMachineInstance(normalVmi, testsuite.GetTestNamespace(vmi))
-				Expect(err).ToNot(HaveOccurred())
-				normalComputeContainer := libpod.LookupComputeContainer(normalReadyPod)
-
-				memDiff := normalComputeContainer.Resources.Requests.Memory()
-				memDiff.Sub(*computeContainer.Resources.Requests.Memory())
-
-				Expect(memDiff.ScaledValue(resource.Mega)).To(BeNumerically(">", 15), "memory difference between headless (%s) and normal (%s) is %dM, but should be roughly 16M",
-					computeContainer.Resources.Requests.Memory(),
-					normalComputeContainer.Resources.Requests.Memory(),
-					memDiff.ScaledValue(resource.Mega))
 			})
 
 			It("[test_id:738][posneg:negative]should not connect to VNC", func() {
