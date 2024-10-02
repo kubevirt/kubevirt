@@ -72,3 +72,7 @@ func skipIfNoRealtimePerformanceTests() {
 		Skip("Realtime performance tests are not enabled")
 	}
 }
+
+func KWOKDescribe(text string, args ...interface{}) bool {
+	return Describe("[sig-performance]"+text, Label("KWOK", "sig-performance"), Serial, args)
+}
