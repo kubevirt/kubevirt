@@ -20,20 +20,8 @@
 package tests_test
 
 import (
-	"context"
-	"fmt"
-	"strconv"
-	"strings"
-	"time"
-
-	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -41,21 +29,16 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
-	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, func() {
 
-	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-
 		vmi = libvmifact.NewAlpine()
 	})
 
@@ -71,79 +54,6 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			})
 
 		})
-
-		Context("without headless", func() {
-
-			It("[Serial] multiple HTTP calls should re-use connections and not grow the number of open connections in virt-launcher", Serial, func() {
-				getHandlerConnectionCount := func() int {
-					cmd := []string{"bash", "-c", fmt.Sprintf("ss -ntlap | grep %d | wc -l", virt_api.DefaultConsoleServerPort)}
-					stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(vmi.Status.NodeName, cmd)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(stderr).To(BeEmpty())
-
-					stdout = strings.TrimSpace(stdout)
-					stdout = strings.ReplaceAll(stdout, "\n", "")
-
-					handlerCons, err := strconv.Atoi(stdout)
-					Expect(err).ToNot(HaveOccurred())
-
-					return handlerCons
-				}
-
-				getClientCalls := func(vmi *v1.VirtualMachineInstance) []func() {
-					vmiInterface := virtClient.VirtualMachineInstance(vmi.Namespace)
-					expectNoErr := func(err error) {
-						ExpectWithOffset(2, err).ToNot(HaveOccurred())
-					}
-
-					return []func(){
-						func() {
-							_, err := vmiInterface.GuestOsInfo(context.Background(), vmi.Name)
-							expectNoErr(err)
-						},
-						func() {
-							_, err := vmiInterface.FilesystemList(context.Background(), vmi.Name)
-							expectNoErr(err)
-						},
-						func() {
-							_, err := vmiInterface.UserList(context.Background(), vmi.Name)
-							expectNoErr(err)
-						},
-						func() {
-							_, err := vmiInterface.VNC(vmi.Name)
-							expectNoErr(err)
-						},
-						func() {
-							_, err := vmiInterface.SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
-							expectNoErr(err)
-						},
-					}
-				}
-
-				By("Running the VMI")
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-
-				By("VMI has the guest agent connected condition")
-				Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected), "should have agent connected condition")
-				origHandlerCons := getHandlerConnectionCount()
-
-				By("Making multiple requests")
-				const numberOfRequests = 20
-				clientCalls := getClientCalls(vmi)
-				for i := 0; i < numberOfRequests; i++ {
-					for _, clientCallFunc := range clientCalls {
-						clientCallFunc()
-					}
-					time.Sleep(200 * time.Millisecond)
-				}
-
-				By("Expecting the number of connections to not grow")
-				Expect(getHandlerConnectionCount()-origHandlerCons).To(BeNumerically("<=", len(clientCalls)), "number of connections is not expected to grow")
-			})
-
-		})
-
 	})
 
 })

@@ -94,6 +94,7 @@ go_test(
         "tests_suite_test.go",
         "usbredir_test.go",
         "version_test.go",
+        "virt-handler_test.go",
         "virt_control_plane_test.go",
         "vm_state_test.go",
         "vm_test.go",
