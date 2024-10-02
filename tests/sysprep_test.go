@@ -294,8 +294,6 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			}),
 			withFirmwareUID(types.UID(libvmifact.WindowsFirmware)),
 		)
-
-		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
 	})
 
 	Context("[ref_id:5105]should create the Admin user as specified in the Autounattend.xml", func() {
