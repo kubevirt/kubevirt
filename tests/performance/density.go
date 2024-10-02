@@ -202,7 +202,7 @@ func createBatchRunningVMWithInstancetypeWithRateControl(virtClient kubecli.Kube
 	createBatchRunningVMWithRateControl(virtClient, vmCount, func() *kvv1.VirtualMachine {
 		return libvmi.NewVirtualMachine(
 			libvmifact.NewCirros(),
-			libvmi.WithRunning(),
+			libvmi.WithRunStrategy(kvv1.RunStrategyAlways),
 			libvmi.WithInstancetype(instancetypeName),
 			libvmi.WithPreference(preferenceName),
 		)
@@ -211,7 +211,7 @@ func createBatchRunningVMWithInstancetypeWithRateControl(virtClient kubecli.Kube
 
 func createBatchRunningVMWithResourcesWithRateControl(virtClient kubecli.KubevirtClient, vmCount int) {
 	createBatchRunningVMWithRateControl(virtClient, vmCount, func() *kvv1.VirtualMachine {
-		return libvmi.NewVirtualMachine(createVMISpecWithResources(), libvmi.WithRunning())
+		return libvmi.NewVirtualMachine(createVMISpecWithResources(), libvmi.WithRunStrategy(kvv1.RunStrategyAlways))
 	})
 }
 

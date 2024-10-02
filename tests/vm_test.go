@@ -997,7 +997,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		It("[test_id:243][posneg:negative]should create VM only once", decorators.Conformance, func() {
-			vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
+			vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
@@ -1016,7 +1016,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", decorators.Conformance, func(version string) {
 			vmi := libvmifact.NewAlpine()
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 			vm.APIVersion = version
 
@@ -1100,7 +1100,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			DescribeTable("when stopping a VM", func(gracePeriod *int64) {
-				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
+				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
@@ -1150,7 +1150,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			)
 
 			It("[test_id:7528]when restarting a VM", func() {
-				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
+				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
@@ -1182,7 +1182,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:232]should create same manifest twice via command line", func() {
-			vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
+			vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			By("Creating VM using k8s client binary")
 			_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
@@ -1350,7 +1350,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			vmi = libvmifact.NewGuestless()
-			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			Expect(vm.Finalizers).To(BeEmpty())
 			vm.Finalizers = append(vm.Finalizers, customFinalizer)
 		})
@@ -1562,7 +1562,7 @@ func createVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMachineInst
 
 func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 	By("Creating running VirtualMachine")
-	vm := libvmi.NewVirtualMachine(template, libvmi.WithRunning())
+	vm := libvmi.NewVirtualMachine(template, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return vm
