@@ -45,34 +45,26 @@ import (
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound", decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
-	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support", func() {
-		BeforeEach(func() {
-			var err error
-			vmi, err = createSoundVMI(virtClient, "test-model-empty")
-			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
-		})
 
 		It("should create an ich9 sound device on empty model", func() {
+			vmi, err := createSoundVMI(virtClient, "test-model-empty")
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 			checkAudioDevice(vmi, "ich9")
 		})
 	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ich9 sound support", func() {
-		BeforeEach(func() {
-			var err error
-			vmi, err = createSoundVMI(virtClient, "ich9")
+		It("should create ich9 sound device on ich9 model ", func() {
+			vmi, err := createSoundVMI(virtClient, "ich9")
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
-		})
-
-		It("should create ich9 sound device on ich9 model ", func() {
 			checkXMLSoundCard(virtClient, vmi, "ich9")
 			checkAudioDevice(vmi, "ich9")
 		})
@@ -80,9 +72,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with unsupported sound support", func() {
 		It("should fail to create VMI with unsupported sound device", func() {
-			var err error
-			vmi, err = createSoundVMI(virtClient, "ich7")
-			Expect(err).To(HaveOccurred())
+			_, err := createSoundVMI(virtClient, "ich7")
+			Expect(err).To(MatchError(ContainSubstring("Sound device type is not supported")))
 		})
 	})
 })
