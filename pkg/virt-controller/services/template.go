@@ -638,6 +638,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			SchedulerName:                 vmi.Spec.SchedulerName,
 			Tolerations:                   vmi.Spec.Tolerations,
 			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
+			ResourceClaims:                vmi.Spec.ResourceClaims,
 		},
 	}
 
@@ -1520,8 +1521,14 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
 				return len(networkToResourceMap) > 0
 			}, WithNetworkResources(networkToResourceMap)),
-			NewVMIResourceRule(util.IsGPUVMI, WithGPUs(vmi.Spec.Domain.Devices.GPUs)),
-			NewVMIResourceRule(util.IsHostDevVMI, WithHostDevices(vmi.Spec.Domain.Devices.HostDevices)),
+			NewVMIResourceRule(util.IsGPUVMIDevicePlugins, WithGPUsDevicePlugin(vmi.Spec.Domain.Devices.GPUs)),
+			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
+				return t.clusterConfig.GPUsWithDRAGateEnabled() && util.IsGPUVMIDRA(vmi)
+			}, WithGPUsDRA(vmi.Spec.Domain.Devices.GPUs)),
+			NewVMIResourceRule(util.IsHostDevVMIDevicePlugins, WithHostDevicesDevicePlugin(vmi.Spec.Domain.Devices.HostDevices)),
+			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
+				return t.clusterConfig.HostDevicesWithDRAEnabled() && util.IsHostDevVMIDRA(vmi)
+			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
