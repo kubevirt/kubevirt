@@ -108,10 +108,12 @@ aliases:
     - jean-edouard
     - iholder101
     - fossedihelm
+    - 0xFelix
   sig-compute-reviewers:
     - victortoso
     - fossedihelm
     - lyarwood
+    - 0xFelix
 
   # SIG Compute Instance types sub project
   # Responsible the overall instance type feature set within SIG Compute
