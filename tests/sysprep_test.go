@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libregistry"
@@ -303,7 +302,7 @@ const (
 	windowsSysprepedVMIPassword = "Gauranga"
 )
 
-var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", Serial, decorators.Sysprep, decorators.SigCompute, func() {
+var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", Serial, decorators.Sysprep, decorators.Windows, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -312,7 +311,6 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 	BeforeEach(func() {
 		const OSWindowsSysprep = "windows-sysprep"
 		virtClient = kubevirt.Client()
-		checks.SkipIfMissingRequiredImage(virtClient, diskWindowsSysprep)
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		windowsVMI = libvmi.New()
