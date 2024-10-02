@@ -44,7 +44,6 @@ import (
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound", decorators.SigCompute, func() {
 
-	var err error
 	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance
 
@@ -54,6 +53,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support", func() {
 		BeforeEach(func() {
+			var err error
 			vmi, err = createSoundVMI(virtClient, "test-model-empty")
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -66,6 +66,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ich9 sound support", func() {
 		BeforeEach(func() {
+			var err error
 			vmi, err = createSoundVMI(virtClient, "ich9")
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -79,6 +80,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with unsupported sound support", func() {
 		It("should fail to create VMI with unsupported sound device", func() {
+			var err error
 			vmi, err = createSoundVMI(virtClient, "ich7")
 			Expect(err).To(HaveOccurred())
 		})
