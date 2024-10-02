@@ -23,7 +23,9 @@ package tests_test
 
 import (
 	"context"
+	"errors"
 	"net"
+	"syscall"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/usbredir"
@@ -37,6 +39,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
@@ -87,8 +90,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][QUARANTINE] A VirtualMachineInstance with usbredir support", decorators.Quarantine, func() {
 
 		type testCase struct {
-			cancel context.CancelFunc
-			err    chan error
+			cancel  context.CancelFunc
+			connect chan struct{}
+			err     chan error
 		}
 
 		var vmi *v1.VirtualMachineInstance
@@ -103,16 +107,42 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("Should fail when limit is reached", func() {
-			var tests [v1.UsbClientPassthroughMaxNumberOf + 1]testCase
+			var tests []testCase
 			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
-				ctx, cancelFn := context.WithCancel(context.Background())
-				tests[i] = testCase{
-					cancel: cancelFn,
-					err:    make(chan error),
+			retry_loop:
+				for try := 0; try < 3; try++ {
+					ctx, cancelFn := context.WithCancel(context.Background())
+					test := testCase{
+						cancel:  cancelFn,
+						connect: make(chan struct{}),
+						err:     make(chan error),
+					}
+					ctx = context.WithValue(ctx, "connected", test.connect)
+					go runConnectGoroutine(virtClient, name, namespace, ctx, test.err)
+
+					if i == v1.UsbClientPassthroughMaxNumberOf {
+						// Last test is meant to fail.
+						tests = append(tests, test)
+						break
+					}
+
+					// Till the last test, all sockets must be connected
+					select {
+					case <-test.connect:
+						tests = append(tests, test)
+						break retry_loop
+					case err := <-test.err:
+						if !errors.Is(err, syscall.ECONNRESET) {
+							log.Log.Reason(err).Info("Failed early. Unexpected error.")
+							Fail("Improve error handling or fix underlying issue")
+						}
+						log.Log.Reason(err).Infof("Failed early. Try again (%d)", try)
+					case <-time.After(time.Second):
+						log.Log.Infof("Took too long. Try again (%d)", try)
+						test.cancel()
+					}
+
 				}
-				go runConnectGoroutine(virtClient, name, namespace, ctx, tests[i].err)
-				// avoid too fast requests which might get denied by server (to avoid flakyness)
-				time.Sleep(100 * time.Millisecond)
 			}
 
 			numOfErrors := 0
@@ -193,6 +223,12 @@ func usbredirConnect(
 			Expect(buf[0:nr]).ToNot(BeEmpty(), "response should not be empty")
 			Expect(buf[0:nr]).To(HaveLen(len(helloMessageRemote)))
 		}
+
+		// Signal connected after read/write to be sure no TCP operation failed too
+		if connected, ok := inCtx.Value("connected").(chan struct{}); ok {
+			connected <- struct{}{}
+		}
+
 		select {
 		case <-inCtx.Done():
 			return inCtx.Err()
