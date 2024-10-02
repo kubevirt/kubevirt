@@ -73,10 +73,6 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
 			})
 
-			It("[test_id:707]should create headless vmi without any issue", func() {
-				libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			})
-
 			It("[test_id:714][posneg:positive]should not have vnc graphic device in xml", func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
 
