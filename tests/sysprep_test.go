@@ -307,14 +307,13 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		checks.SkipIfMissingRequiredImage(virtClient, diskWindowsSysprep)
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
-		windowsVMI = libvmi.New(libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		windowsVMI = libvmi.New(libvmi.WithInterface(e1000DefaultInterface()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()))
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
 		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
 		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
 		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
 	Context("[ref_id:5105]should create the Admin user as specified in the Autounattend.xml", func() {
