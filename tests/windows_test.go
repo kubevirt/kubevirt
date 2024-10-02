@@ -289,13 +289,17 @@ func removeTSCFrequencyFromNode(node k8sv1.Node) {
 
 func newWindows(options ...libvmi.Option) *v1.VirtualMachineInstance {
 	network := libvmi.WithNetwork(v1.DefaultPodNetwork())
-	interf := libvmi.WithInterface(v1.Interface{
+	interf := libvmi.WithInterface(e1000DefaultInterface())
+
+	return libvmifact.NewWindows(append([]libvmi.Option{network, interf}, options...)...)
+}
+
+func e1000DefaultInterface() v1.Interface {
+	return v1.Interface{
 		Name: "default",
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{
 			Masquerade: &v1.InterfaceMasquerade{},
 		},
 		Model: "e1000",
-	})
-
-	return libvmifact.NewWindows(append([]libvmi.Option{network, interf}, options...)...)
+	}
 }
