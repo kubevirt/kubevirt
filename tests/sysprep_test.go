@@ -253,7 +253,12 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		virtClient = kubevirt.Client()
 		checks.SkipIfMissingRequiredImage(virtClient, diskWindowsSysprep)
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
-		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
+
+		// TODO: Figure out why we have both Autounattend and Unattend
+		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": insertProductKeyToAnswerFileTemplate(answerFileTemplate), "Unattend.xml": insertProductKeyToAnswerFileTemplate(answerFileTemplate)})
+		_, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
 		windowsVMI = libvmi.New(libvmi.WithInterface(e1000DefaultInterface()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithTerminationGracePeriod(0),
@@ -264,7 +269,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 				VolumeSource: v1.VolumeSource{
 					Sysprep: &v1.SysprepSource{
 						ConfigMap: &k8sv1.LocalObjectReference{
-							Name: "sysprepautounattend",
+							Name: cm.Name,
 						},
 					},
 				},
@@ -292,9 +297,6 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		)
 
 		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
-		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
-		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("[ref_id:5105]should create the Admin user as specified in the Autounattend.xml", func() {
