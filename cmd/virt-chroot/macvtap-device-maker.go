@@ -21,7 +21,11 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/spf13/cobra"
 
@@ -85,6 +89,33 @@ func createMacvtapDevice(name, lowerDeviceName, mode string, uid, gid int) error
 
 	if err := netlink.LinkAdd(tapDevice); err != nil {
 		return fmt.Errorf("failed to create macvtap device named %q on %q. Reason: %v", name, lowerDeviceName, err)
+	}
+
+	tapIndex, err := os.ReadFile("/sys/class/net/" + name + "/ifindex")
+	if err != nil {
+		return fmt.Errorf("failed to read /sys/class/net/%s/ifindex. Reason: %v", name, err)
+	}
+	dev, err := os.ReadFile("/sys/devices/virtual/net/" + name + "/tap" + strings.TrimSpace(string(tapIndex)) + "/dev")
+	if err != nil {
+		return fmt.Errorf("failed to read /sys/devices/virtual/net/%s/tap*/dev. Reason: %v", name, err)
+	}
+	devMajMin := strings.Split(strings.TrimSpace(string(dev)), ":")
+	if len(devMajMin) != 2 {
+		return fmt.Errorf("failed to interpret device major & minor values %q", dev)
+	}
+	devMajor, err := strconv.ParseInt(devMajMin[0], 10, 32)
+	if err != nil {
+		return fmt.Errorf("failed to interpret device major %q", devMajMin[0])
+	}
+	devMinor, err := strconv.ParseInt(devMajMin[1], 10, 32)
+	if err != nil {
+		return fmt.Errorf("failed to interpret device minor %q", devMajMin[1])
+	}
+
+	devPath := "/dev/tap" + strings.TrimSpace(string(tapIndex))
+	err = unix.Mknod(devPath, unix.S_IFCHR|uint32(os.FileMode(0666)), int(unix.Mkdev(uint32(devMajor), uint32(devMinor))))
+	if err != nil {
+		return fmt.Errorf("failed to create character device %q. Reason: %v", devPath, err)
 	}
 
 	fmt.Printf("Successfully created macvtap device %s", name)
