@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/api/instancetype"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -123,7 +124,6 @@ var optFns = map[string]func(*createVM, *v1.VirtualMachine) error{
 
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
 // Containerdisk > DataSource > Clone PVC > PVC
-// Flags dependent on the boot order (e.g. InferInstancetype or InferPreference) need to run last.
 // This is controlled by the order in which flags are processed.
 var flags = []string{
 	RunStrategyFlag,
@@ -172,9 +172,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Long:    "Create a VirtualMachine manifest.\n\nIf no boot order was specified volumes have the following fixed boot order:\nContainerdisk > DataSource > Clone PVC > PVC",
 		Args:    cobra.NoArgs,
 		Example: c.usage(),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return c.run(cmd)
-		},
+		RunE:    c.run,
 	}
 
 	cmd.Flags().StringVar(&c.name, NameFlag, c.name, "Specify the name of the VM.")
@@ -284,7 +282,7 @@ func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
 	return nil
 }
 
-func (c *createVM) run(cmd *cobra.Command) error {
+func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 	if err := c.setDefaults(cmd); err != nil {
 		return err
 	}
@@ -396,7 +394,6 @@ func (c *createVM) usage() string {
 }
 
 func (c *createVM) newVM() (*v1.VirtualMachine, error) {
-	runStrategy := v1.VirtualMachineRunStrategy(c.runStrategy)
 	memory, err := resource.ParseQuantity(c.memory)
 	if err != nil {
 		return nil, params.FlagErr(MemoryFlag, "%w", err)
@@ -412,7 +409,7 @@ func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 			Name: c.name,
 		},
 		Spec: v1.VirtualMachineSpec{
-			RunStrategy: &runStrategy,
+			RunStrategy: pointer.P(v1.VirtualMachineRunStrategy((c.runStrategy))),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				Spec: v1.VirtualMachineInstanceSpec{
 					TerminationGracePeriodSeconds: &c.terminationGracePeriod,
@@ -562,8 +559,7 @@ func (c *createVM) getInferFromVolume(vm *v1.VirtualMachine) (string, error) {
 func withRunStrategy(c *createVM, vm *v1.VirtualMachine) error {
 	for _, runStrategy := range runStrategies {
 		if runStrategy == c.runStrategy {
-			vmRunStrategy := v1.VirtualMachineRunStrategy(c.runStrategy)
-			vm.Spec.RunStrategy = &vmRunStrategy
+			vm.Spec.RunStrategy = pointer.P(v1.VirtualMachineRunStrategy(c.runStrategy))
 			return nil
 		}
 	}
