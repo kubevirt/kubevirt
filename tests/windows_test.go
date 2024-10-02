@@ -172,7 +172,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(windowsVMI,
+				windowsVMI = libwait.WaitForSuccessfulVMIStart(windowsVMI,
 					libwait.WithTimeout(420),
 				)
 			})
@@ -180,25 +180,12 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 			It("should be recognized by other pods in cluster", func() {
 
 				By("Pinging virt-handler Pod from Windows VMI")
+				winVmiPod, err := libpod.GetPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+				nodeName := winVmiPod.Spec.NodeName
 
-				var err error
-				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				getVirtHandlerPod := func() (*k8sv1.Pod, error) {
-					winVmiPod, err := libpod.GetPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
-					Expect(err).NotTo(HaveOccurred())
-					nodeName := winVmiPod.Spec.NodeName
-
-					pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get virt-handler pod on node %s: %v", nodeName, err)
-					}
-					return pod, nil
-				}
-
-				virtHandlerPod, err := getVirtHandlerPod()
-				Expect(err).ToNot(HaveOccurred())
+				virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get virt-handler pod on node %s", nodeName))
 
 				virtHandlerPodIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
 
