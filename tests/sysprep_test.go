@@ -327,14 +327,10 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 
 	Context("[ref_id:5105]should create the Admin user as specified in the Autounattend.xml", func() {
 		var winrmcliPod *k8sv1.Pod
-		var cli []string
-		var output string
-		var vmiIp string
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
-			winrmcliPod = winRMCliPod()
-			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
+			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winRMCliPod(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the windows VirtualMachineInstance")
@@ -346,32 +342,25 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			)
 
 			windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
-			vmiIp = windowsVMI.Status.Interfaces[0].IP
-			cli = []string{
+		})
+
+		It("[test_id:5843]Should run echo command on machine using the credentials specified in the Autounattend.xml file", func() {
+			command := []string{
 				winrmCliCmd,
 				"-hostname",
-				vmiIp,
+				windowsVMI.Status.Interfaces[0].IP,
 				"-username",
 				windowsSysprepedVMIUser,
 				"-password",
 				windowsSysprepedVMIPassword,
-			}
-		})
-
-		It("[test_id:5843]Should run echo command on machine using the credentials specified in the Autounattend.xml file", func() {
-			command := append(cli, "echo works")
-			Eventually(func() error {
-				fmt.Printf("Running \"%s\" command via winrm-cli\n", command)
-				output, err = exec.ExecuteCommandOnPod(
+				"echo works"}
+			Eventually(func() (string, error) {
+				return exec.ExecuteCommandOnPod(
 					winrmcliPod,
 					winrmcliPod.Spec.Containers[0].Name,
 					command,
 				)
-				fmt.Printf("Result \"%v\" command via winrm-cli\n", err)
-				return err
-			}, time.Minute*10, time.Second*60).ShouldNot(HaveOccurred())
-			By("Checking that the Windows VirtualMachineInstance has expected UUID")
-			Expect(output).Should(ContainSubstring("works"))
+			}, time.Minute*10, time.Second*60).Should(ContainSubstring("works"))
 		})
 	})
 })
