@@ -82,6 +82,7 @@ func createMacvtapDevice(name, lowerDeviceName, mode string, uid, gid int) error
 			LinkAttrs: netlink.LinkAttrs{
 				Name:        name,
 				ParentIndex: lowerDevice.Attrs().Index,
+				TxQLen:      lowerDevice.Attrs().TxQLen,
 			},
 			Mode: macvlanMode,
 		},
