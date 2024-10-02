@@ -217,14 +217,6 @@ func insertProductKeyToAnswerFileTemplate(answerFileTemplate string) string {
 	return fmt.Sprintf(answerFileTemplate, productKey)
 }
 
-// addExplicitPodNetworkInterface
-//
-// Deprecated: Use libvmi
-func addExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-}
-
 // Deprecated: Use libvmi
 func getWindowsSysprepVMISpec() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
@@ -315,13 +307,13 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		checks.SkipIfMissingRequiredImage(virtClient, diskWindowsSysprep)
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
-		windowsVMI = libvmi.New()
+		windowsVMI = libvmi.New(libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()))
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
 		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
 		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
 		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		addExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
