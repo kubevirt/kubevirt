@@ -23,7 +23,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
+	"syscall"
+
+	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/devices"
+
+	"golang.org/x/sys/unix"
 
 	k8serrors "k8s.io/apimachinery/pkg/util/errors"
 
@@ -39,6 +47,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/client-go/log"
@@ -78,6 +88,7 @@ type NetPod struct {
 	state        *State
 
 	bindingPluginsByName map[string]v1.InterfaceBindingPlugin
+	cgroupManager        cgroup.Manager
 
 	log *log.FilteredLogger
 }
@@ -129,6 +140,12 @@ func WithCacheCreator(c cacheCreator) option {
 func WithBindingPlugins(bindings map[string]v1.InterfaceBindingPlugin) option {
 	return func(n *NetPod) {
 		n.bindingPluginsByName = bindings
+	}
+}
+
+func WithCgroupManager(manager cgroup.Manager) option {
+	return func(n *NetPod) {
+		n.cgroupManager = manager
 	}
 }
 
@@ -235,6 +252,10 @@ func (n NetPod) config(currentStatus *nmstate.Status) error {
 	n.log.Infof("Desired pod network: %s", desiredSpecBytes)
 
 	if err = n.nmstateAdapter.Apply(desiredSpec); err != nil {
+		return err
+	}
+
+	if err = n.applyCGroup(desiredSpec); err != nil {
 		return err
 	}
 
@@ -685,4 +706,83 @@ func (n NetPod) clearCache(nets []v1.Network) error {
 		return k8serrors.NewAggregate(unplugErrors)
 	}
 	return n.state.Delete(nets)
+}
+
+// applyCGroup iterates over interfaces that have a backend character device
+// and adds them to the virt-launcher pod container.
+// This is necessary in order for other components (e.g. libvirt/qemu) to access them.
+func (n NetPod) applyCGroup(spec *nmstate.Spec) error {
+	// This is a hacky way to return early in case netpod has not been initialized with the
+	// cgroup manager. Most likely in the context of unit tests.
+	if n.cgroupManager == nil {
+		return nil
+	}
+	var macvtapIfaces []nmstate.Interface
+	for i, iface := range spec.Interfaces {
+		if iface.TypeName == nmstate.TypeMacvtap {
+			macvtapIfaces = append(macvtapIfaces, spec.Interfaces[i])
+		}
+	}
+	if len(macvtapIfaces) == 0 {
+		return nil
+	}
+	currentStatus, err := n.nmstateAdapter.Read()
+	if err != nil {
+		return err
+	}
+	var devicesRules []*devices.Rule
+	for _, iface := range macvtapIfaces {
+		currentIfaceStatus := nmstate.LookupInterface(currentStatus.Interfaces, func(i nmstate.Interface) bool {
+			return i.Name == iface.Name
+		})
+		podRootPath, err := safepath.JoinAndResolveWithRelativeRoot(fmt.Sprintf("/proc/%d/root", n.podPID))
+		if err != nil {
+			return err
+		}
+		tapIndex := currentIfaceStatus.Index
+		devPath, err := safepath.JoinNoFollow(podRootPath, filepath.Join("dev", "tap"+strconv.Itoa(tapIndex)))
+		if err != nil {
+			return err
+		}
+
+		dev, err := readCharacterDevice(devPath)
+		if err != nil {
+			return err
+		}
+		devicesRules = append(devicesRules, createCharacterDeviceRule(dev))
+	}
+	if len(devicesRules) == 0 {
+		return nil
+	}
+	if err = n.cgroupManager.Set(&configs.Resources{Devices: devicesRules}); err != nil {
+		log.Log.Errorf("cgroup %s had failed to set device rule. error: %v. rule: %+v", n.cgroupManager.GetCgroupVersion(), err, devicesRules)
+		return err
+	}
+	return nil
+}
+
+func createCharacterDeviceRule(dev uint64) *devices.Rule {
+	return &devices.Rule{
+		Type:        devices.CharDevice,
+		Major:       int64(unix.Major(dev)),
+		Minor:       int64(unix.Minor(dev)),
+		Permissions: "rwm",
+		Allow:       true,
+	}
+}
+
+func readCharacterDevice(devicePath *safepath.Path) (uint64, error) {
+	fileInfo, err := safepath.StatAtNoFollow(devicePath)
+	if err != nil {
+		return 0, err
+	}
+	if (fileInfo.Mode() & os.ModeDevice) == 0 {
+		return 0, fmt.Errorf("not a device file: %q", devicePath)
+	}
+	if (fileInfo.Mode() & os.ModeCharDevice) == 0 {
+		return 0, fmt.Errorf("not a character device: %q", devicePath)
+	}
+	stat := fileInfo.Sys().(*syscall.Stat_t)
+
+	return stat.Rdev, nil
 }

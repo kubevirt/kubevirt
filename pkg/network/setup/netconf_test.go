@@ -62,7 +62,7 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("runs setup successfully without networks", func() {
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, nil, netPreSetupDummyNoop)).To(Succeed())
 	})
 
 	It("runs setup successfully with networks", func() {
@@ -77,7 +77,7 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, nil, netPreSetupDummyNoop)).To(Succeed())
 		Expect(stateCache.Read(testNetworkName)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 	})
 
@@ -98,7 +98,7 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, nil, netPreSetupDummyNoop)).To(Succeed())
 		Expect(stateCache.stateCache).To(BeEmpty())
 	},
 		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}),
@@ -108,7 +108,7 @@ var _ = Describe("netconf", func() {
 	)
 
 	It("fails the pre-setup run", func() {
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)).NotTo(Succeed())
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, nil, netPreSetupFail)).NotTo(Succeed())
 	})
 
 	It("fails the setup run", func() {
@@ -121,7 +121,7 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, nil, netPreSetupDummyNoop)).NotTo(Succeed())
 	})
 
 	It("fails the teardown run", func() {

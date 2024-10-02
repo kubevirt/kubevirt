@@ -107,7 +107,7 @@ import (
 )
 
 type netconf interface {
-	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error
+	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, cgroupManager cgroup.Manager, preSetup func() error) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
 }
 
@@ -607,7 +607,11 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, 
 		return err
 	}
 
-	return d.netConf.Setup(vmi, networks, isolationRes.Pid(), func() error {
+	cgroupManager, err := getCgroupManager(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to create cgroup manager: %v", err)
+	}
+	return d.netConf.Setup(vmi, networks, isolationRes.Pid(), cgroupManager, func() error {
 		if virtutil.WantVirtioNetDevice(vmi) {
 			if err := d.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
