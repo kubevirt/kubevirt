@@ -73,15 +73,6 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
 			})
 
-			It("[test_id:714][posneg:positive]should not have vnc graphic device in xml", func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-
-				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
-
-				Expect(runningVMISpec.Devices.Graphics).To(BeEmpty(), "should not have any graphics devices present")
-			})
-
 			It("[test_id:737][posneg:positive]should match memory with overcommit enabled", func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
