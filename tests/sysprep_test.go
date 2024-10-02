@@ -242,7 +242,6 @@ const (
 )
 
 var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", Serial, decorators.Sysprep, decorators.Windows, decorators.SigCompute, func() {
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	var windowsVMI *v1.VirtualMachineInstance
@@ -301,6 +300,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
+			var err error
 			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winRMCliPod(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -308,11 +308,9 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			libwait.WaitForSuccessfulVMIStart(windowsVMI,
+			windowsVMI = libwait.WaitForSuccessfulVMIStart(windowsVMI,
 				libwait.WithTimeout(720),
 			)
-
-			windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
 		})
 
 		It("[test_id:5843]Should run echo command on machine using the credentials specified in the Autounattend.xml file", func() {
