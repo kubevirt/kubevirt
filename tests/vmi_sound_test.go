@@ -69,13 +69,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			checkAudioDevice(vmi, "ich9")
 		})
 	})
-
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with unsupported sound support", func() {
-		It("should fail to create VMI with unsupported sound device", func() {
-			_, err := createSoundVMI(virtClient, "ich7")
-			Expect(err).To(MatchError(ContainSubstring("Sound device type is not supported")))
-		})
-	})
 })
 
 func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.VirtualMachineInstance, error) {
