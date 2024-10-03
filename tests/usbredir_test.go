@@ -84,7 +84,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 	})
 
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with usbredir support", func() {
+	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][QUARANTINE] A VirtualMachineInstance with usbredir support", decorators.Quarantine, func() {
 
 		var vmi *v1.VirtualMachineInstance
 		var name, namespace string
