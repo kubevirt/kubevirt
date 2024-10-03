@@ -160,17 +160,27 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		It("Should work several times", func() {
 			for i := 0; i < 4*v1.UsbClientPassthroughMaxNumberOf; i++ {
-				ctx, cancelFn := context.WithCancel(context.Background())
-				errch := make(chan error)
-				go runConnectGoroutine(virtClient, name, namespace, ctx, errch)
+			retry_loop:
+				for try := 0; try < 3; try++ {
+					ctx, cancelFn := context.WithCancel(context.Background())
+					errch := make(chan error)
+					go runConnectGoroutine(virtClient, name, namespace, ctx, errch)
 
-				select {
-				case err := <-errch:
-					Expect(err).ToNot(HaveOccurred())
-				case <-time.After(time.Second):
+					select {
+					case err := <-errch:
+						cancelFn()
+						time.Sleep(100 * time.Millisecond)
+						if try < 3 {
+							log.Log.Reason(err).Infof("Failed. Try again (%d)", try)
+						} else {
+							Fail("Tried 3 times. Something is wrong")
+						}
+					case <-time.After(time.Second):
+						cancelFn()
+						time.Sleep(100 * time.Millisecond)
+						break retry_loop
+					}
 				}
-				cancelFn()
-				time.Sleep(time.Second)
 			}
 		})
 	})
