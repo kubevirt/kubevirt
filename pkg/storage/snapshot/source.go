@@ -110,22 +110,27 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 	if vmCopy.Status.SnapshotInProgress == nil {
 		vmCopy.Status.SnapshotInProgress = &s.snapshot.Name
-		// unfortunately, status updater does not return the updated resource
-		// but the controller is watching VMs so will get notified
-		// returning here because following Update will always block
-		_, err := s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
-
-		return false, err
+		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return false, err
+		}
 	}
 
 	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		log.Log.Infof("Adding VM snapshot finalizer to %s", s.vm.Name)
 		controller.AddFinalizer(vmCopy, sourceFinalizer)
-		_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
+		patch, err := generateFinalizerPatch(s.vm.Finalizers, vmCopy.Finalizers)
+		if err != nil {
+			return false, err
+		}
+
+		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Patch(context.Background(), vmCopy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 		if err != nil {
 			return false, err
 		}
 	}
+
+	s.vm = vmCopy
 
 	return true, nil
 }
@@ -140,7 +145,12 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 
 	if controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		controller.RemoveFinalizer(vmCopy, sourceFinalizer)
-		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
+		patch, err := generateFinalizerPatch(s.vm.Finalizers, vmCopy.Finalizers)
+		if err != nil {
+			return false, err
+		}
+
+		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Patch(context.Background(), vmCopy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 		if err != nil {
 			return false, err
 		}
