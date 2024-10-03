@@ -541,7 +541,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedVM.Finalizers = []string{}
 				updatedVM.ResourceVersion = "1"
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil).Times(1)
+
+				patch := []byte(`[{"op":"test","path":"/metadata/finalizers","value":["snapshot.kubevirt.io/snapshot-source-protection"]},{"op":"replace","path":"/metadata/finalizers","value":[]}]`)
+				vmInterface.EXPECT().Patch(context.Background(), updatedVM.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(updatedVM, nil).Times(1)
+
 				statusUpdate := updatedVM.DeepCopy()
 				statusUpdate.Status.SnapshotInProgress = nil
 				vmInterface.EXPECT().UpdateStatus(context.Background(), statusUpdate, metav1.UpdateOptions{}).Return(statusUpdate, nil).Times(1)
@@ -673,6 +676,36 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+				updatedSnapshot.Status.Indications = nil
+				expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
+			It("should (complete) lock source", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createVM()
+				vmUpdate := vm.DeepCopy()
+				vmUpdate.ResourceVersion = "1"
+				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
+
+				vmSource.Add(vm)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
+
+				vmUpdate2 := vmUpdate.DeepCopy()
+				vmUpdate2.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
+				patch := []byte(`[{"op":"test","path":"/metadata/finalizers","value":null},{"op":"replace","path":"/metadata/finalizers","value":["snapshot.kubevirt.io/snapshot-source-protection"]}]`)
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate2.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmUpdate2, nil).Times(1)
+
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
@@ -697,6 +730,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
+
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
@@ -719,7 +754,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
+				patch := []byte(`[{"op":"test","path":"/metadata/finalizers","value":null},{"op":"replace","path":"/metadata/finalizers","value":["snapshot.kubevirt.io/snapshot-source-protection"]}]`)
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -753,6 +789,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotSource.Add(vmSnapshot)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 				addVM(vm)
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
 				controller.processVMSnapshotWorkItem()
 			})
 
@@ -766,6 +803,8 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSource.Add(vm)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
+
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -789,7 +828,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
+				patch := []byte(`[{"op":"test","path":"/metadata/finalizers","value":null},{"op":"replace","path":"/metadata/finalizers","value":["snapshot.kubevirt.io/snapshot-source-protection"]}]`)
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -816,6 +856,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmiSource.Add(vmi)
 				vmSource.Add(vm)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
+
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -847,7 +889,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmiSource.Add(vmi)
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
+				patch := []byte(`[{"op":"test","path":"/metadata/finalizers","value":null},{"op":"replace","path":"/metadata/finalizers","value":["snapshot.kubevirt.io/snapshot-source-protection"]}]`)
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -899,6 +942,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmStatusUpdate.ResourceVersion = "1"
 				vmStatusUpdate.Status.SnapshotInProgress = &vmSnapshotName
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmStatusUpdate, metav1.UpdateOptions{}).Return(vmStatusUpdate, nil).Times(1)
+
+				vmInterface.EXPECT().Patch(context.Background(), vmStatusUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
