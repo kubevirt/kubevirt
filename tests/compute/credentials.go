@@ -36,6 +36,7 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -65,10 +66,9 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 
 	DescribeTable("should have ssh-key under authorized keys added", func(withQEMUAccessCredential bool, options ...libvmi.Option) {
 		By("Creating a secret with three ssh keys")
-		createNewSecret(testsuite.GetTestNamespace(nil), pubKeySecretID, keysSecretData)
+		Expect(createNewSecret(testsuite.GetTestNamespace(nil), pubKeySecretID, keysSecretData)).To(Succeed())
 
-		vmi := libvmifact.NewFedora(options...)
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+		vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(options...), fedoraRunningTimeout)
 
 		By("Waiting for agent to connect")
 		Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -96,20 +96,20 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			&expect.BExp{R: "test-ssh-key3"},
 		}, 3*time.Minute)).To(Succeed())
 	},
-		Entry("[test_id:6220] using qemu guest agent", true,
+		Entry("[test_id:6220] using qemu guest agent", decorators.Conformance, true,
 			withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
 				QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
 					Users: []string{"fedora"},
 				},
 			}),
 		),
-		Entry("[test_id:6224] using configdrive", false,
+		Entry("[test_id:6224] using configdrive", decorators.Conformance, false,
 			libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData)),
 			withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
 				ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
 			}),
 		),
-		Entry("using nocloud", false,
+		Entry("using nocloud", decorators.Conformance, false,
 			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userData)),
 			withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
 				NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
@@ -132,7 +132,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			vmi := libvmifact.NewFedora(libvmi.WithAccessCredentialUserPassword(userPassSecretID))
 
 			By("Creating a secret with custom password")
-			createNewSecret(testsuite.GetTestNamespace(vmi), userPassSecretID, userPassData)
+			Expect(createNewSecret(testsuite.GetTestNamespace(vmi), userPassSecretID, userPassData)).To(Succeed())
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
@@ -159,7 +159,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			vmi := libvmifact.NewFedora(options...)
 
 			By("Creating a secret with an ssh key")
-			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, secretData)
+			Expect(createNewSecret(testsuite.GetTestNamespace(vmi), secretID, secretData)).To(Succeed())
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
@@ -188,10 +188,10 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 	})
 })
 
-func createNewSecret(namespace string, secretID string, data libsecret.DataBytes) {
-	secret := libsecret.New(secretID, data)
+func createNewSecret(namespace string, name string, data libsecret.DataBytes) error {
+	secret := libsecret.New(name, data)
 	_, err := kubevirt.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return err
 }
 
 func withSSHPK(secretName string, propagationMethod v1.SSHPublicKeyAccessCredentialPropagationMethod) libvmi.Option {
