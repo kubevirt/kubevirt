@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+// Deprecated: GetRunningVirtualMachineInstanceDomainXML should not be used by end-to-end tests
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
 	// get current vmi
 	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -181,6 +182,7 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
 
+// Deprecated: GetRunningVMIDomainSpec should not be used by end-to-end tests
 func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
 	runningVMISpec := launcherApi.DomainSpec{}
 	cli := kubevirt.Client()
