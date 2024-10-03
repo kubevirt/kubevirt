@@ -180,15 +180,19 @@ func usbredirConnect(
 		buf := make([]byte, 1024, 1024)
 
 		// write hello message to remote (VMI)
-		nw, err := conn.Write([]byte(helloMessageLocal))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(nw).To(Equal(len(helloMessageLocal)))
+		if nw, err := conn.Write([]byte(helloMessageLocal)); err != nil {
+			return err
+		} else {
+			Expect(nw).To(Equal(len(helloMessageLocal)))
+		}
 
 		// reading hello message from remote (VMI)
-		nr, err := conn.Read(buf)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(buf[0:nr]).ToNot(BeEmpty(), "response should not be empty")
-		Expect(buf[0:nr]).To(HaveLen(len(helloMessageRemote)))
+		if nr, err := conn.Read(buf); err != nil {
+			return err
+		} else {
+			Expect(buf[0:nr]).ToNot(BeEmpty(), "response should not be empty")
+			Expect(buf[0:nr]).To(HaveLen(len(helloMessageRemote)))
+		}
 		select {
 		case <-inCtx.Done():
 			return inCtx.Err()
