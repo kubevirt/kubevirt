@@ -80,8 +80,40 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
-		Context("with cloudInitNoCloud userDataBase64 source", func() {
-			It("[test_id:1615]should have cloud-init data", func() {
+		Context("with cloudInitNoCloud", func() {
+			It("[test_id:1618]should take user-data from k8s secret", func() {
+				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
+				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
+
+				vmi := libvmifact.NewCirros(
+					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudUserDataSecretName(secretID)),
+				)
+
+				// Store userdata as k8s secret
+				By("Creating a user-data secret")
+				secret := libsecret.New(secretID, libsecret.DataString{"userdata": userData})
+				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				runningVMI := libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				runningVMI = libwait.WaitUntilVMIReady(runningVMI, console.LoginToCirros)
+
+				checkCloudInitIsoSize(runningVMI, cloudinit.DataSourceNoCloud)
+
+				By("Checking whether the user-data script had created the file")
+				Expect(console.RunCommand(runningVMI, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
+
+				// Expect that the secret is not present on the vmi itself
+				runningVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(runningVMI)).Get(context.Background(), runningVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				runningCloudInitVolume := lookupCloudInitNoCloudVolume(runningVMI.Spec.Volumes)
+				origCloudInitVolume := lookupCloudInitNoCloudVolume(vmi.Spec.Volumes)
+
+				Expect(origCloudInitVolume).To(Equal(runningCloudInitVolume), "volume must not be changed when running the vmi, to prevent secret leaking")
+			})
+
+			It("[test_id:1615]should have cloud-init data from userDataBase64 source", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := libvmifact.NewCirros(
 					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudEncodedUserData(userData)),
@@ -121,8 +153,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with cloudInitConfigDrive userDataBase64 source", func() {
-			It("[test_id:3178]should have cloud-init data", func() {
+		Context("with cloudInitConfigDrive", func() {
+			It("[test_id:3178]should have cloud-init data from userDataBase64 source", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := libvmifact.NewCirros(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveUserData(userData)))
 
@@ -203,38 +235,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Make sure the instance-ids match")
 				Expect(instanceId).To(Equal(newInstanceId))
 			})
-		})
-
-		It("[test_id:1618]should take user-data from k8s secret", func() {
-			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-			secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
-
-			vmi := libvmifact.NewCirros(
-				libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudUserDataSecretName(secretID)),
-			)
-
-			// Store userdata as k8s secret
-			By("Creating a user-data secret")
-			secret := libsecret.New(secretID, libsecret.DataString{"userdata": userData})
-			_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			runningVMI := libvmops.RunVMIAndExpectLaunch(vmi, 60)
-			runningVMI = libwait.WaitUntilVMIReady(runningVMI, console.LoginToCirros)
-
-			checkCloudInitIsoSize(runningVMI, cloudinit.DataSourceNoCloud)
-
-			By("Checking whether the user-data script had created the file")
-			Expect(console.RunCommand(runningVMI, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
-
-			// Expect that the secret is not present on the vmi itself
-			runningVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(runningVMI)).Get(context.Background(), runningVMI.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			runningCloudInitVolume := lookupCloudInitNoCloudVolume(runningVMI.Spec.Volumes)
-			origCloudInitVolume := lookupCloudInitNoCloudVolume(vmi.Spec.Volumes)
-
-			Expect(origCloudInitVolume).To(Equal(runningCloudInitVolume), "volume must not be changed when running the vmi, to prevent secret leaking")
 		})
 
 		Context("with cloudInitNoCloud networkData", func() {
