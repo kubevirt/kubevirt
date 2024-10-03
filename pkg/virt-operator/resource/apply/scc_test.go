@@ -14,8 +14,8 @@ import (
 
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 
-	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"

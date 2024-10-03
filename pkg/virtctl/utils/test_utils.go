@@ -15,8 +15,8 @@ import (
 	"k8s.io/client-go/testing"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
-	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 

@@ -71,18 +71,18 @@ import (
 	v1alpha18 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
 	rest "k8s.io/client-go/rest"
 	v121 "kubevirt.io/api/core/v1"
-	versioned "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
-	versioned0 "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
-	versioned1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
-	v1alpha19 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
-	v122 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
-	v1beta116 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1beta1"
-	v1beta117 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
-	v1alpha110 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
-	v1alpha111 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
-	v1beta118 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1beta1"
-	versioned2 "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
-	versioned3 "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
+	containerized_data_importer "kubevirt.io/client-go/containerized-data-importer"
+	external_snapshotter "kubevirt.io/client-go/external-snapshotter"
+	kubevirt "kubevirt.io/client-go/kubevirt"
+	v1alpha19 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
+	v122 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	v1beta116 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
+	v1beta117 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	v1alpha110 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
+	v1alpha111 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
+	v1beta118 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
+	network_attachment_definition_client "kubevirt.io/client-go/network-attachment-definition-client"
+	prometheus_operator "kubevirt.io/client-go/prometheus-operator"
 	version "kubevirt.io/client-go/version"
 )
 
@@ -327,9 +327,9 @@ func (_mr *_MockKubevirtClientRecorder) RestClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RestClient")
 }
 
-func (_m *MockKubevirtClient) GeneratedKubeVirtClient() versioned1.Interface {
+func (_m *MockKubevirtClient) GeneratedKubeVirtClient() kubevirt.Interface {
 	ret := _m.ctrl.Call(_m, "GeneratedKubeVirtClient")
-	ret0, _ := ret[0].(versioned1.Interface)
+	ret0, _ := ret[0].(kubevirt.Interface)
 	return ret0
 }
 
@@ -337,9 +337,9 @@ func (_mr *_MockKubevirtClientRecorder) GeneratedKubeVirtClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GeneratedKubeVirtClient")
 }
 
-func (_m *MockKubevirtClient) CdiClient() versioned.Interface {
+func (_m *MockKubevirtClient) CdiClient() containerized_data_importer.Interface {
 	ret := _m.ctrl.Call(_m, "CdiClient")
-	ret0, _ := ret[0].(versioned.Interface)
+	ret0, _ := ret[0].(containerized_data_importer.Interface)
 	return ret0
 }
 
@@ -347,9 +347,9 @@ func (_mr *_MockKubevirtClientRecorder) CdiClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CdiClient")
 }
 
-func (_m *MockKubevirtClient) NetworkClient() versioned2.Interface {
+func (_m *MockKubevirtClient) NetworkClient() network_attachment_definition_client.Interface {
 	ret := _m.ctrl.Call(_m, "NetworkClient")
-	ret0, _ := ret[0].(versioned2.Interface)
+	ret0, _ := ret[0].(network_attachment_definition_client.Interface)
 	return ret0
 }
 
@@ -397,9 +397,9 @@ func (_mr *_MockKubevirtClientRecorder) DiscoveryClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoveryClient")
 }
 
-func (_m *MockKubevirtClient) PrometheusClient() versioned3.Interface {
+func (_m *MockKubevirtClient) PrometheusClient() prometheus_operator.Interface {
 	ret := _m.ctrl.Call(_m, "PrometheusClient")
-	ret0, _ := ret[0].(versioned3.Interface)
+	ret0, _ := ret[0].(prometheus_operator.Interface)
 	return ret0
 }
 
@@ -407,9 +407,9 @@ func (_mr *_MockKubevirtClientRecorder) PrometheusClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrometheusClient")
 }
 
-func (_m *MockKubevirtClient) KubernetesSnapshotClient() versioned0.Interface {
+func (_m *MockKubevirtClient) KubernetesSnapshotClient() external_snapshotter.Interface {
 	ret := _m.ctrl.Call(_m, "KubernetesSnapshotClient")
-	ret0, _ := ret[0].(versioned0.Interface)
+	ret0, _ := ret[0].(external_snapshotter.Interface)
 	return ret0
 }
 

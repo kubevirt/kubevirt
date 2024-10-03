@@ -29,7 +29,7 @@ go_test(
         "//pkg/virtctl/create:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubevirt/scheme:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//tests/clientcmd:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

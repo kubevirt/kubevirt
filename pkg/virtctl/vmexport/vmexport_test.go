@@ -23,7 +23,7 @@ import (
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	exportv1 "kubevirt.io/api/export/v1beta1"
-	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/client-go/kubecli"
 

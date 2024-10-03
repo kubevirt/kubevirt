@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	v1 "kubevirt.io/api/core/v1"
-	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	kvtesting "kubevirt.io/client-go/testing"
 
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"

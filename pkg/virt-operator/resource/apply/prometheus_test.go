@@ -6,7 +6,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
-	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
+	promclientfake "kubevirt.io/client-go/prometheus-operator/fake"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"

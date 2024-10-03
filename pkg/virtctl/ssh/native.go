@@ -14,7 +14,7 @@ import (
 	"golang.org/x/term"
 
 	"k8s.io/client-go/tools/clientcmd"
-	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"

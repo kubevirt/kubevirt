@@ -38,7 +38,7 @@ const (
 	ApiGroupName = "/apis/" + v1.SubresourceGroupName
 )
 
-func (k *kubevirt) ServerVersion() ServerVersionInterface {
+func (k *kubevirtClient) ServerVersion() ServerVersionInterface {
 	return &ServerVersion{
 		restClient: k.restClient,
 		resource:   "version",

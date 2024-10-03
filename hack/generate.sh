@@ -6,7 +6,7 @@ source $(dirname "$0")/common.sh
 source $(dirname "$0")/config.sh
 
 # generate clients
-CLIENT_GEN_BASE=kubevirt.io/client-go/generated
+CLIENT_GEN_BASE=kubevirt.io/client-go
 
 # KubeVirt stuff
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/types.go
@@ -49,40 +49,40 @@ else
     exit 2
 fi
 
-client-gen --clientset-name versioned \
+client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
     --input core/v1,export/v1alpha1,export/v1beta1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1alpha1,instancetype/v1alpha2,instancetype/v1beta1,pool/v1alpha1,migrations/v1alpha1,clone/v1alpha1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/kubevirt/clientset \
+    --output-file-base ${KUBEVIRT_DIR}/staging/src/kubevirt \
+    --output-package ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # dependencies
-client-gen --clientset-name versioned \
+client-gen --clientset-name containerizeddataimporter \
     --input-base kubevirt.io/containerized-data-importer-api/pkg/apis \
     --input core/v1beta1,upload/v1beta1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/containerized-data-importer/clientset \
+    --output-file-base ${KUBEVIRT_DIR}/staging/src/containerized-data-importer \
+    --output-package ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-client-gen --clientset-name versioned \
+client-gen --clientset-name prometheusoperator \
     --input-base github.com/prometheus-operator/prometheus-operator/pkg/apis \
     --input monitoring/v1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/prometheus-operator/clientset \
+    --output-file-base ${KUBEVIRT_DIR}/staging/src/prometheus-operator \
+    --output-package ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-client-gen --clientset-name versioned \
+client-gen --clientset-name networkattachmentdefinitionclient \
     --input-base github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis \
     --input k8s.cni.cncf.io/v1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/network-attachment-definition-client/clientset \
+    --output-file-base ${KUBEVIRT_DIR}/staging/src/network-attachment-definition-client \
+    --output-package ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-client-gen --clientset-name versioned \
+client-gen --clientset-name externalsnapshotter \
     --input-base github.com/kubernetes-csi/external-snapshotter/client/v4/apis \
     --input volumesnapshot/v1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/external-snapshotter/clientset \
+    --output-file-base ${KUBEVIRT_DIR}/staging/src/external-snapshotter \
+    --output-package ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 find ${KUBEVIRT_DIR}/pkg/ -name "*generated*.go" -exec rm {} -f \;
@@ -92,7 +92,7 @@ ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
 deepcopy-gen --input-dirs ./pkg/virt-launcher/virtwrap/api \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-# Genearte validation with controller-gen and create go file for them
+# Generate validation with controller-gen and create go file for them
 (
     cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go &&
         # suppress -mod=vendor

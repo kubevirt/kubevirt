@@ -9,7 +9,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func (k *kubevirt) ExpandSpec(namespace string) ExpandSpecInterface {
+func (k *kubevirtClient) ExpandSpec(namespace string) ExpandSpecInterface {
 	return &expandSpec{
 		restClient: k.restClient,
 		namespace:  namespace,
