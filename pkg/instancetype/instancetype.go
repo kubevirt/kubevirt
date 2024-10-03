@@ -1553,7 +1553,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
 		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
 	}
 
-	if firmware.PreferredEfi != nil {
+	if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
 		vmiFirmware.Bootloader.EFI = firmware.PreferredEfi.DeepCopy()
 		// When using PreferredEfi return early to avoid applying PreferredUseEfi or PreferredUseSecureBoot below
 		return
