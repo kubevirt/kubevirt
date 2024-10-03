@@ -40,7 +40,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/Masterminds/semver"
+	"github.com/coreos/go-semver/semver"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-github/v32/github"
 
@@ -2824,7 +2824,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 	}
 
 	// decending order from most recent.
-	sort.Sort(sort.Reverse(semver.Collection(vs)))
+	sort.Sort(sort.Reverse(semver.Versions(vs)))
 
 	// most recent tag
 	tag := fmt.Sprintf("v%v", vs[0])
@@ -2839,7 +2839,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 
 	if tagHint != "" && err == nil {
 		for _, v := range vs {
-			if v.LessThan(hint) || v.Equal(hint) {
+			if v.LessThan(*hint) || v.Equal(*hint) {
 				tag = fmt.Sprintf("v%v", v)
 				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
 				break

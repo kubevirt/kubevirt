@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/blang/semver"
+	"github.com/coreos/go-semver/semver"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -80,13 +80,13 @@ func CheckClientServerVersion(clientConfig *clientcmd.ClientConfig, cmd *cobra.C
 
 	clientGitVersion := strings.TrimPrefix(clientVersion.GitVersion, "v")
 	serverGitVersion := strings.TrimPrefix(serverVersion.GitVersion, "v")
-	client, err := semver.Make(clientGitVersion)
+	client, err := semver.NewVersion(clientGitVersion)
 	if err != nil {
 		cmd.Println(err)
 		return
 	}
 
-	server, err := semver.Make(serverGitVersion)
+	server, err := semver.NewVersion(serverGitVersion)
 	if err != nil {
 		cmd.Println(err)
 		return

@@ -3,8 +3,6 @@ module kubevirt.io/kubevirt
 go 1.22.0
 
 require (
-	github.com/Masterminds/semver v1.5.0
-	github.com/blang/semver v3.5.1+incompatible
 	github.com/cheggaaa/pb/v3 v3.1.0
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.1.1
