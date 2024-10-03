@@ -851,13 +851,42 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 		}}
 	}
 
-	if !equality.Semantic.DeepEqual(oldVM.Spec, vm.Spec) {
+	if !compareDisks(oldVM.Spec.Template.Spec.Domain.Devices.Disks, vm.Spec.Template.Spec.Domain.Devices.Disks) ||
+		!compareVolumes(oldVM.Spec.Template.Spec.Volumes, vm.Spec.Template.Spec.Volumes) {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("Cannot update VM spec until snapshot %q completes", *vm.Status.SnapshotInProgress),
+			Message: fmt.Sprintf("Cannot update VM disks or volumes until snapshot %q completes", *vm.Status.SnapshotInProgress),
 			Field:   k8sfield.NewPath("spec").String(),
 		}}
 	}
 
 	return nil
+}
+
+func compareDisks(old, new []v1.Disk) bool {
+	if len(old) != len(new) {
+		return false
+	}
+
+	for i, disk := range old {
+		if !equality.Semantic.DeepEqual(disk, new[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func compareVolumes(old, new []v1.Volume) bool {
+	if len(old) != len(new) {
+		return false
+	}
+
+	for i, volume := range old {
+		if !equality.Semantic.DeepEqual(volume, new[i]) {
+			return false
+		}
+	}
+
+	return true
 }
