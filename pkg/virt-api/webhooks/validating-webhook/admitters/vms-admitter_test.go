@@ -1780,6 +1780,17 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	DescribeTable("when snapshot is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
 		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+			{
+				Name: "orginalvolume",
+			},
+		}
+		vmi.Spec.Volumes = []v1.Volume{
+			{
+				Name:         "orginalvolume",
+				VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}},
+			},
+		}
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
 				Running: &[]bool{false}[0],
@@ -1817,9 +1828,37 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
 		}
 	},
-		Entry("reject update to spec", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Running = &[]bool{true}[0]
+		Entry("reject update to disks", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "testvolume",
+				},
+			}
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{
+				{
+					Name:         "testvolume",
+					VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}},
+				},
+			}
 			return false
+		}),
+		Entry("reject adding disks", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testvolume",
+			})
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name:         "testvolume",
+				VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}},
+			})
+			return false
+		}),
+		Entry("reject update to volumees", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Template.Spec.Volumes[0].VolumeSource = v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}
+			return false
+		}),
+		Entry("accept update to spec, that is not disks or volumes", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Running = &[]bool{true}[0]
+			return true
 		}),
 		Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
 			vm.Annotations = map[string]string{"foo": "bar"}
