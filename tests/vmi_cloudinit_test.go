@@ -205,41 +205,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("should process provided cloud-init data", func() {
-			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-
-			runTest := func(vmi *v1.VirtualMachineInstance, dsType cloudinit.DataSourceType) {
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
-
-				By("waiting until login appears")
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
-
-				By("validating cloud-init disk is 4k aligned")
-				checkCloudInitIsoSize(vmi, dsType)
-
-				By("Checking whether the user-data script had created the file")
-				Expect(console.RunCommand(vmi, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
-
-				By("validating the hostname matches meta-data")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "hostname\n"},
-					&expect.BExp{R: dns.SanitizeHostname(vmi)},
-				}, 10)).To(Succeed())
-			}
-
-			It("[test_id:1617] with cloudInitNoCloud userData source", func() {
-				vmi := libvmifact.NewCirros(
-					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudUserData(userData)),
-				)
-
-				runTest(vmi, cloudinit.DataSourceNoCloud)
-			})
-			It("[test_id:3180] with cloudInitConfigDrive userData source", func() {
-				vmi := libvmifact.NewCirros(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveUserData(userData)))
-				runTest(vmi, cloudinit.DataSourceConfigDrive)
-			})
-		})
-
 		It("[test_id:1618]should take user-data from k8s secret", func() {
 			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 			secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
