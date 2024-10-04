@@ -35,14 +35,14 @@ func DumpPrivateKey(privateKey *ecdsa.PrivateKey, file string) error {
 		Type:  "EC PRIVATE KEY",
 		Bytes: privateKeyBytes,
 	}
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, 0600)
+	const filePermissions = 0o600
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, filePermissions)
 	if err != nil {
 		return err
 	}
 	defer errorhandling.SafelyCloseFile(f)
 	if err = pem.Encode(f, privateKeyBlock); err != nil {
 		return fmt.Errorf("error when encode private pem: %s", err)
-
 	}
 	return nil
 }

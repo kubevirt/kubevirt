@@ -16,4 +16,5 @@ tests/libnet
 tests/libnode
 tests/libpod
 tests/libsecret
+tests/libssh
 tests/libvmifact
