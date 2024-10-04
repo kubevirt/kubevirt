@@ -18,3 +18,4 @@ tests/libpod
 tests/libsecret
 tests/libssh
 tests/libvmifact
+tests/libwait
