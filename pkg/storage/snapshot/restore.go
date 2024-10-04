@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
@@ -114,6 +115,19 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 
 	vmRestoreOut := vmRestoreIn.DeepCopy()
 
+	if vmRestoreOut.Status == nil {
+		vmRestoreOut.Status = &snapshotv1.VirtualMachineRestoreStatus{
+			Complete: pointer.P(false),
+		}
+		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"))
+		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"))
+	}
+
+	// let's make sure everything is initialized properly before continuing
+	if !equality.Semantic.DeepEqual(vmRestoreIn.Status, vmRestoreOut.Status) {
+		return 0, ctrl.doUpdateStatus(vmRestoreIn, vmRestoreOut)
+	}
+
 	target, err := ctrl.getTarget(vmRestoreOut)
 	if err != nil {
 		logger.Reason(err).Error("Error getting restore target")
@@ -139,19 +153,6 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 			logger.Reason(err).Error("Error updating owner references")
 			return 0, err
 		}
-	}
-
-	if vmRestoreOut.Status == nil {
-		vmRestoreOut.Status = &snapshotv1.VirtualMachineRestoreStatus{
-			Complete: pointer.P(false),
-		}
-		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"))
-		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"))
-	}
-
-	// let's make sure everything is initialized properly before continuing
-	if !equality.Semantic.DeepEqual(vmRestoreIn, vmRestoreOut) {
-		return 0, ctrl.doUpdateStatus(vmRestoreIn, vmRestoreOut)
 	}
 
 	err = target.UpdateRestoreInProgress()
@@ -276,7 +277,11 @@ func (ctrl *VMRestoreController) handleVMRestoreDeletion(vmRestore *snapshotv1.V
 	}
 
 	controller.RemoveFinalizer(vmRestoreCpy, vmRestoreFinalizer)
-	_, err := ctrl.Client.VirtualMachineRestore(vmRestore.Namespace).Update(context.Background(), vmRestoreCpy, metav1.UpdateOptions{})
+	patch, err := generateFinalizerPatch(vmRestore.Finalizers, vmRestoreCpy.Finalizers)
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.Client.VirtualMachineRestore(vmRestore.Namespace).Patch(context.Background(), vmRestore.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	return err
 }
 

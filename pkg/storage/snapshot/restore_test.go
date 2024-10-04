@@ -64,7 +64,6 @@ var _ = Describe("Restore controller", func() {
 				Namespace: testNamespace,
 				UID:       uid,
 			},
-			Status: &snapshotv1.VirtualMachineRestoreStatus{},
 			Spec: snapshotv1.VirtualMachineRestoreSpec{
 				Target: corev1.TypedLocalObjectReference{
 					APIGroup: &vmAPIGroup,
@@ -1133,7 +1132,16 @@ var _ = Describe("Restore controller", func() {
 					By("Making sure right VMRestore update occurs")
 					updatedVMRestore := vmRestore.DeepCopy()
 					updatedVMRestore.ResourceVersion = "1"
-					updatedVMRestore.OwnerReferences = []metav1.OwnerReference{
+					updatedVMRestore.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
+							newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
+						},
+					}
+
+					updatedVMRestore2 := updatedVMRestore.DeepCopy()
+					updatedVMRestore2.OwnerReferences = []metav1.OwnerReference{
 						{
 							APIVersion:         kubevirtv1.GroupVersion.String(),
 							Kind:               "VirtualMachine",
@@ -1144,17 +1152,8 @@ var _ = Describe("Restore controller", func() {
 						},
 					}
 
-					updatedVMRestore2 := updatedVMRestore.DeepCopy()
-					updatedVMRestore2.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
-						Conditions: []snapshotv1.Condition{
-							newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
-							newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
-						},
-					}
-
-					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
-					expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore2)
+					expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore)
+					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore2)
 
 					By("Running the controller")
 					controller.processVMRestoreWorkItem()
@@ -1177,7 +1176,9 @@ var _ = Describe("Restore controller", func() {
 					BeforeEach(func() {
 						r = createRestore()
 						r.Spec.Target.Name = "new-vm-name"
-						r.Status.Complete = pointer.P(false)
+						r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+							Complete: pointer.P(false),
+						}
 						addVolumeRestores(r)
 
 						for _, pvc := range getRestorePVCs(r) {
