@@ -21,22 +21,21 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
-const (
-	cloudInitDiskName = "cloudinitdisk"
-	cloudInitUserData = `#cloud-config
+var _ = Describe("create vm", func() {
+	const (
+		cloudInitUserData = `#cloud-config
 user: user
 password: password
 chpasswd: { expire: False }`
-	cloudInitNetworkData = `network:
+		cloudInitNetworkData = `network:
   version: 1
   config:
   - type: physical
   name: eth0
   subnets:
     - type: dhcp`
-)
+	)
 
-var _ = Describe("create vm", func() {
 	Context("Manifest is created successfully", func() {
 		It("VM with random name", func() {
 			out, err := runCmd()
@@ -149,7 +148,7 @@ var _ = Describe("create vm", func() {
 			Entry("Explicit namespaced", "virtualmachineinstancetype/my-instancetype", "my-instancetype", instancetypeapi.SingularResourceName),
 		)
 
-		DescribeTable("VM with inferred instancetype", func(args []string, inferFromVolume string, inferFromVolumePolicy *v1.InferFromVolumeFailurePolicy) {
+		DescribeTable("VM with inferred instancetype", func(inferFromVolume string, inferFromVolumePolicy *v1.InferFromVolumeFailurePolicy, args ...string) {
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
@@ -173,12 +172,12 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 			}
 		},
-			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure)),
-			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure)),
-			Entry("VolumeImportFlag and explicit inference with pvc source", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")}, "my-containerdisk", pointer.P(v1.IgnoreInferFromVolumeFailure)),
-			Entry("VolumeImportFlag and explicit inference with registry source", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferInstancetypeFlag, "true")}, "my-containerdisk", nil),
+			Entry("PvcVolumeFlag and implicit inference (enabled by default)", "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(PvcVolumeFlag, "src:my-pvc")),
+			Entry("PvcVolumeFlag and explicit inference", "my-pvc", nil, setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")),
+			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")),
+			Entry("VolumeImportFlag and explicit inference with pvc source", "my-pvc", nil, setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferInstancetypeFlag, "true")),
+			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", "my-containerdisk", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")),
+			Entry("VolumeImportFlag and explicit inference with registry source", "my-containerdisk", nil, setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferInstancetypeFlag, "true")),
 		)
 
 		DescribeTable("VM with boot order and inferred instancetype", func(explicit bool) {
@@ -283,7 +282,7 @@ var _ = Describe("create vm", func() {
 			Entry("Explicit namespaced", "virtualmachinepreference/my-preference", "my-preference", instancetypeapi.SingularPreferenceResourceName),
 		)
 
-		DescribeTable("VM with inferred preference", func(args []string, inferFromVolume string, inferFromVolumePolicy *v1.InferFromVolumeFailurePolicy) {
+		DescribeTable("VM with inferred preference", func(inferFromVolume string, inferFromVolumePolicy *v1.InferFromVolumeFailurePolicy, args ...string) {
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
@@ -300,12 +299,12 @@ var _ = Describe("create vm", func() {
 				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(*inferFromVolumePolicy))
 			}
 		},
-			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure)),
-			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure)),
-			Entry("VolumeImportFlag and explicit inference with pvc source", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")}, "my-containerdisk", pointer.P(v1.IgnoreInferFromVolumeFailure)),
-			Entry("VolumeImportFlag and explicit inference with registry source", []string{setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferPreferenceFlag, "true")}, "my-containerdisk", nil),
+			Entry("PvcVolumeFlag and implicit inference (enabled by default)", "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(PvcVolumeFlag, "src:my-pvc")),
+			Entry("PvcVolumeFlag and explicit inference", "my-pvc", nil, setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferPreferenceFlag, "true")),
+			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")),
+			Entry("VolumeImportFlag and explicit inference with pvc source", "my-pvc", nil, setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferPreferenceFlag, "true")),
+			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", "my-containerdisk", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")),
+			Entry("VolumeImportFlag and explicit inference with registry source", "my-containerdisk", nil, setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferPreferenceFlag, "true")),
 		)
 
 		DescribeTable("VM with boot order and inferred preference", func(explicit bool) {
@@ -641,7 +640,7 @@ var _ = Describe("create vm", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDiskName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -662,7 +661,7 @@ var _ = Describe("create vm", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDiskName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64).To(Equal(networkDataB64))
 
@@ -687,7 +686,7 @@ var _ = Describe("create vm", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDiskName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64).To(Equal(networkDataB64))
@@ -770,7 +769,7 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(pvcName))
 			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
-			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(cloudInitDiskName))
+			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(CloudInitDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -785,7 +784,7 @@ var _ = Describe("create vm", func() {
 	})
 
 	Describe("Manifest is not created successfully", func() {
-		DescribeTable("Invalid values for RunStrategy", func(runStrategy string) {
+		DescribeTable("Invalid arguments to RunStrategyFlag", func(runStrategy string) {
 			out, err := runCmd(setFlag(RunStrategyFlag, runStrategy))
 			Expect(err).To(MatchError(fmt.Sprintf("failed to parse \"--run-strategy\" flag: invalid RunStrategy \"%s\", supported values are: Always, Manual, Halted, Once, RerunOnFailure", runStrategy)))
 			Expect(out).To(BeEmpty())
@@ -795,7 +794,7 @@ var _ = Describe("create vm", func() {
 			Entry("bool", "true"),
 		)
 
-		DescribeTable("Invalid values for TerminationGracePeriodFlag", func(terminationGracePeriod string) {
+		DescribeTable("Invalid arguments to TerminationGracePeriodFlag", func(terminationGracePeriod string) {
 			out, err := runCmd(setFlag(TerminationGracePeriodFlag, terminationGracePeriod))
 			Expect(err).To(MatchError(fmt.Sprintf("invalid argument \"%s\" for \"--termination-grace-period\" flag: strconv.ParseInt: parsing \"%s\": invalid syntax", terminationGracePeriod, terminationGracePeriod)))
 			Expect(out).To(BeEmpty())
@@ -841,18 +840,18 @@ var _ = Describe("create vm", func() {
 			Expect(out).To(BeEmpty())
 		})
 
-		DescribeTable("MemoryFlag, InstancetypeFlag, InferInstancetypeFlag and InferInstancetypeFromFlag are mutually exclusive", func(flags []string, setFlags string) {
+		DescribeTable("MemoryFlag, InstancetypeFlag, InferInstancetypeFlag and InferInstancetypeFromFlag are mutually exclusive", func(setFlags string, flags ...string) {
 			out, err := runCmd(flags...)
 			Expect(err).To(MatchError(fmt.Sprintf("if any flags in the group [memory instancetype infer-instancetype infer-instancetype-from] are set none of the others can be; [%s] were all set", setFlags)))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("MemoryFlag and InstancetypeFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InstancetypeFlag, "my-instancetype")}, "instancetype memory"),
-			Entry("MemoryFlag and InferInstancetypeFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InferInstancetypeFlag, "true")}, "infer-instancetype memory"),
-			Entry("MemoryFlag and InferInstancetypeFromFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InferInstancetypeFromFlag, "my-vol")}, "infer-instancetype-from memory"),
-			Entry("InstancetypeFlag and InferInstancetypeFlag", []string{setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFlag, "true")}, "infer-instancetype instancetype"),
-			Entry("InstancetypeFlag and InferInstancetypeFromFlag", []string{setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFromFlag, "my-vol")}, "infer-instancetype-from instancetype"),
-			Entry("InferInstancetypeFlag and InferInstancetypeFromFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(InferInstancetypeFromFlag, "my-vol")}, "infer-instancetype infer-instancetype-from"),
-			Entry("MemoryFlag, InstancetypeFlag, InferInstancetypeFlag and InferInstancetypeFromFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")}, "infer-instancetype instancetype memory"),
+			Entry("MemoryFlag and InstancetypeFlag", "instancetype memory", setFlag(MemoryFlag, "1Gi"), setFlag(InstancetypeFlag, "my-instancetype")),
+			Entry("MemoryFlag and InferInstancetypeFlag", "infer-instancetype memory", setFlag(MemoryFlag, "1Gi"), setFlag(InferInstancetypeFlag, "true")),
+			Entry("MemoryFlag and InferInstancetypeFromFlag", "infer-instancetype-from memory", setFlag(MemoryFlag, "1Gi"), setFlag(InferInstancetypeFromFlag, "my-vol")),
+			Entry("InstancetypeFlag and InferInstancetypeFlag", "infer-instancetype instancetype", setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFlag, "true")),
+			Entry("InstancetypeFlag and InferInstancetypeFromFlag", "infer-instancetype-from instancetype", setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFromFlag, "my-vol")),
+			Entry("InferInstancetypeFlag and InferInstancetypeFromFlag", "infer-instancetype infer-instancetype-from", setFlag(InferInstancetypeFlag, "true"), setFlag(InferInstancetypeFromFlag, "my-vol")),
+			Entry("MemoryFlag, InstancetypeFlag, InferInstancetypeFlag and InferInstancetypeFromFlag", "infer-instancetype instancetype memory", setFlag(MemoryFlag, "1Gi"), setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")),
 		)
 
 		DescribeTable("Invalid arguments to PreferenceFlag", func(flag, errMsg string) {
@@ -883,30 +882,44 @@ var _ = Describe("create vm", func() {
 			Expect(out).To(BeEmpty())
 		})
 
-		DescribeTable("PreferenceFlag, InferPreferenceFlag and InferPreferenceFromFlag are mutually exclusive", func(flags []string, setFlags string) {
+		DescribeTable("PreferenceFlag, InferPreferenceFlag and InferPreferenceFromFlag are mutually exclusive", func(setFlags string, flags ...string) {
 			out, err := runCmd(flags...)
 			Expect(err).To(MatchError(fmt.Sprintf("if any flags in the group [preference infer-preference infer-preference-from] are set none of the others can be; [%s] were all set", setFlags)))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("PreferenceFlag and InferPreferenceFlag", []string{setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFlag, "true")}, "infer-preference preference"),
-			Entry("PreferenceFlag and InferPreferenceFromFlag", []string{setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFromFlag, "my-vol")}, "infer-preference-from preference"),
-			Entry("InferPreference and InferPreferenceFromFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")}, "infer-preference infer-preference-from"),
-			Entry("PreferenceFlag, InferPreferenceFlag and InferPreferenceFromFlag", []string{setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")}, "infer-preference infer-preference-from preference"),
+			Entry("PreferenceFlag and InferPreferenceFlag", "infer-preference preference", setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFlag, "true")),
+			Entry("PreferenceFlag and InferPreferenceFromFlag", "infer-preference-from preference", setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFromFlag, "my-vol")),
+			Entry("InferPreference and InferPreferenceFromFlag", "infer-preference infer-preference-from", setFlag(InferPreferenceFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")),
+			Entry("PreferenceFlag, InferPreferenceFlag and InferPreferenceFromFlag", "infer-preference infer-preference-from preference", setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")),
 		)
 
-		DescribeTable("Volume to explicitly infer from needs to be valid", func(args []string, errMsg string) {
+		DescribeTable("Volume to explicitly infer from needs to be valid", func(errMsg string, args ...string) {
 			out, err := runCmd(args...)
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("explicit inference of instancetype with ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")}, InvalidInferenceVolumeError),
-			Entry("inference of instancetype from ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")}, InvalidInferenceVolumeError),
-			Entry("explicit inference of preference with ContainerdiskVolumeFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")}, InvalidInferenceVolumeError),
-			Entry("inference of preference from ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")}, InvalidInferenceVolumeError),
-			Entry("explicit inference of instancetype with VolumeImportFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")}, DVInvalidInferenceVolumeError),
-			Entry("inference of instancetype from VolumeImportFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")}, DVInvalidInferenceVolumeError),
-			Entry("explicit inference of preference with VolumeImportFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")}, DVInvalidInferenceVolumeError),
-			Entry("inference of preference from VolumeImportFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")}, DVInvalidInferenceVolumeError),
+			Entry("explicit inference of instancetype with ContainerdiskVolumeFlag", InvalidInferenceVolumeError, setFlag(InferInstancetypeFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")),
+			Entry("inference of instancetype from ContainerdiskVolumeFlag", InvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")),
+			Entry("explicit inference of preference with ContainerdiskVolumeFlag", InvalidInferenceVolumeError, setFlag(InferPreferenceFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")),
+			Entry("inference of preference from ContainerdiskVolumeFlag", InvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")),
+			Entry("explicit inference of instancetype with VolumeImportFlag", DVInvalidInferenceVolumeError, setFlag(InferInstancetypeFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")),
+			Entry("inference of instancetype from VolumeImportFlag", DVInvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")),
+			Entry("explicit inference of preference with VolumeImportFlag", DVInvalidInferenceVolumeError, setFlag(InferPreferenceFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")),
+			Entry("inference of preference from VolumeImportFlag", DVInvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")),
+		)
+
+		DescribeTable("Invalid arguments to ContainerdiskVolumeFlag", func(flag, errMsg string) {
+			out, err := runCmd(setFlag(ContainerdiskVolumeFlag, flag))
+			Expect(err).To(MatchError(errMsg))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("Empty params", "", "failed to parse \"--volume-containerdisk\" flag: params may not be empty"),
+			Entry("Invalid param", "test=test", "failed to parse \"--volume-containerdisk\" flag: params need to have at least one colon: test=test"),
+			Entry("Unknown param", "test:test", "failed to parse \"--volume-containerdisk\" flag: unknown param(s): test:test"),
+			Entry("Missing src", "name:test", "failed to parse \"--volume-containerdisk\" flag: src must be specified"),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-containerdisk\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
+			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-containerdisk\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
+			Entry("Bootorder set to 0", "src:my.registry/my-image:my-tag,bootorder:0", "failed to parse \"--volume-containerdisk\" flag: bootorder must be greater than 0"),
 		)
 
 		DescribeTable("Invalid arguments to DataSourceVolumeFlag", func(flag, errMsg string) {
@@ -924,60 +937,6 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-datasource\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
 			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-datasource\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
 			Entry("Bootorder set to 0", "src:my-ds,bootorder:0", "failed to parse \"--volume-datasource\" flag: bootorder must be greater than 0"),
-		)
-
-		DescribeTable("Invalid arguments to VolumeImportFlag", func(errMsg string, flags ...string) {
-			out, err := runCmd(flags...)
-			Expect(err).To(MatchError(errMsg))
-			Expect(out).To(BeEmpty())
-		},
-			Entry("Missing size with blank volume source", "size must be specified", setFlag(VolumeImportFlag, "type:blank")),
-			Entry("Missing type value", "type must be specified", setFlag(VolumeImportFlag, "size:256Mi")),
-			Entry("Unknown param for blank volume source", "failed to parse \"--volume-import\" flag: unknown param(s): testparam:", setFlag(VolumeImportFlag, "type:blank,size:256Mi,testparam:")),
-			Entry("Missing size with GCS volume source", "size must be specified", setFlag(VolumeImportFlag, "type:gcs,url:http://url.com")),
-			Entry("Missing url with GCS volume source", "failed to parse \"--volume-import\" flag: URL is required with GCS volume source", setFlag(VolumeImportFlag, "type:gcs,size:256Mi")),
-			Entry("Missing size with http volume source", "size must be specified", setFlag(VolumeImportFlag, "type:http,url:http://url.com")),
-			Entry("Missing url with http volume source", "failed to parse \"--volume-import\" flag: URL is required with http volume source", setFlag(VolumeImportFlag, "type:http,size:256Mi")),
-			Entry("Missing size with imageIO volume source", "size must be specified", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,diskid:0")),
-			Entry("Missing url with imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,diskid:0,size:256Mi")),
-			Entry("Missing diskid with imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,size:256Mi")),
-			Entry("Missing src in pvc volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi")),
-			Entry("Invalid src without slash in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc 'noslashingvalue' must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:noslashingvalue")),
-			Entry("Invalid src in pvc volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:")),
-			Entry("Missing src namespace in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc 'my-pvc' must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:/my-pvc")),
-			Entry("Missing src name in pvc volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:default/")),
-			Entry("Missing src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi")),
-			Entry("Invalid src without slash in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'noslashingvalue' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:noslashingvalue")),
-			Entry("Invalid src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:")),
-			Entry("Missing src namespace in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'my-snapshot' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:/my-snapshot")),
-			Entry("Missing src name in snapshot volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:default/")),
-			Entry("Missing size with S3 volume source", "size must be specified", setFlag(VolumeImportFlag, "type:s3,url:http://url.com")),
-			Entry("Missing url in S3 volume source", "failed to parse \"--volume-import\" flag: URL is required with S3 volume source", setFlag(VolumeImportFlag, "type:s3,size:256Mi")),
-			Entry("Missing size with registry volume source", "size must be specified", setFlag(VolumeImportFlag, "type:registry,imagestream:my-image")),
-			Entry("Invalid value for pullmethod with registry volume source", "failed to parse \"--volume-import\" flag: pullmethod must be set to pod or node", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:invalid,imagestream:my-image")),
-			Entry("Both url and imagestream defined in registry volume source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:node,imagestream:my-image,url:http://url.com")),
-			Entry("Missing url and imagestream in registry volume source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi")),
-			Entry("Missing size with vddk volume source", "size must be specified", setFlag(VolumeImportFlag, "type:vddk,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
-			Entry("Missing backingfile with vddk volume source", "failed to parse \"--volume-import\" flag: BackingFile is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
-			Entry("Missing secretref with vddk volume source", "failed to parse \"--volume-import\" flag: SecretRef is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
-			Entry("Missing thumbprint with vddk volume source", "failed to parse \"--volume-import\" flag: ThumbPrint is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,url:http://url.com,uuid:test-uuid")),
-			Entry("Missing url with vddk volume source", "failed to parse \"--volume-import\" flag: URL is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,uuid:test-uuid")),
-			Entry("Missing uuid with vddk volume source", "failed to parse \"--volume-import\" flag: UUID is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com")),
-			Entry("Volume already exists", "failed to parse \"--volume-import\" flag: there is already a volume with name 'duplicated'", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated"), setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated")),
-		)
-
-		DescribeTable("Invalid arguments to ContainerdiskVolumeFlag", func(flag, errMsg string) {
-			out, err := runCmd(setFlag(ContainerdiskVolumeFlag, flag))
-			Expect(err).To(MatchError(errMsg))
-			Expect(out).To(BeEmpty())
-		},
-			Entry("Empty params", "", "failed to parse \"--volume-containerdisk\" flag: params may not be empty"),
-			Entry("Invalid param", "test=test", "failed to parse \"--volume-containerdisk\" flag: params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "failed to parse \"--volume-containerdisk\" flag: unknown param(s): test:test"),
-			Entry("Missing src", "name:test", "failed to parse \"--volume-containerdisk\" flag: src must be specified"),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-containerdisk\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
-			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-containerdisk\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("Bootorder set to 0", "src:my.registry/my-image:my-tag,bootorder:0", "failed to parse \"--volume-containerdisk\" flag: bootorder must be greater than 0"),
 		)
 
 		DescribeTable("Invalid arguments to ClonePvcVolumeFlag", func(flag, errMsg string) {
@@ -1024,6 +983,46 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid param", "test=test", "failed to parse \"--volume-blank\" flag: params need to have at least one colon: test=test"),
 			Entry("Unknown param", "test:test", "failed to parse \"--volume-blank\" flag: unknown param(s): test:test"),
 			Entry("Missing size", "name:my-blank", "failed to parse \"--volume-blank\" flag: size must be specified"),
+		)
+
+		DescribeTable("Invalid arguments to VolumeImportFlag", func(errMsg string, flags ...string) {
+			out, err := runCmd(flags...)
+			Expect(err).To(MatchError(errMsg))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("Missing size with blank volume source", "size must be specified", setFlag(VolumeImportFlag, "type:blank")),
+			Entry("Missing type value", "type must be specified", setFlag(VolumeImportFlag, "size:256Mi")),
+			Entry("Unknown param for blank volume source", "failed to parse \"--volume-import\" flag: unknown param(s): testparam:", setFlag(VolumeImportFlag, "type:blank,size:256Mi,testparam:")),
+			Entry("Missing size with GCS volume source", "size must be specified", setFlag(VolumeImportFlag, "type:gcs,url:http://url.com")),
+			Entry("Missing url with GCS volume source", "failed to parse \"--volume-import\" flag: URL is required with GCS volume source", setFlag(VolumeImportFlag, "type:gcs,size:256Mi")),
+			Entry("Missing size with http volume source", "size must be specified", setFlag(VolumeImportFlag, "type:http,url:http://url.com")),
+			Entry("Missing url with http volume source", "failed to parse \"--volume-import\" flag: URL is required with http volume source", setFlag(VolumeImportFlag, "type:http,size:256Mi")),
+			Entry("Missing size with imageIO volume source", "size must be specified", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,diskid:0")),
+			Entry("Missing url with imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,diskid:0,size:256Mi")),
+			Entry("Missing diskid with imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,size:256Mi")),
+			Entry("Missing src in pvc volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi")),
+			Entry("Invalid src without slash in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc 'noslashingvalue' must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:noslashingvalue")),
+			Entry("Invalid src in pvc volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:")),
+			Entry("Missing src namespace in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc 'my-pvc' must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:/my-pvc")),
+			Entry("Missing src name in pvc volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:default/")),
+			Entry("Missing src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi")),
+			Entry("Invalid src without slash in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'noslashingvalue' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:noslashingvalue")),
+			Entry("Invalid src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:")),
+			Entry("Missing src namespace in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'my-snapshot' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:/my-snapshot")),
+			Entry("Missing src name in snapshot volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:default/")),
+			Entry("Missing size with S3 volume source", "size must be specified", setFlag(VolumeImportFlag, "type:s3,url:http://url.com")),
+			Entry("Missing url in S3 volume source", "failed to parse \"--volume-import\" flag: URL is required with S3 volume source", setFlag(VolumeImportFlag, "type:s3,size:256Mi")),
+			Entry("Missing size with registry volume source", "size must be specified", setFlag(VolumeImportFlag, "type:registry,imagestream:my-image")),
+			Entry("Invalid value for pullmethod with registry volume source", "failed to parse \"--volume-import\" flag: pullmethod must be set to pod or node", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:invalid,imagestream:my-image")),
+			Entry("Both url and imagestream defined in registry volume source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:node,imagestream:my-image,url:http://url.com")),
+			Entry("Missing url and imagestream in registry volume source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi")),
+			Entry("Missing size with vddk volume source", "size must be specified", setFlag(VolumeImportFlag, "type:vddk,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
+			Entry("Missing backingfile with vddk volume source", "failed to parse \"--volume-import\" flag: BackingFile is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
+			Entry("Missing secretref with vddk volume source", "failed to parse \"--volume-import\" flag: SecretRef is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
+			Entry("Missing thumbprint with vddk volume source", "failed to parse \"--volume-import\" flag: ThumbPrint is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,url:http://url.com,uuid:test-uuid")),
+			Entry("Missing url with vddk volume source", "failed to parse \"--volume-import\" flag: URL is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,uuid:test-uuid")),
+			Entry("Missing uuid with vddk volume source", "failed to parse \"--volume-import\" flag: UUID is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com")),
+			Entry("Volume already exists", "failed to parse \"--volume-import\" flag: there is already a volume with name 'duplicated'", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated"), setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated")),
 		)
 
 		DescribeTable("Duplicate DataVolumeTemplates or Volumes are not allowed", func(errMsg string, flags ...string) {

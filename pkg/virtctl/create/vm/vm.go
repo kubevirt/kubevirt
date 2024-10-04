@@ -64,7 +64,7 @@ const (
 	InferPreferenceFromFlag    = "infer-preference-from"
 	VolumeImportFlag           = "volume-import"
 
-	cloudInitDisk = "cloudinitdisk"
+	CloudInitDisk = "cloudinitdisk"
 	blank         = "blank"
 	gcs           = "gcs"
 	http          = "http"
@@ -886,7 +886,7 @@ func withCloudInitNetworkData(c *createVM, vm *v1.VirtualMachine) error {
 
 func withCloudInitData(flag string, c *createVM, vm *v1.VirtualMachine) error {
 	// Make sure cloudInitDisk does not already exist
-	if err := volumeShouldNotExist(flag, vm, cloudInitDisk); err != nil {
+	if err := volumeShouldNotExist(flag, vm, CloudInitDisk); err != nil {
 		return err
 	}
 
@@ -900,7 +900,7 @@ func withCloudInitData(flag string, c *createVM, vm *v1.VirtualMachine) error {
 		cloudInitNoCloud.UserDataBase64 = c.cloudInitUserData
 	}
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-		Name: cloudInitDisk,
+		Name: CloudInitDisk,
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: cloudInitNoCloud,
 		},
