@@ -22,8 +22,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"k8s.io/utils/pointer"
-
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 )
@@ -470,7 +469,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 		},
 	}
 	securityContext := &corev1.PodSecurityContext{
-		RunAsNonRoot: pointer.Bool(!root),
+		RunAsNonRoot: pointer.P(!root),
 		RunAsUser:    u,
 		RunAsGroup:   g,
 		FSGroup:      f,
