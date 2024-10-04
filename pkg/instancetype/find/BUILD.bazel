@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cluster_instancetype.go",
+        "controller_revision.go",
         "instancetype.go",
         "revision.go",
         "spec.go",
