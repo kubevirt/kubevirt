@@ -4196,7 +4196,97 @@ var _ = Describe("Template", func() {
 				})
 			})
 		})
+		Context("with backend-storage", func() {
+			const (
+				vmiName       = "testvmi"
+				claimName     = "persistent-state-for-" + vmiName + "12345"
+				migrationName = "testmigration"
+			)
 
+			expectStateMounts := func(pod *k8sv1.Pod) {
+				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+					Name: "vm-state",
+					VolumeSource: k8sv1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: claimName,
+						},
+					},
+				}))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElements(
+					k8sv1.VolumeMount{
+						MountPath: "/var/lib/libvirt/swtpm",
+						Name:      "vm-state",
+						SubPath:   "swtpm",
+					},
+					k8sv1.VolumeMount{
+						MountPath: "/var/lib/swtpm-localca",
+						Name:      "vm-state",
+						SubPath:   "swtpm-localca",
+					},
+				))
+			}
+
+			var (
+				pvc *k8sv1.PersistentVolumeClaim
+			)
+
+			BeforeEach(func() {
+				mode := k8sv1.PersistentVolumeFilesystem
+				pvc = &k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      claimName,
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: k8sv1.PersistentVolumeClaimSpec{
+						VolumeMode: &mode,
+					},
+				}
+				k8sClient := k8sfake.NewSimpleClientset()
+				k8sClient.Fake.PrependReactor("get", "pvcs", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+					return true, pvc, nil
+				})
+				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			})
+
+			It("should add the pvc to Pod of a new VMI", func() {
+				pvc.Labels = map[string]string{"persistent-state-for": vmiName}
+				err := pvcCache.Add(pvc)
+				Expect(err).NotTo(HaveOccurred())
+
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := api.NewMinimalVMI(vmiName)
+				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
+					Persistent: pointer.P(true),
+				}
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectStateMounts(pod)
+			})
+
+			It("should add the pvc to Pod of a migration target", func() {
+				migration := &v1.VirtualMachineInstanceMigration{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      migrationName,
+						Namespace: metav1.NamespaceDefault,
+					},
+				}
+
+				pvc.Labels = map[string]string{"kubevirt.io/migrationName": migrationName}
+				err := pvcCache.Add(pvc)
+				Expect(err).NotTo(HaveOccurred())
+
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := api.NewMinimalVMI(vmiName)
+				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
+					Persistent: pointer.P(true),
+				}
+				pod, err := svc.RenderMigrationManifest(vmi, migration, &k8sv1.Pod{})
+				Expect(err).ToNot(HaveOccurred())
+
+				expectStateMounts(pod)
+			})
+		})
 	})
 
 	Describe("ServiceAccountName", func() {
