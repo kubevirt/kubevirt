@@ -28,6 +28,7 @@ import (
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
+	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 )
 
 const (
@@ -41,7 +42,7 @@ const (
 )
 
 type Methods interface {
-	Upgrader
+	Upgrade(vm *virtv1.VirtualMachine) error
 	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
 	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
@@ -218,29 +219,6 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 
 func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	return preferenceFind.NewSpecFinder(m.PreferenceStore, m.ClusterPreferenceStore, m.ControllerRevisionStore, m.Clientset).Find(vm)
-}
-
-func (m *InstancetypeMethods) getControllerRevisionByInformer(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
-	obj, exists, err := m.ControllerRevisionStore.GetByKey(namespacedName.String())
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return m.getControllerRevisionByClient(namespacedName)
-	}
-	controllerRevision, ok := obj.(*appsv1.ControllerRevision)
-	if !ok {
-		return nil, fmt.Errorf("unknown object type found in ControllerRevision informer")
-	}
-	return controllerRevision, nil
-}
-
-func (m *InstancetypeMethods) getControllerRevisionByClient(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
-	controllerRevision, err := m.Clientset.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(context.Background(), namespacedName.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return controllerRevision, nil
 }
 
 func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
@@ -455,4 +433,12 @@ func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Objec
 
 func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	preferenceApply.ApplyDevicePreferences(preferenceSpec, vmiSpec)
+}
+
+func (m *InstancetypeMethods) Upgrade(vm *virtv1.VirtualMachine) error {
+	return upgrade.New(m.ControllerRevisionStore, m.Clientset).Upgrade(vm)
+}
+
+func IsObjectLatestVersion(cr *appsv1.ControllerRevision) bool {
+	return upgrade.IsObjectLatestVersion(cr)
 }
