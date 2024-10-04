@@ -2814,7 +2814,8 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 
 			continue
 		}
-		v, err := semver.NewVersion(*release.TagName)
+		tagName := strings.TrimPrefix(*release.TagName, "v")
+		v, err := semver.NewVersion(tagName)
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to parse latest release tag")
 		vs = append(vs, v)
 	}
@@ -2834,7 +2835,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 	// recent official release from the branch we're in if possible. Note that this is
 	// all best effort. If a tag hint can't be detected, we move on with the most
 	// recent release from master.
-	tagHint := getTagHint()
+	tagHint := strings.TrimPrefix(getTagHint(), "v")
 	hint, err := semver.NewVersion(tagHint)
 
 	if tagHint != "" && err == nil {
