@@ -4,10 +4,15 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,11 +29,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
+	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -451,6 +460,81 @@ chpasswd: { expire: False }`
 		decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(decoded)).To(Equal(cloudInitUserData))
+	})
+
+	It("Complex example with generated cloud-init config", func() {
+		const user = "alpine"
+		cdSource := cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)
+		tmpDir := GinkgoT().TempDir()
+		password := rand.String(12)
+
+		path := filepath.Join(tmpDir, "pw")
+		pwFile, err := os.Create(path)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = pwFile.Write([]byte(password))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pwFile.Close()).To(Succeed())
+
+		priv, pub, err := libssh.NewKeyPair()
+		Expect(err).ToNot(HaveOccurred())
+		keyFile := filepath.Join(tmpDir, "id_rsa")
+		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
+		sshKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
+
+		out, err := runCmd(
+			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
+			setFlag(UserFlag, user),
+			setFlag(PasswordFileFlag, path), // This is required to unlock the alpine user
+			setFlag(SSHKeyFlag, sshKey),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		vm, err := decodeVM(out)
+		Expect(err).ToNot(HaveOccurred())
+
+		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{DryRun: []string{}})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+		Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+
+		Expect(vm.Spec.Instancetype).To(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
+		Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+
+		Expect(vm.Spec.Preference).To(BeNil())
+
+		Expect(vm.Spec.DataVolumeTemplates).To(BeEmpty())
+
+		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
+
+		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
+		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
+
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(CloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("user: " + user))
+		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("password: %s\nchpasswd: { expire: False }", password))
+		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("ssh_authorized_keys:\n  - " + sshKey))
+
+		Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+		libssh.DisableSSHAgent()
+		err = clientcmd.NewRepeatableVirtctlCommand(
+			"ssh",
+			"--namespace", vm.Namespace,
+			"--username", "alpine",
+			"--identity-file", keyFile,
+			"--known-hosts=",
+			"-t", "-o StrictHostKeyChecking=no",
+			"-t", "-o UserKnownHostsFile=/dev/null",
+			"--command", "true",
+			vm.Name,
+		)()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("Failure of implicit inference does not fail the VM creation", func() {
