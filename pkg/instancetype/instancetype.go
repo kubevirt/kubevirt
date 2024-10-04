@@ -2,14 +2,11 @@
 package instancetype
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,12 +17,11 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/infer"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
@@ -43,7 +39,6 @@ const (
 	InsufficientInstanceTypeMemoryResourcesErrorFmt = "insufficient Memory resources of %s provided by instance type, preference requires %s"
 	InsufficientVMMemoryResourcesErrorFmt           = "insufficient Memory resources of %s provided by VirtualMachine, preference requires %s"
 	NoVMCPUResourcesDefinedErrorFmt                 = "no CPU resources provided by VirtualMachine, preference requires %d vCPU"
-	logVerbosityLevel                               = 3
 )
 
 type Methods interface {
@@ -275,177 +270,11 @@ func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*
 }
 
 func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine) error {
-	if vm.Spec.Instancetype == nil {
-		return nil
-	}
-	// Leave matcher unchanged when inference is disabled
-	if vm.Spec.Instancetype.InferFromVolume == "" {
-		return nil
-	}
-
-	ignoreFailure := vm.Spec.Instancetype.InferFromVolumeFailurePolicy != nil &&
-		*vm.Spec.Instancetype.InferFromVolumeFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
-
-	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Instancetype.InferFromVolume, apiinstancetype.DefaultInstancetypeLabel, apiinstancetype.DefaultInstancetypeKindLabel)
-	if err != nil {
-		var ignoreableInferenceErr *IgnoreableInferenceError
-		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
-			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of instancetype, clearing matcher.")
-			vm.Spec.Instancetype = nil
-			return nil
-		}
-
-		return err
-	}
-
-	if ignoreFailure {
-		vm.Spec.Template.Spec.Domain.Memory = nil
-	}
-
-	vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-		Name: defaultName,
-		Kind: defaultKind,
-	}
-	return nil
+	return infer.New(m.Clientset).Instancetype(vm)
 }
 
 func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) error {
-	if vm.Spec.Preference == nil {
-		return nil
-	}
-	// Leave matcher unchanged when inference is disabled
-	if vm.Spec.Preference.InferFromVolume == "" {
-		return nil
-	}
-
-	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Preference.InferFromVolume, apiinstancetype.DefaultPreferenceLabel, apiinstancetype.DefaultPreferenceKindLabel)
-	if err != nil {
-		var ignoreableInferenceErr *IgnoreableInferenceError
-		ignoreFailure := vm.Spec.Preference.InferFromVolumeFailurePolicy != nil &&
-			*vm.Spec.Preference.InferFromVolumeFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
-
-		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
-			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of preference, clearing matcher.")
-			vm.Spec.Preference = nil
-			return nil
-		}
-
-		return err
-	}
-
-	vm.Spec.Preference = &virtv1.PreferenceMatcher{
-		Name: defaultName,
-		Kind: defaultKind,
-	}
-	return nil
-}
-
-/*
-Defaults will be inferred from the following combinations of DataVolumeSources, DataVolumeTemplates, DataSources and PVCs:
-
-Volume -> PersistentVolumeClaimVolumeSource -> PersistentVolumeClaim
-Volume -> DataVolumeSource -> DataVolume
-Volume -> DataVolumeSource -> DataVolumeSourcePVC -> PersistentVolumeClaim
-Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource
-Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
-Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourcePVC -> PersistentVolumeClaim
-Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource
-Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
-*/
-func (m *InstancetypeMethods) inferDefaultsFromVolumes(vm *virtv1.VirtualMachine, inferFromVolumeName, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		if volume.Name != inferFromVolumeName {
-			continue
-		}
-		if volume.PersistentVolumeClaim != nil {
-			return m.inferDefaultsFromPVC(volume.PersistentVolumeClaim.ClaimName, vm.Namespace, defaultNameLabel, defaultKindLabel)
-		}
-		if volume.DataVolume != nil {
-			return m.inferDefaultsFromDataVolume(vm, volume.DataVolume.Name, defaultNameLabel, defaultKindLabel)
-		}
-		return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from volume %s as type is not supported", inferFromVolumeName))
-	}
-	return "", "", fmt.Errorf("unable to find volume %s to infer defaults", inferFromVolumeName)
-}
-
-func inferDefaultsFromLabels(labels map[string]string, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
-	defaultName, hasLabel := labels[defaultNameLabel]
-	if !hasLabel {
-		return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to find required %s label on the volume", defaultNameLabel))
-	}
-	return defaultName, labels[defaultKindLabel], nil
-}
-
-func (m *InstancetypeMethods) inferDefaultsFromPVC(pvcName, pvcNamespace, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
-	pvc, err := m.Clientset.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(context.Background(), pvcName, metav1.GetOptions{})
-	if err != nil {
-		return "", "", err
-	}
-	return inferDefaultsFromLabels(pvc.Labels, defaultNameLabel, defaultKindLabel)
-}
-
-func (m *InstancetypeMethods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMachine, dvName, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
-	if len(vm.Spec.DataVolumeTemplates) > 0 {
-		for _, dvt := range vm.Spec.DataVolumeTemplates {
-			if dvt.Name != dvName {
-				continue
-			}
-			dvtSpec := dvt.Spec
-			return m.inferDefaultsFromDataVolumeSpec(&dvtSpec, defaultNameLabel, defaultKindLabel, vm.Namespace)
-		}
-	}
-	dv, err := m.Clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
-	if err != nil {
-		// Handle garbage collected DataVolumes by attempting to lookup the PVC using the name of the DataVolume in the VM namespace
-		if k8serrors.IsNotFound(err) {
-			return m.inferDefaultsFromPVC(dvName, vm.Namespace, defaultNameLabel, defaultKindLabel)
-		}
-		return "", "", err
-	}
-	// Check the DataVolume for any labels before checking the underlying PVC
-	defaultName, defaultKind, err = inferDefaultsFromLabels(dv.Labels, defaultNameLabel, defaultKindLabel)
-	if err == nil {
-		return defaultName, defaultKind, nil
-	}
-	return m.inferDefaultsFromDataVolumeSpec(&dv.Spec, defaultNameLabel, defaultKindLabel, vm.Namespace)
-}
-
-func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1beta1.DataVolumeSpec, defaultNameLabel, defaultKindLabel, vmNameSpace string) (defaultName, defaultKind string, err error) {
-	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil && dataVolumeSpec.Source.PVC != nil {
-		return m.inferDefaultsFromPVC(dataVolumeSpec.Source.PVC.Name, dataVolumeSpec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
-	}
-	if dataVolumeSpec != nil && dataVolumeSpec.SourceRef != nil {
-		return m.inferDefaultsFromDataVolumeSourceRef(dataVolumeSpec.SourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace)
-	}
-	return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported"))
-}
-
-func (m *InstancetypeMethods) inferDefaultsFromDataSource(dataSourceName, dataSourceNamespace, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
-	ds, err := m.Clientset.CdiClient().CdiV1beta1().DataSources(dataSourceNamespace).Get(context.Background(), dataSourceName, metav1.GetOptions{})
-	if err != nil {
-		return "", "", err
-	}
-	// Check the DataSource for any labels before checking the underlying PVC
-	defaultName, defaultKind, err = inferDefaultsFromLabels(ds.Labels, defaultNameLabel, defaultKindLabel)
-	if err == nil {
-		return defaultName, defaultKind, nil
-	}
-	if ds.Spec.Source.PVC != nil {
-		return m.inferDefaultsFromPVC(ds.Spec.Source.PVC.Name, ds.Spec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
-	}
-	return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC"))
-}
-
-func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace string) (defaultName, defaultKind string, err error) {
-	if sourceRef.Kind == "DataSource" {
-		// The namespace can be left blank here with the assumption that the DataSource is in the same namespace as the VM
-		namespace := vmNameSpace
-		if sourceRef.Namespace != nil {
-			namespace = *sourceRef.Namespace
-		}
-		return m.inferDefaultsFromDataSource(sourceRef.Name, namespace, defaultNameLabel, defaultKindLabel)
-	}
-	return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind))
+	return infer.New(m.Clientset).Preference(vm)
 }
 
 func AddInstancetypeNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
