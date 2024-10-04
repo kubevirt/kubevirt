@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetype "kubevirt.io/kubevirt/pkg/instancetype/errors"
 )
 
 var _ = Describe("Instancetype errors", func() {
