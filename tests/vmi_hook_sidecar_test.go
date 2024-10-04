@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
@@ -106,7 +107,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			})
 
 			AfterEach(func() {
-				tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			})
 
 			It("[test_id:3155][serial]should successfully start with hook sidecar annotation", Serial, func() {
@@ -127,7 +128,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 						Resources: resources,
 					},
 				}
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -316,7 +317,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("[Serial]with sidecar feature gate disabled", Serial, func() {
 			BeforeEach(func() {
-				tests.DisableFeatureGate(virtconfig.SidecarGate)
+				kvconfig.DisableFeatureGate(virtconfig.SidecarGate)
 			})
 
 			It("[test_id:2666]should not start with hook sidecar annotation", func() {

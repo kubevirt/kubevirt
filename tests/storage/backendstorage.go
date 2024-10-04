@@ -34,10 +34,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -81,7 +81,7 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, decorators.RequiresRWXFil
 		By("Setting the VM storage class to it")
 		kv := libkubevirt.GetCurrentKv(virtClient)
 		kv.Spec.Configuration.VMStateStorageClass = storageClass
-		tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+		config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 		By("Creating a VMI with persistent TPM")
 		vmi := libvmifact.NewCirros(libnet.WithMasqueradeNetworking())

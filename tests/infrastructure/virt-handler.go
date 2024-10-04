@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
@@ -102,14 +103,14 @@ var _ = DescribeInfra("virt-handler", func() {
 
 	AfterEach(func() {
 		restoreNodes(nodesToEnableKSM)
-		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
+		config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 	})
 
 	It("should enable/disable ksm and add/remove annotation on all the nodes when the selector is empty", decorators.KSMRequired, func() {
 		kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
 		ksmConfig := &v1.KSMConfiguration{NodeLabelSelector: &metav1.LabelSelector{}}
 		kvConfig.KSMConfiguration = ksmConfig
-		tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+		config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 		By("Ensure ksm is enabled and annotation is added in the expected nodes")
 		for _, node := range nodesToEnableKSM {
 			Eventually(func() (string, error) {
@@ -132,7 +133,7 @@ var _ = DescribeInfra("virt-handler", func() {
 			}, 3*time.Minute, 2*time.Second).Should(BeTrue(), fmt.Sprintf("Node %s should have %s annotation", node, v1.KSMHandlerManagedAnnotation))
 		}
 
-		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
+		config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 
 		By("Ensure ksm is disabled and annotation is set to false in the expected nodes")
 		for _, node := range nodesToEnableKSM {

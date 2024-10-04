@@ -90,6 +90,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -2293,13 +2294,13 @@ spec:
 	Context("with VMExport feature gate toggled", func() {
 
 		AfterEach(func() {
-			tests.EnableFeatureGate(virtconfig.VMExportGate)
+			kvconfig.EnableFeatureGate(virtconfig.VMExportGate)
 			testsuite.WaitExportProxyReady()
 		})
 
 		It("should delete and recreate virt-exportproxy", func() {
 			testsuite.WaitExportProxyReady()
-			tests.DisableFeatureGate(virtconfig.VMExportGate)
+			kvconfig.DisableFeatureGate(virtconfig.VMExportGate)
 
 			Eventually(func() error {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
@@ -2317,14 +2318,14 @@ spec:
 
 			enableSeccompFeature := func() {
 				//Disable feature first to simulate addition
-				tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
-				tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				kvconfig.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				kvconfig.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
 			}
 
 			disableSeccompFeature := func() {
 				//Enable feature first to simulate removal
-				tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
-				tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				kvconfig.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				kvconfig.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
 			}
 
 			enableKubevirtProfile := func(enable bool) {
@@ -2356,7 +2357,7 @@ spec:
 					VirtualMachineInstanceProfile: vmProfile,
 				}
 
-				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 			}
 
 			It("should install Kubevirt policy", func() {
@@ -2389,7 +2390,7 @@ spec:
 					kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{}
 				}
 				kv.Spec.Configuration.SeccompConfiguration.VirtualMachineInstanceProfile = virtualMachineProfile
-				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Checking launcher seccomp policy")
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
@@ -2454,7 +2455,7 @@ spec:
 		)
 
 		updateConfigAndWait := func(config v1.KubeVirtConfiguration) {
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			testsuite.EnsureKubevirtReady()
 		}
 

@@ -15,6 +15,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -36,7 +37,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -56,7 +56,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		tests.EnableFeatureGate(virtconfig.SnapshotGate)
+		config.EnableFeatureGate(virtconfig.SnapshotGate)
 
 		format.MaxLength = 0
 	})

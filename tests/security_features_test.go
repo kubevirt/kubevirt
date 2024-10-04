@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -80,7 +81,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			BeforeEach(func() {
 				config := kubevirtConfiguration.DeepCopy()
 				config.SELinuxLauncherType = "container_t"
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				vmi = libvmifact.NewCirros()
 
@@ -165,7 +166,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				config := kubevirtConfiguration.DeepCopy()
 				superPrivilegedType := "spc_t"
 				config.SELinuxLauncherType = superPrivilegedType
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				vmi = libvmifact.NewAlpine()
 
@@ -196,7 +197,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				config := kubevirtConfiguration.DeepCopy()
 				launcherType := "virt_launcher.process"
 				config.SELinuxLauncherType = launcherType
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				vmi = libvmifact.NewAlpine()
 
@@ -305,7 +306,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			policyRemovedByTest = err == nil
 
 			By("Disabling the custom policy by adding the corresponding feature gate")
-			tests.EnableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
+			kvconfig.EnableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
 
 			By("Ensuring the custom SELinux policy is absent from all nodes")
 			Consistently(func() error {
