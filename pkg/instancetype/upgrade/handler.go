@@ -1,4 +1,3 @@
-//nolint:lll
 /*
  * This file is part of the KubeVirt project
  *
@@ -17,7 +16,7 @@
  * Copyright 2024 Red Hat, Inc.
  *
  */
-package instancetype
+package upgrade
 
 import (
 	"context"
@@ -25,32 +24,44 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 )
 
-type Upgrader interface {
-	Upgrade(vm *virtv1.VirtualMachine) error
+type Upgrader struct {
+	controllerRevisionFinder *find.ControllerRevisionFinder
+	virtClient               kubecli.KubevirtClient
 }
 
-func (m *InstancetypeMethods) Upgrade(vm *virtv1.VirtualMachine) error {
+func New(store cache.Store, virtClient kubecli.KubevirtClient) *Upgrader {
+	return &Upgrader{
+		controllerRevisionFinder: find.NewControllerRevisionFinder(store, virtClient),
+		virtClient:               virtClient,
+	}
+}
+
+func (u *Upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
 		return nil
 	}
 
 	vmPatchSet := patch.New()
 
-	newInstancetypeCR, err := m.upgradeInstancetypeCR(vm, vmPatchSet)
+	newInstancetypeCR, err := u.upgradeInstancetypeCR(vm, vmPatchSet)
 	if err != nil {
 		return err
 	}
 
-	newPreferenceCR, err := m.upgradePreferenceCR(vm, vmPatchSet)
+	newPreferenceCR, err := u.upgradePreferenceCR(vm, vmPatchSet)
 	if err != nil {
 		return err
 	}
@@ -64,19 +75,22 @@ func (m *InstancetypeMethods) Upgrade(vm *virtv1.VirtualMachine) error {
 		return err
 	}
 
-	if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{}); err != nil {
+	if _, err := u.virtClient.VirtualMachine(vm.Namespace).Patch(
+		context.Background(), vm.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{}); err != nil {
 		return err
 	}
 
 	if newInstancetypeCR != nil {
-		if err := m.Clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.DeleteOptions{}); err != nil {
+		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+			context.Background(), vm.Spec.Instancetype.RevisionName, metav1.DeleteOptions{}); err != nil {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed instance type object upgrade")
 		}
 		vm.Spec.Instancetype.RevisionName = newInstancetypeCR.Name
 	}
 
 	if newPreferenceCR != nil {
-		if err := m.Clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), vm.Spec.Preference.RevisionName, metav1.DeleteOptions{}); err != nil {
+		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+			context.Background(), vm.Spec.Preference.RevisionName, metav1.DeleteOptions{}); err != nil {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed preference object upgrade")
 		}
 		vm.Spec.Preference.RevisionName = newPreferenceCR.Name
@@ -87,23 +101,26 @@ func (m *InstancetypeMethods) Upgrade(vm *virtv1.VirtualMachine) error {
 	return nil
 }
 
-func (m *InstancetypeMethods) upgradeInstancetypeCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
+func (u *Upgrader) upgradeInstancetypeCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.RevisionName == "" {
 		return nil, nil
 	}
-	return m.upgradeControllerRevision(vm, vm.Spec.Instancetype.RevisionName, "/spec/instancetype/revisionName", vmPatchSet)
+	return u.upgradeControllerRevision(vm, vm.Spec.Instancetype.RevisionName, "/spec/instancetype/revisionName", vmPatchSet)
 }
 
-func (m *InstancetypeMethods) upgradePreferenceCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
+func (u *Upgrader) upgradePreferenceCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Preference == nil || vm.Spec.Preference.RevisionName == "" {
 		return nil, nil
 	}
-	return m.upgradeControllerRevision(vm, vm.Spec.Preference.RevisionName, "/spec/preference/revisionName", vmPatchSet)
+	return u.upgradeControllerRevision(vm, vm.Spec.Preference.RevisionName, "/spec/preference/revisionName", vmPatchSet)
 }
 
-func (m *InstancetypeMethods) upgradeControllerRevision(vm *virtv1.VirtualMachine, crName, jsonPath string, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
-	// We always have an informer in this codepath so use getControllerRevisionByInformer
-	original, err := m.getControllerRevisionByInformer(types.NamespacedName{Namespace: vm.Namespace, Name: crName})
+func (u *Upgrader) upgradeControllerRevision(
+	vm *virtv1.VirtualMachine,
+	crName, jsonPath string,
+	vmPatchSet *patch.PatchSet,
+) (*appsv1.ControllerRevision, error) {
+	original, err := u.controllerRevisionFinder.Find(types.NamespacedName{Namespace: vm.Namespace, Name: crName})
 	if err != nil {
 		return nil, err
 	}
@@ -121,13 +138,13 @@ func (m *InstancetypeMethods) upgradeControllerRevision(vm *virtv1.VirtualMachin
 		return nil, err
 	}
 
-	newCR, err := CreateControllerRevision(vm, original.Data.Object)
+	newCR, err := revision.CreateControllerRevision(vm, original.Data.Object)
 	if err != nil {
 		return nil, err
 	}
 
 	// Recreate the CR with the now upgraded runtime.Object
-	newCR, err = m.Clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
+	newCR, err = u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
