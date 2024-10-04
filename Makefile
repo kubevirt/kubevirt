@@ -217,7 +217,7 @@ format:
 fmt: format
 
 lint:
-	if [ $$(wc -l < tests/utils.go) -gt 1401 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
+	if [ $$(wc -l < tests/utils.go) -gt 350 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
 	hack/dockerized "hack/golangci-lint.sh"
 	hack/dockerized "monitoringlinter ./pkg/..."
 
