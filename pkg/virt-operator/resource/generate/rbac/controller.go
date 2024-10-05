@@ -565,6 +565,20 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"delete",
 				},
 			},
+			{
+				APIGroups: []string{
+					"resource.k8s.io",
+				},
+				Resources: []string{
+					"resourceslices",
+					"resourceclaims",
+				},
+				Verbs: []string{
+					"list",
+					"watch",
+					"get",
+				},
+			},
 		},
 	}
 }
