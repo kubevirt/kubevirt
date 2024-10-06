@@ -609,6 +609,7 @@ status:
     - ipAddressesValue
     mac: macValue
     name: nameValue
+    podInterfaceName: podInterfaceNameValue
     queueCount: -10
   kernelBootStatus:
     initrdInfo:

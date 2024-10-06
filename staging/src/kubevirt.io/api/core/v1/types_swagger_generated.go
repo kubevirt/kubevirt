@@ -187,13 +187,14 @@ func (VirtualMachineInstanceMigrationCondition) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"ipAddress":     "IP address of a Virtual Machine interface. It is always the first item of\nIPs",
-		"mac":           "Hardware address of a Virtual Machine interface",
-		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
-		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
-		"interfaceName": "The interface name inside the Virtual Machine",
-		"infoSource":    "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
-		"queueCount":    "Specifies how many queues are allocated by MultiQueue",
+		"ipAddress":        "IP address of a Virtual Machine interface. It is always the first item of\nIPs",
+		"mac":              "Hardware address of a Virtual Machine interface",
+		"name":             "Name of the interface, corresponds to name of the network assigned to the interface",
+		"ipAddresses":      "List of all IP addresses of a Virtual Machine interface",
+		"podInterfaceName": "PodInterfaceName represents the name of the pod network interface",
+		"interfaceName":    "The interface name inside the Virtual Machine",
+		"infoSource":       "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
+		"queueCount":       "Specifies how many queues are allocated by MultiQueue",
 	}
 }
 

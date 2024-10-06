@@ -896,6 +896,7 @@
         "ipAddresses": [
           "ipAddressesValue"
         ],
+        "podInterfaceName": "podInterfaceNameValue",
         "interfaceName": "interfaceNameValue",
         "infoSource": "infoSourceValue",
         "queueCount": -10
