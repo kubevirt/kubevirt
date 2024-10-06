@@ -91,9 +91,17 @@ func PatchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubec
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
 // and then waits  to allow the configuration events to be propagated to the consumers.
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
+	kv, changed := testsuite.UpdateKubeVirtConfigValue(kvConfig)
+	if changed {
+		desiredGeneration := kv.Generation
+		virtClient := kubevirt.Client()
 
-	waitForConfigToBePropagated(kv.ResourceVersion)
+		Eventually(func(g Gomega) {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			g.Expect(kv.Status.ObservedGeneration).ToNot(BeNil())
+			g.Expect(*kv.Status.ObservedGeneration).To(BeNumerically(">=", desiredGeneration))
+		}, 60*time.Second, 1*time.Second).Should(Succeed())
+	}
 	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
 
 	return kv
