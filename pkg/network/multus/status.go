@@ -17,19 +17,19 @@
  *
  */
 
-package network
+package multus
 
 import (
 	"encoding/json"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	k8Scorev1 "k8s.io/api/core/v1"
 
-	k8sv1 "k8s.io/api/core/v1"
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	"kubevirt.io/client-go/log"
 )
 
-func NonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {
+func NonDefaultNetworkStatusIndexedByIfaceName(pod *k8Scorev1.Pod) map[string]networkv1.NetworkStatus {
 	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
 	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
 

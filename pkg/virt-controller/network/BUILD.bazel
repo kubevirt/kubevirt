@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "hotplug.go",
-        "multus_annotations.go",
         "render.go",
         "vmcontroller.go",
     ],

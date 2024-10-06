@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "annotation.go",
         "nad.go",
+        "status.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/multus",
     visibility = ["//visibility:public"],
@@ -14,8 +15,10 @@ go_library(
         "//pkg/network/vmispec:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
         "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
     ],
 )
 
@@ -25,6 +28,7 @@ go_test(
         "annotation_test.go",
         "multus_suite_test.go",
         "nad_test.go",
+        "status_test.go",
     ],
     deps = [
         ":go_default_library",
@@ -32,8 +36,10 @@ go_test(
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )
