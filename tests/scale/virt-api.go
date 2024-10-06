@@ -26,7 +26,7 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 	var virtClient kubecli.KubevirtClient
 	numberOfNodes := 0
 
-	setccs := func(ccs v1.CustomizeComponents, kvNamespace string, kvName string) error {
+	setccs := func(ccs v1.CustomizeComponents, kvNamespace, kvName string) error {
 		patchPayload, err := patch.New(patch.WithReplace("/spec/customizeComponents", ccs)).GeneratePayload()
 		if err != nil {
 			return err
@@ -35,9 +35,12 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 		return err
 	}
 
-	getApiReplicas := func() int32 {
+	getAPIReplicas := func() int32 {
 		By("Finding out virt-api replica number")
-		apiDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), components.VirtAPIName, metav1.GetOptions{})
+		apiDeployment, err := virtClient.AppsV1().Deployments(
+			flags.KubeVirtInstallNamespace).Get(context.Background(),
+			components.VirtAPIName,
+			metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(apiDeployment.Spec.Replicas).ToNot(BeNil(), "The number of replicas in the virt-api deployment should not be nil")
 
@@ -77,7 +80,7 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 	It("virt-api replicas should be scaled as expected", func() {
 		By("Finding out nodes count")
 		Eventually(func() int32 {
-			return getApiReplicas()
+			return getAPIReplicas()
 		}, 1*time.Minute, 5*time.Second).Should(Equal(calcExpectedReplicas(numberOfNodes)), "number of virt API should be as expected")
 	})
 
@@ -100,8 +103,7 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 		DeferCleanup(setccs, originalKv.Spec.CustomizeComponents, originalKv.Namespace, originalKv.Name)
 
 		Eventually(func() int32 {
-			return getApiReplicas()
+			return getAPIReplicas()
 		}, 1*time.Minute, 5*time.Second).Should(Equal(expectedResult), "number of virt API should be as expected")
 	})
-
 })

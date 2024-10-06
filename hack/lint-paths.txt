@@ -15,5 +15,9 @@ tests/libinstancetype
 tests/libnet
 tests/libnode
 tests/libpod
+tests/libregistry
 tests/libsecret
+tests/libssh
 tests/libvmifact
+tests/libwait
+tests/scale
