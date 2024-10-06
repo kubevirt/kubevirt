@@ -73,6 +73,7 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	metricshandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/handler"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -386,8 +387,8 @@ func (app *virtHandlerApp) Run() {
 	factory.Start(stop)
 	go domainSharedInformer.Run(stop)
 
-	se, exists, err := selinux.NewSELinux()
-	if err == nil && exists {
+	se, selinuxExists, err := selinux.NewSELinux()
+	if err == nil && selinuxExists {
 		// relabel tun device
 
 		devTun, err := safepath.JoinAndResolveWithRelativeRoot("/", "/dev/net/tun")
@@ -405,6 +406,10 @@ func (app *virtHandlerApp) Run() {
 	} else if err != nil {
 		//an error occurred
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
+	}
+
+	if selinuxExists {
+		netdriver.LoadMacvtapDriver()
 	}
 
 	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, factory.KubeVirt().HasSynced)
