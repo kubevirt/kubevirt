@@ -3,7 +3,6 @@ package instancetype
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,6 +24,7 @@ import (
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -125,19 +125,7 @@ func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 }
 
 func IsPreferredTopologySupported(topology instancetypev1beta1.PreferredCPUTopology) bool {
-	supportedTopologies := []instancetypev1beta1.PreferredCPUTopology{
-		instancetypev1beta1.DeprecatedPreferSockets,
-		instancetypev1beta1.DeprecatedPreferCores,
-		instancetypev1beta1.DeprecatedPreferThreads,
-		instancetypev1beta1.DeprecatedPreferSpread,
-		instancetypev1beta1.DeprecatedPreferAny,
-		instancetypev1beta1.Sockets,
-		instancetypev1beta1.Cores,
-		instancetypev1beta1.Threads,
-		instancetypev1beta1.Spread,
-		instancetypev1beta1.Any,
-	}
-	return slices.Contains(supportedTopologies, topology)
+	return validation.IsPreferredTopologySupported(topology)
 }
 
 func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) (uint32, instancetypev1beta1.SpreadAcross) {
