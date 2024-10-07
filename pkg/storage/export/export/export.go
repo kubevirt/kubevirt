@@ -509,10 +509,6 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		populateInitialVMExportStatus(vmExport)
 	}
 
-	if err := ctrl.handleVMExportToken(vmExport); err != nil {
-		return 0, err
-	}
-
 	if ctrl.isSourcePvc(&vmExport.Spec) {
 		return ctrl.handleSource(vmExport, service, ctrl.getPVCFromSourcePVC, ctrl.updateVMExportPvcStatus)
 	}
@@ -529,11 +525,14 @@ type pvcFromSourceFunc func(*exportv1.VirtualMachineExport) (*sourceVolumes, err
 type updateVMExportStatusFunc func(*exportv1.VirtualMachineExport, *corev1.Pod, *corev1.Service, *sourceVolumes) (time.Duration, error)
 
 func (ctrl *VMExportController) handleSource(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, getPVCFromSource pvcFromSourceFunc, updateStatus updateVMExportStatusFunc) (time.Duration, error) {
+	if err := ctrl.handleVMExportToken(vmExport, getPVCFromSource); err != nil {
+		return 0, err
+	}
 	sourceVolumes, err := getPVCFromSource(vmExport)
 	if err != nil {
 		return 0, err
 	}
-	log.Log.V(4).Infof("Source volumes %v", sourceVolumes)
+	log.Log.V(4).Infof("Source volumes %#v", sourceVolumes)
 
 	pod, err := ctrl.manageExporterPod(vmExport, service, sourceVolumes)
 	if err != nil {
@@ -700,11 +699,18 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 }
 
 // handleVMExportToken checks if a secret has been specified for the current export object and, if not, creates one specific to it
-func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMachineExport) error {
+func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMachineExport, getPVCFromSource pvcFromSourceFunc) error {
 	// If a tokenSecretRef has been specified, we assume that the corresponding
 	// secret has already been created and managed appropiately by the user
 	if vmExport.Spec.TokenSecretRef != nil {
 		vmExport.Status.TokenSecretRef = vmExport.Spec.TokenSecretRef
+		return nil
+	}
+	sourceVolumes, err := getPVCFromSource(vmExport)
+	if err != nil {
+		return err
+	}
+	if !sourceVolumes.isSourceAvailable() || len(sourceVolumes.volumes) == 0 {
 		return nil
 	}
 
