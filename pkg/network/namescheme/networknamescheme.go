@@ -138,6 +138,16 @@ func PodHasOrdinalInterfaceName(podNetworkStatus map[string]networkv1.NetworkSta
 	return false
 }
 
+// PodHasOrdinalInterfaceName2 checks if the given pod network status has at least one pod interface with ordinal name
+func PodHasOrdinalInterfaceName2(networkStatuses []networkv1.NetworkStatus) bool {
+	for _, networkStatus := range networkStatuses {
+		if OrdinalSecondaryInterfaceName(networkStatus.Interface) {
+			return true
+		}
+	}
+	return false
+}
+
 // OrdinalSecondaryInterfaceName check if the given name is in form of the ordinal
 // name scheme (e.g.: net1, net2..).
 // Primary iface name (eth0) is treated as non-ordinal interface name.
