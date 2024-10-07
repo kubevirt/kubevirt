@@ -44,6 +44,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/vm/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -146,6 +147,7 @@ var _ = Describe("VirtualMachine", func() {
 				virtClient,
 				config,
 				nil,
+				instancetypecontroller.NewMockController(),
 			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -4296,6 +4298,17 @@ var _ = Describe("VirtualMachine", func() {
 					ControllerRevisionStore:  controllerrevisionInformerStore,
 					Clientset:                virtClient,
 				}
+
+				controller.instancetypeSynchronizer = instancetypecontroller.New(
+					instancetypeInformerStore,
+					clusterInstancetypeInformerStore,
+					preferenceInformerStore,
+					clusterPreferenceInformerStore,
+					controllerrevisionInformerStore,
+					virtClient,
+					config,
+					controller.recorder,
+				)
 
 				instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{

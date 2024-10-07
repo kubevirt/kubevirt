@@ -82,6 +82,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
+	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/vm/controller"
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -754,6 +755,16 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		netcontrollers.NewVMController(
 			vca.clientSet.GeneratedKubeVirtClient(),
 			controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
+		),
+		instancetypecontroller.New(
+			vca.instancetypeInformer.GetStore(),
+			vca.clusterInstancetypeInformer.GetStore(),
+			vca.preferenceInformer.GetStore(),
+			vca.clusterPreferenceInformer.GetStore(),
+			vca.controllerRevisionInformer.GetStore(),
+			vca.clientSet,
+			vca.clusterConfig,
+			recorder,
 		),
 	)
 	if err != nil {

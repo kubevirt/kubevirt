@@ -12,6 +12,7 @@ go_library(
         "//pkg/healthz:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
+        "//pkg/instancetype/vm/controller:go_default_library",
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
@@ -77,6 +78,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/instancetype/vm/controller:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/rest:go_default_library",
         "//pkg/storage/export/export:go_default_library",

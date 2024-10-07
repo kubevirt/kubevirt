@@ -1,0 +1,166 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2024 Red Hat, Inc.
+ *
+ */
+package controller
+
+import (
+	"context"
+	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
+
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+
+	virtv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/expand"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
+	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
+)
+
+type expandHandler interface {
+	Expand(*virtv1.VirtualMachine) (*virtv1.VirtualMachine, error)
+}
+
+type storeHandler interface {
+	Store(*virtv1.VirtualMachine) error
+}
+
+type upgradeHandler interface {
+	Upgrade(*virtv1.VirtualMachine) error
+}
+
+type controller struct {
+	storeHandler
+	expandHandler
+	upgradeHandler
+
+	clientset     kubecli.KubevirtClient
+	clusterConfig *virtconfig.ClusterConfig
+	recorder      record.EventRecorder
+}
+
+func New(
+	instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, revisionStore cache.Store,
+	virtClient kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, recorder record.EventRecorder,
+) *controller {
+	instancetypeFinder := find.NewSpecFinder(instancetypeStore, clusterInstancetypeStore, revisionStore, virtClient)
+	preferenceFinder := preferencefind.NewSpecFinder(preferenceStore, clusterPreferenceStore, revisionStore, virtClient)
+	return &controller{
+		storeHandler:   revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
+		expandHandler:  expand.New(clusterConfig, instancetypeFinder, preferenceFinder),
+		upgradeHandler: upgrade.New(revisionStore, virtClient),
+		clientset:      virtClient,
+		clusterConfig:  clusterConfig,
+		recorder:       recorder,
+	}
+}
+
+const (
+	storeControllerRevisionErrFmt   = "Error encountered while storing Instancetype ControllerRevisions: %v"
+	upgradeControllerRevisionErrFmt = "error encountered while upgrading instancetype.kubevirt.io controllerRevisions: %v"
+	cleanControllerRevisionErrFmt   = "error encountered cleaning controllerRevision %s after successfully expanding VirtualMachine %s: %v"
+)
+
+func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
+	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
+		return vm, nil
+	}
+
+	referencePolicy := c.clusterConfig.GetInstancetypeReferencePolicy()
+	switch referencePolicy {
+	case virtv1.Reference:
+		// Ensure we have controllerRevisions of any instancetype or preferences referenced by the VM
+		if err := c.Store(vm); err != nil {
+			log.Log.Object(vm).Errorf(storeControllerRevisionErrFmt, err)
+			c.recorder.Eventf(vm, corev1.EventTypeWarning, common.FailedCreateVirtualMachineReason, storeControllerRevisionErrFmt, err)
+			// FIXME(lyarwood) Align storeControllerRevisionErrFmt with the other errors and use lower case
+			//nolint:stylecheck
+			return vm, common.NewSyncError(fmt.Errorf(storeControllerRevisionErrFmt, err), common.FailedCreateVirtualMachineReason)
+		}
+	case virtv1.Expand, virtv1.ExpandAll:
+		return c.handleExpand(vm, referencePolicy)
+	}
+
+	// If we have controllerRevisions make sure they are fully up to date before proceeding
+	if err := c.Upgrade(vm); err != nil {
+		log.Log.Object(vm).Reason(err).Errorf(upgradeControllerRevisionErrFmt, err)
+		c.recorder.Eventf(vm, corev1.EventTypeWarning, common.FailedCreateVirtualMachineReason, upgradeControllerRevisionErrFmt, err)
+		return vm, common.NewSyncError(fmt.Errorf(upgradeControllerRevisionErrFmt, err), common.FailedCreateVirtualMachineReason)
+	}
+	return vm, nil
+}
+
+func (c *controller) handleExpand(
+	vm *virtv1.VirtualMachine,
+	referencePolicy virtv1.InstancetypeReferencePolicy,
+) (*virtv1.VirtualMachine, error) {
+	if referencePolicy == virtv1.Expand {
+		if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
+			log.Log.Object(vm).Infof("not expanding as instance type already has revisionName")
+			return vm, nil
+		}
+		if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
+			log.Log.Object(vm).Infof("not expanding as preference already has revisionName")
+			return vm, nil
+		}
+	}
+
+	expandVMCopy, err := c.Expand(vm)
+	if err != nil {
+		return vm, fmt.Errorf("error encountered while expanding into VirtualMachine: %v", err)
+	}
+
+	// Only update the VM if we have changed something by applying an instance type and preference
+	if !equality.Semantic.DeepEqual(vm.Spec, expandVMCopy.Spec) {
+		updatedVM, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(context.Background(), expandVMCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return vm, fmt.Errorf("error encountered when trying to update expanded VirtualMachine: %v", err)
+		}
+		// We should clean up any instance type or preference controllerRevisions after successfully expanding the VM
+		if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
+			revisionName := vm.Spec.Instancetype.RevisionName
+			if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+				context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
+				return nil, common.NewSyncError(
+					fmt.Errorf(cleanControllerRevisionErrFmt, revisionName, vm.Name, err), common.FailedCreateVirtualMachineReason)
+			}
+		}
+
+		if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
+			revisionName := vm.Spec.Preference.RevisionName
+			if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+				context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
+				return nil, common.NewSyncError(
+					fmt.Errorf(cleanControllerRevisionErrFmt, revisionName, vm.Name, err), common.FailedCreateVirtualMachineReason)
+			}
+		}
+		return updatedVM, nil
+	}
+	return vm, nil
+}

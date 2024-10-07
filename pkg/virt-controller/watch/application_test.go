@@ -51,6 +51,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/vm/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
@@ -169,6 +170,7 @@ var _ = Describe("Application", func() {
 			virtClient,
 			config,
 			nil,
+			instancetypecontroller.NewMockController(),
 		)
 		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
