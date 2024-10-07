@@ -22,28 +22,17 @@ package multus
 import (
 	"encoding/json"
 
-	k8Scorev1 "k8s.io/api/core/v1"
+	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	"kubevirt.io/client-go/log"
 )
 
-func NonDefaultNetworkStatusIndexedByIfaceName(pod *k8Scorev1.Pod) map[string]networkv1.NetworkStatus {
+func NonDefaultNetworkStatusIndexedByIfaceName(pod *k8scorev1.Pod) map[string]networkv1.NetworkStatus {
 	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
-	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
 
-	if !found {
-		return indexedNetworkStatus
-	}
-
-	var networkStatus []networkv1.NetworkStatus
-	if err := json.Unmarshal([]byte(podNetworkStatus), &networkStatus); err != nil {
-		log.Log.Errorf("failed to unmarshall pod network status: %v", err)
-		return indexedNetworkStatus
-	}
-
-	for _, ns := range networkStatus {
+	for _, ns := range NetworkStatusesFromPod(pod) {
 		if ns.Default {
 			continue
 		}
@@ -51,4 +40,16 @@ func NonDefaultNetworkStatusIndexedByIfaceName(pod *k8Scorev1.Pod) map[string]ne
 	}
 
 	return indexedNetworkStatus
+}
+
+func NetworkStatusesFromPod(pod *k8scorev1.Pod) []networkv1.NetworkStatus {
+	var networkStatuses []networkv1.NetworkStatus
+
+	if rawNS := pod.Annotations[networkv1.NetworkStatusAnnot]; rawNS != "" {
+		if err := json.Unmarshal([]byte(rawNS), &networkStatuses); err != nil {
+			log.Log.Errorf("failed to unmarshall pod network status: %v", err)
+		}
+	}
+
+	return networkStatuses
 }
