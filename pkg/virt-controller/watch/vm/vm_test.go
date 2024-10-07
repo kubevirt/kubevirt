@@ -42,6 +42,8 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypeHandler "kubevirt.io/kubevirt/pkg/instancetype/handler"
+	preferenceHandler "kubevirt.io/kubevirt/pkg/instancetype/preference/handler"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -75,6 +77,8 @@ var _ = Describe("VirtualMachine", func() {
 		var config *virtconfig.ClusterConfig
 		var kvStore cache.Store
 		var virtFakeClient *fake.Clientset
+		var mockInstancetypeHandler *instancetypeHandler.MockVMControllerHandler
+		var mockPreferenceHandler *preferenceHandler.MockVMControllerHandler
 
 		BeforeEach(func() {
 			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
@@ -124,12 +128,13 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
-			instancetypeMethods := testutils.NewMockInstancetypeMethods()
-
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+
+			mockInstancetypeHandler = instancetypeHandler.NewMockVMControllerHandler()
+			mockPreferenceHandler = preferenceHandler.NewMockVMControllerHandler()
 
 			controller, _ = NewController(vmiInformer,
 				vmInformer,
@@ -139,7 +144,8 @@ var _ = Describe("VirtualMachine", func() {
 				pvcInformer,
 				crInformer,
 				podInformer,
-				instancetypeMethods,
+				mockInstancetypeHandler,
+				mockPreferenceHandler,
 				recorder,
 				virtClient,
 				config,
@@ -4263,14 +4269,21 @@ var _ = Describe("VirtualMachine", func() {
 				controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 				controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
-				controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-					InstancetypeStore:        instancetypeInformerStore,
-					ClusterInstancetypeStore: clusterInstancetypeInformerStore,
-					PreferenceStore:          preferenceInformerStore,
-					ClusterPreferenceStore:   clusterPreferenceInformerStore,
-					ControllerRevisionStore:  controllerrevisionInformerStore,
-					Clientset:                virtClient,
-				}
+				controller.instancetypeHandler = instancetypeHandler.NewVMControllerHandler(
+					instancetypeInformerStore,
+					clusterInstancetypeInformerStore,
+					preferenceInformerStore,
+					clusterPreferenceInformerStore,
+					controllerrevisionInformerStore,
+					virtClient,
+				)
+				controller.preferenceHandler = preferenceHandler.NewVMControllerHandler(
+					preferenceInformerStore,
+					clusterPreferenceInformerStore,
+					controllerrevisionInformerStore,
+					virtClient,
+				)
+
 			})
 
 			Context("instancetype", func() {
@@ -6441,10 +6454,11 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: revision.Name,
 					}
 
-					controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-						ControllerRevisionStore: controllerrevisionInformerStore,
-						Clientset:               virtClient,
-					}
+					controller.instancetypeHandler = instancetypeHandler.NewVMControllerHandler(
+						nil, nil, nil, nil,
+						controllerrevisionInformerStore,
+						virtClient,
+					)
 
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
