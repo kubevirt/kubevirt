@@ -45,9 +45,10 @@ type blankVolume struct {
 }
 
 type dataVolumeSourceBlank struct {
-	Size *resource.Quantity `param:"size"`
-	Type string             `param:"type"`
-	Name string             `param:"name"`
+	Size      *resource.Quantity `param:"size"`
+	Type      string             `param:"type"`
+	Name      string             `param:"name"`
+	BootOrder *uint              `param:"bootorder"`
 }
 
 type dataVolumeSourceGcs struct {
@@ -56,6 +57,7 @@ type dataVolumeSourceGcs struct {
 	Size      *resource.Quantity `param:"size"`
 	Type      string             `param:"type"`
 	Name      string             `param:"name"`
+	BootOrder *uint              `param:"bootorder"`
 }
 
 type dataVolumeSourceHttp struct {
@@ -67,6 +69,7 @@ type dataVolumeSourceHttp struct {
 	Size               *resource.Quantity `param:"size"`
 	Type               string             `param:"type"`
 	Name               string             `param:"name"`
+	BootOrder          *uint              `param:"bootorder"`
 }
 
 type dataVolumeSourceImageIO struct {
@@ -77,13 +80,15 @@ type dataVolumeSourceImageIO struct {
 	Size          *resource.Quantity `param:"size"`
 	Type          string             `param:"type"`
 	Name          string             `param:"name"`
+	BootOrder     *uint              `param:"bootorder"`
 }
 
 type dataVolumeSourcePVC struct {
-	Name   string             `param:"name"`
-	Source string             `param:"src"`
-	Size   *resource.Quantity `param:"size"`
-	Type   string             `param:"type"`
+	Name      string             `param:"name"`
+	Source    string             `param:"src"`
+	Size      *resource.Quantity `param:"size"`
+	Type      string             `param:"type"`
+	BootOrder *uint              `param:"bootorder"`
 }
 
 type dataVolumeSourceRegistry struct {
@@ -95,6 +100,7 @@ type dataVolumeSourceRegistry struct {
 	Size          *resource.Quantity `param:"size"`
 	Type          string             `param:"type"`
 	Name          string             `param:"name"`
+	BootOrder     *uint              `param:"bootorder"`
 }
 
 type dataVolumeSourceS3 struct {
@@ -104,6 +110,7 @@ type dataVolumeSourceS3 struct {
 	Size          *resource.Quantity `param:"size"`
 	Type          string             `param:"type"`
 	Name          string             `param:"name"`
+	BootOrder     *uint              `param:"bootorder"`
 }
 
 type dataVolumeSourceVDDK struct {
@@ -116,11 +123,13 @@ type dataVolumeSourceVDDK struct {
 	Size         *resource.Quantity `param:"size"`
 	Type         string             `param:"type"`
 	Name         string             `param:"name"`
+	BootOrder    *uint              `param:"bootorder"`
 }
 
 type dataVolumeSourceSnapshot struct {
-	Name   string             `param:"name"`
-	Source string             `param:"src"`
-	Size   *resource.Quantity `param:"size"`
-	Type   string             `param:"type"`
+	Name      string             `param:"name"`
+	Source    string             `param:"src"`
+	Size      *resource.Quantity `param:"size"`
+	Type      string             `param:"type"`
+	BootOrder *uint              `param:"bootorder"`
 }
