@@ -29,10 +29,10 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func NonDefaultNetworkStatusIndexedByIfaceName(pod *k8scorev1.Pod) map[string]networkv1.NetworkStatus {
+func NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses []networkv1.NetworkStatus) map[string]networkv1.NetworkStatus {
 	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
 
-	for _, ns := range NetworkStatusesFromPod(pod) {
+	for _, ns := range networkStatuses {
 		if ns.Default {
 			continue
 		}
