@@ -855,7 +855,6 @@ status:
     reason: reasonValue
   volumeUpdateState:
     volumeMigrationState:
-      manualRecoveryRequired: true
       migratedVolumes:
       - destinationPVCInfo:
           accessModes:

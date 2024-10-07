@@ -1701,8 +1701,6 @@ type VolumeMigrationState struct {
 	// +listType=atomic
 	// +optional
 	MigratedVolumes []StorageMigratedVolumeInfo `json:"migratedVolumes,omitempty"`
-	// ManualRecoveryRequired indicates if the update due to the migration failed and the volumes set needs to be manually restored
-	ManualRecoveryRequired *bool `json:"manualRecoveryRequired,omitempty"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1761,6 +1759,9 @@ const (
 
 	// VirtualMachineRestartRequired is added when changes made to the VM can't be live-propagated to the VMI
 	VirtualMachineRestartRequired VirtualMachineConditionType = "RestartRequired"
+
+	// VirtualMachineManualRecoveryRequired is added when the VM spec needs to be manually recovered by the user
+	VirtualMachineManualRecoveryRequired VirtualMachineConditionType = "ManualRecoveryRequired"
 )
 
 type HostDiskType string
