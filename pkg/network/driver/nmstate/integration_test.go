@@ -307,7 +307,7 @@ var _ = Describe("NMState", integrationLabel, func() {
 
 		// The backend implementation to create a tap device requires the `virt-chroot` executable.
 		// The test is marked as pending until the required executable is placed in the test environment.
-		PIt("attach a new created tap to the bridge", func() {
+		It("attach a new created tap to the bridge", func() {
 			const (
 				tapName = "testTap99"
 			)
@@ -319,6 +319,7 @@ var _ = Describe("NMState", integrationLabel, func() {
 					Name:       tapName,
 					TypeName:   nmstate.TypeTap,
 					State:      nmstate.IfaceStateUp,
+					MTU:        bridgeIface.MTU,
 					Controller: bridgeIface.Name,
 					Tap: &nmstate.TapDevice{
 						Queues: 2,
