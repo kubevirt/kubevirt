@@ -220,10 +220,10 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&c.inferPreferenceFrom, InferPreferenceFromFlag, c.inferPreferenceFrom, "Specify the volume to infer the Preference of the VM from. Mutually exclusive with --infer-preference.")
 	cmd.MarkFlagsMutuallyExclusive(PreferenceFlag, InferPreferenceFlag, InferPreferenceFromFlag)
 
-	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes, fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(containerdiskVolume{})))
+	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes, fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(volumeSource{})))
 	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a DataSource to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
 	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes, fmt.Sprintf("Specify a PVC to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
-	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(pvcVolume{})))
+	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(volumeSource{})))
 	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.blankVolumes, fmt.Sprintf("Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(blankVolume{})))
 	cmd.Flags().StringArrayVar(&c.volumeImport, VolumeImportFlag, c.volumeImport, fmt.Sprintf(
 		"Specify the source for DataVolume. Can be provided multiple times.\nSupported parameters:\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s",
@@ -485,22 +485,24 @@ func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 }
 
 func (c *createVM) addDiskWithBootOrder(flag string, vm *v1.VirtualMachine, name string, bootOrder *uint) error {
-	if bootOrder != nil {
-		if *bootOrder == 0 {
-			return params.FlagErr(flag, "bootorder must be greater than 0")
-		}
-
-		if _, ok := c.bootOrders[*bootOrder]; ok {
-			return params.FlagErr(flag, "bootorder %d was specified multiple times", *bootOrder)
-		}
-
-		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-			Name:      name,
-			BootOrder: bootOrder,
-		})
-
-		c.bootOrders[*bootOrder] = name
+	if bootOrder == nil {
+		return nil
 	}
+
+	if *bootOrder == 0 {
+		return params.FlagErr(flag, "bootorder must be greater than 0")
+	}
+
+	if _, ok := c.bootOrders[*bootOrder]; ok {
+		return params.FlagErr(flag, "bootorder %d was specified multiple times", *bootOrder)
+	}
+
+	vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:      name,
+		BootOrder: bootOrder,
+	})
+
+	c.bootOrders[*bootOrder] = name
 
 	return nil
 }
@@ -782,9 +784,8 @@ func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 
 func withContainerdiskVolume(c *createVM, vm *v1.VirtualMachine) error {
 	for i, containerdiskVol := range c.containerdiskVolumes {
-		vol := containerdiskVolume{}
-		err := params.Map(ContainerdiskVolumeFlag, containerdiskVol, &vol)
-		if err != nil {
+		vol := volumeSource{}
+		if err := params.Map(ContainerdiskVolumeFlag, containerdiskVol, &vol); err != nil {
 			return err
 		}
 
@@ -949,9 +950,8 @@ func withClonePvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 
 func withPvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 	for _, pvcVol := range c.pvcVolumes {
-		vol := pvcVolume{}
-		err := params.Map(PvcVolumeFlag, pvcVol, &vol)
-		if err != nil {
+		vol := volumeSource{}
+		if err := params.Map(PvcVolumeFlag, pvcVol, &vol); err != nil {
 			return err
 		}
 
@@ -1117,10 +1117,9 @@ func withImportedVolume(c *createVM, vm *v1.VirtualMachine) error {
 		}
 
 		size, err := params.GetParamByName("size", volume)
-		if err != nil {
-			if !volumeImportSizeOptional[volumeSourceType] || !errors.Is(err, params.NotFoundError{Name: "size"}) {
-				return params.FlagErr(VolumeImportFlag, err.Error())
-			}
+		if err != nil &&
+			(!volumeImportSizeOptional[volumeSourceType] || !errors.Is(err, params.NotFoundError{Name: "size"})) {
+			return params.FlagErr(VolumeImportFlag, err.Error())
 		}
 
 		name, err := params.GetParamByName("name", volume)
