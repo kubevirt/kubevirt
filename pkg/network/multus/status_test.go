@@ -117,6 +117,51 @@ var _ = Describe("Network Status", func() {
 			Expect(multus.NetworkStatusesFromPod(newStubPod(annotations))).To(Equal(expectedResult))
 		})
 	})
+
+	Context("LookupPodPrimaryIfaceName", func() {
+		const (
+			defaultPrimaryPodIfaceName = "eth0"
+			customPrimaryPodIfaceName  = "custom-iface"
+		)
+
+		DescribeTable("should return empty string", func(networkStatuses []networkv1.NetworkStatus) {
+			Expect(multus.LookupPodPrimaryIfaceName(networkStatuses)).To(BeEmpty())
+		},
+			Entry("when network status is nil", nil),
+			Entry("when network status is empty", []networkv1.NetworkStatus{}),
+			Entry("when network status does not report interface name",
+				[]networkv1.NetworkStatus{
+					{Name: "k8s-pod-network", Default: true},
+				},
+			),
+			Entry("when network status does not report a default interface name",
+				[]networkv1.NetworkStatus{
+					{Name: "net1", Interface: "", Default: false},
+					{Name: "net2", Interface: "pod12345", Default: false},
+				},
+			),
+		)
+
+		DescribeTable("Should return the primary pod interface name", func(networkStatuses []networkv1.NetworkStatus, expectedResult string) {
+			Expect(multus.LookupPodPrimaryIfaceName(networkStatuses)).To(Equal(expectedResult))
+		},
+			Entry("When the primary pod interface name is reported and its the default value",
+				[]networkv1.NetworkStatus{
+					{Name: "k8s-pod-network", Interface: defaultPrimaryPodIfaceName, Default: true},
+					{Name: "some-net", Interface: "pod123456", Default: false},
+				},
+				defaultPrimaryPodIfaceName,
+			),
+			Entry("When the primary pod interface name is reported and it has the custom value",
+				[]networkv1.NetworkStatus{
+					{Name: "k8s-pod-network", Interface: defaultPrimaryPodIfaceName, Default: false},
+					{Name: "k8s-pod-network", Interface: customPrimaryPodIfaceName, Default: true},
+					{Name: "some-net", Interface: "net1", Default: false},
+				},
+				customPrimaryPodIfaceName,
+			),
+		)
+	})
 })
 
 func newStubPod(annotations map[string]string) *k8scorev1.Pod {
