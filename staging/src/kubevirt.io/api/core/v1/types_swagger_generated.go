@@ -415,8 +415,7 @@ func (VolumeUpdateState) SwaggerDoc() map[string]string {
 
 func (VolumeMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"migratedVolumes":        "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
-		"manualRecoveryRequired": "ManualRecoveryRequired indicates if the update due to the migration failed and the volumes set needs to be manually restored",
+		"migratedVolumes": "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
 	}
 }
 

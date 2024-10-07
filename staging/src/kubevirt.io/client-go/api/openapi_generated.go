@@ -26944,13 +26944,6 @@ func schema_kubevirtio_api_core_v1_VolumeMigrationState(ref common.ReferenceCall
 							},
 						},
 					},
-					"manualRecoveryRequired": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ManualRecoveryRequired indicates if the update due to the migration failed and the volumes set needs to be manually restored",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 				},
 			},
 		},
