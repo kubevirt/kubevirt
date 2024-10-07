@@ -1,4 +1,4 @@
-//nolint:dupl,lll,gocyclo
+//nolint:dupl,lll
 package instancetype
 
 import (
@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -32,13 +33,8 @@ import (
 )
 
 const (
-	VMFieldConflictErrorFmt                         = "VM field %s conflicts with selected instance type"
-	VMFieldsConflictsErrorFmt                       = "VM fields %s conflict with selected instance type"
-	InsufficientInstanceTypeCPUResourcesErrorFmt    = "insufficient CPU resources of %d vCPU provided by instance type, preference requires %d vCPU"
-	InsufficientVMCPUResourcesErrorFmt              = "insufficient CPU resources of %d vCPU provided by VirtualMachine, preference requires %d vCPU provided as %s"
-	InsufficientInstanceTypeMemoryResourcesErrorFmt = "insufficient Memory resources of %s provided by instance type, preference requires %s"
-	InsufficientVMMemoryResourcesErrorFmt           = "insufficient Memory resources of %s provided by VirtualMachine, preference requires %s"
-	NoVMCPUResourcesDefinedErrorFmt                 = "no CPU resources provided by VirtualMachine, preference requires %d vCPU"
+	VMFieldsConflictsErrorFmt = "VM fields %s conflict with selected instance type"
+	VMFieldConflictErrorFmt   = "VM field %s conflicts with selected instance type"
 )
 
 type Methods interface {
@@ -169,91 +165,9 @@ func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, er
 	return revision.Compare(revisionA, revisionB)
 }
 
-func checkCPUPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (Conflicts, error) {
-	if instancetypeSpec != nil {
-		if instancetypeSpec.CPU.Guest < preferenceSpec.Requirements.CPU.Guest {
-			return Conflicts{k8sfield.NewPath("spec", "instancetype")}, fmt.Errorf(InsufficientInstanceTypeCPUResourcesErrorFmt, instancetypeSpec.CPU.Guest, preferenceSpec.Requirements.CPU.Guest)
-		}
-		return nil, nil
-	}
-
-	cpuField := k8sfield.NewPath("spec", "template", "spec", "domain", "cpu")
-	if vmiSpec.Domain.CPU == nil {
-		return Conflicts{cpuField}, fmt.Errorf(NoVMCPUResourcesDefinedErrorFmt, preferenceSpec.Requirements.CPU.Guest)
-	}
-
-	switch GetPreferredTopology(preferenceSpec) {
-	case instancetypev1beta1.DeprecatedPreferThreads, instancetypev1beta1.Threads:
-		if vmiSpec.Domain.CPU.Threads < preferenceSpec.Requirements.CPU.Guest {
-			return Conflicts{cpuField.Child("threads")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Threads, preferenceSpec.Requirements.CPU.Guest, "threads")
-		}
-	case instancetypev1beta1.DeprecatedPreferCores, instancetypev1beta1.Cores:
-		if vmiSpec.Domain.CPU.Cores < preferenceSpec.Requirements.CPU.Guest {
-			return Conflicts{cpuField.Child("cores")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Cores, preferenceSpec.Requirements.CPU.Guest, "cores")
-		}
-	case instancetypev1beta1.DeprecatedPreferSockets, instancetypev1beta1.Sockets:
-		if vmiSpec.Domain.CPU.Sockets < preferenceSpec.Requirements.CPU.Guest {
-			return Conflicts{cpuField.Child("sockets")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
-		}
-	case instancetypev1beta1.DeprecatedPreferSpread, instancetypev1beta1.Spread:
-		var (
-			vCPUs     uint32
-			conflicts Conflicts
-		)
-		_, across := GetSpreadOptions(preferenceSpec)
-		switch across {
-		case instancetypev1beta1.SpreadAcrossSocketsCores:
-			vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores
-			conflicts = Conflicts{cpuField.Child("sockets"), cpuField.Child("cores")}
-		case instancetypev1beta1.SpreadAcrossCoresThreads:
-			vCPUs = vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
-			conflicts = Conflicts{cpuField.Child("cores"), cpuField.Child("threads")}
-		case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
-			vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
-			conflicts = Conflicts{cpuField.Child("sockets"), cpuField.Child("cores"), cpuField.Child("threads")}
-		}
-		if vCPUs < preferenceSpec.Requirements.CPU.Guest {
-			return conflicts, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vCPUs, preferenceSpec.Requirements.CPU.Guest, across)
-		}
-	case instancetypev1beta1.DeprecatedPreferAny, instancetypev1beta1.Any:
-		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Threads
-		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
-			return Conflicts{cpuField.Child("cores"), cpuField.Child("sockets"), cpuField.Child("threads")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, cpuResources, preferenceSpec.Requirements.CPU.Guest, "cores, sockets and threads")
-		}
-	}
-
-	return nil, nil
-}
-
-func checkMemoryPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (Conflicts, error) {
-	if instancetypeSpec != nil && instancetypeSpec.Memory.Guest.Cmp(preferenceSpec.Requirements.Memory.Guest) < 0 {
-		return Conflicts{k8sfield.NewPath("spec", "instancetype")}, fmt.Errorf(InsufficientInstanceTypeMemoryResourcesErrorFmt, instancetypeSpec.Memory.Guest.String(), preferenceSpec.Requirements.Memory.Guest.String())
-	}
-
-	if instancetypeSpec == nil && vmiSpec.Domain.Memory != nil && vmiSpec.Domain.Memory.Guest.Cmp(preferenceSpec.Requirements.Memory.Guest) < 0 {
-		return Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "memory")}, fmt.Errorf(InsufficientVMMemoryResourcesErrorFmt, vmiSpec.Domain.Memory.Guest.String(), preferenceSpec.Requirements.Memory.Guest.String())
-	}
-	return nil, nil
-}
-
 func (m *InstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (Conflicts, error) {
-	if preferenceSpec == nil || preferenceSpec.Requirements == nil {
-		return nil, nil
-	}
-
-	if preferenceSpec.Requirements.CPU != nil {
-		if conflicts, err := checkCPUPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec); err != nil {
-			return conflicts, err
-		}
-	}
-
-	if preferenceSpec.Requirements.Memory != nil {
-		if conflicts, err := checkMemoryPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec); err != nil {
-			return conflicts, err
-		}
-	}
-
-	return nil, nil
+	conflicts, err := requirements.New(instancetypeSpec, preferenceSpec, vmiSpec).Check()
+	return Conflicts(conflicts), err
 }
 
 func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts {

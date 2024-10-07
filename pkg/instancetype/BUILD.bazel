@@ -12,6 +12,7 @@ go_library(
         "//pkg/instancetype/infer:go_default_library",
         "//pkg/instancetype/preference/apply:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",
+        "//pkg/instancetype/preference/requirements:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
         "//pkg/instancetype/upgrade:go_default_library",
         "//pkg/network/vmispec:go_default_library",
@@ -41,6 +42,7 @@ go_test(
     deps = [
         ":go_default_library",
         "//pkg/instancetype/errors:go_default_library",
+        "//pkg/instancetype/preference/requirements:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
