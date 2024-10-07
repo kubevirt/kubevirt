@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -989,8 +990,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), opts...)
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 
-			vmJson, err := tests.GenerateVMJson(vm, workDir)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
+			data, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+			vmJson := filepath.Join(workDir, fmt.Sprintf("%s.json", vm.Name))
+			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			return vm, vmJson
 		}
@@ -1019,8 +1023,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 			vm.APIVersion = version
 
-			vmJson, err := tests.GenerateVMJson(vm, workDir)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
+			data, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+			vmJson := filepath.Join(workDir, fmt.Sprintf("%s.json", vm.Name))
+			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating VM using k8s client binary")
 			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)

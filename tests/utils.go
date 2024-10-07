@@ -21,10 +21,8 @@ package tests
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	expect "github.com/google/goexpect"
@@ -72,20 +70,6 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod %s): %v: %s, %s", vmiPod.Name, err, stdout, stderr)
 	}
 	return stdout, err
-}
-
-func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, error) {
-	data, err := json.Marshal(vm)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate json for vm %s", vm.Name)
-	}
-
-	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vm.Name))
-	err = os.WriteFile(jsonFile, data, 0644)
-	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", jsonFile)
-	}
-	return jsonFile, nil
 }
 
 func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
