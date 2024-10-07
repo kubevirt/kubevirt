@@ -1,4 +1,4 @@
-//nolint:dupl,lll
+//nolint:lll
 package instancetype
 
 import (
@@ -13,14 +13,15 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/defaults"
+	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
+	preferenceAnnotations "kubevirt.io/kubevirt/pkg/instancetype/preference/annotations"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
@@ -180,35 +181,11 @@ func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) 
 }
 
 func AddInstancetypeNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
-	if vm.Spec.Instancetype == nil {
-		return
-	}
-
-	if target.GetAnnotations() == nil {
-		target.SetAnnotations(make(map[string]string))
-	}
-	switch strings.ToLower(vm.Spec.Instancetype.Kind) {
-	case apiinstancetype.PluralResourceName, apiinstancetype.SingularResourceName:
-		target.GetAnnotations()[virtv1.InstancetypeAnnotation] = vm.Spec.Instancetype.Name
-	case "", apiinstancetype.ClusterPluralResourceName, apiinstancetype.ClusterSingularResourceName:
-		target.GetAnnotations()[virtv1.ClusterInstancetypeAnnotation] = vm.Spec.Instancetype.Name
-	}
+	annotations.Set(vm, target)
 }
 
 func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
-	if vm.Spec.Preference == nil {
-		return
-	}
-
-	if target.GetAnnotations() == nil {
-		target.SetAnnotations(make(map[string]string))
-	}
-	switch strings.ToLower(vm.Spec.Preference.Kind) {
-	case apiinstancetype.PluralPreferenceResourceName, apiinstancetype.SingularPreferenceResourceName:
-		target.GetAnnotations()[virtv1.PreferenceAnnotation] = vm.Spec.Preference.Name
-	case "", apiinstancetype.ClusterPluralPreferenceResourceName, apiinstancetype.ClusterSingularPreferenceResourceName:
-		target.GetAnnotations()[virtv1.ClusterPreferenceAnnotation] = vm.Spec.Preference.Name
-	}
+	preferenceAnnotations.Set(vm, target)
 }
 
 func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
