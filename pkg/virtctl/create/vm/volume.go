@@ -28,13 +28,7 @@ type cloneVolume struct {
 	Size      *resource.Quantity `param:"size"`
 }
 
-type containerdiskVolume struct {
-	Name      string `param:"name"`
-	Source    string `param:"src"`
-	BootOrder *uint  `param:"bootorder"`
-}
-
-type pvcVolume struct {
+type volumeSource struct {
 	Name      string `param:"name"`
 	Source    string `param:"src"`
 	BootOrder *uint  `param:"bootorder"`
