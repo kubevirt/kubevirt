@@ -47,7 +47,6 @@ var (
 	NetCustomBindingPlugins              = Label("netCustomBindingPlugins")
 	RequiresTwoSchedulableNodes          = Label("requires-two-schedulable-nodes")
 	VMLiveUpdateFeaturesGate             = Label("VMLiveUpdateFeaturesGate")
-	RequiresRWXFilesystemStorage         = Label("rwxfs")
 	USB                                  = Label("USB")
 	AutoResourceLimitsGate               = Label("AutoResourceLimitsGate")
 	RequiresTwoWorkerNodesWithCPUManager = Label("requires-two-worker-nodes-with-cpu-manager")

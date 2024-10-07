@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,11 +31,20 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.RequiresRWXFilesystemStorage, func() {
-	var virtClient kubecli.KubevirtClient
-	var err error
+var _ = Describe("[sig-compute]VM state", func() {
+	const (
+		tpm = true
+		efi = true
+		rwx = true
+		rwo = false
+	)
+
+	var (
+		virtClient kubecli.KubevirtClient
+	)
 
 	BeforeEach(func() {
+		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -90,7 +101,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 		addDataToEFI := func(vmi *v1.VirtualMachineInstance) {
 			By("Creating an efivar")
 			cmd := `printf "\x07\x00\x00\x00\x42" > /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc`
-			err = console.RunCommand(vmi, cmd, 10*time.Second)
+			err := console.RunCommand(vmi, cmd, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 		}
 
@@ -102,7 +113,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			}, 10)).To(Succeed(), "expected efivar is missing")
 		}
 
-		DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, func(withTPM, withEFI bool, ops ...string) {
+		DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, func(withTPM, withEFI, shouldBeRWX bool, ops ...string) {
 			By("Creating a migratable Fedora VM with UEFI")
 			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -125,12 +136,12 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				}
 			}
 			vm := libvmi.NewVirtualMachine(vmi)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi.Namespace = vm.Namespace
-
 			startVM(vm)
 
+			By("Adding TPM and/or EFI data")
 			if withTPM {
 				addDataToTPM(vmi)
 			}
@@ -138,6 +149,20 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				addDataToEFI(vmi)
 			}
 
+			By("Ensuring we're testing what we think we're testing")
+			pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: "persistent-state-for=" + vm.Name,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvcs.Items).To(HaveLen(1))
+			Expect(pvcs.Items[0].Status.AccessModes).To(HaveLen(1))
+			if shouldBeRWX {
+				Expect(pvcs.Items[0].Status.AccessModes[0]).To(Equal(k8sv1.ReadWriteMany))
+			} else {
+				Expect(pvcs.Items[0].Status.AccessModes[0]).To(Equal(k8sv1.ReadWriteOnce))
+			}
+
+			By("Running the requested operations and ensuring TPM/EFI data persist")
 			for _, op := range ops {
 				switch op {
 				case "migrate":
@@ -160,18 +185,22 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[test_id:10818]TPM across migration and restart", true, false, "migrate", "restart"),
-			Entry("[test_id:10819]TPM across restart and migration", true, false, "restart", "migrate"),
-			Entry("[test_id:10820]EFI across migration and restart", false, true, "migrate", "restart"),
-			Entry("[test_id:10821]TPM+EFI across migration and restart", true, true, "migrate", "restart"),
+			Entry("[test_id:10818]TPM across migration and restart", decorators.SigComputeMigrations, tpm, !efi, rwx, "migrate", "restart"),
+			Entry("[test_id:10819]TPM across restart and migration", decorators.SigComputeMigrations, tpm, !efi, rwx, "restart", "migrate"),
+			Entry("[test_id:10820]EFI across migration and restart", decorators.SigComputeMigrations, !tpm, efi, rwx, "migrate", "restart"),
+			Entry("[test_id:10821]TPM+EFI across migration and restart", decorators.SigComputeMigrations, tpm, efi, rwx, "migrate", "restart"),
+			Entry("TPM across migration and restart", decorators.SigCompute, tpm, !efi, rwo, "migrate", "restart"),
+			Entry("TPM across restart and migration", decorators.SigCompute, tpm, !efi, rwo, "restart", "migrate"),
+			Entry("EFI across migration and restart", decorators.SigCompute, !tpm, efi, rwo, "migrate", "restart"),
+			Entry("TPM+EFI across migration and restart", decorators.SigCompute, tpm, efi, rwo, "migrate", "restart"),
 		)
-		It("should remove persistent storage PVC if VMI is not owned by a VM", func() {
+		It("should remove persistent storage PVC if VMI is not owned by a VM", decorators.SigCompute, func() {
 			By("Creating a VMI with persistent TPM enabled")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 				Persistent: pointer.P(true),
 			}
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VMI to start")

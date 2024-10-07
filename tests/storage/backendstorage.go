@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -41,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = SIGDescribe("[Serial]Backend Storage", Serial, decorators.RequiresRWXFilesystemStorage, func() {
+var _ = SIGDescribe("[Serial]Backend Storage", Serial, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -75,6 +74,7 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, decorators.RequiresRWXFil
 				break
 			}
 		}
+		Expect(storageClass).NotTo(BeEmpty(), "Failed to find a storage class that only supports filesystem in RWO")
 
 		By("Setting the VM storage class to it")
 		kv := libkubevirt.GetCurrentKv(virtClient)
