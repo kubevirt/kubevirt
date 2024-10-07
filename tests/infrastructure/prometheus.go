@@ -180,7 +180,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		var queryResult map[string]json.RawMessage
 
 		err = json.Unmarshal([]byte(stdout), &queryResult)
-		Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query result")
+		Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query result: %s", stdout)
 
 		var status string
 		err = json.Unmarshal(queryResult["status"], &status)
