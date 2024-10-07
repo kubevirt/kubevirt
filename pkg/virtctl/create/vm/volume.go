@@ -44,6 +44,14 @@ type blankVolume struct {
 	Size *resource.Quantity `param:"size"`
 }
 
+type dataVolumeSource struct {
+	Name      string             `param:"name"`
+	Source    string             `param:"src"`
+	Size      *resource.Quantity `param:"size"`
+	Type      string             `param:"type"`
+	BootOrder *uint              `param:"bootorder"`
+}
+
 type dataVolumeSourceBlank struct {
 	Size      *resource.Quantity `param:"size"`
 	Type      string             `param:"type"`
@@ -83,14 +91,6 @@ type dataVolumeSourceImageIO struct {
 	BootOrder     *uint              `param:"bootorder"`
 }
 
-type dataVolumeSourcePVC struct {
-	Name      string             `param:"name"`
-	Source    string             `param:"src"`
-	Size      *resource.Quantity `param:"size"`
-	Type      string             `param:"type"`
-	BootOrder *uint              `param:"bootorder"`
-}
-
 type dataVolumeSourceRegistry struct {
 	CertConfigMap string             `param:"certconfigmap"`
 	ImageStream   string             `param:"imagestream"`
@@ -124,12 +124,4 @@ type dataVolumeSourceVDDK struct {
 	Type         string             `param:"type"`
 	Name         string             `param:"name"`
 	BootOrder    *uint              `param:"bootorder"`
-}
-
-type dataVolumeSourceSnapshot struct {
-	Name      string             `param:"name"`
-	Source    string             `param:"src"`
-	Size      *resource.Quantity `param:"size"`
-	Type      string             `param:"type"`
-	BootOrder *uint              `param:"bootorder"`
 }
