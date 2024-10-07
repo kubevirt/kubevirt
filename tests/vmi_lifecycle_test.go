@@ -53,7 +53,6 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -1490,10 +1489,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Verifying VirtualMachineInstance's pod is active")
-			pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
-			Expect(err).ToNot(HaveOccurred(), "Should list pods")
-			Expect(pods.Items).To(HaveLen(1), "There should be only one pod")
-			pod := pods.Items[0]
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 
 			// Delete the Pod
 			By("Deleting the VirtualMachineInstance's pod")
@@ -1517,26 +1514,21 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Delete a VirtualMachineInstance", func() {
 		Context("with an active pod.", decorators.WgS390x, func() {
 			It("[test_id:1651]should result in pod being terminated", func() {
-
 				By("Creating the VirtualMachineInstance")
 				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
-				podSelector := tests.UnfinishedVMIPodSelector(vmi)
 				By("Verifying VirtualMachineInstance's pod is active")
-				pods, err := kubevirt.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), podSelector)
-				Expect(err).ToNot(HaveOccurred(), "Should list pods")
-				Expect(pods.Items).To(HaveLen(1), "There should be only one pod")
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 
 				By("Verifying VirtualMachineInstance's pod terminates")
-				Eventually(func() int {
-					pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), podSelector)
-					Expect(err).ToNot(HaveOccurred(), "Should list pods")
-					return len(pods.Items)
-				}, 75, 0.5).Should(Equal(0), "There should be no pods")
-
+				Eventually(func() error {
+					_, err := kubevirt.Client().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+					return err
+				}, 60*time.Second, 5*time.Second).Should(MatchError(k8serrors.IsNotFound, "k8serrors.IsNotFound"))
 			})
 		})
 		Context("with ACPI and some grace period seconds", func() {

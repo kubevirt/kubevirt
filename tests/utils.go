@@ -30,10 +30,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -89,29 +86,6 @@ func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, er
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
 	}
 	return jsonFile, nil
-}
-
-func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions {
-	virtClient := kubevirt.Client()
-
-	var err error
-	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	fieldSelectorStr := "status.phase!=" + string(k8sv1.PodFailed) +
-		",status.phase!=" + string(k8sv1.PodSucceeded)
-
-	if vmi.Status.NodeName != "" {
-		fieldSelectorStr = fieldSelectorStr +
-			",spec.nodeName=" + vmi.Status.NodeName
-	}
-
-	fieldSelector := fields.ParseSelectorOrDie(fieldSelectorStr)
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.GetUID())))
-	if err != nil {
-		panic(err)
-	}
-	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }
 
 func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
