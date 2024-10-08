@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -171,6 +172,67 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 
 			Expect(vmi.Status.Interfaces).To(HaveLen(1))
 			Expect(vmi.Status.Interfaces[0].Name).To(Equal(primaryIface.Name))
+		})
+
+		It("can establish communication between two VMs", func() {
+			const (
+				guestIfaceName = "eth0"
+				serverIPAddr   = "10.1.1.102"
+				serverCIDR     = serverIPAddr + "/24"
+				clientCIDR     = "10.1.1.101/24"
+			)
+			nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
+			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
+			nodeName := nodeList.Items[0].Name
+
+			const (
+				linuxBridgeConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"%s\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }}]}"}}`
+				linuxBridgeNADName = "bridge0"
+			)
+			namespace := testsuite.GetTestNamespace(nil)
+			bridgeNAD := fmt.Sprintf(linuxBridgeConfNAD, linuxBridgeNADName, namespace, "br10", "10.1.1.0/24")
+			Expect(libnet.CreateNetworkAttachmentDefinition(linuxBridgeNADName, namespace, bridgeNAD)).To(Succeed())
+
+			primaryIface := libvmi.InterfaceWithBindingPlugin(
+				"mynet1", v1.PluginBinding{Name: bindingName},
+			)
+			primaryNetwork := v1.Network{
+				Name: "mynet1",
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+					NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
+					Default:     true},
+				},
+			}
+			primaryIface.MacAddress = "de:ad:00:00:be:af"
+			opts := []libvmi.Option{
+				libvmi.WithInterface(primaryIface),
+				libvmi.WithNetwork(&primaryNetwork),
+				libvmi.WithNodeAffinityFor(nodeName),
+			}
+			serverVMI := libvmifact.NewAlpineWithTestTooling(opts...)
+
+			primaryIface.MacAddress = "de:ad:00:00:be:aa"
+			opts = []libvmi.Option{
+				libvmi.WithInterface(primaryIface),
+				libvmi.WithNetwork(&primaryNetwork),
+				libvmi.WithNodeAffinityFor(nodeName),
+			}
+			clientVMI := libvmifact.NewAlpineWithTestTooling(opts...)
+
+			var err error
+			ns := testsuite.GetTestNamespace(nil)
+			serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), serverVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			clientVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), clientVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
+			clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
+
+			Expect(libnet.AddIPAddress(serverVMI, guestIfaceName, serverCIDR)).To(Succeed())
+			Expect(libnet.AddIPAddress(clientVMI, guestIfaceName, clientCIDR)).To(Succeed())
+
+			Expect(libnet.PingFromVMConsole(clientVMI, serverIPAddr)).To(Succeed())
 		})
 	})
 })
