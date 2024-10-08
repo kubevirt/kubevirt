@@ -35,7 +35,6 @@ import (
 
 	"kubevirt.io/api/core"
 
-	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -198,30 +197,6 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(ctx context.Context, field *
 
 	if err != nil {
 		return nil, nil, false, err
-	}
-
-	rs, err := vm.RunStrategy()
-	if err != nil {
-		return nil, nil, true, err
-	}
-
-	if rs != v1.RunStrategyHalted {
-		var cause metav1.StatusCause
-		targetField := field.Child("target")
-		if vm.Spec.Running != nil && *vm.Spec.Running {
-			cause = metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q is not stopped", vmName),
-				Field:   targetField.String(),
-			}
-		} else {
-			cause = metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vmName, v1.RunStrategyHalted),
-				Field:   targetField.String(),
-			}
-		}
-		causes = append(causes, cause)
 	}
 
 	return causes, &vm.UID, true, nil

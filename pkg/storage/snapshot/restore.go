@@ -66,6 +66,8 @@ const (
 
 	restoreErrorEvent = "VirtualMachineRestoreError"
 
+	restoreVMNotReadyEvent = "RestoreTargetNotReady"
+
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
 )
 
@@ -163,6 +165,7 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	}
 	if !ready {
 		reason := "Waiting for target to be ready"
+		ctrl.Recorder.Event(vmRestoreOut, corev1.EventTypeNormal, restoreVMNotReadyEvent, reason)
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, reason))
 		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, reason))
 		// try again in 5 secs
@@ -439,17 +442,15 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 	}
 
 	log.Log.Object(t.vmRestore).V(3).Info("Checking VM ready")
+
 	vmiKey, err := controller.KeyFunc(t.vm)
 	if err != nil {
 		return false, err
 	}
 
 	_, exists, err := t.controller.VMIInformer.GetStore().GetByKey(vmiKey)
-	if err != nil {
-		return false, err
-	}
 
-	return !exists, nil
+	return !exists, err
 }
 
 func (t *vmRestoreTarget) Reconcile() (bool, error) {
