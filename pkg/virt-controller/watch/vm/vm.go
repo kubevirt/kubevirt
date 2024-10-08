@@ -1621,10 +1621,36 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 	}
 	vmCond := controller.NewVirtualMachineConditionManager()
 	vmiCond := controller.NewVirtualMachineInstanceConditionManager()
-	// Something went wrong with the VMI while the volume migration was in progress
+
+	// Check if the volumes have been recovered and point to the original ones
+	srcMigVols := make(map[string]string)
+	for _, v := range vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes {
+		if v.SourcePVCInfo != nil {
+			srcMigVols[v.VolumeName] = v.SourcePVCInfo.ClaimName
+		}
+	}
+	recoveredOldVMVolumes := true
+	for _, v := range vm.Spec.Template.Spec.Volumes {
+		name := storagetypes.PVCNameFromVirtVolume(&v)
+		origName, ok := srcMigVols[v.Name]
+		if !ok {
+			continue
+		}
+		if origName != name {
+			recoveredOldVMVolumes = false
+		}
+	}
+	if recoveredOldVMVolumes {
+		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
+		// Clean-up the volume change label when the volume set has been restored
+		vmCond.RemoveCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange))
+		return
+	}
 	if vmi == nil && vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
+		// Something went wrong with the VMI while the volume migration was in progress
 		vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired = pointer.P(true)
 	}
+
 	if vmi == nil {
 		return
 	}

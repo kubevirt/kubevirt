@@ -45,6 +45,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/fake"
@@ -57,6 +58,8 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -579,6 +582,22 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				app.RestartVMRequestHandler(request, response)
 				Expect(response.Error()).NotTo(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			})
+
+			It("should fail when the volume migration in ongoing", func() {
+				vmi := libvmi.New()
+				vm := libvmi.NewVirtualMachine(vmi)
+				controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+					Type:   v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange),
+					Status: k8sv1.ConditionTrue,
+				})
+				request.PathParameters()["name"] = vm.Name
+				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+
+				app.RestartVMRequestHandler(request, response)
+
+				statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+				Expect(statusErr.Error()).To(ContainSubstring("VM recovery required"))
 			})
 		})
 
@@ -1651,6 +1670,23 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("Manual with VMI in state Succeeded", v1.RunStrategyManual, v1.Succeeded, http.StatusOK),
 			Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
 		)
+
+		It("should fail when the volume migration in ongoing", func() {
+			vmi := libvmi.New()
+			vm := libvmi.NewVirtualMachine(vmi)
+			controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+				Type:   v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange),
+				Status: k8sv1.ConditionTrue,
+			})
+			request.PathParameters()["name"] = vm.Name
+			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
+
+			app.StartVMRequestHandler(request, response)
+
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			Expect(statusErr.Error()).To(ContainSubstring("VM recovery required"))
+		})
 	})
 
 	Context("Subresource api - error handling for StopVMRequestHandler", func() {
