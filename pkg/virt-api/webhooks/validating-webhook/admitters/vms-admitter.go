@@ -857,30 +857,22 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 		}}
 	}
 
-	if !compareDisks(oldVM.Spec.Template.Spec.Domain.Devices.Disks, vm.Spec.Template.Spec.Domain.Devices.Disks) ||
-		!compareVolumes(oldVM.Spec.Template.Spec.Volumes, vm.Spec.Template.Spec.Volumes) {
+	if !compareVolumes(oldVM.Spec.Template.Spec.Volumes, vm.Spec.Template.Spec.Volumes) {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("Cannot update VM disks or volumes until snapshot %q completes", *vm.Status.SnapshotInProgress),
 			Field:   k8sfield.NewPath("spec").String(),
 		}}
 	}
+	if !compareRunningSpec(&oldVM.Spec, &vm.Spec) {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("Cannot update VM running state until snapshot %q completes", *vm.Status.SnapshotInProgress),
+			Field:   k8sfield.NewPath("spec").String(),
+		}}
+	}
 
 	return nil
-}
-
-func compareDisks(old, new []v1.Disk) bool {
-	if len(old) != len(new) {
-		return false
-	}
-
-	for i, disk := range old {
-		if !equality.Semantic.DeepEqual(disk, new[i]) {
-			return false
-		}
-	}
-
-	return true
 }
 
 func compareVolumes(old, new []v1.Volume) bool {
@@ -895,4 +887,20 @@ func compareVolumes(old, new []v1.Volume) bool {
 	}
 
 	return true
+}
+
+func compareRunningSpec(old, new *v1.VirtualMachineSpec) bool {
+	if old == nil || new == nil {
+		// This should never happen, but just in case return false
+		return false
+	}
+
+	// Its impossible to get here while both running and RunStrategy are nil.
+	if old.Running != nil && new.Running != nil {
+		return *old.Running == *new.Running
+	}
+	if old.RunStrategy != nil && new.RunStrategy != nil {
+		return *old.RunStrategy == *new.RunStrategy
+	}
+	return false
 }

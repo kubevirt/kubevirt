@@ -1825,7 +1825,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		if !allow {
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"), resp.Result.Details.Causes[0].Message)
 		}
 	},
 		Entry("reject update to disks", func(vm *v1.VirtualMachine) bool {
@@ -1842,7 +1842,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			}
 			return false
 		}),
-		Entry("reject adding disks", func(vm *v1.VirtualMachine) bool {
+		Entry("reject adding volumes", func(vm *v1.VirtualMachine) bool {
 			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testvolume",
 			})
@@ -1856,9 +1856,22 @@ var _ = Describe("Validating VM Admitter", func() {
 			vm.Spec.Template.Spec.Volumes[0].VolumeSource = v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}
 			return false
 		}),
-		Entry("accept update to spec, that is not disks or volumes", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Running = &[]bool{true}[0]
+		Entry("accept update to spec, that is not volumes or running state", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Template.Spec.Affinity = &k8sv1.Affinity{}
 			return true
+		}),
+		Entry("reject update to running state", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Running = &[]bool{true}[0]
+			return false
+		}),
+		Entry("accept update to running state, if value doesn't change", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Running = &[]bool{false}[0]
+			return true
+		}),
+		Entry("reject update to running state, when switch state type", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Running = nil
+			vm.Spec.RunStrategy = &runStrategyManual
+			return false
 		}),
 		Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
 			vm.Annotations = map[string]string{"foo": "bar"}
