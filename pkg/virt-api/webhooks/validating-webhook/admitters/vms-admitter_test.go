@@ -36,14 +36,12 @@ import (
 	"kubevirt.io/client-go/api"
 
 	admissionv1 "k8s.io/api/admission/v1"
-	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -134,9 +132,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			NamespaceInformer:   namespaceInformer,
 			ClusterConfig:       config,
 			InstancetypeMethods: instancetypeMethods,
-			cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
-				return true, "", nil
-			},
 		}
 		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 	})
@@ -1532,195 +1527,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake"))
 		})
-
-		DescribeTable("should successfully authorize clone", func(arNamespace, vmNamespace, sourceNamespace,
-			serviceAccount, expectedSourceNamespace, expectedTargetNamespace, expectedServiceAccount string) {
-
-			vm := &v1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmNamespace,
-				},
-				Spec: v1.VirtualMachineSpec{
-					Template: &v1.VirtualMachineInstanceTemplateSpec{},
-					DataVolumeTemplates: []v1.DataVolumeTemplateSpec{
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "whatever",
-							},
-							Spec: cdiv1.DataVolumeSpec{
-								Source: &cdiv1.DataVolumeSource{
-									PVC: &cdiv1.DataVolumeSourcePVC{
-										Name:      "whocares",
-										Namespace: sourceNamespace,
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			if serviceAccount != "" {
-				vm.Spec.Template.Spec.Volumes = []v1.Volume{
-					{
-						VolumeSource: v1.VolumeSource{
-							ServiceAccount: &v1.ServiceAccountVolumeSource{
-								ServiceAccountName: serviceAccount,
-							},
-						},
-					},
-				}
-			}
-
-			ar := &admissionv1.AdmissionRequest{
-				Namespace: arNamespace,
-			}
-
-			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(k8sClient, expectedSourceNamespace, "whocares",
-				expectedTargetNamespace, expectedServiceAccount)
-			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(context.Background(), ar, vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(causes).To(BeEmpty())
-		},
-			Entry("when source namespace suppied", "ns1", "", "ns3", "", "ns3", "ns1", "default"),
-			Entry("when vm namespace suppied and source not", "ns1", "ns2", "", "", "ns2", "ns2", "default"),
-			Entry("when ar namespace suppied and vm/source not", "ns1", "", "", "", "ns1", "ns1", "default"),
-			Entry("when everything suppied with default service account", "ns1", "ns2", "ns3", "", "ns3", "ns2", "default"),
-			Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "ns3", "sa", "ns3", "ns2", "sa"),
-		)
-
-		DescribeTable("should successfully authorize clone from sourceRef", func(
-			arNamespace,
-			vmNamespace,
-			sourceRefNamespace,
-			sourceNamespace,
-			serviceAccount,
-			expectedSourceNamespace,
-			expectedTargetNamespace,
-			expectedServiceAccount string) {
-
-			sourceRefName := "sourceRef"
-			ds := &cdiv1.DataSource{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmNamespace,
-					Name:      sourceRefName,
-				},
-				Spec: cdiv1.DataSourceSpec{
-					Source: cdiv1.DataSourceSource{
-						PVC: &cdiv1.DataVolumeSourcePVC{
-							Name: "whocares",
-						},
-					},
-				},
-			}
-
-			vm := &v1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmNamespace,
-				},
-				Spec: v1.VirtualMachineSpec{
-					Template: &v1.VirtualMachineInstanceTemplateSpec{},
-					DataVolumeTemplates: []v1.DataVolumeTemplateSpec{
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "whatever",
-							},
-							Spec: cdiv1.DataVolumeSpec{
-								SourceRef: &cdiv1.DataVolumeSourceRef{
-									Kind: "DataSource",
-									Name: sourceRefName,
-								},
-							},
-						},
-					},
-				},
-			}
-
-			if sourceRefNamespace != "" {
-				ds.Namespace = sourceRefNamespace
-				vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace = &sourceRefNamespace
-			}
-
-			if sourceNamespace != "" {
-				ds.Spec.Source.PVC.Namespace = sourceNamespace
-			}
-
-			if serviceAccount != "" {
-				vm.Spec.Template.Spec.Volumes = []v1.Volume{
-					{
-						VolumeSource: v1.VolumeSource{
-							ServiceAccount: &v1.ServiceAccountVolumeSource{
-								ServiceAccountName: serviceAccount,
-							},
-						},
-					},
-				}
-			}
-
-			ar := &admissionv1.AdmissionRequest{
-				Namespace: arNamespace,
-			}
-
-			err := vmsAdmitter.DataSourceInformer.GetIndexer().Add(ds)
-			Expect(err).NotTo(HaveOccurred())
-
-			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(k8sClient, expectedSourceNamespace,
-				"whocares",
-				expectedTargetNamespace,
-				expectedServiceAccount)
-
-			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(context.Background(), ar, vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(causes).To(BeEmpty())
-		},
-			Entry("when source namespace suppied", "ns1", "", "ns2", "ns3", "", "ns3", "ns1", "default"),
-			Entry("when vm namespace suppied and source not", "ns1", "ns2", "", "", "", "ns2", "ns2", "default"),
-			Entry("when everything suppied with default service account", "ns1", "ns2", "", "ns3", "", "ns3", "ns2", "default"),
-			Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "", "ns3", "sa", "ns3", "ns2", "sa"),
-			Entry("when source namespace and sourceRef namespace suppied", "ns1", "", "foo", "ns3", "", "ns3", "ns1", "default"),
-			Entry("when vm namespace and sourceRef namespace suppied and source not", "ns1", "ns2", "foo", "", "", "foo", "ns2", "default"),
-			Entry("when ar namespace and sourceRef namespace suppied and vm/source not", "ns1", "", "foo", "", "", "foo", "ns1", "default"),
-			Entry("when everything and sourceRef suppied with default service account", "ns1", "ns2", "foo", "ns3", "", "ns3", "ns2", "default"),
-			Entry("when everything and sourceRef suppied with 'sa' service account", "ns1", "ns2", "foo", "ns3", "sa", "ns3", "ns2", "sa"),
-		)
-
-		DescribeTable("should deny clone", func(sourceNamespace, sourceName, failMessage string, failErr error, expectedMessage string) {
-			vm := &v1.VirtualMachine{
-				Spec: v1.VirtualMachineSpec{
-					Template: &v1.VirtualMachineInstanceTemplateSpec{},
-					DataVolumeTemplates: []v1.DataVolumeTemplateSpec{
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "whatever",
-							},
-							Spec: cdiv1.DataVolumeSpec{
-								Source: &cdiv1.DataVolumeSource{
-									PVC: &cdiv1.DataVolumeSourcePVC{
-										Name:      sourceName,
-										Namespace: sourceNamespace,
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			ar := &admissionv1.AdmissionRequest{}
-
-			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFailFunc(failMessage, failErr)
-			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(context.Background(), ar, vm)
-			if failErr != nil {
-				Expect(err).To(Equal(failErr))
-			} else {
-				Expect(err).ToNot(HaveOccurred())
-				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Message).To(Equal(expectedMessage))
-			}
-		},
-			Entry("when user not authorized", "sourceNamespace", "sourceName", "no permission", nil, "Authorization failed, message is: no permission"),
-			Entry("error occurs", "sourceNamespace", "sourceName", "", fmt.Errorf("bad error"), ""),
-		)
 	})
 
 	DescribeTable("when snapshot is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
@@ -2545,31 +2351,4 @@ func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.Admissio
 	}
 
 	return admitter.Admit(context.Background(), ar)
-}
-
-func makeCloneAdmitFunc(k8sClient *k8sfake.Clientset, expectedSourceNamespace, expectedPVCName, expectedTargetNamespace, expectedServiceAccount string) CloneAuthFunc {
-	k8sClient.Fake.PrependReactor("create", "subjectaccessreviews", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		return true, &authorizationv1.SubjectAccessReview{
-			Status: authorizationv1.SubjectAccessReviewStatus{
-				Allowed: true,
-			},
-		}, nil
-	})
-
-	return func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
-		response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
-		Expect(err).ToNot(HaveOccurred())
-		// Remove this when CDI patches the NS on the response
-		// Expect(response.Handler.SourceNamespace).Should(Equal(expectedSourceNamespace))
-		Expect(response.Handler.SourceName).Should(Equal(expectedPVCName))
-		Expect(saNamespace).Should(Equal(expectedTargetNamespace))
-		Expect(saName).Should(Equal(expectedServiceAccount))
-		return response.Allowed, "", nil
-	}
-}
-
-func makeCloneAdmitFailFunc(message string, err error) CloneAuthFunc {
-	return func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
-		return false, message, err
-	}
 }
