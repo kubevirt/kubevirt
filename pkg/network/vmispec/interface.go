@@ -193,17 +193,26 @@ func IndexPodIfaceNamesByNetworkName(networks []v1.Network, interfaceStatuses []
 	podIfacesByNetName := map[string]string{}
 
 	for _, network := range networks {
-		ifaceStatus := LookupInterfaceStatusByName(interfaceStatuses, network.Name)
-		if ifaceStatus == nil {
-			return nil, fmt.Errorf("interface status for network %q was not found", network.Name)
+		podIfaceName, err := LookupPodIfaceNameFromStatus(network.Name, interfaceStatuses)
+		if err != nil {
+			return nil, err
 		}
 
-		if ifaceStatus.PodInterfaceName == "" {
-			return nil, fmt.Errorf("pod interface name is missing for network %q", ifaceStatus.Name)
+		if podIfaceName == "" {
+			return nil, fmt.Errorf("pod interface name is missing for network %q", network.Name)
 		}
 
-		podIfacesByNetName[ifaceStatus.Name] = ifaceStatus.PodInterfaceName
+		podIfacesByNetName[network.Name] = podIfaceName
 	}
 
 	return podIfacesByNetName, nil
+}
+
+func LookupPodIfaceNameFromStatus(networkName string, interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface) (string, error) {
+	ifaceStatus := LookupInterfaceStatusByName(interfaceStatuses, networkName)
+	if ifaceStatus == nil {
+		return "", fmt.Errorf("interface status for network %q was not found", networkName)
+	}
+
+	return ifaceStatus.PodInterfaceName, nil
 }

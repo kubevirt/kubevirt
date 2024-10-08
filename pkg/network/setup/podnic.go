@@ -20,6 +20,7 @@
 package network
 
 import (
+	goerrors "errors"
 	"fmt"
 	"os"
 
@@ -27,13 +28,12 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 
-	goerrors "errors"
-
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/link"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -57,7 +57,12 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 		return nil, err
 	}
 
-	ifaceLink, err := link.DiscoverByNetwork(podnic.handler, podnic.vmi.Spec.Networks, *podnic.vmiSpecNetwork)
+	podIfaceName, err := vmispec.LookupPodIfaceNameFromStatus(network.Name, vmi.Status.Interfaces)
+	if err != nil {
+		return nil, err
+	}
+
+	ifaceLink, err := podnic.handler.LinkByName(podIfaceName)
 	if err != nil {
 		return nil, err
 	}
