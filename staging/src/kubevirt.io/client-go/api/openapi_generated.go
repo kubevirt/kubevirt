@@ -33063,6 +33063,12 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineRestoreSpec(ref common
 							Format:  "",
 						},
 					},
+					"targetReadinessPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"patches": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
