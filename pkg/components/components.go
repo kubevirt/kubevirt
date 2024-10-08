@@ -62,30 +62,31 @@ var deploymentType = metav1.TypeMeta{
 }
 
 type DeploymentOperatorParams struct {
-	Namespace           string
-	Image               string
-	WebhookImage        string
-	CliDownloadsImage   string
-	KVUIPluginImage     string
-	KVUIProxyImage      string
-	ImagePullPolicy     string
-	ConversionContainer string
-	VmwareContainer     string
-	VirtIOWinContainer  string
-	Smbios              string
-	Machinetype         string
-	Amd64MachineType    string
-	Arm64MachineType    string
-	HcoKvIoVersion      string
-	KubevirtVersion     string
-	CdiVersion          string
-	CnaoVersion         string
-	SspVersion          string
-	HppoVersion         string
-	MtqVersion          string
-	AaqVersion          string
-	PrimaryUDNImage     string
-	Env                 []corev1.EnvVar
+	Namespace              string
+	Image                  string
+	WebhookImage           string
+	CliDownloadsImage      string
+	KVUIPluginImage        string
+	KVUIProxyImage         string
+	ImagePullPolicy        string
+	ConversionContainer    string
+	VmwareContainer        string
+	VirtIOWinContainer     string
+	Smbios                 string
+	Machinetype            string
+	Amd64MachineType       string
+	Arm64MachineType       string
+	HcoKvIoVersion         string
+	KubevirtVersion        string
+	KvVirtLancherOsVersion string
+	CdiVersion             string
+	CnaoVersion            string
+	SspVersion             string
+	HppoVersion            string
+	MtqVersion             string
+	AaqVersion             string
+	PrimaryUDNImage        string
+	Env                    []corev1.EnvVar
 }
 
 func GetDeploymentOperator(params *DeploymentOperatorParams) appsv1.Deployment {
@@ -157,6 +158,8 @@ func GetServiceWebhook() v1.Service {
 }
 
 func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.DeploymentSpec {
+	envs := buildEnvVars(params)
+
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
 		Selector: &metav1.LabelSelector{
@@ -179,105 +182,10 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 						Name:            hcoName,
 						Image:           params.Image,
 						ImagePullPolicy: corev1.PullPolicy(params.ImagePullPolicy),
-						// command being name is artifact of operator-sdk usage
-						Command:        stringListToSlice(hcoName),
-						ReadinessProbe: getReadinessProbe(),
-						LivenessProbe:  getLivenessProbe(),
-						Env: append([]corev1.EnvVar{
-							{
-								// deprecated: left here for CI test.
-								Name:  util.OperatorWebhookModeEnv,
-								Value: "false",
-							},
-							{
-								Name:  util.ContainerAppName,
-								Value: util.ContainerOperatorApp,
-							},
-							{
-								Name:  "KVM_EMULATION",
-								Value: "",
-							},
-							{
-								Name:  "OPERATOR_IMAGE",
-								Value: params.Image,
-							},
-							{
-								Name:  "OPERATOR_NAME",
-								Value: hcoName,
-							},
-							{
-								Name:  "OPERATOR_NAMESPACE",
-								Value: params.Namespace,
-							},
-							{
-								Name: "POD_NAME",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.name",
-									},
-								},
-							},
-							{
-								Name:  "VIRTIOWIN_CONTAINER",
-								Value: params.VirtIOWinContainer,
-							},
-							{
-								Name:  "SMBIOS",
-								Value: params.Smbios,
-							},
-							{
-								Name:  "MACHINETYPE",
-								Value: params.Machinetype,
-							},
-							{
-								Name:  "AMD64_MACHINETYPE",
-								Value: params.Amd64MachineType,
-							},
-							{
-								Name:  "ARM64_MACHINETYPE",
-								Value: params.Arm64MachineType,
-							},
-							{
-								Name:  util.HcoKvIoVersionName,
-								Value: params.HcoKvIoVersion,
-							},
-							{
-								Name:  util.KubevirtVersionEnvV,
-								Value: params.KubevirtVersion,
-							},
-							{
-								Name:  util.CdiVersionEnvV,
-								Value: params.CdiVersion,
-							},
-							{
-								Name:  util.CnaoVersionEnvV,
-								Value: params.CnaoVersion,
-							},
-							{
-								Name:  util.SspVersionEnvV,
-								Value: params.SspVersion,
-							},
-							{
-								Name:  util.HppoVersionEnvV,
-								Value: params.HppoVersion,
-							},
-							{
-								Name:  util.AaqVersionEnvV,
-								Value: params.AaqVersion,
-							},
-							{
-								Name:  util.KVUIPluginImageEnvV,
-								Value: params.KVUIPluginImage,
-							},
-							{
-								Name:  util.KVUIProxyImageEnvV,
-								Value: params.KVUIProxyImage,
-							},
-							{
-								Name:  util.PrimaryUDNImageEnvV,
-								Value: params.PrimaryUDNImage,
-							},
-						}, params.Env...),
+						Command:         stringListToSlice(hcoName),
+						ReadinessProbe:  getReadinessProbe(),
+						LivenessProbe:   getLivenessProbe(),
+						Env:             envs,
 						Resources: v1.ResourceRequirements{
 							Requests: map[v1.ResourceName]resource.Quantity{
 								v1.ResourceCPU:    resource.MustParse("10m"),
@@ -291,6 +199,113 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 			},
 		},
 	}
+}
+
+func buildEnvVars(params *DeploymentOperatorParams) []corev1.EnvVar {
+	envs := append([]corev1.EnvVar{
+		{
+			// deprecated: left here for CI test.
+			Name:  util.OperatorWebhookModeEnv,
+			Value: "false",
+		},
+		{
+			Name:  util.ContainerAppName,
+			Value: util.ContainerOperatorApp,
+		},
+		{
+			Name:  "KVM_EMULATION",
+			Value: "",
+		},
+		{
+			Name:  "OPERATOR_IMAGE",
+			Value: params.Image,
+		},
+		{
+			Name:  "OPERATOR_NAME",
+			Value: hcoName,
+		},
+		{
+			Name:  "OPERATOR_NAMESPACE",
+			Value: params.Namespace,
+		},
+		{
+			Name: "POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+		{
+			Name:  "VIRTIOWIN_CONTAINER",
+			Value: params.VirtIOWinContainer,
+		},
+		{
+			Name:  "SMBIOS",
+			Value: params.Smbios,
+		},
+		{
+			Name:  "MACHINETYPE",
+			Value: params.Machinetype,
+		},
+		{
+			Name:  "AMD64_MACHINETYPE",
+			Value: params.Amd64MachineType,
+		},
+		{
+			Name:  "ARM64_MACHINETYPE",
+			Value: params.Arm64MachineType,
+		},
+		{
+			Name:  util.HcoKvIoVersionName,
+			Value: params.HcoKvIoVersion,
+		},
+		{
+			Name:  util.KubevirtVersionEnvV,
+			Value: params.KubevirtVersion,
+		},
+		{
+			Name:  util.CdiVersionEnvV,
+			Value: params.CdiVersion,
+		},
+		{
+			Name:  util.CnaoVersionEnvV,
+			Value: params.CnaoVersion,
+		},
+		{
+			Name:  util.SspVersionEnvV,
+			Value: params.SspVersion,
+		},
+		{
+			Name:  util.HppoVersionEnvV,
+			Value: params.HppoVersion,
+		},
+		{
+			Name:  util.AaqVersionEnvV,
+			Value: params.AaqVersion,
+		},
+		{
+			Name:  util.KVUIPluginImageEnvV,
+			Value: params.KVUIPluginImage,
+		},
+		{
+			Name:  util.KVUIProxyImageEnvV,
+			Value: params.KVUIProxyImage,
+		},
+		{
+			Name:  util.PrimaryUDNImageEnvV,
+			Value: params.PrimaryUDNImage,
+		},
+	}, params.Env...)
+
+	if params.KvVirtLancherOsVersion != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  util.KvVirtLauncherOSVersionEnvV,
+			Value: params.KvVirtLancherOsVersion,
+		})
+	}
+
+	return envs
 }
 
 func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.DeploymentSpec {

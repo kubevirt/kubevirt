@@ -118,6 +118,7 @@ var (
 	crdDir                        = flag.String("crds-dir", "", "the directory containing the CRDs for apigroup validation. The validation will be performed if and only if the value is non-empty.")
 	hcoKvIoVersion                = flag.String("hco-kv-io-version", "", "KubeVirt version")
 	kubevirtVersion               = flag.String("kubevirt-version", "", "Kubevirt operator version")
+	kvVirtLauncherOSVersion       = flag.String("virt-launcher-os-version", "", "Virt launcher OS version")
 	cdiVersion                    = flag.String("cdi-version", "", "CDI operator version")
 	cnaoVersion                   = flag.String("cnao-version", "", "CNA operator version")
 	sspVersion                    = flag.String("ssp-version", "", "SSP operator version")
@@ -514,27 +515,28 @@ func getCsvBaseParams(replaces string, version semver.Version) *components.CSVBa
 
 func getDeploymentParams() *components.DeploymentOperatorParams {
 	return &components.DeploymentOperatorParams{
-		Namespace:          *namespace,
-		Image:              *operatorImage,
-		WebhookImage:       *webhookImage,
-		CliDownloadsImage:  *cliDownloadsImage,
-		KVUIPluginImage:    *kvUIPluginImage,
-		KVUIProxyImage:     *kvUIProxyImage,
-		ImagePullPolicy:    "IfNotPresent",
-		VirtIOWinContainer: *kvVirtIOWinImage,
-		Smbios:             *smbios,
-		Machinetype:        *machinetype,
-		Amd64MachineType:   *amd64MachineType,
-		Arm64MachineType:   *arm64MachineType,
-		HcoKvIoVersion:     *hcoKvIoVersion,
-		KubevirtVersion:    *kubevirtVersion,
-		CdiVersion:         *cdiVersion,
-		CnaoVersion:        *cnaoVersion,
-		SspVersion:         *sspVersion,
-		HppoVersion:        *hppoVersion,
-		AaqVersion:         *aaqVersion,
-		PrimaryUDNImage:    *primaryUDNImage,
-		Env:                envVars,
+		Namespace:              *namespace,
+		Image:                  *operatorImage,
+		WebhookImage:           *webhookImage,
+		CliDownloadsImage:      *cliDownloadsImage,
+		KVUIPluginImage:        *kvUIPluginImage,
+		KVUIProxyImage:         *kvUIProxyImage,
+		ImagePullPolicy:        "IfNotPresent",
+		VirtIOWinContainer:     *kvVirtIOWinImage,
+		Smbios:                 *smbios,
+		Machinetype:            *machinetype,
+		Amd64MachineType:       *amd64MachineType,
+		Arm64MachineType:       *arm64MachineType,
+		HcoKvIoVersion:         *hcoKvIoVersion,
+		KubevirtVersion:        *kubevirtVersion,
+		KvVirtLancherOsVersion: *kvVirtLauncherOSVersion,
+		CdiVersion:             *cdiVersion,
+		CnaoVersion:            *cnaoVersion,
+		SspVersion:             *sspVersion,
+		HppoVersion:            *hppoVersion,
+		AaqVersion:             *aaqVersion,
+		PrimaryUDNImage:        *primaryUDNImage,
+		Env:                    envVars,
 	}
 }
 

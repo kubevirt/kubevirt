@@ -9,6 +9,7 @@ const (
 	ContainerWebhookApp              = "WEBHOOK"
 	HcoKvIoVersionName               = "HCO_KV_IO_VERSION"
 	KubevirtVersionEnvV              = "KUBEVIRT_VERSION"
+	KvVirtLauncherOSVersionEnvV      = "VIRT_LAUNCHER_OS_VERSION"
 	CdiVersionEnvV                   = "CDI_VERSION"
 	CnaoVersionEnvV                  = "NETWORK_ADDONS_VERSION"
 	SspVersionEnvV                   = "SSP_VERSION"

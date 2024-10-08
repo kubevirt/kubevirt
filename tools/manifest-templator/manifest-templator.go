@@ -50,34 +50,35 @@ var (
 
 // flags for the command line arguments we accept
 var (
-	cwd, _            = os.Getwd()
-	deployDir         = flag.String("deploy-dir", "deploy", "Directory where manifests should be written")
-	cnaCsv            = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
-	virtCsv           = flag.String("virt-csv", "", "KubeVirt CSV string")
-	sspCsv            = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
-	cdiCsv            = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
-	hppCsv            = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
-	_                 = flag.String("mtq-csv", "", "deprecated. This flag is ignored")
-	aaqCsv            = flag.String("aaq-csv", "", "Applications Aware Quota Operator CSV String")
-	operatorNamespace = flag.String("operator-namespace", "kubevirt-hyperconverged", "Name of the Operator")
-	operatorImage     = flag.String("operator-image", "", "HyperConverged Cluster Operator image")
-	webhookImage      = flag.String("webhook-image", "", "HyperConverged Cluster Webhook image")
-	cliDownloadsImage = flag.String("cli-downloads-image", "", "Downloads Server image")
-	kvVirtIOWinImage  = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
-	smbios            = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
-	machinetype       = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap (Deprecated, use amd64-machinetype)")
-	amd64MachineType  = flag.String("amd64-machinetype", "", "Custom AMD64_MACHINETYPE string for KubeVirt ConfigMap")
-	arm64MachineType  = flag.String("arm64-machinetype", "", "Custom ARM64_MACHINETYPE string for KubeVirt ConfigMap")
-	hcoKvIoVersion    = flag.String("hco-kv-io-version", "", "KubeVirt version")
-	kubevirtVersion   = flag.String("kubevirt-version", "", "Kubevirt operator version")
-	cdiVersion        = flag.String("cdi-version", "", "CDI operator version")
-	cnaoVersion       = flag.String("cnao-version", "", "CNA operator version")
-	sspVersion        = flag.String("ssp-version", "", "SSP operator version")
-	hppoVersion       = flag.String("hppo-version", "", "HPP operator version")
-	_                 = flag.String("mtq-version", "", "deprecated. This flag is ignored")
-	aaqVersion        = flag.String("aaq-version", "", "AAQ operator version")
-	primaryUDNImage   = flag.String("primary-udn-binding-image-name", "", "Primary UDN binding image")
-	apiSources        = flag.String("api-sources", cwd+"/...", "Project sources")
+	cwd, _                  = os.Getwd()
+	deployDir               = flag.String("deploy-dir", "deploy", "Directory where manifests should be written")
+	cnaCsv                  = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
+	virtCsv                 = flag.String("virt-csv", "", "KubeVirt CSV string")
+	sspCsv                  = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
+	cdiCsv                  = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
+	hppCsv                  = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
+	_                       = flag.String("mtq-csv", "", "deprecated. This flag is ignored")
+	aaqCsv                  = flag.String("aaq-csv", "", "Applications Aware Quota Operator CSV String")
+	operatorNamespace       = flag.String("operator-namespace", "kubevirt-hyperconverged", "Name of the Operator")
+	operatorImage           = flag.String("operator-image", "", "HyperConverged Cluster Operator image")
+	webhookImage            = flag.String("webhook-image", "", "HyperConverged Cluster Webhook image")
+	cliDownloadsImage       = flag.String("cli-downloads-image", "", "Downloads Server image")
+	kvVirtIOWinImage        = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
+	smbios                  = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
+	machinetype             = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap (Deprecated, use amd64-machinetype)")
+	amd64MachineType        = flag.String("amd64-machinetype", "", "Custom AMD64_MACHINETYPE string for KubeVirt ConfigMap")
+	arm64MachineType        = flag.String("arm64-machinetype", "", "Custom ARM64_MACHINETYPE string for KubeVirt ConfigMap")
+	hcoKvIoVersion          = flag.String("hco-kv-io-version", "", "KubeVirt version")
+	kubevirtVersion         = flag.String("kubevirt-version", "", "Kubevirt operator version")
+	kvVirtLauncherOSVersion = flag.String("virt-launcher-os-version", "", "Virt launcher OS version")
+	cdiVersion              = flag.String("cdi-version", "", "CDI operator version")
+	cnaoVersion             = flag.String("cnao-version", "", "CNA operator version")
+	sspVersion              = flag.String("ssp-version", "", "SSP operator version")
+	hppoVersion             = flag.String("hppo-version", "", "HPP operator version")
+	_                       = flag.String("mtq-version", "", "deprecated. This flag is ignored")
+	aaqVersion              = flag.String("aaq-version", "", "AAQ operator version")
+	primaryUDNImage         = flag.String("primary-udn-binding-image-name", "", "Primary UDN binding image")
+	apiSources              = flag.String("api-sources", cwd+"/...", "Project sources")
 )
 
 // check handles errors
@@ -412,25 +413,26 @@ func getCsvWithComponent() []util.CsvWithComponent {
 
 func getOperatorParameters() *components.DeploymentOperatorParams {
 	params := &components.DeploymentOperatorParams{
-		Namespace:          *operatorNamespace,
-		Image:              *operatorImage,
-		WebhookImage:       *webhookImage,
-		CliDownloadsImage:  *cliDownloadsImage,
-		ImagePullPolicy:    "IfNotPresent",
-		VirtIOWinContainer: *kvVirtIOWinImage,
-		Smbios:             *smbios,
-		Machinetype:        *machinetype,
-		Amd64MachineType:   *amd64MachineType,
-		Arm64MachineType:   *arm64MachineType,
-		HcoKvIoVersion:     *hcoKvIoVersion,
-		KubevirtVersion:    *kubevirtVersion,
-		CdiVersion:         *cdiVersion,
-		CnaoVersion:        *cnaoVersion,
-		SspVersion:         *sspVersion,
-		HppoVersion:        *hppoVersion,
-		AaqVersion:         *aaqVersion,
-		PrimaryUDNImage:    *primaryUDNImage,
-		Env:                []corev1.EnvVar{},
+		Namespace:              *operatorNamespace,
+		Image:                  *operatorImage,
+		WebhookImage:           *webhookImage,
+		CliDownloadsImage:      *cliDownloadsImage,
+		ImagePullPolicy:        "IfNotPresent",
+		VirtIOWinContainer:     *kvVirtIOWinImage,
+		Smbios:                 *smbios,
+		Machinetype:            *machinetype,
+		Amd64MachineType:       *amd64MachineType,
+		Arm64MachineType:       *arm64MachineType,
+		HcoKvIoVersion:         *hcoKvIoVersion,
+		KubevirtVersion:        *kubevirtVersion,
+		KvVirtLancherOsVersion: *kvVirtLauncherOSVersion,
+		CdiVersion:             *cdiVersion,
+		CnaoVersion:            *cnaoVersion,
+		SspVersion:             *sspVersion,
+		HppoVersion:            *hppoVersion,
+		AaqVersion:             *aaqVersion,
+		PrimaryUDNImage:        *primaryUDNImage,
+		Env:                    []corev1.EnvVar{},
 	}
 	return params
 }
