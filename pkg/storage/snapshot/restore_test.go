@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -48,7 +49,7 @@ var _ = Describe("Restore controller", func() {
 
 	var (
 		vmAPIGroup       = "kubevirt.io"
-		timeStamp        = metav1.Now()
+		timeStamp        = metav1.Time{Time: time.Now().Truncate(time.Second)}
 		storageClassName = "sc"
 		vmRestoreName    = "restore"
 	)
@@ -384,7 +385,7 @@ var _ = Describe("Restore controller", func() {
 			vmStatusUpdate := vm.DeepCopy()
 			vmStatusUpdate.ResourceVersion = "1"
 			vmStatusUpdate.Status.RestoreInProgress = &vmRestoreName
-			vmInterface.EXPECT().UpdateStatus(context.Background(), vmStatusUpdate, metav1.UpdateOptions{}).Return(vmStatusUpdate, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), vmStatusUpdate, metav1.UpdateOptions{}).Return(vmStatusUpdate, nil).Times(1)
 			return vmStatusUpdate
 		}
 
@@ -428,23 +429,22 @@ var _ = Describe("Restore controller", func() {
 				vmSnapshotSource.Delete(createSnapshot())
 				vmSource.Add(vm)
 				expectUpdateVMRestoreInProgress(vm)
-				expectVMRestoreUpdateStatus(kubevirtClient, rc)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should update restore status, initializing conditions and add owner", func() {
+			It("should update restore status, initializing conditions", func() {
 				r := createRestoreWithOwner()
-				refs := r.OwnerReferences
+				r.Finalizers = nil
 				r.OwnerReferences = nil
 				r.Status = nil
 				vm := createModifiedVM()
 				rc := r.DeepCopy()
-				rc.OwnerReferences = refs
 				rc.ResourceVersion = "1"
-				rc2 := rc.DeepCopy()
-				rc2.Status = &snapshotv1.VirtualMachineRestoreStatus{
+				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: pointer.P(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
@@ -452,10 +452,50 @@ var _ = Describe("Restore controller", func() {
 					},
 				}
 				vmSource.Add(vm)
-				expectVMRestoreUpdate(kubevirtClient, rc)
-				expectVMRestoreUpdateStatus(kubevirtClient, rc2)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should update restore, add finalizer and owner", func() {
+				r := createRestoreWithOwner()
+				finalizers := r.Finalizers
+				r.Finalizers = nil
+				ownerRefs := r.OwnerReferences
+				r.OwnerReferences = nil
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: pointer.P(false),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
+						newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
+					},
+				}
+				rc := r.DeepCopy()
+				rc.ResourceVersion = "1"
+				rc.Finalizers = finalizers
+				rc.OwnerReferences = ownerRefs
+				updateCalls := expectVMRestoreUpdate(kubevirtClient, rc)
+
+				rc2 := rc.DeepCopy()
+				rc2.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: pointer.P(false),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
+					},
+				}
+				addInitialVolumeRestores(rc2)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc2)
+
+				vm := createModifiedVM()
+				vmSource.Add(vm)
+				expectUpdateVMRestoreInProgress(vm)
+
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
+				Expect(*updateCalls).To(Equal(1))
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
 			It("should update restore status with condition and VolumeRestores", func() {
@@ -473,9 +513,10 @@ var _ = Describe("Restore controller", func() {
 				addInitialVolumeRestores(rc)
 				vmSource.Add(vm)
 				expectUpdateVMRestoreInProgress(vm)
-				expectVMRestoreUpdateStatus(kubevirtClient, rc)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
 			It("should return error if volumesnapshot doesnt exist", func() {
@@ -504,8 +545,9 @@ var _ = Describe("Restore controller", func() {
 				addVirtualMachineRestore(r)
 
 				expectUpdateVMRestoreInProgress(vm)
-				expectVMRestoreUpdateStatus(kubevirtClient, rc)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 				controller.processVMRestoreWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
 			It("should create restore PVCs", func() {
@@ -524,9 +566,10 @@ var _ = Describe("Restore controller", func() {
 				vs := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, pvcSize)
 				fakeVolumeSnapshotProvider.Add(vs)
 				expectUpdateVMRestoreInProgress(vm)
-				expectPVCCreates(k8sClient, r, pvcSize)
+				calls := expectPVCCreates(k8sClient, r, pvcSize)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
+				Expect(*calls).To(Equal(1))
 			})
 
 			It("should create pvcs for both datavolume and pvc restore volumes", func() {
@@ -600,8 +643,9 @@ var _ = Describe("Restore controller", func() {
 				addVirtualMachineRestore(r)
 
 				expectUpdateVMRestoreInProgress(vm)
-				expectPVCCreates(k8sClient, r, pvcSize)
+				calls := expectPVCCreates(k8sClient, r, pvcSize)
 				controller.processVMRestoreWorkItem()
+				Expect(*calls).To(Equal(2))
 			})
 
 			It("should create restore PVC with volume snapshot size if bigger then PVC size", func() {
@@ -620,9 +664,10 @@ var _ = Describe("Restore controller", func() {
 				vs := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, q)
 				fakeVolumeSnapshotProvider.Add(vs)
 				expectUpdateVMRestoreInProgress(vm)
-				expectPVCCreates(k8sClient, r, q)
+				calls := expectPVCCreates(k8sClient, r, q)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
+				Expect(*calls).To(Equal(1))
 			})
 
 			It("should create restore PVC with pvc size if restore size is smaller", func() {
@@ -642,9 +687,10 @@ var _ = Describe("Restore controller", func() {
 				fakeVolumeSnapshotProvider.Add(vs)
 				expectUpdateVMRestoreInProgress(vm)
 				pvcSize := resource.MustParse("2Gi")
-				expectPVCCreates(k8sClient, r, pvcSize)
+				calls := expectPVCCreates(k8sClient, r, pvcSize)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
+				Expect(*calls).To(Equal(1))
 			})
 
 			It("should wait for bound", func() {
@@ -694,12 +740,13 @@ var _ = Describe("Restore controller", func() {
 				vmiSource.Add(vmi)
 				vmRestoreSource.Add(r)
 				expectUpdateVMRestoreInProgress(vm)
-				expectVMRestoreUpdateStatus(kubevirtClient, ur)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, ur)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimBound
 					addPVC(&pvc)
 				}
 				controller.processVMRestoreWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
 			It("should update PVCs and restores to have datavolumename", func() {
@@ -727,13 +774,15 @@ var _ = Describe("Restore controller", func() {
 				vmSource.Add(vm)
 				expectUpdateVMRestoreInProgress(vm)
 				vmRestoreSource.Add(r)
-				expectPVCUpdates(k8sClient, ur)
-				expectVMRestoreUpdateStatus(kubevirtClient, ur)
+				pvcUpdateCalls := expectPVCUpdates(k8sClient, ur)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, ur)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimBound
 					addPVC(&pvc)
 				}
 				controller.processVMRestoreWorkItem()
+				Expect(*pvcUpdateCalls).To(Equal(1))
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
 			It("should update correctly restore VolumeRestores with multiple volumes and update relevant PVCs", func() {
@@ -815,9 +864,11 @@ var _ = Describe("Restore controller", func() {
 				vmSource.Add(vm)
 				addVirtualMachineRestore(r)
 
-				expectPVCUpdates(k8sClient, rc)
-				expectVMRestoreUpdateStatus(kubevirtClient, rc)
+				pvcUpdateCalls := expectPVCUpdates(k8sClient, rc)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 				controller.processVMRestoreWorkItem()
+				Expect(*pvcUpdateCalls).To(Equal(1))
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
 			It("should cleanup, unlock vm and mark restore completed", func() {
@@ -860,7 +911,7 @@ var _ = Describe("Restore controller", func() {
 				updatedVM := vm.DeepCopy()
 				updatedVM.ResourceVersion = "1"
 				updatedVM.Status.RestoreInProgress = nil
-				vmInterface.EXPECT().UpdateStatus(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil).Times(1)
 
 				ur := r.DeepCopy()
 				ur.ResourceVersion = "1"
@@ -871,14 +922,16 @@ var _ = Describe("Restore controller", func() {
 					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
 				}
 
-				expectDataVolumeDeletes(cdiClient, r.Status.DeletedDataVolumes)
-				expectVMRestoreUpdateStatus(kubevirtClient, ur)
+				dvDeleteCalls := expectDataVolumeDeletes(cdiClient, r.Status.DeletedDataVolumes)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, ur)
 
 				controller.processVMRestoreWorkItem()
 
 				l, err := cdiClient.CdiV1beta1().DataVolumes("").List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(l.Items).To(BeEmpty())
+				Expect(*updateStatusCalls).To(Equal(1))
+				Expect(*dvDeleteCalls).To(Equal(len(r.Status.DeletedDataVolumes)))
 			})
 
 			It("should complete restore", func() {
@@ -915,7 +968,7 @@ var _ = Describe("Restore controller", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
 				}
-				expectVMRestoreUpdateStatus(kubevirtClient, ur)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, ur)
 
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
@@ -927,9 +980,10 @@ var _ = Describe("Restore controller", func() {
 				addVM(vm)
 				controller.processVMRestoreWorkItem()
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should remove finalizer if restore deleted after completion", func() {
+			It("should update status if restore deleted after completion", func() {
 				r := createRestoreWithOwner()
 				r.DeletionTimestamp = timeFunc()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
@@ -954,15 +1008,41 @@ var _ = Describe("Restore controller", func() {
 					newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
 				}
 				updatedVMRestore.ResourceVersion = "1"
-				updatedVMRestore2 := updatedVMRestore.DeepCopy()
-				updatedVMRestore2.Finalizers = []string{}
 
-				expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
-				expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore2)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore)
 				controller.processVMRestoreWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should clean existing vm and then remove restore finalizer if restore deleted before completeion", func() {
+			It("should remove finalizer if restore deleted after completion", func() {
+				r := createRestoreWithOwner()
+				r.DeletionTimestamp = timeFunc()
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete:           pointer.P(true),
+					DeletedDataVolumes: getDeletedDataVolumes(createModifiedVM()),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "VM restore is deleting"),
+						newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
+					},
+					RestoreTime: timeFunc(),
+				}
+
+				vm := createModifiedVM()
+				vm.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
+
+				vmRestoreSource.Add(r)
+				addVM(vm)
+
+				updatedVMRestore := r.DeepCopy()
+				updatedVMRestore.ResourceVersion = "1"
+				updatedVMRestore.Finalizers = []string{}
+
+				patchCount := expectVMRestorePatch(kubevirtClient, r, updatedVMRestore)
+				controller.processVMRestoreWorkItem()
+				Expect(*patchCount).To(Equal(1))
+			})
+
+			It("should clean existing vm and then remove restore status if restore deleted before completion", func() {
 				r := createRestoreWithOwner()
 				r.DeletionTimestamp = timeFunc()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
@@ -981,7 +1061,7 @@ var _ = Describe("Restore controller", func() {
 
 				vmUpdated := vm.DeepCopy()
 				vmUpdated.Status.RestoreInProgress = nil
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdated, metav1.UpdateOptions{}).Return(vmUpdated, nil)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdated, metav1.UpdateOptions{}).Return(vmUpdated, nil).Times(1)
 
 				updatedVMRestore := r.DeepCopy()
 				updatedVMRestore.Status.Conditions = []snapshotv1.Condition{
@@ -989,12 +1069,35 @@ var _ = Describe("Restore controller", func() {
 					newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
 				}
 				updatedVMRestore.ResourceVersion = "1"
-				updatedVMRestore2 := updatedVMRestore.DeepCopy()
-				updatedVMRestore2.Finalizers = []string{}
 
-				expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
-				expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore2)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore)
 				controller.processVMRestoreWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should clean existing vm and then remove restore finalizer if restore deleted before completion", func() {
+				r := createRestoreWithOwner()
+				r.DeletionTimestamp = timeFunc()
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: pointer.P(false),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "VM restore is deleting"),
+						newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
+					},
+				}
+
+				vm := createModifiedVM()
+
+				vmRestoreSource.Add(r)
+				addVM(vm)
+
+				updatedVMRestore := r.DeepCopy()
+				updatedVMRestore.ResourceVersion = "1"
+				updatedVMRestore.Finalizers = []string{}
+
+				patchCount := expectVMRestorePatch(kubevirtClient, r, updatedVMRestore)
+				controller.processVMRestoreWorkItem()
+				Expect(*patchCount).To(Equal(1))
 			})
 
 			Context("target Reconcile", func() {
@@ -1011,7 +1114,8 @@ var _ = Describe("Restore controller", func() {
 					targetVM.UpdateTarget(vm)
 				})
 
-				addRestoreVolumes := func(dvExists bool, phase cdiv1.DataVolumePhase) {
+				addRestoreVolumes := func(dvExists bool, phase cdiv1.DataVolumePhase) *int {
+					var calls *int
 					pvc := corev1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace:   testNamespace,
@@ -1039,9 +1143,10 @@ var _ = Describe("Restore controller", func() {
 						pvc.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(dv, schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: "v1beta1", Kind: "DataVolume"})}
 						r.Status.DeletedDataVolumes = getDeletedDataVolumes(vm)
 					} else {
-						expectDataVolumeCreate(cdiClient, "restore-uid-disk1")
+						calls = expectDataVolumeCreate(cdiClient, "restore-uid-disk1")
 					}
 					pvcSource.Add(&pvc)
+					return calls
 				}
 				expectUpdateRestoredVM := func() {
 					updatedVM := createSnapshotVM()
@@ -1050,11 +1155,11 @@ var _ = Describe("Restore controller", func() {
 					updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
 					updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
 					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
-					vmInterface.EXPECT().Update(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil)
+					vmInterface.EXPECT().Update(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil).Times(1)
 				}
 
 				DescribeTable("should", func(dvExists bool, phase cdiv1.DataVolumePhase, expecteUpdateVM bool) {
-					addRestoreVolumes(dvExists, phase)
+					dvCreateCalls := addRestoreVolumes(dvExists, phase)
 
 					vmRestoreSource.Add(r)
 					addVM(vm)
@@ -1064,6 +1169,9 @@ var _ = Describe("Restore controller", func() {
 					res, err := targetVM.Reconcile()
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(res).To(BeTrue())
+					if dvCreateCalls != nil {
+						Expect(*dvCreateCalls).To(Equal(1))
+					}
 				},
 					Entry("update VM spec when dv phase succeeded", true, cdiv1.Succeeded, false),
 					Entry("update VM spec when dv phase WFFC", true, cdiv1.WaitForFirstConsumer, false),
@@ -1093,14 +1201,14 @@ var _ = Describe("Restore controller", func() {
 
 					Expect(vmRestore.Status.Restores).To(HaveLen(1))
 					vmRestore.Status.Restores[0].DataVolumeName = pointer.P(restoreDVName(vmRestore, vmRestore.Status.Restores[0].VolumeName))
-					expectPVCUpdates(k8sClient, vmRestore)
+					pvcUpdateCalls := expectPVCUpdates(k8sClient, vmRestore)
 
 					By("Making sure right VM update occurs")
 					newVM.Spec.DataVolumeTemplates[0].Name = *vmRestore.Status.Restores[0].DataVolumeName
 					newVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = *vmRestore.Status.Restores[0].DataVolumeName
 					newVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 
-					vmInterface.EXPECT().Create(context.Background(), newVM, metav1.CreateOptions{}).Return(newVM, nil)
+					vmInterface.EXPECT().Create(context.Background(), newVM, metav1.CreateOptions{}).Return(newVM, nil).Times(1)
 
 					By("Making sure right VMRestore update occurs")
 					updatedVMRestore := vmRestore.DeepCopy()
@@ -1110,10 +1218,12 @@ var _ = Describe("Restore controller", func() {
 					}
 					updatedVMRestore.ResourceVersion = "1"
 
-					expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore)
 
 					By("Running the controller")
 					controller.processVMRestoreWorkItem()
+					Expect(*pvcUpdateCalls).To(Equal(1))
+					Expect(*updateStatusCalls).To(Equal(1))
 				})
 
 				It("should own the vmrestore after creation", func() {
@@ -1127,21 +1237,18 @@ var _ = Describe("Restore controller", func() {
 					vmRestore := createRestore()
 					vmRestore.Finalizers = []string{"snapshot.kubevirt.io/vmrestore-protection"}
 					vmRestore.Spec.Target.Name = newVM.Name
-					addVirtualMachineRestore(vmRestore)
-
-					By("Making sure right VMRestore update occurs")
-					updatedVMRestore := vmRestore.DeepCopy()
-					updatedVMRestore.ResourceVersion = "1"
-					updatedVMRestore.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					vmRestore.Status = &snapshotv1.VirtualMachineRestoreStatus{
 						Complete: pointer.P(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
 							newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
 						},
 					}
+					addVirtualMachineRestore(vmRestore)
 
-					updatedVMRestore2 := updatedVMRestore.DeepCopy()
-					updatedVMRestore2.OwnerReferences = []metav1.OwnerReference{
+					By("Making sure right VMRestore update occurs")
+					updatedVMRestore := vmRestore.DeepCopy()
+					updatedVMRestore.OwnerReferences = []metav1.OwnerReference{
 						{
 							APIVersion:         kubevirtv1.GroupVersion.String(),
 							Kind:               "VirtualMachine",
@@ -1151,12 +1258,25 @@ var _ = Describe("Restore controller", func() {
 							BlockOwnerDeletion: pointer.P(true),
 						},
 					}
+					updatedVMRestore.ResourceVersion = "1"
 
-					expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore)
-					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore2)
+					updatedVMRestore2 := updatedVMRestore.DeepCopy()
+					updatedVMRestore2.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
+							newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
+						},
+					}
+					addInitialVolumeRestores(updatedVMRestore2)
+
+					updateCount := expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore2)
 
 					By("Running the controller")
 					controller.processVMRestoreWorkItem()
+					Expect(*updateCount).To(Equal(1))
+					Expect(*updateStatusCalls).To(Equal(1))
 				})
 
 				Context("new VM does not exist, should create new VM", func() {
@@ -1211,7 +1331,7 @@ var _ = Describe("Restore controller", func() {
 						newVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = restoreDVName(r, r.Status.Restores[0].VolumeName)
 						newVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 
-						vmInterface.EXPECT().Create(context.Background(), newVM, metav1.CreateOptions{}).Return(newVM, nil)
+						vmInterface.EXPECT().Create(context.Background(), newVM, metav1.CreateOptions{}).Return(newVM, nil).Times(1)
 
 						targetVM, err := controller.getTarget(r)
 						Expect(err).ShouldNot(HaveOccurred())
@@ -1230,7 +1350,7 @@ var _ = Describe("Restore controller", func() {
 						newVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 						newVM.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress = newMacAddress
 
-						vmInterface.EXPECT().Create(context.Background(), newVM, metav1.CreateOptions{}).Return(newVM, nil)
+						vmInterface.EXPECT().Create(context.Background(), newVM, metav1.CreateOptions{}).Return(newVM, nil).Times(1)
 
 						targetVM, err := controller.getTarget(r)
 						Expect(err).ShouldNot(HaveOccurred())
@@ -1241,7 +1361,7 @@ var _ = Describe("Restore controller", func() {
 
 				})
 
-				It("should remove restore finalizer if deleted and failed to restore", func() {
+				It("should update condition if deleted and failed to restore", func() {
 					// This VM will never be created
 					newVM := createVirtualMachine(testNamespace, "new-test-vm")
 					newVM.UID = ""
@@ -1260,12 +1380,36 @@ var _ = Describe("Restore controller", func() {
 						newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
 					}
 					updatedVMRestore.ResourceVersion = "1"
-					updatedVMRestore2 := updatedVMRestore.DeepCopy()
-					updatedVMRestore2.Finalizers = []string{}
 
-					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
-					expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore2)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore)
 					controller.processVMRestoreWorkItem()
+					Expect(*updateStatusCalls).To(Equal(1))
+				})
+
+				It("should remove restore finalizer if deleted and failed to restore", func() {
+					// This VM will never be created
+					newVM := createVirtualMachine(testNamespace, "new-test-vm")
+					newVM.UID = ""
+
+					By("Creating VM restore")
+					vmRestore := createRestoreWithOwner()
+					vmRestore.Spec.Target.Name = newVM.Name
+					vmRestore.DeletionTimestamp = timeFunc()
+					vmRestore.Status.Conditions = []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "VM restore is deleting"),
+						newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
+					}
+					addVolumeRestores(vmRestore)
+
+					addVirtualMachineRestore(vmRestore)
+
+					updatedVMRestore := vmRestore.DeepCopy()
+					updatedVMRestore.ResourceVersion = "1"
+					updatedVMRestore.Finalizers = []string{}
+
+					patchCount := expectVMRestorePatch(kubevirtClient, vmRestore, updatedVMRestore)
+					controller.processVMRestoreWorkItem()
+					Expect(*patchCount).To(Equal(1))
 				})
 			})
 		})
@@ -1302,9 +1446,10 @@ var _ = Describe("Restore controller", func() {
 			vs := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, pvcSize)
 			fakeVolumeSnapshotProvider.Add(vs)
 			expectUpdateVMRestoreInProgress(vm)
-			expectPVCCreateWithDataSourceRef(k8sClient, r, pvcSize)
+			calls := expectPVCCreateWithDataSourceRef(k8sClient, r, pvcSize)
 			addVirtualMachineRestore(r)
 			controller.processVMRestoreWorkItem()
+			Expect(*calls).To(Equal(1))
 		})
 
 		Describe("restore vm with instancetypes and preferences", func() {
@@ -1332,7 +1477,7 @@ var _ = Describe("Restore controller", func() {
 					Create(context.Background(), vm, metav1.CreateOptions{}).
 					Do(func(ctx context.Context, newVM *kubevirtv1.VirtualMachine, options metav1.CreateOptions) {
 						vm.UID = newVMUID
-					}).Return(vm, nil)
+					}).Return(vm, nil).Times(1)
 			}
 
 			expectUpdateVMRestored := func(vm *kubevirtv1.VirtualMachine) {
@@ -1343,27 +1488,27 @@ var _ = Describe("Restore controller", func() {
 					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
 						updatedVM := obj.(*kubevirtv1.VirtualMachine)
 						Expect(*updatedVM).To(Equal(*expectedUpdatedVM))
-					}).Return(expectedUpdatedVM, nil)
+					}).Return(expectedUpdatedVM, nil).Times(1)
 			}
 
-			expectUpdateVMRestoreUpdatingTargetSpec := func(vmRestore *snapshotv1.VirtualMachineRestore, resourceVersion string) {
+			expectUpdateVMRestoreUpdatingTargetSpec := func(vmRestore *snapshotv1.VirtualMachineRestore, resourceVersion string) *int {
 				expectedUpdatedRestore := vmRestore.DeepCopy()
 				expectedUpdatedRestore.ResourceVersion = resourceVersion
 				expectedUpdatedRestore.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionTrue, "Updating target spec"),
 					newReadyCondition(corev1.ConditionFalse, "Waiting for target update"),
 				}
-				expectVMRestoreUpdateStatus(kubevirtClient, expectedUpdatedRestore)
+				return expectVMRestoreUpdateStatus(kubevirtClient, expectedUpdatedRestore)
 			}
 
-			expectUpdateVMRestoreFailure := func(vmRestore *snapshotv1.VirtualMachineRestore, resourceVersion, failureReason string) {
+			expectUpdateVMRestoreFailure := func(vmRestore *snapshotv1.VirtualMachineRestore, resourceVersion, failureReason string) *int {
 				expectedUpdatedRestore := vmRestore.DeepCopy()
 				expectedUpdatedRestore.ResourceVersion = resourceVersion
 				expectedUpdatedRestore.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, failureReason),
 					newReadyCondition(corev1.ConditionFalse, failureReason),
 				}
-				expectVMRestoreUpdateStatus(kubevirtClient, expectedUpdatedRestore)
+				return expectVMRestoreUpdateStatus(kubevirtClient, expectedUpdatedRestore)
 			}
 
 			expectCreateVMFailure := func(vm *kubevirtv1.VirtualMachine) {
@@ -1428,13 +1573,13 @@ var _ = Describe("Restore controller", func() {
 					vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Preference = getSnapshotPreferenceMatcher()
 					vmSnapshotContentSource.Add(vmSnapshotContent)
 
-					expectCreateControllerRevisionAlreadyExists(k8sClient, getExpectedCR())
 					updatedVM := expectUpdateVMRestoreInProgress(originalVM)
 					expectUpdateVMRestored(updatedVM)
-					expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
+					calls := expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()
+					Expect(*calls).To(Equal(1))
 				},
 				Entry("and referenced instancetype",
 					func() *kubevirtv1.InstancetypeMatcher {
@@ -1489,7 +1634,7 @@ var _ = Describe("Restore controller", func() {
 					expectedCreatedCR := originalCR.DeepCopy()
 					expectedCreatedCR.Name = strings.Replace(expectedCreatedCR.Name, originalVM.Name, newVM.Name, 1)
 					expectedCreatedCR.OwnerReferences = nil
-					expectControllerRevisionCreate(k8sClient, expectedCreatedCR)
+					crCreates := expectControllerRevisionCreate(k8sClient, expectedCreatedCR)
 
 					// We need to be able to find the created CR from the controller so add it to the source
 					expectedCreatedCR.Namespace = testNamespace
@@ -1498,7 +1643,7 @@ var _ = Describe("Restore controller", func() {
 					expectedUpdatedCR := expectedCreatedCR.DeepCopy()
 					expectedUpdatedCR.ResourceVersion = "5"
 					expectedUpdatedCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(newVM, kubevirtv1.VirtualMachineGroupVersionKind)}
-					expectControllerRevisionUpdate(k8sClient, expectedUpdatedCR)
+					crUpdates := expectControllerRevisionUpdate(k8sClient, expectedUpdatedCR)
 
 					if newVM.Spec.Instancetype != nil {
 						newVM.Spec.Instancetype.RevisionName = expectedCreatedCR.Name
@@ -1507,10 +1652,13 @@ var _ = Describe("Restore controller", func() {
 						newVM.Spec.Preference.RevisionName = expectedCreatedCR.Name
 					}
 					expectCreateVM(newVM)
-					expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
+					calls := expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()
+					Expect(*calls).To(Equal(1))
+					Expect(*crCreates).To(Equal(1))
+					Expect(*crUpdates).To(Equal(1))
 				},
 				Entry("and referenced instancetype",
 					func() *kubevirtv1.InstancetypeMatcher {
@@ -1564,7 +1712,7 @@ var _ = Describe("Restore controller", func() {
 					expectedCreatedCR := originalCR.DeepCopy()
 					expectedCreatedCR.Name = strings.Replace(expectedCreatedCR.Name, originalVM.Name, newVM.Name, 1)
 					expectedCreatedCR.OwnerReferences = nil
-					expectControllerRevisionCreate(k8sClient, expectedCreatedCR)
+					crCreates := expectControllerRevisionCreate(k8sClient, expectedCreatedCR)
 
 					// We need to be able to find the created CR from the controller so add it to the source
 					expectedCreatedCR.Namespace = testNamespace
@@ -1573,7 +1721,7 @@ var _ = Describe("Restore controller", func() {
 					expectedUpdatedCR := expectedCreatedCR.DeepCopy()
 					expectedUpdatedCR.ResourceVersion = "5"
 					expectedUpdatedCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(newVM, kubevirtv1.VirtualMachineGroupVersionKind)}
-					expectControllerRevisionUpdate(k8sClient, expectedUpdatedCR)
+					crUpdates := expectControllerRevisionUpdate(k8sClient, expectedUpdatedCR)
 
 					if newVM.Spec.Instancetype != nil {
 						newVM.Spec.Instancetype.RevisionName = expectedCreatedCR.Name
@@ -1583,18 +1731,23 @@ var _ = Describe("Restore controller", func() {
 					}
 
 					expectCreateVMFailure(newVM)
-					expectUpdateVMRestoreFailure(restore, "1", vmCreationFailureMessage)
+					failCalls := expectUpdateVMRestoreFailure(restore, "1", vmCreationFailureMessage)
 
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()
 
 					// We have already created the ControllerRevision but that shouldn't stop the reconcile from progressing
-					expectCreateControllerRevisionAlreadyExists(k8sClient, expectedCreatedCR)
+					alreadyExistsCalls := expectCreateControllerRevisionAlreadyExists(k8sClient, expectedCreatedCR)
 					expectCreateVM(newVM)
-					expectUpdateVMRestoreUpdatingTargetSpec(restore, "2")
+					calls := expectUpdateVMRestoreUpdatingTargetSpec(restore, "2")
 
 					addVirtualMachineRestore(restore)
 					controller.processVMRestoreWorkItem()
+					Expect(*calls).To(Equal(1))
+					Expect(*failCalls).To(Equal(1))
+					Expect(*crCreates).To(Equal(1))
+					Expect(*alreadyExistsCalls).To(Equal(1))
+					Expect(*crUpdates).To(Equal(1))
 				},
 				Entry("and referenced instancetype",
 					func() *kubevirtv1.InstancetypeMatcher {
@@ -1653,26 +1806,26 @@ var _ = Describe("Restore controller", func() {
 				}
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 
-				// We expect an attempt to be made to create the original CR, this should raise an already exists
-				// error before we check the contents against the snapshot CR
-				expectCreateControllerRevisionAlreadyExists(k8sClient, instancetypeOriginalCRCopy)
-
 				// We expect the original CR to be deleted and recreated with the correct data
-				expectControllerRevisionDelete(k8sClient, instancetypeOriginalCR.Name)
-				expectControllerRevisionCreate(k8sClient, instancetypeOriginalCRCopy)
+				crDeletes := expectControllerRevisionDelete(k8sClient, instancetypeOriginalCR.Name)
+				crCreates := expectControllerRevisionCreate(k8sClient, instancetypeOriginalCRCopy)
 
 				updatedVM := expectUpdateVMRestoreInProgress(originalVM)
 				expectUpdateVMRestored(updatedVM)
-				expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
+				calls := expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
 				addVirtualMachineRestore(restore)
 				controller.processVMRestoreWorkItem()
+				Expect(*calls).To(Equal(1))
+				Expect(*crCreates).To(Equal(1))
+				Expect(*crDeletes).To(Equal(1))
 			})
 		})
 	})
 })
 
-func expectPVCCreates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore, expectedSize resource.Quantity) {
+func expectPVCCreates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore, expectedSize resource.Quantity) *int {
+	calls := 0
 	client.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
@@ -1688,11 +1841,14 @@ func expectPVCCreates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMa
 		}
 		Expect(found).To(BeTrue())
 
+		calls++
 		return true, create.GetObject(), nil
 	})
+	return &calls
 }
 
-func expectPVCCreateWithDataSourceRef(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore, expectedSize resource.Quantity) {
+func expectPVCCreateWithDataSourceRef(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore, expectedSize resource.Quantity) *int {
+	calls := 0
 	client.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
@@ -1718,11 +1874,15 @@ func expectPVCCreateWithDataSourceRef(client *k8sfake.Clientset, vmRestore *snap
 		}
 		Expect(createObj.Spec.DataSource).To(Equal(dataSourceRef))
 
+		calls++
+
 		return true, create.GetObject(), nil
 	})
+	return &calls
 }
 
-func expectPVCUpdates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore) {
+func expectPVCUpdates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore) *int {
+	calls := 0
 	client.Fake.PrependReactor("update", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		update, ok := action.(testing.UpdateAction)
 		Expect(ok).To(BeTrue())
@@ -1737,11 +1897,15 @@ func expectPVCUpdates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMa
 		}
 		Expect(found).To(BeTrue())
 
+		calls++
+
 		return true, update.GetObject(), nil
 	})
+	return &calls
 }
 
-func expectVMRestoreUpdate(client *kubevirtfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore) {
+func expectVMRestoreUpdate(client *kubevirtfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore) *int {
+	calls := 0
 	client.Fake.PrependReactor("update", "virtualmachinerestores", func(action testing.Action) (bool, runtime.Object, error) {
 		update, ok := action.(testing.UpdateAction)
 		Expect(ok).To(BeTrue())
@@ -1751,13 +1915,17 @@ func expectVMRestoreUpdate(client *kubevirtfake.Clientset, vmRestore *snapshotv1
 
 		updateObj := update.GetObject().(*snapshotv1.VirtualMachineRestore)
 
+		calls++
+
 		return reflect.DeepEqual(vmRestore.ObjectMeta, updateObj.ObjectMeta) && reflect.DeepEqual(vmRestore.Spec, updateObj.Spec),
 			update.GetObject(),
 			nil
 	})
+	return &calls
 }
 
-func expectVMRestoreUpdateStatus(client *kubevirtfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore) {
+func expectVMRestoreUpdateStatus(client *kubevirtfake.Clientset, vmRestore *snapshotv1.VirtualMachineRestore) *int {
+	calls := 0
 	client.Fake.PrependReactor("update", "virtualmachinerestores", func(action testing.Action) (bool, runtime.Object, error) {
 		update, ok := action.(testing.UpdateAction)
 		Expect(ok).To(BeTrue())
@@ -1767,11 +1935,35 @@ func expectVMRestoreUpdateStatus(client *kubevirtfake.Clientset, vmRestore *snap
 
 		updateObj := update.GetObject().(*snapshotv1.VirtualMachineRestore)
 
+		calls++
+
 		return reflect.DeepEqual(vmRestore.Status, updateObj.Status), update.GetObject(), nil
 	})
+	return &calls
 }
 
-func expectDataVolumeCreate(client *cdifake.Clientset, name string) {
+func expectVMRestorePatch(client *kubevirtfake.Clientset, orig, newObj *snapshotv1.VirtualMachineRestore) *int {
+	calls := 0
+	client.Fake.PrependReactor("patch", "virtualmachinerestores", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		patch, ok := action.(testing.PatchAction)
+		Expect(ok).To(BeTrue())
+
+		patched := &snapshotv1.VirtualMachineRestore{}
+		if err := applyPatch(patch.GetPatch(), orig, patched); err != nil {
+			return false, nil, err
+		}
+
+		Expect(patched).To(Equal(newObj))
+
+		calls++
+
+		return true, patched, nil
+	})
+	return &calls
+}
+
+func expectDataVolumeCreate(client *cdifake.Clientset, name string) *int {
+	calls := 0
 	client.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		a, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
@@ -1781,12 +1973,15 @@ func expectDataVolumeCreate(client *cdifake.Clientset, name string) {
 		Expect(dv.Name).To(Equal(name))
 		Expect(dv.Annotations[cdiv1.AnnPrePopulated]).To(Equal("true"))
 
+		calls++
+
 		return true, nil, nil
 	})
-
+	return &calls
 }
 
-func expectDataVolumeDeletes(client *cdifake.Clientset, names []string) {
+func expectDataVolumeDeletes(client *cdifake.Clientset, names []string) *int {
+	calls := 0
 	client.Fake.PrependReactor("delete", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		a, ok := action.(testing.DeleteAction)
 		Expect(ok).To(BeTrue())
@@ -1801,8 +1996,11 @@ func expectDataVolumeDeletes(client *cdifake.Clientset, names []string) {
 		}
 		Expect(found).To(BeTrue())
 
+		calls++
+
 		return true, nil, nil
 	})
+	return &calls
 }
 
 // A mock to implement volumeSnapshotProvider interface
