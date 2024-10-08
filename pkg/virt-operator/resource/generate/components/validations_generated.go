@@ -24120,6 +24120,11 @@ var CRDsValidation map[string]string = map[string]string{
           - name
           type: object
           x-kubernetes-map-type: atomic
+        targetReadinessPolicy:
+          description: |-
+            TargetReadinessPolicy defines how to handle the restore in case
+            the target is not ready
+          type: string
         virtualMachineSnapshotName:
           type: string
       required:
