@@ -40,7 +40,8 @@ import (
 
 var _ = Describe("netconf", func() {
 	const (
-		testNetworkName = "default"
+		testNetworkName     = "default"
+		primaryPodIfaceName = "eth0"
 	)
 	var (
 		netConf  *netsetup.NetConf
@@ -77,6 +78,9 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
+		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: testNetworkName, PodInterfaceName: primaryPodIfaceName},
+		}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
 		Expect(stateCache.Read(testNetworkName)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 	})
@@ -98,6 +102,9 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
+		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: testNetworkName, PodInterfaceName: primaryPodIfaceName},
+		}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
 		Expect(stateCache.stateCache).To(BeEmpty())
 	},
@@ -121,8 +128,34 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
+		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: testNetworkName, PodInterfaceName: primaryPodIfaceName},
+		}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
 	})
+
+	DescribeTable("fails the setup run when interface status is missing", func(interfaceStatues []v1.VirtualMachineInstanceNetworkInterface) {
+		stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns)
+		Expect(stateCache.Write(testNetworkName, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
+
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		}}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          testNetworkName,
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+		vmi.Status.Interfaces = interfaceStatues
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
+	},
+		Entry("When interface status is missing", []v1.VirtualMachineInstanceNetworkInterface{}),
+		Entry("When pod interface name is missing",
+			[]v1.VirtualMachineInstanceNetworkInterface{
+				{Name: testNetworkName, PodInterfaceName: ""},
+			},
+		),
+	)
 
 	It("fails the teardown run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, failingCacheCreator{}, stateMap)

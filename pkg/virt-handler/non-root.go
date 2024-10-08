@@ -16,6 +16,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -116,11 +117,15 @@ func getTapDevices(vmi *v1.VirtualMachineInstance, networkBindings map[string]v1
 		}
 	}
 
-	networkNameScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)
+	podIfaceNamesByNetworkName, err := vmispec.IndexPodIfaceNamesByNetworkName(vmi.Spec.Networks, vmi.Status.Interfaces)
+	if err != nil {
+		return nil, err
+	}
+
 	tapDevices := map[string]string{}
 	for _, net := range vmi.Spec.Networks {
 		_, isTapNetwork := tapNetworks[net.Name]
-		if podInterfaceName, exists := networkNameScheme[net.Name]; isTapNetwork && exists {
+		if podInterfaceName, exists := podIfaceNamesByNetworkName[net.Name]; isTapNetwork && exists {
 			tapDevices[net.Name] = podInterfaceName
 		} else if isTapNetwork && !exists {
 			return nil, fmt.Errorf("network %q not found in naming scheme: this should never happen", net.Name)

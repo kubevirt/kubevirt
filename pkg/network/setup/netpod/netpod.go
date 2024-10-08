@@ -78,6 +78,8 @@ type NetPod struct {
 	state        *State
 
 	log *log.FilteredLogger
+
+	podIfaceNamesByNetworkName map[string]string
 }
 
 type option func(*NetPod)
@@ -126,6 +128,12 @@ func WithCacheCreator(c cacheCreator) option {
 func WithLogger(logger *log.FilteredLogger) option {
 	return func(n *NetPod) {
 		n.log = logger
+	}
+}
+
+func WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName map[string]string) option {
+	return func(n *NetPod) {
+		n.podIfaceNamesByNetworkName = podIfaceNamesByNetworkName
 	}
 }
 
@@ -237,8 +245,6 @@ func (n NetPod) config(currentStatus *nmstate.Status) error {
 func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec, error) {
 	podIfaceStatusByName := ifaceStatusByName(currentStatus.Interfaces)
 
-	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, currentStatus.Interfaces)
-
 	spec := nmstate.Spec{Interfaces: []nmstate.Interface{}}
 
 	for ifIndex, iface := range n.vmiSpecIfaces {
@@ -246,7 +252,7 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			ifacesSpec []nmstate.Interface
 			err        error
 		)
-		podIfaceName := podIfaceNameByVMINetwork[iface.Name]
+		podIfaceName := n.podIfaceNamesByNetworkName[iface.Name]
 
 		switch {
 		case iface.Bridge != nil:
@@ -454,8 +460,8 @@ func (n NetPod) setupNAT(desiredSpec *nmstate.Spec, currentStatus *nmstate.Statu
 	if bridgeIfaceSpec == nil {
 		return nil
 	}
-	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, currentStatus.Interfaces)
-	podIfaceName := podIfaceNameByVMINetwork[bridgeIfaceSpec.Metadata.NetworkName]
+
+	podIfaceName := n.podIfaceNamesByNetworkName[bridgeIfaceSpec.Metadata.NetworkName]
 	podIfaceSpec := nmstate.LookupInterface(currentStatus.Interfaces, func(i nmstate.Interface) bool {
 		return i.Name == podIfaceName
 	})
@@ -536,22 +542,6 @@ func firstIPGlobalUnicast(ip nmstate.IP) *nmstate.IPAddress {
 		}
 	}
 	return nil
-}
-
-func createNetworkNameScheme(networks []v1.Network, currentIfaces []nmstate.Interface) map[string]string {
-	if includesOrdinalNames(currentIfaces) {
-		return namescheme.CreateOrdinalNetworkNameScheme(networks)
-	}
-	return namescheme.CreateHashedNetworkNameScheme(networks)
-}
-
-func includesOrdinalNames(ifaces []nmstate.Interface) bool {
-	for _, iface := range ifaces {
-		if namescheme.OrdinalSecondaryInterfaceName(iface.Name) {
-			return true
-		}
-	}
-	return false
 }
 
 func filterSupportedBindingNetworks(specNetworks []v1.Network, specInterfaces []v1.Interface) ([]v1.Network, error) {
