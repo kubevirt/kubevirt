@@ -56,6 +56,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
@@ -668,6 +669,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			c.syncVolumesUpdate(vmiCopy)
 		}
 
+		// Requires some action in the VM to trigger this check, is this ok?
+		c.syncDownwardMetricCondition(vmiCopy)
+
 	case vmi.IsScheduled():
 		if !vmiPodExists {
 			vmiCopy.Status.Phase = virtv1.Failed
@@ -1025,6 +1029,10 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 		if validateErr := errors.Join(validateErrors...); validateErrors != nil {
 			return common.NewSyncError(fmt.Errorf("failed create validation: %v", validateErr), "FailedCreateValidation")
+		}
+		if downwardmetrics.IsDownwardMetricsConfigurationInvalid(c.clusterConfig, &vmi.Spec) {
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FeatureNotEnabled, downwardmetrics.DownwardMetricsNotEnabledError.Error())
+			return common.NewSyncError(fmt.Errorf("virtual machine is requesting a disabled feature: %s", "DownwardMetrics"), controller.FeatureNotEnabled)
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
@@ -2161,6 +2169,19 @@ func (c *Controller) updateMultusAnnotation(namespace string, interfaces []virtv
 	}
 
 	return nil
+}
+
+func (c *Controller) syncDownwardMetricCondition(vmi *virtv1.VirtualMachineInstance) {
+	if downwardmetrics.IsDownwardMetricsConfigurationInvalid(c.clusterConfig, &vmi.Spec) {
+		vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+		condition := virtv1.VirtualMachineInstanceCondition{
+			Type:               virtv1.VirtualMachineInstanceConfigurationOutOfSync,
+			Status:             k8sv1.ConditionFalse,
+			LastTransitionTime: v1.Now(),
+			Message:            "The DownwardMetrics feature is disabled but still in use",
+		}
+		vmiConditions.UpdateCondition(vmi, &condition)
+	}
 }
 
 func (c *Controller) syncHotplugCondition(vmi *virtv1.VirtualMachineInstance, conditionType virtv1.VirtualMachineInstanceConditionType) {

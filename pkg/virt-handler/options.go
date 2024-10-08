@@ -60,6 +60,7 @@ func virtualMachineOptions(
 			FreePageReportingDisabled: clusterConfig.IsFreePageReportingDisabled(),
 			BochsDisplayForEFIGuests:  clusterConfig.BochsDisplayForEFIGuestsEnabled(),
 			SerialConsoleLogDisabled:  clusterConfig.IsSerialConsoleLogDisabled(),
+			DownwardMetricsEnabled:    clusterConfig.IsDownwardMetricsFeatureEnabled(),
 		}
 	}
 

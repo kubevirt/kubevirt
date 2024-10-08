@@ -39,10 +39,9 @@ const (
 	HostDiskGate          = "HostDisk"
 	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
 
-	DownwardMetricsFeatureGate = "DownwardMetrics"
-	Root                       = "Root"
-	ClusterProfiler            = "ClusterProfiler"
-	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
+	Root                  = "Root"
+	ClusterProfiler       = "ClusterProfiler"
+	WorkloadEncryptionSEV = "WorkloadEncryptionSEV"
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 	VSOCKGate                  = "VSOCK"
@@ -115,7 +114,7 @@ func (config *ClusterConfig) NUMAEnabled() bool {
 }
 
 func (config *ClusterConfig) DownwardMetricsEnabled() bool {
-	return config.isFeatureGateEnabled(DownwardMetricsFeatureGate)
+	return config.isFeatureGateEnabled(deprecation.DownwardMetricsFeatureGate)
 }
 
 func (config *ClusterConfig) IgnitionEnabled() bool {

@@ -1708,6 +1708,9 @@ var CRDsValidation map[string]string = map[string]string{
               type: array
               x-kubernetes-list-type: atomic
           type: object
+        downwardMetrics:
+          description: DownwardMetrics controls if the feature can be used by VMs
+          type: object
         imagePullPolicy:
           description: The ImagePullPolicy to use.
           type: string

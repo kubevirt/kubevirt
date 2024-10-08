@@ -370,7 +370,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 
 	// DownardMetrics volumes are using emptyDirs backed by memory.
 	// the max. disk size is only 256Ki.
-	if downwardmetrics.HasDownwardMetricDisk(vmi) {
+	if downwardmetrics.HasDownwardMetricDisk(vmi.Spec.Volumes) {
 		overhead.Add(resource.MustParse("1Mi"))
 	}
 

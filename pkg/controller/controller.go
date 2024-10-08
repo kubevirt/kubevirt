@@ -112,6 +112,8 @@ const (
 	// MigrationBackoffReason is set when an error has occured while migrating
 	// and virt-controller is backing off before retrying.
 	MigrationBackoffReason = "MigrationBackoff"
+	// FeatureNotEnabled is set when a VM or VMI is requesting a feature disabled at cluster level
+	FeatureNotEnabled = "FeatureNotEnabled"
 )
 
 type PodCacheStore struct {

@@ -13547,6 +13547,10 @@
    "v1.DownwardMetrics": {
     "type": "object"
    },
+   "v1.DownwardMetricsConfiguration": {
+    "description": "DownwardMetricsConfiguration enables the downward metrics feature.",
+    "type": "object"
+   },
    "v1.DownwardMetricsVolumeSource": {
     "description": "DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
     "type": "object"
@@ -14624,6 +14628,10 @@
      "customizeComponents": {
       "default": {},
       "$ref": "#/definitions/v1.CustomizeComponents"
+     },
+     "downwardMetrics": {
+      "description": "DownwardMetrics controls if the feature can be used by VMs",
+      "$ref": "#/definitions/v1.DownwardMetricsConfiguration"
      },
      "imagePullPolicy": {
       "description": "The ImagePullPolicy to use.\n\nPossible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",

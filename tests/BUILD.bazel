@@ -19,6 +19,7 @@ go_library(
         "//tests/flags:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/libkubevirt:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libpod:go_default_library",
         "//tests/testsuite:go_default_library",

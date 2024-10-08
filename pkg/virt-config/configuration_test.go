@@ -789,5 +789,9 @@ var _ = Describe("test configuration", func() {
 		It("SR-IOV live migration feature gate", func() {
 			Expect(clusterConfig.SRIOVLiveMigrationEnabled()).To(BeTrue())
 		})
+
+		It("DownwardMetrics feature gate", func() {
+			Expect(clusterConfig.DownwardMetricsEnabled()).To(BeTrue())
+		})
 	})
 })

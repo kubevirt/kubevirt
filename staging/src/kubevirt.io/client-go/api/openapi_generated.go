@@ -371,6 +371,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.DomainSpec":                                                         schema_kubevirtio_api_core_v1_DomainSpec(ref),
 		"kubevirt.io/api/core/v1.DownwardAPIVolumeSource":                                            schema_kubevirtio_api_core_v1_DownwardAPIVolumeSource(ref),
 		"kubevirt.io/api/core/v1.DownwardMetrics":                                                    schema_kubevirtio_api_core_v1_DownwardMetrics(ref),
+		"kubevirt.io/api/core/v1.DownwardMetricsConfiguration":                                       schema_kubevirtio_api_core_v1_DownwardMetricsConfiguration(ref),
 		"kubevirt.io/api/core/v1.DownwardMetricsVolumeSource":                                        schema_kubevirtio_api_core_v1_DownwardMetricsVolumeSource(ref),
 		"kubevirt.io/api/core/v1.EFI":                                                                schema_kubevirtio_api_core_v1_EFI(ref),
 		"kubevirt.io/api/core/v1.EmptyDiskSource":                                                    schema_kubevirtio_api_core_v1_EmptyDiskSource(ref),
@@ -18841,6 +18842,17 @@ func schema_kubevirtio_api_core_v1_DownwardMetrics(ref common.ReferenceCallback)
 	}
 }
 
+func schema_kubevirtio_api_core_v1_DownwardMetricsConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DownwardMetricsConfiguration enables the downward metrics feature.",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_DownwardMetricsVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20946,11 +20958,17 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 							Ref:     ref("kubevirt.io/api/core/v1.CustomizeComponents"),
 						},
 					},
+					"downwardMetrics": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DownwardMetrics controls if the feature can be used by VMs",
+							Ref:         ref("kubevirt.io/api/core/v1.DownwardMetricsConfiguration"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.LocalObjectReference", "kubevirt.io/api/core/v1.ComponentConfig", "kubevirt.io/api/core/v1.CustomizeComponents", "kubevirt.io/api/core/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/api/core/v1.KubeVirtConfiguration", "kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy"},
+			"k8s.io/api/core/v1.LocalObjectReference", "kubevirt.io/api/core/v1.ComponentConfig", "kubevirt.io/api/core/v1.CustomizeComponents", "kubevirt.io/api/core/v1.DownwardMetricsConfiguration", "kubevirt.io/api/core/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/api/core/v1.KubeVirtConfiguration", "kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy"},
 	}
 }
 
