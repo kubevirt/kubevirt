@@ -63,7 +63,18 @@ var (
 			Name: "kubevirt_vmi_info",
 			Help: "Information about VirtualMachineInstances.",
 		},
-		[]string{"node", "namespace", "name", "phase", "os", "workload", "flavor", "instance_type", "preference", "guest_os_kernel_release", "guest_os_machine", "guest_os_name", "guest_os_version_id", "evictable"},
+		[]string{
+			// Basic info
+			"node", "namespace", "name",
+			// Domain info
+			"phase", "os", "workload", "flavor",
+			// Instance type
+			"instance_type", "preference",
+			// Guest OS info
+			"guest_os_kernel_release", "guest_os_machine", "guest_os_name", "guest_os_version_id",
+			// State info
+			"evictable", "outdated",
+		},
 	)
 
 	vmiEvictionBlocker = operatormetrics.NewGaugeVec(
@@ -117,6 +128,7 @@ func collectVMIInfo(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Coll
 				getVMIPhase(vmi), os, workload, flavor, instanceType, preference,
 				kernelRelease, machine, name, versionID,
 				strconv.FormatBool(isVMEvictable(vmi)),
+				strconv.FormatBool(isVMIOutdated(vmi)),
 			},
 			Value: 1.0,
 		})
@@ -249,4 +261,9 @@ func isVMEvictable(vmi *k6tv1.VirtualMachineInstance) bool {
 
 	}
 	return true
+}
+
+func isVMIOutdated(vmi *k6tv1.VirtualMachineInstance) bool {
+	_, hasOutdatedLabel := vmi.Labels[k6tv1.OutdatedLauncherImageLabel]
+	return hasOutdatedLabel
 }
