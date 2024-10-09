@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -970,196 +969,148 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 	})
 
-	Context("[rfe_id:273]with oc/kubectl", func() {
-		var k8sClient string
-		var workDir string
-		var vmRunningRe *regexp.Regexp
+	Context("should not change anything if dry-run option is passed", func() {
+		It("[test_id:7530] when starting a VM", func() {
+			By("Creating VM")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-		BeforeEach(func() {
-			k8sClient = clientcmd.GetK8sCmdClient()
-			clientcmd.SkipIfNoCmd(k8sClient)
-			workDir = GinkgoT().TempDir()
+			By("Performing dry run start")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{DryRun: []string{metav1.DryRunAll}})
+			Expect(err).ToNot(HaveOccurred())
 
-			// By default "." does not match newline: "Phase" and "Running" only match if on same line.
-			vmRunningRe = regexp.MustCompile("Phase.*Running")
+			_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
-		createVMAndGenerateJson := func(opts ...libvmi.VMOption) (*v1.VirtualMachine, string) {
-			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), opts...)
-			vm.Namespace = testsuite.GetTestNamespace(vm)
-
-			vmJson, err := tests.GenerateVMJson(vm, workDir)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
-
-			return vm, vmJson
-		}
-
-		DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", decorators.Conformance, func(version string) {
-			vmi := libvmifact.NewAlpine()
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm.Namespace = testsuite.GetTestNamespace(vm)
-			vm.APIVersion = version
-
-			vmJson, err := tests.GenerateVMJson(vm, workDir)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
-
-			By("Creating VM using k8s client binary")
-			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
+		DescribeTable("when stopping a VM", func(gracePeriod *int64) {
+			By("Creating VM")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 
-			By("Listing running pods")
-			stdout, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "get", "pods")
+			By("Getting current vmi instance")
+			originalVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Ensuring pod is running")
-			expectedPodName := getExpectedPodName(vm)
-			podRunningRe, err := regexp.Compile(fmt.Sprintf("%s.*Running", expectedPodName))
+			By("Getting current vm instance")
+			originalVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(podRunningRe.FindString(stdout)).ToNot(Equal(""), "Pod is not Running")
-
-			By("Checking that VM is running")
-			stdout, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "describe", "vmis", vm.GetName())
+			By("Performing dry run stop")
+			options := &v1.StopOptions{DryRun: []string{metav1.DryRunAll}}
+			if gracePeriod != nil {
+				options.GracePeriod = gracePeriod
+			}
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, options)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+			By("Checking that VM is still running")
+			Expect(ThisVM(vm)).To(BeReady())
+
+			By("Checking VM Running spec does not change")
+			actualVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			actualRunStrategy, err := actualVM.RunStrategy()
+			Expect(err).ToNot(HaveOccurred())
+			originalRunStrategy, err := originalVM.RunStrategy()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actualRunStrategy).To(BeEquivalentTo(originalRunStrategy))
+
+			By("Checking VMI TerminationGracePeriodSeconds does not change")
+			actualVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actualVMI.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(originalVMI.Spec.TerminationGracePeriodSeconds))
+			Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
 		},
-			Entry("with v1 api", "kubevirt.io/v1"),
-			Entry("with v1alpha3 api", "kubevirt.io/v1alpha3"),
+			Entry("[test_id:7529]with no other flags", nil),
+			Entry("[test_id:7604]with grace period", pointer.P[int64](10)),
 		)
 
-		It("[test_id:264]should create and delete a VM", decorators.Conformance, func() {
-			vm, vmJson := createVMAndGenerateJson()
-
-			By("Creating VM using k8s client binary")
-			_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Starting the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+		It("[test_id:7528]when restarting a VM", func() {
+			By("Creating VM")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 
+			By("Getting current vmi instance")
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Performing dry run restart")
+			err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{DryRun: []string{metav1.DryRunAll}})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Comparing the CreationTimeStamp and UUID and check no Deletion Timestamp was set")
+			newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.ObjectMeta.CreationTimestamp).To(Equal(newVMI.ObjectMeta.CreationTimestamp))
+			Expect(vmi.ObjectMeta.UID).To(Equal(newVMI.ObjectMeta.UID))
+			Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
+
 			By("Checking that VM is running")
-			stdout, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "describe", "vmis", vm.GetName())
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
-
-			By("Deleting VM using k8s client binary")
-			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "delete", "vm", vm.GetName())
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Verifying the VM gets deleted")
-			waitForResourceDeletion(k8sClient, "vms", vm.GetName())
-
-			By("Verifying pod gets deleted")
-			expectedPodName := getExpectedPodName(vm)
-			waitForResourceDeletion(k8sClient, "pods", expectedPodName)
+			Expect(ThisVM(vm)).To(BeReady())
 		})
+	})
 
-		Context("should not change anything if dry-run option is passed", func() {
-			It("[test_id:7530]when starting a VM", func() {
-				vm, vmJson := createVMAndGenerateJson()
+	DescribeTable("[release-blocker][test_id:299]should create VM using all supported API versions", decorators.Conformance, func(version string) {
+		By("Creating VM")
+		vmi := libvmifact.NewAlpine()
+		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vm.APIVersion = version
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-				By("Creating VM using k8s client binary")
-				_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-				Expect(err).ToNot(HaveOccurred())
+		By("Waiting for VMI to start")
+		Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 
-				By("Performing dry run start")
-				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{DryRun: []string{metav1.DryRunAll}})
-				Expect(err).ToNot(HaveOccurred())
+		By("Ensuring pod is running")
+		expectedPodName := getExpectedPodName(vm)
+		Expect(ThisPodWith(vm.Namespace, expectedPodName)).To(BeRunning())
 
-				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-			})
+		By("Checking that VM is running")
+		Expect(ThisVM(vm)).To(BeReady())
+	},
+		Entry("with v1 api", "kubevirt.io/v1"),
+		Entry("with v1alpha3 api", "kubevirt.io/v1alpha3"),
+	)
 
-			DescribeTable("when stopping a VM", func(gracePeriod *int64) {
-				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
+	It("[test_id:264]should create and delete a VM successfully", decorators.Conformance, func() {
+		By("Creating VM")
+		vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-				By("Creating VM using k8s client binary")
-				_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-				Expect(err).ToNot(HaveOccurred())
+		By("Starting the VM")
+		err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
+		By("Waiting for VMI to start")
+		Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 
-				By("Getting current vmi instance")
-				originalVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+		By("Checking that VM is running")
+		Expect(ThisVM(vm)).To(BeReady())
 
-				By("Getting current vm instance")
-				originalVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+		By("Delete VM")
+		Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})).To(Succeed())
+		Eventually(func() bool {
+			_, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			return errors.IsNotFound(err)
+		}, 2*time.Minute, 3*time.Second).Should(BeTrue(), "VM should dispose")
 
-				By("Performing dry run stop")
-				options := &v1.StopOptions{DryRun: []string{metav1.DryRunAll}}
-				if gracePeriod != nil {
-					options.GracePeriod = gracePeriod
-				}
-				err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, options)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking that VM is still running")
-				stdout, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "describe", "vmis", vm.GetName())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
-
-				By("Checking VM Running spec does not change")
-				actualVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				actualRunStrategy, err := actualVM.RunStrategy()
-				Expect(err).ToNot(HaveOccurred())
-				originalRunStrategy, err := originalVM.RunStrategy()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(actualRunStrategy).To(BeEquivalentTo(originalRunStrategy))
-
-				By("Checking VMI TerminationGracePeriodSeconds does not change")
-				actualVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(actualVMI.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(originalVMI.Spec.TerminationGracePeriodSeconds))
-				Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
-			},
-				Entry("[test_id:7529]with no other flags", nil),
-				Entry("[test_id:7604]with grace period", pointer.P[int64](10)),
-			)
-
-			It("[test_id:7528]when restarting a VM", func() {
-				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
-
-				By("Creating VM using k8s client binary")
-				_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
-
-				By("Getting current vmi instance")
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Performing dry run restart")
-				err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{DryRun: []string{metav1.DryRunAll}})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Comparing the CreationTimeStamp and UUID and check no Deletion Timestamp was set")
-				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.ObjectMeta.CreationTimestamp).To(Equal(newVMI.ObjectMeta.CreationTimestamp))
-				Expect(vmi.ObjectMeta.UID).To(Equal(newVMI.ObjectMeta.UID))
-				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
-
-				By("Checking that VM is running")
-				stdout, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "describe", "vmis", vm.GetName())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
-			})
-		})
+		By("Verify pod is gone")
+		expectedPodName := getExpectedPodName(vm)
+		Eventually(func() bool {
+			_, err := virtClient.CoreV1().Pods(vm.Namespace).Get(context.Background(), expectedPodName, metav1.GetOptions{})
+			return errors.IsNotFound(err)
+		}, 2*time.Minute, 3*time.Second).Should(BeTrue(), "VM's pod should dispose")
 	})
 
 	Context("crash loop backoff", decorators.Conformance, func() {
