@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/openshift/library-go/pkg/build/naming"
@@ -878,22 +879,23 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	}
 	for i, pvc := range pvcs {
 		var mountPoint string
+		volumeName := strings.ReplaceAll(pvc.Name, ".", "-")
 		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
-			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, pvc.Name)
+			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
-				Name:       pvc.Name,
+				Name:       volumeName,
 				DevicePath: mountPoint,
 			})
 		} else {
-			mountPoint = fmt.Sprintf("%s/%s", fileSystemMountPath, pvc.Name)
+			mountPoint = fmt.Sprintf("%s/%s", fileSystemMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-				Name:      pvc.Name,
+				Name:      volumeName,
 				ReadOnly:  true,
 				MountPath: mountPoint,
 			})
 		}
 		podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-			Name: pvc.Name,
+			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: pvc.Name,
