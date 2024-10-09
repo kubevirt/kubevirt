@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["node_capabilities.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/libvirt.org/go/libvirtxml:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "node_capabilities_suite_test.go",
+        "node_capabilities_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    embedsrcs = [
+        "testdata/capabilities.xml",
+        "testdata/capabilities_with_numa.xml",
+    ],
+    deps = [
+        ":go_default_library",
+        "//pkg/pointer:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
+    ],
+)

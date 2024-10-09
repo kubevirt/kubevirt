@@ -80,6 +80,7 @@ import (
 	dmetricsmanager "kubevirt.io/kubevirt/pkg/virt-handler/dmetrics-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	nodecapabilities "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities"
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
@@ -290,15 +291,10 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	var capabilities libvirtxml.Caps
 	var hostCpuModel string
 
-	hostCapsFile, err := os.ReadFile(filepath.Join(nodelabeller.NodeLabellerVolumePath, "capabilities.xml"))
+	capabilities, err := nodecapabilities.HostCapabilities()
 	if err != nil {
-		panic(err)
-	}
-
-	if err := capabilities.Unmarshal(string(hostCapsFile)); err != nil {
 		panic(err)
 	}
 
@@ -342,7 +338,7 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		downwardMetricsManager,
-		&capabilities,
+		capabilities,
 		hostCpuModel,
 		netsetup.NewNetConf(app.clusterConfig),
 		netsetup.NewNetStat(),
