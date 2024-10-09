@@ -815,7 +815,7 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 				},
 			},
 			Selector: map[string]string{
-				exportServiceLabel: vmExport.Name,
+				exportServiceLabel: ctrl.getExportServiceName(vmExport),
 			},
 		},
 	}
@@ -873,7 +873,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 
 	deadline := certParams.Duration - certParams.RenewBefore
 	podManifest := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
-	podManifest.Labels = map[string]string{exportServiceLabel: vmExport.Name}
+	podManifest.Labels = map[string]string{exportServiceLabel: ctrl.getExportServiceName(vmExport)}
 	podManifest.Annotations = map[string]string{annCertParams: scp}
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot:   pointer.P(true),
