@@ -349,6 +349,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				app.VNCRequestHandler(request, response)
 
 				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+				if !autoattachGraphicsDevice {
+					ExpectMessage(recorder, "No graphics devices are present.")
+				}
 			},
 				Entry("should fail if there is no graphics device", false, v1.Running),
 				Entry("should fail if vmi is not running", true, v1.Scheduling),
@@ -2573,4 +2576,12 @@ func ExpectStatusErrorWithCode(recorder *httptest.ResponseRecorder, code int) *e
 	ExpectWithOffset(1, status.Code).To(BeNumerically("==", code))
 	ExpectWithOffset(1, recorder.Code).To(BeNumerically("==", code))
 	return &errors.StatusError{ErrStatus: status}
+}
+
+func ExpectMessage(recorder *httptest.ResponseRecorder, message string) {
+	status := k8smetav1.Status{}
+	err := json.Unmarshal(recorder.Body.Bytes(), &status)
+
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, status.Message).To(Equal(message))
 }

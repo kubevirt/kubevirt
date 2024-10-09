@@ -26,12 +26,13 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -44,7 +45,6 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
@@ -64,20 +64,8 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 
 		Context("with headless", func() {
 
-			BeforeEach(func() {
-				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
-			})
-
-			It("[test_id:738][posneg:negative]should not connect to VNC", func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-
-				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
-
-				Expect(err.Error()).To(Equal("No graphics devices are present."), "vnc should not connect on headless VM")
-			})
-
 			It("[test_id:709][posneg:positive]should connect to console", func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(withAutoattachGraphicsDevice(false)), 30)
 
 				By("checking that console works")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -175,3 +163,9 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 	})
 
 })
+
+func withAutoattachGraphicsDevice(enable bool) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &enable
+	}
+}
