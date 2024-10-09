@@ -43,7 +43,6 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	k8sptr "k8s.io/utils/pointer"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
@@ -53,7 +52,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -105,7 +103,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kv)
 	}
 
-	notRunning := false
 	runStrategyManual := v1.RunStrategyManual
 	runStrategyHalted := v1.RunStrategyHalted
 
@@ -158,7 +155,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -179,7 +176,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				DeletionTimestamp: &now,
 			},
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -199,7 +196,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -223,7 +220,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -246,7 +243,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -272,7 +269,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -307,7 +304,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: vmi.Namespace,
 			},
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: *vmi.Spec.DeepCopy(),
 				},
@@ -415,7 +412,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: vmi.Namespace,
 			},
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: *vmi.Spec.DeepCopy(),
 				},
@@ -543,7 +540,7 @@ var _ = Describe("Validating VM Admitter", func() {
 								Bus: "scsi",
 							},
 						},
-						DedicatedIOThread: k8sptr.BoolPtr(true),
+						DedicatedIOThread: pointer.P(true),
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
@@ -699,7 +696,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: vmi.Namespace,
 			},
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -887,7 +884,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			vm = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: &notRunning,
+					Running: pointer.P(false),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -1114,7 +1111,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: "vm-namespace",
 			},
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -1879,7 +1876,7 @@ var _ = Describe("Validating VM Admitter", func() {
 						Name: "test",
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					},
-					Running: &notRunning,
+					Running: pointer.P(false),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -2155,7 +2152,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			enableLiveUpdate()
 			vm = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: &notRunning,
+					Running: pointer.P(false),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -2320,13 +2317,13 @@ var _ = Describe("Validating VM Admitter", func() {
 		Context("Update volume strategy", func() {
 			It("should accept the VM with the feature gate enabled", func() {
 				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy)
-				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyReplacement)
+				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyReplacement)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeTrue())
 				Expect(resp.Result).To(BeNil())
 			})
 			It("should reject the VM creation if the feature gate isn't enabled", func() {
-				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyReplacement)
+				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyReplacement)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
@@ -2337,14 +2334,14 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 			It("should accept the VM with the feature gate enabled for volume migration", func() {
 				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration)
-				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyMigration)
+				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeTrue())
 				Expect(resp.Result).To(BeNil())
 			})
 			It("should reject the VM creation if the volume migration feature gate isn't enabled", func() {
 				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy)
-				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyMigration)
+				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
@@ -2369,7 +2366,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: &notRunning,
+				Running: pointer.P(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
