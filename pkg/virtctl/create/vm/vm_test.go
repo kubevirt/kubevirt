@@ -651,18 +651,19 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			if blankName == "" {
-				blankName = fmt.Sprintf("%s-blank-0", vm.Name)
-			}
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
-			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(blankName))
+			if blankName == "" {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
+			} else {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(blankName))
+			}
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Blank).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(blankSize)))
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(blankName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(blankName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 
 			// No inference possible in this case
 			Expect(vm.Spec.Instancetype).To(BeNil())
@@ -1282,10 +1283,10 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "failed to parse \"--volume-blank\" flag: params may not be empty"),
-			Entry("Invalid param", "test=test", "failed to parse \"--volume-blank\" flag: params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "failed to parse \"--volume-blank\" flag: unknown param(s): test:test"),
-			Entry("Missing size", "name:my-blank", "failed to parse \"--volume-blank\" flag: size must be specified"),
+			Entry("Empty params", "", "failed to parse \"--volume-import\" flag: params may not be empty"),
+			Entry("Invalid param", "test=test", "failed to parse \"--volume-import\" flag: params need to have at least one colon: test=test"),
+			Entry("Unknown param", "test:test", "failed to parse \"--volume-import\" flag: unknown param(s): test:test"),
+			Entry("Missing size", "name:my-blank", "failed to parse \"--volume-import\" flag: size must be specified"),
 		)
 
 		DescribeTable("Invalid arguments to VolumeImportFlag", func(errMsg string, flags ...string) {
@@ -1370,9 +1371,9 @@ chpasswd: { expire: False }`
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 			),
-			Entry("Duplicate blank volume", "failed to parse \"--volume-blank\" flag: there is already a volume with name 'my-name'",
-				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
-				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
+			Entry("Duplicate blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
+				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 			),
 			Entry("Duplicate PVC and Containerdisk", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
@@ -1386,9 +1387,9 @@ chpasswd: { expire: False }`
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 			),
-			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-blank\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
-				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
+				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 			),
 			Entry("There can only be one cloudInitDisk (UserData)", "there is already a volume with name 'cloudinitdisk'",
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:cloudinitdisk"),

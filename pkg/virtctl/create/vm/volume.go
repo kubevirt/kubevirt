@@ -39,11 +39,6 @@ type sysprepVolumeSource struct {
 	Type   string `param:"type"`
 }
 
-type blankVolume struct {
-	Name string             `param:"name"`
-	Size *resource.Quantity `param:"size"`
-}
-
 type dataVolumeSource struct {
 	Name      string             `param:"name"`
 	Source    string             `param:"src"`
