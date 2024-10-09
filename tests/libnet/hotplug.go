@@ -32,6 +32,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -119,8 +120,9 @@ func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) [
 	var ifaceStatus []v1.VirtualMachineInstanceNetworkInterface
 	for i, ifaceName := range ifaceNames {
 		ifaceStatus = append(ifaceStatus, v1.VirtualMachineInstanceNetworkInterface{
-			Name:          ifaceName,
-			InterfaceName: fmt.Sprintf("eth%d", i+initialIfacesInVMI),
+			Name:             ifaceName,
+			PodInterfaceName: namescheme.GenerateHashedInterfaceName(ifaceName),
+			InterfaceName:    fmt.Sprintf("eth%d", i+initialIfacesInVMI),
 			InfoSource: vmispec.NewInfoSource(
 				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
 			QueueCount: queueCount,
