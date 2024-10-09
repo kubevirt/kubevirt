@@ -25,9 +25,10 @@ import (
 	"kubevirt.io/client-go/precond"
 )
 
-func GetNamespaceAndNetworkName(namespace string, fullNetworkName string) (string, string) {
+func GetNamespaceAndNetworkName(namespace, fullNetworkName string) (string, string) {
 	if strings.Contains(fullNetworkName, "/") {
-		res := strings.SplitN(fullNetworkName, "/", 2)
+		const twoParts = 2
+		res := strings.SplitN(fullNetworkName, "/", twoParts)
 		return res[0], res[1]
 	}
 	return precond.MustNotBeEmpty(namespace), fullNetworkName
