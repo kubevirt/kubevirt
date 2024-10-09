@@ -55,7 +55,6 @@ const (
 	ContainerdiskVolumeFlag    = "volume-containerdisk"
 	DataSourceVolumeFlag       = "volume-datasource"
 	PvcVolumeFlag              = "volume-pvc"
-	BlankVolumeFlag            = "volume-blank"
 	CloudInitUserDataFlag      = "cloud-init-user-data"
 	CloudInitNetworkDataFlag   = "cloud-init-network-data"
 	InferInstancetypeFlag      = "infer-instancetype"
@@ -66,6 +65,7 @@ const (
 
 	// Deprecated flags
 	ClonePvcVolumeFlag = "volume-clone-pvc"
+	BlankVolumeFlag    = "volume-blank"
 
 	CloudInitDisk = "cloudinitdisk"
 	blank         = "blank"
@@ -93,7 +93,6 @@ type createVM struct {
 	preference             string
 	containerdiskVolumes   []string
 	dataSourceVolumes      []string
-	blankVolumes           []string
 	pvcVolumes             []string
 	cloudInitUserData      string
 	cloudInitNetworkData   string
@@ -105,6 +104,7 @@ type createVM struct {
 
 	// Deprecated fields
 	clonePvcVolumes []string
+	blankVolumes    []string
 
 	clientConfig clientcmd.ClientConfig
 	bootOrders   map[uint]string
@@ -147,6 +147,7 @@ var flags = []string{
 
 var deprecatedFlags = map[string]string{
 	ClonePvcVolumeFlag: VolumeImportFlag,
+	BlankVolumeFlag:    VolumeImportFlag,
 }
 
 var volumeImportOptions = map[string]func(string) (*cdiv1.DataVolumeSpec, *uint, error){
@@ -205,7 +206,6 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes, fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(volumeSource{})))
 	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a DataSource to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
 	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(volumeSource{})))
-	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.blankVolumes, fmt.Sprintf("Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(blankVolume{})))
 	cmd.Flags().StringArrayVar(&c.volumeImport, VolumeImportFlag, c.volumeImport, fmt.Sprintf(
 		"Specify the source for DataVolume. Can be provided multiple times.\nSupported parameters:\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s",
 		blank, params.Supported(dataVolumeSourceBlank{}),
@@ -225,6 +225,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 	// Deprecated flags
 	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes, "Specify a PVC to be cloned by the VM. Can be provided multiple times.\nSupported parameters: name:string,src:string,bootorder:uint,size:resource.Quantity\nDEPRECATED: Use --volume-import instead")
+	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.blankVolumes, "Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: name:string,size:resource.Quantity\nDEPRECATED: Use --volume-import instead")
 
 	cmd.Flags().SortFlags = false
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -400,7 +401,7 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --volume-pvc=src:my-pvc
 
   # Create a manifest for a VirtualMachine with a clone DataSource and a blank volume
-  {{ProgramName}} create vm --volume-datasource=src:my-ns/my-ds --volume-blank=size:50Gi
+  {{ProgramName}} create vm --volume-datasource=src:my-ns/my-ds --volume-import=type:blank,size:50Gi
 
   # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and cloned DataSource
   {{ProgramName}} create vm --instancetype=my-instancetype --preference=my-preference --volume-datasource=src:my-ds
@@ -771,57 +772,6 @@ func withPvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 		if err := c.addDiskWithBootOrder(PvcVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-func withBlankVolume(c *createVM, vm *v1.VirtualMachine) error {
-	for i, blankVol := range c.blankVolumes {
-		vol := blankVolume{}
-		err := params.Map(BlankVolumeFlag, blankVol, &vol)
-		if err != nil {
-			return err
-		}
-
-		if vol.Size == nil {
-			return params.FlagErr(BlankVolumeFlag, "size must be specified")
-		}
-
-		if vol.Name == "" {
-			vol.Name = fmt.Sprintf("%s-blank-%d", vm.Name, i)
-		}
-
-		if err := volumeShouldNotExist(BlankVolumeFlag, vm, vol.Name); err != nil {
-			return err
-		}
-
-		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: vol.Name,
-			},
-			Spec: cdiv1.DataVolumeSpec{
-				Storage: &cdiv1.StorageSpec{
-					Resources: k8sv1.ResourceRequirements{
-						Requests: k8sv1.ResourceList{
-							k8sv1.ResourceStorage: *vol.Size,
-						},
-					},
-				},
-				Source: &cdiv1.DataVolumeSource{
-					Blank: &cdiv1.DataVolumeBlankImage{},
-				},
-			},
-		})
-
-		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-			Name: vol.Name,
-			VolumeSource: v1.VolumeSource{
-				DataVolume: &v1.DataVolumeSource{
-					Name: vol.Name,
-				},
-			},
-		})
 	}
 
 	return nil
@@ -1214,6 +1164,10 @@ func createDataVolume(spec *cdiv1.DataVolumeSpec, size string, name string, vm *
 
 func withClonePvcVolume(c *createVM, _ *v1.VirtualMachine) error {
 	return aliasToVolumeImport(ClonePvcVolumeFlag, "pvc", c.clonePvcVolumes, &c.volumeImport)
+}
+
+func withBlankVolume(c *createVM, _ *v1.VirtualMachine) error {
+	return aliasToVolumeImport(BlankVolumeFlag, "blank", c.blankVolumes, &c.volumeImport)
 }
 
 func aliasToVolumeImport(flag, volType string, vols []string, volumeImport *[]string) error {

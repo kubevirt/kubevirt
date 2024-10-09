@@ -34,11 +34,6 @@ type volumeSource struct {
 	BootOrder *uint  `param:"bootorder"`
 }
 
-type blankVolume struct {
-	Name string             `param:"name"`
-	Size *resource.Quantity `param:"size"`
-}
-
 type dataVolumeSource struct {
 	Name      string             `param:"name"`
 	Source    string             `param:"src"`
