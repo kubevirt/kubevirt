@@ -22,7 +22,6 @@ package tests_test
 import (
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -44,7 +43,6 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -423,15 +421,22 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
 			})
 			It("[test_id:4622]should have cloud-init meta_data with tagged devices", func() {
+				const (
+					pciAddress = "0000:01:00.0"
+					macAddress = "9a:50:e8:6f:f3:fe"
+					tag        = "specialNet"
+				)
 				testInstancetype := "testInstancetype"
 				vmi := libvmifact.NewCirros(
 					libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveNetworkData(testNetworkData)),
 					libvmi.WithInterface(v1.Interface{
 						Name: "default",
-						Tag:  "specialNet",
+						Tag:  tag,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{
 							Masquerade: &v1.InterfaceMasquerade{},
 						},
+						PciAddress: pciAddress,
+						MacAddress: macAddress,
 					}),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithAnnotation(v1.InstancetypeAnnotation, testInstancetype),
@@ -439,25 +444,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi = LaunchVMI(vmi)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
-
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				domSpec := &api.DomainSpec{}
-				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
-				nic := domSpec.Devices.Interfaces[0]
-				address := nic.Address
-				pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
-				deviceData := []cloudinit.DeviceData{
-					{
-						Type:    cloudinit.NICMetadataType,
-						Bus:     nic.Address.Type,
-						Address: pciAddrStr,
-						MAC:     nic.MAC.MAC,
-						Tags:    []string{"specialNet"},
-					},
-				}
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -465,9 +452,16 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					InstanceType: testInstancetype,
 					Hostname:     dns.SanitizeHostname(vmi),
 					UUID:         string(vmi.Spec.Domain.Firmware.UUID),
-					Devices:      &deviceData,
+					Devices: &[]cloudinit.DeviceData{
+						{
+							Type:    cloudinit.NICMetadataType,
+							Bus:     "pci",
+							Address: pciAddress,
+							MAC:     macAddress,
+							Tags:    []string{tag},
+						},
+					},
 				}
-
 				buf, err := json.Marshal(metadataStruct)
 				Expect(err).ToNot(HaveOccurred())
 				By("mouting cloudinit iso")
