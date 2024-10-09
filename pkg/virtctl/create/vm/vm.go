@@ -22,6 +22,7 @@ package vm
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -53,7 +54,6 @@ const (
 	PreferenceFlag             = "preference"
 	ContainerdiskVolumeFlag    = "volume-containerdisk"
 	DataSourceVolumeFlag       = "volume-datasource"
-	ClonePvcVolumeFlag         = "volume-clone-pvc"
 	PvcVolumeFlag              = "volume-pvc"
 	BlankVolumeFlag            = "volume-blank"
 	CloudInitUserDataFlag      = "cloud-init-user-data"
@@ -63,6 +63,9 @@ const (
 	InferPreferenceFlag        = "infer-preference"
 	InferPreferenceFromFlag    = "infer-preference-from"
 	VolumeImportFlag           = "volume-import"
+
+	// Deprecated flags
+	ClonePvcVolumeFlag = "volume-clone-pvc"
 
 	CloudInitDisk = "cloudinitdisk"
 	blank         = "blank"
@@ -90,7 +93,6 @@ type createVM struct {
 	preference             string
 	containerdiskVolumes   []string
 	dataSourceVolumes      []string
-	clonePvcVolumes        []string
 	blankVolumes           []string
 	pvcVolumes             []string
 	cloudInitUserData      string
@@ -100,6 +102,9 @@ type createVM struct {
 	inferPreference        bool
 	inferPreferenceFrom    string
 	volumeImport           []string
+
+	// Deprecated fields
+	clonePvcVolumes []string
 
 	clientConfig clientcmd.ClientConfig
 	bootOrders   map[uint]string
@@ -138,6 +143,10 @@ var flags = []string{
 	VolumeImportFlag,
 	CloudInitUserDataFlag,
 	CloudInitNetworkDataFlag,
+}
+
+var deprecatedFlags = map[string]string{
+	ClonePvcVolumeFlag: VolumeImportFlag,
 }
 
 var volumeImportOptions = map[string]func(string) (*cdiv1.DataVolumeSpec, *uint, error){
@@ -195,7 +204,6 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes, fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(volumeSource{})))
 	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a DataSource to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
-	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes, fmt.Sprintf("Specify a PVC to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
 	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(volumeSource{})))
 	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.blankVolumes, fmt.Sprintf("Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(blankVolume{})))
 	cmd.Flags().StringArrayVar(&c.volumeImport, VolumeImportFlag, c.volumeImport, fmt.Sprintf(
@@ -214,6 +222,9 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 	cmd.Flags().StringVar(&c.cloudInitUserData, CloudInitUserDataFlag, c.cloudInitUserData, "Specify the base64 encoded cloud-init user data of the VM.")
 	cmd.Flags().StringVar(&c.cloudInitNetworkData, CloudInitNetworkDataFlag, c.cloudInitNetworkData, "Specify the base64 encoded cloud-init network data of the VM.")
+
+	// Deprecated flags
+	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes, "Specify a PVC to be cloned by the VM. Can be provided multiple times.\nSupported parameters: name:string,src:string,bootorder:uint,size:resource.Quantity\nDEPRECATED: Use --volume-import instead")
 
 	cmd.Flags().SortFlags = false
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -296,6 +307,13 @@ func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	for deprecatedFlag, replacementFlag := range deprecatedFlags {
+		if cmd.Flags().Changed(deprecatedFlag) {
+			// Mark replacement flag as changed to run its optFn below
+			cmd.Flags().Lookup(replacementFlag).Changed = true
+		}
+	}
+
 	for _, flag := range flags {
 		if cmd.Flags().Changed(flag) {
 			if err := optFns[flag](c, vm); err != nil {
@@ -376,7 +394,7 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --volume-datasource=src:my-annotated-ds --volume-pvc=my-annotated-pvc --infer-instancetype=my-annotated-ds --infer-preference=my-annotated-pvc
 
   # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and cloned PVC
-  {{ProgramName}} create vm --volume-clone-pvc=src:my-ns/my-pvc
+  {{ProgramName}} create vm --volume-import=type:pvc,src:my-ns/my-pvc
 
   # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and directly used PVC
   {{ProgramName}} create vm --volume-pvc=src:my-pvc
@@ -705,72 +723,6 @@ func withDataSourceVolume(c *createVM, vm *v1.VirtualMachine) error {
 		})
 
 		if err := c.addDiskWithBootOrder(DataSourceVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func withClonePvcVolume(c *createVM, vm *v1.VirtualMachine) error {
-	for _, clonePvcVol := range c.clonePvcVolumes {
-		vol := cloneVolume{}
-		err := params.Map(ClonePvcVolumeFlag, clonePvcVol, &vol)
-		if err != nil {
-			return err
-		}
-
-		if vol.Source == "" {
-			return params.FlagErr(ClonePvcVolumeFlag, "src must be specified")
-		}
-
-		namespace, name, err := params.SplitPrefixedName(vol.Source)
-		if err != nil {
-			return params.FlagErr(ClonePvcVolumeFlag, "src invalid: %w", err)
-		}
-		if namespace == "" {
-			return params.FlagErr(ClonePvcVolumeFlag, "namespace of pvc '%s' must be specified", name)
-		}
-
-		if vol.Name == "" {
-			vol.Name = fmt.Sprintf("%s-pvc-%s", vm.Name, name)
-		}
-
-		if err := volumeShouldNotExist(ClonePvcVolumeFlag, vm, vol.Name); err != nil {
-			return err
-		}
-
-		dvt := v1.DataVolumeTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: vol.Name,
-			},
-			Spec: cdiv1.DataVolumeSpec{
-				Storage: &cdiv1.StorageSpec{},
-				Source: &cdiv1.DataVolumeSource{
-					PVC: &cdiv1.DataVolumeSourcePVC{
-						Namespace: namespace,
-						Name:      name,
-					},
-				},
-			},
-		}
-		if vol.Size != nil {
-			dvt.Spec.Storage.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceStorage: *vol.Size,
-			}
-		}
-		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, dvt)
-
-		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-			Name: vol.Name,
-			VolumeSource: v1.VolumeSource{
-				DataVolume: &v1.DataVolumeSource{
-					Name: vol.Name,
-				},
-			},
-		})
-
-		if err := c.addDiskWithBootOrder(ClonePvcVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
 			return err
 		}
 	}
@@ -1254,6 +1206,33 @@ func createDataVolume(spec *cdiv1.DataVolumeSpec, size string, name string, vm *
 			},
 		},
 	})
+
+	return nil
+}
+
+// Deprecated optFns
+
+func withClonePvcVolume(c *createVM, _ *v1.VirtualMachine) error {
+	return aliasToVolumeImport(ClonePvcVolumeFlag, "pvc", c.clonePvcVolumes, &c.volumeImport)
+}
+
+func aliasToVolumeImport(flag, volType string, vols []string, volumeImport *[]string) error {
+	// Print directly to os.Stderr to avoid tainting the regular output.
+	// This is necessary because cobra is writing deprecation messages to the regular output.
+	// Because of this cmd.Flags.MarkDeprecated() cannot be used to mark this flag as deprecated.
+	// See https://github.com/spf13/cobra/issues/1708
+	const flagDeprecatedFmt = "Flag --%s has been deprecated, use flag --%s instead\n"
+	if _, err := fmt.Fprintf(os.Stderr, flagDeprecatedFmt, flag, VolumeImportFlag); err != nil {
+		return err
+	}
+
+	for _, vol := range vols {
+		if vol == "" {
+			return params.FlagErr(VolumeImportFlag, "params may not be empty")
+		}
+		// Prepend the volume to keep the documented boot order
+		*volumeImport = append([]string{fmt.Sprintf("type:%s,%s", volType, vol)}, *volumeImport...)
+	}
 
 	return nil
 }
