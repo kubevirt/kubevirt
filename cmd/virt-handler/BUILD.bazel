@@ -59,7 +59,6 @@ go_library(
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
         "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
-        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
 

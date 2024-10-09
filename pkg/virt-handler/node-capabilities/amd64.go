@@ -17,15 +17,27 @@
  *
  */
 
-package nodelabeller
+package nodecapabilities
 
-// Ensure that there is a compile error should the struct not implement the archLabeller interface anymore.
-var _ = archLabeller(&archLabellerARM64{})
+// Ensure that there is a compile error should the struct not implement the archCapabilities interface anymore.
+var _ = archCapabilities(&archCapabilitiesAMD64{})
 
-type archLabellerARM64 struct {
-	defaultArchLabeller
+type archCapabilitiesAMD64 struct {
+	defaultArchCapabilities
 }
 
-func (archLabellerARM64) arch() string {
-	return arm64
+func (archCapabilitiesAMD64) hasHostSupportedFeatures() bool {
+	return true
+}
+
+func (archCapabilitiesAMD64) supportsHostModel() bool {
+	return true
+}
+
+func (archCapabilitiesAMD64) supportsNamedModels() bool {
+	return true
+}
+
+func (archCapabilitiesAMD64) arch() string {
+	return amd64
 }

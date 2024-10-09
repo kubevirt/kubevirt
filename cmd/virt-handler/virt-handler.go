@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -45,7 +46,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
-	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 
@@ -291,27 +291,46 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	var hostCpuModel string
 
 	capabilities, err := nodecapabilities.HostCapabilities()
 	if err != nil {
 		panic(err)
 	}
 
-	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
-	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
-		app.virtCli.CoreV1().Nodes(),
-		app.HostOverride,
-		nodeLabellerrecorder,
-		capabilities.Host.CPU.Counter,
-		capabilities.Guests,
-		nodecapabilities.GetCapLabels(),
-	)
+	domCapabiliites, err := nodecapabilities.DomCapabilities()
 	if err != nil {
 		panic(err)
 	}
 
-	hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
+	archLabeller := nodecapabilities.NewArchCapabilities(runtime.GOARCH)
+	supportedHostCPUs, err := nodecapabilities.SupportedHostCPUs(domCapabiliites.CPU.Modes, archLabeller)
+	if err != nil {
+		panic(err)
+	}
+	supportedSEV := nodecapabilities.SupportedHostSEV(domCapabiliites.Features.SEV)
+
+	supportedFeatures, err := nodecapabilities.SupportedFeatures(archLabeller)
+	if err != nil {
+		panic(err)
+	}
+
+	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
+	nodeLabellerController := nodelabeller.NewNodeLabeller(
+		app.clusterConfig,
+		app.virtCli.CoreV1().Nodes(),
+		app.HostOverride,
+		nodeLabellerrecorder,
+		supportedFeatures,
+		capabilities.Host.CPU.Counter,
+		capabilities.Guests,
+		supportedHostCPUs.Model,
+		supportedHostCPUs.Vendor,
+		supportedHostCPUs.UsableModels,
+		supportedHostCPUs.RequiredFeatures,
+		supportedSEV.Supported,
+		supportedSEV.SupportedES,
+		nodecapabilities.GetCapLabels(),
+	)
 
 	go nodeLabellerController.Run(10, stop)
 
@@ -340,7 +359,7 @@ func (app *virtHandlerApp) Run() {
 		migrationProxy,
 		downwardMetricsManager,
 		capabilities,
-		hostCpuModel,
+		supportedHostCPUs.Model,
 		netsetup.NewNetConf(app.clusterConfig),
 		netsetup.NewNetStat(),
 		netbinding.MemoryCalculator{},
