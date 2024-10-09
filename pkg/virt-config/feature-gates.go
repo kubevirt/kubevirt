@@ -31,7 +31,6 @@ const (
 	IgnitionGate          = "ExperimentalIgnitionSupport"
 	HypervStrictCheckGate = "HypervStrictCheck"
 	SidecarGate           = "Sidecar"
-	GPUGate               = "GPU"
 	HostDevicesGate       = "HostDevices"
 	SnapshotGate          = "Snapshot"
 	VMExportGate          = "VMExport"
@@ -143,7 +142,7 @@ func (config *ClusterConfig) SidecarEnabled() bool {
 }
 
 func (config *ClusterConfig) GPUPassthroughEnabled() bool {
-	return config.isFeatureGateEnabled(GPUGate)
+	return config.isFeatureGateEnabled(deprecation.GPUGate)
 }
 
 func (config *ClusterConfig) SnapshotEnabled() bool {

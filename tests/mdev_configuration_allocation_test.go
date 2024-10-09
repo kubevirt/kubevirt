@@ -135,7 +135,6 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config = kv.Spec.Configuration
 			originalFeatureGates = append(originalFeatureGates, config.DeveloperConfiguration.FeatureGates...)
-			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.GPUGate)
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDeviceTypes: []string{desiredMdevTypeName},
 			}
@@ -214,7 +213,6 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 
 			By("Creating a configuration for mediated devices")
 			config = kv.Spec.Configuration
-			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.GPUGate)
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDeviceTypes: []string{desiredMdevTypeName},
 			}
@@ -454,7 +452,6 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			resourceName := filepath.Base(driverPath) + ".com/" + strings.ReplaceAll(deviceName, " ", "_")
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
-			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.GPUGate)
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDevicesTypes: []string{mdevType},
 			}
