@@ -110,7 +110,7 @@ func NewAnnotationData(
 	podInterfaceName string,
 ) networkv1.NetworkSelectionElement {
 	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
-	namespace, networkName := GetNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
+	nadNamespacedName := NetAttachDefNamespacedName(namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress
@@ -118,8 +118,8 @@ func NewAnnotationData(
 	return networkv1.NetworkSelectionElement{
 		InterfaceRequest: podInterfaceName,
 		MacRequest:       multusIfaceMac,
-		Namespace:        namespace,
-		Name:             networkName,
+		Namespace:        nadNamespacedName.Namespace,
+		Name:             nadNamespacedName.Name,
 	}
 }
 
@@ -135,15 +135,15 @@ func newBindingPluginAnnotationData(
 	if plugin.NetworkAttachmentDefinition == "" {
 		return nil, nil
 	}
-	netAttachDefNamespace, netAttachDefName := GetNamespaceAndNetworkName(namespace, plugin.NetworkAttachmentDefinition)
+	nadNamespacedName := NetAttachDefNamespacedName(namespace, plugin.NetworkAttachmentDefinition)
 
 	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
 	// The binding plugin CNI should read this arg and realize which logical network it should modify.
 	const cniArgNetworkName = "logicNetworkName"
 
 	return &networkv1.NetworkSelectionElement{
-		Namespace: netAttachDefNamespace,
-		Name:      netAttachDefName,
+		Namespace: nadNamespacedName.Namespace,
+		Name:      nadNamespacedName.Name,
 		CNIArgs: &map[string]interface{}{
 			cniArgNetworkName: networkName,
 		},
