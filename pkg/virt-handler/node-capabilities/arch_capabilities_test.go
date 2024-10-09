@@ -14,7 +14,7 @@
  *
  */
 
-package nodelabeller
+package nodecapabilities
 
 import (
 	"runtime"
@@ -25,8 +25,8 @@ import (
 
 var _ = Describe("Arch Node Labeller", func() {
 
-	DescribeTable("Should create a new archLabeller for the correct architecture", func(arch string, result archLabeller) {
-		ac := newArchLabeller(arch)
+	DescribeTable("Should create a new archCapabilities for the correct architecture", func(arch string, result archCapabilities) {
+		ac := NewArchCapabilities(arch)
 
 		Expect(ac).To(Equal(result))
 		if arch == "unknown" {
@@ -34,9 +34,9 @@ var _ = Describe("Arch Node Labeller", func() {
 		}
 		Expect(ac.arch()).To(Equal(arch))
 	},
-		Entry(amd64, amd64, archLabellerAMD64{}),
-		Entry(arm64, arm64, archLabellerARM64{}),
-		Entry(s390x, s390x, archLabellerS390X{}),
-		Entry("unknown", "unknown", defaultArchLabeller{}),
+		Entry(amd64, amd64, archCapabilitiesAMD64{}),
+		Entry(arm64, arm64, archCapabilitiesARM64{}),
+		Entry(s390x, s390x, archCapabilitiesS390X{}),
+		Entry("unknown", "unknown", defaultArchCapabilities{}),
 	)
 })

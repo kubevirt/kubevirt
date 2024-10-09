@@ -3,37 +3,47 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "amd64.go",
+        "arch_capabilities.go",
+        "arm64.go",
         "kvm-caps-info-plugin_amd64.go",
         "kvm-caps-info-plugin_arm64.go",
         "kvm-caps-info-plugin_s390x.go",
         "node_capabilities.go",
+        "s390x.go",
     ],
     cgo = True,
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities",
     visibility = ["//visibility:public"],
     deps = [
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/libvirt.org/go/libvirtxml:go_default_library",
-    ] + select({
-        "@io_bazel_rules_go//go/platform:amd64": [
-            "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        ],
-        "//conditions:default": [],
-    }),
+    ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
+        "arch_capabilities_test.go",
         "node_capabilities_suite_test.go",
         "node_capabilities_test.go",
     ],
     data = glob(["testdata/**"]),
+    embed = [":go_default_library"],
     embedsrcs = [
         "testdata/capabilities.xml",
         "testdata/capabilities_with_numa.xml",
+        "testdata/domcapabilities_nosev.xml",
+        "testdata/domcapabilities_sev.xml",
+        "testdata/domcapabilities_seves.xml",
+        "testdata/s390x/supported_features.xml",
+        "testdata/s390x/virsh_domcapabilities.xml",
+        "testdata/supported_features.xml",
+        "testdata/virsh_domcapabilities.xml",
+        "testdata/virsh_domcapabilities_nothing_usable.xml",
     ],
     deps = [
-        ":go_default_library",
         "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
