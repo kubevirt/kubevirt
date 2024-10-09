@@ -28,7 +28,8 @@ import (
 
 var _ = Describe("create vm", func() {
 	const (
-		cloudInitUserData = `#cloud-config
+		importedVolumeRegexp = `imported-volume-\w{5}`
+		cloudInitUserData    = `#cloud-config
 user: user
 password: password
 chpasswd: { expire: False }`
@@ -472,7 +473,7 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).To(Equal(sourceRef))
 			}
 			if name == "" {
-				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(`imported-volume-\w{5}`))
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
 			} else {
 				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(name))
 			}
@@ -566,11 +567,12 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			if dvtName == "" {
-				dvtName = fmt.Sprintf("%s-pvc-%s", vm.Name, pvcName)
-			}
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
-			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtName))
+			if dvtName == "" {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
+			} else {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtName))
+			}
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvcNamespace))
@@ -579,22 +581,22 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
 			}
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			if bootOrder > 0 {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtName))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
 			}
 
 			// In this case inference should be possible
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
-			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			Expect(vm.Spec.Preference).ToNot(BeNil())
-			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 		},
@@ -1245,17 +1247,17 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "failed to parse \"--volume-clone-pvc\" flag: params may not be empty"),
-			Entry("Invalid param", "test=test", "failed to parse \"--volume-clone-pvc\" flag: params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "failed to parse \"--volume-clone-pvc\" flag: unknown param(s): test:test"),
-			Entry("Missing src", "name:test", "failed to parse \"--volume-clone-pvc\" flag: src must be specified"),
-			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-clone-pvc\" flag: src invalid: name cannot be empty"),
-			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "failed to parse \"--volume-clone-pvc\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
-			Entry("Missing namespace in src", "src:my-pvc", "failed to parse \"--volume-clone-pvc\" flag: namespace of pvc 'my-pvc' must be specified"),
-			Entry("Invalid quantity in size", "size:10Gu", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"size\": unable to parse quantity's suffix"),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
-			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", "failed to parse \"--volume-clone-pvc\" flag: bootorder must be greater than 0"),
+			Entry("Empty params", "", "failed to parse \"--volume-import\" flag: params may not be empty"),
+			Entry("Invalid param", "test=test", "failed to parse \"--volume-import\" flag: params need to have at least one colon: test=test"),
+			Entry("Unknown param", "test:test", "failed to parse \"--volume-import\" flag: unknown param(s): test:test"),
+			Entry("Missing src", "name:test", "failed to parse \"--volume-import\" flag: src must be specified"),
+			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty"),
+			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "failed to parse \"--volume-import\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
+			Entry("Missing namespace in src", "src:my-pvc", "failed to parse \"--volume-import\" flag: namespace of pvc 'my-pvc' must be specified"),
+			Entry("Invalid quantity in size", "size:10Gu", "failed to parse \"--volume-import\" flag: failed to parse param \"size\": unable to parse quantity's suffix"),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
+			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
+			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", "failed to parse \"--volume-import\" flag: bootorder must be greater than 0"),
 		)
 
 		DescribeTable("Invalid arguments to PvcVolumeFlag", func(flag, errMsg string) {
@@ -1360,9 +1362,9 @@ chpasswd: { expire: False }`
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-name"),
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate ClonePvc", "failed to parse \"--volume-clone-pvc\" flag: there is already a volume with name 'my-name'",
-				setFlag(ClonePvcVolumeFlag, "src:my-ns/my-pvc,name:my-name"),
-				setFlag(ClonePvcVolumeFlag, "src:my-ns/my-pvc,name:my-name"),
+			Entry("Duplicate imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
+				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 			),
 			Entry("Duplicate PVC", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
@@ -1380,9 +1382,9 @@ chpasswd: { expire: False }`
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate PVC and ClonePvc", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC and imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
-				setFlag(ClonePvcVolumeFlag, "src:my-ns/my-pvc,name:my-name"),
+				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 			),
 			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-blank\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
