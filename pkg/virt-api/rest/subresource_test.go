@@ -1678,7 +1678,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi := libvmi.New()
 			vm := libvmi.NewVirtualMachine(vmi)
 			controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
-				Type:   v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange),
+				Type:   v1.VirtualMachineManualRecoveryRequired,
 				Status: k8sv1.ConditionTrue,
 			})
 			request.PathParameters()["name"] = vm.Name
