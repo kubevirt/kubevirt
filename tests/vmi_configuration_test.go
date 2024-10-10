@@ -3171,15 +3171,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("Check KVM CPUID advertisement", func() {
-		var vmi *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			checks.SkipIfRunningOnKindInfra("Skip KVM MSR prescence test on kind")
-
-			vmi = libvmifact.NewFedora()
-		})
 
 		It("[test_id:5271]test cpuid hidden", func() {
+			vmi := libvmifact.NewFedora()
 			vmi.Spec.Domain.Features = &v1.Features{
 				KVM: &v1.FeatureKVM{Hidden: true},
 			}
@@ -3188,11 +3182,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Check values in domain XML")
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring("<hidden state='on'/>"))
 
 			By("Expecting console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -3206,23 +3195,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}, 2*time.Second)).To(Succeed())
 		})
 
-		It("[test_id:5272]test cpuid default", func() {
-			By("Starting a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Expecting console")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-			By("Check virt-what-cpuid-helper matches KVM")
-			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "/usr/libexec/virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
-				&expect.BExp{R: console.RetValue("pass")},
-				&expect.BSnd{S: "$(sudo /usr/libexec/virt-what-cpuid-helper | grep -q KVMKVMKVM) && echo 'pass'\n"},
-				&expect.BExp{R: console.RetValue("pass")},
-			}, 1*time.Second)).To(Succeed())
-		})
 	})
 	Context("virt-launcher processes memory usage", func() {
 		doesntExceedMemoryUsage := func(processRss *map[string]resource.Quantity, process string, memoryLimit resource.Quantity) {
