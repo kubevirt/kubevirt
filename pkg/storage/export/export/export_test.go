@@ -824,7 +824,7 @@ var _ = Describe("Export controller", func() {
 		return testVMExport
 	}
 
-	DescribeTable("Should create a pod based on the name of the VMExport", func(populateExportFunc func() *exportv1.VirtualMachineExport, numberOfVolumes int) {
+	DescribeTable("Should create a pod based on the name of the VMExport", func(populateExportFunc func() *exportv1.VirtualMachineExport, getPVCFromSource pvcFromSourceFunc, numberOfVolumes int) {
 		testPVC := &k8sv1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testPVCName,
@@ -836,7 +836,7 @@ var _ = Describe("Export controller", func() {
 		}
 		testVMExport := populateExportFunc()
 		populateInitialVMExportStatus(testVMExport)
-		err := controller.handleVMExportToken(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, getPVCFromSource)
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -925,9 +925,9 @@ var _ = Describe("Export controller", func() {
 		Expect(pod.Spec.Containers[0].ReadinessProbe).ToNot(BeNil())
 		Expect(pod.Spec.Containers[0].ReadinessProbe.ProbeHandler.HTTPGet.Path).To(Equal(ReadinessPath))
 	},
-		Entry("PVC", createPVCVMExport, 3),
-		Entry("VM", populateVmExportVM, 4),
-		Entry("Snapshot", populateVmExportVMSnapshot, 4),
+		Entry("PVC", createPVCVMExport, controller.getPVCFromSourcePVC, 3),
+		Entry("VM", populateVmExportVM, controller.getPVCFromSourceVM, 4),
+		Entry("Snapshot", populateVmExportVMSnapshot, controller.getPVCFromSourceVMSnapshot, 4),
 	)
 
 	It("Should create a secret based on the vm export", func() {
@@ -936,7 +936,7 @@ var _ = Describe("Export controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		testVMExport := createPVCVMExport()
 		populateInitialVMExportStatus(testVMExport)
-		err = controller.handleVMExportToken(testVMExport)
+		err = controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
 		Expect(err).ToNot(HaveOccurred())
 		testExportPod := &k8sv1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -998,7 +998,33 @@ var _ = Describe("Export controller", func() {
 		Expect(controller.Recorder.(*record.FakeRecorder).Events).To(BeEmpty())
 	})
 
-	It("handleVMExportToken should create the export secret if no TokenSecretRef is specified", func() {
+	It("handleVMExportToken should create the export secret if no TokenSecretRef is specified, and the referenced PVC exists", func() {
+		testVMExport := createPVCVMExportWithoutSecret()
+		expectedName := getDefaultTokenSecretName(testVMExport)
+		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			secret, ok := create.GetObject().(*k8sv1.Secret)
+			Expect(ok).To(BeTrue())
+			Expect(secret.GetName()).To(Equal(expectedName))
+			Expect(secret.GetNamespace()).To(Equal(testNamespace))
+			return true, secret, nil
+		})
+		Expect(controller.PVCInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testPVCName,
+				Namespace: testNamespace,
+			},
+		})).To(Succeed())
+		populateInitialVMExportStatus(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
+		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
+		testutils.ExpectEvent(recorder, secretCreatedEvent)
+	})
+
+	It("handleVMExportToken should not create the export secret if no TokenSecretRef is specified, and the referenced PVC doesn't exist", func() {
 		testVMExport := createPVCVMExportWithoutSecret()
 		expectedName := getDefaultTokenSecretName(testVMExport)
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -1011,11 +1037,9 @@ var _ = Describe("Export controller", func() {
 			return true, secret, nil
 		})
 		populateInitialVMExportStatus(testVMExport)
-		err := controller.handleVMExportToken(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
-		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
-		testutils.ExpectEvent(recorder, secretCreatedEvent)
+		Expect(testVMExport.Status.TokenSecretRef).To(BeNil())
 	})
 
 	It("handleVMExportToken should use the already specified secret if the status is already populated", func() {
@@ -1025,6 +1049,12 @@ var _ = Describe("Export controller", func() {
 		testVMExport.Status = &exportv1.VirtualMachineExportStatus{
 			TokenSecretRef: &oldSecretRef,
 		}
+		Expect(controller.PVCInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testPVCName,
+				Namespace: testNamespace,
+			},
+		})).To(Succeed())
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
@@ -1034,7 +1064,7 @@ var _ = Describe("Export controller", func() {
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			return true, secret, nil
 		})
-		err := controller.handleVMExportToken(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
 		Expect(*testVMExport.Status.TokenSecretRef).ToNot(Equal(newSecretRef))
@@ -1047,7 +1077,7 @@ var _ = Describe("Export controller", func() {
 		Expect(testVMExport.Spec.TokenSecretRef).ToNot(BeNil())
 		expectedName := *testVMExport.Spec.TokenSecretRef
 		populateInitialVMExportStatus(testVMExport)
-		err := controller.handleVMExportToken(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
 		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
