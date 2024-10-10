@@ -1417,13 +1417,15 @@ spec:
 				sanityCheckDeploymentsExist()
 
 				By("setting the right uninstall strategy")
-				Eventually(func() error {
-					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					kv.Spec.UninstallStrategy = v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
-					_, err = virtClient.KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
-					return err
-				}, 60*time.Second, time.Second).ShouldNot(HaveOccurred())
+				kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				kv.Spec.UninstallStrategy = v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
+				_, err = virtClient.KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred(), func() {
+					_, _ = fmt.Fprintf(GinkgoWriter, "[DESIRED]: kv spec %+v kv metadata %+v\n", kv.Spec, kv.ObjectMeta)
+					kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
+					_, _ = fmt.Fprintf(GinkgoWriter, "[CURRENT] kv spec %+v kv metadata %+v\n", kv.Spec, kv.ObjectMeta)
+				})
 
 				By("creating a simple VMI")
 				vmi := libvmifact.NewCirros()
