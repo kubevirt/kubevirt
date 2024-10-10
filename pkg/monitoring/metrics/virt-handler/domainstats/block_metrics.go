@@ -80,6 +80,27 @@ var (
 			Help: "Total time spent on cache flushing.",
 		},
 	)
+
+	storageAllocationBytes = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_storage_allocation_bytes",
+			Help: "Allocated storage capacity in bytes.",
+		},
+	)
+
+	storageCapacityBytes = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_storage_capacity_bytes",
+			Help: "Logical storage capacity in bytes.",
+		},
+	)
+
+	storagePhysicalBytes = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_storage_physical_bytes",
+			Help: "Physical storage capacity in bytes.",
+		},
+	)
 )
 
 type blockMetrics struct{}
@@ -94,6 +115,9 @@ func (blockMetrics) Describe() []operatormetrics.Metric {
 		storageWriteTimesSeconds,
 		storageFlushRequests,
 		storageFlushTimesSeconds,
+		storageAllocationBytes,
+		storageCapacityBytes,
+		storagePhysicalBytes,
 	}
 }
 
@@ -145,6 +169,18 @@ func (blockMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operatorm
 
 		if block.FlTimesSet {
 			crs = append(crs, vmiReport.newCollectorResultWithLabels(storageFlushTimesSeconds, nanosecondsToSeconds(block.FlTimes), blkLabels))
+		}
+
+		if block.AllocationSet {
+			crs = append(crs, vmiReport.newCollectorResultWithLabels(storageAllocationBytes, float64(block.Allocation), blkLabels))
+		}
+
+		if block.CapacitySet {
+			crs = append(crs, vmiReport.newCollectorResultWithLabels(storageCapacityBytes, float64(block.Capacity), blkLabels))
+		}
+
+		if block.PhysicalSet {
+			crs = append(crs, vmiReport.newCollectorResultWithLabels(storagePhysicalBytes, float64(block.Physical), blkLabels))
 		}
 	}
 
