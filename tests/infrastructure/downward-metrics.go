@@ -30,6 +30,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -80,17 +81,9 @@ var _ = DescribeInfra("downwardMetrics", func() {
 		metrics, err := libinfra.GetDownwardMetricsDisk(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		//let's try to find the ResourceProcessorLimit metric
-		found := false
-		j := 0
-		for i, metric := range metrics.Metrics {
-			if metric.Name == "ResourceProcessorLimit" {
-				j = i
-				found = true
-				break
-			}
-		}
-		Expect(found).To(BeTrue())
-		Expect(metrics.Metrics[j].Value).To(Equal("1"))
+		Expect(metrics.Metrics).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"Name":  Equal("ResourceProcessorLimit"),
+			"Value": Equal("1"),
+		})))
 	})
 })
