@@ -21,8 +21,11 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -595,7 +598,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
 			pvcName = dataVolumeName
 
-			vmJson, err = tests.GenerateVMJson(vm, GinkgoT().TempDir())
+			data, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+			vmJson = filepath.Join(GinkgoT().TempDir(), fmt.Sprintf("%s.json", vm.Name))
+			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
