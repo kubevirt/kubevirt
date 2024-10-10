@@ -50,10 +50,9 @@ import (
 )
 
 const (
-	creationTimestampJSONPath  = ".metadata.creationTimestamp"
-	errorMessageJSONPath       = ".status.error.message"
-	phaseJSONPath              = ".status.phase"
-	preserveUnknownFieldsFalse = false
+	creationTimestampJSONPath = ".metadata.creationTimestamp"
+	errorMessageJSONPath      = ".status.error.message"
+	phaseJSONPath             = ".status.phase"
 )
 
 var (
@@ -69,7 +68,6 @@ var (
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1beta1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clonev1alpha1.VirtualMachineCloneKind.Group
-	PreserveUnknownFieldsFalse       = false
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
@@ -99,8 +97,6 @@ func addFieldsToAllVersions(crd *extv1.CustomResourceDefinition, fields ...inter
 
 func patchValidation(crd *extv1.CustomResourceDefinition, version *extv1.CustomResourceDefinitionVersion) error {
 	name := crd.Spec.Names.Singular
-
-	crd.Spec.PreserveUnknownFields = preserveUnknownFieldsFalse
 	validation, ok := CRDsValidation[name]
 	if !ok {
 		return nil
