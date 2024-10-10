@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
+	"github.com/coreos/go-semver/semver"
 	secv1 "github.com/openshift/api/security/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -315,11 +315,11 @@ func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 	// adhere to the semver spec, we assume by default the
 	// update path is the correct path.
 	shouldTakeUpdatePath := true
-	target, err := semver.Make(targetVersion)
+	target, err := semver.NewVersion(targetVersion)
 	if err == nil {
-		current, err := semver.Make(currentVersion)
+		current, err := semver.NewVersion(currentVersion)
 		if err == nil {
-			if target.Compare(current) <= 0 {
+			if target.Compare(*current) <= 0 {
 				shouldTakeUpdatePath = false
 			}
 		}

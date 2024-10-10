@@ -1,6 +1,3 @@
-# github.com/Masterminds/semver v1.5.0
-## explicit
-github.com/Masterminds/semver
 # github.com/VividCortex/ewma v1.2.0
 ## explicit; go 1.12
 github.com/VividCortex/ewma
@@ -10,9 +7,6 @@ github.com/asaskevich/govalidator
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
-# github.com/blang/semver v3.5.1+incompatible
-## explicit
-github.com/blang/semver
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2

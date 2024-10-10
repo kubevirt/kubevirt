@@ -38,7 +38,7 @@ go_library(
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/github.com/blang/semver:go_default_library",
+        "//vendor/github.com/coreos/go-semver/semver:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/imdario/mergo:go_default_library",
         "//vendor/github.com/openshift/api/operator/v1:go_default_library",
