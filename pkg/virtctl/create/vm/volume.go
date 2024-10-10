@@ -21,13 +21,6 @@ package vm
 
 import "k8s.io/apimachinery/pkg/api/resource"
 
-type cloneVolume struct {
-	Name      string             `param:"name"`
-	Source    string             `param:"src"`
-	BootOrder *uint              `param:"bootorder"`
-	Size      *resource.Quantity `param:"size"`
-}
-
 type volumeSource struct {
 	Name      string `param:"name"`
 	Source    string `param:"src"`
