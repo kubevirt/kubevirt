@@ -458,11 +458,17 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 			{
 				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 		},
 		Scope: "Namespaced",
@@ -508,11 +514,17 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
 				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 			{
 				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 		},
 		Scope: "Namespaced",
@@ -555,11 +567,17 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 			{
 				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 		},
 		Scope: "Namespaced",
