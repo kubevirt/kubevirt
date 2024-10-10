@@ -671,6 +671,7 @@ status:
     migrationUid: migrationUidValue
     mode: modeValue
     sourceNode: sourceNodeValue
+    sourcePersistentStatePVCName: sourcePersistentStatePVCNameValue
     sourcePod: sourcePodValue
     startTimestamp: "1986-01-01T01:01:01Z"
     targetAttachmentPodUID: targetAttachmentPodUIDValue
@@ -683,6 +684,7 @@ status:
     targetNodeDomainDetected: true
     targetNodeDomainReadyTimestamp: "1970-01-01T01:01:01Z"
     targetNodeTopology: targetNodeTopologyValue
+    targetPersistentStatePVCName: targetPersistentStatePVCNameValue
     targetPod: targetPodValue
   migrationTransport: migrationTransportValue
   nodeName: nodeNameValue

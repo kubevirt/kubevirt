@@ -234,6 +234,8 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"migrationConfiguration":         "Migration configurations to apply",
 		"targetCPUSet":                   "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",
 		"targetNodeTopology":             "If the VMI requires dedicated CPUs, this field will\nhold the numa topology on the target node",
+		"sourcePersistentStatePVCName":   "If the VMI being migrated uses persistent features (backend-storage), it source PVC name is saved here",
+		"targetPersistentStatePVCName":   "If the VMI being migrated uses persistent features (backend-storage), it target PVC name is saved here",
 	}
 }
 

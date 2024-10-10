@@ -950,7 +950,9 @@
       "targetCPUSet": [
         -12
       ],
-      "targetNodeTopology": "targetNodeTopologyValue"
+      "targetNodeTopology": "targetNodeTopologyValue",
+      "sourcePersistentStatePVCName": "sourcePersistentStatePVCNameValue",
+      "targetPersistentStatePVCName": "targetPersistentStatePVCNameValue"
     },
     "migrationMethod": "migrationMethodValue",
     "migrationTransport": "migrationTransportValue",

@@ -38,8 +38,6 @@ import (
 
 	"libvirt.org/go/libvirtxml"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	pvctypes "kubevirt.io/kubevirt/pkg/storage/types"
 
@@ -2581,10 +2579,6 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	volumeStatusMap := make(map[string]v1.VolumeStatus)
 
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.Name == backendstorage.PVCForVMI(vmi) && volumeStatus.PersistentVolumeClaimInfo != nil &&
-			!pvctypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) {
-			return true, fmt.Errorf("cannot migrate VMI: Backend storage PVC is not RWX")
-		}
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
 	}
 
