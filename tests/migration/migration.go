@@ -128,7 +128,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		return name
 	}
 
-	prepareVMIWithAllVolumeSources := func(namespace string) *v1.VirtualMachineInstance {
+	prepareVMIWithAllVolumeSources := func(namespace string, kernelBootEnabled bool) *v1.VirtualMachineInstance {
 		name := "secret-" + rand.String(5)
 		secret := libsecret.New(name, libsecret.DataString{"user": "admin", "password": "redhat"})
 		_, err := kubevirt.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -137,19 +137,22 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 
 		configMapName := createConfigMap(namespace)
-
-		return libvmifact.NewFedora(
+		opts := []libvmi.Option{
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithLabel(downwardTestLabelKey, downwardTestLabelVal),
-			libvmi.WithDownwardAPIDisk("downwardapi-"+rand.String(5)),
+			libvmi.WithDownwardAPIDisk("downwardapi-" + rand.String(5)),
 			libvmi.WithServiceAccountDisk("default"),
-			withKernelBoot(),
 			libvmi.WithSecretDisk(secret.Name, secret.Name),
 			libvmi.WithConfigMapDisk(configMapName, configMapName),
 			libvmi.WithEmptyDisk("usb-disk", v1.DiskBusUSB, resource.MustParse("64Mi")),
 			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")),
-		)
+		}
+		if kernelBootEnabled {
+			opts = append(opts, withKernelBoot())
+		}
+
+		return libvmifact.NewFedora(opts...)
 	}
 
 	BeforeEach(func() {
@@ -1179,8 +1182,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					)
 				}, console.LoginToAlpine),
 
-				Entry("[test_id:8611] with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
-					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged)
+				Entry("[test_id:8611] with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI", func() *v1.VirtualMachineInstance {
+					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
 				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
@@ -1270,7 +1273,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}, console.LoginToAlpine),
 
 				Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
-					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged)
+					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
 				Entry("with PVC", func() *v1.VirtualMachineInstance {
@@ -2432,7 +2435,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	Context("with sata disks", func() {
 
 		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot + USB Disk", func() {
-			vmi := prepareVMIWithAllVolumeSources(testsuite.GetTestNamespace(nil))
+			vmi := prepareVMIWithAllVolumeSources(testsuite.GetTestNamespace(nil), true)
 
 			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(7))
 			Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
