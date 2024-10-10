@@ -4,16 +4,17 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"golang.org/x/sys/unix"
+	"io/fs"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
-
-	"kubevirt.io/kubevirt/pkg/unsafepath"
-
-	"golang.org/x/sys/unix"
 )
+
+const pathSeparator = string(os.PathSeparator)
+const pathRoot = string(os.PathSeparator)
 
 // JoinAndResolveWithRelativeRoot joins an absolute relativeRoot base path with
 // additional elements which have to be kept below the relativeRoot base.
@@ -67,6 +68,7 @@ type fifo struct {
 	maxOps uint
 }
 
+// push adds the given path elements to the fifo, respecting the maximum allowed operations.
 func (f *fifo) push(pathElements []string) error {
 	for i := len(pathElements) - 1; i >= 0; i-- {
 		if f.ops > f.maxOps {
@@ -81,6 +83,7 @@ func (f *fifo) push(pathElements []string) error {
 	return nil
 }
 
+// pop removes and returns the front element from the fifo. Returns an empty string if the fifo is empty.
 func (f *fifo) pop() string {
 	if val := f.store.Front(); val != nil {
 		f.store.Remove(val)
@@ -116,7 +119,7 @@ func OpenAtNoFollow(path *Path) (file *File, err error) {
 			continue
 		}
 		newfd, err := openat(fd, child)
-		_ = syscall.Close(fd) // always close the parent after the lookup
+		_ = unix.Close(fd) // always close the parent after the lookup
 		if err != nil {
 			return nil, fmt.Errorf("failed opening %s for path %v: %w", child, path, err)
 		}
@@ -125,6 +128,7 @@ func OpenAtNoFollow(path *Path) (file *File, err error) {
 	return &File{fd: fd, path: path}, nil
 }
 
+// ChmodAtNoFollow changes the file mode of the specified path without following symlinks.
 func ChmodAtNoFollow(path *Path, mode os.FileMode) error {
 	f, err := OpenAtNoFollow(path)
 	if err != nil {
@@ -134,6 +138,7 @@ func ChmodAtNoFollow(path *Path, mode os.FileMode) error {
 	return os.Chmod(f.SafePath(), mode)
 }
 
+// ChownAtNoFollow changes the ownership of the file at the given path to the specified uid and gid without following symlinks.
 func ChownAtNoFollow(path *Path, uid, gid int) error {
 	f, err := OpenAtNoFollow(path)
 	if err != nil {
@@ -143,6 +148,8 @@ func ChownAtNoFollow(path *Path, uid, gid int) error {
 	return os.Chown(f.SafePath(), uid, gid)
 }
 
+// ChpermAtNoFollow changes the ownership and permissions of a file at the given path without following symlinks.
+// The ownership is changed first to prevent any subsequent unauthorized changes in file mode.
 func ChpermAtNoFollow(path *Path, uid, gid int, mode os.FileMode) error {
 	// first set the ownership, to avoid that someone may change back the file mode
 	// after we set it. This is necessary if the file got somehow created without
@@ -156,6 +163,8 @@ func ChpermAtNoFollow(path *Path, uid, gid int, mode os.FileMode) error {
 	return nil
 }
 
+// MkdirAtNoFollow creates a directory named dirName at the specified path.
+// It ensures that the directory is created without following any symbolic links.
 func MkdirAtNoFollow(path *Path, dirName string, mode os.FileMode) error {
 	if err := isSingleElement(dirName); err != nil {
 		return err
@@ -190,10 +199,17 @@ func TouchAtNoFollow(path *Path, fileName string, mode os.FileMode) (err error) 
 	if err != nil {
 		return err
 	}
-	_ = syscall.Close(fd)
+	_ = unix.Close(fd)
 	return nil
 }
 
+// MknodAtNoFollow creates a filesystem node (file, device special file, or named pipe) at the specified Path without following symlinks.
+// Parameters:
+// - path: A pointer to a Path structure specifying the directory
+// - fileName: The name of the file to be created
+// - mode: The file mode specifying the type and permissions of the new node
+// - dev: The device identifier (only meaningful for device special files)
+// Returns an error if the operation fails
 func MknodAtNoFollow(path *Path, fileName string, mode os.FileMode, dev uint64) (err error) {
 	if err := isSingleElement(fileName); err != nil {
 		return err
@@ -206,6 +222,7 @@ func MknodAtNoFollow(path *Path, fileName string, mode os.FileMode, dev uint64) 
 	return mknodat(parent.fd, fileName, uint32(mode), dev)
 }
 
+// StatAtNoFollow retrieves file information for the given Path without following symlinks.
 func StatAtNoFollow(path *Path) (os.FileInfo, error) {
 	pathFd, err := OpenAtNoFollow(path)
 	if err != nil {
@@ -215,6 +232,7 @@ func StatAtNoFollow(path *Path) (os.FileInfo, error) {
 	return os.Stat(pathFd.SafePath())
 }
 
+// GetxattrNoFollow retrieves the value of the extended attribute identified by 'attr' for the file in 'path' without following symlinks.
 func GetxattrNoFollow(path *Path, attr string) ([]byte, error) {
 	var ret []byte
 	pathFd, err := OpenAtNoFollow(path)
@@ -222,12 +240,12 @@ func GetxattrNoFollow(path *Path, attr string) ([]byte, error) {
 		return nil, err
 	}
 	defer pathFd.Close()
-	size, err := syscall.Getxattr(pathFd.SafePath(), attr, ret)
+	size, err := unix.Getxattr(pathFd.SafePath(), attr, ret)
 	if err != nil {
 		return nil, err
 	}
 	ret = make([]byte, size)
-	_, err = syscall.Getxattr(pathFd.SafePath(), attr, ret)
+	_, err = unix.Getxattr(pathFd.SafePath(), attr, ret)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +259,7 @@ type File struct {
 }
 
 func (f *File) Close() error {
-	return syscall.Close(f.fd)
+	return unix.Close(f.fd)
 }
 
 func (f *File) String() string {
@@ -253,15 +271,15 @@ func (f *File) String() string {
 // will ensure that this path always points to the resolved file.
 // To operate on the file just use os.Open and related calls.
 func (f *File) SafePath() string {
-	return path(f.fd)
+	return symlinkPath(f.fd)
 }
 
+// Path returns the path associated with the file as a *Path.
 func (f *File) Path() *Path {
 	return f.path
 }
 
 // Path is a path which was at the time of creation a real path
-// re
 type Path struct {
 	rootBase     string
 	relativePath string
@@ -273,6 +291,7 @@ func (p *Path) Raw() *unsafepath.Path {
 	return unsafepath.New(p.rootBase, p.relativePath)
 }
 
+// IsRoot checks if the current path is the root directory and returns true if it is, otherwise false.
 func (p *Path) IsRoot() bool {
 	return unsafepath.UnsafeAbsolute(p.Raw()) == pathRoot
 }
@@ -295,6 +314,7 @@ func (p *Path) AppendAndResolveWithRelativeRoot(relativeRootElems ...string) (*P
 	return newPath, err
 }
 
+// String returns a formatted string representation of the Path, containing the root base and the relative path.
 func (p *Path) String() string {
 	return fmt.Sprintf("root: %v, relative: %v", p.rootBase, p.relativePath)
 }
@@ -328,6 +348,7 @@ func (p *Path) Base() (string, error) {
 	return filepath.Base(p.relativePath), nil
 }
 
+// newPath creates a new Path instance by combining the given rootBase and relativePath.
 func newPath(rootBase, relativePath string) *Path {
 	return &Path{
 		rootBase:     rootBase,
@@ -376,6 +397,7 @@ func JoinNoFollow(rootPath *Path, path string) (*Path, error) {
 	return f.Path(), f.Close()
 }
 
+// isSingleElement verifies that the given path is a single, non-relative path segment and not a special directory.
 func isSingleElement(path string) error {
 	cleanedPath := filepath.Clean(path)
 	if cleanedPath != path || strings.ContainsAny(path, pathSeparator) {
@@ -456,4 +478,70 @@ func ListenUnixNoFollow(socketDir *Path, socketName string) (net.Listener, error
 		return nil, err
 	}
 	return listener, nil
+}
+
+// advance will try to add the child to the parent. If it is a relative symlink it will resolve it
+// and return the parent with the new symlink. If it is an absolute symlink, parent will be reset to '/'
+// and returned together with the absolute symlink. If the joined result is no symlink, the joined result will
+// be returned as the new parent.
+func advance(rootBase string, parent string, child string) (string, string, error) {
+	// Ensure parent is absolute and never empty
+	parent = filepath.Clean(parent)
+	if !filepath.IsAbs(parent) {
+		return "", "", fmt.Errorf("parent path %v must be absolute", parent)
+	}
+
+	if strings.Contains(child, pathSeparator) {
+		return "", "", fmt.Errorf("child %q must not contain a path separator", child)
+	}
+
+	// Deal with relative path elements like '.', '//' and '..'
+	// Since parent is absolute, worst case we get '/' as result
+	path := filepath.Join(parent, child)
+
+	if path == rootBase {
+		// don't evaluate the root itself, since rootBase is allowed to be a symlink
+		return path, "", nil
+	}
+
+	fi, err := os.Lstat(filepath.Join(rootBase, path))
+	if err != nil {
+		return "", "", err
+	}
+
+	if fi.Mode()&fs.ModeSymlink == 0 {
+		// no symlink, we are done, return the joined result of parent and child
+		return filepath.Clean(path), "", nil
+	}
+
+	link, err := os.Readlink(filepath.Join(rootBase, path))
+	if err != nil {
+		return "", "", err
+	}
+
+	if filepath.IsAbs(link) {
+		// the link is absolute, let's reset the parent and the discovered link path
+		return pathRoot, filepath.Clean(link), nil
+	} else {
+		// on relative links, don't advance parent and return the link
+		return parent, filepath.Clean(link), nil
+	}
+}
+
+// unlinkat removes a file or directory (if empty) specified by a path relative to a directory file descriptor.
+func unlinkat(dirfd int, path string, flags int) error {
+	if err := isSingleElement(path); err != nil {
+		return err
+	}
+	return unix.Unlinkat(dirfd, path, flags)
+}
+
+// touchat creates and opens a new file relative to the directory specified by dirfd.
+// The file is created with the specified mode and must not follow symbolic links.
+// If the file already exists, it returns an error.
+func touchat(dirfd int, path string, mode uint32) (fd int, err error) {
+	if err := isSingleElement(path); err != nil {
+		return -1, err
+	}
+	return unix.Openat(dirfd, path, unix.O_NOFOLLOW|unix.O_CREAT|unix.O_EXCL, mode)
 }
