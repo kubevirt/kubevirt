@@ -12,6 +12,8 @@ go_library(
         "firmware.go",
         "interface.go",
         "machine.go",
+        "subdomain.go",
+        "termination.go",
         "vmi.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype/preference/apply",
