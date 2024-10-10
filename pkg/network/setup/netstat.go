@@ -21,6 +21,7 @@ package network
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -112,7 +113,9 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	// Guest Agent information will add and conditionally override data gathered from the cache.
 	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
 
-	primaryInterfaceStatus, interfacesStatus := netvmispec.PopInterfaceByNetwork(interfacesStatus, netvmispec.LookupPodNetwork(vmi.Spec.Networks))
+	primaryNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks)
+	interfacesStatus = restorePodIfaceNameForPrimaryIface(interfacesStatus, primaryNetwork, vmi.Status.Interfaces)
+	primaryInterfaceStatus, interfacesStatus := netvmispec.PopInterfaceByNetwork(interfacesStatus, primaryNetwork)
 	if primaryInterfaceStatus != nil {
 		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
 	}
@@ -124,6 +127,32 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	c.removeAbsentIfacesFromVolatileCache(vmi)
 
 	return nil
+}
+
+func restorePodIfaceNameForPrimaryIface(
+	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
+	primaryNetwork *v1.Network,
+	prevIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	if primaryNetwork == nil {
+		return interfacesStatus
+	}
+
+	prevPrimaryIfaceStatus := netvmispec.LookupInterfaceStatusByName(prevIfaceStatuses, primaryNetwork.Name)
+	if prevPrimaryIfaceStatus == nil {
+		return interfacesStatus
+	}
+
+	primaryIfaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, primaryNetwork.Name)
+	if primaryIfaceStatus == nil {
+		return slices.Insert(interfacesStatus, 0, v1.VirtualMachineInstanceNetworkInterface{
+			Name:             prevPrimaryIfaceStatus.Name,
+			PodInterfaceName: prevPrimaryIfaceStatus.PodInterfaceName,
+		})
+	}
+
+	primaryIfaceStatus.PodInterfaceName = prevPrimaryIfaceStatus.PodInterfaceName
+	return interfacesStatus
 }
 
 func ifacesStatusFromMultus(
