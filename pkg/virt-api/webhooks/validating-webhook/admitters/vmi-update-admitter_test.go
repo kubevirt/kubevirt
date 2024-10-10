@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -121,7 +121,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		}
 
 		Context("with Node Restriction feature gate enabled", func() {
-			BeforeEach(func() { enableFeatureGate(virtconfig.NodeRestrictionGate) })
+			BeforeEach(func() { enableFeatureGate(featuregate.NodeRestrictionGate) })
 
 			shouldNotAllowCrossNodeRequest := And(
 				WithTransform(func(resp *admissionv1.AdmissionResponse) bool { return resp.Allowed },
@@ -822,7 +822,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	Context("with filesystem devices", func() {
 		BeforeEach(func() {
-			enableFeatureGate(virtconfig.VirtIOFSGate)
+			enableFeatureGate(featuregate.VirtIOFSGate)
 		})
 
 		DescribeTable("Should return proper admission response", testHotplugResponse,

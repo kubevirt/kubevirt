@@ -17,6 +17,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -329,16 +330,16 @@ var _ = Describe("test configuration", func() {
 		Expect(clusterConfig.IsVMRolloutStrategyLiveUpdate()).To(BeEquivalentTo(expected))
 	},
 		Entry("is nil, VMLiveUpdateFeaturesEnabled should return false",
-			nil, []string{virtconfig.VMLiveUpdateFeaturesGate}, false,
+			nil, []string{featuregate.VMLiveUpdateFeaturesGate}, false,
 		),
 		Entry("is Stage, VMLiveUpdateFeaturesEnabled should return false",
-			pointer.P(v1.VMRolloutStrategyStage), []string{virtconfig.VMLiveUpdateFeaturesGate}, false,
+			pointer.P(v1.VMRolloutStrategyStage), []string{featuregate.VMLiveUpdateFeaturesGate}, false,
 		),
 		Entry("is LiveUpdate but the feature gate is not set, VMLiveUpdateFeaturesEnabled should return false",
 			pointer.P(v1.VMRolloutStrategyLiveUpdate), []string{}, false,
 		),
 		Entry("is LiveUpdate, VMLiveUpdateFeaturesEnabled should return true",
-			pointer.P(v1.VMRolloutStrategyLiveUpdate), []string{virtconfig.VMLiveUpdateFeaturesGate}, true,
+			pointer.P(v1.VMRolloutStrategyLiveUpdate), []string{featuregate.VMLiveUpdateFeaturesGate}, true,
 		),
 	)
 
@@ -768,7 +769,7 @@ var _ = Describe("test configuration", func() {
 		Entry("ClusterProfiler feature gate empty should result in cluster profiler being disabled",
 			[]string{}, false),
 		Entry("ClusterProfiler feature gate enabled should result in cluster profiler being enabled",
-			[]string{virtconfig.ClusterProfiler}, true),
+			[]string{featuregate.ClusterProfiler}, true),
 	)
 
 	Context("GAed feature gates should be considered as enabled by default", func() {

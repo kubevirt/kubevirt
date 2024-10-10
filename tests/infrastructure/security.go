@@ -31,7 +31,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -49,7 +50,7 @@ var _ = DescribeInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		config.EnableFeatureGate(virtconfig.NodeRestrictionGate)
+		config.EnableFeatureGate(featuregate.NodeRestrictionGate)
 	})
 
 	It("Should disallow to modify VMs on different node", func() {

@@ -45,8 +45,9 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -571,7 +572,7 @@ var _ = SIGDescribe("Storage", func() {
 
 		Context("[Serial]With feature gates disabled for", Serial, func() {
 			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
-				config.DisableFeatureGate(virtconfig.HostDiskGate)
+				config.DisableFeatureGate(featuregate.HostDiskGate)
 				vmi = libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -590,7 +591,7 @@ var _ = SIGDescribe("Storage", func() {
 		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
 
 			BeforeEach(func() {
-				if !checks.HasFeature(virtconfig.HostDiskGate) {
+				if !checks.HasFeature(featuregate.HostDiskGate) {
 					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 				}
 			})

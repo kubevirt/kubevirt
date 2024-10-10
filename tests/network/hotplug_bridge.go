@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -67,7 +67,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 	)
 
 	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
+		Expect(checks.HasFeature(featuregate.HotplugNetworkIfacesGate)).To(BeTrue())
 	})
 
 	Context("a running VM", func() {
@@ -240,7 +240,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 	)
 
 	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
+		Expect(checks.HasFeature(featuregate.HotplugNetworkIfacesGate)).To(BeTrue())
 	})
 
 	Context("a running VM", func() {
