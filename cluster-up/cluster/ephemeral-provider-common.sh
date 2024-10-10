@@ -146,6 +146,10 @@ function _add_common_params() {
         params=" --enable-audit $params"
     fi
 
+    if [ $KUBVIRT_WITH_CNAO_SKIP_CONFIG == "true" ]; then
+        params=" --skip-cnao-cr $params"
+    fi
+
     if [ $KUBEVIRT_DEPLOY_NFS_CSI == "true" ]; then
         params=" --enable-nfs-csi $params"
     fi
