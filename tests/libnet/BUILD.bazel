@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "expose_util.go",
         "hotplug.go",
         "interface.go",
         "ipaddress.go",
@@ -23,7 +22,6 @@ go_library(
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/network/vmispec:go_default_library",
-        "//pkg/virtctl/expose:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/console:go_default_library",
