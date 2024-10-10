@@ -612,7 +612,6 @@ type ClockPreferences struct {
 }
 
 type PreferenceRequirements struct {
-
 	// Required CPU related attributes of the instancetype.
 	//
 	//+optional
@@ -622,6 +621,11 @@ type PreferenceRequirements struct {
 	//
 	//+optional
 	Memory *MemoryPreferenceRequirement `json:"memory,omitempty"`
+
+	// Specifies the required architecture of the vm.
+	//
+	//+optional
+	Architecture *string `json:"architecture,omitempty"`
 }
 
 type CPUPreferenceRequirement struct {
