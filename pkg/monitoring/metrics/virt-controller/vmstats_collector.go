@@ -45,6 +45,9 @@ var (
 			// VM annotations
 			"os", "workload", "flavor",
 
+			// VM Machine Type
+			"machine_type",
+
 			// Instance type
 			"instance_type", "preference",
 
@@ -167,9 +170,13 @@ func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 	var results []operatormetrics.CollectorResult
 
 	for _, vm := range vms {
-		os, workload, flavor := none, none, none
+		os, workload, flavor, machineType := none, none, none, none
 		if vm.Spec.Template != nil {
 			os, workload, flavor = getSystemInfoFromAnnotations(vm.Spec.Template.ObjectMeta.Annotations)
+
+			if vm.Spec.Template.Spec.Domain.Machine != nil {
+				machineType = vm.Spec.Template.Spec.Domain.Machine.Type
+			}
 		}
 
 		instanceType := getVMInstancetype(vm)
@@ -179,7 +186,7 @@ func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 			Metric: vmInfo,
 			Labels: []string{
 				vm.Name, vm.Namespace,
-				os, workload, flavor,
+				os, workload, flavor, machineType,
 				instanceType, preference,
 				string(vm.Status.PrintableStatus), getVMStatusGroup(vm.Status.PrintableStatus),
 			},
