@@ -147,7 +147,7 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(9))
+				Expect(cr.Labels).To(HaveLen(10))
 
 				Expect(cr.GetLabelValue("name")).To(Equal(vms[i].ObjectMeta.Name))
 				Expect(cr.GetLabelValue("namespace")).To(Equal(vms[i].ObjectMeta.Namespace))
@@ -156,6 +156,44 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(cr.GetLabelValue("os")).To(Equal(os))
 				Expect(cr.GetLabelValue("workload")).To(Equal(workload))
 				Expect(cr.GetLabelValue("flavor")).To(Equal(flavor))
+
+				Expect(cr.GetLabelValue("status")).To(Equal("CrashLoopBackOff"))
+				Expect(cr.GetLabelValue("status_group")).To(Equal("error"))
+			}
+		})
+
+		It("should show machine_type correctly", func() {
+			vms := []*k6tv1.VirtualMachine{
+				{
+					Spec: k6tv1.VirtualMachineSpec{
+						Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+							Spec: k6tv1.VirtualMachineInstanceSpec{
+								Domain: k6tv1.DomainSpec{
+									Machine: &k6tv1.Machine{
+										Type: "q35",
+									},
+								},
+							},
+						},
+					},
+					Status: k6tv1.VirtualMachineStatus{
+						PrintableStatus: k6tv1.VirtualMachineStatusCrashLoopBackOff,
+					},
+				},
+			}
+
+			crs := CollectVMsInfo(vms)
+			Expect(crs).To(HaveLen(1))
+
+			for i, cr := range crs {
+				Expect(cr).ToNot(BeNil())
+				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
+				Expect(cr.Value).To(BeEquivalentTo(1))
+				Expect(cr.Labels).To(HaveLen(10))
+
+				Expect(cr.GetLabelValue("name")).To(Equal(vms[i].ObjectMeta.Name))
+				Expect(cr.GetLabelValue("namespace")).To(Equal(vms[i].ObjectMeta.Namespace))
+				Expect(cr.GetLabelValue("machine_type")).To(Equal(vms[i].Spec.Template.Spec.Domain.Machine.Type))
 
 				Expect(cr.GetLabelValue("status")).To(Equal("CrashLoopBackOff"))
 				Expect(cr.GetLabelValue("status_group")).To(Equal("error"))
@@ -179,7 +217,7 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(9))
+			Expect(cr.Labels).To(HaveLen(10))
 			Expect(cr.GetLabelValue("instance_type")).To(Equal(expected))
 		},
 			Entry("with no instance type expect <none>", "VirtualMachineInstancetype", "", "<none>"),
@@ -207,7 +245,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(9))
+			Expect(cr.Labels).To(HaveLen(10))
 			Expect(cr.GetLabelValue("preference")).To(Equal(expected))
 		},
 			Entry("with no preference expect <none>", "VirtualMachinePreference", "", "<none>"),
