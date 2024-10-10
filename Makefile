@@ -163,7 +163,7 @@ cluster-up:
 	./hack/cluster-up.sh
 
 cluster-down:
-	./cluster-up/down.sh
+	./kubevirtci/cluster-up/down.sh
 
 cluster-build:
 	./hack/cluster-build.sh
@@ -231,7 +231,7 @@ gofumpt:
 
 update-generated-api-testdata:
 	./hack/update-generated-api-testdata.sh
-    
+
 .PHONY: \
 	build-verify \
 	conformance \
