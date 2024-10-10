@@ -88,7 +88,6 @@ func (h *RevisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 			return nil, err
 		}
 		return h.storeControllerRevision(vm, instancetype)
-
 	case api.ClusterSingularResourceName, api.ClusterPluralResourceName:
 		clusterInstancetype, err := find.NewClusterInstancetypeFinder(h.clusterInstancetypeStore, h.virtClient).Find(vm)
 		if err != nil {
@@ -106,7 +105,6 @@ func (h *RevisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 			return nil, err
 		}
 		return h.storeControllerRevision(vm, clusterInstancetype)
-
 	default:
 		return nil, fmt.Errorf("got unexpected kind in InstancetypeMatcher: %s", vm.Spec.Instancetype.Kind)
 	}

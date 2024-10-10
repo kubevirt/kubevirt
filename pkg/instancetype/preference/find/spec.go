@@ -68,14 +68,12 @@ func (f *SpecFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePre
 			return nil, err
 		}
 		return &preference.Spec, nil
-
 	case api.ClusterSingularPreferenceResourceName, api.ClusterPluralPreferenceResourceName, "":
 		clusterPreference, err := f.clusterPreferenceFinder.Find(vm)
 		if err != nil {
 			return nil, err
 		}
 		return &clusterPreference.Spec, nil
-
 	default:
 		return nil, fmt.Errorf(unexpectedKindFmt, vm.Spec.Preference.Kind)
 	}

@@ -32,7 +32,6 @@ func applyFirmwarePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSp
 	}
 
 	firmware := preferenceSpec.Firmware
-
 	if vmiSpec.Domain.Firmware == nil {
 		vmiSpec.Domain.Firmware = &virtv1.Firmware{}
 	}

@@ -23,16 +23,13 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	api "kubevirt.io/api/instancetype"
-
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 )
 
-const (
-	logVerbosityLevel = 3
-)
+const logVerbosityLevel = 3
 
 type Handler struct {
 	virtClient kubecli.KubevirtClient
