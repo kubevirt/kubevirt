@@ -28,7 +28,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -64,27 +63,21 @@ const (
 
 var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, decorators.Windows, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
-	var windowsVMI *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		const OSWindows = "windows"
 		virtClient = kubevirt.Client()
-		checks.SkipIfMissingRequiredImage(virtClient, libvmifact.WindowsPVCName)
 		libstorage.CreatePVC(OSWindows, testsuite.GetTestNamespace(nil), "30Gi", libstorage.Config.StorageClassWindows, true)
-		windowsVMI = libvmifact.NewWindows(libnet.WithMasqueradeNetworking())
-		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
 	Context("with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
-		var cli []string
+		var windowsVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
-			winrmcliPod = winRMCliPod()
-
 			var err error
-			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
+			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winRMCliPod(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -93,15 +86,13 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 			BeforeEach(func() {
 				By("Starting the windows VirtualMachineInstance")
 				var err error
-				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
+				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), newWindows(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI)
-
-				cli = winrnLoginCommand(windowsVMI)
 			})
 
 			It("[test_id:240]should have correct UUID", func() {
-				command := append(cli, "wmic csproduct get \"UUID\"")
+				command := append(winrmLoginCommand(windowsVMI), "wmic csproduct get \"UUID\"")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				var output string
 				Eventually(func() error {
@@ -118,7 +109,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 			})
 
 			It("[test_id:3159]should have default masquerade IP", func() {
-				command := append(cli, "ipconfig /all")
+				command := append(winrmLoginCommand(windowsVMI), "ipconfig /all")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				var output string
 				Eventually(func() error {
@@ -141,7 +132,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 				runCommandAndExpectOutput(
 					winrmcliPod,
-					cli,
+					winrmLoginCommand(windowsVMI),
 					"wmic nicconfig get dnsdomain",
 					`DNSDomain[\n\r\t ]+`+searchDomain+`[\n\r\t ]+`)
 			})
@@ -149,15 +140,13 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 		Context("VMI with subdomain is created", func() {
 			BeforeEach(func() {
-				windowsVMI.Spec.Subdomain = "subdomain"
+				windowsVMI = newWindows(libvmi.WithSubdomain("subdomain"))
 
 				By("Starting the windows VirtualMachineInstance with subdomain")
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI)
-
-				cli = winrnLoginCommand(windowsVMI)
 			})
 
 			It("should have the domain set properly with subdomain", func() {
@@ -167,52 +156,38 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				expectedSearchDomain := windowsVMI.Spec.Subdomain + "." + searchDomain
 				runCommandAndExpectOutput(
 					winrmcliPod,
-					cli,
+					winrmLoginCommand(windowsVMI),
 					"wmic nicconfig get dnsdomain",
 					`DNSDomain[\n\r\t ]+`+expectedSearchDomain+`[\n\r\t ]+`)
 			})
 		})
 
 		Context("with bridge binding", func() {
+
 			BeforeEach(func() {
 				By("Starting Windows VirtualMachineInstance with bridge binding")
-				windowsVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)}
+				windowsVMI = newWindows(libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)))
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(windowsVMI,
+				windowsVMI = libwait.WaitForSuccessfulVMIStart(windowsVMI,
 					libwait.WithTimeout(420),
 				)
-
-				cli = winrnLoginCommand(windowsVMI)
 			})
 
 			It("should be recognized by other pods in cluster", func() {
 
 				By("Pinging virt-handler Pod from Windows VMI")
+				winVmiPod, err := libpod.GetPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+				nodeName := winVmiPod.Spec.NodeName
 
-				var err error
-				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				getVirtHandlerPod := func() (*k8sv1.Pod, error) {
-					winVmiPod, err := libpod.GetPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
-					Expect(err).NotTo(HaveOccurred())
-					nodeName := winVmiPod.Spec.NodeName
-
-					pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get virt-handler pod on node %s: %v", nodeName, err)
-					}
-					return pod, nil
-				}
-
-				virtHandlerPod, err := getVirtHandlerPod()
-				Expect(err).ToNot(HaveOccurred())
+				virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get virt-handler pod on node %s", nodeName))
 
 				virtHandlerPodIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
 
-				command := append(cli, fmt.Sprintf("ping %s", virtHandlerPodIP))
+				command := append(winrmLoginCommand(windowsVMI), fmt.Sprintf("ping %s", virtHandlerPodIP))
 
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
@@ -228,7 +203,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 	})
 })
 
-func winrnLoginCommand(windowsVMI *v1.VirtualMachineInstance) []string {
+func winrmLoginCommand(windowsVMI *v1.VirtualMachineInstance) []string {
 	var err error
 	windowsVMI, err = kubevirt.Client().VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -309,5 +284,22 @@ func removeTSCFrequencyFromNode(node k8sv1.Node) {
 				libnode.RemoveLabelFromNode(node.Name, key)
 			}
 		}
+	}
+}
+
+func newWindows(options ...libvmi.Option) *v1.VirtualMachineInstance {
+	network := libvmi.WithNetwork(v1.DefaultPodNetwork())
+	interf := libvmi.WithInterface(e1000DefaultInterface())
+
+	return libvmifact.NewWindows(append([]libvmi.Option{network, interf}, options...)...)
+}
+
+func e1000DefaultInterface() v1.Interface {
+	return v1.Interface{
+		Name: "default",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			Masquerade: &v1.InterfaceMasquerade{},
+		},
+		Model: "e1000",
 	}
 }
