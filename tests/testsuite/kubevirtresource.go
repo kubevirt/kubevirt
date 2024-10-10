@@ -179,7 +179,9 @@ func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 }
 
 // UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource
-func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
+func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) (kubevirtResource *v1.KubeVirt, changed bool) {
+
+	Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "Tests which alter the global kubevirt configuration must not be executed in parallel, see https://onsi.github.io/ginkgo/#serial-specs")
 
 	virtClient := kubevirt.Client()
 
@@ -188,10 +190,8 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	Expect(err).ToNot(HaveOccurred())
 
 	if equality.Semantic.DeepEqual(kv.Spec.Configuration, kvConfig) {
-		return kv
+		return kv, false
 	}
-
-	Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "Tests which alter the global kubevirt configuration must not be executed in parallel, see https://onsi.github.io/ginkgo/#serial-specs")
 
 	updatedKV := kv.DeepCopy()
 	updatedKV.Spec.Configuration = kvConfig
@@ -204,5 +204,5 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	return kv
+	return kv, true
 }

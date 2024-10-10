@@ -97,7 +97,7 @@ func updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kvConfig v1.KubeVirtCon
 	ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	currentGen := ds.Status.ObservedGeneration
-	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
+	kv, _ := testsuite.UpdateKubeVirtConfigValue(kvConfig)
 	EventuallyWithOffset(1, func() bool {
 		ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
