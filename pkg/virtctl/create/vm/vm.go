@@ -1103,7 +1103,7 @@ func withImportedVolume(c *createVM, vm *v1.VirtualMachine) error {
 	for _, volume := range c.volumeImport {
 		volumeSourceType, err := params.GetParamByName("type", volume)
 		if err != nil {
-			return err
+			return params.FlagErr(VolumeImportFlag, err.Error())
 		}
 
 		sourceFn, found := volumeImportOptions[volumeSourceType]
@@ -1119,7 +1119,7 @@ func withImportedVolume(c *createVM, vm *v1.VirtualMachine) error {
 		size, err := params.GetParamByName("size", volume)
 		if err != nil {
 			if !volumeImportSizeOptional[volumeSourceType] || !errors.Is(err, params.NotFoundError{Name: "size"}) {
-				return err
+				return params.FlagErr(VolumeImportFlag, err.Error())
 			}
 		}
 
