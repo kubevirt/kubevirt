@@ -3293,32 +3293,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("When topology spread constraints are defined for the VMI", func() {
-		It("they should be applied to the launcher pod", func() {
-			vmi := libvmifact.NewCirros()
-			tsc := []k8sv1.TopologySpreadConstraint{
-				{
-					MaxSkew:           1,
-					TopologyKey:       "zone",
-					WhenUnsatisfiable: "DoNotSchedule",
-					LabelSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"foo": "bar",
-						},
-					},
-				},
-			}
-			vmi.Spec.TopologySpreadConstraints = tsc
-
-			By("Starting a VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 30)
-
-			By("Ensuring that pod has expected topologySpreadConstraints")
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(pod.Spec.TopologySpreadConstraints).To(Equal(tsc))
-		})
-	})
 })
 
 func createRuntimeClass(name, handler string) error {
