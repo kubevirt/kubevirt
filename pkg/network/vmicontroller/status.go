@@ -24,6 +24,8 @@ import (
 
 	k8scorev1 "k8s.io/api/core/v1"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/multus"
@@ -32,28 +34,98 @@ import (
 )
 
 func UpdateStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
-	indexedMultusStatusIfaces := multus.NonDefaultNetworkStatusIndexedByIfaceName(pod)
-	ifaceNamingScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
-	for _, network := range vmi.Spec.Networks {
-		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
-		podIfaceName, wasFound := ifaceNamingScheme[network.Name]
-		if !wasFound {
-			return fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
-		}
+	var updatedInterfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
-		_, exists := indexedMultusStatusIfaces[podIfaceName]
-		switch {
-		case exists && vmiIfaceStatus == nil:
-			vmi.Status.Interfaces = append(vmi.Status.Interfaces, v1.VirtualMachineInstanceNetworkInterface{
-				Name:       network.Name,
-				InfoSource: vmispec.InfoSourceMultusStatus,
-			})
-		case exists && vmiIfaceStatus != nil:
-			vmiIfaceStatus.InfoSource = vmispec.AddInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
-		case !exists && vmiIfaceStatus != nil:
-			vmiIfaceStatus.InfoSource = vmispec.RemoveInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+	networkStatuses := multus.NetworkStatusesFromPod(pod)
+
+	if primaryInterfaceStatus := calculatePrimaryInterfaceStatus(vmi, networkStatuses); primaryInterfaceStatus != nil {
+		updatedInterfaceStatuses = append(updatedInterfaceStatuses, *primaryInterfaceStatus)
+	}
+
+	secondaryInterfacesStatus, err := calculateSecondaryInterfacesStatus(vmi, networkStatuses)
+	if err != nil {
+		return err
+	}
+
+	updatedInterfaceStatuses = append(updatedInterfaceStatuses, secondaryInterfacesStatus...)
+
+	vmi.Status.Interfaces = updatedInterfaceStatuses
+
+	return nil
+}
+
+func calculatePrimaryInterfaceStatus(
+	vmi *v1.VirtualMachineInstance,
+	networkStatuses []networkv1.NetworkStatus,
+) *v1.VirtualMachineInstanceNetworkInterface {
+	vmiPrimaryNetworkSpec := vmispec.LookUpDefaultNetwork(vmi.Spec.Networks)
+	if vmiPrimaryNetworkSpec == nil {
+		return nil
+	}
+
+	primaryPodIfaceName := multus.LookupPodPrimaryIfaceName(networkStatuses)
+	if primaryPodIfaceName == "" {
+		primaryPodIfaceName = namescheme.PrimaryPodInterfaceName
+	}
+
+	vmiPrimaryIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, vmiPrimaryNetworkSpec.Name)
+	if vmiPrimaryIfaceStatus == nil {
+		return &v1.VirtualMachineInstanceNetworkInterface{
+			Name:             vmiPrimaryNetworkSpec.Name,
+			PodInterfaceName: primaryPodIfaceName,
 		}
 	}
 
-	return nil
+	vmiPrimaryIfaceStatus.PodInterfaceName = primaryPodIfaceName
+	return vmiPrimaryIfaceStatus
+}
+
+func calculateSecondaryInterfacesStatus(
+	vmi *v1.VirtualMachineInstance,
+	networkStatuses []networkv1.NetworkStatus,
+) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
+	var secondaryIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+
+	networkStatusesByPodIfaceName := multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)
+	podIfaceNamesByNetworkName := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(
+		vmi.Spec.Networks,
+		networkStatusesByPodIfaceName,
+	)
+
+	for _, network := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
+		podIfaceName, wasFound := podIfaceNamesByNetworkName[network.Name]
+		if !wasFound {
+			return nil, fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
+		}
+		_, multusStatusExists := networkStatusesByPodIfaceName[podIfaceName]
+
+		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
+		vmiStatusExists := vmiIfaceStatus != nil
+
+		switch {
+		case !vmiStatusExists && !multusStatusExists:
+			secondaryIfaceStatuses = append(secondaryIfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
+				Name:             network.Name,
+				PodInterfaceName: podIfaceName,
+			})
+		case !vmiStatusExists && multusStatusExists:
+			secondaryIfaceStatuses = append(secondaryIfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
+				Name:             network.Name,
+				PodInterfaceName: podIfaceName,
+				InfoSource:       vmispec.InfoSourceMultusStatus,
+			})
+		case vmiStatusExists && multusStatusExists:
+			updatedIfaceStatus := *vmiIfaceStatus
+			updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+			updatedIfaceStatus.PodInterfaceName = podIfaceName
+			secondaryIfaceStatuses = append(secondaryIfaceStatuses, updatedIfaceStatus)
+		case vmiStatusExists && !multusStatusExists:
+			updatedIfaceStatus := *vmiIfaceStatus
+			updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+			updatedIfaceStatus.PodInterfaceName = podIfaceName
+			secondaryIfaceStatuses = append(secondaryIfaceStatuses, updatedIfaceStatus)
+		}
+	}
+
+	return secondaryIfaceStatuses, nil
 }

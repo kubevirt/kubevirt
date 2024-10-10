@@ -97,6 +97,8 @@ var _ = Describe("netpod", func() {
 	})
 
 	It("fails setup when applying nmstate status fails", func() {
+		podIfaceNamesByNetworkName := map[string]string{defaultPodNetworkName: "eth0"}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
@@ -118,6 +120,7 @@ var _ = Describe("netpod", func() {
 				},
 			}),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		err := netPod.Setup()
 		Expect(err).To(MatchError(errNMStateApply))
@@ -148,6 +151,8 @@ var _ = Describe("netpod", func() {
 	})
 
 	It("fails setup when masquerade (nft) setup fails", func() {
+		podIfaceNamesByNetworkName := map[string]string{defaultPodNetworkName: "eth0"}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
@@ -167,11 +172,14 @@ var _ = Describe("netpod", func() {
 			}}),
 			netpod.WithMasqueradeAdapter(&masqueradeStub{setupErr: errMasqueradeSetup}),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		Expect(netPod.Setup()).To(MatchError(errMasqueradeSetup))
 	})
 
 	DescribeTable("fails setup discovery when pod interface is missing", func(binding v1.InterfaceBindingMethod) {
+		podIfaceNamesByNetworkName := map[string]string{defaultPodNetworkName: "eth0"}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{Name: defaultPodNetworkName, InterfaceBindingMethod: binding}},
@@ -180,6 +188,7 @@ var _ = Describe("netpod", func() {
 				Interfaces: []nmstate.Interface{{Name: "other0"}},
 			}}),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		err := netPod.Setup()
 		Expect(err.Error()).To(HavePrefix("pod link (eth0) is missing"))
@@ -194,6 +203,8 @@ var _ = Describe("netpod", func() {
 	)
 
 	It("setup masquerade binding", func() {
+		podIfaceNamesByNetworkName := map[string]string{defaultPodNetworkName: "eth0"}
+
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
 				Name:       "eth0",
@@ -231,6 +242,7 @@ var _ = Describe("netpod", func() {
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithMasqueradeAdapter(&masqstub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -286,6 +298,9 @@ var _ = Describe("netpod", func() {
 
 			podIfaceOrignalMAC = "12:34:56:78:90:ab"
 		)
+
+		podIfaceNamesByNetworkName := map[string]string{defaultPodNetworkName: "eth0"}
+
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
 				Name:       "eth0",
@@ -350,6 +365,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -436,6 +452,9 @@ var _ = Describe("netpod", func() {
 	It("setup bridge binding without IP", func() {
 		const podIfaceOrignalMAC = "12:34:56:78:90:ab"
 		const linklocalIPv6Address = "fe80::1"
+
+		podIfaceNamesByNetworkName := map[string]string{defaultPodNetworkName: "eth0"}
+
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
 				Name:       "eth0",
@@ -464,6 +483,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -545,6 +565,8 @@ var _ = Describe("netpod", func() {
 
 			nmstatestub nmstateStub
 			masqstub    masqueradeStub
+
+			podIfaceNamesByNetworkName map[string]string
 		)
 
 		BeforeEach(func() {
@@ -604,6 +626,11 @@ var _ = Describe("netpod", func() {
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 				},
 			}
+
+			podIfaceNamesByNetworkName = map[string]string{
+				defaultPodNetworkName: "eth0",
+				secondaryNetworkName:  secondaryPodInterfaceName,
+			}
 		})
 
 		DescribeTable("setup masquerade (primary) and bridge (secondary) binding", func(asHotPlug bool) {
@@ -618,6 +645,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -669,6 +697,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -746,6 +775,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
@@ -819,6 +849,11 @@ var _ = Describe("netpod", func() {
 		})
 
 		It("setup secondary bridge binding with ordered pod interfaces", func() {
+			podIfaceNamesByNetworkName := map[string]string{
+				defaultPodNetworkName: "eth0",
+				secondaryNetworkName:  secondaryPodInterfaceOrderedName,
+			}
+
 			nmstatestub.status.Interfaces[1].Name = secondaryPodInterfaceOrderedName
 			netPod := netpod.NewNetPod(
 				specNetworks,
@@ -827,6 +862,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
@@ -940,12 +976,16 @@ var _ = Describe("netpod", func() {
 			Name:                   defaultPodNetworkName,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
 		}
+
+		podIfaceNamesByNetworkName := map[string]string{defaultPodNetworkName: "eth0"}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{vmiIface},
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -977,6 +1017,9 @@ var _ = Describe("netpod", func() {
 				},
 			},
 		}}
+
+		secondaryNetworkName := map[string]string{"somenet": "eth0"}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{
 				{
@@ -988,6 +1031,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(secondaryNetworkName),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(expNmstateSpec))
@@ -1011,9 +1055,10 @@ var _ = Describe("netpod", func() {
 			testNet2 = "testnet2"
 		)
 		var (
-			specNetworks   []v1.Network
-			specInterfaces []v1.Interface
-			nmstatestub    *nmstateStub
+			specNetworks               []v1.Network
+			specInterfaces             []v1.Interface
+			nmstatestub                *nmstateStub
+			podIfaceNamesByNetworkName map[string]string
 		)
 
 		BeforeEach(func() {
@@ -1060,12 +1105,19 @@ var _ = Describe("netpod", func() {
 				},
 			}}
 
+			podIfaceNamesByNetworkName = map[string]string{
+				defaultPodNetworkName: "eth0",
+				testNet1:              "pod7087ef4cd1f",
+				testNet2:              "podbc6cc93fa1e",
+			}
+
 			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
 				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(nmstatestub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 			)
 
 			Expect(netPod.Setup()).To(Succeed())
@@ -1088,6 +1140,7 @@ var _ = Describe("netpod", func() {
 				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(nmstatestub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 			)
 
 			Expect(netPod.Setup()).To(Succeed())
@@ -1203,6 +1256,7 @@ var _ = Describe("netpod", func() {
 				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(nmstatestub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 			)
 
 			Expect(netPod.Setup()).To(Succeed())
@@ -1315,6 +1369,7 @@ var _ = Describe("netpod", func() {
 				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(nmstatestub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -1450,6 +1505,12 @@ var _ = Describe("netpod", func() {
 			{Name: testNet2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 		}
 
+		podIfaceNamesByNetworkName := map[string]string{
+			defaultPodNetworkName: "eth0",
+			testNet1:              "pod7087ef4cd1f",
+			testNet2:              "podbc6cc93fa1e",
+		}
+
 		nmstatestub := &nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{
 				{
@@ -1486,6 +1547,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 
@@ -1497,6 +1559,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		err := netPod.Setup()
 		Expect(err).To(MatchError(errNMStateApply))
@@ -1516,6 +1579,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 

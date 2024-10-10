@@ -188,3 +188,31 @@ func HasBindingPluginDeviceInfo(iface v1.Interface, bindingPlugins map[string]v1
 	}
 	return false
 }
+
+func IndexPodIfaceNamesByNetworkName(networks []v1.Network, interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface) (map[string]string, error) {
+	podIfacesByNetName := map[string]string{}
+
+	for _, network := range networks {
+		podIfaceName, err := LookupPodIfaceNameFromStatus(network.Name, interfaceStatuses)
+		if err != nil {
+			return nil, err
+		}
+
+		if podIfaceName == "" {
+			return nil, fmt.Errorf("pod interface name is missing for network %q", network.Name)
+		}
+
+		podIfacesByNetName[network.Name] = podIfaceName
+	}
+
+	return podIfacesByNetName, nil
+}
+
+func LookupPodIfaceNameFromStatus(networkName string, interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface) (string, error) {
+	ifaceStatus := LookupInterfaceStatusByName(interfaceStatuses, networkName)
+	if ifaceStatus == nil {
+		return "", fmt.Errorf("interface status for network %q was not found", networkName)
+	}
+
+	return ifaceStatus.PodInterfaceName, nil
+}

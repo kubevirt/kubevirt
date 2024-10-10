@@ -270,6 +270,105 @@ var _ = Describe("VMI network spec", func() {
 			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeTrue())
 		})
 	})
+
+	Context("IndexPodIfaceNamesByNetworkName", func() {
+		const (
+			primaryNetworkName  = "default"
+			primaryPodIfaceName = "eth0"
+
+			secondaryNetworkName1  = "secondary-net1"
+			secondaryPodIfaceName1 = "pod12345"
+
+			secondaryNetworkName2  = "secondary-net2"
+			secondaryPodIfaceName2 = "pod67891"
+		)
+
+		It("Should return an empty map when there are no networks an no interface statuses", func() {
+			res, err := netvmispec.IndexPodIfaceNamesByNetworkName([]v1.Network{}, []v1.VirtualMachineInstanceNetworkInterface{})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(res).To(BeEmpty())
+		})
+
+		It("should return a map when there is a single element", func() {
+			networks := []v1.Network{
+				{Name: primaryNetworkName},
+			}
+			interfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: primaryNetworkName, PodInterfaceName: primaryPodIfaceName},
+			}
+			res, err := netvmispec.IndexPodIfaceNamesByNetworkName(networks, interfacesStatus)
+			Expect(err).NotTo(HaveOccurred())
+
+			expectedResult := map[string]string{primaryNetworkName: primaryPodIfaceName}
+
+			Expect(res).To(Equal(expectedResult))
+		})
+
+		It("should return a map when there are multiple elements", func() {
+			networks := []v1.Network{
+				{Name: primaryNetworkName},
+				{Name: secondaryNetworkName1},
+			}
+			interfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: primaryNetworkName, PodInterfaceName: primaryPodIfaceName},
+				{Name: secondaryNetworkName1, PodInterfaceName: secondaryPodIfaceName1},
+			}
+			res, err := netvmispec.IndexPodIfaceNamesByNetworkName(networks, interfacesStatus)
+			Expect(err).NotTo(HaveOccurred())
+
+			expectedResult := map[string]string{primaryNetworkName: primaryPodIfaceName, secondaryNetworkName1: secondaryPodIfaceName1}
+
+			Expect(res).To(Equal(expectedResult))
+		})
+
+		It("Should only return interfaces that are present in the spec", func() {
+			networks := []v1.Network{
+				{Name: primaryNetworkName},
+				{Name: secondaryNetworkName2},
+			}
+			interfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: primaryNetworkName, PodInterfaceName: primaryPodIfaceName},
+				{Name: secondaryNetworkName1, PodInterfaceName: secondaryPodIfaceName1},
+				{Name: secondaryNetworkName2, PodInterfaceName: secondaryPodIfaceName2},
+			}
+			res, err := netvmispec.IndexPodIfaceNamesByNetworkName(networks, interfacesStatus)
+			Expect(err).NotTo(HaveOccurred())
+
+			expectedResult := map[string]string{primaryNetworkName: primaryPodIfaceName, secondaryNetworkName2: secondaryPodIfaceName2}
+
+			Expect(res).To(Equal(expectedResult))
+		})
+
+		It("Should return an error when an interface appears in spec but its status is missing", func() {
+			networks := []v1.Network{
+				{Name: secondaryNetworkName1},
+				{Name: secondaryNetworkName2},
+			}
+			interfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName1, PodInterfaceName: secondaryPodIfaceName1},
+			}
+			res, err := netvmispec.IndexPodIfaceNamesByNetworkName(networks, interfacesStatus)
+			Expect(err).To(MatchError(ContainSubstring("interface status for network \"secondary-net2\" was not found")))
+
+			Expect(res).To(BeEmpty())
+		})
+
+		It("Should return an error when a pod interface name is missing", func() {
+			networks := []v1.Network{
+				{Name: secondaryNetworkName1},
+				{Name: secondaryNetworkName2},
+			}
+			interfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName1, PodInterfaceName: secondaryPodIfaceName1},
+				{Name: secondaryNetworkName2, PodInterfaceName: ""},
+			}
+			res, err := netvmispec.IndexPodIfaceNamesByNetworkName(networks, interfacesStatus)
+			Expect(err).To(MatchError(ContainSubstring("pod interface name is missing for network \"secondary-net2\"")))
+
+			Expect(res).To(BeEmpty())
+		})
+	})
 })
 
 func podNetwork(name string) v1.Network {

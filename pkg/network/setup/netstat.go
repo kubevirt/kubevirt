@@ -90,60 +90,71 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		return nil
 	}
 
-	multusStatusNetworksByName := netvmispec.IndexInterfaceStatusByName(
+	oldIfaceStatusesByName := netvmispec.IndexInterfaceStatusByName(
 		vmi.Status.Interfaces,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
-			return netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+			return ifaceStatus.PodInterfaceName != "" ||
+				netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
 		},
 	)
 	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
 
-	interfacesStatus := ifacesStatusFromDomainInterfaces(domain.Spec.Devices.Interfaces)
-	interfacesStatus = append(interfacesStatus,
+	updatedIfaceStatuses := ifacesStatusFromDomainInterfaces(domain.Spec.Devices.Interfaces)
+	updatedIfaceStatuses = append(updatedIfaceStatuses,
 		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName)...,
 	)
 
 	var err error
-	interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, vmi)
+	updatedIfaceStatuses, err = c.updateIfacesStatusFromPodCache(updatedIfaceStatuses, vmi.Spec.Domain.Devices.Interfaces, vmi)
 	if err != nil {
 		return err
 	}
 
 	// Guest Agent information will add and conditionally override data gathered from the cache.
-	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
+	updatedIfaceStatuses = ifacesStatusFromGuestAgent(updatedIfaceStatuses, domain.Status.Interfaces)
 
-	primaryInterfaceStatus, interfacesStatus := netvmispec.PopInterfaceByNetwork(interfacesStatus, netvmispec.LookupPodNetwork(vmi.Spec.Networks))
+	updatedIfaceStatuses = restoreVirtCtrlOwnedInfo(updatedIfaceStatuses, oldIfaceStatusesByName, vmiInterfacesSpecByName)
+
+	primaryInterfaceStatus, updatedIfaceStatuses := netvmispec.PopInterfaceByNetwork(updatedIfaceStatuses, netvmispec.LookupPodNetwork(vmi.Spec.Networks))
 	if primaryInterfaceStatus != nil {
-		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
+		updatedIfaceStatuses = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, updatedIfaceStatuses...)
 	}
 
-	interfacesStatus = ifacesStatusFromMultus(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
-
-	vmi.Status.Interfaces = interfacesStatus
+	vmi.Status.Interfaces = updatedIfaceStatuses
 
 	c.removeAbsentIfacesFromVolatileCache(vmi)
 
 	return nil
 }
 
-func ifacesStatusFromMultus(
-	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
-	multusStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+func restoreVirtCtrlOwnedInfo(
+	updatedIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+	oldIfaceStatusesByName map[string]v1.VirtualMachineInstanceNetworkInterface,
 	vmIfacesSpecByName map[string]v1.Interface,
 ) []v1.VirtualMachineInstanceNetworkInterface {
-	for multusIfaceName := range multusStatusNetworksByName {
-		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, multusIfaceName)
-		_, existInSpec := vmIfacesSpecByName[multusIfaceName]
-		if existInSpec && ifaceStatus == nil {
-			interfacesStatus = append(interfacesStatus, v1.VirtualMachineInstanceNetworkInterface{
-				Name:       multusIfaceName,
-				InfoSource: netvmispec.InfoSourceMultusStatus,
-			})
-		} else if ifaceStatus != nil {
-			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+	for oldIfaceName, oldIfaceStatus := range oldIfaceStatusesByName {
+		updatedIfaceStatus := netvmispec.LookupInterfaceStatusByName(updatedIfaceStatuses, oldIfaceName)
+
+		ifaceSpec, oldIfaceExistsInSpec := vmIfacesSpecByName[oldIfaceName]
+		updatedIfaceStatusExists := updatedIfaceStatus != nil
+
+		if oldIfaceExistsInSpec && ifaceSpec.State != v1.InterfaceStateAbsent && !updatedIfaceStatusExists {
+			newIfaceStatus := v1.VirtualMachineInstanceNetworkInterface{
+				Name:             oldIfaceName,
+				PodInterfaceName: oldIfaceStatus.PodInterfaceName,
+			}
+
+			if netvmispec.ContainsInfoSource(oldIfaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus) {
+				newIfaceStatus.InfoSource = netvmispec.InfoSourceMultusStatus
+			}
+
+			updatedIfaceStatuses = append(updatedIfaceStatuses, newIfaceStatus)
+		} else if updatedIfaceStatusExists && netvmispec.ContainsInfoSource(oldIfaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus) {
+			updatedIfaceStatus.InfoSource = netvmispec.AddInfoSource(updatedIfaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+			updatedIfaceStatus.PodInterfaceName = oldIfaceStatus.PodInterfaceName
 		}
 	}
-	return interfacesStatus
+	return updatedIfaceStatuses
 }
 
 // updateIfacesStatusFromPodCache updates the provided interfaces statuses with data (IP/s) from the pod-cache.

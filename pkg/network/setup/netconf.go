@@ -77,6 +77,11 @@ func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator
 
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
 func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error {
+	podIfaceNamesByNetworkName, err := vmispec.IndexPodIfaceNamesByNetworkName(vmi.Spec.Networks, vmi.Status.Interfaces)
+	if err != nil {
+		return fmt.Errorf("missing pod interface naming info: %v", err)
+	}
+
 	if err := preSetup(); err != nil {
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
@@ -113,6 +118,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
 		netpod.WithCacheCreator(c.cacheCreator),
 		netpod.WithLogger(log.Log.Object(vmi)),
+		netpod.WithPodIfaceNamesByNetworkName(podIfaceNamesByNetworkName),
 	)
 
 	if err := netpod.Setup(); err != nil {
