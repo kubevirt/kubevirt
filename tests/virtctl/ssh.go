@@ -3,7 +3,6 @@ package virtctl
 import (
 	"context"
 	"crypto/ecdsa"
-	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -72,8 +71,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		// Disable SSH_AGENT to not influence test results
-		Expect(os.Setenv("SSH_AUTH_SOCK", "/dev/null")).To(Succeed())
+		libssh.DisableSSHAgent()
 		keyFile = filepath.Join(GinkgoT().TempDir(), "id_rsa")
 		var err error
 		var priv *ecdsa.PrivateKey
