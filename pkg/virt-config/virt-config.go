@@ -468,3 +468,12 @@ func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugi
 	}
 	return nil
 }
+
+func (config *ClusterConfig) VGADisplayForEFIGuestsEnabled() bool {
+	VGADisplayForEFIGuestsAnnotationExists := false
+	kv := config.GetConfigFromKubeVirtCR()
+	if kv != nil {
+		_, VGADisplayForEFIGuestsAnnotationExists = kv.Annotations[v1.VGADisplayForEFIGuestsX86Annotation]
+	}
+	return VGADisplayForEFIGuestsAnnotationExists
+}
