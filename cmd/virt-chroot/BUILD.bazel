@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cgroup.go",
+        "macvtap-device-maker.go",
         "main.go",
         "mdev-handler.go",
         "selinux.go",
