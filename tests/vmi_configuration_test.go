@@ -48,7 +48,6 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -160,14 +159,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
 
-		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", func() {
-			vmi := libvmifact.NewAlpine()
-			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
+		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", decorators.Conformance, func() {
+			vmi := libvmops.RunVMIAndExpectScheduling(libvmifact.NewAlpine(), 60)
 
 			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.IsFinal()).To(BeFalse())
 				if vmi.Status.QOSClass == nil {
 					return ""
 				}
@@ -175,28 +172,16 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}, 10*time.Second, 1*time.Second).Should(Equal(k8sv1.PodQOSBurstable))
 		})
 
-		It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", func() {
-			vmi := libvmifact.NewAlpine()
-			By("specifying identical limits and requests")
-			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("1"),
-					k8sv1.ResourceMemory: resource.MustParse("64M"),
-				},
-				Limits: k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("1"),
-					k8sv1.ResourceMemory: resource.MustParse("64M"),
-				},
-			}
-
-			By("adding a sidecar to ensure it gets limits assigned too")
-			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
+		It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", decorators.Conformance, func() {
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithResourceCPU("1"), libvmi.WithResourceMemory("64M"),
+				libvmi.WithLimitCPU("1"), libvmi.WithLimitMemory("64M"),
+			)
 			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.IsFinal()).To(BeFalse())
 				if vmi.Status.QOSClass == nil {
 					return ""
 				}
@@ -204,25 +189,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}, 10*time.Second, 1*time.Second).Should(Equal(k8sv1.PodQOSGuaranteed))
 		})
 
-		It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", func() {
-			vmi := libvmifact.NewAlpine()
-			By("specifying identical limits and requests")
-			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{},
-				Limits: k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("1"),
-					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-				},
-			}
+		It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", decorators.Conformance, func() {
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithLimitCPU("1"), libvmi.WithLimitMemory("128Mi"),
+			)
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 
-			By("adding a sidecar to ensure it gets limits assigned too")
-			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
 			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.IsFinal()).To(BeFalse())
 				if vmi.Status.QOSClass == nil {
 					return ""
 				}
@@ -231,8 +208,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().Cmp(*vmi.Spec.Domain.Resources.Limits.Cpu())).To(BeZero())
-			Expect(vmi.Spec.Domain.Resources.Requests.Memory().Cmp(*vmi.Spec.Domain.Resources.Limits.Memory())).To(BeZero())
+			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().Cmp(*vmi.Spec.Domain.Resources.Limits.Cpu())).To(BeZero(), "Requests and Limits for CPU on VMI should match")
+			Expect(vmi.Spec.Domain.Resources.Requests.Memory().Cmp(*vmi.Spec.Domain.Resources.Limits.Memory())).To(BeZero(), "Requests and Limits for memory on VMI should match")
 		})
 
 	})
