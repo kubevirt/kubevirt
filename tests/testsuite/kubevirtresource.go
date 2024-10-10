@@ -25,13 +25,10 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -176,33 +173,4 @@ func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 	}
 
 	return allowEmulation
-}
-
-// UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource
-func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-
-	virtClient := kubevirt.Client()
-
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	old, err := json.Marshal(kv)
-	Expect(err).ToNot(HaveOccurred())
-
-	if equality.Semantic.DeepEqual(kv.Spec.Configuration, kvConfig) {
-		return kv
-	}
-
-	Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "Tests which alter the global kubevirt configuration must not be executed in parallel, see https://onsi.github.io/ginkgo/#serial-specs")
-
-	updatedKV := kv.DeepCopy()
-	updatedKV.Spec.Configuration = kvConfig
-	newJson, err := json.Marshal(updatedKV)
-	Expect(err).ToNot(HaveOccurred())
-
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, kv)
-	Expect(err).ToNot(HaveOccurred())
-
-	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	return kv
 }

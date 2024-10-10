@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -38,7 +39,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 		virtClient = kubevirt.Client()
 		kv := libkubevirt.GetCurrentKv(virtClient)
 		kv.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyLiveUpdate)
-		testsuite.UpdateKubeVirtConfigValue(kv.Spec.Configuration)
+		config.UpdateKubeVirtConfigValue(kv.Spec.Configuration)
 	})
 
 	Context("Updating VMs node affinity", func() {
