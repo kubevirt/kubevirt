@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -42,49 +41,32 @@ import (
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound", decorators.SigCompute, func() {
 
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
-
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support", func() {
 
 		It("should create an ich9 sound device on empty model", func() {
-			vmi, err := createSoundVMI(virtClient, "test-model-empty")
+			vmi := libvmifact.NewCirros()
+			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+				Name: "test-audio-device",
+			}
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
-			checkAudioDevice(vmi, "ich9")
+			err = checkICH9AudioDeviceInGuest(vmi)
+			Expect(err).ToNot(HaveOccurred(), "ICH9 sound device was no found")
 		})
 	})
 
 })
 
-func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.VirtualMachineInstance, error) {
-	randomVmi := libvmifact.NewCirros()
-	if soundDevice != "" {
-		model := soundDevice
-		if soundDevice == "test-model-empty" {
-			model = ""
-		}
-		randomVmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
-			Name:  "test-audio-device",
-			Model: model,
-		}
-	}
-	return virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), randomVmi, metav1.CreateOptions{})
-}
-
-func checkAudioDevice(vmi *v1.VirtualMachineInstance, name string) {
+func checkICH9AudioDeviceInGuest(vmi *v1.VirtualMachineInstance) error {
 	// Audio device: Intel Corporation 82801I (ICH9 Family) HD Audio Controller
-	deviceId := "8086:293e"
-	cmdCheck := fmt.Sprintf("lspci | grep %s\n", deviceId)
+	const deviceId = "8086:293e"
 
-	err := console.SafeExpectBatch(vmi, []expect.Batcher{
+	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: cmdCheck},
+		&expect.BSnd{S: fmt.Sprintf("lspci | grep %s\n", deviceId)},
 		&expect.BExp{R: ".*8086.*"},
 	}, 15)
-	Expect(err).ToNot(HaveOccurred(), "Console command timeout")
 }
