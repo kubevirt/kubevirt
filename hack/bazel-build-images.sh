@@ -51,7 +51,8 @@ bazel build \
     --define image_prefix= \
     --define container_tag= \
     //cmd/virt-operator:virt-operator-image //cmd/virt-api:virt-api-image //cmd/virt-controller:virt-controller-image \
-    //cmd/virt-handler:virt-handler-image //cmd/virt-launcher:virt-launcher-image ${other_images[@]}
+    //cmd/virt-handler:virt-handler-image //cmd/virt-launcher:virt-launcher-image //cmd/virt-exportproxy:virt-exportproxy-image \
+    //cmd/virt-exportserver:virt-exportserver-image ${other_images[@]}
 
 rm -rf ${DIGESTS_DIR}/${ARCHITECTURE}
 mkdir -p ${DIGESTS_DIR}/${ARCHITECTURE}
