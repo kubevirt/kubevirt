@@ -195,6 +195,8 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 build_other_images_default = {
     # cmd images
     "$(container_prefix)/$(image_prefix)sidecar-shim:$(container_tag)": "//cmd/sidecars:sidecar-shim-image",
+    "$(container_prefix)/$(image_prefix)virt-exportproxy:$(container_tag)": "//cmd/virt-exportproxy:virt-exportproxy-image",
+    "$(container_prefix)/$(image_prefix)virt-exportserver:$(container_tag)": "//cmd/virt-exportserver:virt-exportserver-image",
     # container-disk images
     "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
     # Kernel boot container
