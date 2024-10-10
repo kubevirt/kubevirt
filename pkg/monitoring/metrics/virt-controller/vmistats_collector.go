@@ -71,7 +71,7 @@ var (
 			// Instance type
 			"instance_type", "preference",
 			// Guest OS info
-			"guest_os_kernel_release", "guest_os_machine", "guest_os_name", "guest_os_version_id",
+			"guest_os_kernel_release", "guest_os_machine", "guest_os_arch", "guest_os_name", "guest_os_version_id",
 			// State info
 			"evictable", "outdated",
 		},
@@ -119,14 +119,15 @@ func collectVMIInfo(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Coll
 		os, workload, flavor := getSystemInfoFromAnnotations(vmi.Annotations)
 		instanceType := getVMIInstancetype(vmi)
 		preference := getVMIPreference(vmi)
-		kernelRelease, machine, name, versionID := getGuestOSInfo(vmi)
+		kernelRelease, guestOSMachineArch, name, versionID := getGuestOSInfo(vmi)
+		guestOSMachineType := getVMIMachine(vmi)
 
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmiInfo,
 			Labels: []string{
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				getVMIPhase(vmi), os, workload, flavor, instanceType, preference,
-				kernelRelease, machine, name, versionID,
+				kernelRelease, guestOSMachineType, guestOSMachineArch, name, versionID,
 				strconv.FormatBool(isVMEvictable(vmi)),
 				strconv.FormatBool(isVMIOutdated(vmi)),
 			},
@@ -161,7 +162,7 @@ func getSystemInfoFromAnnotations(annotations map[string]string) (os, workload, 
 	return
 }
 
-func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, machine, name, versionID string) {
+func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, guestOSMachineArch, name, versionID string) {
 
 	if vmi.Status.GuestOSInfo == (k6tv1.VirtualMachineInstanceGuestOSInfo{}) {
 		return
@@ -172,7 +173,7 @@ func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, machine, 
 	}
 
 	if vmi.Status.GuestOSInfo.Machine != "" {
-		machine = vmi.Status.GuestOSInfo.Machine
+		guestOSMachineArch = vmi.Status.GuestOSInfo.Machine
 	}
 
 	if vmi.Status.GuestOSInfo.Name != "" {
@@ -181,6 +182,14 @@ func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, machine, 
 
 	if vmi.Status.GuestOSInfo.VersionID != "" {
 		versionID = vmi.Status.GuestOSInfo.VersionID
+	}
+
+	return
+}
+
+func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string) {
+	if vmi.Status.Machine != nil {
+		guestOSMachineType = vmi.Status.Machine.Type
 	}
 
 	return
