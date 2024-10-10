@@ -9,13 +9,19 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+const (
+	someMsg      = "Some message"
+	someOtherMsg = "Some other message"
+)
+
 var _ = Describe("Condition matcher", func() {
 	readyPod := &k8sv1.Pod{
 		Status: k8sv1.PodStatus{
 			Conditions: []k8sv1.PodCondition{
 				{
-					Type:   k8sv1.PodReady,
-					Status: k8sv1.ConditionTrue,
+					Type:    k8sv1.PodReady,
+					Status:  k8sv1.ConditionTrue,
+					Message: someMsg,
 				},
 			},
 		},
@@ -30,8 +36,9 @@ var _ = Describe("Condition matcher", func() {
 		Status: v1.VirtualMachineInstanceStatus{
 			Conditions: []v1.VirtualMachineInstanceCondition{
 				{
-					Type:   v1.VirtualMachineInstancePaused,
-					Status: k8sv1.ConditionTrue,
+					Type:    v1.VirtualMachineInstancePaused,
+					Status:  k8sv1.ConditionTrue,
+					Message: someMsg,
 				},
 			},
 		},
@@ -43,8 +50,9 @@ var _ = Describe("Condition matcher", func() {
 	missingPausedVMI := pausedVMI.DeepCopy()
 	missingPausedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 		{
-			Type:   v1.VirtualMachineInstanceAgentConnected,
-			Status: k8sv1.ConditionTrue,
+			Type:    v1.VirtualMachineInstanceAgentConnected,
+			Status:  k8sv1.ConditionTrue,
+			Message: someMsg,
 		},
 	}
 
@@ -119,4 +127,55 @@ var _ = Describe("Condition matcher", func() {
 		)
 	})
 
+	Context("False with message", func() {
+		DescribeTable("should work with", func(matcher types.GomegaMatcher, obj interface{}, shouldMatch bool) {
+			match, err := matcher.Match(obj)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(match).To(Equal(shouldMatch))
+		},
+			Entry("pod that has positive condition and expectedMessage", HaveConditionFalseWithMessage(k8sv1.PodReady, someMsg), readyPod, false),
+			Entry("pod that has positive condition and not expectedMessage", HaveConditionFalseWithMessage(k8sv1.PodReady, someOtherMsg), readyPod, false),
+			Entry("pod that has negative condition and expectedMessage", HaveConditionFalseWithMessage(k8sv1.PodReady, someMsg), notReadyPod, true),
+			Entry("pod that has negative condition and not expectedMessage", HaveConditionFalseWithMessage(k8sv1.PodReady, someOtherMsg), notReadyPod, false),
+			Entry("pod that is missing condition", HaveConditionFalseWithMessage(k8sv1.PodReady, someMsg), missingReadyPod, false),
+
+			Entry("vmi that has positive condition and expectedMessage", HaveConditionFalseWithMessage(v1.VirtualMachineInstancePaused, someMsg), pausedVMI, false),
+			Entry("vmi that has positive condition and not expectedMessage", HaveConditionFalseWithMessage(v1.VirtualMachineInstancePaused, someOtherMsg), pausedVMI, false),
+			Entry("vmi that has negative condition and expectedMessage", HaveConditionFalseWithMessage(v1.VirtualMachineInstancePaused, someMsg), notPausedVMI, true),
+			Entry("vmi that has negative condition and not expectedMessage", HaveConditionFalseWithMessage(v1.VirtualMachineInstancePaused, someOtherMsg), notPausedVMI, false),
+			Entry("vmi that is missing condition", HaveConditionFalseWithMessage(v1.VirtualMachineInstancePaused, someMsg), missingPausedVMI, false),
+			Entry("vmi that is missing conditions", HaveConditionFalseWithMessage(v1.VirtualMachineInstancePaused, someMsg), missingConditionsVMI, false),
+
+			Entry("condition type as string", HaveConditionFalseWithMessage("Paused", someMsg), notPausedVMI, true),
+			Entry("with nil object", HaveConditionFalseWithMessage(v1.VirtualMachineInstancePaused, someMsg), nilVMI, false),
+			Entry("with nil", HaveConditionFalseWithMessage(v1.VirtualMachineInstancePaused, someMsg), nil, false),
+			Entry("with nil as condition type", HaveConditionFalseWithMessage(nil, someMsg), nil, false),
+		)
+	})
+
+	Context("True with message", func() {
+		DescribeTable("should work with", func(matcher types.GomegaMatcher, obj interface{}, shouldMatch bool) {
+			match, err := matcher.Match(obj)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(match).To(Equal(shouldMatch))
+		},
+			Entry("pod that has positive condition and expectedMessage", HaveConditionTrueWithMessage(k8sv1.PodReady, someMsg), readyPod, true),
+			Entry("pod that has positive condition and not expectedMessage", HaveConditionTrueWithMessage(k8sv1.PodReady, someOtherMsg), readyPod, false),
+			Entry("pod that has negative condition and expectedMessage", HaveConditionTrueWithMessage(k8sv1.PodReady, someMsg), notReadyPod, false),
+			Entry("pod that has negative condition and not expectedMessage", HaveConditionTrueWithMessage(k8sv1.PodReady, someOtherMsg), notReadyPod, false),
+			Entry("pod that is missing condition", HaveConditionTrueWithMessage(k8sv1.PodReady, someMsg), missingReadyPod, false),
+
+			Entry("vmi that has positive condition and expectedMessage", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someMsg), pausedVMI, true),
+			Entry("vmi that has positive condition and not expectedMessage", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someOtherMsg), pausedVMI, false),
+			Entry("vmi that has negative condition and expectedMessage", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someMsg), notPausedVMI, false),
+			Entry("vmi that has negative condition and not expectedMessage", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someOtherMsg), notPausedVMI, false),
+			Entry("vmi that is missing condition", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someMsg), missingPausedVMI, false),
+			Entry("vmi that is missing conditions", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someMsg), missingConditionsVMI, false),
+
+			Entry("condition type as string", HaveConditionTrueWithMessage("Paused", someMsg), pausedVMI, true),
+			Entry("with nil object", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someMsg), nilVMI, false),
+			Entry("with nil", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someMsg), nil, false),
+			Entry("with nil as condition type", HaveConditionTrueWithMessage(nil, someMsg), nil, false),
+		)
+	})
 })

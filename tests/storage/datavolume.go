@@ -394,7 +394,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusPvcNotFound))
 
 				By("creating the first DataVolume")
-				dataVolume1, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume1, metav1.CreateOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume1, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("ensuring that VMI and VM are reporting VirtualMachineInstanceDataVolumesReady=False")
@@ -402,7 +402,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(HaveConditionFalse(v1.VirtualMachineInstanceDataVolumesReady))
 
 				By("creating the second DataVolume")
-				dataVolume2, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume2, metav1.CreateOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume2, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("ensuring that VMI and VM are reporting VirtualMachineInstanceDataVolumesReady=True")
@@ -692,11 +692,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				preallocation := true
 				vm.Spec.DataVolumeTemplates[0].Spec.Preallocation = &preallocation
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
-				vm = libvmops.StartVirtualMachine(vm)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -991,9 +992,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				if cloneMutateFunc != nil {
 					cloneMutateFunc()
 				}
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("insufficient permissions in clone source namespace"))
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisVM(vm), 1*time.Minute, 2*time.Second).Should(HaveConditionTrueWithMessage(v1.VirtualMachineFailure, "insufficient permissions in clone source namespace"))
 
 				saName := testsuite.AdminServiceAccountName
 				saNamespace := testsuite.GetTestNamespace(nil)
@@ -1008,18 +1009,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// add permission
 				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, testsuite.NamespaceTestAlternative)
 				if fail {
-					Consistently(func() error {
-						_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-						return err
-					}, 5*time.Second, 1*time.Second).Should(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("insufficient permissions in clone source namespace"))
-
+					Consistently(ThisVM(vm), 10*time.Second, 1*time.Second).Should(HaveConditionTrueWithMessage(v1.VirtualMachineFailure, "insufficient permissions in clone source namespace"))
 					return
 				}
-				createVMSuccess()
 
-				// stop vm
-				vm = libvmops.StopVirtualMachine(vm)
+				libvmops.StartVirtualMachine(vm)
 			},
 				Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false, nil, false),
 				Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false, nil, false),
@@ -1031,30 +1025,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Entry("with explicit role (all namespaces) snapshot clone", explicitCloneRole, true, false, snapshotCloneMutateFunc, false),
 				Entry("with explicit role (one namespace) snapshot clone", explicitCloneRole, false, true, snapshotCloneMutateFunc, false),
 			)
-
-			It("should skip authorization when DataVolume already exists", func() {
-				cloneRole, cloneRoleBinding = addClonePermission(
-					virtClient,
-					explicitCloneRole,
-					"",
-					"",
-					testsuite.NamespaceTestAlternative,
-				)
-
-				dv := &cdiv1.DataVolume{
-					ObjectMeta: vm.Spec.DataVolumeTemplates[0].ObjectMeta,
-					Spec:       vm.Spec.DataVolumeTemplates[0].Spec,
-				}
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libstorage.EventuallyDV(dv, 90, HaveSucceeded())
-
-				err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				cloneRoleBinding = nil
-
-				createVMSuccess()
-			})
 		})
 	})
 
@@ -1079,10 +1049,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			}
 
 			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+			vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
-			vm = libvmops.StartVirtualMachine(vm)
 			By(checkingVMInstanceConsoleExpectedOut)
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1101,8 +1072,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			}
 
 			libstorage.EventuallyDVWith(vm.Namespace, dvName, 100, BeNil())
-
-			vm = libvmops.StopVirtualMachine(vm)
 		},
 			Entry("[test_id:8567]GC is enabled", pointer.P(int32(0)), pointer.P(int32(0)), ""),
 			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.P(int32(-1)), pointer.P(int32(0)), "true"),
