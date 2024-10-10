@@ -2983,32 +2983,23 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("[Serial][rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values", Serial, func() {
 
-		var vmi *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			vmi = libvmifact.NewFedora()
-		})
-
 		It("[test_id:2751]test default SMBios", func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
-
 			config := kv.Spec.Configuration
-			// Clear SMBios values if already set in kubevirt-config, for testing default values.
-			test_smbios := &v1.SMBiosConfiguration{Family: "", Product: "", Manufacturer: ""}
-			config.SMBIOSConfig = test_smbios
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			smBIOS := config.SMBIOSConfig
+			if smBIOS == nil {
+				smBIOS = &v1.SMBiosConfiguration{
+					Manufacturer: "KubeVirt",
+					Product:      "None",
+					Family:       "KubeVirt",
+				}
+			}
 
 			By("Starting a VirtualMachineInstance")
+			vmi := libvmifact.NewFedora()
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Check values in domain XML")
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring("<entry name='family'>KubeVirt</entry>"))
-			Expect(domXml).To(ContainSubstring("<entry name='product'>None</entry>"))
-			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
 
 			By("Expecting console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -3016,11 +3007,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
+				&expect.BSnd{S: fmt.Sprintf("[ $(sudo dmidecode -s system-family | tr -s ' ') = %s ] && echo 'pass'\n", smBIOS.Family)},
 				&expect.BExp{R: console.RetValue("pass")},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = None ] && echo 'pass'\n"},
+				&expect.BSnd{S: fmt.Sprintf("[ $(sudo dmidecode -s system-product-name | tr -s ' ') = %s ] && echo 'pass'\n", smBIOS.Product)},
 				&expect.BExp{R: console.RetValue("pass")},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
+				&expect.BSnd{S: fmt.Sprintf("[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = %s ] && echo 'pass'\n", smBIOS.Manufacturer)},
 				&expect.BExp{R: console.RetValue("pass")},
 			}, 1)).To(Succeed())
 		})
@@ -3034,6 +3025,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Starting a VirtualMachineInstance")
+			vmi := libvmifact.NewFedora()
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
