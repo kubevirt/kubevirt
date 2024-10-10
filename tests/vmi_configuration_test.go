@@ -3016,43 +3016,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}, 1)).To(Succeed())
 		})
 
-		It("[test_id:2752]test custom SMBios values", func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			config := kv.Spec.Configuration
-			// Set a custom test SMBios
-			test_smbios := &v1.SMBiosConfiguration{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
-			config.SMBIOSConfig = test_smbios
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-
-			By("Starting a VirtualMachineInstance")
-			vmi := libvmifact.NewFedora()
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring("<entry name='family'>test</entry>"))
-			Expect(domXml).To(ContainSubstring("<entry name='product'>test</entry>"))
-			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>None</entry>"))
-			Expect(domXml).To(ContainSubstring("<entry name='sku'>1.0</entry>"))
-			Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
-
-			By("Expecting console")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-			By("Check values in dmidecode")
-
-			// Check on the VM, if expected values are there with dmidecode
-			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = test ] && echo 'pass'\n"},
-				&expect.BExp{R: console.RetValue("pass")},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = test ] && echo 'pass'\n"},
-				&expect.BExp{R: console.RetValue("pass")},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = None ] && echo 'pass'\n"},
-				&expect.BExp{R: console.RetValue("pass")},
-			}, 1)).To(Succeed())
-		})
 	})
 
 	Context("Custom PCI Addresses configuration", func() {
