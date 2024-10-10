@@ -3,9 +3,10 @@ package api
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Defaults", func() {
@@ -95,23 +96,22 @@ var _ = Describe("Defaults", func() {
 				Domain: v1.DomainSpec{},
 			},
 		}
-		pointer.BoolPtr(true)
 		vmi.Spec.Domain.Features = &v1.Features{
-			ACPI: v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-			APIC: &v1.FeatureAPIC{Enabled: pointer.BoolPtr(false)},
+			ACPI: v1.FeatureState{Enabled: pointer.P(true)},
+			APIC: &v1.FeatureAPIC{Enabled: pointer.P(false)},
 			Hyperv: &v1.FeatureHyperv{
-				Relaxed:         &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				VAPIC:           &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				Spinlocks:       &v1.FeatureSpinlocks{Enabled: pointer.BoolPtr(true)},
-				VPIndex:         &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				Runtime:         &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				SyNIC:           &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				SyNICTimer:      &v1.SyNICTimer{Enabled: pointer.BoolPtr(true), Direct: &v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
-				Reset:           &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				VendorID:        &v1.FeatureVendorID{Enabled: pointer.BoolPtr(true)},
-				Frequencies:     &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				Reenlightenment: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				TLBFlush:        &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				Relaxed:         &v1.FeatureState{Enabled: pointer.P(true)},
+				VAPIC:           &v1.FeatureState{Enabled: pointer.P(false)},
+				Spinlocks:       &v1.FeatureSpinlocks{Enabled: pointer.P(true)},
+				VPIndex:         &v1.FeatureState{Enabled: pointer.P(false)},
+				Runtime:         &v1.FeatureState{Enabled: pointer.P(true)},
+				SyNIC:           &v1.FeatureState{Enabled: pointer.P(false)},
+				SyNICTimer:      &v1.SyNICTimer{Enabled: pointer.P(true), Direct: &v1.FeatureState{Enabled: pointer.P(true)}},
+				Reset:           &v1.FeatureState{Enabled: pointer.P(false)},
+				VendorID:        &v1.FeatureVendorID{Enabled: pointer.P(true)},
+				Frequencies:     &v1.FeatureState{Enabled: pointer.P(false)},
+				Reenlightenment: &v1.FeatureState{Enabled: pointer.P(false)},
+				TLBFlush:        &v1.FeatureState{Enabled: pointer.P(true)},
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -137,21 +137,21 @@ var _ = Describe("Defaults", func() {
 		Expect(*hyperv.TLBFlush.Enabled).To(BeTrue())
 
 		vmi.Spec.Domain.Features = &v1.Features{
-			ACPI: v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-			APIC: &v1.FeatureAPIC{Enabled: pointer.BoolPtr(true)},
+			ACPI: v1.FeatureState{Enabled: pointer.P(false)},
+			APIC: &v1.FeatureAPIC{Enabled: pointer.P(true)},
 			Hyperv: &v1.FeatureHyperv{
-				Relaxed:         &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				VAPIC:           &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				Spinlocks:       &v1.FeatureSpinlocks{Enabled: pointer.BoolPtr(false)},
-				VPIndex:         &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				Runtime:         &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				SyNIC:           &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				SyNICTimer:      &v1.SyNICTimer{Enabled: pointer.BoolPtr(false)},
-				Reset:           &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				VendorID:        &v1.FeatureVendorID{Enabled: pointer.BoolPtr(false)},
-				Frequencies:     &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				Reenlightenment: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				TLBFlush:        &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				Relaxed:         &v1.FeatureState{Enabled: pointer.P(false)},
+				VAPIC:           &v1.FeatureState{Enabled: pointer.P(true)},
+				Spinlocks:       &v1.FeatureSpinlocks{Enabled: pointer.P(false)},
+				VPIndex:         &v1.FeatureState{Enabled: pointer.P(true)},
+				Runtime:         &v1.FeatureState{Enabled: pointer.P(false)},
+				SyNIC:           &v1.FeatureState{Enabled: pointer.P(true)},
+				SyNICTimer:      &v1.SyNICTimer{Enabled: pointer.P(false)},
+				Reset:           &v1.FeatureState{Enabled: pointer.P(true)},
+				VendorID:        &v1.FeatureVendorID{Enabled: pointer.P(false)},
+				Frequencies:     &v1.FeatureState{Enabled: pointer.P(false)},
+				Reenlightenment: &v1.FeatureState{Enabled: pointer.P(false)},
+				TLBFlush:        &v1.FeatureState{Enabled: pointer.P(true)},
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -193,7 +193,7 @@ var _ = Describe("Defaults", func() {
 								DiskDevice: v1.DiskDevice{
 									CDRom: &v1.CDRomTarget{
 										Tray:     v1.TrayStateOpen,
-										ReadOnly: pointer.BoolPtr(false),
+										ReadOnly: pointer.P(false),
 									},
 								},
 							},
