@@ -29,7 +29,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -38,7 +37,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -56,10 +57,7 @@ import (
 )
 
 var _ = SIGMigrationDescribe("Live Migration", func() {
-	var (
-		virtClient kubecli.KubevirtClient
-		err        error
-	)
+	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		checks.SkipIfMigrationIsNotPossible()
@@ -75,12 +73,12 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				vmi = alpineVMIWithEvictionStrategy()
 			})
 
-			It("[test_id:3242]should block the eviction api and migrate", func() {
+			It("[test_id:3242]should block the eviction api and migrate", decorators.Conformance, func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 				vmiNodeOrig := vmi.Status.NodeName
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 				By("Ensuring the VMI has migrated and lives on another node")
@@ -132,9 +130,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			It("should create the PDB if VMI is live-migratable and has the LiveMigrateIfPossible strategy set", func() {
 				By("creating the VMI")
-				strategy := v1.EvictionStrategyLiveMigrateIfPossible
-				vmi.Spec.EvictionStrategy = &strategy
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi.Spec.EvictionStrategy = pointer.P(v1.EvictionStrategyLiveMigrateIfPossible)
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking that the PDB appeared, with extra time since schedulability needs to be determined first in the cluster")
@@ -160,7 +157,6 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				)
 
 				By("Adding a fake old virt-controller PDB")
-				two := intstr.FromInt(2)
 				pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(createdVMI.Namespace).Create(context.Background(), &policyv1.PodDisruptionBudget{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
@@ -169,7 +165,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						GenerateName: "kubevirt-disruption-budget-",
 					},
 					Spec: policyv1.PodDisruptionBudgetSpec{
-						MinAvailable: &two,
+						MinAvailable: pointer.P(intstr.FromInt32(2)),
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								v1.CreatedByLabel: string(createdVMI.UID),
@@ -217,7 +213,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				By("Verifying at least once that both pods are protected")
 				for _, pod := range pods.Items {
-					err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "expected TooManyRequests error, got: %v", err)
 				}
 				By("Verifying that both pods are protected by the PodDisruptionBudget for the whole migration")
@@ -233,8 +229,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						}
 
 						deleteOptions := &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{ResourceVersion: &pod.ResourceVersion}}
-						eviction := &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}, DeleteOptions: deleteOptions}
-						err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), eviction)
+						eviction := &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}, DeleteOptions: deleteOptions}
+						err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), eviction)
 						Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "expected TooManyRequests error, got: %v", err)
 					}
 					return currentMigration.Status.Phase
@@ -271,9 +267,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					// Taints defined by k8s are special and can't be applied manually.
 					// Temporarily configure KubeVirt to use something else for the duration of these tests.
 					if libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable" {
-						drain := "kubevirt.io/drain"
 						cfg := getCurrentKvConfig(virtClient)
-						cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
+						cfg.MigrationConfiguration.NodeDrainTaintKey = pointer.P("kubevirt.io/drain")
 						config.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
 
@@ -347,8 +342,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
 					cfg := getCurrentKvConfig(virtClient)
-					drainKey := "kubevirt.io/alt-drain"
-					cfg.MigrationConfiguration.NodeDrainTaintKey = &drainKey
+					cfg.MigrationConfiguration.NodeDrainTaintKey = pointer.P("kubevirt.io/alt-drain")
 					config.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					By("Starting the VirtualMachineInstance")
@@ -359,7 +353,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					expectVMIMigratedToAnotherNode(vmi.Name, node)
 				})
 
-				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
+				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", decorators.Conformance, func() {
 					const labelKey = "testkey"
 
 					// give an affinity rule to ensure the vmi's get placed on the same node.
@@ -405,7 +399,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vm_noevict := libvmi.NewVirtualMachine(vmi_noevict)
 
 					// post VMs
-					vm_evict1, err = virtClient.VirtualMachine(vm_evict1.Namespace).Create(context.Background(), vm_evict1, metav1.CreateOptions{})
+					vm_evict1, err := virtClient.VirtualMachine(vm_evict1.Namespace).Create(context.Background(), vm_evict1, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					vm_evict2, err = virtClient.VirtualMachine(vm_evict2.Namespace).Create(context.Background(), vm_evict2, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -513,7 +507,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				Eventually(func() []string {
 					var nodes []string
 					for _, vmi := range vmis {
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
 						nodes = append(nodes, vmi.Status.NodeName)
 					}
 
@@ -552,8 +547,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			originalKV = kv.DeepCopy()
 
-			evictionStrategy := v1.EvictionStrategyLiveMigrate
-			kv.Spec.Configuration.EvictionStrategy = &evictionStrategy
+			kv.Spec.Configuration.EvictionStrategy = pointer.P(v1.EvictionStrategyLiveMigrate)
 			config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 		})
 
@@ -574,7 +568,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vmiNodeOrig := vmi.Status.NodeName
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
-					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 					By("Ensuring the VMI has migrated and lives on another node")
@@ -614,7 +608,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
-					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})

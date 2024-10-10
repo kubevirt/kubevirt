@@ -103,6 +103,16 @@ func WithLogSerialConsole(enable bool) Option {
 	}
 }
 
+func WithInput(name string, inputType v1.InputType, inputBus v1.InputBus) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
+			Name: name,
+			Type: inputType,
+			Bus:  inputBus,
+		})
+	}
+}
+
 func newSecretVolume(secretName, volumeName, label string) v1.Volume {
 	return v1.Volume{
 		Name: volumeName,
