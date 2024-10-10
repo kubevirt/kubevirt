@@ -154,16 +154,16 @@ var optFns = map[string]func(*createVM, *v1.VirtualMachine) error{
 }
 
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
-// Containerdisk > DataSource > Clone PVC > PVC
+// Containerdisk > PVC > DataSource > Clone PVC > Blank > Imported volumes
 // This is controlled by the order in which flags are processed.
 var flags = []string{
 	RunStrategyFlag,
 	InstancetypeFlag,
 	PreferenceFlag,
 	ContainerdiskVolumeFlag,
+	PvcVolumeFlag,
 	DataSourceVolumeFlag,
 	ClonePvcVolumeFlag,
-	PvcVolumeFlag,
 	BlankVolumeFlag,
 	VolumeImportFlag,
 	SysprepVolumeFlag,
@@ -199,7 +199,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     VM,
 		Short:   "Create a VirtualMachine manifest.",
-		Long:    "Create a VirtualMachine manifest.\n\nIf no boot order was specified volumes have the following fixed boot order:\nContainerdisk > DataSource > Clone PVC > PVC",
+		Long:    "Create a VirtualMachine manifest.\n\nIf no boot order was specified volumes have the following fixed boot order:\nContainerdisk > PVC > DataSource > Clone PVC > Blank > Imported volumes",
 		Args:    cobra.NoArgs,
 		Example: c.usage(),
 		RunE:    c.run,

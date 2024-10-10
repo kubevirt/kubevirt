@@ -260,17 +260,17 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
 
-		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(dvtDsName))
-		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(dvtDsName))
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(pvc.Name))
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvc.Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(dvtDsName))
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume.Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume.Name).To(Equal(dvtDsName))
 
-		Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(pvc.Name))
-		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvc.Name))
+		Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.DataVolume).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.DataVolume.Name).To(Equal(dvtPvcName))
 
 		Expect(vm.Spec.Template.Spec.Volumes[4].Name).To(Equal(dvtBlankName))
 		Expect(vm.Spec.Template.Spec.Volumes[4].VolumeSource.DataVolume).ToNot(BeNil())
