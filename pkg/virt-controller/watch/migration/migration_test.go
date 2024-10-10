@@ -21,6 +21,7 @@ package migration
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -92,6 +93,19 @@ var _ = Describe("Migration watcher", func() {
 		if expectedNodeAffinityCount > 0 {
 			Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(expectedNodeAffinityCount))
 		}
+	}
+
+	getTargetPod := func(namespace string, uid types.UID, migrationUid types.UID) (*k8sv1.Pod, error) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migrationUid), virtv1.CreatedByLabel, string(uid)),
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(pods.Items) == 1 {
+			return &pods.Items[0], nil
+		}
+		return nil, errors.New("Failed identifying target pod")
 	}
 
 	expectPodDoesNotExist := func(namespace, uid, migrationUid string) {
@@ -865,6 +879,137 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 2, 1, 1)
+		})
+
+		It("should create target pod merging addedNodeSelectorTerm and preserving existing affinity rules", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			antiAffinityTerm := k8sv1.PodAffinityTerm{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"somelabel": "somekey",
+					},
+				},
+				TopologyKey: k8sv1.LabelHostname,
+			}
+			affinityTerm := k8sv1.PodAffinityTerm{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"someotherlabel": "someotherkey",
+					},
+				},
+				TopologyKey: k8sv1.LabelHostname,
+			}
+			antiAffinityRule := &k8sv1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{antiAffinityTerm},
+			}
+			affinityRule := &k8sv1.PodAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{affinityTerm},
+			}
+
+			nodeAffinityRule := &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      k8sv1.LabelHostname,
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{"somenode"},
+								},
+							},
+						},
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      k8sv1.LabelHostname,
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{"anothernode-ORed"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			vmi.Spec.Affinity = &k8sv1.Affinity{
+				NodeAffinity:    nodeAffinityRule,
+				PodAntiAffinity: antiAffinityRule,
+				PodAffinity:     affinityRule,
+			}
+			Expect(vmi.Spec.Affinity).ToNot(BeNil())
+			Expect(vmi.Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+			Expect(vmi.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
+
+			addedNodeSelectorTerm := &k8sv1.NodeSelectorTerm{
+				MatchExpressions: []k8sv1.NodeSelectorRequirement{
+					{
+						Key:      "disktype",
+						Operator: k8sv1.NodeSelectorOpIn,
+						Values:   []string{"ssd"},
+					},
+					{
+						Key:      "gpu",
+						Operator: k8sv1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+				},
+				MatchFields: []k8sv1.NodeSelectorRequirement{
+					{
+						Key:      metav1.ObjectNameField,
+						Operator: k8sv1.NodeSelectorOpIn,
+						Values:   []string{"someothernode"},
+					},
+				},
+			}
+
+			migration := newMigrationWithAddedNodeSelectorTerm("testmigration", vmi.Name, virtv1.MigrationPending, addedNodeSelectorTerm)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 2, 1, 2)
+			targetPod, err := getTargetPod(vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(targetPod).ToNot(BeNil())
+			Expect(targetPod.Spec.Affinity).ToNot(BeNil())
+			Expect(targetPod.Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+			Expect(targetPod.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(targetPod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
+			By("Expecting migration target pod to contain NodeSelectorTerms defined on the VM")
+			for _, nst := range vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+				nstMatchExpressions := make([]any, len(nst.MatchExpressions))
+				for i, v := range nst.MatchExpressions {
+					nstMatchExpressions[i] = v
+				}
+				nstMatchFields := make([]any, len(nst.MatchFields))
+				for i, v := range nst.MatchFields {
+					nstMatchFields[i] = v
+				}
+				Expect(targetPod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(ContainElement(
+					MatchFields(IgnoreExtras, Fields{
+						"MatchExpressions": ContainElements(nstMatchExpressions),
+						"MatchFields":      ContainElements(nstMatchFields),
+					})))
+			}
+
+			By("Expecting all the nodeSelectors (OR) on the migration target pod to contain all NodeSelectorRequirement defined on the VMIM (AND)")
+			addedMatchExpressions := make([]any, len(addedNodeSelectorTerm.MatchExpressions))
+			for i, v := range addedNodeSelectorTerm.MatchExpressions {
+				addedMatchExpressions[i] = v
+			}
+			addedMatchFields := make([]any, len(addedNodeSelectorTerm.MatchFields))
+			for i, v := range addedNodeSelectorTerm.MatchFields {
+				addedMatchFields[i] = v
+			}
+			for _, nsTerm := range targetPod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+				Expect(nsTerm.MatchExpressions).To(ContainElements(addedMatchExpressions...))
+				Expect(nsTerm.MatchFields).To(ContainElements(addedMatchFields...))
+			}
 		})
 
 		It("should place migration in scheduling state if pod exists", func() {
@@ -2208,6 +2353,12 @@ func newMigration(name string, vmiName string, phase virtv1.VirtualMachineInstan
 	}
 	migration.UID = types.UID(name)
 	migration.Status.Phase = phase
+	return migration
+}
+
+func newMigrationWithAddedNodeSelectorTerm(name string, vmiName string, phase virtv1.VirtualMachineInstanceMigrationPhase, addedNodeSelectorTerm *k8sv1.NodeSelectorTerm) *virtv1.VirtualMachineInstanceMigration {
+	migration := newMigration(name, vmiName, phase)
+	migration.Spec.AddedNodeSelectorTerm = addedNodeSelectorTerm
 	return migration
 }
 

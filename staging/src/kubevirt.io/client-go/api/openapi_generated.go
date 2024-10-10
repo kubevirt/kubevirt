@@ -21822,9 +21822,17 @@ func schema_kubevirtio_api_core_v1_MigrateOptions(ref common.ReferenceCallback) 
 							},
 						},
 					},
+					"addedNodeSelectorTerm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AddedNodeSelectorTerm is applied additionally to the NodeAffinity specified on the VM. The scheduler will automatically attempt a reasonable migration, addition constraints on the one-off migration are required only in special cases. In order to be valid migration targets, Nodes need to satisfy existing NodeAffinity as defined on the VM. AND the expressions on this added NodeSelectorTerm. AddedNodeSelectorTerm is empty by default (all Nodes match). AddedNodeSelectorTerm can only restrict the set of Nodes that are valid target for the migration. When multiple nodeSelectorTerms are specified in nodeAffinity types, then the Pod can be scheduled onto a node if one of the specified terms can be satisfied (terms are ORed). When multiple expressions are specified in a single nodeSelectorTerms, then the Pod can be scheduled onto a node only if all the expressions are satisfied (expressions are ANDed). To obtain the expected result (restrict the set of Nodes that are valid target for the migration), all the expressions specified here are going to be added to all the NodeSelectorTerms defined on the VM.",
+							Ref:         ref("k8s.io/api/core/v1.NodeSelectorTerm"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.NodeSelectorTerm"},
 	}
 }
 
@@ -25128,9 +25136,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSpec(ref commo
 							Format:      "",
 						},
 					},
+					"addedNodeSelectorTerm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AddedNodeSelectorTerm is applied additionally to the NodeAffinity specified on the VM. The scheduler will automatically attempt a reasonable migration, addition constraints on the one-off migration are required only in special cases. In order to be valid migration targets, Nodes need to satisfy existing NodeAffinity as defined on the VM. AND the expressions on this added NodeSelectorTerm. AddedNodeSelectorTerm is empty by default (all Nodes match). AddedNodeSelectorTerm can only restrict the set of Nodes that are valid target for the migration. When multiple nodeSelectorTerms are specified in nodeAffinity types, then the Pod can be scheduled onto a node if one of the specified terms can be satisfied (terms are ORed). When multiple expressions are specified in a single nodeSelectorTerms, then the Pod can be scheduled onto a node only if all the expressions are satisfied (expressions are ANDed). To obtain the expected result (restrict the set of Nodes that are valid target for the migration), all the expressions specified here are going to be added to all the NodeSelectorTerms defined on the VM.",
+							Ref:         ref("k8s.io/api/core/v1.NodeSelectorTerm"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.NodeSelectorTerm"},
 	}
 }
 

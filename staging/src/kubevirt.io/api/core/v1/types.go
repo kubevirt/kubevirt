@@ -1367,6 +1367,22 @@ type VirtualMachineInstanceMigrationList struct {
 type VirtualMachineInstanceMigrationSpec struct {
 	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
 	VMIName string `json:"vmiName,omitempty" valid:"required"`
+
+	// AddedNodeSelectorTerm is applied additionally to the NodeAffinity specified on the VM.
+	// The scheduler will automatically attempt a reasonable migration, addition constraints
+	// on the one-off migration are required only in special cases.
+	// In order to be valid migration targets, Nodes need to satisfy existing NodeAffinity as defined on the VM.
+	// AND the expressions on this added NodeSelectorTerm.
+	// AddedNodeSelectorTerm is empty by default (all Nodes match).
+	// AddedNodeSelectorTerm can only restrict the set of Nodes that are valid target for the migration.
+	// When multiple nodeSelectorTerms are specified in nodeAffinity types,
+	// then the Pod can be scheduled onto a node if one of the specified terms can be satisfied (terms are ORed).
+	// When multiple expressions are specified in a single nodeSelectorTerms,
+	// then the Pod can be scheduled onto a node only if all the expressions are satisfied (expressions are ANDed).
+	// To obtain the expected result (restrict the set of Nodes that are valid target for the migration),
+	// all the expressions specified here are going to be added to all the NodeSelectorTerms defined on the VM.
+	// +optional
+	AddedNodeSelectorTerm *k8sv1.NodeSelectorTerm `json:"addedNodeSelectorTerm,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
@@ -2261,6 +2277,22 @@ type MigrateOptions struct {
 	// +optional
 	// +listType=atomic
 	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,1,rep,name=dryRun"`
+
+	// AddedNodeSelectorTerm is applied additionally to the NodeAffinity specified on the VM.
+	// The scheduler will automatically attempt a reasonable migration, addition constraints
+	// on the one-off migration are required only in special cases.
+	// In order to be valid migration targets, Nodes need to satisfy existing NodeAffinity as defined on the VM.
+	// AND the expressions on this added NodeSelectorTerm.
+	// AddedNodeSelectorTerm is empty by default (all Nodes match).
+	// AddedNodeSelectorTerm can only restrict the set of Nodes that are valid target for the migration.
+	// When multiple nodeSelectorTerms are specified in nodeAffinity types,
+	// then the Pod can be scheduled onto a node if one of the specified terms can be satisfied (terms are ORed).
+	// When multiple expressions are specified in a single nodeSelectorTerms,
+	// then the Pod can be scheduled onto a node only if all the expressions are satisfied (expressions are ANDed).
+	// To obtain the expected result (restrict the set of Nodes that are valid target for the migration),
+	// all the expressions specified here are going to be added to all the NodeSelectorTerms defined on the VM.
+	// +optional
+	AddedNodeSelectorTerm *k8sv1.NodeSelectorTerm `json:"addedNodeSelectorTerm,omitempty"`
 }
 
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent

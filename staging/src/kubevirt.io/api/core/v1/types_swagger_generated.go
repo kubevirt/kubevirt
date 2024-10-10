@@ -313,7 +313,8 @@ func (VirtualMachineInstanceMigrationList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"vmiName": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
+		"vmiName":               "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
+		"addedNodeSelectorTerm": "AddedNodeSelectorTerm is applied additionally to the NodeAffinity specified on the VM.\nThe scheduler will automatically attempt a reasonable migration, addition constraints\non the one-off migration are required only in special cases.\nIn order to be valid migration targets, Nodes need to satisfy existing NodeAffinity as defined on the VM.\nAND the expressions on this added NodeSelectorTerm.\nAddedNodeSelectorTerm is empty by default (all Nodes match).\nAddedNodeSelectorTerm can only restrict the set of Nodes that are valid target for the migration.\nWhen multiple nodeSelectorTerms are specified in nodeAffinity types,\nthen the Pod can be scheduled onto a node if one of the specified terms can be satisfied (terms are ORed).\nWhen multiple expressions are specified in a single nodeSelectorTerms,\nthen the Pod can be scheduled onto a node only if all the expressions are satisfied (expressions are ANDed).\nTo obtain the expected result (restrict the set of Nodes that are valid target for the migration),\nall the expressions specified here are going to be added to all the NodeSelectorTerms defined on the VM.\n+optional",
 	}
 }
 
@@ -622,8 +623,9 @@ func (StopOptions) SwaggerDoc() map[string]string {
 
 func (MigrateOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "MigrateOptions may be provided on migrate request.",
-		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+		"":                      "MigrateOptions may be provided on migrate request.",
+		"dryRun":                "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+		"addedNodeSelectorTerm": "AddedNodeSelectorTerm is applied additionally to the NodeAffinity specified on the VM.\nThe scheduler will automatically attempt a reasonable migration, addition constraints\non the one-off migration are required only in special cases.\nIn order to be valid migration targets, Nodes need to satisfy existing NodeAffinity as defined on the VM.\nAND the expressions on this added NodeSelectorTerm.\nAddedNodeSelectorTerm is empty by default (all Nodes match).\nAddedNodeSelectorTerm can only restrict the set of Nodes that are valid target for the migration.\nWhen multiple nodeSelectorTerms are specified in nodeAffinity types,\nthen the Pod can be scheduled onto a node if one of the specified terms can be satisfied (terms are ORed).\nWhen multiple expressions are specified in a single nodeSelectorTerms,\nthen the Pod can be scheduled onto a node only if all the expressions are satisfied (expressions are ANDed).\nTo obtain the expected result (restrict the set of Nodes that are valid target for the migration),\nall the expressions specified here are going to be added to all the NodeSelectorTerms defined on the VM.\n+optional",
 	}
 }
 
