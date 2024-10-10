@@ -20,18 +20,28 @@
 package virt_controller
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"kubevirt.io/client-go/log"
+	"fmt"
 
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k6tv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 )
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmInfo),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmInfo, vmDiskAllocatedSize),
 		CollectCallback: vmStatsCollectorCallback,
 	}
+
+	vmDiskAllocatedSize = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_disk_allocated_size_bytes",
+			Help: "Allocated disk size in bytes for each Virtual Machine.",
+		},
+		[]string{"name", "namespace", "disk_name", "pvc_name"},
+	)
 
 	vmInfo = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
@@ -157,6 +167,10 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 	}
 
 	var results []operatormetrics.CollectorResult
+	log.Log.Infof("Collecting disk allocated size for %d VMs", len(vms))
+	diskSizeResults := CollectDiskAllocatedSize(vms)
+	log.Log.Infof("Collected %d disk size results", len(diskSizeResults))
+	results = append(results, CollectDiskAllocatedSize(vms)...)
 	results = append(results, CollectVMsInfo(vms)...)
 	results = append(results, CollectResourceRequests(vms)...)
 	results = append(results, reportVmsStats(vms)...)
@@ -409,4 +423,86 @@ func containsCondition(target k6tv1.VirtualMachineConditionType, elems []k6tv1.V
 		}
 	}
 	return false
+}
+
+func CollectDiskAllocatedSize(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		log.Log.Infof("Processing VM %s in namespace %s", vm.Name, vm.Namespace)
+
+		if vm.Spec.Template == nil {
+			log.Log.Infof("VM %s has no template", vm.Name)
+			continue
+		}
+
+		foundDisk := false
+		log.Log.Infof("Checking volumes for VM %s", vm.Name)
+
+		for _, vol := range vm.Spec.Template.Spec.Volumes {
+			log.Log.Infof("Processing volume %s for VM %s", vol.Name, vm.Name)
+
+			if vol.PersistentVolumeClaim != nil {
+				foundDisk = true
+				pvcName := vol.Name
+				diskName := vol.PersistentVolumeClaim.ClaimName
+				key := fmt.Sprintf("%s/%s", vm.Namespace, diskName)
+
+				log.Log.Infof("Looking for PVC with key %s in namespace %s for VM %s", key, vm.Namespace, vm.Name)
+				pvcObjs, err := pvcInformer.GetIndexer().ByIndex("pvc", key)
+				if err != nil || len(pvcObjs) == 0 {
+					log.Log.Infof("PVC %s not found using indexer for VM %s", key, vm.Name)
+					continue
+				}
+
+				log.Log.Infof("PVC %s found for VM %s, attempting type assertion", key, vm.Name)
+				pvc, ok := pvcObjs[0].(*k8sv1.PersistentVolumeClaim)
+				if !ok {
+					log.Log.Infof("Expected PersistentVolumeClaim but got a different object for key %s", key)
+					continue
+				}
+
+				pvcSize := pvc.Spec.Resources.Requests.Storage()
+				log.Log.Infof("Found PVC %s (disk: %s) in namespace %s with size %d bytes for VM %s", pvcName, diskName, vm.Namespace, pvcSize.Value(), vm.Name)
+
+				cr = append(cr, operatormetrics.CollectorResult{
+					Metric: vmDiskAllocatedSize,
+					Value:  float64(pvcSize.Value()),
+					Labels: []string{vm.Name, vm.Namespace, diskName, pvcName},
+				})
+			}
+
+			if vol.ContainerDisk != nil {
+				foundDisk = true
+				log.Log.Infof("ContainerDisk found for volume %s in VM %s", vol.Name, vm.Name)
+				cr = append(cr, operatormetrics.CollectorResult{
+					Metric: vmDiskAllocatedSize,
+					Value:  0,
+					Labels: []string{vm.Name, vm.Namespace, "containerdisk", vol.Name},
+				})
+			}
+
+			if vol.CloudInitNoCloud != nil {
+				foundDisk = true
+				log.Log.Infof("CloudInitNoCloud found for volume %s in VM %s", vol.Name, vm.Name)
+				cr = append(cr, operatormetrics.CollectorResult{
+					Metric: vmDiskAllocatedSize,
+					Value:  0,
+					Labels: []string{vm.Name, vm.Namespace, "cloudinitdisk", vol.Name},
+				})
+			}
+		}
+
+		if !foundDisk {
+			log.Log.Infof("No disk volumes found for VM %s", vm.Name)
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: vmDiskAllocatedSize,
+				Value:  0,
+				Labels: []string{vm.Name, vm.Namespace, "no-volume", "no-pvc"},
+			})
+		}
+	}
+
+	log.Log.Infof("Returning result set: %+v", cr)
+	return cr
 }

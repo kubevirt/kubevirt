@@ -43,6 +43,7 @@ var (
 
 	vmInformer                  cache.SharedIndexInformer
 	vmiInformer                 cache.SharedIndexInformer
+	PVCInformer                 cache.SharedIndexInformer
 	clusterInstanceTypeInformer cache.SharedIndexInformer
 	instanceTypeInformer        cache.SharedIndexInformer
 	clusterPreferenceInformer   cache.SharedIndexInformer
@@ -54,6 +55,7 @@ var (
 func SetupMetrics(
 	vm cache.SharedIndexInformer,
 	vmi cache.SharedIndexInformer,
+	pvc cache.SharedIndexInformer,
 	clusterInstanceType cache.SharedIndexInformer,
 	instanceType cache.SharedIndexInformer,
 	clusterPreference cache.SharedIndexInformer,
@@ -63,6 +65,7 @@ func SetupMetrics(
 ) error {
 	vmInformer = vm
 	vmiInformer = vmi
+	PVCInformer = pvc
 	clusterInstanceTypeInformer = clusterInstanceType
 	instanceTypeInformer = instanceType
 	clusterPreferenceInformer = clusterPreference
