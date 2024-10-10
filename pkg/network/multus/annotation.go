@@ -38,11 +38,22 @@ import (
 // The value of this annotation should be a NetworkAttachmentDefinition's name
 const DefaultNetworkCNIAnnotation = "v1.multus-cni.io/default-network"
 
-func GenerateCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network, config *virtconfig.ClusterConfig) (string, error) {
+func GenerateCNIAnnotation(
+	namespace string,
+	interfaces []v1.Interface,
+	networks []v1.Network,
+	config *virtconfig.ClusterConfig,
+) (string, error) {
 	return GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config)
 }
 
-func GenerateCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string, config *virtconfig.ClusterConfig) (string, error) {
+func GenerateCNIAnnotationFromNameScheme(
+	namespace string,
+	interfaces []v1.Interface,
+	networks []v1.Network,
+	networkNameScheme map[string]string,
+	config *virtconfig.ClusterConfig,
+) (string, error) {
 	multusNetworkAnnotationPool := NetworkAnnotationPool{}
 
 	for _, network := range networks {
@@ -92,9 +103,14 @@ func (nap *NetworkAnnotationPool) ToString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func NewAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) networkv1.NetworkSelectionElement {
+func NewAnnotationData(
+	namespace string,
+	interfaces []v1.Interface,
+	network v1.Network,
+	podInterfaceName string,
+) networkv1.NetworkSelectionElement {
 	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
-	namespace, networkName := GetNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
+	nadNamespacedName := NetAttachDefNamespacedName(namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress
@@ -102,12 +118,15 @@ func NewAnnotationData(namespace string, interfaces []v1.Interface, network v1.N
 	return networkv1.NetworkSelectionElement{
 		InterfaceRequest: podInterfaceName,
 		MacRequest:       multusIfaceMac,
-		Namespace:        namespace,
-		Name:             networkName,
+		Namespace:        nadNamespacedName.Namespace,
+		Name:             nadNamespacedName.Name,
 	}
 }
 
-func newBindingPluginAnnotationData(kvConfig *v1.KubeVirtConfiguration, pluginName, namespace, networkName string) (*networkv1.NetworkSelectionElement, error) {
+func newBindingPluginAnnotationData(
+	kvConfig *v1.KubeVirtConfiguration,
+	pluginName, namespace, networkName string,
+) (*networkv1.NetworkSelectionElement, error) {
 	plugin := netbinding.ReadNetBindingPluginConfiguration(kvConfig, pluginName)
 	if plugin == nil {
 		return nil, fmt.Errorf("unable to find the network binding plugin '%s' in Kubevirt configuration", pluginName)
@@ -116,15 +135,15 @@ func newBindingPluginAnnotationData(kvConfig *v1.KubeVirtConfiguration, pluginNa
 	if plugin.NetworkAttachmentDefinition == "" {
 		return nil, nil
 	}
-	netAttachDefNamespace, netAttachDefName := GetNamespaceAndNetworkName(namespace, plugin.NetworkAttachmentDefinition)
+	nadNamespacedName := NetAttachDefNamespacedName(namespace, plugin.NetworkAttachmentDefinition)
 
 	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
 	// The binding plugin CNI should read this arg and realize which logical network it should modify.
 	const cniArgNetworkName = "logicNetworkName"
 
 	return &networkv1.NetworkSelectionElement{
-		Namespace: netAttachDefNamespace,
-		Name:      netAttachDefName,
+		Namespace: nadNamespacedName.Namespace,
+		Name:      nadNamespacedName.Name,
 		CNIArgs: &map[string]interface{}{
 			cniArgNetworkName: networkName,
 		},

@@ -22,13 +22,23 @@ package multus
 import (
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/client-go/precond"
 )
 
-func GetNamespaceAndNetworkName(namespace string, fullNetworkName string) (string, string) {
+func NetAttachDefNamespacedName(namespace, fullNetworkName string) types.NamespacedName {
 	if strings.Contains(fullNetworkName, "/") {
-		res := strings.SplitN(fullNetworkName, "/", 2)
-		return res[0], res[1]
+		const twoParts = 2
+		res := strings.SplitN(fullNetworkName, "/", twoParts)
+		return types.NamespacedName{
+			Namespace: res[0],
+			Name:      res[1],
+		}
 	}
-	return precond.MustNotBeEmpty(namespace), fullNetworkName
+
+	return types.NamespacedName{
+		Namespace: precond.MustNotBeEmpty(namespace),
+		Name:      fullNetworkName,
+	}
 }
