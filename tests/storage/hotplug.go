@@ -1517,7 +1517,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			cpuRequest := int64(math.Ceil(float64(cpuLimit) / cpuRatio))
 			cpuRequestQuantity := resource.NewScaledQuantity(cpuRequest, resource.Milli)
 			By("Updating hotplug and container disks ratio to the specified ratio")
-			resources := k8sv1.ResourceRequirements{
+			resources := v1.ResourceRequirementsWithoutClaims{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU:    *cpuRequestQuantity,
 					k8sv1.ResourceMemory: *memRequestQuantity,

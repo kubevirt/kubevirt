@@ -9,6 +9,7 @@ go_library(
         "types.go",
         "types_swagger_doc_generated.go",
         "well_known_annotations.go",
+        "well_known_labels.go",
         "zz_generated.deepcopy.go",
         "zz_generated.prerelease-lifecycle.go",
     ],

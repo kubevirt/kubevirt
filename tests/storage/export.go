@@ -1432,7 +1432,7 @@ var _ = SIGDescribe("Export", func() {
 
 		updateKubeVirtExportRequestLimit := func(cpuRequest, cpuLimit, memRequest, memLimit *resource.Quantity) {
 			By("Updating hotplug and container disks ratio to the specified ratio")
-			resources := k8sv1.ResourceRequirements{
+			resources := v1.ResourceRequirementsWithoutClaims{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU:    *cpuRequest,
 					k8sv1.ResourceMemory: *memRequest,

@@ -963,6 +963,14 @@ func (InterfaceBindingPlugin) SwaggerDoc() map[string]string {
 	}
 }
 
+func (ResourceRequirementsWithoutClaims) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "ResourceRequirementsWithoutClaims describes the compute resource requirements.\nThis struct was taken from the k8s.ResourceRequirements and cleaned up the `Claims` field.",
+		"limits":   "Limits describes the maximum amount of compute resources allowed.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/\n+optional",
+		"requests": "Requests describes the minimum amount of compute resources required.\nIf Requests is omitted for a container, it defaults to Limits if that is explicitly specified,\notherwise to an implementation-defined value. Requests cannot exceed Limits.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/\n+optional",
+	}
+}
+
 func (InterfaceBindingMigration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"method": "Method defines a pre-defined migration methodology\nversion: 1alphav1",

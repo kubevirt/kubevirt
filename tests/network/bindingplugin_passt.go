@@ -71,7 +71,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 			SidecarImage:                passtSidecarImage,
 			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
 			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
-			ComputeResourceOverhead: &k8sv1.ResourceRequirements{
+			ComputeResourceOverhead: &v1.ResourceRequirementsWithoutClaims{
 				Requests: map[k8sv1.ResourceName]resource.Quantity{
 					k8sv1.ResourceMemory: passtComputeMemoryOverheadWhenAllPortsAreForwarded,
 				},
