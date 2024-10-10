@@ -465,9 +465,8 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			if size == "" {
-				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage).To(BeNil())
-			} else {
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage).ToNot(BeNil())
+			if size != "" {
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
 			}
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))

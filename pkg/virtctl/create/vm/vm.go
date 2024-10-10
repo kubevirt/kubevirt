@@ -1387,12 +1387,11 @@ func createVolumeWithSource(source *cdiv1.DataVolumeSource, size string, name st
 		},
 	}
 
+	dvt.Spec.Storage = &cdiv1.StorageSpec{}
 	if size != "" {
-		dvt.Spec.Storage = &cdiv1.StorageSpec{
-			Resources: k8sv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceStorage: resource.MustParse(size),
-				},
+		dvt.Spec.Storage.Resources = k8sv1.ResourceRequirements{
+			Requests: k8sv1.ResourceList{
+				k8sv1.ResourceStorage: resource.MustParse(size),
 			},
 		}
 	}
