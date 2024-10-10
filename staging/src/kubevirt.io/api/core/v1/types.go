@@ -2869,7 +2869,7 @@ type InterfaceBindingPlugin struct {
 	// version: 1alphav1
 	NetworkAttachmentDefinition string `json:"networkAttachmentDefinition,omitempty"`
 	// DomainAttachmentType is a standard domain network attachment method kubevirt supports.
-	// Supported values: "tap".
+	// Supported values: "tap", "managedTap" (since v1.4).
 	// The standard domain attachment can be used instead or in addition to the sidecarImage.
 	// version: 1alphav1
 	DomainAttachmentType DomainAttachmentType `json:"domainAttachmentType,omitempty"`
@@ -2909,6 +2909,9 @@ const (
 	// Tap domain attachment type is a generic way to bind ethernet connection into guests using tap device
 	// https://libvirt.org/formatdomain.html#generic-ethernet-connection.
 	Tap DomainAttachmentType = "tap"
+	// ManagedTap domain attachment type is binding an ethernet connection into guests using a tap device.
+	// The tap device is created (unless already present) on the network pod interface with a Linux bridge.
+	ManagedTap DomainAttachmentType = "managedTap"
 )
 
 type NetworkBindingDownwardAPIType string

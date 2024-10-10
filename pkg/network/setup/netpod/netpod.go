@@ -77,6 +77,8 @@ type NetPod struct {
 	cacheCreator cacheCreator
 	state        *State
 
+	bindingPluginsByName map[string]v1.InterfaceBindingPlugin
+
 	log *log.FilteredLogger
 }
 
@@ -95,7 +97,8 @@ func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string
 		nmstateAdapter:    nmstate.New(),
 		masqueradeAdapter: masquerade.New(),
 
-		cacheCreator: cache.CacheCreator{},
+		cacheCreator:         cache.CacheCreator{},
+		bindingPluginsByName: map[string]v1.InterfaceBindingPlugin{},
 
 		log: log.Log,
 	}
@@ -120,6 +123,12 @@ func WithMasqueradeAdapter(h masqueradeAdapter) option {
 func WithCacheCreator(c cacheCreator) option {
 	return func(n *NetPod) {
 		n.cacheCreator = c
+	}
+}
+
+func WithBindingPlugins(bindings map[string]v1.InterfaceBindingPlugin) option {
+	return func(n *NetPod) {
+		n.bindingPluginsByName = bindings
 	}
 }
 
@@ -286,6 +295,27 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			}
 		case iface.SRIOV != nil:
 		case iface.Binding != nil:
+			bindingPlugin, exists := n.bindingPluginsByName[iface.Binding.Name]
+			if exists && bindingPlugin.DomainAttachmentType == v1.ManagedTap {
+				// A missing pod interface is not considered an error in case the interface is marked for removal.
+				if _, exists := podIfaceStatusByName[podIfaceName]; !exists && iface.State != v1.InterfaceStateAbsent {
+					return nil, fmt.Errorf("pod link (%s) is missing", podIfaceName)
+				}
+				ifacesSpec, err = n.managedTapSpec(podIfaceName, ifIndex, podIfaceStatusByName)
+
+				if iface.State == v1.InterfaceStateAbsent {
+					var filteredIfacesSpec []nmstate.Interface
+					for _, ifaceSpec := range ifacesSpec {
+						// Interfaces with no type are not owned by kubevirt, therefore not removed.
+						if ifaceSpec.TypeName != "" {
+							ifaceSpec.State = nmstate.IfaceStateAbsent
+							filteredIfacesSpec = append(filteredIfacesSpec, ifaceSpec)
+						}
+					}
+					ifacesSpec = filteredIfacesSpec
+				}
+			}
+
 		// Passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case iface.DeprecatedPasst != nil:
 			spec.LinuxStack.IPv4.PingGroupRange = []int{107, 107}
@@ -447,6 +477,63 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 	}
 
 	return []nmstate.Interface{bridgeIface, tapIface}, nil
+}
+
+func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStatusByName map[string]nmstate.Interface) ([]nmstate.Interface, error) {
+
+	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
+
+	podIfaceAlternativeName := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
+	podStatusIface, exist := ifaceStatusByName[podIfaceAlternativeName]
+	if !exist {
+		podStatusIface = ifaceStatusByName[podIfaceName]
+	}
+
+	bridgeIface := nmstate.Interface{
+		Name:     link.GenerateBridgeName(podIfaceName),
+		TypeName: nmstate.TypeBridge,
+		State:    nmstate.IfaceStateUp,
+		Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
+	}
+
+	podIface := nmstate.Interface{
+		Index:       podStatusIface.Index,
+		Name:        podIfaceAlternativeName,
+		State:       nmstate.IfaceStateUp,
+		CopyMacFrom: bridgeIface.Name,
+		Controller:  bridgeIface.Name,
+		IPv4:        nmstate.IP{Enabled: pointer.P(false)},
+		IPv6:        nmstate.IP{Enabled: pointer.P(false)},
+		LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+		Metadata:    &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
+	}
+
+	tapIface := nmstate.Interface{
+		Name:       link.GenerateTapDeviceName(podIfaceName),
+		TypeName:   nmstate.TypeTap,
+		State:      nmstate.IfaceStateUp,
+		MTU:        podStatusIface.MTU,
+		Controller: bridgeIface.Name,
+		Tap: &nmstate.TapDevice{
+			Queues: n.networkQueues(vmiIfaceIndex),
+			UID:    n.ownerID,
+			GID:    n.ownerID,
+		},
+		Metadata: &nmstate.IfaceMetadata{Pid: n.podPID, NetworkName: vmiNetworkName},
+	}
+
+	dummyIface := nmstate.Interface{
+		Name:       podIfaceName,
+		TypeName:   nmstate.TypeDummy,
+		MacAddress: podStatusIface.MacAddress,
+		MTU:        podStatusIface.MTU,
+		IPv4:       podStatusIface.IPv4,
+		IPv6:       podStatusIface.IPv6,
+		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
+	}
+
+	return []nmstate.Interface{bridgeIface, podIface, tapIface, dummyIface}, nil
 }
 
 func (n NetPod) setupNAT(desiredSpec *nmstate.Spec, currentStatus *nmstate.Status) error {

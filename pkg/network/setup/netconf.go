@@ -46,11 +46,17 @@ type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
+type clusterConfigurer interface {
+	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+}
+
 type NetConf struct {
 	cacheCreator     cacheCreator
 	nsFactory        nsFactory
 	state            map[string]*netpod.State
 	configStateMutex *sync.RWMutex
+
+	clusterConfigurer clusterConfigurer
 }
 
 type nsFactory func(int) NSExecutor
@@ -59,19 +65,20 @@ type NSExecutor interface {
 	Do(func() error) error
 }
 
-func NewNetConf() *NetConf {
+func NewNetConf(clusterConfigurer clusterConfigurer) *NetConf {
 	var cacheFactory cache.CacheCreator
 	return NewNetConfWithCustomFactoryAndConfigState(func(pid int) NSExecutor {
 		return netns.New(pid)
-	}, cacheFactory, map[string]*netpod.State{})
+	}, cacheFactory, map[string]*netpod.State{}, clusterConfigurer)
 }
 
-func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, state map[string]*netpod.State) *NetConf {
+func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, state map[string]*netpod.State, clusterConfigurer clusterConfigurer) *NetConf {
 	return &NetConf{
-		state:            state,
-		configStateMutex: &sync.RWMutex{},
-		cacheCreator:     cacheCreator,
-		nsFactory:        nsFactory,
+		state:             state,
+		configStateMutex:  &sync.RWMutex{},
+		cacheCreator:      cacheCreator,
+		nsFactory:         nsFactory,
+		clusterConfigurer: clusterConfigurer,
 	}
 }
 
@@ -112,6 +119,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		state,
 		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
 		netpod.WithCacheCreator(c.cacheCreator),
+		netpod.WithBindingPlugins(c.clusterConfigurer.GetNetworkBindings()),
 		netpod.WithLogger(log.Log.Object(vmi)),
 	)
 

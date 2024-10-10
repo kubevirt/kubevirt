@@ -107,6 +107,14 @@ var _ = Describe("VMI interfaces", func() {
 			}
 			Expect(domainspec.DomainAttachmentByInterfaceName(vmiSpecIfaces, networkBindings)).To(Equal(expectedMap))
 		})
+
+		It("should consider a managedTap type as a tap type", func() {
+			vmiIfaces := []v1.Interface{{Name: iface1, Binding: &v1.PluginBinding{Name: binding1}}}
+			netBindings := map[string]v1.InterfaceBindingPlugin{binding1: {DomainAttachmentType: v1.ManagedTap}}
+			Expect(domainspec.DomainAttachmentByInterfaceName(vmiIfaces, netBindings)).To(Equal(
+				map[string]string{iface1: string(v1.Tap)},
+			))
+		})
 	})
 
 	Context("BindingMigrationByInterfaceName", func() {

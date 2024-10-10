@@ -1306,7 +1306,7 @@ var CRDsValidation map[string]string = map[string]string{
                       domainAttachmentType:
                         description: |-
                           DomainAttachmentType is a standard domain network attachment method kubevirt supports.
-                          Supported values: "tap".
+                          Supported values: "tap", "managedTap" (since v1.4).
                           The standard domain attachment can be used instead or in addition to the sidecarImage.
                           version: 1alphav1
                         type: string
