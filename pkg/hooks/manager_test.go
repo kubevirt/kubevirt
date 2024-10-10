@@ -153,6 +153,46 @@ var _ = Describe("HooksManager", func() {
 			}
 		})
 
+		It("Should find multiple sidecars arranged in order of priority from large to small", func() {
+			hookNameMap := map[string]struct {
+				HookPointName string
+				Priority      int32
+			}{
+				"OnDefineDomain2":  {hooksInfo.OnDefineDomainHookPointName, 2},
+				"OnDefineDomain3":  {hooksInfo.OnDefineDomainHookPointName, 3},
+				"OnDefineDomain1":  {hooksInfo.OnDefineDomainHookPointName, 1},
+				"PreCloudInitIso2": {hooksInfo.PreCloudInitIsoHookPointName, 2},
+				"PreCloudInitIso3": {hooksInfo.PreCloudInitIsoHookPointName, 3},
+				"PreCloudInitIso1": {hooksInfo.PreCloudInitIsoHookPointName, 1},
+			}
+			for hookName, hookPoint := range hookNameMap {
+				socketPath := filepath.Join(socketDir, fmt.Sprintf("%s.sock", hookName))
+				socket, err := hookListenAndServe(socketPath, hookName, hookPoint.HookPointName, hookPoint.Priority)
+				Expect(err).ToNot(HaveOccurred())
+				defer socket.Close()
+				defer os.Remove(socketPath)
+			}
+
+			manager := newManager(socketDir)
+			err := manager.Collect(uint(len(hookNameMap)), 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+
+			callbackMaps := manager.CallbacksPerHookPoint
+
+			for _, hookPointName := range []string{hooksInfo.OnDefineDomainHookPointName, hooksInfo.PreCloudInitIsoHookPointName} {
+				Expect(callbackMaps).Should(HaveKey(hookPointName))
+				Expect(callbackMaps[hookPointName]).Should(HaveLen(3))
+
+				// priority from large to small
+				Expect(callbackMaps[hookPointName][0].subscribedHookPoints).Should(HaveLen(1))
+				Expect(callbackMaps[hookPointName][0].subscribedHookPoints[0].Priority).Should(Equal(int32(3)))
+				Expect(callbackMaps[hookPointName][1].subscribedHookPoints).Should(HaveLen(1))
+				Expect(callbackMaps[hookPointName][1].subscribedHookPoints[0].Priority).Should(Equal(int32(2)))
+				Expect(callbackMaps[hookPointName][2].subscribedHookPoints).Should(HaveLen(1))
+				Expect(callbackMaps[hookPointName][2].subscribedHookPoints[0].Priority).Should(Equal(int32(1)))
+			}
+		})
+
 		AfterEach(func() {
 			os.RemoveAll(socketDir)
 		})
