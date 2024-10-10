@@ -8437,11 +8437,6 @@ var CRDsValidation map[string]string = map[string]string{
               description: VolumeMigrationState tracks the information related to
                 the volume migration
               properties:
-                manualRecoveryRequired:
-                  description: ManualRecoveryRequired indicates if the update due
-                    to the migration failed and the volumes set needs to be manually
-                    restored
-                  type: boolean
                 migratedVolumes:
                   description: MigratedVolumes lists the source and destination volumes
                     during the volume migration
@@ -28969,11 +28964,6 @@ var CRDsValidation map[string]string = map[string]string{
                           description: VolumeMigrationState tracks the information
                             related to the volume migration
                           properties:
-                            manualRecoveryRequired:
-                              description: ManualRecoveryRequired indicates if the
-                                update due to the migration failed and the volumes
-                                set needs to be manually restored
-                              type: boolean
                             migratedVolumes:
                               description: MigratedVolumes lists the source and destination
                                 volumes during the volume migration

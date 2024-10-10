@@ -32,7 +32,6 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -1644,11 +1643,16 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 		// Clean-up the volume change label when the volume set has been restored
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange))
+		vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
 		return
 	}
 	if vmi == nil && vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
 		// Something went wrong with the VMI while the volume migration was in progress
-		vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired = pointer.P(true)
+		vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:   virtv1.VirtualMachineManualRecoveryRequired,
+			Status: k8score.ConditionTrue,
+			Reason: "VMI was removed during the volume migration",
+		})
 	}
 
 	if vmi == nil {
@@ -1662,7 +1666,11 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 			vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 		} else {
 			// The volume migration failed for some reasons
-			vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired = pointer.P(true)
+			vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+				Type:   virtv1.VirtualMachineManualRecoveryRequired,
+				Status: k8score.ConditionTrue,
+				Reason: "Volume migration failed",
+			})
 		}
 	}
 }

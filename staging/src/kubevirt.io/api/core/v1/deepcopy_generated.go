@@ -5993,11 +5993,6 @@ func (in *VolumeMigrationState) DeepCopyInto(out *VolumeMigrationState) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.ManualRecoveryRequired != nil {
-		in, out := &in.ManualRecoveryRequired, &out.ManualRecoveryRequired
-		*out = new(bool)
-		**out = **in
-	}
 	return
 }
 

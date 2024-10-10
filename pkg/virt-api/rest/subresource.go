@@ -478,8 +478,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is already running")), response)
 		return
 	}
-	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,
-		v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange), v12.ConditionTrue) {
+	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, v1.VirtualMachineManualRecoveryRequired, v12.ConditionTrue) {
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
 		return
 	}

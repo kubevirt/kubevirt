@@ -1284,8 +1284,7 @@
               "filesystemOverhead": "filesystemOverheadValue"
             }
           }
-        ],
-        "manualRecoveryRequired": true
+        ]
       }
     }
   }
