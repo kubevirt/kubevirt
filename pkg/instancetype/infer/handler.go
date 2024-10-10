@@ -30,9 +30,7 @@ import (
 	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 )
 
-const (
-	logVerbosityLevel = 3
-)
+const logVerbosityLevel = 3
 
 type Handler struct {
 	virtClient kubecli.KubevirtClient

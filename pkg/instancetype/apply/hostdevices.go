@@ -34,7 +34,7 @@ func applyHostDevices(
 		return nil
 	}
 
-	if len(vmiSpec.Domain.Devices.HostDevices) >= 1 {
+	if len(vmiSpec.Domain.Devices.HostDevices) > 0 {
 		return Conflicts{field.Child("domain", "devices", "hostDevices")}
 	}
 

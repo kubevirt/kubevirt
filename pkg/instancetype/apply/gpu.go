@@ -34,7 +34,7 @@ func applyGPUs(
 		return nil
 	}
 
-	if len(vmiSpec.Domain.Devices.GPUs) >= 1 {
+	if len(vmiSpec.Domain.Devices.GPUs) > 0 {
 		return Conflicts{field.Child("domain", "devices", "gpus")}
 	}
 
