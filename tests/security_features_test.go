@@ -53,7 +53,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -61,7 +61,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 		virtClient = kubevirt.Client()
 	})
 
-	Context("Check virt-launcher securityContext", func() {
+	Context("[Serial]Check virt-launcher securityContext", Serial, func() {
 		var kubevirtConfiguration *v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
@@ -251,10 +251,11 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(caps.Drop).To(ConsistOf(k8sv1.Capability("ALL")), "Expected compute container of virt_launcher to drop all caps")
 			} else {
 				Expect(caps.Add).To(ConsistOf(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_NICE")))
+				Expect(caps.Drop).To(BeEmpty())
 			}
 		})
 	})
-	Context("Disabling the custom SELinux policy", func() {
+	Context("[Serial]Disabling the custom SELinux policy", Serial, func() {
 		var policyRemovedByTest = false
 		AfterEach(func() {
 			if policyRemovedByTest {
