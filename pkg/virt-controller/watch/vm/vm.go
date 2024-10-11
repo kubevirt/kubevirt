@@ -1646,32 +1646,23 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
 		return
 	}
-	if vmi == nil && vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
-		// Something went wrong with the VMI while the volume migration was in progress
-		vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:   virtv1.VirtualMachineManualRecoveryRequired,
-			Status: k8score.ConditionTrue,
-			Reason: "VMI was removed during the volume migration",
-		})
-	}
-
 	if vmi == nil {
-		return
-	}
-	// Check if the volume update wasn't successful
-	cond := vmiCond.GetCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
-	if cond != nil && cond.Status == k8score.ConditionFalse {
-		// The volume migration has been cancelled
-		if cond.Reason == virtv1.VirtualMachineInstanceReasonVolumesChangeCancellation {
-			vm.Status.VolumeUpdateState.VolumeMigrationState = nil
-		} else {
-			// The volume migration failed for some reasons
+		if vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
+			// Something went wrong with the VMI while the volume migration was in progress
 			vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 				Type:   virtv1.VirtualMachineManualRecoveryRequired,
 				Status: k8score.ConditionTrue,
-				Reason: "Volume migration failed",
+				Reason: "VMI was removed during the volume migration",
 			})
 		}
+		return
+	}
+
+	// The volume migration has been cancelled
+	if cond := vmiCond.GetCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange); cond != nil &&
+		cond.Status == k8score.ConditionFalse &&
+		cond.Reason == virtv1.VirtualMachineInstanceReasonVolumesChangeCancellation {
+		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 	}
 }
 
