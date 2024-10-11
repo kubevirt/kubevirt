@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
@@ -34,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -47,6 +49,7 @@ const (
 
 var _ = Describe("[sig-compute][virtctl]create vm", decorators.SigCompute, func() {
 	const (
+		sysprepDisk       = "sysprepdisk"
 		cloudInitUserData = `#cloud-config
 user: user
 password: password
@@ -460,6 +463,53 @@ chpasswd: { expire: False }`
 		decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(decoded)).To(Equal(cloudInitUserData))
+	})
+
+	It("Complex example with sysprep volume", func() {
+		const runStrategy = v1.RunStrategyManual
+		const terminationGracePeriod int64 = 123
+		const cdSource = "my.registry/my-image:my-tag"
+
+		cm := libconfigmap.New("cm-"+rand.String(5), map[string]string{"Autounattend.xml": "test"})
+		cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		out, err := runCmd(
+			setFlag(RunStrategyFlag, string(runStrategy)),
+			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
+			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
+			setFlag(SysprepVolumeFlag, fmt.Sprintf("src:%s", cm.Name)),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		vm, err := decodeVM(out)
+		Expect(err).ToNot(HaveOccurred())
+
+		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(runStrategy)))
+
+		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(terminationGracePeriod)))
+
+		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
+
+		// No inference possible in this case
+		Expect(vm.Spec.Instancetype).To(BeNil())
+		Expect(vm.Spec.Preference).To(BeNil())
+
+		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
+
+		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
+		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
+
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(sysprepDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Sysprep).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Sysprep.ConfigMap).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Sysprep.ConfigMap.Name).To(Equal(cm.Name))
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Sysprep.Secret).To(BeNil())
 	})
 
 	It("Complex example with generated cloud-init config", func() {
