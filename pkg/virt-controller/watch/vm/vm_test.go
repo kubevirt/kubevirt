@@ -32,7 +32,7 @@ import (
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/api"
-	cdifake "kubevirt.io/client-go/containerized-data-importer/fake"
+	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"

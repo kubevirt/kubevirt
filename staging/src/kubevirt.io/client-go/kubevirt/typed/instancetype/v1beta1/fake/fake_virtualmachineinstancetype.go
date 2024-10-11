@@ -23,7 +23,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,28 +35,30 @@ type FakeVirtualMachineInstancetypes struct {
 	ns   string
 }
 
-var virtualmachineinstancetypesResource = schema.GroupVersionResource{Group: "instancetype.kubevirt.io", Version: "v1beta1", Resource: "virtualmachineinstancetypes"}
+var virtualmachineinstancetypesResource = v1beta1.SchemeGroupVersion.WithResource("virtualmachineinstancetypes")
 
-var virtualmachineinstancetypesKind = schema.GroupVersionKind{Group: "instancetype.kubevirt.io", Version: "v1beta1", Kind: "VirtualMachineInstancetype"}
+var virtualmachineinstancetypesKind = v1beta1.SchemeGroupVersion.WithKind("VirtualMachineInstancetype")
 
 // Get takes name of the virtualMachineInstancetype, and returns the corresponding virtualMachineInstancetype object, and an error if there is any.
 func (c *FakeVirtualMachineInstancetypes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.VirtualMachineInstancetype, err error) {
+	emptyResult := &v1beta1.VirtualMachineInstancetype{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(virtualmachineinstancetypesResource, c.ns, name), &v1beta1.VirtualMachineInstancetype{})
+		Invokes(testing.NewGetActionWithOptions(virtualmachineinstancetypesResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1beta1.VirtualMachineInstancetype), err
 }
 
 // List takes label and field selectors, and returns the list of VirtualMachineInstancetypes that match those selectors.
 func (c *FakeVirtualMachineInstancetypes) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.VirtualMachineInstancetypeList, err error) {
+	emptyResult := &v1beta1.VirtualMachineInstancetypeList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(virtualmachineinstancetypesResource, virtualmachineinstancetypesKind, c.ns, opts), &v1beta1.VirtualMachineInstancetypeList{})
+		Invokes(testing.NewListActionWithOptions(virtualmachineinstancetypesResource, virtualmachineinstancetypesKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,28 +77,30 @@ func (c *FakeVirtualMachineInstancetypes) List(ctx context.Context, opts v1.List
 // Watch returns a watch.Interface that watches the requested virtualMachineInstancetypes.
 func (c *FakeVirtualMachineInstancetypes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(virtualmachineinstancetypesResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(virtualmachineinstancetypesResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a virtualMachineInstancetype and creates it.  Returns the server's representation of the virtualMachineInstancetype, and an error, if there is any.
 func (c *FakeVirtualMachineInstancetypes) Create(ctx context.Context, virtualMachineInstancetype *v1beta1.VirtualMachineInstancetype, opts v1.CreateOptions) (result *v1beta1.VirtualMachineInstancetype, err error) {
+	emptyResult := &v1beta1.VirtualMachineInstancetype{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(virtualmachineinstancetypesResource, c.ns, virtualMachineInstancetype), &v1beta1.VirtualMachineInstancetype{})
+		Invokes(testing.NewCreateActionWithOptions(virtualmachineinstancetypesResource, c.ns, virtualMachineInstancetype, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1beta1.VirtualMachineInstancetype), err
 }
 
 // Update takes the representation of a virtualMachineInstancetype and updates it. Returns the server's representation of the virtualMachineInstancetype, and an error, if there is any.
 func (c *FakeVirtualMachineInstancetypes) Update(ctx context.Context, virtualMachineInstancetype *v1beta1.VirtualMachineInstancetype, opts v1.UpdateOptions) (result *v1beta1.VirtualMachineInstancetype, err error) {
+	emptyResult := &v1beta1.VirtualMachineInstancetype{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(virtualmachineinstancetypesResource, c.ns, virtualMachineInstancetype), &v1beta1.VirtualMachineInstancetype{})
+		Invokes(testing.NewUpdateActionWithOptions(virtualmachineinstancetypesResource, c.ns, virtualMachineInstancetype, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1beta1.VirtualMachineInstancetype), err
 }
@@ -105,14 +108,14 @@ func (c *FakeVirtualMachineInstancetypes) Update(ctx context.Context, virtualMac
 // Delete takes name of the virtualMachineInstancetype and deletes it. Returns an error if one occurs.
 func (c *FakeVirtualMachineInstancetypes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(virtualmachineinstancetypesResource, c.ns, name), &v1beta1.VirtualMachineInstancetype{})
+		Invokes(testing.NewDeleteActionWithOptions(virtualmachineinstancetypesResource, c.ns, name, opts), &v1beta1.VirtualMachineInstancetype{})
 
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeVirtualMachineInstancetypes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualmachineinstancetypesResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(virtualmachineinstancetypesResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1beta1.VirtualMachineInstancetypeList{})
 	return err
@@ -120,11 +123,12 @@ func (c *FakeVirtualMachineInstancetypes) DeleteCollection(ctx context.Context, 
 
 // Patch applies the patch and returns the patched virtualMachineInstancetype.
 func (c *FakeVirtualMachineInstancetypes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VirtualMachineInstancetype, err error) {
+	emptyResult := &v1beta1.VirtualMachineInstancetype{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(virtualmachineinstancetypesResource, c.ns, name, pt, data, subresources...), &v1beta1.VirtualMachineInstancetype{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(virtualmachineinstancetypesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1beta1.VirtualMachineInstancetype), err
 }

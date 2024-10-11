@@ -20,12 +20,11 @@ package v1alpha1
 
 import (
 	"context"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
@@ -40,6 +39,7 @@ type VirtualMachineClonesGetter interface {
 type VirtualMachineCloneInterface interface {
 	Create(ctx context.Context, virtualMachineClone *v1alpha1.VirtualMachineClone, opts v1.CreateOptions) (*v1alpha1.VirtualMachineClone, error)
 	Update(ctx context.Context, virtualMachineClone *v1alpha1.VirtualMachineClone, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineClone, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, virtualMachineClone *v1alpha1.VirtualMachineClone, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineClone, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
@@ -52,144 +52,18 @@ type VirtualMachineCloneInterface interface {
 
 // virtualMachineClones implements VirtualMachineCloneInterface
 type virtualMachineClones struct {
-	client rest.Interface
-	ns     string
+	*gentype.ClientWithList[*v1alpha1.VirtualMachineClone, *v1alpha1.VirtualMachineCloneList]
 }
 
 // newVirtualMachineClones returns a VirtualMachineClones
 func newVirtualMachineClones(c *CloneV1alpha1Client, namespace string) *virtualMachineClones {
 	return &virtualMachineClones{
-		client: c.RESTClient(),
-		ns:     namespace,
+		gentype.NewClientWithList[*v1alpha1.VirtualMachineClone, *v1alpha1.VirtualMachineCloneList](
+			"virtualmachineclones",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			namespace,
+			func() *v1alpha1.VirtualMachineClone { return &v1alpha1.VirtualMachineClone{} },
+			func() *v1alpha1.VirtualMachineCloneList { return &v1alpha1.VirtualMachineCloneList{} }),
 	}
-}
-
-// Get takes name of the virtualMachineClone, and returns the corresponding virtualMachineClone object, and an error if there is any.
-func (c *virtualMachineClones) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.VirtualMachineClone, err error) {
-	result = &v1alpha1.VirtualMachineClone{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineclones").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineClones that match those selectors.
-func (c *virtualMachineClones) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.VirtualMachineCloneList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.VirtualMachineCloneList{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineclones").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineClones.
-func (c *virtualMachineClones) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineclones").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a virtualMachineClone and creates it.  Returns the server's representation of the virtualMachineClone, and an error, if there is any.
-func (c *virtualMachineClones) Create(ctx context.Context, virtualMachineClone *v1alpha1.VirtualMachineClone, opts v1.CreateOptions) (result *v1alpha1.VirtualMachineClone, err error) {
-	result = &v1alpha1.VirtualMachineClone{}
-	err = c.client.Post().
-		Namespace(c.ns).
-		Resource("virtualmachineclones").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineClone).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a virtualMachineClone and updates it. Returns the server's representation of the virtualMachineClone, and an error, if there is any.
-func (c *virtualMachineClones) Update(ctx context.Context, virtualMachineClone *v1alpha1.VirtualMachineClone, opts v1.UpdateOptions) (result *v1alpha1.VirtualMachineClone, err error) {
-	result = &v1alpha1.VirtualMachineClone{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("virtualmachineclones").
-		Name(virtualMachineClone.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineClone).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *virtualMachineClones) UpdateStatus(ctx context.Context, virtualMachineClone *v1alpha1.VirtualMachineClone, opts v1.UpdateOptions) (result *v1alpha1.VirtualMachineClone, err error) {
-	result = &v1alpha1.VirtualMachineClone{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("virtualmachineclones").
-		Name(virtualMachineClone.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineClone).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the virtualMachineClone and deletes it. Returns an error if one occurs.
-func (c *virtualMachineClones) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("virtualmachineclones").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *virtualMachineClones) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("virtualmachineclones").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched virtualMachineClone.
-func (c *virtualMachineClones) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachineClone, err error) {
-	result = &v1alpha1.VirtualMachineClone{}
-	err = c.client.Patch(pt).
-		Namespace(c.ns).
-		Resource("virtualmachineclones").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

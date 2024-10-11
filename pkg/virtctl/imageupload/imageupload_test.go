@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
-	fakecdiclient "kubevirt.io/client-go/containerized-data-importer/fake"
+	fakecdiclient "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 

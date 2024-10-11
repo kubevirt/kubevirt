@@ -45,7 +45,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 
-	cdifake "kubevirt.io/client-go/containerized-data-importer/fake"
+	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 

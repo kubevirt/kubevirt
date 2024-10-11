@@ -23,7 +23,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -35,26 +34,28 @@ type FakeVirtualMachineClusterInstancetypes struct {
 	Fake *FakeInstancetypeV1alpha1
 }
 
-var virtualmachineclusterinstancetypesResource = schema.GroupVersionResource{Group: "instancetype.kubevirt.io", Version: "v1alpha1", Resource: "virtualmachineclusterinstancetypes"}
+var virtualmachineclusterinstancetypesResource = v1alpha1.SchemeGroupVersion.WithResource("virtualmachineclusterinstancetypes")
 
-var virtualmachineclusterinstancetypesKind = schema.GroupVersionKind{Group: "instancetype.kubevirt.io", Version: "v1alpha1", Kind: "VirtualMachineClusterInstancetype"}
+var virtualmachineclusterinstancetypesKind = v1alpha1.SchemeGroupVersion.WithKind("VirtualMachineClusterInstancetype")
 
 // Get takes name of the virtualMachineClusterInstancetype, and returns the corresponding virtualMachineClusterInstancetype object, and an error if there is any.
 func (c *FakeVirtualMachineClusterInstancetypes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.VirtualMachineClusterInstancetype, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterInstancetype{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(virtualmachineclusterinstancetypesResource, name), &v1alpha1.VirtualMachineClusterInstancetype{})
+		Invokes(testing.NewRootGetActionWithOptions(virtualmachineclusterinstancetypesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachineClusterInstancetype), err
 }
 
 // List takes label and field selectors, and returns the list of VirtualMachineClusterInstancetypes that match those selectors.
 func (c *FakeVirtualMachineClusterInstancetypes) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.VirtualMachineClusterInstancetypeList, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterInstancetypeList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(virtualmachineclusterinstancetypesResource, virtualmachineclusterinstancetypesKind, opts), &v1alpha1.VirtualMachineClusterInstancetypeList{})
+		Invokes(testing.NewRootListActionWithOptions(virtualmachineclusterinstancetypesResource, virtualmachineclusterinstancetypesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -73,25 +74,27 @@ func (c *FakeVirtualMachineClusterInstancetypes) List(ctx context.Context, opts 
 // Watch returns a watch.Interface that watches the requested virtualMachineClusterInstancetypes.
 func (c *FakeVirtualMachineClusterInstancetypes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(virtualmachineclusterinstancetypesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(virtualmachineclusterinstancetypesResource, opts))
 }
 
 // Create takes the representation of a virtualMachineClusterInstancetype and creates it.  Returns the server's representation of the virtualMachineClusterInstancetype, and an error, if there is any.
 func (c *FakeVirtualMachineClusterInstancetypes) Create(ctx context.Context, virtualMachineClusterInstancetype *v1alpha1.VirtualMachineClusterInstancetype, opts v1.CreateOptions) (result *v1alpha1.VirtualMachineClusterInstancetype, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterInstancetype{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(virtualmachineclusterinstancetypesResource, virtualMachineClusterInstancetype), &v1alpha1.VirtualMachineClusterInstancetype{})
+		Invokes(testing.NewRootCreateActionWithOptions(virtualmachineclusterinstancetypesResource, virtualMachineClusterInstancetype, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachineClusterInstancetype), err
 }
 
 // Update takes the representation of a virtualMachineClusterInstancetype and updates it. Returns the server's representation of the virtualMachineClusterInstancetype, and an error, if there is any.
 func (c *FakeVirtualMachineClusterInstancetypes) Update(ctx context.Context, virtualMachineClusterInstancetype *v1alpha1.VirtualMachineClusterInstancetype, opts v1.UpdateOptions) (result *v1alpha1.VirtualMachineClusterInstancetype, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterInstancetype{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(virtualmachineclusterinstancetypesResource, virtualMachineClusterInstancetype), &v1alpha1.VirtualMachineClusterInstancetype{})
+		Invokes(testing.NewRootUpdateActionWithOptions(virtualmachineclusterinstancetypesResource, virtualMachineClusterInstancetype, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachineClusterInstancetype), err
 }
@@ -99,13 +102,13 @@ func (c *FakeVirtualMachineClusterInstancetypes) Update(ctx context.Context, vir
 // Delete takes name of the virtualMachineClusterInstancetype and deletes it. Returns an error if one occurs.
 func (c *FakeVirtualMachineClusterInstancetypes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(virtualmachineclusterinstancetypesResource, name), &v1alpha1.VirtualMachineClusterInstancetype{})
+		Invokes(testing.NewRootDeleteActionWithOptions(virtualmachineclusterinstancetypesResource, name, opts), &v1alpha1.VirtualMachineClusterInstancetype{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeVirtualMachineClusterInstancetypes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(virtualmachineclusterinstancetypesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(virtualmachineclusterinstancetypesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.VirtualMachineClusterInstancetypeList{})
 	return err
@@ -113,10 +116,11 @@ func (c *FakeVirtualMachineClusterInstancetypes) DeleteCollection(ctx context.Co
 
 // Patch applies the patch and returns the patched virtualMachineClusterInstancetype.
 func (c *FakeVirtualMachineClusterInstancetypes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachineClusterInstancetype, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterInstancetype{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(virtualmachineclusterinstancetypesResource, name, pt, data, subresources...), &v1alpha1.VirtualMachineClusterInstancetype{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(virtualmachineclusterinstancetypesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachineClusterInstancetype), err
 }

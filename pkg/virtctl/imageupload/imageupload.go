@@ -931,15 +931,14 @@ func (c *command) handleEventErrors(pvcName, dvName string) error {
 
 func (c *command) handleDataSource() error {
 	ds, err := c.client.CdiClient().CdiV1beta1().DataSources(c.namespace).Get(context.Background(), c.name, metav1.GetOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return err
+	if err == nil {
+		return c.updateExistingDataSource(ds)
 	}
 
-	if ds != nil {
-		err = c.updateExistingDataSource(ds)
-	} else {
-		err = c.createNewDataSource()
+	if k8serrors.IsNotFound(err) {
+		return c.createNewDataSource()
 	}
+
 	return err
 }
 

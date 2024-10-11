@@ -23,7 +23,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -35,26 +34,28 @@ type FakeVirtualMachineClusterPreferences struct {
 	Fake *FakeInstancetypeV1alpha1
 }
 
-var virtualmachineclusterpreferencesResource = schema.GroupVersionResource{Group: "instancetype.kubevirt.io", Version: "v1alpha1", Resource: "virtualmachineclusterpreferences"}
+var virtualmachineclusterpreferencesResource = v1alpha1.SchemeGroupVersion.WithResource("virtualmachineclusterpreferences")
 
-var virtualmachineclusterpreferencesKind = schema.GroupVersionKind{Group: "instancetype.kubevirt.io", Version: "v1alpha1", Kind: "VirtualMachineClusterPreference"}
+var virtualmachineclusterpreferencesKind = v1alpha1.SchemeGroupVersion.WithKind("VirtualMachineClusterPreference")
 
 // Get takes name of the virtualMachineClusterPreference, and returns the corresponding virtualMachineClusterPreference object, and an error if there is any.
 func (c *FakeVirtualMachineClusterPreferences) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.VirtualMachineClusterPreference, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterPreference{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(virtualmachineclusterpreferencesResource, name), &v1alpha1.VirtualMachineClusterPreference{})
+		Invokes(testing.NewRootGetActionWithOptions(virtualmachineclusterpreferencesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachineClusterPreference), err
 }
 
 // List takes label and field selectors, and returns the list of VirtualMachineClusterPreferences that match those selectors.
 func (c *FakeVirtualMachineClusterPreferences) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.VirtualMachineClusterPreferenceList, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterPreferenceList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(virtualmachineclusterpreferencesResource, virtualmachineclusterpreferencesKind, opts), &v1alpha1.VirtualMachineClusterPreferenceList{})
+		Invokes(testing.NewRootListActionWithOptions(virtualmachineclusterpreferencesResource, virtualmachineclusterpreferencesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -73,25 +74,27 @@ func (c *FakeVirtualMachineClusterPreferences) List(ctx context.Context, opts v1
 // Watch returns a watch.Interface that watches the requested virtualMachineClusterPreferences.
 func (c *FakeVirtualMachineClusterPreferences) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(virtualmachineclusterpreferencesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(virtualmachineclusterpreferencesResource, opts))
 }
 
 // Create takes the representation of a virtualMachineClusterPreference and creates it.  Returns the server's representation of the virtualMachineClusterPreference, and an error, if there is any.
 func (c *FakeVirtualMachineClusterPreferences) Create(ctx context.Context, virtualMachineClusterPreference *v1alpha1.VirtualMachineClusterPreference, opts v1.CreateOptions) (result *v1alpha1.VirtualMachineClusterPreference, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterPreference{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(virtualmachineclusterpreferencesResource, virtualMachineClusterPreference), &v1alpha1.VirtualMachineClusterPreference{})
+		Invokes(testing.NewRootCreateActionWithOptions(virtualmachineclusterpreferencesResource, virtualMachineClusterPreference, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachineClusterPreference), err
 }
 
 // Update takes the representation of a virtualMachineClusterPreference and updates it. Returns the server's representation of the virtualMachineClusterPreference, and an error, if there is any.
 func (c *FakeVirtualMachineClusterPreferences) Update(ctx context.Context, virtualMachineClusterPreference *v1alpha1.VirtualMachineClusterPreference, opts v1.UpdateOptions) (result *v1alpha1.VirtualMachineClusterPreference, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterPreference{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(virtualmachineclusterpreferencesResource, virtualMachineClusterPreference), &v1alpha1.VirtualMachineClusterPreference{})
+		Invokes(testing.NewRootUpdateActionWithOptions(virtualmachineclusterpreferencesResource, virtualMachineClusterPreference, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachineClusterPreference), err
 }
@@ -99,13 +102,13 @@ func (c *FakeVirtualMachineClusterPreferences) Update(ctx context.Context, virtu
 // Delete takes name of the virtualMachineClusterPreference and deletes it. Returns an error if one occurs.
 func (c *FakeVirtualMachineClusterPreferences) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(virtualmachineclusterpreferencesResource, name), &v1alpha1.VirtualMachineClusterPreference{})
+		Invokes(testing.NewRootDeleteActionWithOptions(virtualmachineclusterpreferencesResource, name, opts), &v1alpha1.VirtualMachineClusterPreference{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeVirtualMachineClusterPreferences) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(virtualmachineclusterpreferencesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(virtualmachineclusterpreferencesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.VirtualMachineClusterPreferenceList{})
 	return err
@@ -113,10 +116,11 @@ func (c *FakeVirtualMachineClusterPreferences) DeleteCollection(ctx context.Cont
 
 // Patch applies the patch and returns the patched virtualMachineClusterPreference.
 func (c *FakeVirtualMachineClusterPreferences) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachineClusterPreference, err error) {
+	emptyResult := &v1alpha1.VirtualMachineClusterPreference{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(virtualmachineclusterpreferencesResource, name, pt, data, subresources...), &v1alpha1.VirtualMachineClusterPreference{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(virtualmachineclusterpreferencesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachineClusterPreference), err
 }

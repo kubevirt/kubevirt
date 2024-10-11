@@ -50,9 +50,9 @@ type VirtualMachineExpansion interface {
 
 func (c *virtualMachines) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error) {
 	newVm := &v1.VirtualMachine{}
-	err := c.client.Get().
+	err := c.GetClient().Get().
 		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("expand-spec").
@@ -71,9 +71,9 @@ func (c *virtualMachines) Restart(ctx context.Context, name string, restartOptio
 	if err != nil {
 		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
-	return c.client.Put().
+	return c.GetClient().Put().
 		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("restart").
@@ -87,9 +87,9 @@ func (c *virtualMachines) Start(ctx context.Context, name string, startOptions *
 	if err != nil {
 		return err
 	}
-	return c.client.Put().
+	return c.GetClient().Put().
 		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("start").
@@ -103,9 +103,9 @@ func (c *virtualMachines) Stop(ctx context.Context, name string, stopOptions *v1
 	if err != nil {
 		return err
 	}
-	return c.client.Put().
+	return c.GetClient().Put().
 		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("stop").
@@ -119,9 +119,9 @@ func (c *virtualMachines) Migrate(ctx context.Context, name string, migrateOptio
 	if err != nil {
 		return err
 	}
-	return c.client.Put().
+	return c.GetClient().Put().
 		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("migrate").
@@ -136,9 +136,9 @@ func (c *virtualMachines) AddVolume(ctx context.Context, name string, addVolumeO
 		return err
 	}
 
-	return c.client.Put().
+	return c.GetClient().Put().
 		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("addvolume").
@@ -153,9 +153,9 @@ func (c *virtualMachines) RemoveVolume(ctx context.Context, name string, removeV
 		return err
 	}
 
-	return c.client.Put().
+	return c.GetClient().Put().
 		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("removevolume").
@@ -176,9 +176,9 @@ func (c *virtualMachines) MemoryDump(ctx context.Context, name string, memoryDum
 		return err
 	}
 
-	return c.client.Put().
+	return c.GetClient().Put().
 		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("memorydump").
@@ -188,9 +188,9 @@ func (c *virtualMachines) MemoryDump(ctx context.Context, name string, memoryDum
 }
 
 func (c *virtualMachines) RemoveMemoryDump(ctx context.Context, name string) error {
-	return c.client.Put().
+	return c.GetClient().Put().
 		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
-		Namespace(c.ns).
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("removememorydump").
