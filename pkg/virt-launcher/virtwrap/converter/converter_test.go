@@ -919,6 +919,22 @@ var _ = Describe("Converter", func() {
 			})
 		})
 
+		DescribeTable("CPU mpx feature", func(arch string, hasMPX bool) {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			c.Architecture = arch
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+			domain := vmiToDomain(vmi, c)
+			if hasMPX {
+				Expect(domain.Spec.CPU.Features).To(HaveExactElements(api.CPUFeature{Name: "mpx", Policy: "disable"}))
+			} else {
+				Expect(domain.Spec.CPU.Features).To(BeNil())
+			}
+		},
+			Entry("should be nil for s390x", "s390x", false),
+			Entry("should be present for amd64", "amd64", true),
+			Entry("should be present for arm64", "arm64", true),
+		)
+
 		Context("when downwardMetrics are exposed via virtio-serial", func() {
 			It("should set socket options", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
