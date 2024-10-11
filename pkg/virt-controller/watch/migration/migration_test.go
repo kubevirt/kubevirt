@@ -48,7 +48,7 @@ import (
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
-	fakenetworkclient "kubevirt.io/client-go/network-attachment-definition-client/fake"
+	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"

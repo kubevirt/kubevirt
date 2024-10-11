@@ -45,7 +45,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
-	fakenetworkclient "kubevirt.io/client-go/network-attachment-definition-client/fake"
+	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
