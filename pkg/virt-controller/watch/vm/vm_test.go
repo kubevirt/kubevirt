@@ -7238,7 +7238,7 @@ var _ = Describe("VirtualMachine", func() {
 							withVMICondVolumeMigInProgress(k8sv1.ConditionFalse, "")))),
 				), &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-				}, true,
+				}, false,
 			),
 			Entry("with volume migration in progress and vmi disappeared", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
