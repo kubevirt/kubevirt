@@ -39,11 +39,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -142,7 +142,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 			}
 			kvConfig := v1.KubeVirtConfiguration{ObsoleteCPUModels: map[string]bool{}}
 			// trigger reconciliation
-			tests.UpdateKubeVirtConfigValueAndWait(kvConfig)
+			config.UpdateKubeVirtConfigValueAndWait(kvConfig)
 
 			Eventually(func() bool {
 				nodesWithKVM = libnode.GetNodesWithKVM()
@@ -201,7 +201,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 		It("[test_id:6247] should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config", func() {
 			kvConfig := libkubevirt.GetCurrentKv(virtClient)
 			kvConfig.Spec.Configuration.ObsoleteCPUModels = nil
-			tests.UpdateKubeVirtConfigValueAndWait(kvConfig.Spec.Configuration)
+			config.UpdateKubeVirtConfigValueAndWait(kvConfig.Spec.Configuration)
 			node := nodesWithKVM[0]
 			Eventually(func() error {
 				node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
@@ -237,7 +237,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 		})
 
 		AfterEach(func() {
-			tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
+			config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 		})
 
 		It("[test_id:6249] should update node with new cpu model label set", func() {
@@ -255,7 +255,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 				}
 			}
 
-			tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 
 			labelKeyExpectedToBeMissing := v1.CPUModelLabel + obsoleteModel
 			expectNodeLabels(node.Name, func(m map[string]string) (valid bool, errorMsg string) {
@@ -297,7 +297,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 
 			kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
 			kvConfig.ObsoleteCPUModels = obsoleteModels
-			tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 
 			expectNodeLabels(node.Name, func(m map[string]string) (valid bool, errorMsg string) {
 				found := false
@@ -331,7 +331,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 				kvConfig.ObsoleteCPUModels = make(map[string]bool)
 			}
 			kvConfig.ObsoleteCPUModels[obsoleteModel] = true
-			tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 
 			Eventually(func() error {
 				node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
@@ -359,7 +359,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 
 		AfterEach(func() {
 			delete(kvConfig.ObsoleteCPUModels, obsoleteModel)
-			tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 
 			Eventually(func() error {
 				node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})

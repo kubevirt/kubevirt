@@ -9,7 +9,8 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  * See the License for the specific language governing permissions and
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  *
  * Copyright 2024 Red Hat, Inc.
@@ -23,24 +24,23 @@ import (
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/multus"
 )
 
-var _ = Describe("GetNamespaceAndNetworkName", func() {
+var _ = Describe("NetAttachDefNamespacedName", func() {
 	It("should return vmi namespace when namespace is implicit", func() {
 		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := multus.GetNamespaceAndNetworkName(vmi.Namespace, "testnet")
-		Expect(namespace).To(Equal("testns"))
-		Expect(networkName).To(Equal("testnet"))
+		nadNamespacedName := multus.NetAttachDefNamespacedName(vmi.Namespace, "testnet")
+		Expect(nadNamespacedName).To(Equal(types.NamespacedName{Namespace: "testns", Name: "testnet"}))
 	})
 
 	It("should return namespace from networkName when namespace is explicit", func() {
 		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := multus.GetNamespaceAndNetworkName(vmi.Namespace, "otherns/testnet")
-		Expect(namespace).To(Equal("otherns"))
-		Expect(networkName).To(Equal("testnet"))
+		nadNamespacedName := multus.NetAttachDefNamespacedName(vmi.Namespace, "otherns/testnet")
+		Expect(nadNamespacedName).To(Equal(types.NamespacedName{Namespace: "otherns", Name: "testnet"}))
 	})
 })

@@ -58,23 +58,24 @@ import (
 )
 
 const (
-	unmarshalRequestErrFmt       = "Can not unmarshal Request body to struct, error: %s"
-	vmNotRunning                 = "VM is not running"
-	patchingVMFmt                = "Patching VM: %s"
-	jsonpatchTestErr             = "jsonpatch test operation does not apply"
-	patchingVMStatusFmt          = "Patching VM status: %s"
-	vmiNotRunning                = "VMI is not running"
-	vmiNotPaused                 = "VMI is not paused"
-	vmiGuestAgentErr             = "VMI does not have guest agent connected"
-	vmiNoAttestationErr          = "Attestation not requested for VMI"
-	prepConnectionErrFmt         = "Cannot prepare connection %s"
-	getRequestErrFmt             = "Cannot GET request %s"
-	pvcVolumeModeErr             = "pvc should be filesystem pvc"
-	pvcAccessModeErr             = "pvc access mode can't be read only"
-	pvcSizeErrFmt                = "pvc size [%s] should be bigger then [%s]"
-	memoryDumpNameConflictErr    = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
-	featureGateDisabledErrFmt    = "'%s' feature gate is not enabled"
-	defaultProfilerComponentPort = 8443
+	unmarshalRequestErrFmt                   = "Can not unmarshal Request body to struct, error: %s"
+	vmNotRunning                             = "VM is not running"
+	patchingVMFmt                            = "Patching VM: %s"
+	jsonpatchTestErr                         = "jsonpatch test operation does not apply"
+	patchingVMStatusFmt                      = "Patching VM status: %s"
+	vmiNotRunning                            = "VMI is not running"
+	vmiNotPaused                             = "VMI is not paused"
+	vmiGuestAgentErr                         = "VMI does not have guest agent connected"
+	vmiNoAttestationErr                      = "Attestation not requested for VMI"
+	prepConnectionErrFmt                     = "Cannot prepare connection %s"
+	getRequestErrFmt                         = "Cannot GET request %s"
+	pvcVolumeModeErr                         = "pvc should be filesystem pvc"
+	pvcAccessModeErr                         = "pvc access mode can't be read only"
+	pvcSizeErrFmt                            = "pvc size [%s] should be bigger then [%s]"
+	memoryDumpNameConflictErr                = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
+	featureGateDisabledErrFmt                = "'%s' feature gate is not enabled"
+	defaultProfilerComponentPort             = 8443
+	volumeMigrationManualRecoveryRequiredErr = "VM recovery required: Volume migration failed, leaving some volumes pointing to non-consistent targets; manual intervention is needed to reassign them to their original volumes."
 )
 
 type SubresourceAPIApp struct {
@@ -353,6 +354,11 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		writeError(statusErr, response)
 		return
 	}
+	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,
+		v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange), v12.ConditionTrue) {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
+		return
+	}
 
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
@@ -470,6 +476,11 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 	if vmi != nil && !vmi.IsFinal() && vmi.Status.Phase != v1.Unknown && vmi.Status.Phase != v1.VmPhaseUnset {
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is already running")), response)
+		return
+	}
+	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,
+		v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange), v12.ConditionTrue) {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
 		return
 	}
 

@@ -43,6 +43,9 @@ container_image(
     entrypoint = ["/sidecar-shim"],
     files = [":sidecar-shim"],
     tars = select({
+        "@io_bazel_rules_go//go/platform:linux_s390x": [
+            "//rpm:sidecar-shim_s390x",
+        ],
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             "//rpm:sidecar-shim_aarch64",
         ],

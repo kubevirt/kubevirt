@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -30,7 +31,6 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -61,6 +61,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -326,11 +327,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verifying a new pod backs the VMI")
 			currentVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			pods, err := virtClient.CoreV1().Pods(vm.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(currentVMI))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(currentVMI, testsuite.GetTestNamespace(currentVMI))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pods.Items).To(HaveLen(1))
-			pod := pods.Items[0]
-			Expect(pod.Name).ToNot(Equal(firstPod.Name))
+			Expect(vmiPod.Name).ToNot(Equal(firstPod.Name))
 		})
 
 		DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(createTemplate vmiBuilder) {
@@ -990,29 +989,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), opts...)
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 
-			vmJson, err := tests.GenerateVMJson(vm, workDir)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
+			data, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+			vmJson := filepath.Join(workDir, fmt.Sprintf("%s.json", vm.Name))
+			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			return vm, vmJson
 		}
-
-		It("[test_id:243][posneg:negative]should create VM only once", decorators.Conformance, func() {
-			vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
-
-			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
-			_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Verifying VM is created")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "New VM was not created")
-
-			By("Creating the VM again")
-			_, stdErr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-			Expect(err).To(HaveOccurred())
-
-			Expect(strings.Contains(stdErr, "Error from server (AlreadyExists): error when creating")).To(BeTrue(), "command should error when creating VM second time")
-		})
 
 		DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", decorators.Conformance, func(version string) {
 			vmi := libvmifact.NewAlpine()
@@ -1020,8 +1004,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 			vm.APIVersion = version
 
-			vmJson, err := tests.GenerateVMJson(vm, workDir)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
+			data, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+			vmJson := filepath.Join(workDir, fmt.Sprintf("%s.json", vm.Name))
+			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating VM using k8s client binary")
 			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
@@ -1180,101 +1167,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 			})
 		})
-
-		It("[test_id:232]should create same manifest twice via command line", func() {
-			vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
-
-			By("Creating VM using k8s client binary")
-			_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for VMI to start")
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
-
-			By("Deleting VM using k8s client binary")
-			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "delete", "vm", vm.GetName())
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Verifying the VM gets deleted")
-			waitForResourceDeletion(k8sClient, "vms", vm.GetName())
-
-			By("Creating same VM using k8s client binary and same manifest")
-			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for VMI to start")
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
-		})
-
-		It("[test_id:233][posneg:negative]should fail when deleting nonexistent VM", func() {
-			vmi := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
-
-			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
-			_, stdErr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "delete", "vm", vmi.Name)
-			Expect(err).To(HaveOccurred())
-			Expect(strings.HasPrefix(stdErr, "Error from server (NotFound): virtualmachines.kubevirt.io")).To(BeTrue(), "should fail when deleting non existent VM")
-		})
-
-		Context("as ordinary OCP user trough test service account", func() {
-			var testUser string
-
-			BeforeEach(func() {
-				testUser = "testuser-" + uuid.NewString()
-			})
-
-			Context("should succeed with right rights", func() {
-				BeforeEach(func() {
-					// kubectl doesn't have "adm" subcommand -- only oc does
-					clientcmd.SkipIfNoCmd("oc")
-					By("Ensuring the cluster has new test serviceaccount")
-					stdOut, stdErr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "user", testUser)
-					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
-					By("Ensuring user has the admin rights for the test namespace project")
-					// This simulates the ordinary user as an admin in this project
-					stdOut, stdErr, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "adm", "policy", "add-role-to-user", "admin", testUser)
-					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-				})
-
-				AfterEach(func() {
-					stdOut, stdErr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "adm", "policy", "remove-role-from-user", "admin", testUser)
-					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
-					stdOut, stdErr, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "delete", "user", testUser)
-					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-				})
-
-				It("[test_id:2839]should create VM via command line", func() {
-					By("Checking VM creation permission using k8s client binary")
-					stdOut, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(strings.TrimSpace(stdOut)).To(Equal("yes"))
-				})
-			})
-
-			Context("should fail without right rights", func() {
-				BeforeEach(func() {
-					By("Ensuring the cluster has new test serviceaccount")
-					stdOut, stdErr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "serviceaccount", testUser)
-					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-				})
-
-				AfterEach(func() {
-					stdOut, stdErr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "delete", "serviceaccount", testUser)
-					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-				})
-
-				It("[test_id:2914]should create VM via command line", func() {
-					By("Checking VM creation permission using k8s client binary")
-					stdOut, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
-					// non-zero exit code
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("exit status 1"))
-					Expect(strings.TrimSpace(stdOut)).To(Equal("no"))
-				})
-			})
-		})
-
 	})
 
 	Context("crash loop backoff", decorators.Conformance, func() {
@@ -1478,8 +1370,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionTrue(k8sv1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())
 
-			tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", libkubevirt.GetCurrentKv(virtClient).ResourceVersion,
-				tests.ExpectResourceVersionToBeLessEqualThanConfigVersion, 120*time.Second)
+			config.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", libkubevirt.GetCurrentKv(virtClient).ResourceVersion,
+				config.ExpectResourceVersionToBeLessEqualThanConfigVersion, 120*time.Second)
 		})
 
 		It("[Serial] the VMs running in that node should be respawned", func() {

@@ -15,6 +15,7 @@ go_library(
         "volumeattachmentsource.go",
         "volumeattachmentspec.go",
         "volumeattachmentstatus.go",
+        "volumeattributesclass.go",
         "volumeerror.go",
         "volumenoderesources.go",
     ],

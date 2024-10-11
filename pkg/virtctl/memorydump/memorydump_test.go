@@ -362,20 +362,24 @@ var _ = Describe("MemoryDump", func() {
 				w.WriteHeader(http.StatusOK)
 			}))
 
-			vmexport.ExportProcessingComplete = utils.WaitExportCompleteDefault
-			vmexport.SetHTTPClientCreator(func(*http.Transport, bool) *http.Client {
+			vmexport.WaitForVirtualMachineExportFn = func(_ kubecli.KubevirtClient, _ *vmexport.VMExportInfo, _, _ time.Duration) error {
+				return nil
+			}
+			vmexport.GetHTTPClientFn = func(*http.Transport, bool) *http.Client {
 				return server.Client()
-			})
-			vmexport.SetPortForwarder(func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error {
+			}
+			vmexport.RunPortForwardFn = func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error {
 				readyChan <- struct{}{}
 				portChan <- uint16(5432)
 				return nil
-			})
+			}
 		})
 
 		AfterEach(func() {
-			vmexport.SetDefaultPortForwarder()
-			vmexport.SetDefaultHTTPClientCreator()
+			vmexport.WaitForVirtualMachineExportFn = vmexport.WaitForVirtualMachineExport
+			vmexport.GetHTTPClientFn = vmexport.GetHTTPClient
+			vmexport.HandleHTTPGetRequestFn = vmexport.HandleHTTPGetRequest
+			vmexport.RunPortForwardFn = vmexport.RunPortForward
 		})
 
 		It("should get memory dump and call download memory dump", func() {
@@ -415,7 +419,7 @@ var _ = Describe("MemoryDump", func() {
 		})
 
 		It("should call download memory dump and decompress succesfully", func() {
-			vmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+			vmexport.HandleHTTPGetRequestFn = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
 				resp := http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewReader([]byte{
@@ -452,7 +456,7 @@ var _ = Describe("MemoryDump", func() {
 		})
 
 		DescribeTable("should call download memory dump with port-forward", func(commandAndArgs []string) {
-			vmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+			vmexport.HandleHTTPGetRequestFn = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(Equal("https://127.0.0.1:5432"))
 				resp := http.Response{
 					StatusCode: http.StatusOK,

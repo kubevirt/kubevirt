@@ -164,8 +164,6 @@ spec:
       binding:
         bindingKey:
           computeResourceOverhead:
-            claims:
-            - name: nameValue
             limits:
               limitsKey: "0"
             requests:
@@ -211,8 +209,6 @@ spec:
       version: versionValue
     supportContainerResources:
     - resources:
-        claims:
-        - name: nameValue
         limits:
           limitsKey: "0"
         requests:

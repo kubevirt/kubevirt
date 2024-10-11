@@ -2137,7 +2137,7 @@ func (c *Controller) getVolumePhaseMessageReason(volume *virtv1.Volume, namespac
 func (c *Controller) updateMultusAnnotation(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
 	podAnnotations := pod.GetAnnotations()
 
-	indexedMultusStatusIfaces := network.NonDefaultMultusNetworksIndexedByIfaceName(pod)
+	indexedMultusStatusIfaces := multus.NonDefaultNetworkStatusIndexedByIfaceName(pod)
 	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, indexedMultusStatusIfaces)
 	multusAnnotations, err := multus.GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap, c.clusterConfig)
 	if err != nil {

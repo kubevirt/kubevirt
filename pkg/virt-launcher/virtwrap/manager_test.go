@@ -2930,7 +2930,7 @@ var _ = Describe("Manager helper functions", func() {
 		}
 
 		getFsImagePath := func(name string) string {
-			return hostdisk.GetMountedHostDiskDir(name)
+			return filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
 		}
 
 		getBlockPath := func(name string) string {

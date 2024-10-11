@@ -1201,22 +1201,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Invalid IOThreadsPolicy (%s)", ioThreadPolicy)))
 		})
 
-		It("should reject GPU devices when feature gate is disabled", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-				{
-					Name:       "gpu1",
-					DeviceName: "vendor.com/gpu_name",
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.GPUs"))
-		})
-
 		It("should reject multiple configurations of vGPU displays with ramfb", func() {
-			enableFeatureGate(virtconfig.GPUGate)
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 				{
@@ -1244,7 +1229,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.GPUs"))
 		})
 		It("should accept legacy GPU devices if PermittedHostDevices aren't set", func() {
-			enableFeatureGate(virtconfig.GPUGate)
 
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
@@ -1258,7 +1242,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should accept permitted GPU devices", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{

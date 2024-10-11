@@ -351,7 +351,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			SupportContainerResources: []v1.SupportContainerResources{
 				{
 					Type: v1.HotplugAttachment,
-					Resources: kubev1.ResourceRequirements{
+					Resources: v1.ResourceRequirementsWithoutClaims{
 						Requests: kubev1.ResourceList{},
 						Limits:   kubev1.ResourceList{},
 					},

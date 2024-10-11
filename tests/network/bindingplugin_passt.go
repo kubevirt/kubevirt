@@ -38,7 +38,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -58,7 +57,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 	var err error
 
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
 	})
 
 	BeforeEach(func() {
@@ -72,7 +71,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 			SidecarImage:                passtSidecarImage,
 			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
 			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
-			ComputeResourceOverhead: &k8sv1.ResourceRequirements{
+			ComputeResourceOverhead: &v1.ResourceRequirementsWithoutClaims{
 				Requests: map[k8sv1.ResourceName]resource.Quantity{
 					k8sv1.ResourceMemory: passtComputeMemoryOverheadWhenAllPortsAreForwarded,
 				},

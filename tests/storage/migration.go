@@ -49,7 +49,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -78,10 +77,10 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			[]string{virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration})
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
-		tests.WaitForConfigToBePropagatedToComponent(
+		config.WaitForConfigToBePropagatedToComponent(
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,
-			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 	})
 
@@ -363,6 +362,46 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			waitForMigrationToSucceed(vm.Name, ns)
 		})
 
+		It("should migrate the source volume from a block source and filesystem destination DVs", func() {
+			volName := "disk0"
+			sc, exist := libstorage.GetRWOBlockStorageClass()
+			Expect(exist).To(BeTrue())
+			srcDV := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(size),
+					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
+				srcDV, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			sc, exist = libstorage.GetRWOFileSystemStorageClass()
+			Expect(exist).To(BeTrue())
+			destDV := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(size),
+					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				),
+			)
+			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
+				destDV, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm := createVMWithDV(srcDV, volName)
+			By("Update volumes")
+			updateVMWithDV(vm, volName, destDV.Name)
+			Eventually(func() bool {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
+					metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
+				return claim == destDV.Name
+			}, 120*time.Second, time.Second).Should(BeTrue())
+			waitForMigrationToSucceed(vm.Name, ns)
+		})
+
 		It("should migrate a PVC with a VM using a containerdisk", func() {
 			volName := "volume"
 			srcPVC := "src-" + rand.String(5)
@@ -489,7 +528,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			)
 		})
 
-		It("should mark the volume migration as failed if the VM is shutdown", func() {
+		It("should refuse to restart the VM and set the ManualRecoveryRequired at VM shutdown", func() {
 			volName := "volume"
 			dv := createDV()
 			vm := createVMWithDV(dv, volName)
@@ -499,11 +538,48 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(vm.Name, ns)
 			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
+
+			By("Restarting the VM during the volume migration")
+			restartOptions := &virtv1.RestartOptions{GracePeriodSeconds: pointer.P(int64(0))}
+			err := virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, restartOptions)
+			Expect(err).To(MatchError(ContainSubstring("VM recovery required")))
+
 			By("Stopping the VM during the volume migration")
 			stopOptions := &virtv1.StopOptions{GracePeriod: pointer.P(int64(0))}
-			err := virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOptions)
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOptions)
 			Expect(err).ToNot(HaveOccurred())
 			checkVolumeMigrationOnVM(vm, volName, dv.Name, destPVC)
+
+			By("Starting the VM after a failed volume migration")
+			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Start(context.Background(), vm.Name, &virtv1.StartOptions{Paused: false})
+			Expect(err).To(MatchError(ContainSubstring("VM recovery required")))
+
+			By("Reverting the original volumes")
+			updatedVolume := virtv1.Volume{
+				Name: volName,
+				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
+					Name: dv.Name,
+				}}}
+			p, err := patch.New(
+				patch.WithReplace(fmt.Sprintf("/spec/template/spec/volumes/0"), updatedVolume),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() *bool {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if vm.Status.VolumeUpdateState == nil ||
+					vm.Status.VolumeUpdateState.VolumeMigrationState == nil {
+					return nil
+				}
+				return vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired
+			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeNil())
+
+			By("Starting the VM after the volume set correction")
+			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Start(context.Background(), vm.Name, &virtv1.StartOptions{Paused: false})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(matcher.BeRunning())
 		})
 
 		It("should cancel the migration and clear the volume migration state", func() {
@@ -556,13 +632,13 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Expect(err).ToNot(HaveOccurred())
 			fgDisabled = !checks.HasFeature(virtconfig.HotplugVolumesGate)
 			if fgDisabled {
-				tests.EnableFeatureGate(virtconfig.HotplugVolumesGate)
+				config.EnableFeatureGate(virtconfig.HotplugVolumesGate)
 			}
 
 		})
 		AfterEach(func() {
 			if fgDisabled {
-				tests.DisableFeatureGate(virtconfig.HotplugVolumesGate)
+				config.DisableFeatureGate(virtconfig.HotplugVolumesGate)
 			}
 		})
 

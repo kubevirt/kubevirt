@@ -26,37 +26,6 @@ type Validator struct {
 	topLevelKeys  map[string]interface{}
 }
 
-func addInfoToSwaggerObject(swo *spec.Swagger) {
-	swo.Info = &spec.Info{
-		InfoProps: spec.InfoProps{
-			Title:       "KubeVirt API",
-			Description: "This is KubeVirt API an add-on for Kubernetes.",
-			Contact: &spec.ContactInfo{
-				Name:  "kubevirt-dev",
-				Email: "kubevirt-dev@googlegroups.com",
-				URL:   "https://github.com/kubevirt/kubevirt",
-			},
-			License: &spec.License{
-				Name: "Apache 2.0",
-				URL:  "https://www.apache.org/licenses/LICENSE-2.0",
-			},
-		},
-	}
-	swo.SecurityDefinitions = spec.SecurityDefinitions{
-		"BearerToken": &spec.SecurityScheme{
-			SecuritySchemeProps: spec.SecuritySchemeProps{
-				Type:        "apiKey",
-				Name:        "authorization",
-				In:          "header",
-				Description: "Bearer Token authentication",
-			},
-		},
-	}
-	swo.Swagger = "2.0"
-	swo.Security = make([]map[string][]string, 1)
-	swo.Security[0] = map[string][]string{"BearerToken": {}}
-}
-
 func CreateConfig() *common.Config {
 	return &common.Config{
 		CommonResponses: map[int]spec.Response{

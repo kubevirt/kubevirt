@@ -1,7 +1,3 @@
-API rule violation: list_type_missing,k8s.io/api/core/v1,RangeAllocation,Data
-API rule violation: list_type_missing,k8s.io/apimachinery/pkg/apis/meta/v1,FieldsV1,Raw
-API rule violation: list_type_missing,k8s.io/apimachinery/pkg/runtime,RawExtension,Raw
-API rule violation: list_type_missing,k8s.io/apimachinery/pkg/runtime,Unknown,Raw
 API rule violation: list_type_missing,kubevirt.io/api/clone/v1alpha1,VirtualMachineCloneList,Items
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,CPU,Features
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,DHCPOptions,NTPServers

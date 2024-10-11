@@ -45,7 +45,6 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -470,7 +469,7 @@ var istioTestsWithMasqueradeBinding = func() {
 
 var istioTestsWithPasstBinding = func() {
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
 	})
 
 	BeforeEach(func() {

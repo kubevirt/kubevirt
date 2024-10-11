@@ -253,8 +253,12 @@ If you would like to run specific functional tests only, you can leverage `ginkg
 command line options as follows (run a specified suite):
 
 ```
-    FUNC_TEST_ARGS='-focus-file=vmi_networking_test' make functest
+    FUNC_TEST_ARGS='--focus-file=vmi_networking' make functest
 ```
+
+> [!NOTE]
+> Ginkgo's [Location-Based Filtering](https://onsi.github.io/ginkgo/#location-based-filtering) and [Description-Based Filtering](https://onsi.github.io/ginkgo/#description-based-filtering) documentation 
+> describe additional helpful options for focused execution that do not require recompilation.
 
 In addition, if you want to run a specific test or tests you can prepend any `Describe`,
 `Context` and `It` statements of your test with an `F` and Ginkgo will only run items

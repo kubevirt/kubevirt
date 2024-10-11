@@ -38,7 +38,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -46,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -63,7 +63,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachine", func() {
 		Context("with ephemeral registry disk", func() {
-			It("[test_id:1463][Conformance] should success multiple times", func() {
+			It("[test_id:1463][Conformance] should success multiple times", decorators.Conformance, func() {
 				By("Creating the VirtualMachine")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -100,7 +100,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				kv.Spec.Configuration.DeveloperConfiguration.DiskVerification = &v1.DiskVerification{
 					MemoryLimit: resource.NewScaledQuantity(42, resource.Kilo),
 				}
-				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Starting the VirtualMachineInstance")
 				vmi := libvmifact.NewCirros()
@@ -207,6 +207,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 	Describe("Bogus container disk path", func() {
 		Context("that points to outside of the volume", func() {
+			//TODO this could be unit test
 			It("should be rejected on VMI creation", func() {
 				vmi := libvmifact.NewAlpine()
 				vmi.Spec.Volumes[0].ContainerDisk.Path = "../test"

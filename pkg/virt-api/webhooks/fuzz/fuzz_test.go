@@ -172,7 +172,6 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 				deprecation.CPUNodeDiscoveryGate,
 				virtconfig.HypervStrictCheckGate,
 				virtconfig.SidecarGate,
-				virtconfig.GPUGate,
 				virtconfig.HostDevicesGate,
 				virtconfig.SnapshotGate,
 				virtconfig.VMExportGate,
@@ -186,7 +185,7 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 				virtconfig.Root,
 				virtconfig.ClusterProfiler,
 				virtconfig.WorkloadEncryptionSEV,
-				virtconfig.DockerSELinuxMCSWorkaround,
+				deprecation.DockerSELinuxMCSWorkaround,
 				deprecation.PSA,
 				virtconfig.VSOCKGate,
 			}

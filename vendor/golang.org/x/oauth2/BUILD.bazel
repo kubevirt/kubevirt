@@ -3,7 +3,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "deviceauth.go",
         "oauth2.go",
+        "pkce.go",
         "token.go",
         "transport.go",
     ],

@@ -26,15 +26,17 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,10 +54,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/tests"
 )
 
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachineInstanceReplicaSet", decorators.SigCompute, func() {
@@ -384,11 +382,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmis.Items).ToNot(BeEmpty())
 
-		vmi := vmis.Items[0]
-		pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).List(context.Background(), tests.UnfinishedVMIPodSelector(&vmi))
+		vmi := &vmis.Items[0]
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(pods.Items).To(HaveLen(1))
-		pod := pods.Items[0]
 
 		By("Deleting one of the RS VMS pods")
 		err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).Delete(context.Background(), pod.Name, v12.DeleteOptions{})
@@ -431,10 +427,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}, 40*time.Second, time.Second).Should(Equal(2))
 
 		vmi := &vmis.Items[0]
-		pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(pods.Items).To(HaveLen(1))
-		pod := pods.Items[0]
 
 		By("Deleting one of the RS VMS pods, which will take some time to really stop the VMI")
 		err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).Delete(context.Background(), pod.Name, v12.DeleteOptions{})

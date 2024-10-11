@@ -140,8 +140,9 @@ func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMa
 		gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	}
 
-	objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(w.timeout+2) * time.Second)
-	if w.wp.FailOnWarnings == true {
+	const offset = 2
+	objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(w.timeout+offset) * time.Second)
+	if w.wp.FailOnWarnings {
 		// let's ignore PSA events as kubernetes internally uses a namespace informer
 		// that might not be up to date after virt-controller relabeled the namespace
 		// to use a 'privileged' policy
@@ -161,13 +162,20 @@ func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMa
 		retrievedVMI, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		g.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 
-		g.Expect(retrievedVMI).ToNot(matcher.HaveSucceeded(), "VMI %s unexpectedly stopped. State: %s", retrievedVMI.Name, retrievedVMI.Status.Phase)
+		g.Expect(retrievedVMI).ToNot(matcher.HaveSucceeded(),
+			"VMI %s unexpectedly stopped. State: %s",
+			retrievedVMI.Name,
+			retrievedVMI.Status.Phase)
 		// May need to wait for Failed state
 		if !w.waitForFail {
-			g.Expect(retrievedVMI).ToNot(matcher.BeInPhase(v1.Failed), "VMI %s unexpectedly stopped. State: %s", retrievedVMI.Name, retrievedVMI.Status.Phase)
+			g.Expect(retrievedVMI).ToNot(matcher.BeInPhase(v1.Failed),
+				"VMI %s unexpectedly stopped. State: %s",
+				retrievedVMI.Name,
+				retrievedVMI.Status.Phase)
 		}
 		return retrievedVMI.Status.Phase
-	}, time.Duration(w.timeout)*time.Second, 1*time.Second).Should(gomega.BeElementOf(w.phases), fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, w.phases))
+	}, time.Duration(w.timeout)*time.Second, 1*time.Second).Should(gomega.BeElementOf(w.phases),
+		fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, w.phases))
 
 	return retrievedVMI
 }
@@ -204,7 +212,10 @@ func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance,
 	gomega.EventuallyWithOffset(1, func() error {
 		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		return err
-	}, seconds, 1*time.Second).Should(gomega.SatisfyAll(gomega.HaveOccurred(), gomega.WithTransform(errors.IsNotFound, gomega.BeTrue())), "The VMI should be gone within the given timeout")
+	}, seconds, 1*time.Second).Should(gomega.SatisfyAll(
+		gomega.HaveOccurred(),
+		gomega.WithTransform(errors.IsNotFound, gomega.BeTrue())),
+		"The VMI should be gone within the given timeout")
 }
 
 // WaitForMigrationToDisappearWithTimeout blocks for the passed seconds until the specified VirtualMachineInstanceMigration disappears
@@ -214,5 +225,7 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 	gomega.EventuallyWithOffset(1, func() error {
 		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 		return err
-	}, seconds, 1*time.Second).Should(gomega.MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), fmt.Sprintf("migration %s was expected to disappear after %d seconds, but it did not", migration.Name, seconds))
+	}, seconds, 1*time.Second).Should(gomega.MatchError(errors.IsNotFound, "k8serrors.IsNotFound"),
+		fmt.Sprintf("migration %s was expected to disappear after %d seconds, but it did not",
+			migration.Name, seconds))
 }

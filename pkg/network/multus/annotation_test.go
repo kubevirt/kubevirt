@@ -38,9 +38,11 @@ var _ = Describe("Multus annotations", func() {
 			It("should fail if the specified network binding plugin is not registered (specified in Kubevirt config)", func() {
 				vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"}}
 				vmi.Spec.Networks = []v1.Network{
-					{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+					{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}}}
+					{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}},
+				}
 
 				config := testsClusterConfig(map[string]v1.InterfaceBindingPlugin{
 					"another-test-binding": {NetworkAttachmentDefinition: "another-test-binding-net"},
@@ -60,7 +62,9 @@ var _ = Describe("Multus annotations", func() {
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}},
-					{Name: "blue"}, {Name: "red"}}
+					{Name: "blue"},
+					{Name: "red"},
+				}
 
 				config := testsClusterConfig(map[string]v1.InterfaceBindingPlugin{
 					"test-binding": {NetworkAttachmentDefinition: "test-binding-net"},
@@ -80,13 +84,16 @@ var _ = Describe("Multus annotations", func() {
 					vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"}}
 					vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 					vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-						{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}}}
+						{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}},
+					}
 
 					config := testsClusterConfig(map[string]v1.InterfaceBindingPlugin{
 						"test-binding": {NetworkAttachmentDefinition: netAttachDefRawName},
 					})
 
-					Expect(multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)).To(MatchJSON(expectedAnnot))
+					Expect(
+						multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config),
+					).To(MatchJSON(expectedAnnot))
 				},
 				Entry("name with no namespace", "my-binding",
 					`[{"namespace": "default", "name": "my-binding", "cni-args": {"logicNetworkName": "default"}}]`),

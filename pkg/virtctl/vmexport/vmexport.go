@@ -174,63 +174,22 @@ type command struct {
 	cmd          *cobra.Command
 }
 
-type exportFunc func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
+// WaitForVirtualMachineExportFn allows overriding the function to wait for the export object to be ready (useful for unit testing)
+var WaitForVirtualMachineExportFn = WaitForVirtualMachineExport
 
-type HTTPClientCreator func(*http.Transport, bool) *http.Client
+// GetHTTPClientFn allows overriding the default http client (useful for unit testing)
+var GetHTTPClientFn = GetHTTPClient
 
-type PortForwardFunc func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error
+// HandleHTTPGetRequestFn allows overriding the default http GET request handler (useful for unit testing)
+var HandleHTTPGetRequestFn = HandleHTTPGetRequest
 
-type exportCompleteFunc func(kubecli.KubevirtClient, *VMExportInfo, time.Duration, time.Duration) error
+// RunPortForwardFn allows overriding the default port-forwarder (useful for unit testing)
+var RunPortForwardFn = RunPortForward
 
-type printToOutputFunc func(string, ...interface{}) (n int, err error)
+var exportFunction func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
 
-// ExportProcessingComplete is used to store the function to wait for the export object to be ready.
-// Useful for unit tests.
-var ExportProcessingComplete exportCompleteFunc = waitForVirtualMachineExport
-
-var exportFunction exportFunc
-
-var httpClientCreatorFunc HTTPClientCreator
-
-var startPortForward PortForwardFunc
-
-var printToOutput printToOutputFunc
-
-// SetHTTPClientCreator allows overriding the default http client (useful for unit testing)
-func SetHTTPClientCreator(f HTTPClientCreator) {
-	httpClientCreatorFunc = f
-}
-
-// SetDefaultHTTPClientCreator sets the http client creator back to default
-func SetDefaultHTTPClientCreator() {
-	httpClientCreatorFunc = getHTTPClient
-}
-
-// SetPortForwarder allows overriding the default port-forwarder (useful for unit testing)
-func SetPortForwarder(f PortForwardFunc) {
-	startPortForward = f
-}
-
-// SetDefaultPortForwarder sets the port forwarder back to default
-func SetDefaultPortForwarder() {
-	startPortForward = runPortForward
-}
-
-// SetPrintToOutput allows overriding the default printer
-func setPrintToOutput(f printToOutputFunc) {
-	printToOutput = f
-}
-
-// SetDefaultOutputPrinter sets the printer back to default
-func SetDefaultOutputPrinter() {
-	printToOutput = fmt.Printf
-}
-
-func init() {
-	SetDefaultHTTPClientCreator()
-	SetDefaultPortForwarder()
-	SetDefaultOutputPrinter()
-}
+// TODO Should use cmd.Printf and cmd.SetOut
+var printToOutput = fmt.Printf
 
 // usage provides several valid usage examples of vmexport
 func usage() string {
@@ -385,9 +344,9 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 		vmeInfo.OutputFile = ""
 		// Setting standard printer to output into stderr. We can then output
 		// the volume into stdout without any interfering prints.
-		setPrintToOutput(func(format string, a ...interface{}) (int, error) {
+		printToOutput = func(format string, a ...interface{}) (int, error) {
 			return fmt.Fprintf(os.Stderr, format, a...)
-		})
+		}
 	}
 	// If raw format is specified, we'll attempt to download and decompress a gzipped volume
 	if format == RAW_FORMAT {
@@ -533,7 +492,7 @@ func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 	}
 
 	// Wait for the vmexport object to be ready
-	if err := ExportProcessingComplete(client, vmeInfo, processingWaitInterval, processingWaitTotal); err != nil {
+	if err := WaitForVirtualMachineExportFn(client, vmeInfo, processingWaitInterval, processingWaitTotal); err != nil {
 		return false, err
 	}
 
@@ -555,7 +514,7 @@ func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 }
 
 func printRequestBody(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo, manifestUrl string, headers map[string]string) (bool, error) {
-	resp, err := HandleHTTPRequest(client, vmexport, manifestUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, headers)
+	resp, err := HandleHTTPGetRequestFn(client, vmexport, manifestUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, headers)
 	if err != nil {
 		return false, err
 	}
@@ -602,7 +561,7 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 		return false, err
 	}
 
-	resp, err := HandleHTTPRequest(client, vmexport, downloadUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, nil)
+	resp, err := HandleHTTPGetRequestFn(client, vmexport, downloadUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, nil)
 	if err != nil {
 		return false, err
 	}
@@ -723,8 +682,8 @@ func GetManifestUrlsFromVirtualMachineExport(vmexport *exportv1.VirtualMachineEx
 	return res, nil
 }
 
-// waitForVirtualMachineExport waits for the VirtualMachineExport status and external links to be ready
-func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) error {
+// WaitForVirtualMachineExport waits for the VirtualMachineExport status and external links to be ready
+func WaitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) error {
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
 		if err != nil {
@@ -762,14 +721,8 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 	return err
 }
 
-// HandleHTTPRequestFunc function used to handle http requests
-type HandleHTTPRequestFunc func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error)
-
-// instance of function used to handle http requests
-var HandleHTTPRequest HandleHTTPRequestFunc = handleHTTPGetRequest
-
-// handleHTTPGetRequest generates the GET request with proper certificate handling
-func handleHTTPGetRequest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+// HandleHTTPGetRequest generates the GET request with proper certificate handling
+func HandleHTTPGetRequest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
 	token, err := getTokenFromSecret(client, vmexport)
 	if err != nil {
 		return nil, err
@@ -787,7 +740,7 @@ func handleHTTPGetRequest(client kubecli.KubevirtClient, vmexport *exportv1.Virt
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{RootCAs: roots},
 	}
-	httpClient := httpClientCreatorFunc(transport, insecure)
+	httpClient := GetHTTPClientFn(transport, insecure)
 
 	// Generate and do the request
 	req, _ := http.NewRequest("GET", downloadUrl, nil)
@@ -799,8 +752,8 @@ func handleHTTPGetRequest(client kubecli.KubevirtClient, vmexport *exportv1.Virt
 	return httpClient.Do(req)
 }
 
-// getHTTPClient assigns the default, non-mocked HTTP client
-func getHTTPClient(transport *http.Transport, insecure bool) *http.Client {
+// GetHTTPClient assigns the default, non-mocked HTTP client
+func GetHTTPClient(transport *http.Transport, insecure bool) *http.Client {
 	if insecure {
 		transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -1138,7 +1091,7 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	stopChan := make(chan struct{}, 1)
 	readyChan := make(chan struct{})
 	portChan := make(chan uint16)
-	go startPortForward(client, podList.Items[0], vmeInfo.Namespace, ports, stopChan, readyChan, portChan)
+	go RunPortForwardFn(client, podList.Items[0], vmeInfo.Namespace, ports, stopChan, readyChan, portChan)
 
 	// Wait for the port forwarding to be ready
 	select {
@@ -1157,8 +1110,8 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	return stopChan, nil
 }
 
-// runPortForward is the actual function that runs the port-forward. Meant to be run concurrently
-func runPortForward(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error {
+// RunPortForward is the actual function that runs the port-forward. Meant to be run concurrently
+func RunPortForward(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error {
 	// Create a port forwarding request
 	req := client.CoreV1().RESTClient().Post().
 		Resource("pods").

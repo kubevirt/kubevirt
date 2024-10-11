@@ -304,10 +304,12 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			Expect(agentVMI.Status.GuestOSInfo.Machine).ToNot(BeEmpty())
 			Expect(agentVMI.Status.GuestOSInfo.Name).ToNot(BeEmpty())
 			Expect(agentVMI.Status.GuestOSInfo.VersionID).ToNot(BeEmpty())
+			Expect(agentVMI.Status.Machine.Type).ToNot(BeEmpty())
 
 			labels := map[string]string{
 				"guest_os_kernel_release": agentVMI.Status.GuestOSInfo.KernelRelease,
-				"guest_os_machine":        agentVMI.Status.GuestOSInfo.Machine,
+				"guest_os_arch":           agentVMI.Status.GuestOSInfo.Machine,
+				"guest_os_machine":        agentVMI.Status.Machine.Type,
 				"guest_os_name":           agentVMI.Status.GuestOSInfo.Name,
 				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
 			}

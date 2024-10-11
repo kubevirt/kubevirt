@@ -149,12 +149,7 @@
               },
               "requests": {
                 "requestsKey": "0"
-              },
-              "claims": [
-                {
-                  "name": "nameValue"
-                }
-              ]
+              }
             }
           }
         }
@@ -204,12 +199,7 @@
             },
             "requests": {
               "requestsKey": "0"
-            },
-            "claims": [
-              {
-                "name": "nameValue"
-              }
-            ]
+            }
           }
         }
       ],

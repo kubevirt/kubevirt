@@ -908,7 +908,7 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 		if _, ok := blockSrcFsDstVols[name]; ok {
 			log.Log.V(2).Infof("Replace block source with destination for volume %s", name)
 			dom.Devices.Disks[i].Source.File = &libvirtxml.DomainDiskSourceFile{
-				File: hostdisk.GetMountedHostDiskDir(name),
+				File: filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img"),
 			}
 			dom.Devices.Disks[i].Source.Block = nil
 		}

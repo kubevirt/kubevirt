@@ -5,7 +5,7 @@ ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION=5.4.1
-ENV GIMME_GO_VERSION=1.22.6
+ENV GIMME_GO_VERSION=1.22.8
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
 ENV GOLANGCI_LINT_VERSION=v1.60.1
@@ -78,11 +78,11 @@ RUN set -x && \
     go install -v k8s.io/code-generator/cmd/conversion-gen@v0.20.2  && \
     go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.20.2 && \
     go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.20.2  && \
-    go install -v k8s.io/kube-openapi/cmd/openapi-gen@f5883ff && \
+    go install -v k8s.io/kube-openapi/cmd/openapi-gen@f7e401e && \
     go install -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
     go install -v k8s.io/code-generator/cmd/client-gen@v0.20.2 && \
     go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
-    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 && \
+    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.3 && \
     go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@e2be790 && \
     go clean -cache -modcache
 

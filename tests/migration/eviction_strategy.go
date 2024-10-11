@@ -38,13 +38,13 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -274,7 +274,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						drain := "kubevirt.io/drain"
 						cfg := getCurrentKvConfig(virtClient)
 						cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
-						tests.UpdateKubeVirtConfigValueAndWait(cfg)
+						config.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
 
 					controlPlaneNodes := libnode.GetControlPlaneNodes(virtClient)
@@ -349,7 +349,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					cfg := getCurrentKvConfig(virtClient)
 					drainKey := "kubevirt.io/alt-drain"
 					cfg.MigrationConfiguration.NodeDrainTaintKey = &drainKey
-					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+					config.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					By("Starting the VirtualMachineInstance")
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
@@ -554,11 +554,11 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			evictionStrategy := v1.EvictionStrategyLiveMigrate
 			kv.Spec.Configuration.EvictionStrategy = &evictionStrategy
-			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+			config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 		})
 
 		AfterEach(func() {
-			tests.UpdateKubeVirtConfigValueAndWait(originalKV.Spec.Configuration)
+			config.UpdateKubeVirtConfigValueAndWait(originalKV.Spec.Configuration)
 		})
 
 		Context("with a VMI running", func() {

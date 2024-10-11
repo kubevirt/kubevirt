@@ -44,7 +44,6 @@ import (
 	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -321,14 +320,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Expect(err).ToNot(HaveOccurred())
 			waitUntilVMIReady(vmi, console.LoginToAlpine)
 
-			By("Checking that the pod did not request a tun device")
-			virtClient := kubevirt.Client()
-
 			By("Looking up pod using VMI's label")
-			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pods.Items).NotTo(BeEmpty())
-			pod := pods.Items[0]
 
 			foundContainer := false
 			for _, container := range pod.Spec.Containers {

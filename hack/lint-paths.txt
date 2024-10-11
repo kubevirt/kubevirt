@@ -3,6 +3,7 @@ pkg/libvmi
 pkg/network/admitter
 pkg/network/deviceinfo
 pkg/network/domainspec
+pkg/network/multus
 pkg/network/namescheme
 pkg/network/pod/annotations
 pkg/network/vmicontroller
@@ -15,5 +16,9 @@ tests/libinstancetype
 tests/libnet
 tests/libnode
 tests/libpod
+tests/libregistry
 tests/libsecret
+tests/libssh
 tests/libvmifact
+tests/libwait
+tests/scale
