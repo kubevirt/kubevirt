@@ -41,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -844,7 +845,8 @@ var _ = Describe("Export controller", func() {
 			Expect(ok).To(BeTrue())
 			pod, ok := create.GetObject().(*k8sv1.Pod)
 			Expect(ok).To(BeTrue())
-			Expect(pod.GetName()).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
+			Expect(pod.GetName()).To(Equal(controller.getExportPodName(testVMExport)))
+			Expect(len(pod.GetName())).To(BeNumerically("<=", validation.DNS1035LabelMaxLength))
 			Expect(pod.GetNamespace()).To(Equal(testNamespace))
 			return true, pod, nil
 		})
@@ -865,7 +867,7 @@ var _ = Describe("Export controller", func() {
 		pod, err := controller.createExporterPod(testVMExport, service, []*k8sv1.PersistentVolumeClaim{testPVC})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pod).ToNot(BeNil())
-		Expect(pod.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
+		Expect(pod.Name).To(Equal(controller.getExportPodName(testVMExport)))
 		Expect(pod.Spec.Volumes).To(HaveLen(numberOfVolumes), "There should be 3/4 volumes, one pvc, and two secrets (token and certs) (and vm def manifest if VM)")
 		certSecretName := ""
 		for _, volume := range pod.Spec.Volumes {
@@ -926,6 +928,7 @@ var _ = Describe("Export controller", func() {
 		Expect(pod.Spec.Containers[0].ReadinessProbe.ProbeHandler.HTTPGet.Path).To(Equal(ReadinessPath))
 	},
 		Entry("PVC", createPVCVMExport, 3),
+		Entry("PVC, with long name export", createPVCVMExportLongName, 3),
 		Entry("VM", populateVmExportVM, 4),
 		Entry("Snapshot", populateVmExportVMSnapshot, 4),
 	)
@@ -1493,9 +1496,17 @@ func writeCertsToDir(dir string) {
 }
 
 func createPVCVMExport() *exportv1.VirtualMachineExport {
+	return createPVCVMExportWithName("test")
+}
+
+func createPVCVMExportLongName() *exportv1.VirtualMachineExport {
+	return createPVCVMExportWithName("test" + strings.Repeat("a", 63))
+}
+
+func createPVCVMExportWithName(name string) *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test",
+			Name:              name,
 			Namespace:         testNamespace,
 			CreationTimestamp: metav1.Now(),
 		},

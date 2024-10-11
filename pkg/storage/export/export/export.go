@@ -767,6 +767,17 @@ func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachi
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
+// getExportLabelValue will return the virtual machine's name if it is under the
+// DNS1035-specified max length, or a normalized name otherwise.
+func (ctrl *VMExportController) getExportLabelValue(vmExport *exportv1.VirtualMachineExport) string {
+	// Maintain backwards compatibility by using the export's name if it's under
+	// the max length.
+	if len(vmExport.Name) <= validation.DNS1035LabelMaxLength {
+		return vmExport.Name
+	}
+	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
+}
+
 func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport) (*corev1.Service, error) {
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportServiceName(vmExport))
 	if service, exists, err := ctrl.ServiceInformer.GetStore().GetByKey(key); err != nil {
@@ -812,7 +823,7 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 				},
 			},
 			Selector: map[string]string{
-				exportServiceLabel: vmExport.Name,
+				exportServiceLabel: ctrl.getExportLabelValue(vmExport),
 			},
 		},
 	}
@@ -870,7 +881,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 
 	deadline := certParams.Duration - certParams.RenewBefore
 	podManifest := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
-	podManifest.Labels = map[string]string{exportServiceLabel: vmExport.Name}
+	podManifest.Labels = map[string]string{exportServiceLabel: ctrl.getExportLabelValue(vmExport)}
 	podManifest.Annotations = map[string]string{annCertParams: scp}
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot:   pointer.Bool(true),
