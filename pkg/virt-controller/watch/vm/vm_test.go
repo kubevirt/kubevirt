@@ -7014,6 +7014,21 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		})
 
+		Context("startVMI", func() {
+			It("should not start the VMI if the VM has the ManualRecoveryRequiredCondition set", func() {
+				vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)), libvmistatus.WithVMStatus(libvmistatus.NewVMStatus(libvmistatus.WithVMCondition(v1.VirtualMachineCondition{
+					Type:   v1.VirtualMachineManualRecoveryRequired,
+					Status: k8sv1.ConditionTrue,
+				}))))
+				vmCopy, err := controller.startVMI(vm)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(vm).To(Equal(vmCopy))
+				vmiList, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmiList.Items).To(BeEmpty())
+			})
+		})
+
 	})
 	Context("syncConditions", func() {
 		var vm *v1.VirtualMachine

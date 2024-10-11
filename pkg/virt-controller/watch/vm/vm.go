@@ -84,14 +84,15 @@ type CloneAuthFunc func(dv *cdiv1.DataVolume, requestNamespace, requestName stri
 
 // Repeating info / error messages
 const (
-	stoppingVmMsg                         = "Stopping VM"
-	startingVmMsg                         = "Starting VM"
-	failedExtractVmkeyFromVmErrMsg        = "Failed to extract vmKey from VirtualMachine."
-	failedCreateCRforVmErrMsg             = "Failed to create controller revision for VirtualMachine."
-	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
-	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
-	failedMemoryDump                      = "Memory dump failed"
-	failedCleanupRestartRequired          = "Failed to delete RestartRequired condition or last-seen controller revisions"
+	stoppingVmMsg                             = "Stopping VM"
+	startingVmMsg                             = "Starting VM"
+	failedExtractVmkeyFromVmErrMsg            = "Failed to extract vmKey from VirtualMachine."
+	failedCreateCRforVmErrMsg                 = "Failed to create controller revision for VirtualMachine."
+	failedProcessDeleteNotificationErrMsg     = "Failed to process delete notification"
+	failureDeletingVmiErrFormat               = "Failure attempting to delete VMI: %v"
+	failedMemoryDump                          = "Memory dump failed"
+	failedCleanupRestartRequired              = "Failed to delete RestartRequired condition or last-seen controller revisions"
+	failedManualRecoveryRequiredCondSetErrMsg = "cannot start the VM since it has the manual recovery required condtion set"
 
 	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
 	// ServiceAccount doesn't have permission to create a DataVolume
@@ -1285,6 +1286,11 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	if !ready {
 		log.Log.Object(vm).V(4).Info("Waiting for DataVolumes to be created, delaying start")
+		return vm, nil
+	}
+
+	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineManualRecoveryRequired, k8score.ConditionTrue) {
+		log.Log.Object(vm).Reason(err).Error(failedManualRecoveryRequiredCondSetErrMsg)
 		return vm, nil
 	}
 
