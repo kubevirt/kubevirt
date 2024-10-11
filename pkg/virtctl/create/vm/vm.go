@@ -65,6 +65,7 @@ const (
 	PvcVolumeFlag           = "volume-pvc"
 	BlankVolumeFlag         = "volume-blank"
 	VolumeImportFlag        = "volume-import"
+	SysprepVolumeFlag       = "volume-sysprep"
 
 	UserFlag         = "user"
 	PasswordFileFlag = "password-file"
@@ -74,6 +75,10 @@ const (
 	CloudInitFlag            = "cloud-init"
 	CloudInitUserDataFlag    = "cloud-init-user-data"
 	CloudInitNetworkDataFlag = "cloud-init-network-data"
+
+	SysprepDisk      = "sysprepdisk"
+	SysprepConfigMap = "configMap"
+	SysprepSecret    = "secret"
 
 	CloudInitDisk        = "cloudinitdisk"
 	CloudInitNoCloud     = "noCloud"
@@ -115,6 +120,7 @@ type createVM struct {
 	pvcVolumes           []string
 	blankVolumes         []string
 	volumeImport         []string
+	sysprepVolume        string
 
 	user         string
 	passwordFile string
@@ -144,6 +150,7 @@ var optFns = map[string]func(*createVM, *v1.VirtualMachine) error{
 	PvcVolumeFlag:           withPvcVolume,
 	BlankVolumeFlag:         withBlankVolume,
 	VolumeImportFlag:        withImportedVolume,
+	SysprepVolumeFlag:       withSysprepVolume,
 }
 
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
@@ -159,6 +166,7 @@ var flags = []string{
 	PvcVolumeFlag,
 	BlankVolumeFlag,
 	VolumeImportFlag,
+	SysprepVolumeFlag,
 }
 
 var volumeImportOptions = map[string]func(string) (*cdiv1.DataVolumeSource, error){
@@ -229,6 +237,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		vddk, params.Supported(dataVolumeSourceVDDK{}),
 		snapshot, params.Supported(dataVolumeSourceSnapshot{}),
 	))
+	cmd.Flags().StringVar(&c.sysprepVolume, SysprepVolumeFlag, c.sysprepVolume, fmt.Sprintf("Specify a ConfigMap or Secret to be used as sysprep volume by the VM.\nSupported parameters: %s", params.Supported(sysprepVolumeSource{})))
 
 	cmd.Flags().StringVar(&c.user, UserFlag, c.user, "Specify the user in the cloud-init user data that is added to the VM.")
 	cmd.Flags().StringVar(&c.passwordFile, PasswordFileFlag, c.passwordFile, "Specify a file to read the password from for the cloud-init user data that is added to the VM.")
@@ -432,7 +441,10 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --user cloud-user --ssh-key="ssh-ed25519 AAAA...."
 
   # Create a manifest for a VirtualMachine with a generated cloud-init config setting the user and setting the password from a file
-  {{ProgramName}} create vm --user cloud-user --password-file=/path/to/file`
+  {{ProgramName}} create vm --user cloud-user --password-file=/path/to/file
+	
+  # Create a manifest for a VirtualMachine with a Containerdisk and a Sysprep volume (source ConfigMap needs to exist)
+  {{ProgramName}} create vm --memory=1Gi --volume-containerdisk=src:my.registry/my-image:my-tag --sysprep=src:my-cm`
 }
 
 func (c *createVM) newVM() (*v1.VirtualMachine, error) {
@@ -1029,6 +1041,60 @@ func withBlankVolume(c *createVM, vm *v1.VirtualMachine) error {
 			},
 		})
 	}
+
+	return nil
+}
+
+func withSysprepVolume(c *createVM, vm *v1.VirtualMachine) error {
+	vol := sysprepVolumeSource{}
+	if err := params.Map(SysprepVolumeFlag, c.sysprepVolume, &vol); err != nil {
+		return err
+	}
+
+	if vol.Source == "" {
+		return params.FlagErr(SysprepVolumeFlag, "src must be specified")
+	}
+
+	namespace, name, err := params.SplitPrefixedName(vol.Source)
+	if err != nil {
+		return params.FlagErr(SysprepVolumeFlag, "src invalid: %w", err)
+	}
+	if namespace != "" {
+		return params.FlagErr(SysprepVolumeFlag, "not allowed to specify namespace of ConfigMap or Secret '%s'", name)
+	}
+
+	if vol.Type == "" {
+		vol.Type = SysprepConfigMap
+	}
+
+	if err := volumeShouldNotExist(SysprepVolumeFlag, vm, SysprepDisk); err != nil {
+		return err
+	}
+
+	var src *v1.SysprepSource
+	switch vol.Type {
+	case SysprepConfigMap:
+		src = &v1.SysprepSource{
+			ConfigMap: &k8sv1.LocalObjectReference{
+				Name: vol.Source,
+			},
+		}
+	case SysprepSecret:
+		src = &v1.SysprepSource{
+			Secret: &k8sv1.LocalObjectReference{
+				Name: vol.Source,
+			},
+		}
+	default:
+		return params.FlagErr(SysprepVolumeFlag, "invalid source type \"%s\", supported values are: %s, %s", vol.Type, SysprepConfigMap, SysprepSecret)
+	}
+
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+		Name: SysprepDisk,
+		VolumeSource: v1.VolumeSource{
+			Sysprep: src,
+		},
+	})
 
 	return nil
 }
