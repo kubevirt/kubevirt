@@ -543,6 +543,13 @@ spec:
         value: valueValue
     replicas: 248
 status:
+  componentVersions:
+    virtApi:
+      virtApiKey: virtApiValue
+    virtController:
+      virtControllerKey: virtControllerValue
+    virtHandler:
+      virtHandlerKey: virtHandlerValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
     lastTransitionTime: "1982-01-01T01:01:01Z"

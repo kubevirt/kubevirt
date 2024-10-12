@@ -12923,6 +12923,37 @@
      }
     }
    },
+   "v1.ComponentVersions": {
+    "type": "object",
+    "required": [
+     "virtController",
+     "virtHandler",
+     "virtApi"
+    ],
+    "properties": {
+     "virtApi": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "virtController": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "virtHandler": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     }
+    }
+   },
    "v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation": {
     "type": "object"
    },
@@ -14698,6 +14729,10 @@
     "type": "object",
     "nullable": true,
     "properties": {
+     "componentVersions": {
+      "default": {},
+      "$ref": "#/definitions/v1.ComponentVersions"
+     },
      "conditions": {
       "type": "array",
       "items": {

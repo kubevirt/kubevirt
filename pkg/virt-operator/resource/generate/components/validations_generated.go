@@ -3766,6 +3766,25 @@ var CRDsValidation map[string]string = map[string]string{
       description: KubeVirtStatus represents information pertaining to a KubeVirt
         deployment.
       properties:
+        componentVersions:
+          properties:
+            virtApi:
+              additionalProperties:
+                type: string
+              type: object
+            virtController:
+              additionalProperties:
+                type: string
+              type: object
+            virtHandler:
+              additionalProperties:
+                type: string
+              type: object
+          required:
+          - virtApi
+          - virtController
+          - virtHandler
+          type: object
         conditions:
           items:
             description: KubeVirtCondition represents a condition of a KubeVirt deployment
