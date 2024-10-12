@@ -52,6 +52,12 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
+const (
+	virtApiComponentName        = "virt-api"
+	virtHandlerComponentName    = "virt-handler"
+	virtControllerComponentName = "virt-controller"
+)
+
 type compare func(string, string) bool
 
 func RegisterKubevirtConfigChange(change func(c v1.KubeVirtConfiguration) (*patch.PatchSet, error)) error {
@@ -152,9 +158,9 @@ func ExpectResourceVersionToBeLessEqualThanConfigVersion(resourceVersion, config
 }
 
 func waitForConfigToBePropagated(resourceVersion string) {
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
+	checkComponentVersions(virtHandlerComponentName, resourceVersion)
+	checkComponentVersions(virtControllerComponentName, resourceVersion)
+	checkComponentVersions(virtApiComponentName, resourceVersion)
 }
 
 func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare, duration time.Duration) {
@@ -192,6 +198,34 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 		}
 		return nil
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
+}
+
+func checkComponentVersions(componentName string, resourceVersion string) {
+	rv, err := strconv.ParseInt(resourceVersion, 10, 32)
+	Expect(err).ToNot(HaveOccurred())
+
+	virtClient := kubevirt.Client()
+
+	EventuallyWithOffset(3, func(g Gomega) {
+		kv := libkubevirt.GetCurrentKv(virtClient)
+		g.Expect(kv.Status.ComponentVersions).ToNot(BeNil())
+		var componentVersions map[string]string
+		switch componentName {
+		case virtHandlerComponentName:
+			componentVersions = kv.Status.ComponentVersions.VirtHandler
+		case virtControllerComponentName:
+			componentVersions = kv.Status.ComponentVersions.VirtController
+		case virtApiComponentName:
+			componentVersions = kv.Status.ComponentVersions.VirtApi
+		}
+		g.Expect(componentVersions).ToNot(BeNil())
+
+		for _, version := range componentVersions {
+			crv, err := strconv.ParseInt(version, 10, 32)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(crv).To(BeNumerically(">=", rv))
+		}
+	}, 60*time.Second, 1*time.Second).Should(Succeed())
 }
 
 func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
