@@ -34,7 +34,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = DescribeSerialInfra("Start a VirtualMachineInstance", func() {
@@ -51,13 +50,10 @@ var _ = DescribeSerialInfra("Start a VirtualMachineInstance", func() {
 			Eventually(libinfra.GetLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
 
 			By("Starting a new VirtualMachineInstance")
-			vmi := libvmifact.NewAlpine()
-			obj, err := virtClient.RestClient().Post().Resource(
-				"virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(), libvmifact.NewGuestless(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiObj, ok := obj.(*v1.VirtualMachineInstance)
-			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-			libwait.WaitForSuccessfulVMIStart(vmiObj)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 	})
 })
