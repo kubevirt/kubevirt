@@ -39,7 +39,7 @@ go_test(
         ":go_default_library",
         "//pkg/virtctl/utils:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
-        "//staging/src/kubevirt.io/client-go/containerized-data-importer/fake:go_default_library",
+        "//staging/src/kubevirt.io/client-go/containerizeddataimporter/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//tests/clientcmd:go_default_library",

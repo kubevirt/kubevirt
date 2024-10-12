@@ -28,11 +28,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/openshift/library-go/pkg/build/naming"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 	v1 "kubevirt.io/api/core/v1"
@@ -1104,7 +1106,9 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod {
 	exporterPod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", namePrefix, vmExport.Name),
+			// Use of DNS1035LabelMaxLength here to align with
+			// VMExportController{}.getExportPodName
+			Name:      naming.GetName(namePrefix, vmExport.Name, validation.DNS1035LabelMaxLength),
 			Namespace: vmExport.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
@@ -1121,7 +1125,7 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 			RestartPolicy: k8sv1.RestartPolicyNever,
 			Containers: []k8sv1.Container{
 				{
-					Name:            vmExport.Name,
+					Name:            naming.GetName(namePrefix, vmExport.Name, validation.DNS1035LabelMaxLength),
 					Image:           t.exporterImage,
 					ImagePullPolicy: t.clusterConfig.GetImagePullPolicy(),
 					Env: []k8sv1.EnvVar{

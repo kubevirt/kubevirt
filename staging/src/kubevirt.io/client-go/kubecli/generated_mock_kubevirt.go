@@ -72,8 +72,8 @@ import (
 	v1alpha19 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
 	rest "k8s.io/client-go/rest"
 	v121 "kubevirt.io/api/core/v1"
-	containerized_data_importer "kubevirt.io/client-go/containerized-data-importer"
-	external_snapshotter "kubevirt.io/client-go/external-snapshotter"
+	containerizeddataimporter "kubevirt.io/client-go/containerizeddataimporter"
+	externalsnapshotter "kubevirt.io/client-go/externalsnapshotter"
 	kubevirt "kubevirt.io/client-go/kubevirt"
 	v1alpha110 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
 	v122 "kubevirt.io/client-go/kubevirt/typed/core/v1"
@@ -82,8 +82,8 @@ import (
 	v1alpha111 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	v1alpha112 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
 	v1beta118 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
-	network_attachment_definition_client "kubevirt.io/client-go/network-attachment-definition-client"
-	prometheus_operator "kubevirt.io/client-go/prometheus-operator"
+	networkattachmentdefinitionclient "kubevirt.io/client-go/networkattachmentdefinitionclient"
+	prometheusoperator "kubevirt.io/client-go/prometheusoperator"
 	version "kubevirt.io/client-go/version"
 )
 
@@ -338,9 +338,9 @@ func (_mr *_MockKubevirtClientRecorder) GeneratedKubeVirtClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GeneratedKubeVirtClient")
 }
 
-func (_m *MockKubevirtClient) CdiClient() containerized_data_importer.Interface {
+func (_m *MockKubevirtClient) CdiClient() containerizeddataimporter.Interface {
 	ret := _m.ctrl.Call(_m, "CdiClient")
-	ret0, _ := ret[0].(containerized_data_importer.Interface)
+	ret0, _ := ret[0].(containerizeddataimporter.Interface)
 	return ret0
 }
 
@@ -348,9 +348,9 @@ func (_mr *_MockKubevirtClientRecorder) CdiClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CdiClient")
 }
 
-func (_m *MockKubevirtClient) NetworkClient() network_attachment_definition_client.Interface {
+func (_m *MockKubevirtClient) NetworkClient() networkattachmentdefinitionclient.Interface {
 	ret := _m.ctrl.Call(_m, "NetworkClient")
-	ret0, _ := ret[0].(network_attachment_definition_client.Interface)
+	ret0, _ := ret[0].(networkattachmentdefinitionclient.Interface)
 	return ret0
 }
 
@@ -398,9 +398,9 @@ func (_mr *_MockKubevirtClientRecorder) DiscoveryClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoveryClient")
 }
 
-func (_m *MockKubevirtClient) PrometheusClient() prometheus_operator.Interface {
+func (_m *MockKubevirtClient) PrometheusClient() prometheusoperator.Interface {
 	ret := _m.ctrl.Call(_m, "PrometheusClient")
-	ret0, _ := ret[0].(prometheus_operator.Interface)
+	ret0, _ := ret[0].(prometheusoperator.Interface)
 	return ret0
 }
 
@@ -408,9 +408,9 @@ func (_mr *_MockKubevirtClientRecorder) PrometheusClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrometheusClient")
 }
 
-func (_m *MockKubevirtClient) KubernetesSnapshotClient() external_snapshotter.Interface {
+func (_m *MockKubevirtClient) KubernetesSnapshotClient() externalsnapshotter.Interface {
 	ret := _m.ctrl.Call(_m, "KubernetesSnapshotClient")
-	ret0, _ := ret[0].(external_snapshotter.Interface)
+	ret0, _ := ret[0].(externalsnapshotter.Interface)
 	return ret0
 }
 

@@ -20,12 +20,11 @@ package v1alpha2
 
 import (
 	"context"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 	v1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
@@ -51,128 +50,18 @@ type VirtualMachineInstancetypeInterface interface {
 
 // virtualMachineInstancetypes implements VirtualMachineInstancetypeInterface
 type virtualMachineInstancetypes struct {
-	client rest.Interface
-	ns     string
+	*gentype.ClientWithList[*v1alpha2.VirtualMachineInstancetype, *v1alpha2.VirtualMachineInstancetypeList]
 }
 
 // newVirtualMachineInstancetypes returns a VirtualMachineInstancetypes
 func newVirtualMachineInstancetypes(c *InstancetypeV1alpha2Client, namespace string) *virtualMachineInstancetypes {
 	return &virtualMachineInstancetypes{
-		client: c.RESTClient(),
-		ns:     namespace,
+		gentype.NewClientWithList[*v1alpha2.VirtualMachineInstancetype, *v1alpha2.VirtualMachineInstancetypeList](
+			"virtualmachineinstancetypes",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			namespace,
+			func() *v1alpha2.VirtualMachineInstancetype { return &v1alpha2.VirtualMachineInstancetype{} },
+			func() *v1alpha2.VirtualMachineInstancetypeList { return &v1alpha2.VirtualMachineInstancetypeList{} }),
 	}
-}
-
-// Get takes name of the virtualMachineInstancetype, and returns the corresponding virtualMachineInstancetype object, and an error if there is any.
-func (c *virtualMachineInstancetypes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineInstancetype, err error) {
-	result = &v1alpha2.VirtualMachineInstancetype{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineinstancetypes").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineInstancetypes that match those selectors.
-func (c *virtualMachineInstancetypes) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualMachineInstancetypeList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha2.VirtualMachineInstancetypeList{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineinstancetypes").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineInstancetypes.
-func (c *virtualMachineInstancetypes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineinstancetypes").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a virtualMachineInstancetype and creates it.  Returns the server's representation of the virtualMachineInstancetype, and an error, if there is any.
-func (c *virtualMachineInstancetypes) Create(ctx context.Context, virtualMachineInstancetype *v1alpha2.VirtualMachineInstancetype, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineInstancetype, err error) {
-	result = &v1alpha2.VirtualMachineInstancetype{}
-	err = c.client.Post().
-		Namespace(c.ns).
-		Resource("virtualmachineinstancetypes").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineInstancetype).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a virtualMachineInstancetype and updates it. Returns the server's representation of the virtualMachineInstancetype, and an error, if there is any.
-func (c *virtualMachineInstancetypes) Update(ctx context.Context, virtualMachineInstancetype *v1alpha2.VirtualMachineInstancetype, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineInstancetype, err error) {
-	result = &v1alpha2.VirtualMachineInstancetype{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("virtualmachineinstancetypes").
-		Name(virtualMachineInstancetype.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineInstancetype).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the virtualMachineInstancetype and deletes it. Returns an error if one occurs.
-func (c *virtualMachineInstancetypes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("virtualmachineinstancetypes").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *virtualMachineInstancetypes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("virtualmachineinstancetypes").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched virtualMachineInstancetype.
-func (c *virtualMachineInstancetypes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineInstancetype, err error) {
-	result = &v1alpha2.VirtualMachineInstancetype{}
-	err = c.client.Patch(pt).
-		Namespace(c.ns).
-		Resource("virtualmachineinstancetypes").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

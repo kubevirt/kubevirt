@@ -21,13 +21,12 @@ package fake
 import (
 	"context"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
-	corev1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 // FakeVirtualMachineInstancePresets implements VirtualMachineInstancePresetInterface
@@ -36,36 +35,38 @@ type FakeVirtualMachineInstancePresets struct {
 	ns   string
 }
 
-var virtualmachineinstancepresetsResource = schema.GroupVersionResource{Group: "kubevirt.io", Version: "v1", Resource: "virtualmachineinstancepresets"}
+var virtualmachineinstancepresetsResource = v1.SchemeGroupVersion.WithResource("virtualmachineinstancepresets")
 
-var virtualmachineinstancepresetsKind = schema.GroupVersionKind{Group: "kubevirt.io", Version: "v1", Kind: "VirtualMachineInstancePreset"}
+var virtualmachineinstancepresetsKind = v1.SchemeGroupVersion.WithKind("VirtualMachineInstancePreset")
 
 // Get takes name of the virtualMachineInstancePreset, and returns the corresponding virtualMachineInstancePreset object, and an error if there is any.
-func (c *FakeVirtualMachineInstancePresets) Get(ctx context.Context, name string, options v1.GetOptions) (result *corev1.VirtualMachineInstancePreset, err error) {
+func (c *FakeVirtualMachineInstancePresets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.VirtualMachineInstancePreset, err error) {
+	emptyResult := &v1.VirtualMachineInstancePreset{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(virtualmachineinstancepresetsResource, c.ns, name), &corev1.VirtualMachineInstancePreset{})
+		Invokes(testing.NewGetActionWithOptions(virtualmachineinstancepresetsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
-	return obj.(*corev1.VirtualMachineInstancePreset), err
+	return obj.(*v1.VirtualMachineInstancePreset), err
 }
 
 // List takes label and field selectors, and returns the list of VirtualMachineInstancePresets that match those selectors.
-func (c *FakeVirtualMachineInstancePresets) List(ctx context.Context, opts v1.ListOptions) (result *corev1.VirtualMachineInstancePresetList, err error) {
+func (c *FakeVirtualMachineInstancePresets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.VirtualMachineInstancePresetList, err error) {
+	emptyResult := &v1.VirtualMachineInstancePresetList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(virtualmachineinstancepresetsResource, virtualmachineinstancepresetsKind, c.ns, opts), &corev1.VirtualMachineInstancePresetList{})
+		Invokes(testing.NewListActionWithOptions(virtualmachineinstancepresetsResource, virtualmachineinstancepresetsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &corev1.VirtualMachineInstancePresetList{ListMeta: obj.(*corev1.VirtualMachineInstancePresetList).ListMeta}
-	for _, item := range obj.(*corev1.VirtualMachineInstancePresetList).Items {
+	list := &v1.VirtualMachineInstancePresetList{ListMeta: obj.(*v1.VirtualMachineInstancePresetList).ListMeta}
+	for _, item := range obj.(*v1.VirtualMachineInstancePresetList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -74,57 +75,60 @@ func (c *FakeVirtualMachineInstancePresets) List(ctx context.Context, opts v1.Li
 }
 
 // Watch returns a watch.Interface that watches the requested virtualMachineInstancePresets.
-func (c *FakeVirtualMachineInstancePresets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeVirtualMachineInstancePresets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(virtualmachineinstancepresetsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(virtualmachineinstancepresetsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a virtualMachineInstancePreset and creates it.  Returns the server's representation of the virtualMachineInstancePreset, and an error, if there is any.
-func (c *FakeVirtualMachineInstancePresets) Create(ctx context.Context, virtualMachineInstancePreset *corev1.VirtualMachineInstancePreset, opts v1.CreateOptions) (result *corev1.VirtualMachineInstancePreset, err error) {
+func (c *FakeVirtualMachineInstancePresets) Create(ctx context.Context, virtualMachineInstancePreset *v1.VirtualMachineInstancePreset, opts metav1.CreateOptions) (result *v1.VirtualMachineInstancePreset, err error) {
+	emptyResult := &v1.VirtualMachineInstancePreset{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(virtualmachineinstancepresetsResource, c.ns, virtualMachineInstancePreset), &corev1.VirtualMachineInstancePreset{})
+		Invokes(testing.NewCreateActionWithOptions(virtualmachineinstancepresetsResource, c.ns, virtualMachineInstancePreset, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
-	return obj.(*corev1.VirtualMachineInstancePreset), err
+	return obj.(*v1.VirtualMachineInstancePreset), err
 }
 
 // Update takes the representation of a virtualMachineInstancePreset and updates it. Returns the server's representation of the virtualMachineInstancePreset, and an error, if there is any.
-func (c *FakeVirtualMachineInstancePresets) Update(ctx context.Context, virtualMachineInstancePreset *corev1.VirtualMachineInstancePreset, opts v1.UpdateOptions) (result *corev1.VirtualMachineInstancePreset, err error) {
+func (c *FakeVirtualMachineInstancePresets) Update(ctx context.Context, virtualMachineInstancePreset *v1.VirtualMachineInstancePreset, opts metav1.UpdateOptions) (result *v1.VirtualMachineInstancePreset, err error) {
+	emptyResult := &v1.VirtualMachineInstancePreset{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(virtualmachineinstancepresetsResource, c.ns, virtualMachineInstancePreset), &corev1.VirtualMachineInstancePreset{})
+		Invokes(testing.NewUpdateActionWithOptions(virtualmachineinstancepresetsResource, c.ns, virtualMachineInstancePreset, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
-	return obj.(*corev1.VirtualMachineInstancePreset), err
+	return obj.(*v1.VirtualMachineInstancePreset), err
 }
 
 // Delete takes name of the virtualMachineInstancePreset and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachineInstancePresets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakeVirtualMachineInstancePresets) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(virtualmachineinstancepresetsResource, c.ns, name), &corev1.VirtualMachineInstancePreset{})
+		Invokes(testing.NewDeleteActionWithOptions(virtualmachineinstancepresetsResource, c.ns, name, opts), &v1.VirtualMachineInstancePreset{})
 
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachineInstancePresets) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualmachineinstancepresetsResource, c.ns, listOpts)
+func (c *FakeVirtualMachineInstancePresets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	action := testing.NewDeleteCollectionActionWithOptions(virtualmachineinstancepresetsResource, c.ns, opts, listOpts)
 
-	_, err := c.Fake.Invokes(action, &corev1.VirtualMachineInstancePresetList{})
+	_, err := c.Fake.Invokes(action, &v1.VirtualMachineInstancePresetList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched virtualMachineInstancePreset.
-func (c *FakeVirtualMachineInstancePresets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1.VirtualMachineInstancePreset, err error) {
+func (c *FakeVirtualMachineInstancePresets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error) {
+	emptyResult := &v1.VirtualMachineInstancePreset{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(virtualmachineinstancepresetsResource, c.ns, name, pt, data, subresources...), &corev1.VirtualMachineInstancePreset{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(virtualmachineinstancepresetsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
-	return obj.(*corev1.VirtualMachineInstancePreset), err
+	return obj.(*v1.VirtualMachineInstancePreset), err
 }

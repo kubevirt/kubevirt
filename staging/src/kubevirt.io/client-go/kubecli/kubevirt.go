@@ -40,8 +40,8 @@ import (
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
-	cdiclient "kubevirt.io/client-go/containerized-data-importer"
-	k8ssnapshotclient "kubevirt.io/client-go/external-snapshotter"
+	cdiclient "kubevirt.io/client-go/containerizeddataimporter"
+	k8ssnapshotclient "kubevirt.io/client-go/externalsnapshotter"
 	generatedclient "kubevirt.io/client-go/kubevirt"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
@@ -49,8 +49,8 @@ import (
 	migrationsv1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	poolv1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
-	networkclient "kubevirt.io/client-go/network-attachment-definition-client"
-	promclient "kubevirt.io/client-go/prometheus-operator"
+	networkclient "kubevirt.io/client-go/networkattachmentdefinitionclient"
+	promclient "kubevirt.io/client-go/prometheusoperator"
 	"kubevirt.io/client-go/version"
 )
 

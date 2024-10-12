@@ -23,7 +23,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,28 +35,30 @@ type FakeVirtualMachinePreferences struct {
 	ns   string
 }
 
-var virtualmachinepreferencesResource = schema.GroupVersionResource{Group: "instancetype.kubevirt.io", Version: "v1alpha1", Resource: "virtualmachinepreferences"}
+var virtualmachinepreferencesResource = v1alpha1.SchemeGroupVersion.WithResource("virtualmachinepreferences")
 
-var virtualmachinepreferencesKind = schema.GroupVersionKind{Group: "instancetype.kubevirt.io", Version: "v1alpha1", Kind: "VirtualMachinePreference"}
+var virtualmachinepreferencesKind = v1alpha1.SchemeGroupVersion.WithKind("VirtualMachinePreference")
 
 // Get takes name of the virtualMachinePreference, and returns the corresponding virtualMachinePreference object, and an error if there is any.
 func (c *FakeVirtualMachinePreferences) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.VirtualMachinePreference, err error) {
+	emptyResult := &v1alpha1.VirtualMachinePreference{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(virtualmachinepreferencesResource, c.ns, name), &v1alpha1.VirtualMachinePreference{})
+		Invokes(testing.NewGetActionWithOptions(virtualmachinepreferencesResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachinePreference), err
 }
 
 // List takes label and field selectors, and returns the list of VirtualMachinePreferences that match those selectors.
 func (c *FakeVirtualMachinePreferences) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.VirtualMachinePreferenceList, err error) {
+	emptyResult := &v1alpha1.VirtualMachinePreferenceList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(virtualmachinepreferencesResource, virtualmachinepreferencesKind, c.ns, opts), &v1alpha1.VirtualMachinePreferenceList{})
+		Invokes(testing.NewListActionWithOptions(virtualmachinepreferencesResource, virtualmachinepreferencesKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,28 +77,30 @@ func (c *FakeVirtualMachinePreferences) List(ctx context.Context, opts v1.ListOp
 // Watch returns a watch.Interface that watches the requested virtualMachinePreferences.
 func (c *FakeVirtualMachinePreferences) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(virtualmachinepreferencesResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(virtualmachinepreferencesResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a virtualMachinePreference and creates it.  Returns the server's representation of the virtualMachinePreference, and an error, if there is any.
 func (c *FakeVirtualMachinePreferences) Create(ctx context.Context, virtualMachinePreference *v1alpha1.VirtualMachinePreference, opts v1.CreateOptions) (result *v1alpha1.VirtualMachinePreference, err error) {
+	emptyResult := &v1alpha1.VirtualMachinePreference{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(virtualmachinepreferencesResource, c.ns, virtualMachinePreference), &v1alpha1.VirtualMachinePreference{})
+		Invokes(testing.NewCreateActionWithOptions(virtualmachinepreferencesResource, c.ns, virtualMachinePreference, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachinePreference), err
 }
 
 // Update takes the representation of a virtualMachinePreference and updates it. Returns the server's representation of the virtualMachinePreference, and an error, if there is any.
 func (c *FakeVirtualMachinePreferences) Update(ctx context.Context, virtualMachinePreference *v1alpha1.VirtualMachinePreference, opts v1.UpdateOptions) (result *v1alpha1.VirtualMachinePreference, err error) {
+	emptyResult := &v1alpha1.VirtualMachinePreference{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(virtualmachinepreferencesResource, c.ns, virtualMachinePreference), &v1alpha1.VirtualMachinePreference{})
+		Invokes(testing.NewUpdateActionWithOptions(virtualmachinepreferencesResource, c.ns, virtualMachinePreference, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachinePreference), err
 }
@@ -105,14 +108,14 @@ func (c *FakeVirtualMachinePreferences) Update(ctx context.Context, virtualMachi
 // Delete takes name of the virtualMachinePreference and deletes it. Returns an error if one occurs.
 func (c *FakeVirtualMachinePreferences) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(virtualmachinepreferencesResource, c.ns, name), &v1alpha1.VirtualMachinePreference{})
+		Invokes(testing.NewDeleteActionWithOptions(virtualmachinepreferencesResource, c.ns, name, opts), &v1alpha1.VirtualMachinePreference{})
 
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeVirtualMachinePreferences) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualmachinepreferencesResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(virtualmachinepreferencesResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.VirtualMachinePreferenceList{})
 	return err
@@ -120,11 +123,12 @@ func (c *FakeVirtualMachinePreferences) DeleteCollection(ctx context.Context, op
 
 // Patch applies the patch and returns the patched virtualMachinePreference.
 func (c *FakeVirtualMachinePreferences) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachinePreference, err error) {
+	emptyResult := &v1alpha1.VirtualMachinePreference{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(virtualmachinepreferencesResource, c.ns, name, pt, data, subresources...), &v1alpha1.VirtualMachinePreference{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(virtualmachinepreferencesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.VirtualMachinePreference), err
 }

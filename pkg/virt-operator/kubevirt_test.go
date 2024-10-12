@@ -61,7 +61,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
-	promclientfake "kubevirt.io/client-go/prometheus-operator/fake"
+	promclientfake "kubevirt.io/client-go/prometheusoperator/fake"
 	"kubevirt.io/client-go/version"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"

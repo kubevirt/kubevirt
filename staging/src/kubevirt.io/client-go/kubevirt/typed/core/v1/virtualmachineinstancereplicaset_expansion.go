@@ -36,8 +36,8 @@ type VirtualMachineInstanceReplicaSetExpansion interface {
 
 func (c *virtualMachineInstanceReplicaSets) GetScale(ctx context.Context, replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error) {
 	result := &autov1.Scale{}
-	err := c.client.Get().
-		Namespace(c.ns).
+	err := c.GetClient().Get().
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstancereplicasets").
 		Name(replicaSetName).
 		SubResource("scale").
@@ -48,8 +48,8 @@ func (c *virtualMachineInstanceReplicaSets) GetScale(ctx context.Context, replic
 
 func (c *virtualMachineInstanceReplicaSets) UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error) {
 	result := &autov1.Scale{}
-	err := c.client.Put().
-		Namespace(c.ns).
+	err := c.GetClient().Put().
+		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstancereplicasets").
 		Name(replicaSetName).
 		SubResource("scale").

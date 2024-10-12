@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "clientset.go",
+        "doc.go",
+    ],
+    importpath = "kubevirt.io/client-go/containerizeddataimporter",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/containerizeddataimporter/typed/core/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/containerizeddataimporter/typed/upload/v1beta1:go_default_library",
+        "//vendor/k8s.io/client-go/discovery:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
+    ],
+)

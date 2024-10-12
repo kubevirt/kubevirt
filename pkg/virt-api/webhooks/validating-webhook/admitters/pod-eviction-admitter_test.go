@@ -21,6 +21,7 @@ package admitters_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -164,7 +165,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", vmi.Status.NodeName)).GeneratePayload()
 		Expect(err).To(Not(HaveOccurred()))
-		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(vmi, patchBytes)))
+		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(vmi, patchBytes, metav1.PatchOptions{})))
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is migratable",
 			nil,
@@ -364,7 +365,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", migratableVMI.Status.NodeName)).GeneratePayload()
 		Expect(err).To(Not(HaveOccurred()))
-		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, patchBytes)))
+		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, patchBytes, metav1.PatchOptions{})))
 	})
 
 	It("should allow the request and not mark the VMI again when the VMI is already marked for evacuation", func() {
@@ -396,13 +397,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(virtClient.Fake.Actions()).To(HaveLen(1))
 	})
 
-	// TODO: we need to bump the k8s deps to v0.31 to properly test this as
-	// that's the first version where the fake client records PatchOptions, otherwise
-	// it's impossible to verify whether we're correctly making a dry run request.
-	// At the moment updating the dependencies is not easy as it requires us to use
-	// openapi V3 which is not trivial, once all of this is taken care of this test
-	// needs to be adjusted to check PatchOptions and then can be finally re-enabled.
-	PDescribeTable("should deny the request and perform a dryRun patch on the VMI when", func(dryRunOpts *dryRunOptions) {
+	DescribeTable("should deny the request and perform a dryRun patch on the VMI when", func(dryRunOpts *dryRunOptions) {
 		vmiOptions := append(defaultVMIOptions,
 			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 			withLiveMigratableCondition(),
@@ -434,7 +429,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", migratableVMI.Status.NodeName)).GeneratePayload()
 		Expect(err).To(Not(HaveOccurred()))
-		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, patchBytes)))
+		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, patchBytes, metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}})))
 	},
 
 		Entry("dry run is set in the request", &dryRunOptions{dryRunInRequest: true}),
@@ -496,6 +491,21 @@ type dryRunOptions struct {
 }
 
 func newAdmissionReview(evictedPodNamespace, evictedPodName string, dryRunOpts *dryRunOptions) *admissionv1.AdmissionReview {
+	obj := &policyv1.Eviction{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "policy/v1",
+			Kind:       "Eviction",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: evictedPodNamespace,
+			Name:      evictedPodName,
+		},
+		DeleteOptions: &metav1.DeleteOptions{
+			DryRun: dryRunOpts.dryRunInObject,
+		},
+	}
+	rawObj, err := json.Marshal(obj)
+	Expect(err).To(Not(HaveOccurred()))
 	return &admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
 			Namespace: evictedPodNamespace,
@@ -525,19 +535,8 @@ func newAdmissionReview(evictedPodNamespace, evictedPodName string, dryRunOpts *
 			RequestSubResource: "eviction",
 			Operation:          "CREATE",
 			Object: runtime.RawExtension{
-				Object: &policyv1.Eviction{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: "policy/v1",
-						Kind:       "Eviction",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: evictedPodNamespace,
-						Name:      evictedPodName,
-					},
-					DeleteOptions: &metav1.DeleteOptions{
-						DryRun: dryRunOpts.dryRunInObject,
-					},
-				},
+				Object: obj,
+				Raw:    rawObj,
 			},
 		},
 	}
@@ -559,7 +558,7 @@ func newDeniedAdmissionResponse(message string) *admissionv1.AdmissionResponse {
 	}
 }
 
-func newExpectedJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, expectedJSONPatchData []byte) testing.PatchActionImpl {
+func newExpectedJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, expectedJSONPatchData []byte, patchOpts metav1.PatchOptions) testing.PatchActionImpl {
 	return testing.PatchActionImpl{
 		ActionImpl: testing.ActionImpl{
 			Namespace: vmi.Namespace,
@@ -571,9 +570,10 @@ func newExpectedJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, expectedJSONP
 			},
 			Subresource: "",
 		},
-		Name:      vmi.Name,
-		PatchType: types.JSONPatchType,
-		Patch:     expectedJSONPatchData,
+		Name:         vmi.Name,
+		PatchType:    types.JSONPatchType,
+		Patch:        expectedJSONPatchData,
+		PatchOptions: patchOpts,
 	}
 }
 

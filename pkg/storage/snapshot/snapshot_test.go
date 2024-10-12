@@ -32,7 +32,7 @@ import (
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
-	k8ssnapshotfake "kubevirt.io/client-go/external-snapshotter/fake"
+	k8ssnapshotfake "kubevirt.io/client-go/externalsnapshotter/fake"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
