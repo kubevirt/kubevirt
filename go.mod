@@ -1,6 +1,6 @@
 module kubevirt.io/kubevirt
 
-go 1.22.0
+go 1.22.8
 
 require (
 	github.com/Masterminds/semver v1.5.0
@@ -12,7 +12,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.11.0
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
-	github.com/go-kit/kit v0.13.0
+	github.com/go-kit/log v0.13.0
 	github.com/go-openapi/spec v0.20.3
 	github.com/go-openapi/strfmt v0.20.0
 	github.com/go-openapi/validate v0.20.2
