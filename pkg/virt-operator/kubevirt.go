@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -1011,6 +1012,9 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 
 	config := operatorutil.GetTargetConfigFromKV(kv)
 
+	c.initComponentVersions(kv)
+	c.cleanupStaleComponentVersions(kv)
+
 	// Record current operator version to status section
 	util.SetOperatorVersion(kv)
 
@@ -1181,4 +1185,65 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 	logger.Info("Processed deletion for this round")
 	return nil
+}
+
+func (c *KubeVirtController) initComponentVersions(kv *v1.KubeVirt) {
+	if kv.Status.ComponentVersions.VirtController == nil {
+		kv.Status.ComponentVersions.VirtController = make(map[string]string)
+	}
+
+	if kv.Status.ComponentVersions.VirtApi == nil {
+		kv.Status.ComponentVersions.VirtApi = make(map[string]string)
+	}
+
+	if kv.Status.ComponentVersions.VirtHandler == nil {
+		kv.Status.ComponentVersions.VirtHandler = make(map[string]string)
+	}
+}
+
+func (c *KubeVirtController) cleanupStaleComponentVersions(kv *v1.KubeVirt) error {
+	logger := log.Log.Object(kv)
+	logger.Info("Cleaning up stale component versions")
+
+	podList, err := c.clientset.CoreV1().Pods(kv.Namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "kubevirt.io=virt-controller,kubevirt.io=virt-api,kubevirt.io=virt-handler",
+	})
+	if err != nil {
+		logger.Errorf("Failed to list pods: %v", err)
+		return err
+	}
+
+	activePodSuffixes := make(map[string]bool)
+	for _, pod := range podList.Items {
+		podSuffix := extractPodSuffix(pod.Name)
+		activePodSuffixes[podSuffix] = true
+	}
+
+	for podSuffix := range kv.Status.ComponentVersions.VirtController {
+		if _, exists := activePodSuffixes[podSuffix]; !exists {
+			delete(kv.Status.ComponentVersions.VirtController, podSuffix)
+			logger.Infof("Removed stale entry from VirtController component versions: %s", podSuffix)
+		}
+	}
+
+	for podSuffix := range kv.Status.ComponentVersions.VirtApi {
+		if _, exists := activePodSuffixes[podSuffix]; !exists {
+			delete(kv.Status.ComponentVersions.VirtApi, podSuffix)
+			logger.Infof("Removed stale entry from VirtApi component versions: %s", podSuffix)
+		}
+	}
+
+	for podSuffix := range kv.Status.ComponentVersions.VirtHandler {
+		if _, exists := activePodSuffixes[podSuffix]; !exists {
+			delete(kv.Status.ComponentVersions.VirtHandler, podSuffix)
+			logger.Infof("Removed stale entry from VirtHandler component versions: %s", podSuffix)
+		}
+	}
+
+	return nil
+}
+
+func extractPodSuffix(podName string) string {
+	parts := strings.Split(podName, "-")
+	return parts[len(parts)-1]
 }

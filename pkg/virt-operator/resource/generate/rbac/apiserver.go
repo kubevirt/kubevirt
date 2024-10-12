@@ -185,12 +185,13 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					GroupName,
 				},
 				Resources: []string{
-					"kubevirts",
+					"kubevirts", "kubevirts/status",
 				},
 				Verbs: []string{
 					"get",
 					"list",
 					"watch",
+					"patch",
 				},
 			},
 			{

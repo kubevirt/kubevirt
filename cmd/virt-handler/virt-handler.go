@@ -123,6 +123,8 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-handler/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-handler/servercertificates/tls.key"
+
+	virtHandlerComponentName = "virtHandler"
 )
 
 type virtHandlerApp struct {
@@ -540,7 +542,7 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 	mux := restful.NewContainer()
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
+	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion, virtHandlerComponentName)).Doc("Health endpoint"))
 
 	componentProfiler := profiler.NewProfileManager(app.clusterConfig)
 	webService.Route(webService.GET("/start-profiler").To(componentProfiler.HandleStartProfiler).Doc("start profiler endpoint"))

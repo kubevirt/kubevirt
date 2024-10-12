@@ -2104,7 +2104,8 @@ type KubeVirtStatus struct {
 	ObservedGeneration                      *int64              `json:"observedGeneration,omitempty"`
 	DefaultArchitecture                     string              `json:"defaultArchitecture,omitempty"`
 	// +listType=atomic
-	Generations []GenerationStatus `json:"generations,omitempty" optional:"true"`
+	Generations       []GenerationStatus `json:"generations,omitempty" optional:"true"`
+	ComponentVersions ComponentVersions  `json:"componentVersions,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
@@ -3112,4 +3113,10 @@ type SEVSecretOptions struct {
 	Header string `json:"header,omitempty"`
 	// Base64 encoded encrypted launch secret.
 	Secret string `json:"secret,omitempty"`
+}
+
+type ComponentVersions struct {
+	VirtController map[string]string `json:"virtController"`
+	VirtHandler    map[string]string `json:"virtHandler"`
+	VirtApi        map[string]string `json:"virtApi"`
 }

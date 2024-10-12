@@ -137,12 +137,13 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"kubevirt.io",
 				},
 				Resources: []string{
-					"kubevirts",
+					"kubevirts", "kubevirts/status",
 				},
 				Verbs: []string{
 					"get",
 					"list",
 					"watch",
+					"patch",
 				},
 			},
 			{
