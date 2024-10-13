@@ -19,7 +19,7 @@
  *
  */
 
-package nodelabeller
+package nodecapabilities
 
 /*
 #include <linux/kvm.h>
@@ -221,7 +221,7 @@ func exposeCapabilities(fd uintptr, supportedMSRS map[uint32]bool) []string {
 
 }
 
-func getCapLabels() []string {
+func GetCapLabels() []string {
 	devkvm, err := os.OpenFile(util.KVMPath, syscall.O_RDWR|syscall.O_CLOEXEC, 0)
 	if err != nil {
 		log.DefaultLogger().Errorf("something happened during opening kvm file: " + err.Error())

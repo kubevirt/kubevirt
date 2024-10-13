@@ -305,6 +305,7 @@ func (app *virtHandlerApp) Run() {
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
 		capabilities.Guests,
+		nodecapabilities.GetCapLabels(),
 	)
 	if err != nil {
 		panic(err)
