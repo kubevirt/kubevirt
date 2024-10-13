@@ -22,7 +22,7 @@ package nodelabeller
 import (
 	"runtime"
 
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	nodecapabilities "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities"
 )
 
 const (
@@ -63,7 +63,7 @@ func (defaultArchLabeller) defaultVendor() string {
 }
 
 func (defaultArchLabeller) requirePolicy(policy string) bool {
-	return policy == util.RequirePolicy
+	return policy == nodecapabilities.RequirePolicy
 }
 
 func (defaultArchLabeller) hasHostSupportedFeatures() bool {

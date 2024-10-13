@@ -34,10 +34,10 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 var _ = Describe("Node-labeller config", func() {
+	const DefaultMinCPUModel = "Penryn"
 	var nlController *NodeLabeller
 
 	BeforeEach(func() {
@@ -48,8 +48,8 @@ var _ = Describe("Node-labeller config", func() {
 			},
 			Spec: kubevirtv1.KubeVirtSpec{
 				Configuration: kubevirtv1.KubeVirtConfiguration{
-					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
-					MinCPUModel:       util.DefaultMinCPUModel,
+					ObsoleteCPUModels: DefaultObsoleteCPUModels,
+					MinCPUModel:       DefaultMinCPUModel,
 				},
 			},
 		}
