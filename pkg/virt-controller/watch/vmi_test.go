@@ -164,12 +164,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				return false, nil, err
 			}
 
-			var newPod *k8sv1.Pod
-			if err = json.Unmarshal(newPodBytes, &newPod); err != nil {
+			if err = json.Unmarshal(newPodBytes, pod); err != nil {
 				return false, nil, err
 			}
 
-			return true, newPod, nil
+			return true, pod, nil
 		})
 	}
 
@@ -780,8 +779,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi = addDefaultNetworkStatus(vmi, sriovNetworkName)
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			addVirtualMachine(vmi)
-			podFeeder.Add(pod)
-			addActivePods(vmi, pod.UID, "")
 			pod.Annotations[networkv1.NetworkStatusAnnot] = `
 			[
 			{
@@ -807,10 +804,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			}
 			]`
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
 			prependInjectPodPatch(pod)
 			controller.Execute()
+
 			Expect(pod.Annotations).To(HaveKeyWithValue(sriov.NetworkPCIMapAnnot, `{"`+sriovNetworkName+`":"`+selectedPCIAddress+`"}`))
 		})
 	})
