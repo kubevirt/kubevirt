@@ -2,11 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "cpu_plugin.go",
-        "model.go",
-        "node_labeller.go",
-    ],
+    srcs = ["node_labeller.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller",
     visibility = ["//visibility:public"],
     deps = [
@@ -29,7 +25,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "cpu_plugin_test.go",
         "node_labeller_suite_test.go",
         "node_labeller_test.go",
     ],
@@ -39,7 +34,6 @@ go_test(
         "@io_bazel_rules_go//go/platform:amd64": [
             "//pkg/testutils:go_default_library",
             "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-            "//staging/src/kubevirt.io/client-go/log:go_default_library",
             "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
             "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
             "//vendor/github.com/onsi/gomega:go_default_library",
@@ -54,7 +48,6 @@ go_test(
         "@io_bazel_rules_go//go/platform:s390x": [
             "//pkg/testutils:go_default_library",
             "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-            "//staging/src/kubevirt.io/client-go/log:go_default_library",
             "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
             "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
             "//vendor/github.com/onsi/gomega:go_default_library",
