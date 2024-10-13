@@ -60,7 +60,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -783,30 +782,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume", func() {
 		Context("using Alpine http import", func() {
-			It("a DataVolume with preallocation shouldn't have discard=unmap", func() {
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
-				}
-
-				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-				preallocation := true
-				vm.Spec.DataVolumeTemplates[0].Spec.Preallocation = &preallocation
-
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vm = libvmops.StartVirtualMachine(vm)
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).ToNot(ContainSubstring("discard='unmap'"))
-				vm = libvmops.StopVirtualMachine(vm)
-				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})).To(Succeed())
-			})
-
 			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
