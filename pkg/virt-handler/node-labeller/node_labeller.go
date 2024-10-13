@@ -66,7 +66,6 @@ type NodeLabeller struct {
 	host                    string
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
-	hypervFeatures          supportedFeatures
 	hostCapabilities        supportedFeatures
 	queue                   workqueue.TypedRateLimitingInterface[string]
 	supportedFeatures       []string
@@ -77,13 +76,14 @@ type NodeLabeller struct {
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
 	arch                    string
+	hypervFeatures          []string
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, hypervFeatures []string) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter, hypervFeatures)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, hypervFeatures []string) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:      recorder,
 		nodeClient:    nodeClient,
@@ -99,6 +99,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 		cpuCounter:              cpuCounter,
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
 		arch:                    runtime.GOARCH,
+		hypervFeatures:          hypervFeatures,
 	}
 
 	err := n.loadAll()
@@ -171,8 +172,6 @@ func (n *NodeLabeller) loadAll() error {
 		return err
 	}
 
-	n.loadHypervFeatures()
-
 	return nil
 }
 
@@ -226,10 +225,6 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 	return err
 }
 
-func (n *NodeLabeller) loadHypervFeatures() {
-	n.hypervFeatures.items = getCapLabels()
-}
-
 // prepareLabels converts cpu models, features, hyperv features to map[string]string format
 // e.g. "cpu-feature.node.kubevirt.io/Penryn": "true"
 func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel, obsoleteCPUsx86 map[string]bool) map[string]string {
@@ -247,7 +242,7 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.Name] = "true"
 	}
 
-	for _, key := range n.hypervFeatures.items {
+	for _, key := range n.hypervFeatures {
 		newLabels[kubevirtv1.HypervLabel+key] = "true"
 	}
 
