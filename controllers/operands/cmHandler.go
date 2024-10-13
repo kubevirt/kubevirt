@@ -49,14 +49,28 @@ func (h cmHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 		return false, false, errors.New("can't convert to Configmap")
 	}
 
-	if !reflect.DeepEqual(found.Data, h.required.Data) ||
-		!util.CompareLabels(h.required, found) {
-		if req.HCOTriggered {
-			req.Logger.Info("Updating existing Configmap to new opinionated values", "name", h.required.Name)
-		} else {
-			req.Logger.Info("Reconciling an externally updated Configmap to its opinionated values", "name", h.required.Name)
-		}
+	labelChanged := !util.CompareLabels(h.required, found)
+	if labelChanged {
 		util.MergeLabels(&h.required.ObjectMeta, &found.ObjectMeta)
+	}
+
+	// Don't reconcile contents of UI settings config maps
+	if label, exist := found.Labels[util.AppLabelComponent]; exist && label == string(util.AppComponentUIConfig) {
+		if labelChanged {
+			err := Client.Update(req.Ctx, found)
+			if err != nil {
+				return false, false, err
+			}
+		}
+		return labelChanged, false, nil
+	}
+
+	if !reflect.DeepEqual(found.Data, h.required.Data) || labelChanged {
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing ConfigMap to new opinionated values", "name", h.required.Name)
+		} else {
+			req.Logger.Info("Reconciling an externally updated ConfigMap to its opinionated values", "name", h.required.Name)
+		}
 		found.Data = maps.Clone(h.required.Data)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -65,7 +79,7 @@ func (h cmHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 		return true, !req.HCOTriggered, nil
 	}
 
-	return false, false, nil
+	return labelChanged, false, nil
 }
 
 func (cmHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }

@@ -244,7 +244,7 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).ToNot(HaveOccurred())
 				// Check conditions
-				Expect(foundResource.Status.RelatedObjects).To(HaveLen(22))
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(26))
 				expectedRef := corev1.ObjectReference{
 					Kind:            "PrometheusRule",
 					Namespace:       namespace,
@@ -332,7 +332,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).ToNot(HaveOccurred())
 				// Check conditions
 
-				Expect(foundResource.Status.RelatedObjects).To(HaveLen(23))
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(27))
 
 				expectedRef := corev1.ObjectReference{
 					Kind:            "MTQ",

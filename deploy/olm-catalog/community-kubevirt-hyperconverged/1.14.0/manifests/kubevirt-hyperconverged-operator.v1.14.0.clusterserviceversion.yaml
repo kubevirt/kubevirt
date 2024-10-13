@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.14.0-unstable
-    createdAt: "2024-10-09 05:05:23"
+    createdAt: "2024-10-10 16:49:38"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -225,6 +225,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - cdi.kubevirt.io
           resources:
@@ -237,6 +238,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - ssp.kubevirt.io
           resources:
@@ -249,6 +251,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - networkaddonsoperator.network.kubevirt.io
           resources:
@@ -261,6 +264,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - aaq.kubevirt.io
           resources:
@@ -273,6 +277,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - ""
           resources:
@@ -284,6 +289,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - ""
           resources:
@@ -305,6 +311,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - ""
           resources:
@@ -363,6 +370,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - apiextensions.k8s.io
           resources:
@@ -394,6 +402,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - operators.coreos.com
           resources:
@@ -436,6 +445,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - config.openshift.io
           resources:
@@ -479,6 +489,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - route.openshift.io
           resources:
@@ -490,6 +501,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - operators.coreos.com
           resources:
@@ -511,6 +523,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - console.openshift.io
           resources:
@@ -522,6 +535,7 @@ spec:
           - create
           - update
           - delete
+          - patch
         - apiGroups:
           - operator.openshift.io
           resources:

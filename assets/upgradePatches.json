@@ -162,6 +162,78 @@
         "name": "mtqs.mtq.kubevirt.io",
         "namespace": ""
       }
+    },
+    {
+      "semverRange": "<1.14.0",
+      "groupVersionKind": {
+        "group": "",
+        "version": "v1",
+        "kind": "ConfigMap"
+      },
+      "objectKey": {
+        "name": "kubevirt-ui-features",
+        "namespace": "default"
+      }
+    },
+    {
+      "semverRange": "<1.14.0",
+      "groupVersionKind": {
+        "group": "",
+        "version": "v1",
+        "kind": "ConfigMap"
+      },
+      "objectKey": {
+        "name": "kubevirt-user-settings",
+        "namespace": "default"
+      }
+    },
+    {
+      "semverRange": "<1.14.0",
+      "groupVersionKind": {
+        "group": "rbac.authorization.k8s.io",
+        "version": "v1",
+        "kind": "Role"
+      },
+      "objectKey": {
+        "name": "kubevirt-ui-features-reader",
+        "namespace": "default"
+      }
+    },
+    {
+      "semverRange": "<1.14.0",
+      "groupVersionKind": {
+        "group": "rbac.authorization.k8s.io",
+        "version": "v1",
+        "kind": "RoleBinding"
+      },
+      "objectKey": {
+        "name": "kubevirt-ui-features-reader-binding",
+        "namespace": "default"
+      }
+    },
+    {
+      "semverRange": "<1.14.0",
+      "groupVersionKind": {
+        "group": "rbac.authorization.k8s.io",
+        "version": "v1",
+        "kind": "Role"
+      },
+      "objectKey": {
+        "name": "kubevirt-user-settings-reader",
+        "namespace": "default"
+      }
+    },
+    {
+      "semverRange": "<1.14.0",
+      "groupVersionKind": {
+        "group": "rbac.authorization.k8s.io",
+        "version": "v1",
+        "kind": "RoleBinding"
+      },
+      "objectKey": {
+        "name": "kubevirt-user-settings-reader-binding",
+        "namespace": "default"
+      }
     }
   ]
 }

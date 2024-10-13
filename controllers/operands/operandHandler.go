@@ -104,6 +104,11 @@ func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, ci hcoutil.C
 		h.addOperands(scheme, hc, newKvUIProxyDeploymentHandler)
 		h.addOperands(scheme, hc, newKvUINginxCMHandler)
 		h.addOperands(scheme, hc, newKvUIPluginCRHandler)
+		h.addOperands(scheme, hc, newKvUIUserSettingsCMHandler)
+		h.addOperands(scheme, hc, newKvUIFeaturesCMHandler)
+		h.addOperands(scheme, hc, newKvUIConfigReaderRoleHandler)
+		h.addOperands(scheme, hc, newKvUIConfigReaderRoleBindingHandler)
+
 	}
 }
 

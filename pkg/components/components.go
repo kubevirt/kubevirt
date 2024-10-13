@@ -607,7 +607,7 @@ func roleWithAllPermissions(apiGroup string, resources []string) rbacv1.PolicyRu
 	return rbacv1.PolicyRule{
 		APIGroups: stringListToSlice(apiGroup),
 		Resources: resources,
-		Verbs:     stringListToSlice("get", "list", "watch", "create", "update", "delete"),
+		Verbs:     stringListToSlice("get", "list", "watch", "create", "update", "delete", "patch"),
 	}
 }
 

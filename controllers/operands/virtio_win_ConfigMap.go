@@ -18,7 +18,6 @@ import (
 const virtioWinCmName = "virtio-win"
 
 // **** Virtio-Win ConfigMap Handler ****
-
 func newVirtioWinCmHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
 	virtioWincm, err := NewVirtioWinCm(hc)
 	if err != nil {
@@ -28,7 +27,6 @@ func newVirtioWinCmHandler(_ log.Logger, Client client.Client, Scheme *runtime.S
 }
 
 // **** Virtio-Win ConfigMap Role Handler ****
-
 func newVirtioWinCmReaderRoleHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
 	virtioWinRole := NewVirtioWinCmReaderRole(hc)
 

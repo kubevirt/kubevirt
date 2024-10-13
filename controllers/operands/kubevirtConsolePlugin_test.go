@@ -424,6 +424,90 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			Entry("proxy deployment", hcoutil.AppComponentUIProxy, NewKvUIProxyDeployment, newKvUIProxyDeploymentHandler),
 		)
 
+		Context("Kubevirt UI configuration config maps", func() {
+			var hco *hcov1beta1.HyperConverged
+			var req *common.HcoRequest
+
+			BeforeEach(func() {
+				hco = commontestutils.NewHco()
+				req = commontestutils.NewReq(hco)
+			})
+
+			DescribeTable("should reconcile managed labels to default on label deletion without touching user added ones", func(appComponent hcoutil.AppComponent,
+				cmManifestor func(*hcov1beta1.HyperConverged) *v1.ConfigMap, handlerFunc GetHandler) {
+				const userLabelKey = "userLabelKey"
+				const userLabelValue = "userLabelValue"
+
+				outdatedResource := cmManifestor(hco)
+
+				expectedLabels := maps.Clone(outdatedResource.Labels)
+				for k, v := range expectedLabels {
+					outdatedResource.Labels[k] = "wrong_" + v
+				}
+				outdatedResource.Labels[userLabelKey] = userLabelValue
+
+				cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
+				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				res := handlers[0].ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &v1.ConfigMap{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: outdatedResource.Name, Namespace: outdatedResource.Namespace},
+						foundResource),
+				).To(Succeed())
+				Expect(foundResource.Name).To(Equal(outdatedResource.Name))
+				for k, v := range expectedLabels {
+					Expect(foundResource.Labels).To(HaveKeyWithValue(k, v))
+				}
+				Expect(foundResource.Labels).To(HaveKeyWithValue(userLabelKey, userLabelValue))
+			},
+				Entry("user settings config", hcoutil.AppComponentUIConfig, NewKvUIUserSettingsCM, newKvUIUserSettingsCMHandler),
+				Entry("UI features config", hcoutil.AppComponentUIConfig, NewKvUIFeaturesCM, newKvUIFeaturesCMHandler),
+			)
+
+			DescribeTable("should not reconcile UI settings config map data", func(appComponent hcoutil.AppComponent,
+				cmManifestor func(*hcov1beta1.HyperConverged) *v1.ConfigMap, handlerFunc GetHandler) {
+				const userAddedDataKey = "userAddedDataKey"
+				const userAddedDataValue = "userAddedDataValue"
+
+				outdatedResource := cmManifestor(hco)
+
+				modifiedData := maps.Clone(outdatedResource.Data)
+				for k, v := range modifiedData {
+					outdatedResource.Data[k] = "modified_" + v
+				}
+				outdatedResource.Data[userAddedDataKey] = userAddedDataValue
+
+				cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
+				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				res := handlers[0].ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &v1.ConfigMap{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: outdatedResource.Name, Namespace: outdatedResource.Namespace},
+						foundResource),
+				).To(Succeed())
+				Expect(foundResource.Name).To(Equal(outdatedResource.Name))
+				for k, v := range modifiedData {
+					Expect(foundResource.Data).To(Not(HaveKeyWithValue(k, v)))
+				}
+				Expect(foundResource.Data).To(HaveKeyWithValue(userAddedDataKey, userAddedDataValue))
+			},
+				Entry("user settings config", hcoutil.AppComponentUIConfig, NewKvUIUserSettingsCM, newKvUIUserSettingsCMHandler),
+				Entry("UI features config", hcoutil.AppComponentUIConfig, NewKvUIFeaturesCM, newKvUIFeaturesCMHandler),
+			)
+		})
+
 		Context("Node Placement", func() {
 			DescribeTable("should add node placement if missing", func(appComponent hcoutil.AppComponent,
 				deploymentManifestor func(*hcov1beta1.HyperConverged) *appsv1.Deployment, handlerFunc GetHandler) {

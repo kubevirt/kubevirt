@@ -14,6 +14,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +39,10 @@ const (
 	kvUIPluginServingCertPath = "/var/serving-cert"
 	kvUIProxyServingCertPath  = "/app/cert"
 	nginxConfigMapName        = "nginx-conf"
+	kvUIUserSettingsCMName    = "kubevirt-user-settings"
+	kvUIFeaturesCMName        = "kubevirt-ui-features"
+	kvUIConfigReaderRoleName  = "kubevirt-ui-config-reader"
+	kvUIConfigReaderRBName    = "kubevirt-ui-config-reader-rolebinding"
 )
 
 // **** Kubevirt UI Plugin Deployment Handler ****
@@ -55,6 +60,20 @@ func newKvUINginxCMHandler(_ log.Logger, Client client.Client, Scheme *runtime.S
 	kvUINginxCM := NewKVUINginxCM(hc)
 
 	return []Operand{newCmHandler(Client, Scheme, kvUINginxCM)}, nil
+}
+
+// **** UI user settings config map Handler ****
+func newKvUIUserSettingsCMHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
+	kvUIUserSettingsCM := NewKvUIUserSettingsCM(hc)
+
+	return []Operand{newCmHandler(Client, Scheme, kvUIUserSettingsCM)}, nil
+}
+
+// **** UI features config map Handler ****
+func newKvUIFeaturesCMHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
+	kvUIFeaturesCM := NewKvUIFeaturesCM(hc)
+
+	return []Operand{newCmHandler(Client, Scheme, kvUIFeaturesCM)}, nil
 }
 
 // **** Kubevirt UI Console Plugin Custom Resource Handler ****
@@ -337,6 +356,38 @@ func NewKVUINginxCM(hc *hcov1beta1.HyperConverged) *corev1.ConfigMap {
 	}
 }
 
+func NewKvUIUserSettingsCM(hc *hcov1beta1.HyperConverged) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kvUIUserSettingsCMName,
+			Labels:    getLabels(hc, hcoutil.AppComponentUIConfig),
+			Namespace: hc.Namespace,
+		},
+		Data: map[string]string{},
+	}
+}
+
+var UIFeaturesConfig = map[string]string{
+	"automaticSubscriptionActivationKey":  "",
+	"automaticSubscriptionOrganizationId": "",
+	"disabledGuestSystemLogsAccess":       "false",
+	"kubevirtApiserverProxy":              "true",
+	"loadBalancerEnabled":                 "true",
+	"nodePortAddress":                     "",
+	"nodePortEnabled":                     "false",
+}
+
+func NewKvUIFeaturesCM(hc *hcov1beta1.HyperConverged) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kvUIFeaturesCMName,
+			Labels:    getLabels(hc, hcoutil.AppComponentUIConfig),
+			Namespace: hc.Namespace,
+		},
+		Data: UIFeaturesConfig,
+	}
+}
+
 func NewKVConsolePlugin(hc *hcov1beta1.HyperConverged) *consolev1.ConsolePlugin {
 	return &consolev1.ConsolePlugin{
 		ObjectMeta: metav1.ObjectMeta{
@@ -379,6 +430,66 @@ func newConsolePluginHandler(Client client.Client, Scheme *runtime.Scheme, requi
 	}
 
 	return h
+}
+
+// **** UI configuration (user settings and features) ConfigMap Role Handler ****
+func newKvUIConfigReaderRoleHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
+	KvUIConfigReaderRole := NewKvUIConfigCMReaderRole(hc)
+
+	return []Operand{newRoleHandler(Client, Scheme, KvUIConfigReaderRole)}, nil
+}
+
+// **** UI configuration (user settings and features) ConfigMap RoleBinding Handler ****
+func newKvUIConfigReaderRoleBindingHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
+	kvUIConfigReaderRoleBinding := NewKvUIConfigCMReaderRoleBinding(hc)
+
+	return []Operand{newRoleBindingHandler(Client, Scheme, kvUIConfigReaderRoleBinding)}, nil
+}
+
+func NewKvUIConfigCMReaderRole(hc *hcov1beta1.HyperConverged) *rbacv1.Role {
+	return &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kvUIConfigReaderRoleName,
+			Labels:    getLabels(hc, hcoutil.AppComponentUIPlugin),
+			Namespace: hc.Namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups:     []string{""},
+				Resources:     []string{"configmaps"},
+				ResourceNames: []string{kvUIUserSettingsCMName},
+				Verbs:         []string{"get", "update", "patch"},
+			},
+			{
+				APIGroups:     []string{""},
+				Resources:     []string{"configmaps"},
+				ResourceNames: []string{kvUIFeaturesCMName},
+				Verbs:         []string{"get"},
+			},
+		},
+	}
+}
+
+func NewKvUIConfigCMReaderRoleBinding(hc *hcov1beta1.HyperConverged) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kvUIConfigReaderRBName,
+			Labels:    getLabels(hc, hcoutil.AppComponentUIPlugin),
+			Namespace: hc.Namespace,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     kvUIConfigReaderRoleName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "Group",
+				Name:     "system:authenticated",
+			},
+		},
+	}
 }
 
 type consolePluginHooks struct {

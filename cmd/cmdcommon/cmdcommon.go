@@ -124,7 +124,7 @@ func (h HcCmdHelper) checkNameSpace() {
 	requiredNS, err := hcoutil.GetOperatorNamespaceFromEnv()
 	h.ExitOnError(err, "Failed to get namespace from the environment")
 
-	// Get the namespace the we are currently deployed in.
+	// Get the namespace we are currently deployed in.
 	var actualNS string
 	if !h.runInLocal {
 		var err error

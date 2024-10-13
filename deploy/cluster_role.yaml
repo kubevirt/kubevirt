@@ -755,6 +755,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - cdi.kubevirt.io
   resources:
@@ -767,6 +768,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - ssp.kubevirt.io
   resources:
@@ -779,6 +781,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - networkaddonsoperator.network.kubevirt.io
   resources:
@@ -791,6 +794,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - aaq.kubevirt.io
   resources:
@@ -803,6 +807,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - ""
   resources:
@@ -814,6 +819,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - ""
   resources:
@@ -835,6 +841,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - ""
   resources:
@@ -893,6 +900,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -924,6 +932,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - operators.coreos.com
   resources:
@@ -966,6 +975,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - config.openshift.io
   resources:
@@ -1009,6 +1019,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - route.openshift.io
   resources:
@@ -1020,6 +1031,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - operators.coreos.com
   resources:
@@ -1041,6 +1053,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - console.openshift.io
   resources:
@@ -1052,6 +1065,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 - apiGroups:
   - operator.openshift.io
   resources:
