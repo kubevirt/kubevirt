@@ -37,11 +37,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -65,10 +62,6 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		ifaceName = "iface1"
 		nadName   = "skynet"
 	)
-
-	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
-	})
 
 	Context("a running VM", func() {
 		const guestSecondaryIfaceName = "eth1"
@@ -238,10 +231,6 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 
 		nadName = "skynet"
 	)
-
-	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
-	})
 
 	Context("a running VM", func() {
 		var vm *v1.VirtualMachine

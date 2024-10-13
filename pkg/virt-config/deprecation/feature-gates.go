@@ -53,6 +53,12 @@ const (
 	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate" // GA
 
+	// HotplugNetworkIfacesGate controls the network interface hotplug feature lifecycle.
+	// Alpha: v1.1.0
+	// Beta:  v1.3.0
+	// GA:    v1.4.0
+	HotplugNetworkIfacesGate = "HotplugNICs"
+
 	PasstGate   = "Passt"   // Deprecated
 	MacvtapGate = "Macvtap" // Deprecated
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
@@ -77,6 +83,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: NUMAFeatureGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: CommonInstancetypesDeploymentGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: GPUGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: HotplugNetworkIfacesGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})

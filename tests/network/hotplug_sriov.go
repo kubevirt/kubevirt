@@ -35,11 +35,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -50,12 +47,6 @@ import (
 var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 
 	sriovResourceName := readSRIOVResourceName()
-
-	BeforeEach(func() {
-		if !checks.HasFeature(virtconfig.HotplugNetworkIfacesGate) {
-			Skip("HotplugNICs feature gate is disabled.")
-		}
-	})
 
 	BeforeEach(func() {
 		// Check if the hardware supports SRIOV
