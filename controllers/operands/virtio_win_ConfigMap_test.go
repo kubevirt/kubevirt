@@ -49,7 +49,7 @@ var _ = Describe("VirtioWin", func() {
 			Expect(err).ToNot(HaveOccurred())
 			cl := commontestutils.InitClient([]client.Object{})
 			handler, _ := newVirtioWinCmHandler(logger, cl, commontestutils.GetScheme(), hco)
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -70,7 +70,7 @@ var _ = Describe("VirtioWin", func() {
 
 			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler, _ := newVirtioWinCmHandler(logger, cl, commontestutils.GetScheme(), hco)
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -101,7 +101,7 @@ var _ = Describe("VirtioWin", func() {
 
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
 			handler, _ := newVirtioWinCmHandler(logger, cl, commontestutils.GetScheme(), hco)
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -143,7 +143,7 @@ var _ = Describe("VirtioWin", func() {
 
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
 			handler, _ := newVirtioWinCmHandler(logger, cl, commontestutils.GetScheme(), hco)
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -172,7 +172,7 @@ var _ = Describe("VirtioWin", func() {
 
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
 			handler, _ := newVirtioWinCmHandler(logger, cl, commontestutils.GetScheme(), hco)
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -206,7 +206,7 @@ var _ = Describe("VirtioWin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, expectedRole})
 
 			handler, _ := newVirtioWinCmReaderRoleHandler(logger, cl, commontestutils.GetScheme(), hco)
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundRole := &rbacv1.Role{}
@@ -228,7 +228,7 @@ var _ = Describe("VirtioWin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, expectedRole})
 
 			handler, _ := newVirtioWinCmReaderRoleHandler(logger, cl, commontestutils.GetScheme(), hco)
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundRole := &rbacv1.Role{}
@@ -257,7 +257,7 @@ var _ = Describe("VirtioWin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, expectedRoleBinding})
 
 			handler, _ := newVirtioWinCmReaderRoleBindingHandler(logger, cl, commontestutils.GetScheme(), hco)
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundRoleBinding := &rbacv1.RoleBinding{}
@@ -278,7 +278,7 @@ var _ = Describe("VirtioWin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, expectedRoleBinding})
 
 			handler, _ := newVirtioWinCmReaderRoleBindingHandler(logger, cl, commontestutils.GetScheme(), hco)
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundRoleBinding := &rbacv1.RoleBinding{}

@@ -46,41 +46,33 @@ const (
 )
 
 // **** Kubevirt UI Plugin Deployment Handler ****
-func newKvUIPluginDeploymentHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	return []Operand{newDeploymentHandler(Client, Scheme, NewKvUIPluginDeployment, hc)}, nil
+func newKvUIPluginDeploymentHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newDeploymentHandler(Client, Scheme, NewKvUIPluginDeployment, hc), nil
 }
 
 // **** Kubevirt UI apiserver proxy Deployment Handler ****
-func newKvUIProxyDeploymentHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	return []Operand{newDeploymentHandler(Client, Scheme, NewKvUIProxyDeployment, hc)}, nil
+func newKvUIProxyDeploymentHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newDeploymentHandler(Client, Scheme, NewKvUIProxyDeployment, hc), nil
 }
 
 // **** nginx config map Handler ****
-func newKvUINginxCMHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	kvUINginxCM := NewKVUINginxCM(hc)
-
-	return []Operand{newCmHandler(Client, Scheme, kvUINginxCM)}, nil
+func newKvUINginxCMHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newCmHandler(Client, Scheme, NewKVUINginxCM(hc)), nil
 }
 
 // **** UI user settings config map Handler ****
-func newKvUIUserSettingsCMHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	kvUIUserSettingsCM := NewKvUIUserSettingsCM(hc)
-
-	return []Operand{newCmHandler(Client, Scheme, kvUIUserSettingsCM)}, nil
+func newKvUIUserSettingsCMHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newCmHandler(Client, Scheme, NewKvUIUserSettingsCM(hc)), nil
 }
 
 // **** UI features config map Handler ****
-func newKvUIFeaturesCMHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	kvUIFeaturesCM := NewKvUIFeaturesCM(hc)
-
-	return []Operand{newCmHandler(Client, Scheme, kvUIFeaturesCM)}, nil
+func newKvUIFeaturesCMHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newCmHandler(Client, Scheme, NewKvUIFeaturesCM(hc)), nil
 }
 
 // **** Kubevirt UI Console Plugin Custom Resource Handler ****
-func newKvUIPluginCRHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	kvUIConsolePluginCR := NewKVConsolePlugin(hc)
-
-	return []Operand{newConsolePluginHandler(Client, Scheme, kvUIConsolePluginCR)}, nil
+func newKvUIPluginCRHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newConsolePluginHandler(Client, Scheme, NewKVConsolePlugin(hc)), nil
 }
 
 func NewKvUIPluginDeployment(hc *hcov1beta1.HyperConverged) *appsv1.Deployment {
@@ -433,17 +425,13 @@ func newConsolePluginHandler(Client client.Client, Scheme *runtime.Scheme, requi
 }
 
 // **** UI configuration (user settings and features) ConfigMap Role Handler ****
-func newKvUIConfigReaderRoleHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	KvUIConfigReaderRole := NewKvUIConfigCMReaderRole(hc)
-
-	return []Operand{newRoleHandler(Client, Scheme, KvUIConfigReaderRole)}, nil
+func newKvUIConfigReaderRoleHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newRoleHandler(Client, Scheme, NewKvUIConfigCMReaderRole(hc)), nil
 }
 
 // **** UI configuration (user settings and features) ConfigMap RoleBinding Handler ****
-func newKvUIConfigReaderRoleBindingHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	kvUIConfigReaderRoleBinding := NewKvUIConfigCMReaderRoleBinding(hc)
-
-	return []Operand{newRoleBindingHandler(Client, Scheme, kvUIConfigReaderRoleBinding)}, nil
+func newKvUIConfigReaderRoleBindingHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newRoleBindingHandler(Client, Scheme, NewKvUIConfigCMReaderRoleBinding(hc)), nil
 }
 
 func NewKvUIConfigCMReaderRole(hc *hcov1beta1.HyperConverged) *rbacv1.Role {

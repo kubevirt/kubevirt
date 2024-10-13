@@ -65,3 +65,7 @@ func (ch *conditionalHandler) ensureDeleted(req *common.HcoRequest) *EnsureResul
 
 	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
 }
+
+func (ch *conditionalHandler) getFullCr(hc *v1beta1.HyperConverged) (client.Object, error) {
+	return ch.operand.getFullCr(hc)
+}

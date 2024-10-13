@@ -18,26 +18,22 @@ import (
 const virtioWinCmName = "virtio-win"
 
 // **** Virtio-Win ConfigMap Handler ****
-func newVirtioWinCmHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
+func newVirtioWinCmHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
 	virtioWincm, err := NewVirtioWinCm(hc)
 	if err != nil {
 		return nil, err
 	}
-	return []Operand{newCmHandler(Client, Scheme, virtioWincm)}, nil
+	return newCmHandler(Client, Scheme, virtioWincm), nil
 }
 
 // **** Virtio-Win ConfigMap Role Handler ****
-func newVirtioWinCmReaderRoleHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	virtioWinRole := NewVirtioWinCmReaderRole(hc)
-
-	return []Operand{newRoleHandler(Client, Scheme, virtioWinRole)}, nil
+func newVirtioWinCmReaderRoleHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newRoleHandler(Client, Scheme, NewVirtioWinCmReaderRole(hc)), nil
 }
 
 // **** Virtio-Win ConfigMap RoleBinding Handler ****
-func newVirtioWinCmReaderRoleBindingHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	virtioWinRoleBinding := NewVirtioWinCmReaderRoleBinding(hc)
-
-	return []Operand{newRoleBindingHandler(Client, Scheme, virtioWinRoleBinding)}, nil
+func newVirtioWinCmReaderRoleBindingHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) (Operand, error) {
+	return newRoleBindingHandler(Client, Scheme, NewVirtioWinCmReaderRoleBinding(hc)), nil
 }
 
 func NewVirtioWinCm(hc *hcov1beta1.HyperConverged) (*corev1.ConfigMap, error) {

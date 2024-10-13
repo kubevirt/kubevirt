@@ -30,10 +30,10 @@ type roleHooks struct {
 	required *rbacv1.Role
 }
 
-func (h roleHooks) getFullCr(_ *hcov1beta1.HyperConverged) (client.Object, error) {
+func (h *roleHooks) getFullCr(_ *hcov1beta1.HyperConverged) (client.Object, error) {
 	return h.required.DeepCopy(), nil
 }
-func (h roleHooks) getEmptyCr() client.Object {
+func (h *roleHooks) getEmptyCr() client.Object {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: h.required.Name,
@@ -68,7 +68,7 @@ func (h *roleHooks) updateCr(req *common.HcoRequest, Client client.Client, exist
 	return false, false, nil
 }
 
-func (roleHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (*roleHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 // ********* Role Binding Handler *****************************
 

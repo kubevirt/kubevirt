@@ -39,10 +39,15 @@ type genericOperand struct {
 	hooks hcoResourceHooks
 }
 
-// Set of resource handler hooks, to be implement in each handler
-type hcoResourceHooks interface {
+type crGetter interface {
 	// Generate the required resource, with all the required fields)
 	getFullCr(*hcov1beta1.HyperConverged) (client.Object, error)
+}
+
+// Set of resource handler hooks, to be implement in each handler
+type hcoResourceHooks interface {
+	crGetter
+
 	// Generate an empty resource, to be used as the input of the client.Get method. After calling this method, it will
 	// contain the actual values in K8s.
 	getEmptyCr() client.Object
@@ -230,6 +235,10 @@ func (h *genericOperand) reset() {
 	if r, ok := h.hooks.(reseter); ok {
 		r.reset()
 	}
+}
+
+func (h *genericOperand) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	return h.hooks.getFullCr(hc)
 }
 
 // handleComponentConditions - read and process a sub-component conditions.

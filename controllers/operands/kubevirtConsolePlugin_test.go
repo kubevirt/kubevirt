@@ -50,7 +50,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			cl := commontestutils.InitClient([]client.Object{})
 			handler, _ := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -71,7 +71,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, expectedResource, expectedConsoleConfig})
 			handler, _ := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -93,7 +93,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource, expectedConsoleConfig})
 			handler, _ := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -126,7 +126,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource, expectedConsoleConfig})
 			handler, _ := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -151,7 +151,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource, expectedConsoleConfig})
 			handler, _ := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -175,7 +175,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource, expectedConsoleConfig})
 			handler, _ := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -203,7 +203,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
 			handler, _ := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -271,10 +271,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource := deploymentManifestor(hco)
 
 			cl := commontestutils.InitClient([]client.Object{})
-			handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+			handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			res := handlers[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -303,10 +303,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource := deploymentManifestor(hco)
 
 			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
-			handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+			handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			res := handlers[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -340,10 +340,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			outdatedResource.Spec.Template.Spec.Containers[0].Image = "quay.io/fake/image:latest"
 
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
-			handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+			handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 			Expect(err).ToNot(HaveOccurred())
-			res := handlers[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -389,10 +389,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			outdatedResource.Spec.Template.Labels[hcoutil.AppLabel] = "wrong label"
 
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
-			handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+			handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 			Expect(err).ToNot(HaveOccurred())
-			res := handlers[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -447,10 +447,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				outdatedResource.Labels[userLabelKey] = userLabelValue
 
 				cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 				Expect(err).ToNot(HaveOccurred())
 
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Err).ToNot(HaveOccurred())
 
@@ -484,10 +484,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				outdatedResource.Data[userAddedDataKey] = userAddedDataValue
 
 				cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 				Expect(err).ToNot(HaveOccurred())
 
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Err).ToNot(HaveOccurred())
 
@@ -517,10 +517,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				hco.Spec.Infra.NodePlacement = commontestutils.NewOtherNodePlacement()
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 				Expect(err).ToNot(HaveOccurred())
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
@@ -555,10 +555,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				existingResource := deploymentManifestor(hcoNodePlacement)
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 				Expect(err).ToNot(HaveOccurred())
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
@@ -599,10 +599,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				hco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "something entirely else"
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 				Expect(err).ToNot(HaveOccurred())
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
@@ -647,10 +647,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				existingResource.Spec.Template.Spec.NodeSelector["key3"] = "BADvalue3"
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 				Expect(err).ToNot(HaveOccurred())
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeTrue())
@@ -683,10 +683,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				hco.Spec.Infra.NodePlacement.NodeSelector = commontestutils.NewNodePlacement().NodeSelector
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 				Expect(err).ToNot(HaveOccurred())
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
@@ -715,10 +715,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				hco.Spec.Infra.NodePlacement.Affinity = commontestutils.NewNodePlacement().Affinity
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 				Expect(err).ToNot(HaveOccurred())
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
@@ -747,10 +747,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				hco.Spec.Infra.NodePlacement.Tolerations = commontestutils.NewNodePlacement().Tolerations
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 				Expect(err).ToNot(HaveOccurred())
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
@@ -790,10 +790,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				existingResource.Spec.Replicas = ptr.To(int32(1))
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 				Expect(err).ToNot(HaveOccurred())
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
@@ -834,10 +834,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				existingResource.Spec.Replicas = ptr.To(int32(3))
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handlers, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
+				handler, err := handlerFunc(logger, cl, commontestutils.GetScheme(), hco)
 
 				Expect(err).ToNot(HaveOccurred())
-				res := handlers[0].ensure(req)
+				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())

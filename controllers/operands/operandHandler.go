@@ -94,20 +94,20 @@ func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, ci hcoutil.C
 		h.addOperands(scheme, hc, getQuickStartHandlers)
 		h.addOperands(scheme, hc, getDashboardHandlers)
 		h.addOperands(scheme, hc, getImageStreamHandlers)
-		h.addOperands(scheme, hc, newVirtioWinCmHandler)
-		h.addOperands(scheme, hc, newVirtioWinCmReaderRoleHandler)
-		h.addOperands(scheme, hc, newVirtioWinCmReaderRoleBindingHandler)
+		h.addOperand(scheme, hc, newVirtioWinCmHandler)
+		h.addOperand(scheme, hc, newVirtioWinCmReaderRoleHandler)
+		h.addOperand(scheme, hc, newVirtioWinCmReaderRoleBindingHandler)
 	}
 
 	if ci.IsOpenshift() && ci.IsConsolePluginImageProvided() {
-		h.addOperands(scheme, hc, newKvUIPluginDeploymentHandler)
-		h.addOperands(scheme, hc, newKvUIProxyDeploymentHandler)
-		h.addOperands(scheme, hc, newKvUINginxCMHandler)
-		h.addOperands(scheme, hc, newKvUIPluginCRHandler)
-		h.addOperands(scheme, hc, newKvUIUserSettingsCMHandler)
-		h.addOperands(scheme, hc, newKvUIFeaturesCMHandler)
-		h.addOperands(scheme, hc, newKvUIConfigReaderRoleHandler)
-		h.addOperands(scheme, hc, newKvUIConfigReaderRoleBindingHandler)
+		h.addOperand(scheme, hc, newKvUIPluginDeploymentHandler)
+		h.addOperand(scheme, hc, newKvUIProxyDeploymentHandler)
+		h.addOperand(scheme, hc, newKvUINginxCMHandler)
+		h.addOperand(scheme, hc, newKvUIPluginCRHandler)
+		h.addOperand(scheme, hc, newKvUIUserSettingsCMHandler)
+		h.addOperand(scheme, hc, newKvUIFeaturesCMHandler)
+		h.addOperand(scheme, hc, newKvUIConfigReaderRoleHandler)
+		h.addOperand(scheme, hc, newKvUIConfigReaderRoleBindingHandler)
 
 	}
 }
@@ -116,36 +116,51 @@ func (h *OperandHandler) GetQuickStartNames() []string {
 	return quickstartNames
 }
 
-type GetHandler func(logger log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error)
+type GetHandlers func(log.Logger, client.Client, *runtime.Scheme, *hcov1beta1.HyperConverged) ([]Operand, error)
 
-func (h *OperandHandler) addOperands(scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged, getHandler GetHandler) {
-	handlers, err := getHandler(logger, h.client, scheme, hc)
+func (h *OperandHandler) addOperandObject(handler Operand, hc *hcov1beta1.HyperConverged) {
+	var (
+		obj client.Object
+		err error
+	)
+
+	if gh, ok := handler.(crGetter); ok {
+		obj, err = gh.getFullCr(hc)
+	} else {
+		err = fmt.Errorf("unknown handler with type %T", handler)
+	}
+
 	if err != nil {
-		logger.Error(err, "can't create ConsoleQuickStarts objects")
+		logger.Error(err, "can't create object")
+	} else {
+		h.objects = append(h.objects, obj)
+	}
+}
+
+func (h *OperandHandler) addOperands(scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged, getHandlers GetHandlers) {
+	handlers, err := getHandlers(logger, h.client, scheme, hc)
+	if err != nil {
+		logger.Error(err, "can't create handler")
 	} else if len(handlers) > 0 {
 		for _, handler := range handlers {
-			var (
-				obj client.Object
-				err error
-			)
-
-			switch h := handler.(type) {
-			case *genericOperand:
-				obj, err = h.hooks.getFullCr(hc)
-			case *imageStreamOperand:
-				obj, err = h.operand.hooks.getFullCr(hc)
-			default:
-				err = fmt.Errorf("unknown handler with type %v", h)
-			}
-
-			if err != nil {
-				logger.Error(err, "can't create object")
-				continue
-			}
-			h.objects = append(h.objects, obj)
+			h.addOperandObject(handler, hc)
 		}
 		h.operands = append(h.operands, handlers...)
 	}
+}
+
+type GetHandler func(log.Logger, client.Client, *runtime.Scheme, *hcov1beta1.HyperConverged) (Operand, error)
+
+func (h *OperandHandler) addOperand(scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged, getHandler GetHandler) {
+	handler, err := getHandler(logger, h.client, scheme, hc)
+	if err != nil {
+		logger.Error(err, "can't create handler")
+		return
+	}
+
+	h.addOperandObject(handler, hc)
+
+	h.operands = append(h.operands, handler)
 }
 
 func (h *OperandHandler) Ensure(req *common.HcoRequest) error {

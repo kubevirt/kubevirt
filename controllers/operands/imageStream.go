@@ -116,6 +116,10 @@ func (iso imageStreamOperand) reset() {
 	iso.operand.reset()
 }
 
+func (iso imageStreamOperand) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	return iso.operand.getFullCr(hc)
+}
+
 func newImageStreamHandler(Client client.Client, Scheme *runtime.Scheme, required *imagev1.ImageStream, origNS string) Operand {
 	return &imageStreamOperand{
 		operand: &genericOperand{
