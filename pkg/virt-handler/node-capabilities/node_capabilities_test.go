@@ -25,9 +25,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	nodecapabilities "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"libvirt.org/go/libvirtxml"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
+	nodecapabilities "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities"
 )
 
 //go:embed testdata/capabilities.xml
