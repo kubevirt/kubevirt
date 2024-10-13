@@ -45,6 +45,26 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+var DefaultObsoleteCPUModels = map[string]bool{
+	"486":        true,
+	"pentium":    true,
+	"pentium2":   true,
+	"pentium3":   true,
+	"pentiumpro": true,
+	"coreduo":    true,
+	"n270":       true,
+	"core2duo":   true,
+	"Conroe":     true,
+	"athlon":     true,
+	"phenom":     true,
+	"qemu64":     true,
+	"qemu32":     true,
+	"kvm64":      true,
+	"kvm32":      true,
+	"Opteron_G1": true,
+	"Opteron_G2": true,
+}
+
 var nodeLabellerLabels = []string{
 	kubevirtv1.CPUFeatureLabel,
 	kubevirtv1.CPUModelLabel,

@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const (
@@ -45,7 +44,7 @@ func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []
 	supportedCPUModels := make([]string, 0)
 
 	if obsoleteCPUsx86 == nil {
-		obsoleteCPUsx86 = util.DefaultObsoleteCPUModels
+		obsoleteCPUsx86 = DefaultObsoleteCPUModels
 	}
 
 	for _, model := range n.hostCapabilities.items {
@@ -138,7 +137,7 @@ func (n *NodeLabeller) loadHostSupportedFeatures() error {
 	usableFeatures := make([]string, 0)
 	for _, f := range hostFeatures.Feature {
 		// On s390x, the policy is not set
-		if f.Policy == util.RequirePolicy || (virtconfig.IsS390X(n.arch) && f.Policy == "") {
+		if f.Policy == "require" || (virtconfig.IsS390X(n.arch) && f.Policy == "") {
 			usableFeatures = append(usableFeatures, f.Name)
 		}
 	}

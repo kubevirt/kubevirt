@@ -15,7 +15,6 @@ go_library(
         "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ] + select({
         "@io_bazel_rules_go//go/platform:amd64": [
-            "//pkg/virt-handler/node-labeller/util:go_default_library",
             "//staging/src/kubevirt.io/client-go/log:go_default_library",
         ],
         "//conditions:default": [],
