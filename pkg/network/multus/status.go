@@ -53,3 +53,13 @@ func NetworkStatusesFromPod(pod *k8scorev1.Pod) []networkv1.NetworkStatus {
 
 	return networkStatuses
 }
+
+func LookupPodPrimaryIfaceName(networkStatuses []networkv1.NetworkStatus) string {
+	for _, ns := range networkStatuses {
+		if ns.Default && ns.Interface != "" {
+			return ns.Interface
+		}
+	}
+
+	return ""
+}

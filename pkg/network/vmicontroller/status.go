@@ -34,13 +34,47 @@ import (
 )
 
 func UpdateStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
-	interfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, multus.NetworkStatusesFromPod(pod))
+	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+
+	networkStatuses := multus.NetworkStatusesFromPod(pod)
+
+	interfaceStatuses = append(interfaceStatuses, calculatePrimaryIfaceStatus(vmi, networkStatuses)...)
+
+	secondaryIfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, networkStatuses)
 	if err != nil {
 		return err
 	}
 
+	interfaceStatuses = append(interfaceStatuses, secondaryIfaceStatuses...)
+
 	vmi.Status.Interfaces = interfaceStatuses
 	return nil
+}
+
+func calculatePrimaryIfaceStatus(
+	vmi *v1.VirtualMachineInstance,
+	networkStatuses []networkv1.NetworkStatus,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	primaryNetworkSpec := vmispec.LookUpDefaultNetwork(vmi.Spec.Networks)
+	if primaryNetworkSpec == nil {
+		return nil
+	}
+
+	primaryPodIfaceName := multus.LookupPodPrimaryIfaceName(networkStatuses)
+	if primaryPodIfaceName == "" {
+		primaryPodIfaceName = namescheme.PrimaryPodInterfaceName
+	}
+
+	primaryIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, primaryNetworkSpec.Name)
+	if primaryIfaceStatus == nil {
+		return []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: primaryNetworkSpec.Name, PodInterfaceName: primaryPodIfaceName},
+		}
+	}
+
+	primaryIfaceStatusCopy := *primaryIfaceStatus
+	primaryIfaceStatusCopy.PodInterfaceName = primaryPodIfaceName
+	return []v1.VirtualMachineInstanceNetworkInterface{primaryIfaceStatusCopy}
 }
 
 func calculateSecondaryIfaceStatuses(
@@ -51,7 +85,7 @@ func calculateSecondaryIfaceStatuses(
 
 	indexedMultusStatusIfaces := multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)
 	ifaceNamingScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
-	for _, network := range vmi.Spec.Networks {
+	for _, network := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
 		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
 		podIfaceName, wasFound := ifaceNamingScheme[network.Name]
 		if !wasFound {
