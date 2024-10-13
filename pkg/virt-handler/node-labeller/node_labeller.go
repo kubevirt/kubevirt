@@ -226,62 +226,89 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 // e.g. "cpu-feature.node.kubevirt.io/Penryn": "true"
 func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	newLabels := make(map[string]string)
-	for _, value := range n.supportedFeatures {
-		newLabels[kubevirtv1.CPUFeatureLabel+value] = "true"
-	}
 
+	n.addCPUFeaturesLabels(newLabels)
+	n.addCPUModelsLabels(newLabels)
+	n.addHypervFeaturesLabels(newLabels)
+	n.addTSCCounterLabels(newLabels)
+	n.addRequiredCPUFeaturesLabels(newLabels)
+	n.addHostCPUModelLabels(newLabels, node)
+	n.addRealtimeCapabilityLabel(newLabels)
+	n.addSEVLabels(newLabels)
+
+	return newLabels
+}
+
+func (n *NodeLabeller) addCPUFeaturesLabels(labels map[string]string) {
+	for _, value := range n.supportedFeatures {
+		labels[kubevirtv1.CPUFeatureLabel+value] = "true"
+	}
+}
+
+func (n *NodeLabeller) addCPUModelsLabels(labels map[string]string) {
 	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
 	cpuModels := n.supportedCPUModels(obsoleteCPUsx86)
 
 	for _, value := range cpuModels {
-		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
-		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
+		labels[kubevirtv1.CPUModelLabel+value] = "true"
+		labels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
 	}
 
 	if _, hostModelObsolete := obsoleteCPUsx86[n.hostCPUModel]; !hostModelObsolete {
-		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+n.hostCPUModel] = "true"
+		labels[kubevirtv1.SupportedHostModelMigrationCPU+n.hostCPUModel] = "true"
 	}
+}
 
+func (n *NodeLabeller) addHypervFeaturesLabels(labels map[string]string) {
 	for _, value := range n.hypervFeatures {
-		newLabels[kubevirtv1.HypervLabel+value] = "true"
+		labels[kubevirtv1.HypervLabel+value] = "true"
 	}
+}
 
+func (n *NodeLabeller) addTSCCounterLabels(labels map[string]string) {
 	if n.hasTSCCounter() {
-		newLabels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", n.cpuCounter.Frequency)
-		newLabels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%t", n.cpuCounter.Scaling == "yes")
+		labels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", n.cpuCounter.Frequency)
+		labels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%t", n.cpuCounter.Scaling == "yes")
 	}
+}
 
+func (n *NodeLabeller) addRequiredCPUFeaturesLabels(labels map[string]string) {
 	for _, feature := range n.cpuRequiredFeatures {
-		newLabels[kubevirtv1.HostModelRequiredFeaturesLabel+feature] = "true"
+		labels[kubevirtv1.HostModelRequiredFeaturesLabel+feature] = "true"
 	}
+}
+
+func (n *NodeLabeller) addHostCPUModelLabels(labels map[string]string, node *v1.Node) {
+	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
+
 	if _, obsolete := obsoleteCPUsx86[n.hostCPUModel]; obsolete {
-		newLabels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
+		labels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
 		err := n.alertIfHostModelIsObsolete(node, n.hostCPUModel, obsoleteCPUsx86)
 		if err != nil {
 			n.logger.Reason(err).Error(err.Error())
 		}
 	}
+	labels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
+	labels[kubevirtv1.HostModelCPULabel+n.hostCPUModel] = "true"
+}
 
-	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
-	newLabels[kubevirtv1.HostModelCPULabel+n.hostCPUModel] = "true"
-
+func (n *NodeLabeller) addRealtimeCapabilityLabel(labels map[string]string) {
 	capable, err := isNodeRealtimeCapable()
 	if err != nil {
 		n.logger.Reason(err).Error("failed to identify if a node is capable of running realtime workloads")
 	}
 	if capable {
-		newLabels[kubevirtv1.RealtimeLabel] = ""
+		labels[kubevirtv1.RealtimeLabel] = ""
 	}
+}
 
+func (n *NodeLabeller) addSEVLabels(labels map[string]string) {
 	if n.sevSupported {
-		newLabels[kubevirtv1.SEVLabel] = ""
+		labels[kubevirtv1.SEVLabel] = ""
 	}
-
 	if n.sevSupportedES {
-		newLabels[kubevirtv1.SEVESLabel] = ""
+		labels[kubevirtv1.SEVESLabel] = ""
 	}
-
-	return newLabels
 }
 
 // addNodeLabels adds labels to node.
