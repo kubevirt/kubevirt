@@ -56,8 +56,6 @@ import (
 	"unsafe"
 
 	"kubevirt.io/client-go/log"
-
-	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const (
@@ -222,7 +220,7 @@ func exposeCapabilities(fd uintptr, supportedMSRS map[uint32]bool) []string {
 }
 
 func GetCapLabels() []string {
-	devkvm, err := os.OpenFile(util.KVMPath, syscall.O_RDWR|syscall.O_CLOEXEC, 0)
+	devkvm, err := os.OpenFile(KVMPath, syscall.O_RDWR|syscall.O_CLOEXEC, 0)
 	if err != nil {
 		log.DefaultLogger().Errorf("something happened during opening kvm file: " + err.Error())
 		return nil
