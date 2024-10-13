@@ -4,13 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cpu_plugin.go",
-        "kvm-caps-info-plugin_amd64.go",
-        "kvm-caps-info-plugin_arm64.go",
-        "kvm-caps-info-plugin_s390x.go",
         "model.go",
         "node_labeller.go",
     ],
-    cgo = True,
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller",
     visibility = ["//visibility:public"],
     deps = [
