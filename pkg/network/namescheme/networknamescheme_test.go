@@ -232,7 +232,7 @@ var _ = Describe("Network Name Scheme", func() {
 	Context("HashedPodInterfaceName", func() {
 		DescribeTable("should return the given network name's hashed pod interface name",
 			func(network virtv1.Network, expectedPodIfaceName string) {
-				Expect(namescheme.HashedPodInterfaceName(network)).To(Equal(expectedPodIfaceName))
+				Expect(namescheme.HashedPodInterfaceName(network, []virtv1.VirtualMachineInstanceNetworkInterface{})).To(Equal(expectedPodIfaceName))
 			},
 			Entry("given default network name when default is pod network",
 				newPodNetwork(),

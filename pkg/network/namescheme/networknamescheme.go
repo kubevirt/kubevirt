@@ -56,9 +56,14 @@ func CreateHashedNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 	return networkNameSchemeMap
 }
 
-func HashedPodInterfaceName(network v1.Network) string {
+func HashedPodInterfaceName(network v1.Network, ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface) string {
 	if vmispec.IsSecondaryMultusNetwork(network) {
 		return GenerateHashedInterfaceName(network.Name)
+	}
+
+	if primaryIfaceStatus := vmispec.LookupInterfaceStatusByName(ifaceStatuses, network.Name); primaryIfaceStatus != nil &&
+		primaryIfaceStatus.PodInterfaceName != "" {
+		return primaryIfaceStatus.PodInterfaceName
 	}
 
 	return PrimaryPodInterfaceName

@@ -603,7 +603,7 @@ func (n NetPod) clearCache(nets []v1.Network) error {
 			unplugErrors = append(unplugErrors, err)
 		}
 
-		podInterfaceName := namescheme.HashedPodInterfaceName(net)
+		podInterfaceName := namescheme.HashedPodInterfaceName(net, n.vmiIfaceStatuses)
 		err = cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
 		if err != nil {
 			unplugErrors = append(unplugErrors, err)
