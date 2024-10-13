@@ -433,6 +433,163 @@ var _ = Describe("netpod", func() {
 		}))
 	})
 
+	It("setup bridge binding with IP custom primary interface name", func() {
+		const (
+			defaultGatewayIP4Address = "10.222.222.254"
+			podIfaceOrignalMAC       = "12:34:56:78:90:ab"
+			customPrimaryIfaceName   = "cust-iface"
+		)
+		nmstatestub := nmstateStub{status: nmstate.Status{
+			Interfaces: []nmstate.Interface{{
+				Name:       customPrimaryIfaceName,
+				Index:      0,
+				TypeName:   nmstate.TypeVETH,
+				State:      nmstate.IfaceStateUp,
+				MacAddress: podIfaceOrignalMAC,
+				MTU:        1500,
+				IPv4: nmstate.IP{
+					Enabled: pointer.P(true),
+					Address: []nmstate.IPAddress{{
+						IP:        primaryIPv4Address,
+						PrefixLen: 30,
+					}},
+				},
+				IPv6: nmstate.IP{
+					Enabled: pointer.P(true),
+					Address: []nmstate.IPAddress{{
+						IP:        primaryIPv6Address,
+						PrefixLen: 64,
+					}},
+				},
+			}},
+			Routes: nmstate.Routes{Running: []nmstate.Route{
+				// Default Route
+				{
+					Destination:      "0.0.0.0/0",
+					NextHopInterface: customPrimaryIfaceName,
+					NextHopAddress:   defaultGatewayIP4Address,
+					TableID:          0,
+				},
+				// Local Route (should be ignored)
+				{
+					Destination:      "10.222.222.0/30",
+					NextHopInterface: customPrimaryIfaceName,
+					NextHopAddress:   primaryIPv4Address,
+					TableID:          0,
+				},
+				// Static Route
+				{
+					Destination:      "192.168.1.0/24",
+					NextHopInterface: customPrimaryIfaceName,
+					NextHopAddress:   defaultGatewayIP4Address,
+					TableID:          0,
+				},
+				// Static route to a wider subnet containing the local subnet
+				{
+					Destination:      "10.222.0.0/16",
+					NextHopInterface: customPrimaryIfaceName,
+					TableID:          0,
+				},
+			}},
+		}}
+
+		vmiIface := v1.Interface{
+			Name:                   defaultPodNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		}
+		vmiIfaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: customPrimaryIfaceName},
+		}
+		netPod := netpod.NewNetPod(
+			[]v1.Network{*v1.DefaultPodNetwork()},
+			[]v1.Interface{vmiIface},
+			vmiUID, 0, 0, 0, state,
+			netpod.WithNMStateAdapter(&nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(vmiIfaceStatuses),
+		)
+		Expect(netPod.Setup()).To(Succeed())
+		Expect(nmstatestub.spec).To(Equal(
+			nmstate.Spec{
+				Interfaces: []nmstate.Interface{
+					{
+						Name:     "k6t-cust-iface",
+						TypeName: nmstate.TypeBridge,
+						State:    nmstate.IfaceStateUp,
+						Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+						IPv4: nmstate.IP{
+							Enabled: pointer.P(true),
+							Address: []nmstate.IPAddress{{IP: "169.254.75.10", PrefixLen: 32}},
+						},
+						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+					},
+					{
+						Name:        "cust-iface-nic",
+						Index:       0,
+						CopyMacFrom: "k6t-cust-iface",
+						Controller:  "k6t-cust-iface",
+						State:       nmstate.IfaceStateUp,
+						IPv4:        ipDisabled,
+						IPv6:        ipDisabled,
+						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+					},
+					{
+						Name:       "tapt-iface",
+						TypeName:   nmstate.TypeTap,
+						State:      nmstate.IfaceStateUp,
+						MTU:        1500,
+						Controller: "k6t-cust-iface",
+						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+					},
+					{
+						Name:       customPrimaryIfaceName,
+						TypeName:   nmstate.TypeDummy,
+						MacAddress: podIfaceOrignalMAC,
+						MTU:        1500,
+						IPv4: nmstate.IP{
+							Enabled: pointer.P(true),
+							Address: []nmstate.IPAddress{{
+								IP:        primaryIPv4Address,
+								PrefixLen: 30,
+							}},
+						},
+						IPv6: nmstate.IP{
+							Enabled: pointer.P(true),
+							Address: []nmstate.IPAddress{{
+								IP:        primaryIPv6Address,
+								PrefixLen: 64,
+							}},
+						},
+						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+					},
+				},
+				LinuxStack: nmstate.LinuxStack{IPv4: nmstate.LinuxStackIP4{
+					ArpIgnore: pointer.P(procsys.ARPReplyMode1),
+				}},
+			}),
+		)
+		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+			Iface:  &vmiIface,
+			PodIP:  primaryIPv4Address,
+			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
+		}))
+
+		expDHCPConfig, err := expectedDHCPConfig(
+			"10.222.222.1/30",
+			podIfaceOrignalMAC,
+			defaultGatewayIP4Address,
+			"192.168.1.0/24",
+			"10.222.0.0/16",
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", customPrimaryIfaceName)).To(Equal(expDHCPConfig))
+		Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", defaultPodNetworkName)).To(Equal(&api.Interface{
+			MAC: &api.MAC{MAC: podIfaceOrignalMAC},
+		}))
+	})
+
 	It("setup bridge binding without IP", func() {
 		const podIfaceOrignalMAC = "12:34:56:78:90:ab"
 		const linklocalIPv6Address = "fe80::1"

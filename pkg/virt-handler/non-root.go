@@ -117,6 +117,8 @@ func getTapDevices(vmi *v1.VirtualMachineInstance, networkBindings map[string]v1
 	}
 
 	networkNameScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)
+	networkNameScheme = namescheme.UpdatePrimaryPodIfaceNameFromVMIStatus(networkNameScheme, vmi.Spec.Networks, vmi.Status.Interfaces)
+
 	tapDevices := map[string]string{}
 	for _, net := range vmi.Spec.Networks {
 		_, isTapNetwork := tapNetworks[net.Name]
