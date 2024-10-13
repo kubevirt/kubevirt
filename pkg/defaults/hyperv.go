@@ -26,7 +26,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	nodecapabilities "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities"
 )
 
 var _true bool = true
@@ -184,8 +184,8 @@ func SetHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) error {
 
 func setEVMCSDependency(spec *v1.VirtualMachineInstanceSpec) {
 	vmxFeature := v1.CPUFeature{
-		Name:   nodelabellerutil.VmxFeature,
-		Policy: nodelabellerutil.RequirePolicy,
+		Name:   nodecapabilities.VmxFeature,
+		Policy: nodecapabilities.RequirePolicy,
 	}
 
 	cpuFeatures := []v1.CPUFeature{

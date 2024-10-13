@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	nodecapabilities "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -985,8 +985,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 	var (
 		vmxFeature = v1.CPUFeature{
-			Name:   nodelabellerutil.VmxFeature,
-			Policy: nodelabellerutil.RequirePolicy,
+			Name:   nodecapabilities.VmxFeature,
+			Policy: nodecapabilities.RequirePolicy,
 		}
 		cpuFeatures = []v1.CPUFeature{
 			vmxFeature,
@@ -1072,7 +1072,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 						Features: []v1.CPUFeature{
 							{
 								Name:   "monitor",
-								Policy: nodelabellerutil.RequirePolicy,
+								Policy: nodecapabilities.RequirePolicy,
 							},
 						},
 					},
@@ -1085,7 +1085,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Features: []v1.CPUFeature{
 					{
 						Name:   "monitor",
-						Policy: nodelabellerutil.RequirePolicy,
+						Policy: nodecapabilities.RequirePolicy,
 					},
 					vmxFeature,
 				},
@@ -1097,7 +1097,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					CPU: &v1.CPU{
 						Features: []v1.CPUFeature{
 							{
-								Name:   nodelabellerutil.VmxFeature,
+								Name:   nodecapabilities.VmxFeature,
 								Policy: "disabled",
 							},
 						},
@@ -1116,8 +1116,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					CPU: &v1.CPU{
 						Features: []v1.CPUFeature{
 							{
-								Name:   nodelabellerutil.VmxFeature,
-								Policy: nodelabellerutil.RequirePolicy,
+								Name:   nodecapabilities.VmxFeature,
+								Policy: nodecapabilities.RequirePolicy,
 							},
 						},
 					},

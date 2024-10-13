@@ -27,8 +27,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const (
@@ -44,7 +42,7 @@ func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []
 	supportedCPUModels := make([]string, 0)
 
 	if obsoleteCPUsx86 == nil {
-		obsoleteCPUsx86 = util.DefaultObsoleteCPUModels
+		obsoleteCPUsx86 = DefaultObsoleteCPUModels
 	}
 
 	for _, model := range n.hostCapabilities.items {

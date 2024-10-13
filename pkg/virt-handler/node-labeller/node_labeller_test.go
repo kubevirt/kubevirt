@@ -39,7 +39,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const nodeName = "testNode"
@@ -87,7 +86,7 @@ var _ = Describe("Node-labeller ", func() {
 			},
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
+					ObsoleteCPUModels: DefaultObsoleteCPUModels,
 					MinCPUModel:       "Penryn",
 				},
 			},

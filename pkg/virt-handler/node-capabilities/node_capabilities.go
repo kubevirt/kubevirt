@@ -29,6 +29,10 @@ import (
 const (
 	CapabilitiesVolumePath   = "/var/lib/kubevirt-node-labeller/"
 	HostCapabilitiesFilename = "capabilities.xml"
+
+	RequirePolicy = "require"
+	KVMPath       = "/dev/kvm"
+	VmxFeature    = "vmx"
 )
 
 func ParseHostCapabilities(hostCapabilities string) (*libvirtxml.Caps, error) {

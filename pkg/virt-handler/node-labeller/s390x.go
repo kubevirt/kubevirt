@@ -19,7 +19,9 @@
 
 package nodelabeller
 
-import "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+import (
+	nodecapabilities "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities"
+)
 
 // Ensure that there is a compile error should the struct not implement the archLabeller interface anymore.
 var _ = archLabeller(&archLabellerS390X{})
@@ -33,7 +35,7 @@ func (archLabellerS390X) defaultVendor() string {
 
 func (archLabellerS390X) requirePolicy(policy string) bool {
 	// On s390x, the policy is not set
-	return policy == util.RequirePolicy || policy == ""
+	return policy == nodecapabilities.RequirePolicy || policy == ""
 }
 
 func (archLabellerS390X) hasHostSupportedFeatures() bool {
