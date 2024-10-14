@@ -1988,7 +1988,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).ToNot(HaveOccurred())
 				controller.vmiIndexer.Add(vmi)
 
-				err = controller.patchVmGenerationAnnotationOnVmi(4, vmi)
+				_, err = controller.patchVmGenerationAnnotationOnVmi(4, vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
@@ -2066,7 +2066,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Generation = vmGeneration
 					vm.Spec = newVMSpec
 
-					err = controller.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi)
+					_, err = controller.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi)
 					if desiredErr == nil {
 						Expect(err).ToNot(HaveOccurred())
 					} else {
@@ -2262,7 +2262,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Generation = vmGeneration
 
-				err = controller.syncGenerationInfo(vm, vmi, log.DefaultLogger())
+				_, err = controller.syncGenerationInfo(vm, vmi, log.DefaultLogger())
 				if desiredErr == nil {
 					Expect(err).ToNot(HaveOccurred())
 				} else {
