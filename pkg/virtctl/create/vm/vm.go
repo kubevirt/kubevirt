@@ -146,19 +146,6 @@ type createVM struct {
 	bootOrders   map[uint]string
 }
 
-var optFns = map[string]func(*createVM, *v1.VirtualMachine) error{
-	RunStrategyFlag:         withRunStrategy,
-	InstancetypeFlag:        withInstancetype,
-	PreferenceFlag:          withPreference,
-	ContainerdiskVolumeFlag: withContainerdiskVolume,
-	DataSourceVolumeFlag:    withDataSourceVolume,
-	ClonePvcVolumeFlag:      withClonePvcVolume,
-	PvcVolumeFlag:           withPvcVolume,
-	BlankVolumeFlag:         withBlankVolume,
-	VolumeImportFlag:        withImportedVolume,
-	SysprepVolumeFlag:       withSysprepVolume,
-}
-
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
 // Containerdisk > PVC > DataSource > Clone PVC > Blank > Imported volumes
 // This is controlled by the order in which flags are processed.
@@ -347,13 +334,13 @@ func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 
 	for _, flag := range flags {
 		if cmd.Flags().Changed(flag) {
-			if err := optFns[flag](c, vm); err != nil {
+			if err := c.optFns()[flag](vm); err != nil {
 				return err
 			}
 		}
 	}
 
-	if err := c.cloudInitConfig(cmd, vm); err != nil {
+	if err := c.cloudInitConfig(vm); err != nil {
 		return err
 	}
 	if err := c.inferFromVolume(vm); err != nil {
@@ -393,6 +380,21 @@ func (c *createVM) setDefaults(cmd *cobra.Command) error {
 	c.memoryChanged = cmd.Flags().Changed(MemoryFlag)
 
 	return nil
+}
+
+func (c *createVM) optFns() map[string]func(*v1.VirtualMachine) error {
+	return map[string]func(*v1.VirtualMachine) error{
+		RunStrategyFlag:         c.withRunStrategy,
+		InstancetypeFlag:        c.withInstancetype,
+		PreferenceFlag:          c.withPreference,
+		ContainerdiskVolumeFlag: c.withContainerdiskVolume,
+		DataSourceVolumeFlag:    c.withDataSourceVolume,
+		ClonePvcVolumeFlag:      c.withClonePvcVolume,
+		PvcVolumeFlag:           c.withPvcVolume,
+		BlankVolumeFlag:         c.withBlankVolume,
+		VolumeImportFlag:        c.withImportedVolume,
+		SysprepVolumeFlag:       c.withSysprepVolume,
+	}
 }
 
 func (c *createVM) usage() string {
@@ -625,19 +627,19 @@ func (c *createVM) getInferFromVolume(vm *v1.VirtualMachine) (string, error) {
 	return vm.Spec.Template.Spec.Volumes[0].Name, nil
 }
 
-func (c *createVM) cloudInitConfig(cmd *cobra.Command, vm *v1.VirtualMachine) error {
-	if !cmd.Flags().Changed(UserFlag) &&
-		!cmd.Flags().Changed(PasswordFileFlag) &&
-		!cmd.Flags().Changed(SSHKeyFlag) &&
-		!cmd.Flags().Changed(GAManageSSHFlag) &&
-		!cmd.Flags().Changed(CloudInitFlag) &&
-		!cmd.Flags().Changed(CloudInitUserDataFlag) &&
-		!cmd.Flags().Changed(CloudInitNetworkDataFlag) {
+func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
+	if !c.cmd.Flags().Changed(UserFlag) &&
+		!c.cmd.Flags().Changed(PasswordFileFlag) &&
+		!c.cmd.Flags().Changed(SSHKeyFlag) &&
+		!c.cmd.Flags().Changed(GAManageSSHFlag) &&
+		!c.cmd.Flags().Changed(CloudInitFlag) &&
+		!c.cmd.Flags().Changed(CloudInitUserDataFlag) &&
+		!c.cmd.Flags().Changed(CloudInitNetworkDataFlag) {
 		return nil
 	}
 
-	if cmd.Flags().Changed(PasswordFileFlag) {
-		cmd.PrintErrf("WARNING: --%s: The password is stored in cleartext in the VM definition!\n", PasswordFileFlag)
+	if c.cmd.Flags().Changed(PasswordFileFlag) {
+		c.cmd.PrintErrf("WARNING: --%s: The password is stored in cleartext in the VM definition!\n", PasswordFileFlag)
 	}
 
 	// Make sure cloudInitDisk does not already exist
@@ -653,12 +655,12 @@ func (c *createVM) cloudInitConfig(cmd *cobra.Command, vm *v1.VirtualMachine) er
 	case CloudInitConfigDrive:
 		src, err = c.configDriveVolumeSource()
 	case CloudInitNone:
-		if cmd.Flags().Changed(PasswordFileFlag) ||
-			cmd.Flags().Changed(SSHKeyFlag) ||
-			cmd.Flags().Changed(GAManageSSHFlag) ||
-			cmd.Flags().Changed(CloudInitUserDataFlag) ||
-			cmd.Flags().Changed(CloudInitNetworkDataFlag) {
-			cmd.PrintErrf("WARNING: --%s: was set to none, not creating a data source although other cloud-init options were set", CloudInitFlag)
+		if c.cmd.Flags().Changed(PasswordFileFlag) ||
+			c.cmd.Flags().Changed(SSHKeyFlag) ||
+			c.cmd.Flags().Changed(GAManageSSHFlag) ||
+			c.cmd.Flags().Changed(CloudInitUserDataFlag) ||
+			c.cmd.Flags().Changed(CloudInitNetworkDataFlag) {
+			c.cmd.PrintErrf("WARNING: --%s: was set to none, not creating a data source although other cloud-init options were set", CloudInitFlag)
 		}
 		return nil
 	default:
@@ -745,7 +747,7 @@ func (c *createVM) buildCloudInitConfig() (string, error) {
 	return config, nil
 }
 
-func withRunStrategy(c *createVM, vm *v1.VirtualMachine) error {
+func (c *createVM) withRunStrategy(vm *v1.VirtualMachine) error {
 	for _, runStrategy := range runStrategies {
 		if runStrategy == c.runStrategy {
 			vm.Spec.RunStrategy = pointer.P(v1.VirtualMachineRunStrategy(c.runStrategy))
@@ -756,7 +758,7 @@ func withRunStrategy(c *createVM, vm *v1.VirtualMachine) error {
 	return params.FlagErr(RunStrategyFlag, "invalid RunStrategy \"%s\", supported values are: %s", c.runStrategy, strings.Join(runStrategies, ", "))
 }
 
-func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
+func (c *createVM) withInstancetype(vm *v1.VirtualMachine) error {
 	kind, name, err := params.SplitPrefixedName(c.instancetype)
 	if err != nil {
 		return params.FlagErr(InstancetypeFlag, "%w", err)
@@ -776,7 +778,7 @@ func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withPreference(c *createVM, vm *v1.VirtualMachine) error {
+func (c *createVM) withPreference(vm *v1.VirtualMachine) error {
 	kind, name, err := params.SplitPrefixedName(c.preference)
 	if err != nil {
 		return params.FlagErr(PreferenceFlag, "%w", err)
@@ -795,7 +797,7 @@ func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withContainerdiskVolume(c *createVM, vm *v1.VirtualMachine) error {
+func (c *createVM) withContainerdiskVolume(vm *v1.VirtualMachine) error {
 	for i, containerdiskVol := range c.containerdiskVolumes {
 		vol := volumeSource{}
 		if err := params.Map(ContainerdiskVolumeFlag, containerdiskVol, &vol); err != nil {
@@ -831,7 +833,7 @@ func withContainerdiskVolume(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withPvcVolume(c *createVM, vm *v1.VirtualMachine) error {
+func (c *createVM) withPvcVolume(vm *v1.VirtualMachine) error {
 	for _, pvcVol := range c.pvcVolumes {
 		vol := volumeSource{}
 		if err := params.Map(PvcVolumeFlag, pvcVol, &vol); err != nil {
@@ -877,7 +879,7 @@ func withPvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withSysprepVolume(c *createVM, vm *v1.VirtualMachine) error {
+func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
 	vol := sysprepVolumeSource{}
 	if err := params.Map(SysprepVolumeFlag, c.sysprepVolume, &vol); err != nil {
 		return err
@@ -931,7 +933,7 @@ func withSysprepVolume(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withImportedVolume(c *createVM, vm *v1.VirtualMachine) error {
+func (c *createVM) withImportedVolume(vm *v1.VirtualMachine) error {
 	for _, volume := range c.volumeImport {
 		volumeSourceType, err := params.GetParamByName("type", volume)
 		if err != nil {
@@ -1278,15 +1280,15 @@ func createDataVolume(spec *cdiv1.DataVolumeSpec, size string, name string, vm *
 
 // Deprecated optFns
 
-func withDataSourceVolume(c *createVM, _ *v1.VirtualMachine) error {
+func (c *createVM) withDataSourceVolume(_ *v1.VirtualMachine) error {
 	return aliasToVolumeImport(c.cmd, DataSourceVolumeFlag, "ds", c.dataSourceVolumes, &c.volumeImport)
 }
 
-func withClonePvcVolume(c *createVM, _ *v1.VirtualMachine) error {
+func (c *createVM) withClonePvcVolume(_ *v1.VirtualMachine) error {
 	return aliasToVolumeImport(c.cmd, ClonePvcVolumeFlag, "pvc", c.clonePvcVolumes, &c.volumeImport)
 }
 
-func withBlankVolume(c *createVM, _ *v1.VirtualMachine) error {
+func (c *createVM) withBlankVolume(_ *v1.VirtualMachine) error {
 	return aliasToVolumeImport(c.cmd, BlankVolumeFlag, "blank", c.blankVolumes, &c.volumeImport)
 }
 
