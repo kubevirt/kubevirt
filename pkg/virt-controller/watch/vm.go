@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"math/rand"
 	"strconv"
@@ -373,7 +374,7 @@ func (c *VMController) execute(key string) error {
 
 	var syncErr syncError
 
-	vm, syncErr, err = c.sync(vm, vmi, key)
+	vm, vmi, syncErr, err = c.sync(vm, vmi, key)
 	if err != nil {
 		return err
 	}
@@ -1224,38 +1225,43 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	return vm, nil
 }
 
+func setGenerationAnnotation(generation int64, annotations map[string]string) {
+	annotations[virtv1.VirtualMachineGenerationAnnotation] = strconv.FormatInt(generation, 10)
+}
+
 func setGenerationAnnotationOnVmi(generation int64, vmi *virtv1.VirtualMachineInstance) {
 	annotations := vmi.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
 
-	annotations[virtv1.VirtualMachineGenerationAnnotation] = strconv.FormatInt(generation, 10)
+	setGenerationAnnotation(generation, annotations)
 	vmi.SetAnnotations(annotations)
 }
 
-func (c *VMController) patchVmGenerationAnnotationOnVmi(generation int64, vmi *virtv1.VirtualMachineInstance) error {
-	origVmi := vmi.DeepCopy()
-
-	setGenerationAnnotationOnVmi(generation, vmi)
+func (c *VMController) patchVmGenerationAnnotationOnVmi(generation int64, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+	oldAnnotations := vmi.Annotations
+	newAnnotations := map[string]string{}
+	maps.Copy(newAnnotations, oldAnnotations)
+	setGenerationAnnotation(generation, newAnnotations)
 
 	var ops []string
-	oldAnnotations, err := json.Marshal(origVmi.Annotations)
+	oldAnnotationsJson, err := json.Marshal(oldAnnotations)
 	if err != nil {
-		return err
+		return vmi, err
 	}
-	newAnnotations, err := json.Marshal(vmi.Annotations)
+	newAnnotationsJson, err := json.Marshal(newAnnotations)
 	if err != nil {
-		return err
+		return vmi, err
 	}
-	ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
-	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
-	_, err = c.clientset.VirtualMachineInstance(origVmi.Namespace).Patch(context.Background(), origVmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotationsJson)))
+	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotationsJson)))
+	patchedVMI, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
 	if err != nil {
-		return err
+		return vmi, err
 	}
 
-	return nil
+	return patchedVMI, nil
 }
 
 // getGenerationAnnotation will return the generation annotation on the
@@ -1315,9 +1321,9 @@ type VirtualMachineRevisionData struct {
 //
 // Note that if only the Run Strategy of the VM has changed, the generaiton
 // annotation will still be bumped, since this does not affect the VMI.
-func (c *VMController) conditionallyBumpGenerationAnnotationOnVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+func (c *VMController) conditionallyBumpGenerationAnnotationOnVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
 	if vmi == nil || vm == nil {
-		return nil
+		return vmi, nil
 	}
 
 	// If this is an old vmi created before a controller update, then the
@@ -1325,30 +1331,32 @@ func (c *VMController) conditionallyBumpGenerationAnnotationOnVmi(vm *virtv1.Vir
 	// annotation needs to be bumped.
 	currentGeneration, err := getGenerationAnnotation(vmi)
 	if err != nil {
-		return err
+		return vmi, err
 	}
 	if currentGeneration != nil && *currentGeneration == strconv.FormatInt(vm.Generation, 10) {
-		return nil
+		return vmi, nil
 	}
 
 	currentRevision, err := c.getControllerRevision(vmi.Namespace, vmi.Status.VirtualMachineRevisionName)
 	if currentRevision == nil || err != nil {
-		return err
+		return vmi, err
 	}
 
 	revisionSpec := &VirtualMachineRevisionData{}
 	if err = json.Unmarshal(currentRevision.Data.Raw, revisionSpec); err != nil {
-		return err
+		return vmi, err
 	}
 
 	// If the templates are the same, we can safely bump the annotation.
 	if equality.Semantic.DeepEqual(revisionSpec.Spec.Template, vm.Spec.Template) {
-		if err := c.patchVmGenerationAnnotationOnVmi(vm.Generation, vmi); err != nil {
-			return err
+		patchedVMI, err := c.patchVmGenerationAnnotationOnVmi(vm.Generation, vmi)
+		if err != nil {
+			return vmi, err
 		}
+		vmi = patchedVMI
 	}
 
-	return nil
+	return vmi, nil
 }
 
 // Returns in seconds how long to wait before trying to start the VM again.
@@ -2294,36 +2302,36 @@ func parseGeneration(revisionName string, logger *log.FilteredLogger) *int64 {
 // the corresponding controller revision, and then patch the vmi with the
 // generation annotation. If the controller revision does not exist,
 // (nil, nil) will be returned.
-func (c *VMController) patchVmGenerationFromControllerRevision(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) (generation *int64, err error) {
-	generation = nil
+func (c *VMController) patchVmGenerationFromControllerRevision(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) (*virtv1.VirtualMachineInstance, *int64, error) {
 
 	cr, err := c.getControllerRevision(vmi.Namespace, vmi.Status.VirtualMachineRevisionName)
 	if err != nil || cr == nil {
-		return generation, err
+		return vmi, nil, err
 	}
 
-	generation = parseGeneration(cr.Name, logger)
+	generation := parseGeneration(cr.Name, logger)
 	if generation == nil {
-		return nil, nil
+		return vmi, nil, nil
 	}
 
-	if err := c.patchVmGenerationAnnotationOnVmi(*generation, vmi); err != nil {
-		return generation, err
+	vmi, err = c.patchVmGenerationAnnotationOnVmi(*generation, vmi)
+	if err != nil {
+		return vmi, generation, err
 	}
 
-	return generation, err
+	return vmi, generation, err
 }
 
 // syncGenerationInfo will update the vm.Status with the ObservedGeneration
 // from the vmi and the DesiredGeneration from the vm current generation.
-func (c *VMController) syncGenerationInfo(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+func (c *VMController) syncGenerationInfo(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) (*virtv1.VirtualMachineInstance, error) {
 	if vm == nil || vmi == nil {
-		return errors.New("passed nil pointer")
+		return vmi, errors.New("passed nil pointer")
 	}
 
 	generation, err := getGenerationAnnotationAsInt(vmi, logger)
 	if err != nil {
-		return err
+		return vmi, err
 	}
 
 	// If the generation annotation does not exist, the VMI could have been
@@ -2331,16 +2339,18 @@ func (c *VMController) syncGenerationInfo(vm *virtv1.VirtualMachine, vmi *virtv1
 	// ControllerRevision on what the latest observed generation is and back-fill
 	// the info onto the vmi annotation.
 	if generation == nil {
-		generation, err = c.patchVmGenerationFromControllerRevision(vmi, logger)
+		var patchedVMI *virtv1.VirtualMachineInstance
+		patchedVMI, generation, err = c.patchVmGenerationFromControllerRevision(vmi, logger)
 		if generation == nil || err != nil {
-			return err
+			return vmi, err
 		}
+		vmi = patchedVMI
 	}
 
 	vm.Status.ObservedGeneration = *generation
 	vm.Status.DesiredGeneration = vm.Generation
 
-	return nil
+	return vmi, nil
 }
 
 func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError, logger *log.FilteredLogger) error {
@@ -2353,7 +2363,9 @@ func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virt
 	ready := false
 	if created {
 		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceReady, k8score.ConditionTrue)
-		if err := c.syncGenerationInfo(vm, vmi, logger); err != nil {
+		var err error
+		vmi, err = c.syncGenerationInfo(vm, vmi, logger)
+		if err != nil {
 			return err
 		}
 	}
@@ -2972,7 +2984,7 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 	return vm, false
 }
 
-func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, syncError, error) {
+func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, syncError, error) {
 
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
@@ -2983,13 +2995,13 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	)
 
 	if !c.satisfiedExpectations(key) {
-		return vm, nil, nil
+		return vm, vmi, nil, nil
 	}
 
 	if vmi != nil {
 		startVMSpec, err = c.getLastVMRevisionSpec(vm)
 		if err != nil {
-			return vm, nil, err
+			return vm, vmi, nil, err
 		}
 	}
 
@@ -2997,31 +3009,32 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		if vmi == nil || controller.HasFinalizer(vm, v1.FinalizerOrphanDependents) {
 			vm, err = c.removeVMFinalizer(vm)
 			if err != nil {
-				return vm, nil, err
+				return vm, vmi, nil, err
 			}
 		} else {
 			vm, err = c.stopVMI(vm, vmi)
 			if err != nil {
 				log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-				return vm, &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}, nil
+				return vm, vmi, &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}, nil
 			}
 		}
-		return vm, nil, nil
+		return vm, vmi, nil, nil
 	} else {
 		vm, err = c.addVMFinalizer(vm)
 		if err != nil {
-			return vm, nil, err
+			return vm, vmi, nil, err
 		}
 	}
 
-	if err := c.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi); err != nil {
-		return nil, nil, err
+	vmi, err = c.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi)
+	if err != nil {
+		return nil, vmi, nil, err
 	}
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
-		return vm, &syncErrorImpl{fmt.Errorf(fetchingRunStrategyErrFmt, err), FailedCreateReason}, err
+		return vm, vmi, &syncErrorImpl{fmt.Errorf(fetchingRunStrategyErrFmt, err), FailedCreateReason}, err
 	}
 
 	// Ensure we have ControllerRevisions of any instancetype or preferences referenced by the VM
@@ -3029,26 +3042,26 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to store Instancetype ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
-		return vm, &syncErrorImpl{fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}, nil
+		return vm, vmi, &syncErrorImpl{fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}, nil
 	}
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
 	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {
 		dataVolumesReady, err := c.handleDataVolumes(vm)
 		if err != nil {
-			return vm, &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}, nil
+			return vm, vmi, &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}, nil
 		}
 
 		// not sure why we allow to proceed when halted but preserving legacy behavior
 		if !dataVolumesReady && runStrategy != virtv1.RunStrategyHalted {
 			log.Log.Object(vm).V(3).Info("Waiting on DataVolumes to be ready.")
-			return vm, nil, nil
+			return vm, vmi, nil, nil
 		}
 	}
 
 	vm, syncErr = c.syncRunStrategy(vm, vmi, runStrategy)
 	if syncErr != nil {
-		return vm, syncErr, nil
+		return vm, vmi, syncErr, nil
 	}
 
 	vm, restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
@@ -3057,7 +3070,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	// deleted in the startStop function which impacts how we process
 	// hotplugged volumes and interfaces
 	if !c.satisfiedExpectations(key) {
-		return vm, nil, nil
+		return vm, vmi, nil, nil
 	}
 
 	vmCopy := vm.DeepCopy()
@@ -3079,50 +3092,50 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 		hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi)
 		if err != nil {
-			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err), HotPlugNetworkInterfaceErrorReason}, nil
+			return vm, vmi, &syncErrorImpl{fmt.Errorf("Error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err), HotPlugNetworkInterfaceErrorReason}, nil
 		}
 		updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
 		vmiCopy.Spec = *updatedVmiSpec
 
 		if err := c.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
-			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to patch vmi: %v", err), FailedUpdateErrorReason}, nil
+			return vm, vmi, &syncErrorImpl{fmt.Errorf("Error encountered when trying to patch vmi: %v", err), FailedUpdateErrorReason}, nil
 		}
 	}
 
 	if err := c.handleVolumeRequests(vmCopy, vmi); err != nil {
-		return vm, &syncErrorImpl{fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason}, nil
+		return vm, vmi, &syncErrorImpl{fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason}, nil
 	}
 
 	if err := c.handleMemoryDumpRequest(vmCopy, vmi); err != nil {
-		return vm, &syncErrorImpl{fmt.Errorf("Error encountered while handling memory dump request: %v", err), MemoryDumpErrorReason}, nil
+		return vm, vmi, &syncErrorImpl{fmt.Errorf("Error encountered while handling memory dump request: %v", err), MemoryDumpErrorReason}, nil
 	}
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
 	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() && !restartRequired && !conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
 		if err := c.handleCPUChangeRequest(vmCopy, vmi); err != nil {
-			return vm, &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}, nil
+			return vm, vmi, &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}, nil
 		}
 
 		if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
-			return vm, &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}, nil
+			return vm, vmi, &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}, nil
 		}
 
 		if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
-			return vm, &syncErrorImpl{fmt.Errorf("error encountered while handling memory hotplug requests: %v", err), HotPlugMemoryErrorReason}, nil
+			return vm, vmi, &syncErrorImpl{fmt.Errorf("error encountered while handling memory hotplug requests: %v", err), HotPlugMemoryErrorReason}, nil
 		}
 	}
 
 	if !equality.Semantic.DeepEqual(vm.Spec, vmCopy.Spec) || !equality.Semantic.DeepEqual(vm.ObjectMeta, vmCopy.ObjectMeta) {
 		updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
-			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}, nil
+			return vm, vmi, &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}, nil
 		}
 		vm = updatedVm
 	} else {
 		vm = vmCopy
 	}
 
-	return vm, nil, nil
+	return vm, vmi, nil, nil
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
