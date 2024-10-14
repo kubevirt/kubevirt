@@ -27,10 +27,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	appsv1 "k8s.io/api/apps/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -264,18 +262,6 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 		})
 	})
 })
-
-func updateDeploymentResourcesRequest(virtClient kubecli.KubevirtClient, deploymentName string, cpu, memory resource.Quantity) {
-	deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	deployment.Spec.Template.Spec.Containers[0].Resources.Requests = k8sv1.ResourceList{
-		k8sv1.ResourceCPU:    cpu,
-		k8sv1.ResourceMemory: memory,
-	}
-
-	patchDeployment(virtClient, deployment)
-}
 
 func patchDeployment(virtClient kubecli.KubevirtClient, deployment *appsv1.Deployment) {
 	payload, err := patch.New(patch.WithReplace("/spec", deployment.Spec)).GeneratePayload()
