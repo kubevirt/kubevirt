@@ -61,4 +61,8 @@ var (
 	Kubernetes130 = Label("kubernetes130")
 	// WG archs
 	WgS390x = Label("wg-s390x")
+
+	// NoFlakeChecker decorates tests that are not compatible with the check-tests-for-flakes test lane.
+	// This should only be used for legitimate purposes, like on tests that have a flake-checker-friendly clone.
+	NoFlakeCheck = Label("no-flake-check")
 )
