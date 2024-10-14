@@ -277,10 +277,11 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
 	backendStoragePVCName := ""
 	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
-		backendStoragePVCName = backendstorage.PVCForMigrationTarget(t.persistentVolumeClaimStore, migration)
-		if backendStoragePVCName == "" {
+		backendStoragePVC := backendstorage.PVCForMigrationTarget(t.persistentVolumeClaimStore, migration)
+		if backendStoragePVC == nil {
 			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
 		}
+		backendStoragePVCName = backendStoragePVC.Name
 	}
 	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, backendStoragePVCName, false)
 	if err != nil {

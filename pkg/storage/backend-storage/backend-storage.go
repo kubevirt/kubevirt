@@ -90,17 +90,16 @@ func pvcForMigrationTargetFromStore(pvcStore cache.Store, migration *corev1.Virt
 
 }
 
-func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) string {
+func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) *v1.PersistentVolumeClaim {
 	if migration.Status.MigrationState != nil && migration.Status.MigrationState.TargetPersistentStatePVCName != "" {
-		return migration.Status.MigrationState.TargetPersistentStatePVCName
+		obj, exists, err := pvcStore.GetByKey(migration.Namespace + "/" + migration.Status.MigrationState.TargetPersistentStatePVCName)
+		if err != nil || !exists {
+			return nil
+		}
+		return obj.(*v1.PersistentVolumeClaim)
 	}
 
-	pvc := pvcForMigrationTargetFromStore(pvcStore, migration)
-	if pvc != nil {
-		return pvc.Name
-	}
-
-	return ""
+	return pvcForMigrationTargetFromStore(pvcStore, migration)
 }
 
 func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name string) {

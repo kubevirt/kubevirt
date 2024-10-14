@@ -494,6 +494,10 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	c.aggregateDataVolumesConditions(vmiCopy, dataVolumes)
 
+	if pvc := backendstorage.PVCForVMI(c.pvcIndexer, vmi); pvc != nil {
+		c.backendStorage.UpdateVolumeStatus(vmiCopy, pvc)
+	}
+
 	switch {
 	case vmi.IsUnprocessed():
 		if vmiPodExists {
@@ -1115,7 +1119,6 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 			return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
 		}
 	}
-	c.backendStorage.UpdateVolumeStatus(vmi, pvc)
 	return pvc.Name, nil
 }
 

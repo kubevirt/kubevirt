@@ -990,6 +990,11 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 		vmiCopy.ObjectMeta.Labels[virtv1.VirtualMachinePodMemoryRequestsLabel] = memoryReq
 	}
 
+	if backendStoragePVC := backendstorage.PVCForMigrationTarget(c.pvcStore, migration); backendStoragePVC != nil {
+		bs := backendstorage.NewBackendStorage(c.clientset, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
+		bs.UpdateVolumeStatus(vmiCopy, backendStoragePVC)
+	}
+
 	err = c.patchVMI(vmi, vmiCopy)
 	if err != nil {
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
@@ -1144,7 +1149,10 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 		return fmt.Errorf("no backend-storage PVC found in VMI volume status")
 	}
 
-	migration.Status.MigrationState.TargetPersistentStatePVCName = backendstorage.PVCForMigrationTarget(c.pvcStore, migration)
+	pvc := backendstorage.PVCForMigrationTarget(c.pvcStore, migration)
+	if pvc != nil {
+		migration.Status.MigrationState.TargetPersistentStatePVCName = pvc.Name
+	}
 	if migration.Status.MigrationState.TargetPersistentStatePVCName != "" {
 		// backend storage pvc has already been created or has ReadWriteMany access-mode
 		return nil
@@ -1160,7 +1168,6 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 		c.pvcExpectations.CreationObserved(vmiKey)
 		return err
 	}
-	bs.UpdateVolumeStatus(vmi, backendStoragePVC)
 	migration.Status.MigrationState.TargetPersistentStatePVCName = backendStoragePVC.Name
 	if migration.Status.MigrationState.SourcePersistentStatePVCName == migration.Status.MigrationState.TargetPersistentStatePVCName {
 		// The PVC is shared between source and target, satisfy the expectation since the creation will never happen
