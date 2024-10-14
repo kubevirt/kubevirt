@@ -100,6 +100,8 @@ function delete_resources() {
         done
         _kubectl delete apiservices,clusterroles,clusterrolebinding,customresourcedefinitions,pv,validatingwebhookconfiguration -l ${label}
     done
+
+    _kubectl delete priorityclass kubevirt-cluster-critical --ignore-not-found
 }
 
 function delete_namespaces() {
