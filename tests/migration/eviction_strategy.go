@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -66,7 +67,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 	Context("with a live-migrate eviction strategy set", func() {
 		Context("[ref_id:2293] with a VMI running with an eviction strategy set", func() {
 
-			It("[test_id:3242]should block the eviction api and migrate", func() {
+			It("[test_id:3242]should block the eviction api and migrate", decorators.Conformance, func() {
 				vmi := libvmops.RunVMIAndExpectLaunch(alpineVMIWithEvictionStrategy(), 180)
 				vmiNodeOrig := vmi.Status.NodeName
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
