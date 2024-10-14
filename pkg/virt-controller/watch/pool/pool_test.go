@@ -235,6 +235,12 @@ var _ = Describe("Pool", func() {
 			})
 		}
 
+		sanityExecute := func() {
+			watchtesting.SanityExecute(controller, []cache.Store{
+				controller.vmiStore, controller.vmIndexer, controller.poolIndexer, controller.revisionIndexer,
+			}, Default)
+		}
+
 		It("should create missing VMs", func() {
 			pool, _ := DefaultPool(3)
 
@@ -244,7 +250,7 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(poolRevision)
 			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -289,7 +295,7 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(newPoolRevision)
 			expectVMUpdate(newPoolRevision.Name)
 
-			controller.Execute()
+			sanityExecute()
 
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
 		})
@@ -305,7 +311,7 @@ var _ = Describe("Pool", func() {
 			addCR(poolRevision)
 
 			expectControllerRevisionDeletion(poolRevision)
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should update VM and VMI with both VM and VMI template change", func() {
@@ -352,7 +358,7 @@ var _ = Describe("Pool", func() {
 				return true, nil, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
@@ -372,7 +378,7 @@ var _ = Describe("Pool", func() {
 			addVM(vm)
 			addCR(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should prune unused controller revisions", func() {
@@ -394,7 +400,7 @@ var _ = Describe("Pool", func() {
 			addCR(oldPoolRevision)
 
 			expectControllerRevisionDeletion(oldPoolRevision)
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should not create missing VMs when it is paused and add paused condition", func() {
@@ -418,7 +424,7 @@ var _ = Describe("Pool", func() {
 				return true, update.GetObject(), nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, SuccessfulPausedPoolReason)
 			// Expect pool to be updated with paused condition
@@ -452,7 +458,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, common.FailedCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, FailedScaleOutReason)
@@ -485,7 +491,7 @@ var _ = Describe("Pool", func() {
 				return true, update.GetObject(), nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should create missing VMs when pool is resumed", func() {
@@ -519,7 +525,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -538,7 +544,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -571,7 +577,7 @@ var _ = Describe("Pool", func() {
 				return true, nil, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
@@ -609,7 +615,7 @@ var _ = Describe("Pool", func() {
 			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, nil
 			})
-			controller.Execute()
+			sanityExecute()
 
 			for x := 0; x < 5; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
@@ -635,7 +641,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -663,7 +669,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 
@@ -694,7 +700,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
