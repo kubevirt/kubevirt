@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"os"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"golang.org/x/crypto/ssh"
 
 	"kubevirt.io/kubevirt/tests/errorhandling"
@@ -53,4 +56,16 @@ mkdir -p /root/.ssh/
 echo "%s" > /root/.ssh/authorized_keys
 chown -R root:root /root/.ssh
 `, string(ssh.MarshalAuthorizedKey(key)))
+}
+
+// DisableSSHAgent allows disabling the SSH agent to not influence test results
+func DisableSSHAgent() {
+	const sshAuthSock = "SSH_AUTH_SOCK"
+	val, present := os.LookupEnv(sshAuthSock)
+	if present {
+		Expect(os.Unsetenv(sshAuthSock)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.Setenv(sshAuthSock, val)).To(Succeed())
+		})
+	}
 }

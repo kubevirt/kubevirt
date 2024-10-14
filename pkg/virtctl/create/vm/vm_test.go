@@ -3,6 +3,9 @@ package vm_test
 import (
 	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -10,6 +13,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
@@ -632,76 +637,237 @@ chpasswd: { expire: False }`
 			Entry("with size and name", "my-blank", "10Gi", "size:10Gi,name:my-blank"),
 		)
 
-		It("VM with specified cloud-init user data", func() {
-			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
-			out, err := runCmd(setFlag(CloudInitUserDataFlag, userDataB64))
+		DescribeTable("VM with user specified in cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+			const user = "my-user"
+			args := append([]string{
+				setFlag(UserFlag, user),
+			}, extraArgs...)
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
-
-			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(decoded)).To(Equal(cloudInitUserData))
+			Expect(userDataFn(vm)).To(ContainSubstring("user: " + user))
 
 			// No inference possible in this case
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
-		})
+		},
+			Entry("with CloudInitNoCloud (default)", noCloudUserData),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
 
-		It("VM with specified cloud-init network data", func() {
-			networkDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))
-			out, err := runCmd(setFlag(CloudInitNetworkDataFlag, networkDataB64))
+		DescribeTable("VM with password read from file in cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+			password := rand.String(12)
+
+			path := filepath.Join(GinkgoT().TempDir(), "pw")
+			file, err := os.Create(path)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = file.Write([]byte(password))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(file.Close()).To(Succeed())
+
+			args := append([]string{
+				setFlag(PasswordFileFlag, path),
+			}, extraArgs...)
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64).To(Equal(networkDataB64))
-
-			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(decoded)).To(Equal(cloudInitNetworkData))
+			Expect(userDataFn(vm)).To(ContainSubstring("password: %s\nchpasswd: { expire: False }", password))
 
 			// No inference possible in this case
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
-		})
+		},
+			Entry("with CloudInitNoCloud (default)", noCloudUserData),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
 
-		It("VM with specified cloud-init user and network data", func() {
-			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
-			networkDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))
+		DescribeTable("VM with ssh key in cloud-init user data", func(argsFn func() ([]string, string), userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+			args, keys := argsFn()
+			args = append(args, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(userDataFn(vm)).To(ContainSubstring("ssh_authorized_keys:" + keys))
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
+		},
+			Entry("with CloudInitNoCloud (default) and single key", randomSingleKey, noCloudUserData),
+			Entry("with CloudInitNoCloud (explicit) and single key", randomSingleKey, noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit) and single key", randomSingleKey, configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCLoud (default) and multiple keys in single flag", randomMultipleKeysSingleFlag, noCloudUserData),
+			Entry("with CloudInitNoCLoud (explicit) and multiple keys in single flag", randomMultipleKeysSingleFlag, noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit) and multiple keys in single flag", randomMultipleKeysSingleFlag, configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (default) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, noCloudUserData),
+			Entry("with CloudInitNoCloud (explicit) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
+
+		It("VM with no generated cloud-init config while setting option", func() {
 			out, err := runCmd(
-				setFlag(CloudInitUserDataFlag, userDataB64),
-				setFlag(CloudInitNetworkDataFlag, networkDataB64),
+				setFlag(CloudInitFlag, CloudInitNone),
+				setFlag(GAManageSSHFlag, "true"),
 			)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
+			Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+		})
+
+		DescribeTable("VM with qemu-guest-agent managing SSH enabled in cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+			args := append([]string{
+				setFlag(GAManageSSHFlag, "true"),
+			}, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64).To(Equal(networkDataB64))
+			Expect(userDataFn(vm)).To(ContainSubstring("runcmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"))
 
-			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64)
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
+		},
+			Entry("with CloudInitNoCloud (default)", noCloudUserData),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
+
+		DescribeTable("VM with specified cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
+			args := append([]string{
+				setFlag(CloudInitUserDataFlag, userDataB64),
+			}, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(userDataFn(vm)).To(Equal(userDataB64))
+
+			decoded, err := base64.StdEncoding.DecodeString(userDataFn(vm))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitUserData))
-			decoded, err = base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64)
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
+		},
+			Entry("with CloudInitNoCloud (default)", noCloudUserDataB64),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserDataB64, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserDataB64, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
+
+		DescribeTable("VM with specified cloud-init network data", func(networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+			networkDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))
+			args := append([]string{
+				setFlag(CloudInitNetworkDataFlag, networkDataB64),
+			}, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(networkDataFn(vm)).To(Equal(networkDataB64))
+
+			decoded, err := base64.StdEncoding.DecodeString(networkDataFn(vm))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitNetworkData))
 
 			// No inference possible in this case
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
-		})
+		},
+			Entry("with CloudInitNoCloud (default)", noCloudNetworkDataB64),
+			Entry("with CloudInitNoCloud (explicit)", noCloudNetworkDataB64, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveNetworkDataB64, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
+
+		DescribeTable("VM with specified cloud-init user and network data", func(userDataFn func(*v1.VirtualMachine) string, networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
+			networkDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))
+			args := append([]string{
+				setFlag(CloudInitUserDataFlag, userDataB64),
+				setFlag(CloudInitNetworkDataFlag, networkDataB64),
+			}, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(userDataFn(vm)).To(Equal(userDataB64))
+			Expect(networkDataFn(vm)).To(Equal(networkDataB64))
+
+			decoded, err := base64.StdEncoding.DecodeString(userDataFn(vm))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(decoded)).To(Equal(cloudInitUserData))
+			decoded, err = base64.StdEncoding.DecodeString(networkDataFn(vm))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(decoded)).To(Equal(cloudInitNetworkData))
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
+		},
+			Entry("with CloudInitNoCloud (default)", noCloudUserDataB64, noCloudNetworkDataB64),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserDataB64, noCloudNetworkDataB64, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserDataB64, configDriveNetworkDataB64, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
+
+		DescribeTable("VM with generated cloud-init user and specified network data", func(userDataFn func(*v1.VirtualMachine) string, networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+			const user = "my-user"
+			networkDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))
+			args := append([]string{
+				setFlag(UserFlag, user),
+				setFlag(CloudInitNetworkDataFlag, networkDataB64),
+			}, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(userDataFn(vm)).To(ContainSubstring("user: " + user))
+			Expect(networkDataFn(vm)).To(Equal(networkDataB64))
+
+			decoded, err := base64.StdEncoding.DecodeString(networkDataFn(vm))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(decoded)).To(Equal(cloudInitNetworkData))
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
+		},
+			Entry("with CloudInitNoCloud (default)", noCloudUserData, noCloudNetworkDataB64),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, noCloudNetworkDataB64, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, configDriveNetworkDataB64, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
 
 		It("Complex example", func() {
 			const vmName = "my-vm"
@@ -780,6 +946,68 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
 			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(pvcName))
 			Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(pvcBootOrder)))
+		})
+
+		It("Complex example with generated cloud-init config", func() {
+			const vmName = "my-vm"
+			const terminationGracePeriod int64 = 180
+			const pvcNamespace = "my-ns"
+			const pvcName = "my-ds"
+			const dvtSize = "10Gi"
+			const user = "my-user"
+			const sshKey = "my-ssh-key"
+
+			out, err := runCmd(
+				setFlag(NameFlag, vmName),
+				setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,src:%s/%s,size:%s", pvcNamespace, pvcName, dvtSize)),
+				setFlag(UserFlag, user),
+				setFlag(SSHKeyFlag, sshKey),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Name).To(Equal(vmName))
+
+			Expect(vm.Spec.Running).To(BeNil())
+			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+			Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+
+			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
+
+			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
+			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(`imported-volume-\w{4}`))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal(pvcName))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvcNamespace))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("user: " + user))
+			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("ssh_authorized_keys:\n  - " + sshKey))
+
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.Kind).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
+			Expect(vm.Spec.Preference.Name).To(BeEmpty())
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 		})
 	})
 
@@ -1066,11 +1294,11 @@ chpasswd: { expire: False }`
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
 			),
-			Entry("There can only be one cloudInitDisk (UserData)", "failed to parse \"--cloud-init-user-data\" flag: there is already a volume with name 'cloudinitdisk'",
+			Entry("There can only be one cloudInitDisk (UserData)", "there is already a volume with name 'cloudinitdisk'",
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitUserDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))),
 			),
-			Entry("There can only be one cloudInitDisk (NetworkData)", "failed to parse \"--cloud-init-network-data\" flag: there is already a volume with name 'cloudinitdisk'",
+			Entry("There can only be one cloudInitDisk (NetworkData)", "there is already a volume with name 'cloudinitdisk'",
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitNetworkDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))),
 			),
@@ -1084,6 +1312,42 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError("failed to parse \"--volume-datasource\" flag: bootorder 1 was specified multiple times"))
 			Expect(out).To(BeEmpty())
 		})
+
+		It("Invalid path to PasswordFileFlag", func() {
+			out, err := runCmd(setFlag(PasswordFileFlag, "testpath/does/not/exist"))
+			Expect(err).To(MatchError("failed to parse \"--password-file\" flag: open testpath/does/not/exist: no such file or directory"))
+			Expect(out).To(BeEmpty())
+		})
+
+		It("Invalid argument to GAManageSSHFlag", func() {
+			out, err := runCmd(setFlag(GAManageSSHFlag, "not-a-bool"))
+			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--ga-manage-ssh\" flag: strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"))
+			Expect(out).To(BeEmpty())
+		})
+
+		DescribeTable("Invalid arguments to CloudInitFlag", func(sourceType string) {
+			out, err := runCmd(setFlag(CloudInitFlag, sourceType))
+			Expect(err).To(MatchError(fmt.Sprintf("failed to parse \"--cloud-init\" flag: invalid cloud-init data source type \"%s\", supported values are: noCloud, configDrive, none", sourceType)))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("some string", "not-a-bool"),
+			Entry("float", "1.23"),
+			Entry("bool", "true"),
+		)
+
+		DescribeTable("CloudInitUserDataFlag and generated cloud-init config are mutually exclusive", func(flag string, arg string) {
+			out, err := runCmd(
+				setFlag(CloudInitUserDataFlag, "test"),
+				arg,
+			)
+			Expect(err).To(MatchError(fmt.Sprintf("if any flags in the group [cloud-init-user-data %s] are set none of the others can be; [cloud-init-user-data %s] were all set", flag, flag)))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("CloudInitUserDataFlag and UserFlag", "user", setFlag(UserFlag, "test")),
+			Entry("CloudInitUserDataFlag and PasswordFileFlag", "password-file", setFlag(PasswordFileFlag, "testpath")),
+			Entry("CloudInitUserDataFlag and SSHKeyFlag", "ssh-key", setFlag(SSHKeyFlag, "test")),
+			Entry("CloudInitUserDataFlag and GAManageSSHFlag", "ga-manage-ssh", setFlag(GAManageSSHFlag, "true")),
+		)
 	})
 })
 
@@ -1109,4 +1373,73 @@ func decodeVM(bytes []byte) (*v1.VirtualMachine, error) {
 	default:
 		return nil, fmt.Errorf("unexpected type %T", obj)
 	}
+}
+
+func noCloudUserData(vm *v1.VirtualMachine) string {
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive).To(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64).To(BeEmpty())
+	return vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserData
+}
+
+func noCloudUserDataB64(vm *v1.VirtualMachine) string {
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive).To(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserData).To(BeEmpty())
+	return vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64
+}
+
+func noCloudNetworkDataB64(vm *v1.VirtualMachine) string {
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive).To(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkData).To(BeEmpty())
+	return vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64
+}
+
+func configDriveUserData(vm *v1.VirtualMachine) string {
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).To(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive).ToNot(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.UserDataBase64).To(BeEmpty())
+	return vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.UserData
+}
+
+func configDriveUserDataB64(vm *v1.VirtualMachine) string {
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).To(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive).ToNot(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.UserData).To(BeEmpty())
+	return vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.UserDataBase64
+}
+
+func configDriveNetworkDataB64(vm *v1.VirtualMachine) string {
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).To(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive).ToNot(BeNil())
+	Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.NetworkData).To(BeEmpty())
+	return vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.NetworkDataBase64
+}
+
+func randomSingleKey() ([]string, string) {
+	key := rand.String(64)
+	return []string{
+		setFlag(SSHKeyFlag, key),
+	}, "\n  - " + key
+}
+
+func randomMultipleKeysSingleFlag() ([]string, string) {
+	var keys []string
+	for range 5 {
+		keys = append(keys, rand.String(64))
+	}
+	return []string{setFlag(SSHKeyFlag, strings.Join(keys, ","))},
+		"\n  - " + strings.Join(keys, "\n  - ")
+}
+
+func randomMultipleKeysMultipleFlags() ([]string, string) {
+	var args []string
+	keys := ""
+	for range 5 {
+		key := rand.String(64)
+		args = append(args, setFlag(SSHKeyFlag, key))
+		keys += "\n  - " + key
+	}
+	return args, keys
 }

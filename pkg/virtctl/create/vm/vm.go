@@ -22,6 +22,7 @@ package vm
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -48,78 +49,101 @@ const (
 	NameFlag                   = "name"
 	RunStrategyFlag            = "run-strategy"
 	TerminationGracePeriodFlag = "termination-grace-period"
-	MemoryFlag                 = "memory"
-	InstancetypeFlag           = "instancetype"
-	PreferenceFlag             = "preference"
-	ContainerdiskVolumeFlag    = "volume-containerdisk"
-	DataSourceVolumeFlag       = "volume-datasource"
-	ClonePvcVolumeFlag         = "volume-clone-pvc"
-	PvcVolumeFlag              = "volume-pvc"
-	BlankVolumeFlag            = "volume-blank"
-	CloudInitUserDataFlag      = "cloud-init-user-data"
-	CloudInitNetworkDataFlag   = "cloud-init-network-data"
-	InferInstancetypeFlag      = "infer-instancetype"
-	InferInstancetypeFromFlag  = "infer-instancetype-from"
-	InferPreferenceFlag        = "infer-preference"
-	InferPreferenceFromFlag    = "infer-preference-from"
-	VolumeImportFlag           = "volume-import"
 
-	CloudInitDisk = "cloudinitdisk"
-	blank         = "blank"
-	gcs           = "gcs"
-	http          = "http"
-	imageIO       = "imageio"
-	pvc           = "pvc"
-	registry      = "registry"
-	s3            = "s3"
-	vddk          = "vddk"
-	snapshot      = "snapshot"
+	MemoryFlag                = "memory"
+	InstancetypeFlag          = "instancetype"
+	InferInstancetypeFlag     = "infer-instancetype"
+	InferInstancetypeFromFlag = "infer-instancetype-from"
 
+	PreferenceFlag          = "preference"
+	InferPreferenceFlag     = "infer-preference"
+	InferPreferenceFromFlag = "infer-preference-from"
+
+	ContainerdiskVolumeFlag = "volume-containerdisk"
+	DataSourceVolumeFlag    = "volume-datasource"
+	ClonePvcVolumeFlag      = "volume-clone-pvc"
+	PvcVolumeFlag           = "volume-pvc"
+	BlankVolumeFlag         = "volume-blank"
+	VolumeImportFlag        = "volume-import"
+
+	UserFlag         = "user"
+	PasswordFileFlag = "password-file"
+	SSHKeyFlag       = "ssh-key"
+	GAManageSSHFlag  = "ga-manage-ssh"
+
+	CloudInitFlag            = "cloud-init"
+	CloudInitUserDataFlag    = "cloud-init-user-data"
+	CloudInitNetworkDataFlag = "cloud-init-network-data"
+
+	CloudInitDisk        = "cloudinitdisk"
+	CloudInitNoCloud     = "noCloud"
+	CloudInitConfigDrive = "configDrive"
+	CloudInitNone        = "none"
+
+	blank    = "blank"
+	gcs      = "gcs"
+	http     = "http"
+	imageIO  = "imageio"
+	pvc      = "pvc"
+	registry = "registry"
+	s3       = "s3"
+	vddk     = "vddk"
+	snapshot = "snapshot"
+
+	VolumeExistsErrorFmt          = "there is already a volume with name '%s'"
 	InvalidInferenceVolumeError   = "inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"
 	DVInvalidInferenceVolumeError = "this DataVolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
 )
 
 type createVM struct {
-	namespace              string
 	name                   string
-	terminationGracePeriod int64
 	runStrategy            string
-	memory                 string
-	instancetype           string
-	preference             string
-	containerdiskVolumes   []string
-	dataSourceVolumes      []string
-	clonePvcVolumes        []string
-	blankVolumes           []string
-	pvcVolumes             []string
-	cloudInitUserData      string
-	cloudInitNetworkData   string
-	inferInstancetype      bool
-	inferInstancetypeFrom  string
-	inferPreference        bool
-	inferPreferenceFrom    string
-	volumeImport           []string
+	terminationGracePeriod int64
 
-	clientConfig clientcmd.ClientConfig
-	bootOrders   map[uint]string
+	memory                string
+	instancetype          string
+	inferInstancetype     bool
+	inferInstancetypeFrom string
 
+	preference          string
+	inferPreference     bool
+	inferPreferenceFrom string
+
+	containerdiskVolumes []string
+	dataSourceVolumes    []string
+	clonePvcVolumes      []string
+	pvcVolumes           []string
+	blankVolumes         []string
+	volumeImport         []string
+
+	user         string
+	passwordFile string
+	sshKeys      []string
+	gaManageSSH  bool
+
+	cloudInit            string
+	cloudInitUserData    string
+	cloudInitNetworkData string
+
+	namespace                     string
 	explicitInstancetypeInference bool
 	explicitPreferenceInference   bool
 	memoryChanged                 bool
+
+	clientConfig clientcmd.ClientConfig
+	bootOrders   map[uint]string
 }
 
 var optFns = map[string]func(*createVM, *v1.VirtualMachine) error{
-	RunStrategyFlag:          withRunStrategy,
-	InstancetypeFlag:         withInstancetype,
-	PreferenceFlag:           withPreference,
-	ContainerdiskVolumeFlag:  withContainerdiskVolume,
-	DataSourceVolumeFlag:     withDataSourceVolume,
-	ClonePvcVolumeFlag:       withClonePvcVolume,
-	PvcVolumeFlag:            withPvcVolume,
-	BlankVolumeFlag:          withBlankVolume,
-	CloudInitUserDataFlag:    withCloudInitUserData,
-	CloudInitNetworkDataFlag: withCloudInitNetworkData,
-	VolumeImportFlag:         withImportedVolume,
+	RunStrategyFlag:         withRunStrategy,
+	InstancetypeFlag:        withInstancetype,
+	PreferenceFlag:          withPreference,
+	ContainerdiskVolumeFlag: withContainerdiskVolume,
+	DataSourceVolumeFlag:    withDataSourceVolume,
+	ClonePvcVolumeFlag:      withClonePvcVolume,
+	PvcVolumeFlag:           withPvcVolume,
+	BlankVolumeFlag:         withBlankVolume,
+	VolumeImportFlag:        withImportedVolume,
 }
 
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
@@ -135,8 +159,6 @@ var flags = []string{
 	PvcVolumeFlag,
 	BlankVolumeFlag,
 	VolumeImportFlag,
-	CloudInitUserDataFlag,
-	CloudInitNetworkDataFlag,
 }
 
 var volumeImportOptions = map[string]func(string) (*cdiv1.DataVolumeSource, error){
@@ -208,8 +230,18 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		snapshot, params.Supported(dataVolumeSourceSnapshot{}),
 	))
 
+	cmd.Flags().StringVar(&c.user, UserFlag, c.user, "Specify the user in the cloud-init user data that is added to the VM.")
+	cmd.Flags().StringVar(&c.passwordFile, PasswordFileFlag, c.passwordFile, "Specify a file to read the password from for the cloud-init user data that is added to the VM.")
+	cmd.Flags().StringSliceVar(&c.sshKeys, SSHKeyFlag, c.sshKeys, "Specify one or more SSH authorized keys in the cloud-init user data that is added to the VM.")
+	cmd.Flags().BoolVar(&c.gaManageSSH, GAManageSSHFlag, c.gaManageSSH, "Specify if the qemu-guest-agent should be able to manage SSH in the cloud-init user data that is added to the VM.\nThis is useful in combination with the 'credentials add-ssh-key' command.")
+
+	cmd.Flags().StringVar(&c.cloudInit, CloudInitFlag, c.cloudInit, fmt.Sprintf("Specify the type of the generated cloud-init data source.\nSupported values: %s, %s, %s", CloudInitNoCloud, CloudInitConfigDrive, CloudInitNone))
 	cmd.Flags().StringVar(&c.cloudInitUserData, CloudInitUserDataFlag, c.cloudInitUserData, "Specify the base64 encoded cloud-init user data of the VM.")
 	cmd.Flags().StringVar(&c.cloudInitNetworkData, CloudInitNetworkDataFlag, c.cloudInitNetworkData, "Specify the base64 encoded cloud-init network data of the VM.")
+	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, UserFlag)
+	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, PasswordFileFlag)
+	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, SSHKeyFlag)
+	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, GAManageSSHFlag)
 
 	cmd.Flags().SortFlags = false
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -219,11 +251,12 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func defaultCreateVM(clientConfig clientcmd.ClientConfig) createVM {
 	return createVM{
-		terminationGracePeriod: 180,
 		runStrategy:            string(v1.RunStrategyAlways),
+		terminationGracePeriod: 180,
 		memory:                 "512Mi",
 		inferInstancetype:      true,
 		inferPreference:        true,
+		cloudInit:              CloudInitNoCloud,
 		clientConfig:           clientConfig,
 		bootOrders:             map[uint]string{},
 	}
@@ -249,7 +282,7 @@ func volumeShouldExist(vm *v1.VirtualMachine, name string) (*v1.Volume, error) {
 
 func volumeShouldNotExist(flag string, vm *v1.VirtualMachine, name string) error {
 	if vol := volumeExists(vm, name); vol != nil {
-		return params.FlagErr(flag, "there is already a volume with name '%s'", name)
+		return params.FlagErr(flag, VolumeExistsErrorFmt, name)
 	}
 
 	return nil
@@ -300,6 +333,9 @@ func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	if err := c.cloudInitConfig(cmd, vm); err != nil {
+		return err
+	}
 	if err := c.inferFromVolume(vm); err != nil {
 		return err
 	}
@@ -390,7 +426,13 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --instancetype=my-instancetype --preference=my-preference --volume-pvc=my-pvc
 
   # Create a manifest for a VirtualMachine with a specified DataVolumeTemplate
-  {{ProgramName}} create vm --volume-import type:pvc,name:my-pvc,namespace:default,size:256Mi`
+  {{ProgramName}} create vm --volume-import type:pvc,name:my-pvc,namespace:default,size:256Mi
+
+  # Create a manifest for a VirtualMachine with a generated cloud-init config setting the user and adding an ssh authorized key
+  {{ProgramName}} create vm --user cloud-user --ssh-key="ssh-ed25519 AAAA...."
+
+  # Create a manifest for a VirtualMachine with a generated cloud-init config setting the user and setting the password from a file
+  {{ProgramName}} create vm --user cloud-user --password-file=/path/to/file`
 }
 
 func (c *createVM) newVM() (*v1.VirtualMachine, error) {
@@ -554,6 +596,126 @@ func (c *createVM) getInferFromVolume(vm *v1.VirtualMachine) (string, error) {
 
 	// Default to the first volume if no boot order was specified
 	return vm.Spec.Template.Spec.Volumes[0].Name, nil
+}
+
+func (c *createVM) cloudInitConfig(cmd *cobra.Command, vm *v1.VirtualMachine) error {
+	if !cmd.Flags().Changed(UserFlag) &&
+		!cmd.Flags().Changed(PasswordFileFlag) &&
+		!cmd.Flags().Changed(SSHKeyFlag) &&
+		!cmd.Flags().Changed(GAManageSSHFlag) &&
+		!cmd.Flags().Changed(CloudInitFlag) &&
+		!cmd.Flags().Changed(CloudInitUserDataFlag) &&
+		!cmd.Flags().Changed(CloudInitNetworkDataFlag) {
+		return nil
+	}
+
+	if cmd.Flags().Changed(PasswordFileFlag) {
+		cmd.PrintErrf("WARNING: --%s: The password is stored in cleartext in the VM definition!\n", PasswordFileFlag)
+	}
+
+	// Make sure cloudInitDisk does not already exist
+	if vol := volumeExists(vm, CloudInitDisk); vol != nil {
+		return fmt.Errorf(VolumeExistsErrorFmt, CloudInitDisk)
+	}
+
+	var src v1.VolumeSource
+	var err error
+	switch c.cloudInit {
+	case CloudInitNoCloud:
+		src, err = c.noCloudVolumeSource()
+	case CloudInitConfigDrive:
+		src, err = c.configDriveVolumeSource()
+	case CloudInitNone:
+		if cmd.Flags().Changed(PasswordFileFlag) ||
+			cmd.Flags().Changed(SSHKeyFlag) ||
+			cmd.Flags().Changed(GAManageSSHFlag) ||
+			cmd.Flags().Changed(CloudInitUserDataFlag) ||
+			cmd.Flags().Changed(CloudInitNetworkDataFlag) {
+			cmd.PrintErrf("WARNING: --%s: was set to none, not creating a data source although other cloud-init options were set", CloudInitFlag)
+		}
+		return nil
+	default:
+		return params.FlagErr(CloudInitFlag, "invalid cloud-init data source type \"%s\", supported values are: %s, %s, %s", c.cloudInit, CloudInitNoCloud, CloudInitConfigDrive, CloudInitNone)
+	}
+	if err != nil {
+		return err
+	}
+
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+		Name:         CloudInitDisk,
+		VolumeSource: src,
+	})
+
+	return nil
+}
+
+func (c *createVM) noCloudVolumeSource() (v1.VolumeSource, error) {
+	src := &v1.CloudInitNoCloudSource{}
+	if c.cloudInitNetworkData != "" {
+		src.NetworkDataBase64 = c.cloudInitNetworkData
+	}
+	if c.cloudInitUserData != "" {
+		src.UserDataBase64 = c.cloudInitUserData
+	} else {
+		config, err := c.buildCloudInitConfig()
+		if err != nil {
+			return v1.VolumeSource{}, err
+		}
+		src.UserData = config
+	}
+	return v1.VolumeSource{
+		CloudInitNoCloud: src,
+	}, nil
+}
+
+func (c *createVM) configDriveVolumeSource() (v1.VolumeSource, error) {
+	src := &v1.CloudInitConfigDriveSource{}
+	if c.cloudInitNetworkData != "" {
+		src.NetworkDataBase64 = c.cloudInitNetworkData
+	}
+	if c.cloudInitUserData != "" {
+		src.UserDataBase64 = c.cloudInitUserData
+	} else {
+		config, err := c.buildCloudInitConfig()
+		if err != nil {
+			return v1.VolumeSource{}, err
+		}
+		src.UserData = config
+	}
+	return v1.VolumeSource{
+		CloudInitConfigDrive: src,
+	}, nil
+}
+
+func (c *createVM) buildCloudInitConfig() (string, error) {
+	config := "#cloud-config"
+
+	if c.user != "" {
+		config += "\nuser: " + c.user
+	}
+
+	if c.passwordFile != "" {
+		data, err := os.ReadFile(c.passwordFile)
+		if err != nil {
+			return "", params.FlagErr(PasswordFileFlag, "%w", err)
+		}
+		if password := strings.TrimSpace(string(data)); password != "" {
+			config += fmt.Sprintf("\npassword: %s\nchpasswd: { expire: False }", password)
+		}
+	}
+
+	if len(c.sshKeys) > 0 {
+		config += "\nssh_authorized_keys:"
+		for _, key := range c.sshKeys {
+			config += "\n  - " + key
+		}
+	}
+
+	if c.gaManageSSH {
+		config += "\nruncmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"
+	}
+
+	return config, nil
 }
 
 func withRunStrategy(c *createVM, vm *v1.VirtualMachine) error {
@@ -867,44 +1029,6 @@ func withBlankVolume(c *createVM, vm *v1.VirtualMachine) error {
 			},
 		})
 	}
-
-	return nil
-}
-
-func withCloudInitUserData(c *createVM, vm *v1.VirtualMachine) error {
-	return withCloudInitData(CloudInitUserDataFlag, c, vm)
-}
-
-func withCloudInitNetworkData(c *createVM, vm *v1.VirtualMachine) error {
-	// Skip if cloudInitUserData is not empty, only one cloudInitDisk can be created
-	if c.cloudInitUserData != "" {
-		return nil
-	}
-
-	return withCloudInitData(CloudInitNetworkDataFlag, c, vm)
-}
-
-func withCloudInitData(flag string, c *createVM, vm *v1.VirtualMachine) error {
-	// Make sure cloudInitDisk does not already exist
-	if err := volumeShouldNotExist(flag, vm, CloudInitDisk); err != nil {
-		return err
-	}
-
-	// TODO This is using the NoCloud method to provide cloudInit data.
-	// The ConfigDrive method can be implemented in the future if needed.
-	cloudInitNoCloud := &v1.CloudInitNoCloudSource{}
-	if c.cloudInitNetworkData != "" {
-		cloudInitNoCloud.NetworkDataBase64 = c.cloudInitNetworkData
-	}
-	if c.cloudInitUserData != "" {
-		cloudInitNoCloud.UserDataBase64 = c.cloudInitUserData
-	}
-	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-		Name: CloudInitDisk,
-		VolumeSource: v1.VolumeSource{
-			CloudInitNoCloud: cloudInitNoCloud,
-		},
-	})
 
 	return nil
 }
