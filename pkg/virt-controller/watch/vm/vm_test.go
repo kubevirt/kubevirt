@@ -2343,18 +2343,31 @@ var _ = Describe("VirtualMachine", func() {
 					vm, vmi = watchtesting.DefaultVirtualMachine(true)
 				})
 
-				DescribeTable("should update annotations and sync during Execute()", func(initialAnnotations map[string]string, desiredAnnotations map[string]string, revisionVmSpec v1.VirtualMachineSpec, newVMSpec v1.VirtualMachineSpec, revisionVmGeneration int64, vmGeneration int64, desiredErr error, expectPatch bool, desiredObservedGeneration int64, desiredDesiredGeneration int64) {
-					vmi.ObjectMeta.Annotations = initialAnnotations
-					vm.Generation = revisionVmGeneration
-					vm.Spec = revisionVmSpec
+				type testCase struct {
+					initialAnnotations        map[string]string
+					desiredAnnotations        map[string]string
+					revisionVmSpec            v1.VirtualMachineSpec
+					newVMSpec                 v1.VirtualMachineSpec
+					revisionVmGeneration      int64
+					vmGeneration              int64
+					desiredErr                error
+					expectPatch               bool
+					desiredObservedGeneration int64
+					desiredDesiredGeneration  int64
+				}
+
+				DescribeTable("should update annotations and sync during Execute()", func(tcase testCase) {
+					vmi.ObjectMeta.Annotations = tcase.initialAnnotations
+					vm.Generation = tcase.revisionVmGeneration
+					vm.Spec = tcase.revisionVmSpec
 
 					crName, err := controller.createVMRevision(vm)
 					Expect(err).ToNot(HaveOccurred())
 
 					vmi.Status.VirtualMachineRevisionName = crName
 
-					vm.Generation = vmGeneration
-					vm.Spec = newVMSpec
+					vm.Generation = tcase.vmGeneration
+					vm.Spec = tcase.newVMSpec
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
@@ -2369,101 +2382,103 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 
-					Expect(vm.Status.ObservedGeneration).To(Equal(desiredObservedGeneration))
-					Expect(vm.Status.DesiredGeneration).To(Equal(desiredDesiredGeneration))
+					Expect(vm.Status.ObservedGeneration).To(Equal(tcase.desiredObservedGeneration), "Observed annotation should be")
+					Expect(vm.Status.DesiredGeneration).To(Equal(tcase.desiredDesiredGeneration))
 
 					// TODO should not patch if expectPatch == false
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Annotations).To(Equal(desiredAnnotations))
+					Expect(vmi.Annotations).To(Equal(tcase.desiredAnnotations))
 				},
 					Entry(
-						// Expect no patch on vmi annotations, and vm status to be correct
-						"with annotation existing, new changes in VM spec",
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 2,
+						"with annotation existing, new changes in VM spec", testCase{
+							initialAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
+							// Expect no patch on vmi annotations, and vm status to be correct
+							desiredAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
+							revisionVmSpec: v1.VirtualMachineSpec{
+								Running: func(b bool) *bool { return &b }(true),
+								Template: &v1.VirtualMachineInstanceTemplateSpec{
+									ObjectMeta: metav1.ObjectMeta{
+										Name:   vmi.ObjectMeta.Name,
+										Labels: vmi.ObjectMeta.Labels,
+									},
+									Spec: v1.VirtualMachineInstanceSpec{
+										Domain: v1.DomainSpec{
+											CPU: &v1.CPU{
+												Cores: 2,
+											},
 										},
 									},
 								},
 							},
-						},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 4, // changed
+							newVMSpec: v1.VirtualMachineSpec{
+								Running: func(b bool) *bool { return &b }(true),
+								Template: &v1.VirtualMachineInstanceTemplateSpec{
+									ObjectMeta: metav1.ObjectMeta{
+										Name:   vmi.ObjectMeta.Name,
+										Labels: vmi.ObjectMeta.Labels,
+									},
+									Spec: v1.VirtualMachineInstanceSpec{
+										Domain: v1.DomainSpec{
+											CPU: &v1.CPU{
+												Cores: 4, // changed
+											},
 										},
 									},
 								},
 							},
+							revisionVmGeneration:      2,
+							vmGeneration:              3,
+							desiredErr:                nil,
+							expectPatch:               false,
+							desiredObservedGeneration: 2,
+							desiredDesiredGeneration:  3,
 						},
-						int64(2),
-						int64(3),
-						nil,
-						false,
-						int64(2),
-						int64(3),
 					),
 					Entry(
 						// Expect a patch on vmi annotations, and vm status to be correct
-						"with annotation existing, no new changes in VM spec",
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "3"},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 2,
+						"with annotation existing, no new changes in VM spec", testCase{
+							initialAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
+							desiredAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "3"},
+							revisionVmSpec: v1.VirtualMachineSpec{
+								Running: pointer.P(true),
+								Template: &v1.VirtualMachineInstanceTemplateSpec{
+									ObjectMeta: metav1.ObjectMeta{
+										Name:   vmi.ObjectMeta.Name,
+										Labels: vmi.ObjectMeta.Labels,
+									},
+									Spec: v1.VirtualMachineInstanceSpec{
+										Domain: v1.DomainSpec{
+											CPU: &v1.CPU{
+												Cores: 2,
+											},
 										},
 									},
 								},
 							},
-						},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 2,
+							newVMSpec: v1.VirtualMachineSpec{
+								Running: pointer.P(true),
+								Template: &v1.VirtualMachineInstanceTemplateSpec{
+									ObjectMeta: metav1.ObjectMeta{
+										Name:   vmi.ObjectMeta.Name,
+										Labels: vmi.ObjectMeta.Labels,
+									},
+									Spec: v1.VirtualMachineInstanceSpec{
+										Domain: v1.DomainSpec{
+											CPU: &v1.CPU{
+												Cores: 2,
+											},
 										},
 									},
 								},
 							},
+							revisionVmGeneration:      2,
+							vmGeneration:              3,
+							desiredErr:                nil,
+							expectPatch:               true,
+							desiredObservedGeneration: 3,
+							desiredDesiredGeneration:  3,
 						},
-						int64(2),
-						int64(3),
-						nil,
-						true,
-						int64(3),
-						int64(3),
 					),
 				)
 			})
