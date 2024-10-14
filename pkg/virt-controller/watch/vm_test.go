@@ -1415,7 +1415,7 @@ var _ = Describe("VirtualMachine", func() {
 				patch := `[{ "op": "test", "path": "/metadata/annotations", "value": {} }, { "op": "replace", "path": "/metadata/annotations", "value": {"kubevirt.io/vm-generation":"4"} }]`
 				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 
-				err := controller.patchVmGenerationAnnotationOnVmi(4, vmi)
+				_, err := controller.patchVmGenerationAnnotationOnVmi(4, vmi)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1501,7 +1501,7 @@ var _ = Describe("VirtualMachine", func() {
 						vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					}
 
-					err = controller.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi)
+					_, err = controller.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi)
 					if desiredErr == nil {
 						Expect(err).ToNot(HaveOccurred())
 					} else {
@@ -1703,7 +1703,7 @@ var _ = Describe("VirtualMachine", func() {
 					vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				}
 
-				err = controller.syncGenerationInfo(vm, vmi, log.DefaultLogger())
+				_, err = controller.syncGenerationInfo(vm, vmi, log.DefaultLogger())
 				if desiredErr == nil {
 					Expect(err).ToNot(HaveOccurred())
 				} else {
@@ -1803,8 +1803,9 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(err).ToNot(HaveOccurred())
 						ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
 						ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
-
-						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), &metav1.PatchOptions{}).Times(1).Return(vmi, nil)
+						patchedVMI := vmi.DeepCopy()
+						patchedVMI.Annotations = desiredAnnotations
+						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), &metav1.PatchOptions{}).Times(1).Return(patchedVMI, nil)
 					} else {
 						// Should not be called
 						vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
