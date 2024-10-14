@@ -66,14 +66,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 	Context("with a live-migrate eviction strategy set", func() {
 		Context("[ref_id:2293] with a VMI running with an eviction strategy set", func() {
 
-			var vmi *v1.VirtualMachineInstance
-
-			BeforeEach(func() {
-				vmi = alpineVMIWithEvictionStrategy()
-			})
-
 			It("[test_id:3242]should block the eviction api and migrate", func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+				vmi := libvmops.RunVMIAndExpectLaunch(alpineVMIWithEvictionStrategy(), 180)
 				vmiNodeOrig := vmi.Status.NodeName
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -107,6 +101,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 			})
 
 			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
+				vmi := alpineVMIWithEvictionStrategy()
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
 					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -129,7 +124,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			It("should create the PDB if VMI is live-migratable and has the LiveMigrateIfPossible strategy set", func() {
 				By("creating the VMI")
-				vmi.Spec.EvictionStrategy = pointer.P(v1.EvictionStrategyLiveMigrateIfPossible)
+				vmi := alpineVMIWithEvictionStrategy(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrateIfPossible))
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -148,18 +143,19 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
 				By("creating the VMI")
-				createdVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi := alpineVMIWithEvictionStrategy()
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("waiting for VMI")
-				libwait.WaitForSuccessfulVMIStart(createdVMI,
+				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithTimeout(60),
 				)
 
 				By("Adding a fake old virt-controller PDB")
-				pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(createdVMI.Namespace).Create(context.Background(), &policyv1.PodDisruptionBudget{
+				pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &policyv1.PodDisruptionBudget{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							*metav1.NewControllerRef(createdVMI, v1.VirtualMachineInstanceGroupVersionKind),
+							*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
 						},
 						GenerateName: "kubevirt-disruption-budget-",
 					},
@@ -167,7 +163,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						MinAvailable: pointer.P(intstr.FromInt32(2)),
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
-								v1.CreatedByLabel: string(createdVMI.UID),
+								v1.CreatedByLabel: string(vmi.UID),
 							},
 						},
 					},
@@ -176,16 +172,14 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				By("checking that the PDB disappeared")
 				Eventually(func() error {
-					_, err := virtClient.PolicyV1().PodDisruptionBudgets(createdVMI.Namespace).Get(context.Background(), pdb.Name, metav1.GetOptions{})
+					_, err := virtClient.PolicyV1().PodDisruptionBudgets(vmi.Namespace).Get(context.Background(), pdb.Name, metav1.GetOptions{})
 					return err
 				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			})
 
 			It("[test_id:3244]should block the eviction api while a slow migration is in progress", func() {
-				vmi = fedoraVMIWithEvictionStrategy()
-
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi := libvmops.RunVMIAndExpectLaunch(fedoraVMIWithEvictionStrategy(), 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -243,9 +237,9 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					nodeAffinityTerm k8sv1.PreferredSchedulingTerm
 				)
 
-				expectVMIMigratedToAnotherNode := func(vmiName, sourceNodeName string) {
+				expectVMIMigratedToAnotherNode := func(vmiNamespace, vmiName, sourceNodeName string) {
 					EventuallyWithOffset(1, func() error {
-						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
+						vmi, err := virtClient.VirtualMachineInstance(vmiNamespace).Get(context.Background(), vmiName, metav1.GetOptions{})
 						if err != nil {
 							return err
 						} else if vmi.Status.NodeName == sourceNodeName {
@@ -290,7 +284,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				})
 
 				It("[test_id:6982]should migrate a VMI only one time", func() {
-					vmi = fedoraVMIWithEvictionStrategy()
+					vmi := fedoraVMIWithEvictionStrategy()
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
@@ -300,7 +294,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 					node := vmi.Status.NodeName
 					libnode.TemporaryNodeDrain(node)
-					expectVMIMigratedToAnotherNode(vmi.Name, node)
+					expectVMIMigratedToAnotherNode(vmi.Namespace, vmi.Name, node)
 
 					Consistently(func() error {
 						migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
@@ -316,7 +310,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				})
 
 				It("[test_id:2221] should migrate a VMI under load to another node", func() {
-					vmi = fedoraVMIWithEvictionStrategy()
+					vmi := fedoraVMIWithEvictionStrategy()
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
@@ -332,11 +326,11 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 					node := vmi.Status.NodeName
 					libnode.TemporaryNodeDrain(node)
-					expectVMIMigratedToAnotherNode(vmi.Name, node)
+					expectVMIMigratedToAnotherNode(vmi.Namespace, vmi.Name, node)
 				})
 
 				It("[test_id:2222] should migrate a VMI when custom taint key is configured", func() {
-					vmi = alpineVMIWithEvictionStrategy()
+					vmi := alpineVMIWithEvictionStrategy()
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
@@ -349,7 +343,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 					node := vmi.Status.NodeName
 					libnode.TemporaryNodeDrain(node)
-					expectVMIMigratedToAnotherNode(vmi.Name, node)
+					expectVMIMigratedToAnotherNode(vmi.Namespace, vmi.Name, node)
 				})
 
 				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
