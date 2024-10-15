@@ -40,6 +40,11 @@ type pvcVolume struct {
 	BootOrder *uint  `param:"bootorder"`
 }
 
+type sysprepVolumeSource struct {
+	Source string `param:"src"`
+	Type   string `param:"type"`
+}
+
 type blankVolume struct {
 	Name string             `param:"name"`
 	Size *resource.Quantity `param:"size"`

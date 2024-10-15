@@ -637,6 +637,39 @@ chpasswd: { expire: False }`
 			Entry("with size and name", "my-blank", "10Gi", "size:10Gi,name:my-blank"),
 		)
 
+		DescribeTable("VM with specified sysprep volume", func(volSrc, volType, params string) {
+			out, err := runCmd(setFlag(SysprepVolumeFlag, params))
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(SysprepDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep).ToNot(BeNil())
+
+			switch volType {
+			case SysprepConfigMap:
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.ConfigMap).ToNot(BeNil())
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.ConfigMap.Name).To(Equal(volSrc))
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.Secret).To(BeNil())
+			case SysprepSecret:
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.ConfigMap).To(BeNil())
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.Secret).ToNot(BeNil())
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.Secret.Name).To(Equal(volSrc))
+			default:
+				Fail(fmt.Sprintf("invalid sysprep volume type %s", volType))
+
+			}
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
+		},
+			Entry("ConfigMap with src (implicity default)", "my-src", SysprepConfigMap, "src:my-src"),
+			Entry("ConfigMap with src and type", "my-src", SysprepConfigMap, "src:my-src,type:configMap"),
+			Entry("Secret with src and type", "my-src", SysprepSecret, "src:my-src,type:secret"),
+		)
+
 		DescribeTable("VM with user specified in cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
 			const user = "my-user"
 			args := append([]string{
@@ -880,6 +913,7 @@ chpasswd: { expire: False }`
 			const dvtSize = "10Gi"
 			const pvcName = "my-pvc"
 			const pvcBootOrder = 1
+			const secretName = "my-secret"
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
 			out, err := runCmd(
@@ -890,6 +924,7 @@ chpasswd: { expire: False }`
 				setFlag(InferPreferenceFromFlag, pvcName),
 				setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s,size:%s", dsNamespace, dsName, dvtSize)),
 				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvcName, pvcBootOrder)),
+				setFlag(SysprepVolumeFlag, fmt.Sprintf("src:%s,type:%s", secretName, SysprepSecret)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -928,18 +963,23 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dsName))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
 
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(3))
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(4))
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtDsName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtDsName))
 			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(pvcName))
 			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
-			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(CloudInitDisk))
-			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
+			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(SysprepDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep.ConfigMap).To(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep.Secret).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep.Secret.Name).To(Equal(secretName))
+			Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
-			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64)
+			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud.UserDataBase64)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitUserData))
 
@@ -1253,6 +1293,20 @@ chpasswd: { expire: False }`
 			Entry("Volume already exists", "failed to parse \"--volume-import\" flag: there is already a volume with name 'duplicated'", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated"), setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated")),
 		)
 
+		DescribeTable("Invalid arguments to SysprepVolumeFlag", func(flag, errMsg string) {
+			out, err := runCmd(setFlag(SysprepVolumeFlag, flag))
+			Expect(err).To(MatchError(errMsg))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("Empty params", "", "failed to parse \"--volume-sysprep\" flag: params may not be empty"),
+			Entry("Invalid param", "test=test", "failed to parse \"--volume-sysprep\" flag: params need to have at least one colon: test=test"),
+			Entry("Unknown param", "test:test", "failed to parse \"--volume-sysprep\" flag: unknown param(s): test:test"),
+			Entry("Missing src", "type:configMap", "failed to parse \"--volume-sysprep\" flag: src must be specified"),
+			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-sysprep\" flag: src invalid: name cannot be empty"),
+			Entry("Invalid slashes count in src", "src:my-ns/my-src/madethisup", "failed to parse \"--volume-sysprep\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
+			Entry("Namespace in src", "src:my-ns/my-src", "failed to parse \"--volume-sysprep\" flag: not allowed to specify namespace of ConfigMap or Secret 'my-src'"),
+		)
+
 		DescribeTable("Duplicate DataVolumeTemplates or Volumes are not allowed", func(errMsg string, flags ...string) {
 			out, err := runCmd(flags...)
 			Expect(err).To(MatchError(errMsg))
@@ -1301,6 +1355,10 @@ chpasswd: { expire: False }`
 			Entry("There can only be one cloudInitDisk (NetworkData)", "there is already a volume with name 'cloudinitdisk'",
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitNetworkDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))),
+			),
+			Entry("There can only be one sysprepDisk", "failed to parse \"--volume-sysprep\" flag: there is already a volume with name 'sysprepdisk'",
+				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:sysprepdisk"),
+				setFlag(SysprepVolumeFlag, "src:my-src"),
 			),
 		)
 
