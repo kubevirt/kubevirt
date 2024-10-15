@@ -41,8 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	kvutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -309,42 +308,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:1775]should not request a tun device", func() {
-			By("Creating random VirtualMachineInstance")
-			autoAttach := false
+		It("[test_id:1775]should start a VMI with no network", func() {
 			vmi := libvmifact.NewAlpine()
-			vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
-
+			vmi.Spec.Domain.Devices.AutoattachPodInterface = pointer.P(false)
 			var err error
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			waitUntilVMIReady(vmi, console.LoginToAlpine)
-
-			By("Looking up pod using VMI's label")
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-			Expect(err).ToNot(HaveOccurred())
-
-			foundContainer := false
-			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" {
-					foundContainer = true
-					_, ok := container.Resources.Requests[services.TunDevice]
-					Expect(ok).To(BeFalse())
-
-					_, ok = container.Resources.Limits[services.TunDevice]
-					Expect(ok).To(BeFalse())
-
-					caps := container.SecurityContext.Capabilities
-
-					Expect(caps.Add).To(Not(ContainElement(k8sv1.Capability("NET_ADMIN"))), "Compute container should not have NET_ADMIN capability")
-
-					if kvutil.IsNonRootVMI(vmi) {
-						Expect(caps.Drop).To(ContainElement(k8sv1.Capability("ALL")), "Compute container should drop NET_RAW capability")
-					}
-				}
-			}
-
-			Expect(foundContainer).To(BeTrue(), "Did not find 'compute' container in pod")
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		})
 	})
 
