@@ -21,7 +21,7 @@
 set -e
 
 PROJECT_ROOT="$(readlink -e "$(dirname "${BASH_SOURCE[0]}")"/../../)"
-export METRICS_DOC_PATH="${METRICS_DOC_PATH:-${PROJECT_ROOT}/docs/metrics.md}"
+export METRICS_DOC_PATH="${METRICS_DOC_PATH:-${PROJECT_ROOT}/docs/observability/metrics.md}"
 export METRICS_COLLECTOR_PATH="${METRICS_COLLECTOR_PATH:-${PROJECT_ROOT}/tools/prom-metrics-collector}"
 
 if [[ ! -f "$METRICS_DOC_PATH" ]]; then
