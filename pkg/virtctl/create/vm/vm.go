@@ -82,10 +82,11 @@ const (
 	SysprepConfigMap = "configMap"
 	SysprepSecret    = "secret"
 
-	CloudInitDisk        = "cloudinitdisk"
-	CloudInitNoCloud     = "noCloud"
-	CloudInitConfigDrive = "configDrive"
-	CloudInitNone        = "none"
+	CloudInitDisk         = "cloudinitdisk"
+	CloudInitNoCloud      = "noCloud"
+	CloudInitConfigDrive  = "configDrive"
+	CloudInitNone         = "none"
+	CloudInitConfigHeader = "#cloud-config"
 
 	blank    = "blank"
 	gcs      = "gcs"
@@ -320,6 +321,11 @@ func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
 		}
 	}
 	return nil
+}
+
+func isCloudInitSourceEmpty(src *v1.VolumeSource) bool {
+	return (src.CloudInitNoCloud != nil && src.CloudInitNoCloud.UserData == CloudInitConfigHeader && src.CloudInitNoCloud.NetworkDataBase64 == "") ||
+		(src.CloudInitConfigDrive != nil && src.CloudInitConfigDrive.UserData == CloudInitConfigHeader && src.CloudInitConfigDrive.NetworkDataBase64 == "")
 }
 
 func (c *createVM) run(cmd *cobra.Command, _ []string) error {
@@ -647,7 +653,7 @@ func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
 		return fmt.Errorf(VolumeExistsErrorFmt, CloudInitDisk)
 	}
 
-	var src v1.VolumeSource
+	var src *v1.VolumeSource
 	var err error
 	switch c.cloudInit {
 	case CloudInitNoCloud:
@@ -670,15 +676,20 @@ func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
 		return err
 	}
 
+	// Do not add cloud-init config if it was not requested and only the header is present
+	if !c.cmd.Flags().Changed(CloudInitFlag) && isCloudInitSourceEmpty(src) {
+		return nil
+	}
+
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 		Name:         CloudInitDisk,
-		VolumeSource: src,
+		VolumeSource: *src,
 	})
 
 	return nil
 }
 
-func (c *createVM) noCloudVolumeSource() (v1.VolumeSource, error) {
+func (c *createVM) noCloudVolumeSource() (*v1.VolumeSource, error) {
 	src := &v1.CloudInitNoCloudSource{}
 	if c.cloudInitNetworkData != "" {
 		src.NetworkDataBase64 = c.cloudInitNetworkData
@@ -688,16 +699,16 @@ func (c *createVM) noCloudVolumeSource() (v1.VolumeSource, error) {
 	} else {
 		config, err := c.buildCloudInitConfig()
 		if err != nil {
-			return v1.VolumeSource{}, err
+			return nil, err
 		}
 		src.UserData = config
 	}
-	return v1.VolumeSource{
+	return &v1.VolumeSource{
 		CloudInitNoCloud: src,
 	}, nil
 }
 
-func (c *createVM) configDriveVolumeSource() (v1.VolumeSource, error) {
+func (c *createVM) configDriveVolumeSource() (*v1.VolumeSource, error) {
 	src := &v1.CloudInitConfigDriveSource{}
 	if c.cloudInitNetworkData != "" {
 		src.NetworkDataBase64 = c.cloudInitNetworkData
@@ -707,17 +718,17 @@ func (c *createVM) configDriveVolumeSource() (v1.VolumeSource, error) {
 	} else {
 		config, err := c.buildCloudInitConfig()
 		if err != nil {
-			return v1.VolumeSource{}, err
+			return nil, err
 		}
 		src.UserData = config
 	}
-	return v1.VolumeSource{
+	return &v1.VolumeSource{
 		CloudInitConfigDrive: src,
 	}, nil
 }
 
 func (c *createVM) buildCloudInitConfig() (string, error) {
-	config := "#cloud-config"
+	config := CloudInitConfigHeader
 
 	if c.user != "" {
 		config += "\nuser: " + c.user

@@ -788,17 +788,17 @@ chpasswd: { expire: False }`
 			Entry("with CloudInitConfigDrive (explicit) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
 		)
 
-		It("VM with no generated cloud-init config while setting option", func() {
-			out, err := runCmd(
-				setFlag(CloudInitFlag, CloudInitNone),
-				setFlag(GAManageSSHFlag, "true"),
-			)
+		DescribeTable("VM with no generated cloud-init config while setting option", func(args ...string) {
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
-		})
+		},
+			Entry("with type CloudInitNone", setFlag(CloudInitFlag, CloudInitNone), setFlag(GAManageSSHFlag, "true")),
+			Entry("with default type and GAManageSSHFlag set to false", setFlag(GAManageSSHFlag, "false")),
+		)
 
 		DescribeTable("VM with qemu-guest-agent managing SSH enabled in cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
 			args := append([]string{
