@@ -138,6 +138,7 @@ type createVM struct {
 	memoryChanged                 bool
 
 	clientConfig clientcmd.ClientConfig
+	cmd          *cobra.Command
 	bootOrders   map[uint]string
 }
 
@@ -363,6 +364,8 @@ func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 }
 
 func (c *createVM) setDefaults(cmd *cobra.Command) error {
+	c.cmd = cmd
+
 	namespace, overridden, err := c.clientConfig.Namespace()
 	if err != nil {
 		return err
