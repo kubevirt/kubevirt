@@ -537,9 +537,9 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(storageClass),
-						libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
 					),
 				)
 				vm := libstorage.RenderVMWithDataVolumeTemplate(dv)
@@ -682,9 +682,9 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						dv := libdv.NewDataVolume(
 							libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 							libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-							libdv.WithPVC(
-								libdv.PVCWithStorageClass(snapshotStorageClass),
-								libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+							libdv.WithStorage(
+								libdv.StorageWithStorageClass(snapshotStorageClass),
+								libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
 							),
 						)
 						sourceVM = libstorage.RenderVMWithDataVolumeTemplate(dv)

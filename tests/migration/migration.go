@@ -426,11 +426,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(sc),
-						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
-						libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
-						libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(sc),
+						libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+						libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 					),
 				)
 
@@ -971,7 +971,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
 
 				vmi := libvmi.New(
@@ -1139,10 +1139,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv = libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(url, cdiv1.RegistryPullNode),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(storageClass),
-						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
-						libdv.PVCWithReadWriteManyAccessMode(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.StorageWithReadWriteManyAccessMode(),
 					),
 				)
 
@@ -1204,10 +1204,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			dv := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(size),
-					libdv.PVCWithReadWriteManyAccessMode(),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(size),
+					libdv.StorageWithReadWriteManyAccessMode(),
 				),
 				libdv.WithForceBindAnnotation(),
 			)
@@ -2005,11 +2005,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(sc),
-						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
-						libdv.PVCWithReadWriteManyAccessMode(),
-						libdv.PVCWithBlockVolumeMode(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(sc),
+						libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.StorageWithReadWriteManyAccessMode(),
+						libdv.StorageWithBlockVolumeMode(),
 					),
 				)
 
@@ -3587,11 +3587,11 @@ func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode
 
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(containerDisk), cdiv1.RegistryPullNode),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
-			libdv.PVCWithAccessMode(accessMode),
-			libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+		libdv.WithStorage(
+			libdv.StorageWithStorageClass(storageClass),
+			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
+			libdv.StorageWithAccessMode(accessMode),
+			libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 		),
 	)
 

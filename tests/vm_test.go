@@ -87,11 +87,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(imgUrl, cdiv1.RegistryPullNode),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imgUrl)),
-					libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
-					libdv.PVCWithVolumeMode(volumeMode),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imgUrl)),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
+					libdv.StorageWithVolumeMode(volumeMode),
 				),
 			)
 

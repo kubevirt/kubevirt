@@ -390,27 +390,16 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
 				vm = libvmi.NewVirtualMachine(vmi)
 				dvName := "dv-" + vm.Name
-				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: dvName,
-						},
-						Spec: cdiv1.DataVolumeSpec{
-							Source: &cdiv1.DataVolumeSource{
-								Blank: &cdiv1.DataVolumeBlankImage{},
-							},
-							PVC: &corev1.PersistentVolumeClaimSpec{
-								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-								Resources: corev1.VolumeResourceRequirements{
-									Requests: corev1.ResourceList{
-										"storage": quantity,
-									},
-								},
-								StorageClassName: &snapshotStorageClass,
-							},
-						},
-					},
-				}
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithName(dvName),
+					libdv.WithBlankImageSource(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(snapshotStorageClass),
+						libdv.StorageWithVolumeSize(quantity.String()),
+					),
+				)
+				libstorage.AddDataVolumeTemplate(vm, dataVolume)
+
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 					Name: "blank",
 					DiskDevice: v1.DiskDevice{
@@ -471,27 +460,15 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
 				vm = libvmi.NewVirtualMachine(vmi)
 				dvName := "dv-" + vm.Name
-				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: dvName,
-						},
-						Spec: cdiv1.DataVolumeSpec{
-							Source: &cdiv1.DataVolumeSource{
-								Blank: &cdiv1.DataVolumeBlankImage{},
-							},
-							PVC: &corev1.PersistentVolumeClaimSpec{
-								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-								Resources: corev1.VolumeResourceRequirements{
-									Requests: corev1.ResourceList{
-										"storage": quantity,
-									},
-								},
-								StorageClassName: &snapshotStorageClass,
-							},
-						},
-					},
-				}
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithName(dvName),
+					libdv.WithBlankImageSource(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(snapshotStorageClass),
+						libdv.StorageWithVolumeSize(quantity.String()),
+					),
+				)
+				libstorage.AddDataVolumeTemplate(vm, dataVolume)
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 					Name: "blank",
 					DiskDevice: v1.DiskDevice{
@@ -724,7 +701,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
-					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 				)
 
 				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithDataVolumeTemplate(dv))
@@ -1411,7 +1388,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			DescribeTable("should accurately report DataVolume provisioning", func(storageOptFun func(string, string) libvmi.Option, memory string) {
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
 				)
 
 				vmi := libvmi.New(
@@ -1463,7 +1440,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				By("Creating DV with snapshot supported storage class")
 				includedDataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
 					libdv.WithForceBindAnnotation(),
 				)
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), includedDataVolume, metav1.CreateOptions{})
@@ -1473,7 +1450,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				By("Creating DV with no snapshot supported storage class")
 				excludedDataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(libdv.PVCWithStorageClass(noSnapshotSC)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(noSnapshotSC)),
 					libdv.WithForceBindAnnotation(),
 				)
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), excludedDataVolume, metav1.CreateOptions{})
@@ -1578,7 +1555,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
 	dv := libdv.NewDataVolume(
 		libdv.WithBlankImageSource(),
-		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+		libdv.WithStorage(libdv.StorageWithStorageClass(storageClass), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 	)
 
 	var err error

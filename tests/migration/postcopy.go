@@ -112,10 +112,10 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 
 					dv = libdv.NewDataVolume(
 						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
-						libdv.WithPVC(
-							libdv.PVCWithStorageClass(sc),
-							libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
-							libdv.PVCWithReadWriteManyAccessMode(),
+						libdv.WithStorage(
+							libdv.StorageWithStorageClass(sc),
+							libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+							libdv.StorageWithReadWriteManyAccessMode(),
 						),
 					)
 

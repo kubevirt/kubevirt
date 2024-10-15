@@ -471,11 +471,11 @@ var _ = SIGDescribe("Hotplug", func() {
 		By("Creating DataVolume")
 		dvBlock := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
-			libdv.WithPVC(
-				libdv.PVCWithStorageClass(sc),
-				libdv.PVCWithVolumeSize(cd.BlankVolumeSize),
-				libdv.PVCWithAccessMode(accessMode),
-				libdv.PVCWithVolumeMode(volumeMode),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+				libdv.StorageWithAccessMode(accessMode),
+				libdv.StorageWithVolumeMode(volumeMode),
 			),
 			libdv.WithForceBindAnnotation(),
 		)
@@ -566,11 +566,11 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			dv := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
-					libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
-					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 				),
 			)
 			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -700,7 +700,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			for i := 0; i < numPVs; i++ {
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 				)
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vm)).Create(context.TODO(), dv, metav1.CreateOptions{})
@@ -1135,11 +1135,11 @@ var _ = SIGDescribe("Hotplug", func() {
 			persistentDiskVMIFunc := func() *v1.VirtualMachineInstance {
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(sc),
-						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
-						libdv.PVCWithReadWriteManyAccessMode(),
-						libdv.PVCWithBlockVolumeMode(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(sc),
+						libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.StorageWithReadWriteManyAccessMode(),
+						libdv.StorageWithBlockVolumeMode(),
 					),
 				)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -1280,9 +1280,9 @@ var _ = SIGDescribe("Hotplug", func() {
 				dv = libdv.NewDataVolume(
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libdv.WithRegistryURLSource(url),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(storageClass),
-						libdv.PVCWithVolumeSize("256Mi"),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithVolumeSize("256Mi"),
 					),
 					libdv.WithForceBindAnnotation(),
 				)
@@ -1378,11 +1378,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				return libdv.NewDataVolume(
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libdv.WithBlankImageSource(),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(storageClass),
-						libdv.PVCWithVolumeSize(cd.BlankVolumeSize),
-						libdv.PVCWithReadWriteManyAccessMode(),
-						libdv.PVCWithVolumeMode(volumeMode),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+						libdv.StorageWithReadWriteManyAccessMode(),
+						libdv.StorageWithVolumeMode(volumeMode),
 					),
 					libdv.WithForceBindAnnotation(),
 				)
@@ -1770,7 +1770,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			dv := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
 			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.TODO(), dv, metav1.CreateOptions{})
@@ -1820,9 +1820,9 @@ var _ = SIGDescribe("Hotplug", func() {
 		It("should attach a hostpath based volume to running VM", func() {
 			dv := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(libstorage.StorageClassHostPathSeparateDevice),
-					libdv.PVCWithVolumeSize(cd.BlankVolumeSize),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(libstorage.StorageClassHostPathSeparateDevice),
+					libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
 				),
 			)
 
