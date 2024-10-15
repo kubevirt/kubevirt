@@ -412,6 +412,9 @@
             }
           },
           "ioThreadsPolicy": "ioThreadsPolicyValue",
+          "ioThreads": {
+            "count": 4294967291
+          },
           "chassis": {
             "manufacturer": "manufacturerValue",
             "version": "versionValue",
