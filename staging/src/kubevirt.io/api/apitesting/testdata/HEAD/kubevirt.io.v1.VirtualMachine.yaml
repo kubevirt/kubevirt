@@ -590,6 +590,8 @@ spec:
             kernelArgs: kernelArgsValue
           serial: serialValue
           uuid: uuidValue
+        ioThreads:
+          supplementalPoolThreadCount: 4294967269
         ioThreadsPolicy: ioThreadsPolicyValue
         launchSecurity:
           sev:
