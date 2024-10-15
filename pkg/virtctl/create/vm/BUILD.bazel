@@ -3,8 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "params.go",
         "vm.go",
-        "volume.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/create/vm",
     visibility = ["//visibility:public"],
