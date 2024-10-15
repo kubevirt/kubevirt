@@ -37,11 +37,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -144,45 +141,6 @@ func FixErrorDevice(nodeName string) {
 
 }
 
-func executeDeviceMapperOnNode(nodeName string, cmd []string) {
-	virtClient := kubevirt.Client()
-
-	// Image that happens to have dmsetup
-	image := fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
-	pod := &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "device-mapper-pod-",
-		},
-		Spec: k8sv1.PodSpec{
-			RestartPolicy: k8sv1.RestartPolicyNever,
-			Containers: []k8sv1.Container{
-				{
-					Name:    "launcher",
-					Image:   image,
-					Command: cmd,
-					SecurityContext: &k8sv1.SecurityContext{
-						Privileged: pointer.P(true),
-						RunAsUser:  pointer.P(int64(0)),
-					},
-				},
-			},
-			NodeSelector: map[string]string{
-				k8sv1.LabelHostname: nodeName,
-			},
-		},
-	}
-	pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	Eventually(ThisPod(pod), 30).Should(HaveSucceeded())
-}
-
-func CreateFaultyDisk(nodeName, deviceName string) {
-	By(fmt.Sprintf("Creating faulty disk %s on %s node", deviceName, nodeName))
-	args := []string{"dmsetup", "create", deviceName, "--table", "0 204791 error"}
-	executeDeviceMapperOnNode(nodeName, args)
-}
-
 func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
 	return CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, "faulty-disks", "ioerrorpvc", "ioerrorpvc")
 }
@@ -253,10 +211,4 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 	}
 
 	return pv, pvc, err
-}
-
-func RemoveFaultyDisk(nodeName, deviceName string) {
-	By(fmt.Sprintf("Removing faulty disk %s on %s node", deviceName, nodeName))
-	args := []string{"dmsetup", "remove", deviceName}
-	executeDeviceMapperOnNode(nodeName, args)
 }
