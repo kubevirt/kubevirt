@@ -68,6 +68,7 @@ const (
 	PasswordFileFlag = "password-file"
 	SSHKeyFlag       = "ssh-key"
 	GAManageSSHFlag  = "ga-manage-ssh"
+	AccessCredFlag   = "access-cred"
 
 	CloudInitFlag            = "cloud-init"
 	CloudInitUserDataFlag    = "cloud-init-user-data"
@@ -88,6 +89,10 @@ const (
 	CloudInitNone         = "none"
 	CloudInitConfigHeader = "#cloud-config"
 
+	AccessCredTypeSSH      = "ssh"
+	AccessCredTypePassword = "password"
+	AccessCredMethodGA     = "ga"
+
 	blank    = "blank"
 	gcs      = "gcs"
 	http     = "http"
@@ -99,9 +104,11 @@ const (
 	snapshot = "snapshot"
 	ds       = "ds"
 
-	VolumeExistsErrorFmt          = "there is already a volume with name '%s'"
-	InvalidInferenceVolumeError   = "inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"
-	DVInvalidInferenceVolumeError = "this DataVolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
+	VolumeExistsErrorFmt                 = "there is already a volume with name '%s'"
+	InvalidInferenceVolumeError          = "inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"
+	DVInvalidInferenceVolumeError        = "this DataVolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
+	accessCredUserInvalidError           = "user cannot be specified with selected access credential type and method"
+	accessCredMethodFlagMismatchErrorFmt = "method param and value passed to --%s have to match: %s vs %s"
 )
 
 type createVM struct {
@@ -127,6 +134,7 @@ type createVM struct {
 	passwordFile string
 	sshKeys      []string
 	gaManageSSH  bool
+	accessCreds  []string
 
 	cloudInit            string
 	cloudInitUserData    string
@@ -150,6 +158,9 @@ type createVM struct {
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
 // Containerdisk > PVC > DataSource > Clone PVC > Blank > Imported volumes
 // This is controlled by the order in which flags are processed.
+// Also note that flags can only change values of other flags that are processed afterward.
+// For example, the AccessCred flag can change the values of cloud-init-related flags,
+// as these are processed after the AccessCred flag.
 var flags = []string{
 	RunStrategyFlag,
 	InstancetypeFlag,
@@ -161,6 +172,7 @@ var flags = []string{
 	BlankVolumeFlag,
 	VolumeImportFlag,
 	SysprepVolumeFlag,
+	AccessCredFlag,
 }
 
 var volumeImportOptions = map[string]func(string) (*cdiv1.DataVolumeSpec, *uint, error){
@@ -236,7 +248,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&c.user, UserFlag, c.user, "Specify the user in the cloud-init user data that is added to the VM.")
 	cmd.Flags().StringVar(&c.passwordFile, PasswordFileFlag, c.passwordFile, "Specify a file to read the password from for the cloud-init user data that is added to the VM.")
 	cmd.Flags().StringSliceVar(&c.sshKeys, SSHKeyFlag, c.sshKeys, "Specify one or more SSH authorized keys in the cloud-init user data that is added to the VM.")
-	cmd.Flags().BoolVar(&c.gaManageSSH, GAManageSSHFlag, c.gaManageSSH, "Specify if the qemu-guest-agent should be able to manage SSH in the cloud-init user data that is added to the VM.\nThis is useful in combination with the 'credentials add-ssh-key' command.")
+	cmd.Flags().BoolVar(&c.gaManageSSH, GAManageSSHFlag, c.gaManageSSH, "Specify if the qemu-guest-agent should be able to manage SSH in the cloud-init user data that is added to the VM.\nThis is useful in combination with the 'credentials add-ssh-key' command or when using the --access-cred flag.")
+	cmd.Flags().StringArrayVar(&c.accessCreds, AccessCredFlag, c.accessCreds, fmt.Sprintf("Specify an access credential to be injected into the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(accessCredential{})))
 
 	cmd.Flags().StringVar(&c.cloudInit, CloudInitFlag, c.cloudInit, fmt.Sprintf("Specify the type of the generated cloud-init data source.\nSupported values: %s, %s, %s", CloudInitNoCloud, CloudInitConfigDrive, CloudInitNone))
 	cmd.Flags().StringVar(&c.cloudInitUserData, CloudInitUserDataFlag, c.cloudInitUserData, "Specify the base64 encoded cloud-init user data of the VM.")
@@ -400,6 +413,7 @@ func (c *createVM) optFns() map[string]func(*v1.VirtualMachine) error {
 		BlankVolumeFlag:         c.withBlankVolume,
 		VolumeImportFlag:        c.withImportedVolume,
 		SysprepVolumeFlag:       c.withSysprepVolume,
+		AccessCredFlag:          c.withAccessCredential,
 	}
 }
 
@@ -464,6 +478,15 @@ func (c *createVM) usage() string {
   # Create a manifest for a VirtualMachine with a generated cloud-init config setting the user and setting the password from a file
   {{ProgramName}} create vm --user cloud-user --password-file=/path/to/file
 	
+  # Create a manifest for a VirtualMachine with SSH public keys injected into the VM from a secret called my-keys to the user also specified in the cloud-init config
+  {{ProgramName}} create vm --user cloud-user --access-cred=type:ssh,src:my-keys
+
+  # Create a manifest for a VirtualMachine with SSH public keys injected into the VM from a secret called my-keys to a user specified as param
+  {{ProgramName}} create vm --access-cred=type:ssh,src:my-keys,user:myuser
+
+  # Create a manifest for a VirtualMachine with password injected into the VM from a secret called my-pws
+  {{ProgramName}} create vm --access-cred=type:password,src:my-pws
+
   # Create a manifest for a VirtualMachine with a Containerdisk and a Sysprep volume (source ConfigMap needs to exist)
   {{ProgramName}} create vm --memory=1Gi --volume-containerdisk=src:my.registry/my-image:my-tag --sysprep=src:my-cm`
 }
@@ -1287,6 +1310,158 @@ func createDataVolume(spec *cdiv1.DataVolumeSpec, size string, name string, vm *
 	})
 
 	return nil
+}
+
+func (c *createVM) withAccessCredential(vm *v1.VirtualMachine) error {
+	for _, accessCred := range c.accessCreds {
+		src := &accessCredential{}
+		if err := params.Map(AccessCredFlag, accessCred, src); err != nil {
+			return err
+		}
+
+		if src.Source == "" {
+			return params.FlagErr(AccessCredFlag, "src must be specified")
+		}
+
+		namespace, name, err := params.SplitPrefixedName(src.Source)
+		if err != nil {
+			return params.FlagErr(AccessCredFlag, "src invalid: %w", err)
+		}
+		if namespace != "" {
+			return params.FlagErr(AccessCredFlag, "not allowed to specify namespace of secret \"%s\"", name)
+		}
+
+		var apiAccessCred *v1.AccessCredential
+		switch strings.ToLower(src.Type) {
+		case AccessCredTypeSSH, "":
+			if apiAccessCred, err = c.withAccessCredentialSSH(src); err != nil {
+				return err
+			}
+		case AccessCredTypePassword:
+			if apiAccessCred, err = c.withAccessCredentialPassword(src); err != nil {
+				return err
+			}
+		default:
+			return params.FlagErr(AccessCredFlag, "invalid access credential type \"%s\", supported values are: %s, %s", src.Type, AccessCredTypeSSH, AccessCredTypePassword)
+		}
+
+		vm.Spec.Template.Spec.AccessCredentials = append(vm.Spec.Template.Spec.AccessCredentials, *apiAccessCred)
+	}
+
+	return nil
+}
+
+func (c *createVM) withAccessCredentialSSH(src *accessCredential) (*v1.AccessCredential, error) {
+	switch strings.ToLower(src.Method) {
+	case AccessCredMethodGA, "":
+		return c.withAccessCredentialSSHMethodGA(src)
+	case CloudInitNoCloud:
+		return c.withAccessCredentialSSHMethodNoCloud(src)
+	case CloudInitConfigDrive:
+		return c.withAccessCredentialSSHMethodConfigDrive(src)
+	default:
+		return nil, params.FlagErr(AccessCredFlag, "invalid access credentials ssh method \"%s\", supported values are: %s, %s, %s", src.Method, AccessCredMethodGA, CloudInitNoCloud, CloudInitConfigDrive)
+	}
+}
+
+func (c *createVM) withAccessCredentialSSHMethodGA(src *accessCredential) (*v1.AccessCredential, error) {
+	// Take user from --user flag, override with user provided in params
+	user := c.user
+	if src.User != "" {
+		user = src.User
+	}
+	if user == "" {
+		return nil, params.FlagErr(AccessCredFlag, "user must be specified with access credential ssh method ga (\"--user\" flag or param \"user\")")
+	}
+
+	// Set --ga-manage-ssh flag to allow the guest agent to write public keys if it was not changed
+	if !c.cmd.Flags().Lookup(GAManageSSHFlag).Changed {
+		if err := c.cmd.Flags().Set(GAManageSSHFlag, "true"); err != nil {
+			return nil, err
+		}
+	}
+
+	return createAccessCredentialSSH(src.Source, &v1.SSHPublicKeyAccessCredentialPropagationMethod{
+		QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+			Users: []string{user},
+		},
+	}), nil
+}
+
+func (c *createVM) withAccessCredentialSSHMethodNoCloud(src *accessCredential) (*v1.AccessCredential, error) {
+	if src.User != "" {
+		return nil, params.FlagErr(AccessCredFlag, accessCredUserInvalidError)
+	}
+
+	// Set --cloud-init flag to nocloud to ensure the required noCloud volume exists if it was not changed
+	if !c.cmd.Flags().Lookup(CloudInitFlag).Changed {
+		if err := c.cmd.Flags().Set(CloudInitFlag, CloudInitNoCloud); err != nil {
+			return nil, err
+		}
+	}
+	if strings.ToLower(c.cloudInit) != CloudInitNoCloud {
+		return nil, params.FlagErr(AccessCredFlag, accessCredMethodFlagMismatchErrorFmt, CloudInitFlag, CloudInitNoCloud, c.cloudInit)
+	}
+
+	return createAccessCredentialSSH(src.Source, &v1.SSHPublicKeyAccessCredentialPropagationMethod{
+		NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+	}), nil
+}
+
+func (c *createVM) withAccessCredentialSSHMethodConfigDrive(src *accessCredential) (*v1.AccessCredential, error) {
+	if src.User != "" {
+		return nil, params.FlagErr(AccessCredFlag, accessCredUserInvalidError)
+	}
+
+	// Set --cloud-init flag to configdrive to ensure the required configDrive volume exists if it was not changed
+	if !c.cmd.Flags().Lookup(CloudInitFlag).Changed {
+		if err := c.cmd.Flags().Set(CloudInitFlag, CloudInitConfigDrive); err != nil {
+			return nil, err
+		}
+	}
+	if strings.ToLower(c.cloudInit) != CloudInitConfigDrive {
+		return nil, params.FlagErr(AccessCredFlag, accessCredMethodFlagMismatchErrorFmt, CloudInitFlag, CloudInitConfigDrive, c.cloudInit)
+	}
+
+	return createAccessCredentialSSH(src.Source, &v1.SSHPublicKeyAccessCredentialPropagationMethod{
+		ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
+	}), nil
+}
+
+func createAccessCredentialSSH(src string, method *v1.SSHPublicKeyAccessCredentialPropagationMethod) *v1.AccessCredential {
+	return &v1.AccessCredential{
+		SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+			Source: v1.SSHPublicKeyAccessCredentialSource{
+				Secret: &v1.AccessCredentialSecretSource{
+					SecretName: src,
+				},
+			},
+			PropagationMethod: *method,
+		},
+	}
+}
+
+func (c *createVM) withAccessCredentialPassword(src *accessCredential) (*v1.AccessCredential, error) {
+	if src.Method != "" && strings.ToLower(src.Method) != AccessCredMethodGA {
+		return nil, params.FlagErr(AccessCredFlag, "invalid access credentials password method \"%s\", supported values are: %s", src.Method, AccessCredMethodGA)
+	}
+
+	if src.User != "" {
+		return nil, params.FlagErr(AccessCredFlag, accessCredUserInvalidError)
+	}
+
+	return &v1.AccessCredential{
+		UserPassword: &v1.UserPasswordAccessCredential{
+			Source: v1.UserPasswordAccessCredentialSource{
+				Secret: &v1.AccessCredentialSecretSource{
+					SecretName: src.Source,
+				},
+			},
+			PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+				QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+			},
+		},
+	}, nil
 }
 
 // Deprecated optFns
