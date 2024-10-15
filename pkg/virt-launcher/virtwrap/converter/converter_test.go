@@ -48,6 +48,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -80,6 +81,7 @@ const (
 	argMemBalloon10period = `<memballoon model="virtio-non-transitional" freePageReporting="on">
       <stats period="10"></stats>
     </memballoon>`
+	blockPVCName = "pvc_block_test"
 )
 
 var _ = Describe("getOptimalBlockIO", func() {
@@ -436,7 +438,7 @@ var _ = Describe("Converter", func() {
 					Serial: "CVLY623300HK240D",
 				},
 				{
-					Name:  "pvc_block_test",
+					Name:  blockPVCName,
 					Cache: "writethrough",
 				},
 				{
@@ -543,7 +545,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "pvc_block_test",
+					Name: blockPVCName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
@@ -628,7 +630,7 @@ var _ = Describe("Converter", func() {
 		var c *ConverterContext
 
 		isBlockPVCMap := make(map[string]bool)
-		isBlockPVCMap["pvc_block_test"] = true
+		isBlockPVCMap[blockPVCName] = true
 		isBlockDVMap := make(map[string]bool)
 		isBlockDVMap["dv_block_test"] = true
 
@@ -952,6 +954,19 @@ var _ = Describe("Converter", func() {
 			}
 			domain := vmiToDomain(vmi, c)
 			Expect(*domain.Spec.Devices.Disks[0].Address).To(Equal(test_address))
+		})
+
+		It("should generate the block backingstore disk within the domain", func() {
+			vmi = libvmi.New(
+				libvmi.WithEphemeralPersistentVolumeClaim(blockPVCName, "test-ephemeral"),
+			)
+
+			domain := vmiToDomain(vmi, &ConverterContext{AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, IsBlockPVC: isBlockPVCMap, IsBlockDV: isBlockDVMap})
+			By("Checking if the disk backing store type is block")
+			Expect(domain.Spec.Devices.Disks[0].BackingStore).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Disks[0].BackingStore.Type).To(Equal("block"))
+			By("Checking if the disk backing store device path is appropriately configured")
+			Expect(domain.Spec.Devices.Disks[0].BackingStore.Source.Dev).To(Equal(GetBlockDeviceVolumePath(blockPVCName)))
 		})
 
 		It("should fail disk config pci address is set with a non virtio bus", func() {
