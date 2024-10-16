@@ -971,11 +971,6 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		// do not return; just log the error
 	}
 
-	backendStoragePVCName, syncErr := c.handleBackendStorage(vmi)
-	if syncErr != nil {
-		return syncErr, pod
-	}
-
 	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
 	if syncErr != nil {
 		return syncErr, pod
@@ -998,12 +993,16 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			return nil, pod
 		}
 
+		backendStoragePVCName, syncErr := c.handleBackendStorage(vmi)
+		if syncErr != nil {
+			return syncErr, pod
+		}
+
 		// If a backend-storage PVC was just created but not yet seen by the informer, give it time
 		if !c.pvcExpectations.SatisfiedExpectations(key) {
 			return nil, pod
 		}
 
-		var backendStorageReady bool
 		backendStorageReady, err := c.backendStorage.IsPVCReady(vmi, backendStoragePVCName)
 		if err != nil {
 			return common.NewSyncError(err, controller.FailedBackendStorageProbeReason), pod
@@ -1180,11 +1179,11 @@ func (c *Controller) updatePVC(old, cur interface{}) {
 	if curPVC.DeletionTimestamp != nil {
 		return
 	}
+
 	if equality.Semantic.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) {
 		// We only do something when the capacity changes
 		return
 	}
-
 	vmis, err := c.listVMIsMatchingDV(curPVC.Namespace, curPVC.Name)
 	if err != nil {
 		log.Log.Object(curPVC).Errorf("Error encountered getting VMIs for DataVolume: %v", err)
