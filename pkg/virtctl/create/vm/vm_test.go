@@ -31,7 +31,9 @@ const runCmdGAManageSSH = "runcmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ss
 
 var _ = Describe("create vm", func() {
 	const (
-		importedVolumeRegexp = `imported-volume-\w{5}`
+		cloudInitNoCloud     = "nocloud"
+		cloudInitConfigDrive = "configdrive"
+		cloudInitNone        = "none"
 		cloudInitUserData    = `#cloud-config
 user: user
 password: password
@@ -46,6 +48,15 @@ chpasswd: { expire: False }`
 	)
 
 	Context("Manifest is created successfully", func() {
+		const (
+			importedVolumeRegexp  = `imported-volume-\w{5}`
+			sysprepDisk           = "sysprepdisk"
+			sysprepConfigMap      = "configMap"
+			sysprepSecret         = "secret"
+			cloudInitDisk         = "cloudinitdisk"
+			cloudInitConfigHeader = "#cloud-config"
+		)
+
 		It("VM with random name", func() {
 			out, err := runCmd()
 			Expect(err).ToNot(HaveOccurred())
@@ -684,15 +695,15 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(SysprepDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(sysprepDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep).ToNot(BeNil())
 
 			switch volType {
-			case SysprepConfigMap:
+			case sysprepConfigMap:
 				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.ConfigMap).ToNot(BeNil())
 				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.ConfigMap.Name).To(Equal(volSrc))
 				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.Secret).To(BeNil())
-			case SysprepSecret:
+			case sysprepSecret:
 				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.ConfigMap).To(BeNil())
 				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.Secret).ToNot(BeNil())
 				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.Secret.Name).To(Equal(volSrc))
@@ -705,9 +716,9 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
-			Entry("ConfigMap with src (implicity default)", "my-src", SysprepConfigMap, "src:my-src"),
-			Entry("ConfigMap with src and type", "my-src", SysprepConfigMap, "src:my-src,type:configMap"),
-			Entry("Secret with src and type", "my-src", SysprepSecret, "src:my-src,type:secret"),
+			Entry("ConfigMap with src (implicity default)", "my-src", sysprepConfigMap, "src:my-src"),
+			Entry("ConfigMap with src and type", "my-src", sysprepConfigMap, "src:my-src,type:configMap"),
+			Entry("Secret with src and type", "my-src", sysprepSecret, "src:my-src,type:secret"),
 		)
 
 		DescribeTable("VM with user specified in cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
@@ -721,7 +732,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDisk))
 			Expect(userDataFn(vm)).To(ContainSubstring("user: " + user))
 
 			// No inference possible in this case
@@ -729,8 +740,8 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with CloudInitNoCloud (default)", noCloudUserData),
-			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
 		DescribeTable("VM with password read from file in cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
@@ -752,7 +763,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDisk))
 			Expect(userDataFn(vm)).To(ContainSubstring("password: %s\nchpasswd: { expire: False }", password))
 
 			// No inference possible in this case
@@ -760,8 +771,8 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with CloudInitNoCloud (default)", noCloudUserData),
-			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
 		DescribeTable("VM with ssh key in cloud-init user data", func(argsFn func() ([]string, string), userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
@@ -773,7 +784,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDisk))
 			Expect(userDataFn(vm)).To(ContainSubstring("ssh_authorized_keys:" + keys))
 
 			// No inference possible in this case
@@ -781,14 +792,14 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with CloudInitNoCloud (default) and single key", randomSingleKey, noCloudUserData),
-			Entry("with CloudInitNoCloud (explicit) and single key", randomSingleKey, noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit) and single key", randomSingleKey, configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (explicit) and single key", randomSingleKey, noCloudUserData, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit) and single key", randomSingleKey, configDriveUserData, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 			Entry("with CloudInitNoCLoud (default) and multiple keys in single flag", randomMultipleKeysSingleFlag, noCloudUserData),
-			Entry("with CloudInitNoCLoud (explicit) and multiple keys in single flag", randomMultipleKeysSingleFlag, noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit) and multiple keys in single flag", randomMultipleKeysSingleFlag, configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCLoud (explicit) and multiple keys in single flag", randomMultipleKeysSingleFlag, noCloudUserData, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit) and multiple keys in single flag", randomMultipleKeysSingleFlag, configDriveUserData, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 			Entry("with CloudInitNoCloud (default) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, noCloudUserData),
-			Entry("with CloudInitNoCloud (explicit) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (explicit) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, noCloudUserData, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, configDriveUserData, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
 		DescribeTable("VM with no generated cloud-init config while setting option", func(args ...string) {
@@ -799,7 +810,7 @@ chpasswd: { expire: False }`
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
 		},
-			Entry("with type CloudInitNone", setFlag(CloudInitFlag, CloudInitNone), setFlag(GAManageSSHFlag, "true")),
+			Entry("with type CloudInitNone", setFlag(CloudInitFlag, cloudInitNone), setFlag(GAManageSSHFlag, "true")),
 			Entry("with default type and GAManageSSHFlag set to false", setFlag(GAManageSSHFlag, "false")),
 		)
 
@@ -813,7 +824,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDisk))
 			Expect(userDataFn(vm)).To(ContainSubstring(runCmdGAManageSSH))
 
 			// No inference possible in this case
@@ -821,8 +832,8 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with CloudInitNoCloud (default)", noCloudUserData),
-			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
 		DescribeTable("VM with specified cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
@@ -836,7 +847,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDisk))
 			Expect(userDataFn(vm)).To(Equal(userDataB64))
 
 			decoded, err := base64.StdEncoding.DecodeString(userDataFn(vm))
@@ -848,8 +859,8 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with CloudInitNoCloud (default)", noCloudUserDataB64),
-			Entry("with CloudInitNoCloud (explicit)", noCloudUserDataB64, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit)", configDriveUserDataB64, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserDataB64, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserDataB64, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
 		DescribeTable("VM with specified cloud-init network data", func(networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
@@ -863,7 +874,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDisk))
 			Expect(networkDataFn(vm)).To(Equal(networkDataB64))
 
 			decoded, err := base64.StdEncoding.DecodeString(networkDataFn(vm))
@@ -875,8 +886,8 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with CloudInitNoCloud (default)", noCloudNetworkDataB64),
-			Entry("with CloudInitNoCloud (explicit)", noCloudNetworkDataB64, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit)", configDriveNetworkDataB64, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (explicit)", noCloudNetworkDataB64, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveNetworkDataB64, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
 		DescribeTable("VM with specified cloud-init user and network data", func(userDataFn func(*v1.VirtualMachine) string, networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
@@ -892,7 +903,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDisk))
 			Expect(userDataFn(vm)).To(Equal(userDataB64))
 			Expect(networkDataFn(vm)).To(Equal(networkDataB64))
 
@@ -908,8 +919,8 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with CloudInitNoCloud (default)", noCloudUserDataB64, noCloudNetworkDataB64),
-			Entry("with CloudInitNoCloud (explicit)", noCloudUserDataB64, noCloudNetworkDataB64, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit)", configDriveUserDataB64, configDriveNetworkDataB64, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserDataB64, noCloudNetworkDataB64, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserDataB64, configDriveNetworkDataB64, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
 		DescribeTable("VM with generated cloud-init user and specified network data", func(userDataFn func(*v1.VirtualMachine) string, networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
@@ -925,7 +936,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cloudInitDisk))
 			Expect(userDataFn(vm)).To(ContainSubstring("user: " + user))
 			Expect(networkDataFn(vm)).To(Equal(networkDataB64))
 
@@ -938,8 +949,8 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with CloudInitNoCloud (default)", noCloudUserData, noCloudNetworkDataB64),
-			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, noCloudNetworkDataB64, setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, configDriveNetworkDataB64, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, noCloudNetworkDataB64, setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, configDriveNetworkDataB64, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
 		DescribeTableSubtree("VM with access credentials with type ssh and method ga and with", func(params string) {
@@ -977,9 +988,9 @@ chpasswd: { expire: False }`
 				testFn(params, verifyFn, extraArgs...)
 			},
 				Entry("nocloud default", verifyNoCloudGAManageSSH),
-				Entry("nocloud explicit", verifyNoCloudGAManageSSH, setFlag(CloudInitFlag, CloudInitNoCloud)),
-				Entry("configdrive explicit", verifyConfigDriveGAManageSSH, setFlag(CloudInitFlag, CloudInitConfigDrive)),
-				Entry("cloud-init none", verifyCloudInitNone, setFlag(CloudInitFlag, CloudInitNone)),
+				Entry("nocloud explicit", verifyNoCloudGAManageSSH, setFlag(CloudInitFlag, cloudInitNoCloud)),
+				Entry("configdrive explicit", verifyConfigDriveGAManageSSH, setFlag(CloudInitFlag, cloudInitConfigDrive)),
+				Entry("cloud-init none", verifyCloudInitNone, setFlag(CloudInitFlag, cloudInitNone)),
 				Entry("GAManageSSH false", verifyCloudInitNone, setFlag(GAManageSSHFlag, "false")),
 			)
 
@@ -988,9 +999,9 @@ chpasswd: { expire: False }`
 				testFn(params, verifyFn, extraArgs...)
 			},
 				Entry("nocloud default", verifyNoCloudGAManageSSHAndUser),
-				Entry("nocloud explicit", verifyNoCloudGAManageSSHAndUser, setFlag(CloudInitFlag, CloudInitNoCloud)),
-				Entry("configdrive explicit", verifyConfigDriveGAManageSSHAndUser, setFlag(CloudInitFlag, CloudInitConfigDrive)),
-				Entry("cloud-init none", verifyCloudInitNone, setFlag(CloudInitFlag, CloudInitNone)),
+				Entry("nocloud explicit", verifyNoCloudGAManageSSHAndUser, setFlag(CloudInitFlag, cloudInitNoCloud)),
+				Entry("configdrive explicit", verifyConfigDriveGAManageSSHAndUser, setFlag(CloudInitFlag, cloudInitConfigDrive)),
+				Entry("cloud-init none", verifyCloudInitNone, setFlag(CloudInitFlag, cloudInitNone)),
 				Entry("GAManageSSH false", verifyNoCloudUser, setFlag(GAManageSSHFlag, "false")),
 			)
 		},
@@ -1024,15 +1035,15 @@ chpasswd: { expire: False }`
 			))
 
 			if noCloud {
-				Expect(noCloudUserData(vm)).To(Equal(CloudInitConfigHeader))
+				Expect(noCloudUserData(vm)).To(Equal(cloudInitConfigHeader))
 			} else {
 				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
 			}
 		},
 			Entry("default type and explicit method, nocloud default", "src:my-keys,method:nocloud", true),
-			Entry("default type and explicit method, nocloud explicit", "src:my-keys,method:nocloud", true, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("default type and explicit method, nocloud explicit", "src:my-keys,method:nocloud", true, setFlag(CloudInitFlag, cloudInitNoCloud)),
 			Entry("explicit type and method, nocloud default", "type:ssh,src:my-keys,method:nocloud", true),
-			Entry("explicit type and method, nocloud explicit", "type:ssh,src:my-keys,method:nocloud", true, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("explicit type and method, nocloud explicit", "type:ssh,src:my-keys,method:nocloud", true, setFlag(CloudInitFlag, cloudInitNoCloud)),
 		)
 
 		DescribeTable("VM with access credentials with type ssh and method configdrive and with", func(params string, configDrive bool, extraArgs ...string) {
@@ -1060,15 +1071,15 @@ chpasswd: { expire: False }`
 			))
 
 			if configDrive {
-				Expect(configDriveUserData(vm)).To(Equal(CloudInitConfigHeader))
+				Expect(configDriveUserData(vm)).To(Equal(cloudInitConfigHeader))
 			} else {
 				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
 			}
 		},
 			Entry("default type and explicit method, configdrive default", "src:my-keys,method:configdrive", true),
-			Entry("default type and explicit method, configdrive explicit", "src:my-keys,method:configdrive", true, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("default type and explicit method, configdrive explicit", "src:my-keys,method:configdrive", true, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 			Entry("explicit type and method, configdrive default", "type:ssh,src:my-keys,method:configdrive", true),
-			Entry("explicit type and method, configdrive explicit", "type:ssh,src:my-keys,method:configdrive", true, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("explicit type and method, configdrive explicit", "type:ssh,src:my-keys,method:configdrive", true, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
 		DescribeTable("VM with access credentials with type password and with", func(params string) {
@@ -1124,7 +1135,7 @@ chpasswd: { expire: False }`
 				setFlag(InferPreferenceFromFlag, pvcName),
 				setFlag(VolumeImportFlag, fmt.Sprintf("type:ds,src:%s/%s,size:%s", dsNamespace, dsName, dvtSize)),
 				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvcName, pvcBootOrder)),
-				setFlag(SysprepVolumeFlag, fmt.Sprintf("src:%s,type:%s", secretName, SysprepSecret)),
+				setFlag(SysprepVolumeFlag, fmt.Sprintf("src:%s,type:%s", secretName, sysprepSecret)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -1169,12 +1180,12 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(SysprepDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(sysprepDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep.ConfigMap).To(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep.Secret).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep.Secret.Name).To(Equal(secretName))
-			Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(cloudInitDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -1229,7 +1240,7 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(cloudInitDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("user: " + user))
 			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("ssh_authorized_keys:\n  - " + sshKey))
@@ -1277,7 +1288,7 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 
-			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(cloudInitDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("user: " + user))
 			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring(runCmdGAManageSSH))
@@ -1306,6 +1317,11 @@ chpasswd: { expire: False }`
 	})
 
 	Describe("Manifest is not created successfully", func() {
+		const (
+			invalidInferenceVolumeError   = "inference of instancetype or preference works only with datasources, datavolumes or pvcs"
+			dvInvalidInferenceVolumeError = "this datavolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
+		)
+
 		DescribeTable("Invalid arguments to RunStrategyFlag", func(runStrategy string) {
 			out, err := runCmd(setFlag(RunStrategyFlag, runStrategy))
 			Expect(err).To(MatchError(fmt.Sprintf("failed to parse \"--run-strategy\" flag: invalid run strategy \"%s\", supported values are: Always, Manual, Halted, Once, RerunOnFailure", runStrategy)))
@@ -1420,14 +1436,14 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("explicit inference of instancetype with ContainerdiskVolumeFlag", InvalidInferenceVolumeError, setFlag(InferInstancetypeFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")),
-			Entry("inference of instancetype from ContainerdiskVolumeFlag", InvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")),
-			Entry("explicit inference of preference with ContainerdiskVolumeFlag", InvalidInferenceVolumeError, setFlag(InferPreferenceFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")),
-			Entry("inference of preference from ContainerdiskVolumeFlag", InvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")),
-			Entry("explicit inference of instancetype with VolumeImportFlag", DVInvalidInferenceVolumeError, setFlag(InferInstancetypeFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")),
-			Entry("inference of instancetype from VolumeImportFlag", DVInvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")),
-			Entry("explicit inference of preference with VolumeImportFlag", DVInvalidInferenceVolumeError, setFlag(InferPreferenceFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")),
-			Entry("inference of preference from VolumeImportFlag", DVInvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")),
+			Entry("explicit inference of instancetype with ContainerdiskVolumeFlag", invalidInferenceVolumeError, setFlag(InferInstancetypeFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")),
+			Entry("inference of instancetype from ContainerdiskVolumeFlag", invalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")),
+			Entry("explicit inference of preference with ContainerdiskVolumeFlag", invalidInferenceVolumeError, setFlag(InferPreferenceFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")),
+			Entry("inference of preference from ContainerdiskVolumeFlag", invalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")),
+			Entry("explicit inference of instancetype with VolumeImportFlag", dvInvalidInferenceVolumeError, setFlag(InferInstancetypeFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")),
+			Entry("inference of instancetype from VolumeImportFlag", dvInvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")),
+			Entry("explicit inference of preference with VolumeImportFlag", dvInvalidInferenceVolumeError, setFlag(InferPreferenceFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")),
+			Entry("inference of preference from VolumeImportFlag", dvInvalidInferenceVolumeError, setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")),
 		)
 
 		DescribeTable("Invalid arguments to ContainerdiskVolumeFlag", func(flag, errMsg string) {
@@ -1564,7 +1580,7 @@ chpasswd: { expire: False }`
 			Entry("Invalid param", "test=test", "failed to parse \"--volume-sysprep\" flag: params need to have at least one colon: test=test"),
 			Entry("Unknown param", "test:test", "failed to parse \"--volume-sysprep\" flag: unknown param(s): test:test"),
 			Entry("Missing src", "type:configMap", "failed to parse \"--volume-sysprep\" flag: src must be specified"),
-			Entry("Invalid type", "type:madeup,src:my-src", "failed to parse \"--volume-sysprep\" flag: invalid sysprep source type \"madeup\", supported values are: configMap, secret"),
+			Entry("Invalid type", "type:madeup,src:my-src", "failed to parse \"--volume-sysprep\" flag: invalid sysprep source type \"madeup\", supported values are: configmap, secret"),
 			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-sysprep\" flag: src invalid: name cannot be empty"),
 			Entry("Invalid slashes count in src", "src:my-ns/my-src/madethisup", "failed to parse \"--volume-sysprep\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
 			Entry("Namespace in src", "src:my-ns/my-src", "failed to parse \"--volume-sysprep\" flag: not allowed to specify namespace of configmap or secret \"my-src\""),
@@ -1701,14 +1717,14 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("type ssh (default) and nocloud vs configdrive", "src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs configdrive", setFlag(CloudInitFlag, CloudInitConfigDrive)),
-			Entry("type ssh (default) and nocloud vs none", "src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs none", setFlag(CloudInitFlag, CloudInitNone)),
-			Entry("type ssh (default) and configdrive vs nocloud", "src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs nocloud", setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("type ssh (default) and configdrive vs none", "src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs none", setFlag(CloudInitFlag, CloudInitNone)),
-			Entry("type ssh (explicit) and nocloud vs configdrive", "type:ssh,src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs configdrive", setFlag(CloudInitFlag, CloudInitConfigDrive)),
-			Entry("type ssh (explicit) and nocloud vs none", "type:ssh,src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs none", setFlag(CloudInitFlag, CloudInitNone)),
-			Entry("type ssh (explicit) and configdrive vs nocloud", "type:ssh,src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs nocloud", setFlag(CloudInitFlag, CloudInitNoCloud)),
-			Entry("type ssh (explicit) and configdrive vs none", "type:ssh,src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs none", setFlag(CloudInitFlag, CloudInitNone)),
+			Entry("type ssh (default) and nocloud vs configdrive", "src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs configdrive", setFlag(CloudInitFlag, cloudInitConfigDrive)),
+			Entry("type ssh (default) and nocloud vs none", "src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs none", setFlag(CloudInitFlag, cloudInitNone)),
+			Entry("type ssh (default) and configdrive vs nocloud", "src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs nocloud", setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("type ssh (default) and configdrive vs none", "src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs none", setFlag(CloudInitFlag, cloudInitNone)),
+			Entry("type ssh (explicit) and nocloud vs configdrive", "type:ssh,src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs configdrive", setFlag(CloudInitFlag, cloudInitConfigDrive)),
+			Entry("type ssh (explicit) and nocloud vs none", "type:ssh,src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs none", setFlag(CloudInitFlag, cloudInitNone)),
+			Entry("type ssh (explicit) and configdrive vs nocloud", "type:ssh,src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs nocloud", setFlag(CloudInitFlag, cloudInitNoCloud)),
+			Entry("type ssh (explicit) and configdrive vs none", "type:ssh,src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs none", setFlag(CloudInitFlag, cloudInitNone)),
 		)
 	})
 })
@@ -1718,7 +1734,7 @@ func setFlag(flag, parameter string) string {
 }
 
 func runCmd(args ...string) ([]byte, error) {
-	_args := append([]string{create.CREATE, VM}, args...)
+	_args := append([]string{create.CREATE, "vm"}, args...)
 	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
 }
 

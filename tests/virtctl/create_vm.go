@@ -686,7 +686,7 @@ func setFlag(flag, parameter string) string {
 }
 
 func runCmd(args ...string) ([]byte, error) {
-	_args := append([]string{create.CREATE, VM}, args...)
+	_args := append([]string{create.CREATE, "vm"}, args...)
 	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
 }
 
