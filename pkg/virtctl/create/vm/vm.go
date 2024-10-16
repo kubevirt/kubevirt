@@ -954,7 +954,7 @@ func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
 			},
 		}
 	default:
-		return params.FlagErr(SysprepVolumeFlag, "invalid source type \"%s\", supported values are: %s, %s", vol.Type, SysprepConfigMap, SysprepSecret)
+		return params.FlagErr(SysprepVolumeFlag, "invalid sysprep source type \"%s\", supported values are: %s, %s", vol.Type, SysprepConfigMap, SysprepSecret)
 	}
 
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
@@ -976,7 +976,7 @@ func (c *createVM) withImportedVolume(vm *v1.VirtualMachine) error {
 
 		sourceFn, found := volumeImportOptions[volumeSourceType]
 		if !found {
-			return params.FlagErr(VolumeImportFlag, fmt.Sprintf("unknown source type used - %s", volumeSourceType))
+			return params.FlagErr(VolumeImportFlag, "invalid volume import type \"%s\", see help for supported values", volumeSourceType)
 		}
 
 		spec, bootOrder, err := sourceFn(volume)
