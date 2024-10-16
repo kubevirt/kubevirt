@@ -21,6 +21,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,10 +33,13 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -59,13 +63,13 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 		virtClient = kubevirt.Client()
 
 		nodeName = tests.NodeNameWithHandler()
-		tests.CreateFaultyDisk(nodeName, deviceName)
+		createFaultyDisk(nodeName, deviceName)
 		var err error
 		pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, testsuite.GetTestNamespace(nil))
 		Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 	})
 	AfterEach(func() {
-		tests.RemoveFaultyDisk(nodeName, deviceName)
+		removeFaultyDisk(nodeName, deviceName)
 
 		err := virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -98,3 +102,48 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})
 })
+
+func createFaultyDisk(nodeName, deviceName string) {
+	By(fmt.Sprintf("Creating faulty disk %s on %s node", deviceName, nodeName))
+	args := []string{"dmsetup", "create", deviceName, "--table", "0 204791 error"}
+	executeDeviceMapperOnNode(nodeName, args)
+}
+
+func removeFaultyDisk(nodeName, deviceName string) {
+	By(fmt.Sprintf("Removing faulty disk %s on %s node", deviceName, nodeName))
+	args := []string{"dmsetup", "remove", deviceName}
+	executeDeviceMapperOnNode(nodeName, args)
+}
+
+func executeDeviceMapperOnNode(nodeName string, cmd []string) {
+	virtClient := kubevirt.Client()
+
+	// Image that happens to have dmsetup
+	image := fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
+	pod := &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "device-mapper-pod-",
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers: []k8sv1.Container{
+				{
+					Name:    "launcher",
+					Image:   image,
+					Command: cmd,
+					SecurityContext: &k8sv1.SecurityContext{
+						Privileged: pointer.P(true),
+						RunAsUser:  pointer.P(int64(0)),
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				k8sv1.LabelHostname: nodeName,
+			},
+		},
+	}
+	pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(matcher.ThisPod(pod), 30).Should(matcher.HaveSucceeded())
+}
