@@ -9,7 +9,7 @@ export ARTIFACTS=_out/artifacts/conformance
 mkdir -p ${ARTIFACTS}
 
 echo 'Obtaining KUBECONFIG of the development cluster'
-export KUBECONFIG=$(./cluster-up/kubeconfig.sh)
+export KUBECONFIG=$(./kubevirtci/cluster-up/kubeconfig.sh)
 
 sonobuoy_args="--wait --plugin _out/manifests/release/conformance.yaml"
 
