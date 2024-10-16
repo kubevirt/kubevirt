@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -65,7 +64,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 		nodeName = tests.NodeNameWithHandler()
 		createFaultyDisk(nodeName, deviceName)
 		var err error
-		pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, testsuite.GetTestNamespace(nil))
+		pv, pvc, err = CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, testsuite.GetTestNamespace(nil))
 		Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 	})
 	AfterEach(func() {

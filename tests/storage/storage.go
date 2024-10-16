@@ -165,15 +165,15 @@ var _ = SIGDescribe("Storage", func() {
 
 			BeforeEach(func() {
 				nodeName = tests.NodeNameWithHandler()
-				address, device = tests.CreateErrorDisk(nodeName)
-				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
+				address, device = CreateErrorDisk(nodeName)
+				pv, pvc, err = CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 			})
 
 			AfterEach(func() {
 				// In order to remove the scsi debug module, the SCSI device cannot be in used by the VM.
 				// For this reason, we manually clean-up the VM  before removing the kernel module.
-				tests.RemoveSCSIDisk(nodeName, address)
+				RemoveSCSIDisk(nodeName, address)
 				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
@@ -207,7 +207,7 @@ var _ = SIGDescribe("Storage", func() {
 				}, 100*time.Second, time.Second).Should(Satisfy(isPausedOnIOError))
 
 				By("Fixing the device")
-				tests.FixErrorDevice(nodeName)
+				FixErrorDevice(nodeName)
 
 				By("Expecting VMI to NOT be paused")
 				Eventually(ThisVMI(vmi), 100*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
@@ -1355,16 +1355,16 @@ var _ = SIGDescribe("Storage", func() {
 
 			BeforeEach(func() {
 				nodeName = tests.NodeNameWithHandler()
-				address, device = tests.CreateSCSIDisk(nodeName, []string{})
+				address, device = CreateSCSIDisk(nodeName, []string{})
 			})
 
 			AfterEach(func() {
-				tests.RemoveSCSIDisk(nodeName, address)
+				RemoveSCSIDisk(nodeName, address)
 				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
 			DescribeTable("should run the VMI using", func(addLunDisk func(*v1.VirtualMachineInstance, string, string)) {
-				pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
+				pv, pvc, err = CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
 
 				By("Creating VMI with LUN disk")
@@ -1388,7 +1388,7 @@ var _ = SIGDescribe("Storage", func() {
 			)
 
 			It("should run the VMI created with a DataVolume source and use the LUN disk", func() {
-				pv, err = tests.CreatePVwithSCSIDisk("scsi-disks", "scsipv", nodeName, device)
+				pv, err = CreatePVwithSCSIDisk("scsi-disks", "scsipv", nodeName, device)
 				Expect(err).ToNot(HaveOccurred())
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),

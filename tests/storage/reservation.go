@@ -212,7 +212,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 			device = findSCSIdisk(targetCliPod, backendDisk)
 			Expect(device).ToNot(BeEmpty())
 			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
-			pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(node, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
+			pv, pvc, err = CreatePVandPVCwithSCSIDisk(node, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
 			Expect(err).ToNot(HaveOccurred())
 			waitForVirtHandlerWithPrHelperReadyOnNode(node)
 			// Switching the PersistentReservation feature gate on/off
