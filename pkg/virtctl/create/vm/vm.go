@@ -44,8 +44,6 @@ import (
 )
 
 const (
-	VM = "vm"
-
 	NameFlag                   = "name"
 	RunStrategyFlag            = "run-strategy"
 	TerminationGracePeriodFlag = "termination-grace-period"
@@ -79,19 +77,19 @@ const (
 	ClonePvcVolumeFlag   = "volume-clone-pvc"
 	BlankVolumeFlag      = "volume-blank"
 
-	SysprepDisk      = "sysprepdisk"
-	SysprepConfigMap = "configmap"
-	SysprepSecret    = "secret"
+	sysprepDisk      = "sysprepdisk"
+	sysprepConfigMap = "configmap"
+	sysprepSecret    = "secret"
 
-	CloudInitDisk         = "cloudinitdisk"
-	CloudInitNoCloud      = "nocloud"
-	CloudInitConfigDrive  = "configdrive"
-	CloudInitNone         = "none"
-	CloudInitConfigHeader = "#cloud-config"
+	cloudInitDisk         = "cloudinitdisk"
+	cloudInitNoCloud      = "nocloud"
+	cloudInitConfigDrive  = "configdrive"
+	cloudInitNone         = "none"
+	cloudInitConfigHeader = "#cloud-config"
 
-	AccessCredTypeSSH      = "ssh"
-	AccessCredTypePassword = "password"
-	AccessCredMethodGA     = "ga"
+	accessCredTypeSSH      = "ssh"
+	accessCredTypePassword = "password"
+	accessCredMethodGA     = "ga"
 
 	blank    = "blank"
 	gcs      = "gcs"
@@ -104,9 +102,7 @@ const (
 	snapshot = "snapshot"
 	ds       = "ds"
 
-	VolumeExistsErrorFmt                 = "there is already a volume with name \"%s\""
-	InvalidInferenceVolumeError          = "inference of instancetype or preference works only with datasources, datavolumes or pvcs"
-	DVInvalidInferenceVolumeError        = "this datavolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
+	volumeExistsErrorFmt                 = "there is already a volume with name \"%s\""
 	accessCredUserInvalidError           = "user cannot be specified with selected access credential type and method"
 	accessCredMethodFlagMismatchErrorFmt = "method param and value passed to --%s have to match: %s vs %s"
 )
@@ -197,7 +193,7 @@ var volumeImportSizeOptional = map[string]bool{
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	c := defaultCreateVM(clientConfig)
 	cmd := &cobra.Command{
-		Use:     VM,
+		Use:     "vm",
 		Short:   "Create a VirtualMachine manifest.",
 		Long:    "Create a VirtualMachine manifest.\n\nIf no boot order was specified volumes have the following fixed boot order:\nContainerdisk > PVC > DataSource > Clone PVC > Blank > Imported volumes",
 		Args:    cobra.NoArgs,
@@ -243,7 +239,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().BoolVar(&c.gaManageSSH, GAManageSSHFlag, c.gaManageSSH, "Specify if the qemu-guest-agent should be able to manage SSH in the cloud-init user data that is added to the VM.\nThis is useful in combination with the \"credentials add-ssh-key\" command or when using the --access-cred flag.")
 	cmd.Flags().StringArrayVar(&c.accessCreds, AccessCredFlag, c.accessCreds, fmt.Sprintf("Specify an access credential to be injected into the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(accessCredential{})))
 
-	cmd.Flags().StringVar(&c.cloudInit, CloudInitFlag, c.cloudInit, fmt.Sprintf("Specify the type of the generated cloud-init data source.\nSupported values: %s, %s, %s", CloudInitNoCloud, CloudInitConfigDrive, CloudInitNone))
+	cmd.Flags().StringVar(&c.cloudInit, CloudInitFlag, c.cloudInit, fmt.Sprintf("Specify the type of the generated cloud-init data source.\nSupported values: %s, %s, %s", cloudInitNoCloud, cloudInitConfigDrive, cloudInitNone))
 	cmd.Flags().StringVar(&c.cloudInitUserData, CloudInitUserDataFlag, c.cloudInitUserData, "Specify the base64 encoded cloud-init user data of the VM.")
 	cmd.Flags().StringVar(&c.cloudInitNetworkData, CloudInitNetworkDataFlag, c.cloudInitNetworkData, "Specify the base64 encoded cloud-init network data of the VM.")
 	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, UserFlag)
@@ -269,7 +265,7 @@ func defaultCreateVM(clientConfig clientcmd.ClientConfig) createVM {
 		memory:                 "512Mi",
 		inferInstancetype:      true,
 		inferPreference:        true,
-		cloudInit:              CloudInitNoCloud,
+		cloudInit:              cloudInitNoCloud,
 		clientConfig:           clientConfig,
 		bootOrders:             map[uint]string{},
 	}
@@ -295,7 +291,7 @@ func volumeShouldExist(vm *v1.VirtualMachine, name string) (*v1.Volume, error) {
 
 func volumeShouldNotExist(flag string, vm *v1.VirtualMachine, name string) error {
 	if vol := volumeExists(vm, name); vol != nil {
-		return params.FlagErr(flag, VolumeExistsErrorFmt, name)
+		return params.FlagErr(flag, volumeExistsErrorFmt, name)
 	}
 
 	return nil
@@ -310,7 +306,7 @@ func volumeValidToInferFrom(vm *v1.VirtualMachine, vol *v1.Volume) error {
 		return nil
 	}
 
-	return fmt.Errorf(InvalidInferenceVolumeError)
+	return fmt.Errorf("inference of instancetype or preference works only with datasources, datavolumes or pvcs")
 }
 
 func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
@@ -322,15 +318,15 @@ func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
 			if dvt.Spec.SourceRef != nil && dvt.Spec.SourceRef.Kind == "DataSource" {
 				return nil
 			}
-			return fmt.Errorf(DVInvalidInferenceVolumeError)
+			return fmt.Errorf("this datavolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)")
 		}
 	}
 	return nil
 }
 
 func isCloudInitSourceEmpty(src *v1.VolumeSource) bool {
-	return (src.CloudInitNoCloud != nil && src.CloudInitNoCloud.UserData == CloudInitConfigHeader && src.CloudInitNoCloud.NetworkDataBase64 == "") ||
-		(src.CloudInitConfigDrive != nil && src.CloudInitConfigDrive.UserData == CloudInitConfigHeader && src.CloudInitConfigDrive.NetworkDataBase64 == "")
+	return (src.CloudInitNoCloud != nil && src.CloudInitNoCloud.UserData == cloudInitConfigHeader && src.CloudInitNoCloud.NetworkDataBase64 == "") ||
+		(src.CloudInitConfigDrive != nil && src.CloudInitConfigDrive.UserData == cloudInitConfigHeader && src.CloudInitConfigDrive.NetworkDataBase64 == "")
 }
 
 func (c *createVM) run(cmd *cobra.Command, _ []string) error {
@@ -664,18 +660,18 @@ func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
 	}
 
 	// Make sure cloudInitDisk does not already exist
-	if vol := volumeExists(vm, CloudInitDisk); vol != nil {
-		return fmt.Errorf(VolumeExistsErrorFmt, CloudInitDisk)
+	if vol := volumeExists(vm, cloudInitDisk); vol != nil {
+		return fmt.Errorf(volumeExistsErrorFmt, cloudInitDisk)
 	}
 
 	var src *v1.VolumeSource
 	var err error
 	switch strings.ToLower(c.cloudInit) {
-	case CloudInitNoCloud:
+	case cloudInitNoCloud:
 		src, err = c.noCloudVolumeSource()
-	case CloudInitConfigDrive:
+	case cloudInitConfigDrive:
 		src, err = c.configDriveVolumeSource()
-	case CloudInitNone:
+	case cloudInitNone:
 		if c.cmd.Flags().Changed(PasswordFileFlag) ||
 			c.cmd.Flags().Changed(SSHKeyFlag) ||
 			c.cmd.Flags().Changed(GAManageSSHFlag) ||
@@ -685,7 +681,7 @@ func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
 		}
 		return nil
 	default:
-		return params.FlagErr(CloudInitFlag, "invalid cloud-init data source type \"%s\", supported values are: %s, %s, %s", c.cloudInit, CloudInitNoCloud, CloudInitConfigDrive, CloudInitNone)
+		return params.FlagErr(CloudInitFlag, "invalid cloud-init data source type \"%s\", supported values are: %s, %s, %s", c.cloudInit, cloudInitNoCloud, cloudInitConfigDrive, cloudInitNone)
 	}
 	if err != nil {
 		return err
@@ -697,7 +693,7 @@ func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
 	}
 
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-		Name:         CloudInitDisk,
+		Name:         cloudInitDisk,
 		VolumeSource: *src,
 	})
 
@@ -743,7 +739,7 @@ func (c *createVM) configDriveVolumeSource() (*v1.VolumeSource, error) {
 }
 
 func (c *createVM) buildCloudInitConfig() (string, error) {
-	config := CloudInitConfigHeader
+	config := cloudInitConfigHeader
 
 	if c.user != "" {
 		config += "\nuser: " + c.user
@@ -934,33 +930,33 @@ func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
 	}
 
 	if vol.Type == "" {
-		vol.Type = SysprepConfigMap
+		vol.Type = sysprepConfigMap
 	}
 
-	if err := volumeShouldNotExist(SysprepVolumeFlag, vm, SysprepDisk); err != nil {
+	if err := volumeShouldNotExist(SysprepVolumeFlag, vm, sysprepDisk); err != nil {
 		return err
 	}
 
 	var src *v1.SysprepSource
 	switch strings.ToLower(vol.Type) {
-	case SysprepConfigMap:
+	case sysprepConfigMap:
 		src = &v1.SysprepSource{
 			ConfigMap: &k8sv1.LocalObjectReference{
 				Name: vol.Source,
 			},
 		}
-	case SysprepSecret:
+	case sysprepSecret:
 		src = &v1.SysprepSource{
 			Secret: &k8sv1.LocalObjectReference{
 				Name: vol.Source,
 			},
 		}
 	default:
-		return params.FlagErr(SysprepVolumeFlag, "invalid sysprep source type \"%s\", supported values are: %s, %s", vol.Type, SysprepConfigMap, SysprepSecret)
+		return params.FlagErr(SysprepVolumeFlag, "invalid sysprep source type \"%s\", supported values are: %s, %s", vol.Type, sysprepConfigMap, sysprepSecret)
 	}
 
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-		Name: SysprepDisk,
+		Name: sysprepDisk,
 		VolumeSource: v1.VolumeSource{
 			Sysprep: src,
 		},
@@ -1335,16 +1331,16 @@ func (c *createVM) withAccessCredential(vm *v1.VirtualMachine) error {
 
 		var apiAccessCred *v1.AccessCredential
 		switch strings.ToLower(src.Type) {
-		case AccessCredTypeSSH, "":
+		case accessCredTypeSSH, "":
 			if apiAccessCred, err = c.withAccessCredentialSSH(src); err != nil {
 				return err
 			}
-		case AccessCredTypePassword:
+		case accessCredTypePassword:
 			if apiAccessCred, err = c.withAccessCredentialPassword(src); err != nil {
 				return err
 			}
 		default:
-			return params.FlagErr(AccessCredFlag, "invalid access credential type \"%s\", supported values are: %s, %s", src.Type, AccessCredTypeSSH, AccessCredTypePassword)
+			return params.FlagErr(AccessCredFlag, "invalid access credential type \"%s\", supported values are: %s, %s", src.Type, accessCredTypeSSH, accessCredTypePassword)
 		}
 
 		vm.Spec.Template.Spec.AccessCredentials = append(vm.Spec.Template.Spec.AccessCredentials, *apiAccessCred)
@@ -1355,14 +1351,14 @@ func (c *createVM) withAccessCredential(vm *v1.VirtualMachine) error {
 
 func (c *createVM) withAccessCredentialSSH(src *accessCredential) (*v1.AccessCredential, error) {
 	switch strings.ToLower(src.Method) {
-	case AccessCredMethodGA, "":
+	case accessCredMethodGA, "":
 		return c.withAccessCredentialSSHMethodGA(src)
-	case CloudInitNoCloud:
+	case cloudInitNoCloud:
 		return c.withAccessCredentialSSHMethodNoCloud(src)
-	case CloudInitConfigDrive:
+	case cloudInitConfigDrive:
 		return c.withAccessCredentialSSHMethodConfigDrive(src)
 	default:
-		return nil, params.FlagErr(AccessCredFlag, "invalid access credentials ssh method \"%s\", supported values are: %s, %s, %s", src.Method, AccessCredMethodGA, CloudInitNoCloud, CloudInitConfigDrive)
+		return nil, params.FlagErr(AccessCredFlag, "invalid access credentials ssh method \"%s\", supported values are: %s, %s, %s", src.Method, accessCredMethodGA, cloudInitNoCloud, cloudInitConfigDrive)
 	}
 }
 
@@ -1397,12 +1393,12 @@ func (c *createVM) withAccessCredentialSSHMethodNoCloud(src *accessCredential) (
 
 	// Set --cloud-init flag to nocloud to ensure the required noCloud volume exists if it was not changed
 	if !c.cmd.Flags().Lookup(CloudInitFlag).Changed {
-		if err := c.cmd.Flags().Set(CloudInitFlag, CloudInitNoCloud); err != nil {
+		if err := c.cmd.Flags().Set(CloudInitFlag, cloudInitNoCloud); err != nil {
 			return nil, err
 		}
 	}
-	if strings.ToLower(c.cloudInit) != CloudInitNoCloud {
-		return nil, params.FlagErr(AccessCredFlag, accessCredMethodFlagMismatchErrorFmt, CloudInitFlag, CloudInitNoCloud, c.cloudInit)
+	if strings.ToLower(c.cloudInit) != cloudInitNoCloud {
+		return nil, params.FlagErr(AccessCredFlag, accessCredMethodFlagMismatchErrorFmt, CloudInitFlag, cloudInitNoCloud, c.cloudInit)
 	}
 
 	return createAccessCredentialSSH(src.Source, &v1.SSHPublicKeyAccessCredentialPropagationMethod{
@@ -1417,12 +1413,12 @@ func (c *createVM) withAccessCredentialSSHMethodConfigDrive(src *accessCredentia
 
 	// Set --cloud-init flag to configdrive to ensure the required configDrive volume exists if it was not changed
 	if !c.cmd.Flags().Lookup(CloudInitFlag).Changed {
-		if err := c.cmd.Flags().Set(CloudInitFlag, CloudInitConfigDrive); err != nil {
+		if err := c.cmd.Flags().Set(CloudInitFlag, cloudInitConfigDrive); err != nil {
 			return nil, err
 		}
 	}
-	if strings.ToLower(c.cloudInit) != CloudInitConfigDrive {
-		return nil, params.FlagErr(AccessCredFlag, accessCredMethodFlagMismatchErrorFmt, CloudInitFlag, CloudInitConfigDrive, c.cloudInit)
+	if strings.ToLower(c.cloudInit) != cloudInitConfigDrive {
+		return nil, params.FlagErr(AccessCredFlag, accessCredMethodFlagMismatchErrorFmt, CloudInitFlag, cloudInitConfigDrive, c.cloudInit)
 	}
 
 	return createAccessCredentialSSH(src.Source, &v1.SSHPublicKeyAccessCredentialPropagationMethod{
@@ -1444,8 +1440,8 @@ func createAccessCredentialSSH(src string, method *v1.SSHPublicKeyAccessCredenti
 }
 
 func (c *createVM) withAccessCredentialPassword(src *accessCredential) (*v1.AccessCredential, error) {
-	if src.Method != "" && strings.ToLower(src.Method) != AccessCredMethodGA {
-		return nil, params.FlagErr(AccessCredFlag, "invalid access credentials password method \"%s\", supported values are: %s", src.Method, AccessCredMethodGA)
+	if src.Method != "" && strings.ToLower(src.Method) != accessCredMethodGA {
+		return nil, params.FlagErr(AccessCredFlag, "invalid access credentials password method \"%s\", supported values are: %s", src.Method, accessCredMethodGA)
 	}
 
 	if src.User != "" {
