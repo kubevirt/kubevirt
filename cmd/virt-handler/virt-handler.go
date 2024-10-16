@@ -361,7 +361,7 @@ func (app *virtHandlerApp) Run() {
 		downwardMetricsManager,
 		&capabilities,
 		hostCpuModel,
-		netsetup.NewNetConf(),
+		netsetup.NewNetConf(app.clusterConfig),
 		netsetup.NewNetStat(),
 		netbinding.MemoryCalculator{},
 	)

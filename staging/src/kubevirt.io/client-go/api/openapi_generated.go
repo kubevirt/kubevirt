@@ -20385,7 +20385,7 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref common.ReferenceCa
 					},
 					"domainAttachmentType": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DomainAttachmentType is a standard domain network attachment method kubevirt supports. Supported values: \"tap\". The standard domain attachment can be used instead or in addition to the sidecarImage. version: 1alphav1",
+							Description: "DomainAttachmentType is a standard domain network attachment method kubevirt supports. Supported values: \"tap\", \"managedTap\" (since v1.4). The standard domain attachment can be used instead or in addition to the sidecarImage. version: 1alphav1",
 							Type:        []string{"string"},
 							Format:      "",
 						},

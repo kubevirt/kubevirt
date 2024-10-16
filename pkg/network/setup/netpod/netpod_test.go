@@ -14,7 +14,6 @@
  * limitations under the License.
  *
  * Copyright 2023 Red Hat, Inc.
- *
  */
 
 package netpod_test
@@ -1620,6 +1619,122 @@ var _ = Describe("netpod", func() {
 		// testNet2 is not expected to exist anymore.
 		_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)
 		Expect(err).To(HaveOccurred())
+	})
+
+	When("binding plugin with managedTap domainAttachmentType", func() {
+		const managedTap = "managed-tap"
+
+		It("fails setup config when pod interface is missing", func() {
+			netPod := netpod.NewNetPod(
+				[]v1.Network{*v1.DefaultPodNetwork()},
+				[]v1.Interface{{Name: defaultPodNetworkName, Binding: &v1.PluginBinding{Name: managedTap}}},
+				vmiUID, 0, 0, 0, state,
+				netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
+					Interfaces: []nmstate.Interface{{Name: "other0"}},
+				}}),
+				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithBindingPlugins(map[string]v1.InterfaceBindingPlugin{
+					managedTap: {DomainAttachmentType: v1.ManagedTap},
+				}),
+			)
+			err := netPod.Setup()
+			Expect(err).To(MatchError(ContainSubstring("pod link (eth0) is missing")))
+		})
+
+		It("setup succeeds", func() {
+			const podIfaceOrignalMAC = "12:34:56:78:90:ab"
+
+			nmstatestub := nmstateStub{status: nmstate.Status{
+				Interfaces: []nmstate.Interface{{
+					Name:       "eth0",
+					Index:      0,
+					TypeName:   nmstate.TypeVETH,
+					State:      nmstate.IfaceStateUp,
+					MacAddress: podIfaceOrignalMAC,
+					MTU:        1500,
+					IPv4: nmstate.IP{
+						Enabled: pointer.P(true),
+						Address: []nmstate.IPAddress{{
+							IP:        primaryIPv4Address,
+							PrefixLen: 30,
+						}},
+					},
+					IPv6: nmstate.IP{
+						Enabled: pointer.P(true),
+						Address: []nmstate.IPAddress{{
+							IP:        primaryIPv6Address,
+							PrefixLen: 64,
+						}},
+					},
+				}},
+			}}
+
+			vmiIface := v1.Interface{Name: defaultPodNetworkName, Binding: &v1.PluginBinding{Name: managedTap}}
+			netPod := netpod.NewNetPod(
+				[]v1.Network{*v1.DefaultPodNetwork()},
+				[]v1.Interface{vmiIface},
+				vmiUID, 0, 0, 0, state,
+				netpod.WithNMStateAdapter(&nmstatestub),
+				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithBindingPlugins(map[string]v1.InterfaceBindingPlugin{
+					managedTap: {DomainAttachmentType: v1.ManagedTap},
+				}),
+			)
+			Expect(netPod.Setup()).To(Succeed())
+			Expect(nmstatestub.spec).To(Equal(
+				nmstate.Spec{
+					Interfaces: []nmstate.Interface{
+						{
+							Name:     "k6t-eth0",
+							TypeName: nmstate.TypeBridge,
+							State:    nmstate.IfaceStateUp,
+							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+						{
+							Name:        "eth0-nic",
+							Index:       0,
+							State:       nmstate.IfaceStateUp,
+							CopyMacFrom: "k6t-eth0",
+							Controller:  "k6t-eth0",
+							IPv4:        ipDisabled,
+							IPv6:        ipDisabled,
+							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+						{
+							Name:       "tap0",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateUp,
+							MTU:        1500,
+							Controller: "k6t-eth0",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+						{
+							Name:       "eth0",
+							TypeName:   nmstate.TypeDummy,
+							MacAddress: podIfaceOrignalMAC,
+							MTU:        1500,
+							IPv4: nmstate.IP{
+								Enabled: pointer.P(true),
+								Address: []nmstate.IPAddress{{IP: primaryIPv4Address, PrefixLen: 30}},
+							},
+							IPv6: nmstate.IP{
+								Enabled: pointer.P(true),
+								Address: []nmstate.IPAddress{{IP: primaryIPv6Address, PrefixLen: 64}},
+							},
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+					},
+				},
+			))
+			Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+				Iface:  &vmiIface,
+				PodIP:  primaryIPv4Address,
+				PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
+			}))
+		})
 	})
 })
 

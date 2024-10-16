@@ -52,6 +52,10 @@ func DomainAttachmentByInterfaceName(vmiSpecIfaces []v1.Interface, networkBindin
 			domainAttachmentByInterfaceName[iface.Name] = string(v1.Tap)
 		} else if iface.Binding != nil {
 			if domainAttachmentType, exist := domainAttachmentByPluginName[iface.Binding.Name]; exist {
+				// For domain consumption, handle the `managedTap` type as `tap`.
+				if domainAttachmentType == string(v1.ManagedTap) {
+					domainAttachmentType = string(v1.Tap)
+				}
 				domainAttachmentByInterfaceName[iface.Name] = domainAttachmentType
 			}
 		}
