@@ -321,6 +321,7 @@ func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
 			return fmt.Errorf("this datavolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)")
 		}
 	}
+
 	return nil
 }
 
@@ -350,6 +351,7 @@ func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 	if err := c.cloudInitConfig(vm); err != nil {
 		return err
 	}
+
 	if err := c.inferFromVolume(vm); err != nil {
 		return err
 	}
@@ -360,6 +362,7 @@ func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 	}
 
 	cmd.Print(string(out))
+
 	return nil
 }
 
@@ -664,8 +667,10 @@ func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
 		return fmt.Errorf(volumeExistsErrorFmt, cloudInitDisk)
 	}
 
-	var src *v1.VolumeSource
-	var err error
+	var (
+		src *v1.VolumeSource
+		err error
+	)
 	switch strings.ToLower(c.cloudInit) {
 	case cloudInitNoCloud:
 		src, err = c.noCloudVolumeSource()
@@ -702,9 +707,11 @@ func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
 
 func (c *createVM) noCloudVolumeSource() (*v1.VolumeSource, error) {
 	src := &v1.CloudInitNoCloudSource{}
+
 	if c.cloudInitNetworkData != "" {
 		src.NetworkDataBase64 = c.cloudInitNetworkData
 	}
+
 	if c.cloudInitUserData != "" {
 		src.UserDataBase64 = c.cloudInitUserData
 	} else {
@@ -721,9 +728,11 @@ func (c *createVM) noCloudVolumeSource() (*v1.VolumeSource, error) {
 
 func (c *createVM) configDriveVolumeSource() (*v1.VolumeSource, error) {
 	src := &v1.CloudInitConfigDriveSource{}
+
 	if c.cloudInitNetworkData != "" {
 		src.NetworkDataBase64 = c.cloudInitNetworkData
 	}
+
 	if c.cloudInitUserData != "" {
 		src.UserDataBase64 = c.cloudInitUserData
 	} else {
@@ -831,33 +840,33 @@ func (c *createVM) withPreference(vm *v1.VirtualMachine) error {
 
 func (c *createVM) withContainerdiskVolume(vm *v1.VirtualMachine) error {
 	for i, containerdiskVol := range c.containerdiskVolumes {
-		vol := volumeSource{}
-		if err := params.Map(ContainerdiskVolumeFlag, containerdiskVol, &vol); err != nil {
+		src := volumeSource{}
+		if err := params.Map(ContainerdiskVolumeFlag, containerdiskVol, &src); err != nil {
 			return err
 		}
 
-		if vol.Source == "" {
+		if src.Source == "" {
 			return params.FlagErr(ContainerdiskVolumeFlag, "src must be specified")
 		}
 
-		if vol.Name == "" {
-			vol.Name = fmt.Sprintf("%s-containerdisk-%d", vm.Name, i)
+		if src.Name == "" {
+			src.Name = fmt.Sprintf("%s-containerdisk-%d", vm.Name, i)
 		}
 
-		if err := volumeShouldNotExist(ContainerdiskVolumeFlag, vm, vol.Name); err != nil {
+		if err := volumeShouldNotExist(ContainerdiskVolumeFlag, vm, src.Name); err != nil {
 			return err
 		}
 
 		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-			Name: vol.Name,
+			Name: src.Name,
 			VolumeSource: v1.VolumeSource{
 				ContainerDisk: &v1.ContainerDiskSource{
-					Image: vol.Source,
+					Image: src.Source,
 				},
 			},
 		})
 
-		if err := c.addDiskWithBootOrder(ContainerdiskVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+		if err := c.addDiskWithBootOrder(ContainerdiskVolumeFlag, vm, src.Name, src.BootOrder); err != nil {
 			return err
 		}
 	}
@@ -867,33 +876,34 @@ func (c *createVM) withContainerdiskVolume(vm *v1.VirtualMachine) error {
 
 func (c *createVM) withPvcVolume(vm *v1.VirtualMachine) error {
 	for _, pvcVol := range c.pvcVolumes {
-		vol := volumeSource{}
-		if err := params.Map(PvcVolumeFlag, pvcVol, &vol); err != nil {
+		src := volumeSource{}
+		if err := params.Map(PvcVolumeFlag, pvcVol, &src); err != nil {
 			return err
 		}
 
-		if vol.Source == "" {
+		if src.Source == "" {
 			return params.FlagErr(PvcVolumeFlag, "src must be specified")
 		}
 
-		namespace, name, err := params.SplitPrefixedName(vol.Source)
+		namespace, name, err := params.SplitPrefixedName(src.Source)
 		if err != nil {
 			return params.FlagErr(PvcVolumeFlag, "src invalid: %w", err)
 		}
+
 		if namespace != "" {
 			return params.FlagErr(PvcVolumeFlag, "not allowed to specify namespace of pvc \"%s\"", name)
 		}
 
-		if vol.Name == "" {
-			vol.Name = name
+		if src.Name == "" {
+			src.Name = name
 		}
 
-		if err := volumeShouldNotExist(PvcVolumeFlag, vm, vol.Name); err != nil {
+		if err := volumeShouldNotExist(PvcVolumeFlag, vm, src.Name); err != nil {
 			return err
 		}
 
 		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-			Name: vol.Name,
+			Name: src.Name,
 			VolumeSource: v1.VolumeSource{
 				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
@@ -903,7 +913,7 @@ func (c *createVM) withPvcVolume(vm *v1.VirtualMachine) error {
 			},
 		})
 
-		if err := c.addDiskWithBootOrder(PvcVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+		if err := c.addDiskWithBootOrder(PvcVolumeFlag, vm, src.Name, src.BootOrder); err != nil {
 			return err
 		}
 	}
@@ -912,53 +922,54 @@ func (c *createVM) withPvcVolume(vm *v1.VirtualMachine) error {
 }
 
 func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
-	vol := sysprepVolumeSource{}
-	if err := params.Map(SysprepVolumeFlag, c.sysprepVolume, &vol); err != nil {
+	src := sysprepVolumeSource{}
+	if err := params.Map(SysprepVolumeFlag, c.sysprepVolume, &src); err != nil {
 		return err
 	}
 
-	if vol.Source == "" {
+	if src.Source == "" {
 		return params.FlagErr(SysprepVolumeFlag, "src must be specified")
 	}
 
-	namespace, name, err := params.SplitPrefixedName(vol.Source)
+	namespace, name, err := params.SplitPrefixedName(src.Source)
 	if err != nil {
 		return params.FlagErr(SysprepVolumeFlag, "src invalid: %w", err)
 	}
+
 	if namespace != "" {
 		return params.FlagErr(SysprepVolumeFlag, "not allowed to specify namespace of configmap or secret \"%s\"", name)
 	}
 
-	if vol.Type == "" {
-		vol.Type = sysprepConfigMap
+	if src.Type == "" {
+		src.Type = sysprepConfigMap
 	}
 
 	if err := volumeShouldNotExist(SysprepVolumeFlag, vm, sysprepDisk); err != nil {
 		return err
 	}
 
-	var src *v1.SysprepSource
-	switch strings.ToLower(vol.Type) {
+	var sysprep *v1.SysprepSource
+	switch strings.ToLower(src.Type) {
 	case sysprepConfigMap:
-		src = &v1.SysprepSource{
+		sysprep = &v1.SysprepSource{
 			ConfigMap: &k8sv1.LocalObjectReference{
-				Name: vol.Source,
+				Name: src.Source,
 			},
 		}
 	case sysprepSecret:
-		src = &v1.SysprepSource{
+		sysprep = &v1.SysprepSource{
 			Secret: &k8sv1.LocalObjectReference{
-				Name: vol.Source,
+				Name: src.Source,
 			},
 		}
 	default:
-		return params.FlagErr(SysprepVolumeFlag, "invalid sysprep source type \"%s\", supported values are: %s, %s", vol.Type, sysprepConfigMap, sysprepSecret)
+		return params.FlagErr(SysprepVolumeFlag, "invalid sysprep source type \"%s\", supported values are: %s, %s", src.Type, sysprepConfigMap, sysprepSecret)
 	}
 
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 		Name: sysprepDisk,
 		VolumeSource: v1.VolumeSource{
-			Sysprep: src,
+			Sysprep: sysprep,
 		},
 	})
 
@@ -967,24 +978,24 @@ func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
 
 func (c *createVM) withImportedVolume(vm *v1.VirtualMachine) error {
 	for _, volume := range c.volumeImport {
-		volumeSourceType, err := params.GetParamByName("type", volume)
+		srcType, err := params.GetParamByName("type", volume)
 		if err != nil {
 			return params.FlagErr(VolumeImportFlag, err.Error())
 		}
 
-		sourceFn, found := volumeImportOptions[volumeSourceType]
+		srcFn, found := volumeImportOptions[srcType]
 		if !found {
-			return params.FlagErr(VolumeImportFlag, "invalid volume import type \"%s\", see help for supported values", volumeSourceType)
+			return params.FlagErr(VolumeImportFlag, "invalid volume import type \"%s\", see help for supported values", srcType)
 		}
 
-		spec, bootOrder, err := sourceFn(volume)
+		spec, bootOrder, err := srcFn(volume)
 		if err != nil {
 			return err
 		}
 
 		size, err := params.GetParamByName("size", volume)
 		if err != nil &&
-			(!volumeImportSizeOptional[volumeSourceType] || !errors.Is(err, params.NotFoundError{Name: "size"})) {
+			(!volumeImportSizeOptional[srcType] || !errors.Is(err, params.NotFoundError{Name: "size"})) {
 			return params.FlagErr(VolumeImportFlag, err.Error())
 		}
 
@@ -1005,8 +1016,8 @@ func (c *createVM) withImportedVolume(vm *v1.VirtualMachine) error {
 }
 
 func withVolumeSourceBlank(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSourceBlank{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSourceBlank{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
@@ -1016,85 +1027,85 @@ func withVolumeSourceBlank(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error
 		},
 	}
 
-	return spec, sourceStruct.BootOrder, nil
+	return spec, src.BootOrder, nil
 }
 
 func withVolumeSourceGcs(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSourceGcs{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSourceGcs{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
-	if sourceStruct.URL == "" {
+	if src.URL == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "url is required with gcs volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
 		Source: &cdiv1.DataVolumeSource{
 			GCS: &cdiv1.DataVolumeSourceGCS{
-				URL:       sourceStruct.URL,
-				SecretRef: sourceStruct.SecretRef,
+				URL:       src.URL,
+				SecretRef: src.SecretRef,
 			},
 		},
-	}, sourceStruct.BootOrder, nil
+	}, src.BootOrder, nil
 }
 
 func withVolumeSourceHttp(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSourceHttp{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSourceHttp{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
-	if sourceStruct.URL == "" {
+	if src.URL == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "url is required with http volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
 		Source: &cdiv1.DataVolumeSource{
 			HTTP: &cdiv1.DataVolumeSourceHTTP{
-				URL:                sourceStruct.URL,
-				SecretRef:          sourceStruct.SecretRef,
-				CertConfigMap:      sourceStruct.CertConfigMap,
-				ExtraHeaders:       sourceStruct.ExtraHeaders,
-				SecretExtraHeaders: sourceStruct.SecretExtraHeaders,
+				URL:                src.URL,
+				SecretRef:          src.SecretRef,
+				CertConfigMap:      src.CertConfigMap,
+				ExtraHeaders:       src.ExtraHeaders,
+				SecretExtraHeaders: src.SecretExtraHeaders,
 			},
 		},
-	}, sourceStruct.BootOrder, nil
+	}, src.BootOrder, nil
 }
 
 func withVolumeSourceImageIO(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSourceImageIO{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSourceImageIO{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
-	if sourceStruct.URL == "" || sourceStruct.DiskId == "" {
+	if src.URL == "" || src.DiskId == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "url and diskid are both required with imageio volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
 		Source: &cdiv1.DataVolumeSource{
 			Imageio: &cdiv1.DataVolumeSourceImageIO{
-				URL:           sourceStruct.URL,
-				DiskID:        sourceStruct.DiskId,
-				SecretRef:     sourceStruct.SecretRef,
-				CertConfigMap: sourceStruct.CertConfigMap,
+				URL:           src.URL,
+				DiskID:        src.DiskId,
+				SecretRef:     src.SecretRef,
+				CertConfigMap: src.CertConfigMap,
 			},
 		},
-	}, sourceStruct.BootOrder, nil
+	}, src.BootOrder, nil
 }
 
 func withVolumeSourcePVC(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSource{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSource{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
-	if sourceStruct.Source == "" {
+	if src.Source == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "src must be specified")
 	}
 
-	namespace, name, err := params.SplitPrefixedName(sourceStruct.Source)
+	namespace, name, err := params.SplitPrefixedName(src.Source)
 	if err != nil {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "src invalid: %w", err)
 	}
@@ -1110,22 +1121,22 @@ func withVolumeSourcePVC(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) 
 				Namespace: namespace,
 			},
 		},
-	}, sourceStruct.BootOrder, nil
+	}, src.BootOrder, nil
 }
 
 func withVolumeSourceRegistry(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSourceRegistry{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSourceRegistry{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
-	if sourceStruct.PullMethod != "" &&
-		(sourceStruct.PullMethod != string(cdiv1.RegistryPullPod) && sourceStruct.PullMethod != string(cdiv1.RegistryPullNode)) {
+	if src.PullMethod != "" &&
+		(src.PullMethod != string(cdiv1.RegistryPullPod) && src.PullMethod != string(cdiv1.RegistryPullNode)) {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "pullmethod must be set to pod or node")
 	}
 
-	if (sourceStruct.URL == "" && sourceStruct.ImageStream == "") ||
-		(sourceStruct.URL != "" && sourceStruct.ImageStream != "") {
+	if (src.URL == "" && src.ImageStream == "") ||
+		(src.URL != "" && src.ImageStream != "") {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "exactly one of url or imagestream must be defined")
 	}
 
@@ -1135,101 +1146,101 @@ func withVolumeSourceRegistry(paramStr string) (*cdiv1.DataVolumeSpec, *uint, er
 		},
 	}
 
-	if sourceStruct.PullMethod != "" {
-		spec.Source.Registry.PullMethod = (*cdiv1.RegistryPullMethod)(&sourceStruct.PullMethod)
+	if src.PullMethod != "" {
+		spec.Source.Registry.PullMethod = (*cdiv1.RegistryPullMethod)(&src.PullMethod)
 	}
 
-	if sourceStruct.CertConfigMap != "" {
-		spec.Source.Registry.CertConfigMap = &sourceStruct.CertConfigMap
+	if src.CertConfigMap != "" {
+		spec.Source.Registry.CertConfigMap = &src.CertConfigMap
 	}
 
-	if sourceStruct.ImageStream != "" {
-		spec.Source.Registry.ImageStream = &sourceStruct.ImageStream
+	if src.ImageStream != "" {
+		spec.Source.Registry.ImageStream = &src.ImageStream
 	}
 
-	if sourceStruct.URL != "" {
-		spec.Source.Registry.URL = &sourceStruct.URL
+	if src.URL != "" {
+		spec.Source.Registry.URL = &src.URL
 	}
 
-	if sourceStruct.SecretRef != "" {
-		spec.Source.Registry.SecretRef = &sourceStruct.SecretRef
+	if src.SecretRef != "" {
+		spec.Source.Registry.SecretRef = &src.SecretRef
 	}
 
-	return spec, sourceStruct.BootOrder, nil
+	return spec, src.BootOrder, nil
 }
 
 func withVolumeSourceS3(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSourceS3{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSourceS3{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
-	if sourceStruct.URL == "" {
+	if src.URL == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "url is required with s3 volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
 		Source: &cdiv1.DataVolumeSource{
 			S3: &cdiv1.DataVolumeSourceS3{
-				URL:           sourceStruct.URL,
-				CertConfigMap: sourceStruct.CertConfigMap,
-				SecretRef:     sourceStruct.SecretRef,
+				URL:           src.URL,
+				CertConfigMap: src.CertConfigMap,
+				SecretRef:     src.SecretRef,
 			},
 		},
-	}, sourceStruct.BootOrder, nil
+	}, src.BootOrder, nil
 }
 
 func withVolumeSourceVDDK(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSourceVDDK{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSourceVDDK{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
-	if sourceStruct.URL == "" {
+	if src.URL == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "url is required with vddk volume source")
 	}
 
-	if sourceStruct.UUID == "" {
+	if src.UUID == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "uuid is required with vddk volume source")
 	}
 
-	if sourceStruct.ThumbPrint == "" {
+	if src.ThumbPrint == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "thumbprint is required with vddk volume source")
 	}
 
-	if sourceStruct.SecretRef == "" {
+	if src.SecretRef == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "secretref is required with vddk volume source")
 	}
 
-	if sourceStruct.BackingFile == "" {
+	if src.BackingFile == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "backingfile is required with vddk volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
 		Source: &cdiv1.DataVolumeSource{
 			VDDK: &cdiv1.DataVolumeSourceVDDK{
-				URL:          sourceStruct.URL,
-				UUID:         sourceStruct.UUID,
-				Thumbprint:   sourceStruct.ThumbPrint,
-				SecretRef:    sourceStruct.SecretRef,
-				InitImageURL: sourceStruct.InitImageUrl,
-				BackingFile:  sourceStruct.BackingFile,
+				URL:          src.URL,
+				UUID:         src.UUID,
+				Thumbprint:   src.ThumbPrint,
+				SecretRef:    src.SecretRef,
+				InitImageURL: src.InitImageUrl,
+				BackingFile:  src.BackingFile,
 			},
 		},
-	}, sourceStruct.BootOrder, nil
+	}, src.BootOrder, nil
 }
 
 func withVolumeSourceSnapshot(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSource{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSource{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
-	if sourceStruct.Source == "" {
+	if src.Source == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "src must be specified")
 	}
 
-	namespace, name, err := params.SplitPrefixedName(sourceStruct.Source)
+	namespace, name, err := params.SplitPrefixedName(src.Source)
 	if err != nil {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "src invalid: %w", err)
 	}
@@ -1245,20 +1256,20 @@ func withVolumeSourceSnapshot(paramStr string) (*cdiv1.DataVolumeSpec, *uint, er
 				Namespace: namespace,
 			},
 		},
-	}, sourceStruct.BootOrder, nil
+	}, src.BootOrder, nil
 }
 
 func withVolumeSourceRefDataSource(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	sourceStruct := dataVolumeSource{}
-	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+	src := dataVolumeSource{}
+	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
 
-	if sourceStruct.Source == "" {
+	if src.Source == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "src must be specified")
 	}
 
-	namespace, name, err := params.SplitPrefixedName(sourceStruct.Source)
+	namespace, name, err := params.SplitPrefixedName(src.Source)
 	if err != nil {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "src invalid: %w", err)
 	}
@@ -1273,7 +1284,7 @@ func withVolumeSourceRefDataSource(paramStr string) (*cdiv1.DataVolumeSpec, *uin
 		spec.SourceRef.Namespace = &namespace
 	}
 
-	return spec, sourceStruct.BootOrder, nil
+	return spec, src.BootOrder, nil
 }
 
 func createDataVolume(spec *cdiv1.DataVolumeSpec, size string, name string, vm *v1.VirtualMachine) error {
@@ -1325,6 +1336,7 @@ func (c *createVM) withAccessCredential(vm *v1.VirtualMachine) error {
 		if err != nil {
 			return params.FlagErr(AccessCredFlag, "src invalid: %w", err)
 		}
+
 		if namespace != "" {
 			return params.FlagErr(AccessCredFlag, "not allowed to specify namespace of secret \"%s\"", name)
 		}
@@ -1465,15 +1477,15 @@ func (c *createVM) withAccessCredentialPassword(src *accessCredential) (*v1.Acce
 // Deprecated optFns
 
 func (c *createVM) withDataSourceVolume(_ *v1.VirtualMachine) error {
-	return aliasToVolumeImport(c.cmd, DataSourceVolumeFlag, "ds", c.dataSourceVolumes, &c.volumeImport)
+	return aliasToVolumeImport(c.cmd, DataSourceVolumeFlag, ds, c.dataSourceVolumes, &c.volumeImport)
 }
 
 func (c *createVM) withClonePvcVolume(_ *v1.VirtualMachine) error {
-	return aliasToVolumeImport(c.cmd, ClonePvcVolumeFlag, "pvc", c.clonePvcVolumes, &c.volumeImport)
+	return aliasToVolumeImport(c.cmd, ClonePvcVolumeFlag, pvc, c.clonePvcVolumes, &c.volumeImport)
 }
 
 func (c *createVM) withBlankVolume(_ *v1.VirtualMachine) error {
-	return aliasToVolumeImport(c.cmd, BlankVolumeFlag, "blank", c.blankVolumes, &c.volumeImport)
+	return aliasToVolumeImport(c.cmd, BlankVolumeFlag, blank, c.blankVolumes, &c.volumeImport)
 }
 
 func aliasToVolumeImport(cmd *cobra.Command, flag, volType string, vols []string, volumeImport *[]string) error {
@@ -1481,8 +1493,7 @@ func aliasToVolumeImport(cmd *cobra.Command, flag, volType string, vols []string
 	// This is necessary because cobra is writing deprecation messages to the regular output.
 	// Because of this cmd.Flags.MarkDeprecated() cannot be used to mark this flag as deprecated.
 	// See https://github.com/spf13/cobra/issues/1708
-	const flagDeprecatedFmt = "Flag --%s has been deprecated, use flag --%s instead\n"
-	if _, err := fmt.Fprintf(os.Stderr, flagDeprecatedFmt, flag, VolumeImportFlag); err != nil {
+	if _, err := fmt.Fprintf(os.Stderr, "Flag --%s has been deprecated, use flag --volume-import instead\n", flag); err != nil {
 		return err
 	}
 
