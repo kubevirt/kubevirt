@@ -21,10 +21,10 @@ function print_available_nics() {
 }
 
 function set_kind_params() {
-    version=$(cat cluster-up/cluster/$KUBEVIRT_PROVIDER/version)
+    version=$(cat "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/version")
     export KIND_VERSION="${KIND_VERSION:-$version}"
 
-    image=$(cat cluster-up/cluster/$KUBEVIRT_PROVIDER/image)
+    image=$(cat "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/image")
     export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-$image}"
 }
 
