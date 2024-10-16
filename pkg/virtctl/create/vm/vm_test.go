@@ -1558,7 +1558,7 @@ chpasswd: { expire: False }`
 			Entry("Invalid param", "test=test", "failed to parse \"--volume-sysprep\" flag: params need to have at least one colon: test=test"),
 			Entry("Unknown param", "test:test", "failed to parse \"--volume-sysprep\" flag: unknown param(s): test:test"),
 			Entry("Missing src", "type:configMap", "failed to parse \"--volume-sysprep\" flag: src must be specified"),
-			Entry("Invalid type", "type:madeup,src:my-src", "failed to parse \"--volume-sysprep\" flag: invalid sysprep source type \"madeup\", supported values are: configMap, secret"),
+			Entry("Invalid type", "type:madeup,src:my-src", "failed to parse \"--volume-sysprep\" flag: invalid sysprep source type \"madeup\", supported values are: configmap, secret"),
 			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-sysprep\" flag: src invalid: name cannot be empty"),
 			Entry("Invalid slashes count in src", "src:my-ns/my-src/madethisup", "failed to parse \"--volume-sysprep\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
 			Entry("Namespace in src", "src:my-ns/my-src", "failed to parse \"--volume-sysprep\" flag: not allowed to specify namespace of configmap or secret \"my-src\""),
