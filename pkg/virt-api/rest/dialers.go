@@ -1,6 +1,7 @@
 package rest
 
 import (
+	goerror "errors"
 	"fmt"
 	"net"
 
@@ -102,4 +103,21 @@ func (app *SubresourceAPIApp) getVirtHandlerFor(vmi *v1.VirtualMachineInstance, 
 		return
 	}
 	return
+}
+
+func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineInstance) (kubecli.VirtHandlerConn, error) {
+	if !vmi.IsRunning() && !vmi.IsScheduled() {
+		return nil, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled))
+	}
+	return kubecli.NewVirtHandlerClient(app.virtCli, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
+}
+
+// get either the interface with the provided name or the first available interface
+// if no interface is present, return error
+func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
+	interfaces := vmi.Status.Interfaces
+	if len(interfaces) < 1 {
+		return "", fmt.Errorf("no network interfaces are present")
+	}
+	return interfaces[0].IP, nil
 }
