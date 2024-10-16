@@ -83,8 +83,8 @@ const (
 	SysprepSecret    = "secret"
 
 	CloudInitDisk         = "cloudinitdisk"
-	CloudInitNoCloud      = "noCloud"
-	CloudInitConfigDrive  = "configDrive"
+	CloudInitNoCloud      = "nocloud"
+	CloudInitConfigDrive  = "configdrive"
 	CloudInitNone         = "none"
 	CloudInitConfigHeader = "#cloud-config"
 
@@ -655,7 +655,7 @@ func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
 
 	var src *v1.VolumeSource
 	var err error
-	switch c.cloudInit {
+	switch strings.ToLower(c.cloudInit) {
 	case CloudInitNoCloud:
 		src, err = c.noCloudVolumeSource()
 	case CloudInitConfigDrive:
