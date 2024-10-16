@@ -33,72 +33,134 @@ import (
 )
 
 var _ = Describe("Network Status", func() {
-	const multusNetworkStatusWithPrimaryNet = `[{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}}]`
+	Context("NonDefaultNetworkStatusIndexedByPodIfaceName", func() {
+		DescribeTable("It should return empty", func(networkStatuses []networkv1.NetworkStatus) {
+			Expect(multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)).To(BeEmpty())
+		},
+			Entry("when network-status is empty", []networkv1.NetworkStatus{}),
+			Entry("when network-status contains only pod network",
+				[]networkv1.NetworkStatus{
+					{
+						Name:    "k8s-pod-network",
+						IPs:     []string{"10.244.196.146", "fd10:244::c491"},
+						Default: true,
+						DNS:     networkv1.DNS{},
+					},
+				},
+			),
+		)
 
-	DescribeTable("It should return empty", func(annotations map[string]string) {
-		result := multus.NonDefaultNetworkStatusIndexedByIfaceName(newStubPod(annotations))
-		Expect(result).To(BeEmpty())
-	},
-		Entry("when network-status is missing", map[string]string{}),
-		Entry("when network-status contains only pod network",
-			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet},
-		),
-	)
+		It("Should return a map of pod interface name to network status containing just secondary networks", func() {
+			networkStatuses := []networkv1.NetworkStatus{
+				{
+					Name:    "k8s-pod-network",
+					IPs:     []string{"10.244.196.146", "fd10:244::c491"},
+					Default: true,
+					DNS:     networkv1.DNS{},
+				},
+				{
+					Name:      "meganet",
+					Interface: "pod7e0055a6880",
+					Mac:       "8a:37:d9:e7:0f:18",
+					DNS:       networkv1.DNS{},
+				},
+			}
 
-	It("Should return a map of pod interface name to network status when interface name is hashed", func() {
-		const (
-			multusNetworksAnnotation                       = `[{"name":"meganet","namespace":"default","interface":"pod7e0055a6880"}]`
-			multusNetworkStatusWithPrimaryAndSecondaryNets = `[` +
+			result := multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)
+
+			expectedResult := map[string]networkv1.NetworkStatus{
+				"pod7e0055a6880": {
+					Name:      "meganet",
+					Interface: "pod7e0055a6880",
+					Mac:       "8a:37:d9:e7:0f:18",
+					Default:   false,
+				},
+			}
+
+			Expect(result).To(Equal(expectedResult))
+		})
+	})
+
+	Context("NetworkStatusesFromPod", func() {
+		DescribeTable("should return an empty slice", func(podAnnotations map[string]string) {
+			Expect(multus.NetworkStatusesFromPod(newStubPod(podAnnotations))).To(BeEmpty())
+		},
+			Entry("when network status annotation is missing", map[string]string{}),
+			Entry("when network status annotation is empty", map[string]string{networkv1.NetworkStatusAnnot: ""}),
+			Entry("when network status annotation is illegal", map[string]string{networkv1.NetworkStatusAnnot: "not a valid JSON array"}),
+		)
+
+		It("Should return a valid network status slice", func() {
+			const multusNetworkStatusWithPrimaryAndSecondaryNets = `[` +
 				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
 				`{"name":"meganet","interface":"pod7e0055a6880","mac":"8a:37:d9:e7:0f:18","dns":{}}` +
 				`]`
-		)
 
-		annotations := map[string]string{
-			networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
-			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
-		}
+			annotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSecondaryNets}
 
-		result := multus.NonDefaultNetworkStatusIndexedByIfaceName(newStubPod(annotations))
+			expectedResult := []networkv1.NetworkStatus{
+				{
+					Name:    "k8s-pod-network",
+					IPs:     []string{"10.244.196.146", "fd10:244::c491"},
+					Default: true,
+					DNS:     networkv1.DNS{},
+				},
+				{
+					Name:      "meganet",
+					Interface: "pod7e0055a6880",
+					Mac:       "8a:37:d9:e7:0f:18",
+					Default:   false,
+					DNS:       networkv1.DNS{},
+				},
+			}
 
-		expectedResult := map[string]networkv1.NetworkStatus{
-			"pod7e0055a6880": {
-				Name:      "meganet",
-				Interface: "pod7e0055a6880",
-				Mac:       "8a:37:d9:e7:0f:18",
-				Default:   false,
-			},
-		}
-
-		Expect(result).To(Equal(expectedResult))
+			Expect(multus.NetworkStatusesFromPod(newStubPod(annotations))).To(Equal(expectedResult))
+		})
 	})
 
-	It("Should return a map of pod interface name to network status when interface name is ordinal", func() {
+	Context("LookupPodPrimaryIfaceName", func() {
 		const (
-			multusOrdinalNetworksAnnotation                       = `[{"name":"meganet","namespace":"default","interface":"net1"}]`
-			multusNetworkStatusWithPrimaryAndOrdinalSecondaryNets = `[` +
-				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
-				`{"name":"meganet","interface":"net1","mac":"8a:37:d9:e7:0f:18","dns":{}}` +
-				`]`
+			defaultPrimaryPodIfaceName = "eth0"
+			customPrimaryPodIfaceName  = "custom-iface"
 		)
 
-		annotations := map[string]string{
-			networkv1.NetworkAttachmentAnnot: multusOrdinalNetworksAnnotation,
-			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndOrdinalSecondaryNets,
-		}
+		DescribeTable("should return empty string", func(networkStatuses []networkv1.NetworkStatus) {
+			Expect(multus.LookupPodPrimaryIfaceName(networkStatuses)).To(BeEmpty())
+		},
+			Entry("when network status is nil", nil),
+			Entry("when network status is empty", []networkv1.NetworkStatus{}),
+			Entry("when network status does not report interface name",
+				[]networkv1.NetworkStatus{
+					{Name: "k8s-pod-network", Default: true},
+				},
+			),
+			Entry("when network status does not report a default interface name",
+				[]networkv1.NetworkStatus{
+					{Name: "net1", Interface: "", Default: false},
+					{Name: "net2", Interface: "pod12345", Default: false},
+				},
+			),
+		)
 
-		result := multus.NonDefaultNetworkStatusIndexedByIfaceName(newStubPod(annotations))
-
-		expectedResult := map[string]networkv1.NetworkStatus{
-			"net1": {
-				Name:      "meganet",
-				Interface: "net1",
-				Mac:       "8a:37:d9:e7:0f:18",
-				Default:   false,
-			},
-		}
-
-		Expect(result).To(Equal(expectedResult))
+		DescribeTable("Should return the primary pod interface name", func(networkStatuses []networkv1.NetworkStatus, expectedResult string) {
+			Expect(multus.LookupPodPrimaryIfaceName(networkStatuses)).To(Equal(expectedResult))
+		},
+			Entry("When the primary pod interface name is reported and its the default value",
+				[]networkv1.NetworkStatus{
+					{Name: "k8s-pod-network", Interface: defaultPrimaryPodIfaceName, Default: true},
+					{Name: "some-net", Interface: "pod123456", Default: false},
+				},
+				defaultPrimaryPodIfaceName,
+			),
+			Entry("When the primary pod interface name is reported and it has the custom value",
+				[]networkv1.NetworkStatus{
+					{Name: "k8s-pod-network", Interface: defaultPrimaryPodIfaceName, Default: false},
+					{Name: "k8s-pod-network", Interface: customPrimaryPodIfaceName, Default: true},
+					{Name: "some-net", Interface: "net1", Default: false},
+				},
+				customPrimaryPodIfaceName,
+			),
+		)
 	})
 })
 

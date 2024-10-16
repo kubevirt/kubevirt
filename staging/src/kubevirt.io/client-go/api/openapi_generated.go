@@ -25420,6 +25420,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 							},
 						},
 					},
+					"podInterfaceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PodInterfaceName represents the name of the pod network interface",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"interfaceName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The interface name inside the Virtual Machine",

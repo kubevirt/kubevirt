@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	network "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 
@@ -104,10 +105,11 @@ var _ = SIGDescribe("Infosource", func() {
 
 			expectedInterfaces := []kvirtv1.VirtualMachineInstanceNetworkInterface{
 				{
-					InfoSource: netvmispec.InfoSourceDomain,
-					MAC:        primaryInterfaceMac,
-					Name:       primaryNetwork,
-					QueueCount: network.DefaultInterfaceQueueCount,
+					InfoSource:       netvmispec.InfoSourceDomain,
+					MAC:              primaryInterfaceMac,
+					Name:             primaryNetwork,
+					PodInterfaceName: namescheme.PrimaryPodInterfaceName,
+					QueueCount:       network.DefaultInterfaceQueueCount,
 				},
 				{
 					InfoSource:    infoSourceDomainAndGAAndMultusStatus,
@@ -159,7 +161,7 @@ var _ = SIGDescribe("Infosource", func() {
 				vmi.Status.Interfaces[i].IPs = nil
 			}
 
-			Expect(expectedInterfaces).To(ConsistOf(vmi.Status.Interfaces))
+			Expect(vmi.Status.Interfaces).To(ConsistOf(expectedInterfaces))
 		})
 	})
 })

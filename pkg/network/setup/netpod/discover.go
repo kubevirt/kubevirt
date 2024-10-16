@@ -37,7 +37,7 @@ import (
 // the relevant data (for recovery and data sharing).
 func (n NetPod) discover(currentStatus *nmstate.Status) error {
 	podIfaceStatusByName := ifaceStatusByName(currentStatus.Interfaces)
-	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, currentStatus.Interfaces)
+	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, n.vmiIfaceStatuses, currentStatus.Interfaces)
 
 	for _, vmiSpecIface := range n.vmiSpecIfaces {
 		podIfaceName := podIfaceNameByVMINetwork[vmiSpecIface.Name]
