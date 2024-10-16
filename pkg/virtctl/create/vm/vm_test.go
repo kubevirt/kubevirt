@@ -1375,7 +1375,7 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Invalid kind", "madethisup/my-preference", "failed to parse \"--instancetype\" flag: invalid preference kind \"madethisup\", supported values are: virtualmachinepreference, virtualmachineclusterpreference"),
+			Entry("Invalid kind", "madethisup/my-preference", "failed to parse \"--preference\" flag: invalid preference kind \"madethisup\", supported values are: virtualmachinepreference, virtualmachineclusterpreference"),
 			Entry("Invalid argument count", "virtualmachinepreference/my-preference/madethisup", "failed to parse \"--preference\" flag: invalid count 3 of slashes in prefix/name"),
 			Entry("Empty name", "virtualmachinepreference/", "failed to parse \"--preference\" flag: name cannot be empty"),
 		)

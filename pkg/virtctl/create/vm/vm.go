@@ -821,7 +821,7 @@ func (c *createVM) withPreference(vm *v1.VirtualMachine) error {
 
 	kind = strings.ToLower(kind)
 	if kind != "" && kind != instancetype.SingularPreferenceResourceName && kind != instancetype.ClusterSingularPreferenceResourceName {
-		return params.FlagErr(InstancetypeFlag, "invalid preference kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularPreferenceResourceName, instancetype.ClusterSingularPreferenceResourceName)
+		return params.FlagErr(PreferenceFlag, "invalid preference kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularPreferenceResourceName, instancetype.ClusterSingularPreferenceResourceName)
 	}
 
 	// If kind is empty we rely on the vm-mutator to fill in the default value VirtualMachineClusterPreference
