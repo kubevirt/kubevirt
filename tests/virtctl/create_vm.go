@@ -159,7 +159,7 @@ chpasswd: { expire: False }`
 
 		out, err := runCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
-			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", size)),
+			setFlag(VolumeImportFlag, "type:blank,size:"+size),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		vm, err := decodeVM(out)
@@ -200,11 +200,11 @@ chpasswd: { expire: False }`
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 			setFlag(InstancetypeFlag, fmt.Sprintf("%s/%s", apiinstancetype.SingularResourceName, instancetype.Name)),
 			setFlag(PreferenceFlag, fmt.Sprintf("%s/%s", apiinstancetype.SingularPreferenceResourceName, preference.Name)),
-			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:ds,src:%s/%s", dataSource.Namespace, dataSource.Name)),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,src:%s/%s", pvc.Namespace, pvc.Name)),
 			setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvc.Name, pvcBootOrder)),
-			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", blankSize)),
+			setFlag(VolumeImportFlag, "type:blank,size:"+blankSize),
 			setFlag(CloudInitUserDataFlag, userDataB64),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -259,7 +259,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(6))
 
-		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+		volCdName := vm.Name + "-containerdisk-0"
 		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
@@ -316,7 +316,7 @@ chpasswd: { expire: False }`
 			setFlag(InferPreferenceFromFlag, dvtDsName),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:ds,src:%s/%s,name:%s", dataSource.Namespace, dataSource.Name, dvtDsName)),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,src:%s/%s,bootorder:%d", pvc.Namespace, pvc.Name, pvcBootOrder)),
-			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", blankSize)),
+			setFlag(VolumeImportFlag, "type:blank,size:"+blankSize),
 			setFlag(CloudInitUserDataFlag, userDataB64),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -414,8 +414,8 @@ chpasswd: { expire: False }`
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 			setFlag(MemoryFlag, memory),
 			setFlag(PreferenceFlag, fmt.Sprintf("%s/%s", apiinstancetype.SingularPreferenceResourceName, preference.Name)),
-			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
-			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", blankSize)),
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
+			setFlag(VolumeImportFlag, "type:blank,size:"+blankSize),
 			setFlag(CloudInitUserDataFlag, userDataB64),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -452,7 +452,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(3))
 
-		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+		volCdName := vm.Name + "-containerdisk-0"
 		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
@@ -484,8 +484,8 @@ chpasswd: { expire: False }`
 		out, err := runCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
-			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
-			setFlag(SysprepVolumeFlag, fmt.Sprintf("src:%s", cm.Name)),
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
+			setFlag(SysprepVolumeFlag, "src:"+cm.Name),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		vm, err := decodeVM(out)
@@ -507,7 +507,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
 
-		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+		volCdName := vm.Name + "-containerdisk-0"
 		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
@@ -539,7 +539,7 @@ chpasswd: { expire: False }`
 		sshKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
 
 		out, err := runCmd(
-			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
 			setFlag(UserFlag, user),
 			setFlag(PasswordFileFlag, path), // This is required to unlock the alpine user
 			setFlag(SSHKeyFlag, sshKey),
@@ -564,7 +564,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
 
-		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+		volCdName := vm.Name + "-containerdisk-0"
 		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
@@ -598,7 +598,7 @@ chpasswd: { expire: False }`
 		Expect(err).ToNot(HaveOccurred())
 
 		out, err := runCmd(
-			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
 			setFlag(AccessCredFlag, fmt.Sprintf("type:ssh,src:%s,method:ga,user:%s", secret.Name, user)),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -620,7 +620,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
 
-		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+		volCdName := vm.Name + "-containerdisk-0"
 		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 

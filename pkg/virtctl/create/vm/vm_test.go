@@ -380,7 +380,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			if volName == "" {
-				volName = fmt.Sprintf("%s-containerdisk-0", vm.Name)
+				volName = vm.Name + "-containerdisk-0"
 			}
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volName))
@@ -697,7 +697,7 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.Secret).ToNot(BeNil())
 				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.Sysprep.Secret.Name).To(Equal(volSrc))
 			default:
-				Fail(fmt.Sprintf("invalid sysprep volume type %s", volType))
+				Fail("invalid sysprep volume type " + volType)
 
 			}
 
@@ -1273,7 +1273,7 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.DataVolumeTemplates).To(BeEmpty())
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
 
-			volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+			volCdName := vm.Name + "-containerdisk-0"
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 

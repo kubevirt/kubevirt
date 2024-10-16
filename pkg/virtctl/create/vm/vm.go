@@ -994,7 +994,7 @@ func (c *createVM) withImportedVolume(vm *v1.VirtualMachine) error {
 
 		name, err := params.GetParamByName("name", volume)
 		if err != nil {
-			name = fmt.Sprintf("imported-volume-%s", rand.String(5))
+			name = "imported-volume-" + rand.String(5)
 		}
 
 		if err := createDataVolume(spec, size, name, vm); err != nil {
