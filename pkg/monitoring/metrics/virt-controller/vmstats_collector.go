@@ -20,46 +20,20 @@
 package virt_controller
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"kubevirt.io/client-go/log"
+	"fmt"
 
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k6tv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 )
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmInfo),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmInfo, vmDiskAllocatedSize),
 		CollectCallback: vmStatsCollectorCallback,
 	}
-
-	vmInfo = operatormetrics.NewGaugeVec(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_vm_info",
-			Help: "Information about Virtual Machines.",
-		},
-		[]string{
-			// Basic info
-			"name", "namespace",
-
-			// VM annotations
-			"os", "workload", "flavor",
-
-			// Instance type
-			"instance_type", "preference",
-
-			// Status
-			"status", "status_group",
-		},
-	)
-
-	vmResourceRequests = operatormetrics.NewGaugeVec(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_vm_resource_requests",
-			Help: "Resources requested by Virtual Machine. Reports memory and CPU requests.",
-		},
-		[]string{"name", "namespace", "resource", "unit"},
-	)
 
 	timestampMetrics = []operatormetrics.Metric{
 		startingTimestamp,
@@ -141,6 +115,42 @@ var (
 		k6tv1.VirtualMachineStatusPvcNotFound,
 		k6tv1.VirtualMachineStatusDataVolumeError,
 	}
+
+	vmInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_info",
+			Help: "Information about Virtual Machines.",
+		},
+		[]string{
+			// Basic info
+			"namespace", "name",
+
+			// VM annotations
+			"os", "workload", "flavor",
+
+			// Instance type
+			"instance_type", "preference",
+
+			// Status
+			"status", "status_group",
+		},
+	)
+
+	vmResourceRequests = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_resource_requests",
+			Help: "Resources requested by Virtual Machine. Reports memory and CPU requests.",
+		},
+		[]string{"name", "namespace", "resource", "unit"},
+	)
+
+	vmDiskAllocatedSize = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_disk_allocated_size_bytes",
+			Help: "Allocated disk size of a persistent volume claim in bytes for each Virtual Machine.",
+		},
+		[]string{"name", "namespace", "disk_name", "pvc_name"},
+	)
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -157,6 +167,9 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 	}
 
 	var results []operatormetrics.CollectorResult
+	diskSizeResults := CollectDiskAllocatedSize(vms)
+	log.Log.Infof("Collected %d disk size results", len(diskSizeResults))
+	results = append(results, CollectDiskAllocatedSize(vms)...)
 	results = append(results, CollectVMsInfo(vms)...)
 	results = append(results, CollectResourceRequests(vms)...)
 	results = append(results, reportVmsStats(vms)...)
@@ -409,4 +422,67 @@ func containsCondition(target k6tv1.VirtualMachineConditionType, elems []k6tv1.V
 		}
 	}
 	return false
+}
+
+func CollectDiskAllocatedSize(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		if vm.Spec.Template == nil {
+			continue
+		}
+		cr = append(cr, collectDiskMetricsFromVMVolumes(vm)...)
+	}
+
+	log.Log.Infof("Returning result set: %+v", cr)
+	return cr
+}
+
+func collectDiskMetricsFromVMVolumes(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	for _, vol := range vm.Spec.Template.Spec.Volumes {
+		if vol.PersistentVolumeClaim != nil {
+			diskName := vol.Name
+			pvcName := vol.PersistentVolumeClaim.ClaimName
+
+			pvcList, err := persistentVolumeClaimInformer.GetIndexer().ByIndex("pvc", fmt.Sprintf("%s/%s", vm.Namespace, pvcName))
+			if err != nil || len(pvcList) == 0 {
+				cr = append(cr, collectDiskMetricsFromList(vm, pvcName, diskName)...)
+			} else {
+				pvc := pvcList[0].(*k8sv1.PersistentVolumeClaim)
+				pvcSize := pvc.Spec.Resources.Requests.Storage()
+				cr = append(cr, operatormetrics.CollectorResult{
+					Metric: vmDiskAllocatedSize,
+					Value:  float64(pvcSize.Value()),
+					Labels: []string{vm.Name, vm.Namespace, pvcName, diskName},
+				})
+			}
+		}
+	}
+
+	return cr
+}
+
+func collectDiskMetricsFromList(vm *k6tv1.VirtualMachine, pvcName, diskName string) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	pvcList := persistentVolumeClaimInformer.GetIndexer().List()
+	if len(pvcList) == 0 {
+		return cr
+	}
+
+	for _, obj := range pvcList {
+		pvc := obj.(*k8sv1.PersistentVolumeClaim)
+		if pvc.Name == pvcName && pvc.Namespace == vm.Namespace {
+			pvcSize := pvc.Spec.Resources.Requests.Storage()
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: vmDiskAllocatedSize,
+				Value:  float64(pvcSize.Value()),
+				Labels: []string{vm.Name, vm.Namespace, pvcName, diskName},
+			})
+		}
+	}
+
+	return cr
 }
