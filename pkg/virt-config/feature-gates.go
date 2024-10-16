@@ -65,6 +65,8 @@ const (
 	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
 	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
 	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
+	// Alpha: v1.1.0
+	// Beta:  v1.4.0
 	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
 	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
 	AutoResourceLimitsGate = "AutoResourceLimitsGate"
