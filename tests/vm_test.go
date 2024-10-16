@@ -635,7 +635,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Entry("[test_id:2035]with RunStrategyManual", v1.RunStrategyManual),
 		)
 
-		DescribeTable("should start a stopped VM", func(runStrategy, expectedRunStrategy v1.VirtualMachineRunStrategy) {
+		DescribeTable("[test_id:1529]should start a stopped VM only once", func(runStrategy, expectedRunStrategy v1.VirtualMachineRunStrategy) {
 			By("Creating a VM")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(runStrategy))
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -655,6 +655,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Ensuring stateChangeRequests list is cleared")
 			Expect(vm.Status.StateChangeRequests).To(BeEmpty())
+
+			By("Ensuring a second invocation should fail")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).To(MatchError(ContainSubstring("VM is already running")))
 		},
 			Entry("[test_id:2036]with RunStrategyManual", v1.RunStrategyManual, v1.RunStrategyManual),
 			Entry("[test_id:2037]with RunStrategyHalted", v1.RunStrategyHalted, v1.RunStrategyAlways),

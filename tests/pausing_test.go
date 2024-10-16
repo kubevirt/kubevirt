@@ -187,7 +187,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).To(MatchError(ContainSubstring("VMI is not paused")))
 		})
 
-		It("[test_id:3085]should be stopped successfully", func() {
+		It("[test_id:3085]should be stopped successfully only once", func() {
 			By("Pausing the VM")
 			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -198,17 +198,14 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking deletion of VMI")
-			Eventually(func() error {
-				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				return err
-			}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The VMI did not disappear")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).ShouldNot(matcher.Exist())
 
 			By("Checking status of VM")
-			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vm.Status.Ready
-			}, 300*time.Second, 1*time.Second).Should(BeFalse())
+			Eventually(matcher.ThisVM(vm), 300*time.Second, time.Second).ShouldNot(matcher.BeReady())
+
+			By("Ensuring a second invocation should fail")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).To(MatchError(ContainSubstring("VM is not running")))
 		})
 
 		It("[test_id:3229]should gracefully handle being started again", func() {

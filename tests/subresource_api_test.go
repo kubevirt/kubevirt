@@ -158,49 +158,6 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 	Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component] VirtualMachine subresource", func() {
 
-		It("[test_id:1529]should start a VirtualMachine only once", func() {
-			By("getting a VM")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Starting VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Getting the status of the VM")
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-
-			By("Getting the running VirtualMachineInstance")
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
-
-			By("Ensuring a second invocation should fail")
-			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
-			Expect(err).To(MatchError(ContainSubstring("VM is already running")))
-		})
-
-		It("[test_id:1530]should stop a VirtualMachine only once", func() {
-			By("getting a VM")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			vm = libvmops.StartVirtualMachine(vm)
-
-			By("Stopping VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Ensuring VM is not running")
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(And(Not(BeCreated()), Not(BeReady())))
-
-			By("Ensuring the VirtualMachineInstance is removed")
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
-
-			By("Ensuring a second invocation should fail")
-			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
-			Expect(err).To(MatchError(ContainSubstring("VM is not running")))
-		})
-
 		It("[test_id:3007][QUARANTINE] Should force restart a VM with terminationGracePeriodSeconds>0", decorators.Quarantine, func() {
 			By("getting a VM with high TerminationGracePeriod")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)))
