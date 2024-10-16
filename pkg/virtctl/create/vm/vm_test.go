@@ -28,7 +28,8 @@ import (
 
 var _ = Describe("create vm", func() {
 	const (
-		cloudInitUserData = `#cloud-config
+		importedVolumeRegexp = `imported-volume-\w{5}`
+		cloudInitUserData    = `#cloud-config
 user: user
 password: password
 chpasswd: { expire: False }`
@@ -187,9 +188,9 @@ chpasswd: { expire: False }`
 
 		DescribeTable("VM with boot order and inferred instancetype", func(explicit bool) {
 			args := []string{
-				setFlag(DataSourceVolumeFlag, "src:my-ds-2,bootorder:2"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds-2,bootorder:2"),
 				// This DS with bootorder 1 should be used to infer the instancetype, although it is defined second
-				setFlag(DataSourceVolumeFlag, "src:my-ds-1,bootorder:1"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds-1,bootorder:1"),
 			}
 			if explicit {
 				args = append(args, setFlag(InferInstancetypeFlag, "true"))
@@ -202,7 +203,7 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.Kind).To(BeEmpty())
-			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(MatchRegexp(importedVolumeRegexp))
 			if explicit {
 				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			} else {
@@ -223,8 +224,8 @@ chpasswd: { expire: False }`
 
 		It("VM with inferred instancetype from specified volume", func() {
 			out, err := runCmd(
-				setFlag(DataSourceVolumeFlag, "src:my-ds-1,name:my-ds-1"),
-				setFlag(DataSourceVolumeFlag, "src:my-ds-2,name:my-ds-2"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds-1,name:my-ds-1"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds-2,name:my-ds-2"),
 				setFlag(InferInstancetypeFromFlag, "my-ds-2"))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
@@ -240,7 +241,7 @@ chpasswd: { expire: False }`
 
 		It("VM with volume and without inferred instancetype", func() {
 			out, err := runCmd(
-				setFlag(DataSourceVolumeFlag, "src:my-ds"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds"),
 				setFlag(InferInstancetypeFlag, "false"))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
@@ -254,7 +255,7 @@ chpasswd: { expire: False }`
 			const memory = "1Gi"
 			out, err := runCmd(
 				setFlag(MemoryFlag, memory),
-				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-ds"))
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-ds"))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
@@ -314,9 +315,9 @@ chpasswd: { expire: False }`
 
 		DescribeTable("VM with boot order and inferred preference", func(explicit bool) {
 			args := []string{
-				setFlag(DataSourceVolumeFlag, "src:my-ds-2,bootorder:2"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds-2,bootorder:2"),
 				// This DS with bootorder 1 should be used to infer the preference, although it is defined second
-				setFlag(DataSourceVolumeFlag, "src:my-ds-1,bootorder:1"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds-1,bootorder:1"),
 			}
 			if explicit {
 				args = append(args, setFlag(InferPreferenceFlag, "true"))
@@ -330,7 +331,7 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
-			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
+			Expect(vm.Spec.Preference.InferFromVolume).To(MatchRegexp(importedVolumeRegexp))
 			if explicit {
 				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 			} else {
@@ -344,8 +345,8 @@ chpasswd: { expire: False }`
 
 		It("VM with inferred preference from specified volume", func() {
 			out, err := runCmd(
-				setFlag(DataSourceVolumeFlag, "src:my-ds-1,name:my-ds-1"),
-				setFlag(DataSourceVolumeFlag, "src:my-ds-2,name:my-ds-2"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds-1,name:my-ds-1"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds-2,name:my-ds-2"),
 				setFlag(InferPreferenceFromFlag, "my-ds-2"))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
@@ -360,7 +361,7 @@ chpasswd: { expire: False }`
 
 		It("VM with volume and without inferred preference", func() {
 			out, err := runCmd(
-				setFlag(DataSourceVolumeFlag, "src:my-ds"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds"),
 				setFlag(InferPreferenceFlag, "false"))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
@@ -404,11 +405,12 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			if dvtName == "" {
-				dvtName = fmt.Sprintf("%s-ds-%s", vm.Name, dsName)
-			}
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
-			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtName))
+			if dvtName == "" {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
+			} else {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtName))
+			}
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dsName))
@@ -422,22 +424,22 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
 			}
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			if bootOrder > 0 {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtName))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
 			}
 
 			// In this case inference should be possible
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
-			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			Expect(vm.Spec.Preference).ToNot(BeNil())
-			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 		},
@@ -459,29 +461,50 @@ chpasswd: { expire: False }`
 			Entry("with namespace, name, size and bootorder", "my-ns", "my-dv", "my-dvt", "10Gi", 8, "src:my-ns/my-dv,name:my-dvt,size:10Gi,bootorder:8"),
 		)
 
-		DescribeTable("VM with specified volume source", func(params, size string, source *cdiv1.DataVolumeSource) {
+		DescribeTable("VM with specified imported volume", func(params, name, size string, bootOrder *int, source *cdiv1.DataVolumeSource, sourceRef *cdiv1.DataVolumeSourceRef) {
 			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			if size == "" {
-				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage).To(BeNil())
+			if source != nil {
+				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).To(Equal(source))
+			}
+			if sourceRef != nil {
+				Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).To(Equal(sourceRef))
+			}
+			if name == "" {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
 			} else {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(name))
+			}
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage).ToNot(BeNil())
+			if size != "" {
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
 			}
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).To(Equal(source))
 
-			if source.PVC != nil || source.Registry != nil || source.Snapshot != nil {
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+			Expect(vm.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[0].DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+
+			if bootOrder == nil {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
+			} else {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).ToNot(BeNil())
+				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(*bootOrder)))
+			}
+
+			if (source != nil && (source.PVC != nil || source.Registry != nil || source.Snapshot != nil)) ||
+				(sourceRef != nil && sourceRef.Kind == "DataSource") {
 				// In this case inference should be possible
-				const importedVolume = "imported-volume"
 				Expect(vm.Spec.Instancetype).ToNot(BeNil())
-				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(importedVolume))
+				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(vm.Spec.Template.Spec.Volumes[0].Name))
 				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
 				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 				Expect(vm.Spec.Preference).ToNot(BeNil())
-				Expect(vm.Spec.Preference.InferFromVolume).To(Equal(importedVolume))
+				Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.Template.Spec.Volumes[0].Name))
 				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
 				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			} else {
@@ -490,18 +513,30 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.Preference).To(BeNil())
 			}
 		},
-			Entry("with blank source", "type:blank,size:256Mi", "256Mi", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}),
-			Entry("with GCS source", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials", "256Mi", &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}),
-			Entry("with http source", "type:http,size:256Mi,url:http://url.com", "256Mi", &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}),
-			Entry("with imageio source", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}),
-			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}),
-			Entry("with PVC source without size", "type:pvc,src:default/pvc,name:imported-volume", "", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}),
-			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: (*cdiv1.RegistryPullMethod)(pointer.P("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}),
-			Entry("with S3 source", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}),
-			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials", "256Mi", &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}),
-			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}),
-			Entry("with Snapshot source without size", "type:snapshot,src:default/snapshot,name:imported-volume", "", &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}),
-			Entry("with blank source and name", "type:blank,size:256Mi,name:blank-name", "256Mi", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}),
+			Entry("with blank source", "type:blank,size:256Mi", "", "256Mi", nil, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
+			Entry("with blank source and bootorder", "type:blank,size:256Mi,bootorder:1", "", "256Mi", pointer.P(1), &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
+			Entry("with blank source and name", "type:blank,size:256Mi,name:blank-name", "blank-name", "256Mi", nil, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
+			Entry("with GCS source", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials", "", "256Mi", nil, &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, nil),
+			Entry("with GCS source and bootorder", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials,bootorder:2", "", "256Mi", pointer.P(2), &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, nil),
+			Entry("with http source", "type:http,size:256Mi,url:http://url.com", "", "256Mi", nil, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, nil),
+			Entry("with http source and bootorder", "type:http,size:256Mi,url:http://url.com,bootorder:3", "", "256Mi", pointer.P(3), &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, nil),
+			Entry("with imageio source", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref", "", "256Mi", nil, &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
+			Entry("with imageio source and bootorder", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref,bootorder:4", "", "256Mi", pointer.P(4), &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
+			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc", "", "256Mi", nil, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
+			Entry("with PVC source and bootorder", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume,bootorder:5", "imported-volume", "256Mi", pointer.P(5), &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
+			Entry("with PVC source without size", "type:pvc,src:default/pvc,name:imported-volume", "imported-volume", "", nil, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
+			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume", "imported-volume", "256Mi", nil, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
+			Entry("with registry source and bootorder", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume,bootorder:6", "imported-volume", "256Mi", pointer.P(6), &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
+			Entry("with S3 source", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref", "", "256Mi", nil, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
+			Entry("with S3 source and bootorder", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref,bootorder:7", "", "256Mi", pointer.P(7), &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
+			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials", "", "256Mi", nil, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, nil),
+			Entry("with VDDK source and bootorder", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials,bootorder:8", "", "256Mi", pointer.P(8), &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, nil),
+			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume", "imported-volume", "256Mi", nil, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
+			Entry("with Snapshot source and bootorder", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume,bootorder:9", "imported-volume", "256Mi", pointer.P(9), &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
+			Entry("with Snapshot source without size", "type:snapshot,src:default/snapshot,name:imported-volume", "imported-volume", "", nil, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
+			Entry("with DataSource source", "type:ds,src:default/datasource,name:imported-ds", "imported-ds", "", nil, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
+			Entry("with DataSource source without namespace", "type:ds,src:datasource", "", "", nil, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource"}),
+			Entry("with DataSource source and bootorder", "type:ds,src:default/datasource,name:imported-ds,bootorder:1", "imported-ds", "", pointer.P(1), nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
 		)
 
 		DescribeTable("VM with multiple volume-import sources and name", func(source1 *cdiv1.DataVolumeSource, source2 *cdiv1.DataVolumeSource, size string, flags ...string) {
@@ -533,11 +568,12 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			if dvtName == "" {
-				dvtName = fmt.Sprintf("%s-pvc-%s", vm.Name, pvcName)
-			}
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
-			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtName))
+			if dvtName == "" {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
+			} else {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtName))
+			}
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvcNamespace))
@@ -546,22 +582,22 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
 			}
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			if bootOrder > 0 {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtName))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
 			}
 
 			// In this case inference should be possible
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
-			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			Expect(vm.Spec.Preference).ToNot(BeNil())
-			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 		},
@@ -616,18 +652,19 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			if blankName == "" {
-				blankName = fmt.Sprintf("%s-blank-0", vm.Name)
-			}
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
-			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(blankName))
+			if blankName == "" {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
+			} else {
+				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(blankName))
+			}
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Blank).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(blankSize)))
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(blankName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(blankName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 
 			// No inference possible in this case
 			Expect(vm.Spec.Instancetype).To(BeNil())
@@ -922,7 +959,7 @@ chpasswd: { expire: False }`
 				setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 				setFlag(InstancetypeFlag, fmt.Sprintf("%s/%s", instancetypeKind, instancetypeName)),
 				setFlag(InferPreferenceFromFlag, pvcName),
-				setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s,size:%s", dsNamespace, dsName, dvtSize)),
+				setFlag(VolumeImportFlag, fmt.Sprintf("type:ds,src:%s/%s,size:%s", dsNamespace, dsName, dvtSize)),
 				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvcName, pvcBootOrder)),
 				setFlag(SysprepVolumeFlag, fmt.Sprintf("src:%s,type:%s", secretName, SysprepSecret)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
@@ -953,9 +990,8 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(pvcName))
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 
-			dvtDsName := fmt.Sprintf("%s-ds-%s", vmName, dsName)
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
-			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtDsName))
+			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).ToNot(BeNil())
@@ -964,12 +1000,12 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(4))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtDsName))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtDsName))
-			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(pvcName))
-			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(pvcName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
+			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(SysprepDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.Sysprep.ConfigMap).To(BeNil())
@@ -1195,16 +1231,16 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "failed to parse \"--volume-datasource\" flag: params may not be empty"),
-			Entry("Invalid param", "test=test", "failed to parse \"--volume-datasource\" flag: params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "failed to parse \"--volume-datasource\" flag: unknown param(s): test:test"),
-			Entry("Missing src", "name:test", "failed to parse \"--volume-datasource\" flag: src must be specified"),
-			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-datasource\" flag: src invalid: name cannot be empty"),
-			Entry("Invalid slashes count in src", "src:my-ns/my-ds/madethisup", "failed to parse \"--volume-datasource\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
-			Entry("Invalid quantity in size", "size:10Gu", "failed to parse \"--volume-datasource\" flag: failed to parse param \"size\": unable to parse quantity's suffix"),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-datasource\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
-			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-datasource\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("Bootorder set to 0", "src:my-ds,bootorder:0", "failed to parse \"--volume-datasource\" flag: bootorder must be greater than 0"),
+			Entry("Empty params", "", "failed to parse \"--volume-import\" flag: params may not be empty"),
+			Entry("Invalid param", "test=test", "failed to parse \"--volume-import\" flag: params need to have at least one colon: test=test"),
+			Entry("Unknown param", "test:test", "failed to parse \"--volume-import\" flag: unknown param(s): test:test"),
+			Entry("Missing src", "name:test", "failed to parse \"--volume-import\" flag: src must be specified"),
+			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty"),
+			Entry("Invalid slashes count in src", "src:my-ns/my-ds/madethisup", "failed to parse \"--volume-import\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
+			Entry("Invalid quantity in size", "size:10Gu", "failed to parse \"--volume-import\" flag: failed to parse param \"size\": unable to parse quantity's suffix"),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
+			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
+			Entry("Bootorder set to 0", "src:my-ds,bootorder:0", "failed to parse \"--volume-import\" flag: bootorder must be greater than 0"),
 		)
 
 		DescribeTable("Invalid arguments to ClonePvcVolumeFlag", func(flag, errMsg string) {
@@ -1212,17 +1248,17 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "failed to parse \"--volume-clone-pvc\" flag: params may not be empty"),
-			Entry("Invalid param", "test=test", "failed to parse \"--volume-clone-pvc\" flag: params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "failed to parse \"--volume-clone-pvc\" flag: unknown param(s): test:test"),
-			Entry("Missing src", "name:test", "failed to parse \"--volume-clone-pvc\" flag: src must be specified"),
-			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-clone-pvc\" flag: src invalid: name cannot be empty"),
-			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "failed to parse \"--volume-clone-pvc\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
-			Entry("Missing namespace in src", "src:my-pvc", "failed to parse \"--volume-clone-pvc\" flag: namespace of pvc 'my-pvc' must be specified"),
-			Entry("Invalid quantity in size", "size:10Gu", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"size\": unable to parse quantity's suffix"),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
-			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", "failed to parse \"--volume-clone-pvc\" flag: bootorder must be greater than 0"),
+			Entry("Empty params", "", "failed to parse \"--volume-import\" flag: params may not be empty"),
+			Entry("Invalid param", "test=test", "failed to parse \"--volume-import\" flag: params need to have at least one colon: test=test"),
+			Entry("Unknown param", "test:test", "failed to parse \"--volume-import\" flag: unknown param(s): test:test"),
+			Entry("Missing src", "name:test", "failed to parse \"--volume-import\" flag: src must be specified"),
+			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty"),
+			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "failed to parse \"--volume-import\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
+			Entry("Missing namespace in src", "src:my-pvc", "failed to parse \"--volume-import\" flag: namespace of pvc 'my-pvc' must be specified"),
+			Entry("Invalid quantity in size", "size:10Gu", "failed to parse \"--volume-import\" flag: failed to parse param \"size\": unable to parse quantity's suffix"),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
+			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
+			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", "failed to parse \"--volume-import\" flag: bootorder must be greater than 0"),
 		)
 
 		DescribeTable("Invalid arguments to PvcVolumeFlag", func(flag, errMsg string) {
@@ -1247,10 +1283,10 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "failed to parse \"--volume-blank\" flag: params may not be empty"),
-			Entry("Invalid param", "test=test", "failed to parse \"--volume-blank\" flag: params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "failed to parse \"--volume-blank\" flag: unknown param(s): test:test"),
-			Entry("Missing size", "name:my-blank", "failed to parse \"--volume-blank\" flag: size must be specified"),
+			Entry("Empty params", "", "failed to parse \"--volume-import\" flag: params may not be empty"),
+			Entry("Invalid param", "test=test", "failed to parse \"--volume-import\" flag: params need to have at least one colon: test=test"),
+			Entry("Unknown param", "test:test", "failed to parse \"--volume-import\" flag: unknown param(s): test:test"),
+			Entry("Missing size", "name:my-blank", "failed to parse \"--volume-import\" flag: size must be specified"),
 		)
 
 		DescribeTable("Invalid arguments to VolumeImportFlag", func(errMsg string, flags ...string) {
@@ -1258,14 +1294,14 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Missing size with blank volume source", "size must be specified", setFlag(VolumeImportFlag, "type:blank")),
-			Entry("Missing type value", "type must be specified", setFlag(VolumeImportFlag, "size:256Mi")),
+			Entry("Missing size with blank volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:blank")),
+			Entry("Missing type value", "failed to parse \"--volume-import\" flag: type must be specified", setFlag(VolumeImportFlag, "size:256Mi")),
 			Entry("Unknown param for blank volume source", "failed to parse \"--volume-import\" flag: unknown param(s): testparam:", setFlag(VolumeImportFlag, "type:blank,size:256Mi,testparam:")),
-			Entry("Missing size with GCS volume source", "size must be specified", setFlag(VolumeImportFlag, "type:gcs,url:http://url.com")),
+			Entry("Missing size with GCS volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:gcs,url:http://url.com")),
 			Entry("Missing url with GCS volume source", "failed to parse \"--volume-import\" flag: URL is required with GCS volume source", setFlag(VolumeImportFlag, "type:gcs,size:256Mi")),
-			Entry("Missing size with http volume source", "size must be specified", setFlag(VolumeImportFlag, "type:http,url:http://url.com")),
+			Entry("Missing size with http volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:http,url:http://url.com")),
 			Entry("Missing url with http volume source", "failed to parse \"--volume-import\" flag: URL is required with http volume source", setFlag(VolumeImportFlag, "type:http,size:256Mi")),
-			Entry("Missing size with imageIO volume source", "size must be specified", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,diskid:0")),
+			Entry("Missing size with imageIO volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,diskid:0")),
 			Entry("Missing url with imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,diskid:0,size:256Mi")),
 			Entry("Missing diskid with imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,size:256Mi")),
 			Entry("Missing src in pvc volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi")),
@@ -1278,19 +1314,26 @@ chpasswd: { expire: False }`
 			Entry("Invalid src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:")),
 			Entry("Missing src namespace in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'my-snapshot' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:/my-snapshot")),
 			Entry("Missing src name in snapshot volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:default/")),
-			Entry("Missing size with S3 volume source", "size must be specified", setFlag(VolumeImportFlag, "type:s3,url:http://url.com")),
+			Entry("Missing size with S3 volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:s3,url:http://url.com")),
 			Entry("Missing url in S3 volume source", "failed to parse \"--volume-import\" flag: URL is required with S3 volume source", setFlag(VolumeImportFlag, "type:s3,size:256Mi")),
-			Entry("Missing size with registry volume source", "size must be specified", setFlag(VolumeImportFlag, "type:registry,imagestream:my-image")),
+			Entry("Missing size with registry volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:registry,imagestream:my-image")),
 			Entry("Invalid value for pullmethod with registry volume source", "failed to parse \"--volume-import\" flag: pullmethod must be set to pod or node", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:invalid,imagestream:my-image")),
 			Entry("Both url and imagestream defined in registry volume source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:node,imagestream:my-image,url:http://url.com")),
 			Entry("Missing url and imagestream in registry volume source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi")),
-			Entry("Missing size with vddk volume source", "size must be specified", setFlag(VolumeImportFlag, "type:vddk,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
+			Entry("Missing size with vddk volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:vddk,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
 			Entry("Missing backingfile with vddk volume source", "failed to parse \"--volume-import\" flag: BackingFile is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
 			Entry("Missing secretref with vddk volume source", "failed to parse \"--volume-import\" flag: SecretRef is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
 			Entry("Missing thumbprint with vddk volume source", "failed to parse \"--volume-import\" flag: ThumbPrint is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,url:http://url.com,uuid:test-uuid")),
 			Entry("Missing url with vddk volume source", "failed to parse \"--volume-import\" flag: URL is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,uuid:test-uuid")),
 			Entry("Missing uuid with vddk volume source", "failed to parse \"--volume-import\" flag: UUID is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com")),
+			Entry("Missing src in ds volume source ref", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:ds,size:256Mi")),
 			Entry("Volume already exists", "failed to parse \"--volume-import\" flag: there is already a volume with name 'duplicated'", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated"), setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated")),
+			Entry("Empty name in src", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,name:my-ns/")),
+			Entry("Invalid slashes count in src", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,name:my-ns/my-pvc/madethisup")),
+			Entry("Invalid quantity in size", "failed to parse \"--volume-import\" flag: failed to parse param \"size\": unable to parse quantity's suffix", setFlag(VolumeImportFlag, "type:blank,size:10Gu")),
+			Entry("Invalid number in bootorder", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax", setFlag(VolumeImportFlag, "type:blank,size:256Mi,bootorder:10Gu")),
+			Entry("Negative number in bootorder", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax", setFlag(VolumeImportFlag, "type:blank,size:256Mi,bootorder:-1")),
+			Entry("Bootorder set to 0", "failed to parse \"--volume-import\" flag: bootorder must be greater than 0", setFlag(VolumeImportFlag, "type:blank,size:256Mi,bootorder:0")),
 		)
 
 		DescribeTable("Invalid arguments to SysprepVolumeFlag", func(flag, errMsg string) {
@@ -1316,44 +1359,44 @@ chpasswd: { expire: False }`
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 			),
-			Entry("Duplicate DataSource", "failed to parse \"--volume-datasource\" flag: there is already a volume with name 'my-name'",
-				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-name"),
-				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-name"),
+			Entry("Duplicate DataSource", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-name"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate ClonePvc", "failed to parse \"--volume-clone-pvc\" flag: there is already a volume with name 'my-name'",
-				setFlag(ClonePvcVolumeFlag, "src:my-ns/my-pvc,name:my-name"),
-				setFlag(ClonePvcVolumeFlag, "src:my-ns/my-pvc,name:my-name"),
+			Entry("Duplicate imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
+				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 			),
 			Entry("Duplicate PVC", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 			),
-			Entry("Duplicate blank volume", "failed to parse \"--volume-blank\" flag: there is already a volume with name 'my-name'",
-				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
-				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
+			Entry("Duplicate blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
+				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 			),
 			Entry("Duplicate PVC and Containerdisk", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 			),
-			Entry("Duplicate PVC and DataSource", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC and DataSource", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
-				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-name"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate PVC and ClonePvc", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC and imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
-				setFlag(ClonePvcVolumeFlag, "src:my-ns/my-pvc,name:my-name"),
+				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 			),
-			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-blank\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
-				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
+				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 			),
 			Entry("There can only be one cloudInitDisk (UserData)", "there is already a volume with name 'cloudinitdisk'",
-				setFlag(DataSourceVolumeFlag, "src:my-ds,name:cloudinitdisk"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitUserDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))),
 			),
 			Entry("There can only be one cloudInitDisk (NetworkData)", "there is already a volume with name 'cloudinitdisk'",
-				setFlag(DataSourceVolumeFlag, "src:my-ds,name:cloudinitdisk"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitNetworkDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))),
 			),
 			Entry("There can only be one sysprepDisk", "failed to parse \"--volume-sysprep\" flag: there is already a volume with name 'sysprepdisk'",
@@ -1365,9 +1408,9 @@ chpasswd: { expire: False }`
 		It("Duplicate boot orders are not allowed", func() {
 			out, err := runCmd(
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,bootorder:1"),
-				setFlag(DataSourceVolumeFlag, "src:my-ds,bootorder:1"),
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds,bootorder:1"),
 			)
-			Expect(err).To(MatchError("failed to parse \"--volume-datasource\" flag: bootorder 1 was specified multiple times"))
+			Expect(err).To(MatchError("failed to parse \"--volume-import\" flag: bootorder 1 was specified multiple times"))
 			Expect(out).To(BeEmpty())
 		})
 

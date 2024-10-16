@@ -49,8 +49,9 @@ const (
 
 var _ = Describe("[sig-compute][virtctl]create vm", decorators.SigCompute, func() {
 	const (
-		sysprepDisk       = "sysprepdisk"
-		cloudInitUserData = `#cloud-config
+		importedVolumeRegexp = `imported-volume-\w{5}`
+		sysprepDisk          = "sysprepdisk"
+		cloudInitUserData    = `#cloud-config
 user: user
 password: password
 chpasswd: { expire: False }`
@@ -194,10 +195,10 @@ chpasswd: { expire: False }`
 			setFlag(InstancetypeFlag, fmt.Sprintf("%s/%s", apiinstancetype.SingularResourceName, instancetype.Name)),
 			setFlag(PreferenceFlag, fmt.Sprintf("%s/%s", apiinstancetype.SingularPreferenceResourceName, preference.Name)),
 			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
-			setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s", dataSource.Namespace, dataSource.Name)),
-			setFlag(ClonePvcVolumeFlag, fmt.Sprintf("src:%s/%s", pvc.Namespace, pvc.Name)),
+			setFlag(VolumeImportFlag, fmt.Sprintf("type:ds,src:%s/%s", dataSource.Namespace, dataSource.Name)),
+			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,src:%s/%s", pvc.Namespace, pvc.Name)),
 			setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvc.Name, pvcBootOrder)),
-			setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
+			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", blankSize)),
 			setFlag(CloudInitUserDataFlag, userDataB64),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -232,23 +233,20 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(3))
 
-		dvtDsName := fmt.Sprintf("%s-ds-%s", vmName, dataSource.Name)
-		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtDsName))
+		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).ToNot(BeNil())
 		Expect(*vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(Equal(dataSource.Namespace))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dataSource.Name))
 
-		dvtPvcName := fmt.Sprintf("%s-pvc-%s", vmName, pvc.Name)
-		Expect(vm.Spec.DataVolumeTemplates[1].Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.DataVolumeTemplates[1].Name).To(MatchRegexp(importedVolumeRegexp))
 		Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.PVC).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
 		Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.PVC.Name).To(Equal(pvc.Name))
 
-		dvtBlankName := fmt.Sprintf("%s-blank-0", vmName)
-		Expect(vm.Spec.DataVolumeTemplates[2].Name).To(Equal(dvtBlankName))
+		Expect(vm.Spec.DataVolumeTemplates[2].Name).To(MatchRegexp(importedVolumeRegexp))
 		Expect(vm.Spec.DataVolumeTemplates[2].Spec.Source).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[2].Spec.Source.Blank).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[2].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(blankSize)))
@@ -260,21 +258,21 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
 
-		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(dvtDsName))
-		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(dvtDsName))
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(pvc.Name))
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvc.Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume.Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(pvc.Name))
-		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvc.Name))
+		Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(vm.Spec.DataVolumeTemplates[1].Name))
+		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.DataVolume).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[1].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[4].Name).To(Equal(dvtBlankName))
+		Expect(vm.Spec.Template.Spec.Volumes[4].Name).To(Equal(vm.Spec.DataVolumeTemplates[2].Name))
 		Expect(vm.Spec.Template.Spec.Volumes[4].VolumeSource.DataVolume).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[4].VolumeSource.DataVolume.Name).To(Equal(dvtBlankName))
+		Expect(vm.Spec.Template.Spec.Volumes[4].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[2].Name))
 
 		Expect(vm.Spec.Template.Spec.Volumes[5].Name).To(Equal(CloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[5].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
@@ -308,9 +306,9 @@ chpasswd: { expire: False }`
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 			setFlag(InferInstancetypeFlag, "true"),
 			setFlag(InferPreferenceFromFlag, dvtDsName),
-			setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s", dataSource.Namespace, dataSource.Name)),
-			setFlag(ClonePvcVolumeFlag, fmt.Sprintf("src:%s/%s,bootorder:%d", pvc.Namespace, pvc.Name, pvcBootOrder)),
-			setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
+			setFlag(VolumeImportFlag, fmt.Sprintf("type:ds,src:%s/%s,name:%s", dataSource.Namespace, dataSource.Name, dvtDsName)),
+			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,src:%s/%s,bootorder:%d", pvc.Namespace, pvc.Name, pvcBootOrder)),
+			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", blankSize)),
 			setFlag(CloudInitUserDataFlag, userDataB64),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -352,32 +350,30 @@ chpasswd: { expire: False }`
 		Expect(*vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(Equal(dataSource.Namespace))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dataSource.Name))
 
-		dvtPvcName := fmt.Sprintf("%s-pvc-%s", vmName, pvc.Name)
-		Expect(vm.Spec.DataVolumeTemplates[1].Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.DataVolumeTemplates[1].Name).To(MatchRegexp(importedVolumeRegexp))
 		Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.PVC).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
 		Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.PVC.Name).To(Equal(pvc.Name))
 
-		dvtBlankName := fmt.Sprintf("%s-blank-0", vmName)
-		Expect(vm.Spec.DataVolumeTemplates[2].Name).To(Equal(dvtBlankName))
+		Expect(vm.Spec.DataVolumeTemplates[2].Name).To(MatchRegexp(importedVolumeRegexp))
 		Expect(vm.Spec.DataVolumeTemplates[2].Spec.Source).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[2].Spec.Source.Blank).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[2].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(blankSize)))
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(4))
 
-		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtDsName))
+		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtDsName))
+		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(vm.Spec.DataVolumeTemplates[1].Name))
 		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[1].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(dvtBlankName))
+		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(vm.Spec.DataVolumeTemplates[2].Name))
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume.Name).To(Equal(dvtBlankName))
+		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[2].Name))
 
 		Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(CloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
@@ -388,7 +384,7 @@ chpasswd: { expire: False }`
 		Expect(string(decoded)).To(Equal(cloudInitUserData))
 
 		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtPvcName))
+		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[1].Name))
 		Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(pvcBootOrder)))
 	})
 
@@ -409,7 +405,7 @@ chpasswd: { expire: False }`
 			setFlag(MemoryFlag, memory),
 			setFlag(PreferenceFlag, fmt.Sprintf("%s/%s", apiinstancetype.SingularPreferenceResourceName, preference.Name)),
 			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
-			setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
+			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", blankSize)),
 			setFlag(CloudInitUserDataFlag, userDataB64),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -439,8 +435,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
 
-		dvtBlankName := fmt.Sprintf("%s-blank-0", vmName)
-		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtBlankName))
+		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Blank).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(blankSize)))
@@ -452,9 +447,9 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
 
-		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(dvtBlankName))
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(dvtBlankName))
+		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 
 		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(CloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
