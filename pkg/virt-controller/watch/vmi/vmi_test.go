@@ -239,7 +239,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		var qemuGid int64 = 107
 
-		stubNetStatusUpdate := func(vmi *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) error {
+		stubNetStatusUpdate := func(clusterConfig *virtconfig.ClusterConfig, vmi *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) error {
 			vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate"})
 			return nil
 		}
