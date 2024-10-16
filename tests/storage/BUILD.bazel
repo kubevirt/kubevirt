@@ -15,6 +15,7 @@ go_library(
         "migration.go",
         "reservation.go",
         "restore.go",
+        "scsidisk.go",
         "snapshot.go",
         "storage.go",
     ],
