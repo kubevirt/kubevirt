@@ -333,14 +333,16 @@ func (c *Controller) execute(key string) error {
 	}
 
 	if !vmiExists {
-		var err error
-
+		if migration.IsInterrupted() {
+			logger.V(3).Infof("Migration for deleted VMI %s/%s didn't finish. Keeping VMIM around so VMI controller can resolve issues on next start.", migration.Namespace, migration.Spec.VMIName)
+			return nil
+		}
 		if migration.DeletionTimestamp == nil {
 			logger.V(3).Infof("Deleting migration for deleted vmi %s/%s", migration.Namespace, migration.Spec.VMIName)
-			err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, v1.DeleteOptions{})
+			return c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, v1.DeleteOptions{})
 		}
-		// nothing to process for a migration that's being deleted
-		return err
+		// nothing to process for a migration that has no VMI
+		return nil
 	}
 
 	vmi = vmiObj.(*virtv1.VirtualMachineInstance)
@@ -413,16 +415,28 @@ func (c *Controller) canMigrateVMI(migration *virtv1.VirtualMachineInstanceMigra
 }
 
 func (c *Controller) failMigration(migration *virtv1.VirtualMachineInstanceMigration) error {
-	err := backendstorage.MigrationAbort(c.clientset, migration)
+	_, err := backendstorage.MigrationAbort(c.clientset, migration)
 	if err != nil {
 		return err
 	}
 	migration.Status.Phase = virtv1.MigrationFailed
+
+	return nil
+}
+
+func (c *Controller) interruptMigration(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		return c.failMigration(migration)
+	}
+
+	// The migration object is sticking around to be used for a recovery attempt next time the VMI starts.
+	migration.Status.Phase = virtv1.MigrationInterrupted
+	controller.RemoveFinalizer(migration, virtv1.VirtualMachineInstanceMigrationFinalizer)
+
 	return nil
 }
 
 func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
-
 	var pod *k8sv1.Pod = nil
 	var attachmentPod *k8sv1.Pod = nil
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
@@ -442,22 +456,19 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		}
 	}
 
-	// Remove the finalizer and conditions if the migration has already completed
+	// Status checking of active Migration job.
+	//
+	// - Fail if any obvious failure is found
+	// - Interrupt if something unexpectedly disappeared
+	// - Begin progressing migration state based on VMI's MigrationState status.
 	if migration.IsFinal() {
-
 		if vmi.Status.MigrationState != nil && migration.UID == vmi.Status.MigrationState.MigrationUID {
 			// Store the finalized migration state data from the VMI status in the migration object
 			migrationCopy.Status.MigrationState = vmi.Status.MigrationState
 		}
 
-		// remove the migration finalizer
+		// Remove the finalizer and conditions if the migration has already completed
 		controller.RemoveFinalizer(migrationCopy, virtv1.VirtualMachineInstanceMigrationFinalizer)
-
-		// Status checking of active Migration job.
-		//
-		// 1. Fail if VMI isn't in running state.
-		// 2. Fail if target pod exists and has gone down for any reason.
-		// 3. Begin progressing migration state based on VMI's MigrationState status.
 	} else if vmi == nil {
 		err := c.failMigration(migrationCopy)
 		if err != nil {
@@ -466,7 +477,7 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because vmi does not exist.")
 		log.Log.Object(migration).Error("vmi does not exist")
 	} else if vmi.IsFinal() {
-		err := c.failMigration(migrationCopy)
+		err := c.interruptMigration(migrationCopy, vmi)
 		if err != nil {
 			return err
 		}
@@ -487,14 +498,14 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 			return err
 		}
 	} else if podExists && controller.PodIsDown(pod) {
-		err := c.failMigration(migrationCopy)
+		err := c.interruptMigration(migrationCopy, vmi)
 		if err != nil {
 			return err
 		}
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target pod %s/%s shutdown during migration", pod.Namespace, pod.Name)
 	} else if migration.TargetIsCreated() && !podExists {
-		err := c.failMigration(migrationCopy)
+		err := c.interruptMigration(migrationCopy, vmi)
 		if err != nil {
 			return err
 		}
@@ -548,7 +559,7 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		}
 	}
 
-	if migrationCopy.Status.Phase == virtv1.MigrationFailed {
+	if migrationCopy.Status.Phase == virtv1.MigrationFailed || migrationCopy.Status.Phase == virtv1.MigrationInterrupted {
 		if err := descheduler.MarkSourcePodEvictionCompleted(c.clientset, migrationCopy, c.podIndexer); err != nil {
 			return err
 		}
@@ -562,7 +573,8 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		if err != nil {
 			return err
 		}
-	} else if !equality.Semantic.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
+	}
+	if !equality.Semantic.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
 		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(context.Background(), migrationCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return err
@@ -648,7 +660,7 @@ func (c *Controller) processMigrationPhase(
 		_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
 		if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
 			if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
-				err := backendstorage.MigrationHandoff(c.clientset, c.pvcStore, migration)
+				_, err := backendstorage.MigrationHandoff(c.clientset, c.pvcStore, migration)
 				if err != nil {
 					return err
 				}

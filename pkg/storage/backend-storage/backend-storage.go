@@ -21,27 +21,31 @@ package backendstorage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/controller"
-
-	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
-	"k8s.io/client-go/tools/cache"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
+	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
+
 	corev1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -60,6 +64,9 @@ func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.Per
 	for _, obj := range objs {
 		pvc := obj.(*v1.PersistentVolumeClaim)
 		if pvc.Namespace != vmi.Namespace {
+			continue
+		}
+		if pvc.DeletionTimestamp != nil {
 			continue
 		}
 		vmName, found := pvc.Labels[PVCPrefix]
@@ -102,6 +109,123 @@ func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachin
 	}
 
 	return pvcForMigrationTargetFromStore(pvcStore, migration)
+}
+
+func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migrationIndexer cache.Indexer, pvcStore cache.Store, vmi *corev1.VirtualMachineInstance, launcherImage string) (*v1.PersistentVolumeClaim, error, bool) {
+	var pvc *v1.PersistentVolumeClaim
+
+	migration, err := migrations.InterruptedMigrationForVMI(migrationIndexer, vmi)
+	if err != nil || migration == nil {
+		return nil, err, false
+	}
+	if migration.Status.MigrationState == nil ||
+		migration.Status.MigrationState.TargetPersistentStatePVCName == migration.Status.MigrationState.SourcePersistentStatePVCName {
+		// The migration either didn't actually start, or the backend storage is RWX. Either way we're good, we can delete it.
+		err := client.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})
+		return nil, err, false
+	}
+
+	// An interrupted migration exists. Creating a job to check if the source PVC contains /meta/migrated,
+	// which would indicate that the libvirt migration finished.
+	// A JobComplete condition indicates the file is present, the migration was successful and the target PVC prevails
+	// A JobFailed condition indicated the file is absent, the migration didn't finish and the source PVC prevails
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "backend-storage-recover-",
+		},
+		Spec: batchv1.JobSpec{
+			ActiveDeadlineSeconds:   pointer.P(int64(30)),
+			BackoffLimit:            pointer.P(int32(1)),
+			TTLSecondsAfterFinished: pointer.P(int32(30)),
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "backend-storage-recover-",
+				},
+				Spec: v1.PodSpec{
+					RestartPolicy: v1.RestartPolicyNever,
+					SecurityContext: &v1.PodSecurityContext{
+						RunAsNonRoot: pointer.P(true),
+						RunAsUser:    pointer.P(int64(util.NonRootUID)),
+						RunAsGroup:   pointer.P(int64(util.NonRootUID)),
+						FSGroup:      pointer.P(int64(util.NonRootUID)),
+						SeccompProfile: &v1.SeccompProfile{
+							Type: v1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+					Containers: []v1.Container{{
+						Name: "container",
+						SecurityContext: &v1.SecurityContext{
+							AllowPrivilegeEscalation: pointer.P(false),
+							Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"ALL"}},
+						},
+						Image:   launcherImage,
+						Command: []string{"ls"},
+						Args:    []string{"/meta/migrated"},
+						VolumeMounts: []v1.VolumeMount{{
+							Name:      "backend-storage",
+							MountPath: "/meta",
+							SubPath:   "meta",
+						}},
+					}},
+					Volumes: []v1.Volume{{
+						Name: "backend-storage",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: migration.Status.MigrationState.SourcePersistentStatePVCName,
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	job, err = client.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err, false
+	}
+
+	// Give the job 35 seconds to complete
+	success := false
+	err = virtwait.PollImmediately(time.Second, 35*time.Second, func(ctx context.Context) (done bool, err error) {
+		job, err := client.BatchV1().Jobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		for _, c := range job.Status.Conditions {
+			switch c.Type {
+			case batchv1.JobComplete:
+				if c.Status == v1.ConditionTrue {
+					pvc, err = MigrationHandoff(client, pvcStore, migration)
+					success = true
+					return true, err
+				}
+			case batchv1.JobFailed:
+				if c.Status == v1.ConditionTrue {
+					pvc, err = MigrationAbort(client, migration)
+					return true, err
+				}
+			case batchv1.JobSuspended, batchv1.JobFailureTarget, batchv1.JobSuccessCriteriaMet:
+				break
+			}
+		}
+		return false, nil
+	})
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		return nil, err, false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return nil, fmt.Errorf("migration recovery job failed to finish"), false
+	}
+
+	// The handoff/abort was successful, we don't want to fail if the job deletion fails
+	_ = client.BatchV1().Jobs(vmi.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
+		PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
+	})
+
+	err = client.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})
+
+	return pvc, err, success
 }
 
 func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name string) {
@@ -155,11 +279,11 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 	return HasPersistentTPMDevice(&vm.Spec.Template.Spec) || HasPersistentEFI(&vm.Spec.Template.Spec)
 }
 
-func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
+func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) (*v1.PersistentVolumeClaim, error) {
 	if migration == nil || migration.Status.MigrationState == nil ||
 		migration.Status.MigrationState.SourcePersistentStatePVCName == "" ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
-		return fmt.Errorf("missing source and/or target PVC name(s)")
+		return nil, fmt.Errorf("missing source and/or target PVC name(s)")
 	}
 
 	sourcePVC := migration.Status.MigrationState.SourcePersistentStatePVCName
@@ -167,14 +291,14 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 
 	if sourcePVC == targetPVC {
 		// RWX backend-storage, nothing to do
-		return nil
+		return nil, nil
 	}
 
 	// Let's label the target first, then remove the source.
 	// The target might already be labelled if this function was already called for this migration
 	target := pvcForMigrationTargetFromStore(pvcStore, migration)
 	if target == nil {
-		return fmt.Errorf("target PVC not found for migration %s/%s", migration.Namespace, migration.Name)
+		return nil, fmt.Errorf("target PVC not found for migration %s/%s", migration.Namespace, migration.Name)
 	}
 	labels := target.Labels
 	if labels == nil {
@@ -183,7 +307,7 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 
 	existing, ok := labels[PVCPrefix]
 	if ok && existing != migration.Spec.VMIName {
-		return fmt.Errorf("target PVC for %s is already labelled for another VMI: %s", migration.Spec.VMIName, existing)
+		return nil, fmt.Errorf("target PVC for %s is already labelled for another VMI: %s", migration.Spec.VMIName, existing)
 	}
 
 	if _, migrationLabelExists := target.Labels[corev1.MigrationNameLabel]; migrationLabelExists {
@@ -194,26 +318,26 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 		).GeneratePayload()
 
 		if err != nil {
-			return fmt.Errorf("failed to generate PVC patch: %v", err)
+			return nil, fmt.Errorf("failed to generate PVC patch: %v", err)
 		}
-		_, err = client.CoreV1().PersistentVolumeClaims(migration.Namespace).Patch(context.Background(), targetPVC, types.JSONPatchType, labelPatchPayload, metav1.PatchOptions{})
+		target, err = client.CoreV1().PersistentVolumeClaims(migration.Namespace).Patch(context.Background(), targetPVC, types.JSONPatchType, labelPatchPayload, metav1.PatchOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to patch PVC: %v", err)
+			return nil, fmt.Errorf("failed to patch PVC: %v", err)
 		}
 	}
 
 	err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to delete PVC: %v", err)
+		return nil, fmt.Errorf("failed to delete PVC: %v", err)
 	}
 
-	return nil
+	return target, nil
 }
 
-func MigrationAbort(client kubecli.KubevirtClient, migration *corev1.VirtualMachineInstanceMigration) error {
+func MigrationAbort(client kubecli.KubevirtClient, migration *corev1.VirtualMachineInstanceMigration) (*v1.PersistentVolumeClaim, error) {
 	if migration == nil || migration.Status.MigrationState == nil ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
-		return nil
+		return nil, nil
 	}
 
 	sourcePVC := migration.Status.MigrationState.SourcePersistentStatePVCName
@@ -221,15 +345,15 @@ func MigrationAbort(client kubecli.KubevirtClient, migration *corev1.VirtualMach
 
 	if sourcePVC == targetPVC {
 		// RWX backend-storage, nothing to delete
-		return nil
+		return nil, nil
 	}
 
 	err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), targetPVC, metav1.DeleteOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to delete PVC: %v", err)
+		return nil, fmt.Errorf("failed to delete PVC: %v", err)
 	}
 
-	return nil
+	return client.CoreV1().PersistentVolumeClaims(migration.Namespace).Get(context.Background(), sourcePVC, metav1.GetOptions{})
 }
 
 type BackendStorage struct {

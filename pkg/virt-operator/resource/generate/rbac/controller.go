@@ -16,6 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
+
 package rbac
 
 import (
@@ -548,6 +549,19 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				Verbs: []string{
 					"list",
 					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"batch",
+				},
+				Resources: []string{
+					"jobs",
+				},
+				Verbs: []string{
+					"create",
+					"get",
+					"delete",
 				},
 			},
 		},

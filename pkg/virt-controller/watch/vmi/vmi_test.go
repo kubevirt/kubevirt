@@ -189,6 +189,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, kvcontroller.GetVirtualMachineInformerIndexers())
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		migrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		recorder = record.NewFakeRecorder(100)
@@ -220,6 +221,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmiInformer,
 			vmInformer,
 			podInformer,
+			migrationInformer,
 			pvcInformer,
 			storageClassInformer,
 			recorder,

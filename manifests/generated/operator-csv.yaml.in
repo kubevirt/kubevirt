@@ -745,6 +745,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - create
+          - get
+          - delete
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachineinstances
