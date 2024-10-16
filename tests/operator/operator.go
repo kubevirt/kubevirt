@@ -40,7 +40,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/Masterminds/semver"
+	"github.com/coreos/go-semver/semver"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-github/v32/github"
 
@@ -2814,7 +2814,8 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 
 			continue
 		}
-		v, err := semver.NewVersion(*release.TagName)
+		tagName := strings.TrimPrefix(*release.TagName, "v")
+		v, err := semver.NewVersion(tagName)
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to parse latest release tag")
 		vs = append(vs, v)
 	}
@@ -2824,7 +2825,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 	}
 
 	// decending order from most recent.
-	sort.Sort(sort.Reverse(semver.Collection(vs)))
+	sort.Sort(sort.Reverse(semver.Versions(vs)))
 
 	// most recent tag
 	tag := fmt.Sprintf("v%v", vs[0])
@@ -2834,12 +2835,12 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 	// recent official release from the branch we're in if possible. Note that this is
 	// all best effort. If a tag hint can't be detected, we move on with the most
 	// recent release from master.
-	tagHint := getTagHint()
+	tagHint := strings.TrimPrefix(getTagHint(), "v")
 	hint, err := semver.NewVersion(tagHint)
 
 	if tagHint != "" && err == nil {
 		for _, v := range vs {
-			if v.LessThan(hint) || v.Equal(hint) {
+			if v.LessThan(*hint) || v.Equal(*hint) {
 				tag = fmt.Sprintf("v%v", v)
 				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
 				break
