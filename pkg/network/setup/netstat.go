@@ -47,16 +47,19 @@ type NetStat struct {
 	// key is the file path, value is the contents.
 	// if key exists, then don't read directly from file.
 	podInterfaceVolatileCache sync.Map
+
+	clusterConfigurer clusterConfigurer
 }
 
-func NewNetStat() *NetStat {
-	return NewNetStateWithCustomFactory(cache.CacheCreator{})
+func NewNetStat(clusterConfigurer clusterConfigurer) *NetStat {
+	return NewNetStateWithCustomFactory(cache.CacheCreator{}, clusterConfigurer)
 }
 
-func NewNetStateWithCustomFactory(cacheCreator cacheCreator) *NetStat {
+func NewNetStateWithCustomFactory(cacheCreator cacheCreator, clusterConfigurer clusterConfigurer) *NetStat {
 	return &NetStat{
 		cacheCreator:              cacheCreator,
 		podInterfaceVolatileCache: sync.Map{},
+		clusterConfigurer:         clusterConfigurer,
 	}
 }
 
@@ -114,8 +117,11 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
 
 	primaryNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks)
-	interfacesStatus = restorePodIfaceNameForPrimaryIface(interfacesStatus, primaryNetwork, vmi.Status.Interfaces)
-	primaryInterfaceStatus, interfacesStatus := netvmispec.PopInterfaceByNetwork(interfacesStatus, primaryNetwork)
+	if c.clusterConfigurer.DynamicPodInterfaceNamingEnabled() {
+		interfacesStatus = restorePodIfaceNameForPrimaryIface(interfacesStatus, primaryNetwork, vmi.Status.Interfaces)
+	}
+	var primaryInterfaceStatus *v1.VirtualMachineInstanceNetworkInterface
+	primaryInterfaceStatus, interfacesStatus = netvmispec.PopInterfaceByNetwork(interfacesStatus, primaryNetwork)
 	if primaryInterfaceStatus != nil {
 		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
 	}

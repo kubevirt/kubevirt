@@ -46,6 +46,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+type clusterConfigChecker interface {
+	DynamicPodInterfaceNamingEnabled() bool
+}
+
 type nmstateAdapter interface {
 	Apply(spec *nmstate.Spec) error
 	Read() (*nmstate.Status, error)
