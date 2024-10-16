@@ -19,7 +19,7 @@
 
 set -e
 
-INTEG_TEST_IMAGE=${INTEG_TEST_IMAGE:-"quay.io/kubevirt/builder:2306271234-e00d9fcf9"}
+INTEG_TEST_IMAGE=${INTEG_TEST_IMAGE:-"quay.io/kubevirt/builder:2408151859-735f25dde"}
 PODMAN_SOCKET=${PODMAN_SOCKET:-"/run/podman/podman.sock"}
 
 detect_podman_socket() {
@@ -52,8 +52,6 @@ test -t 1 && USE_TTY="-it"
 # Some of the /proc/sys/net fields are read-only:
 # open /proc/sys/net/ipv4/conf/testDummy99/route_localnet: read-only file system
 _cli="${_cri_bin} run --privileged --rm ${USE_TTY} ${gocachemount} -v ./:/workspace:Z -w /workspace ${INTEG_TEST_IMAGE}"
+_cli_exec="${_cri_bin} exec --privileged --rm ${USE_TTY} ${gocachemount} -v ./:/workspace:Z -w /workspace ${INTEG_TEST_IMAGE}"
 
-$_cli go test -v \
-    /workspace/pkg/network/driver/nmstate/... \
-    --run-integration-tests \
-    ${NULL}
+$_cli ./hack/integration-test-run.sh

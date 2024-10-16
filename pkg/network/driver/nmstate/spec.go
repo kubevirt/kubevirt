@@ -120,6 +120,12 @@ var linkConfigByType = map[string]func(iface Interface) (vishnetlink.Link, error
 			Group:  uint32(ifaceTap.GID),
 		})
 	},
+	TypeMacvtap: func(iface Interface) (vishnetlink.Link, error) {
+		if iface.Macvtap == nil {
+			return nil, fmt.Errorf("no minimal macvtap info specified for [%s]", iface.Name)
+		}
+		return initLink(iface.Name, &vishnetlink.Macvtap{})
+	},
 }
 
 func (n NMState) createInterface(iface Interface) (vishnetlink.Link, error) {
@@ -134,9 +140,12 @@ func (n NMState) createInterface(iface Interface) (vishnetlink.Link, error) {
 		return nil, fmt.Errorf("unsupported interface type [%s]: %q", iface.Name, iface.TypeName)
 	}
 
-	// Tap devices require special (backend) creation (due to SELinux labeling)
-	if iface.TypeName == TypeTap {
+	// Tap/Macvtap devices require special (backend) creation (due to SELinux labeling)
+	switch iface.TypeName {
+	case TypeTap:
 		return n.createTap(iface, link)
+	case TypeMacvtap:
+		return n.createMacvtap(iface, link)
 	}
 
 	if err := n.adapter.LinkAdd(link); err != nil {
@@ -154,6 +163,22 @@ func (n NMState) createTap(iface Interface, link vishnetlink.Link) (vishnetlink.
 		metadata = &IfaceMetadata{Pid: os.Getpid()}
 	}
 	return link, n.adapter.AddTapDeviceWithSELinuxLabel(l.Name, l.MTU, l.Queues, int(l.Owner), metadata.Pid)
+}
+
+func (n NMState) createMacvtap(iface Interface, link vishnetlink.Link) (vishnetlink.Link, error) {
+	l := link.(*vishnetlink.Macvtap)
+	metadata := iface.Metadata
+	if metadata == nil {
+		metadata = &IfaceMetadata{Pid: os.Getpid()}
+	}
+
+	return link, n.adapter.AddMacvtapDeviceWithSELinuxLabel(
+		l.Name,
+		iface.Macvtap.BaseIface,
+		iface.Macvtap.Mode,
+		iface.Macvtap.UID,
+		metadata.Pid,
+	)
 }
 
 // setupInterface updates an existing link with the desired interface configuration.

@@ -31,6 +31,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
@@ -46,11 +47,17 @@ type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
+type clusterConfigurer interface {
+	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+}
+
 type NetConf struct {
 	cacheCreator     cacheCreator
 	nsFactory        nsFactory
 	state            map[string]*netpod.State
 	configStateMutex *sync.RWMutex
+
+	clusterConfigurer clusterConfigurer
 }
 
 type nsFactory func(int) NSExecutor
@@ -59,24 +66,25 @@ type NSExecutor interface {
 	Do(func() error) error
 }
 
-func NewNetConf() *NetConf {
+func NewNetConf(clusterConfigurer clusterConfigurer) *NetConf {
 	var cacheFactory cache.CacheCreator
 	return NewNetConfWithCustomFactoryAndConfigState(func(pid int) NSExecutor {
 		return netns.New(pid)
-	}, cacheFactory, map[string]*netpod.State{})
+	}, cacheFactory, map[string]*netpod.State{}, clusterConfigurer)
 }
 
-func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, state map[string]*netpod.State) *NetConf {
+func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, state map[string]*netpod.State, clusterConfigurer clusterConfigurer) *NetConf {
 	return &NetConf{
-		state:            state,
-		configStateMutex: &sync.RWMutex{},
-		cacheCreator:     cacheCreator,
-		nsFactory:        nsFactory,
+		state:             state,
+		configStateMutex:  &sync.RWMutex{},
+		cacheCreator:      cacheCreator,
+		nsFactory:         nsFactory,
+		clusterConfigurer: clusterConfigurer,
 	}
 }
 
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
-func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error {
+func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, cgroupManager cgroup.Manager, preSetup func() error) error {
 	if err := preSetup(); err != nil {
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
@@ -112,6 +120,8 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		state,
 		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
 		netpod.WithCacheCreator(c.cacheCreator),
+		netpod.WithBindingPlugins(c.clusterConfigurer.GetNetworkBindings()),
+		netpod.WithCgroupManager(cgroupManager),
 		netpod.WithLogger(log.Log.Object(vmi)),
 	)
 

@@ -102,6 +102,43 @@ var _ = Describe("NMState", integrationLabel, func() {
 		}))
 	})
 
+	It("create a new macvtap device", func() {
+		const (
+			macvtapName = "testMacvtap99"
+		)
+		ownerID := os.Getpid()
+
+		err := nmState.Apply(&nmstate.Spec{Interfaces: []nmstate.Interface{
+			{Name: dummyName, TypeName: nmstate.TypeDummy},
+			{
+				Name:     macvtapName,
+				TypeName: nmstate.TypeMacvtap,
+				State:    nmstate.IfaceStateUp,
+				Macvtap: &nmstate.MacvtapDevice{
+					BaseIface: dummyName,
+					Mode:      "passthru",
+					UID:       ownerID,
+					GID:       ownerID,
+				},
+			},
+		}})
+		Expect(err).NotTo(HaveOccurred())
+
+		DeferCleanup(func() error {
+			return nmState.Apply(&nmstate.Spec{Interfaces: []nmstate.Interface{
+				// Removing the base iface (lower device) also removes any attached devices.
+				{Name: dummyName, State: nmstate.IfaceStateAbsent},
+			}})
+		})
+
+		status, err := nmState.Read()
+		Expect(err).NotTo(HaveOccurred())
+
+		tapIface := lookupIface(status.Interfaces, macvtapName)
+		Expect(tapIface).NotTo(BeNil())
+		Expect(tapIface.TypeName).To(Equal(nmstate.TypeMacvtap))
+	})
+
 	When("given an existing bridge", func() {
 		const (
 			bridgeName = "brtest99"
@@ -270,7 +307,7 @@ var _ = Describe("NMState", integrationLabel, func() {
 
 		// The backend implementation to create a tap device requires the `virt-chroot` executable.
 		// The test is marked as pending until the required executable is placed in the test environment.
-		PIt("attach a new created tap to the bridge", func() {
+		It("attach a new created tap to the bridge", func() {
 			const (
 				tapName = "testTap99"
 			)
@@ -282,6 +319,7 @@ var _ = Describe("NMState", integrationLabel, func() {
 					Name:       tapName,
 					TypeName:   nmstate.TypeTap,
 					State:      nmstate.IfaceStateUp,
+					MTU:        bridgeIface.MTU,
 					Controller: bridgeIface.Name,
 					Tap: &nmstate.TapDevice{
 						Queues: 2,
