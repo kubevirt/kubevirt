@@ -744,7 +744,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.clusterConfig,
 		network.NewVMNetController(
 			vca.clientSet.GeneratedKubeVirtClient(),
-			vca.clusterConfig,
 			controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
 		),
 	)

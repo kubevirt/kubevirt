@@ -109,7 +109,6 @@ func AdjustKubeVirtResource() {
 		virtconfig.WorkloadEncryptionSEV,
 		virtconfig.VMExportGate,
 		virtconfig.KubevirtSeccompProfile,
-		virtconfig.HotplugNetworkIfacesGate,
 		virtconfig.VMPersistentState,
 		virtconfig.VMLiveUpdateFeaturesGate,
 		virtconfig.AutoResourceLimitsGate,

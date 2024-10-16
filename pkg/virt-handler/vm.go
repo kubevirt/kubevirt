@@ -3218,24 +3218,22 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		if d.clusterConfig.HotplugNetworkInterfacesEnabled() {
-			netsToHotplug := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
-			nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-				return iface.State != v1.InterfaceStateAbsent
-			})
-			netsToHotplug = netvmispec.FilterNetworksByInterfaces(netsToHotplug, nonAbsentIfaces)
+		netsToHotplug := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
+		nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+			return iface.State != v1.InterfaceStateAbsent
+		})
+		netsToHotplug = netvmispec.FilterNetworksByInterfaces(netsToHotplug, nonAbsentIfaces)
 
-			ifacesToHotunplug := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-				return iface.State == v1.InterfaceStateAbsent
-			})
-			netsToHotunplug := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotunplug)
+		ifacesToHotunplug := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+			return iface.State == v1.InterfaceStateAbsent
+		})
+		netsToHotunplug := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotunplug)
 
-			setupNets := append(netsToHotplug, netsToHotunplug...)
-			if err := d.setupNetwork(vmi, setupNets); err != nil {
-				log.Log.Object(vmi).Error(err.Error())
-				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
-				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
-			}
+		setupNets := append(netsToHotplug, netsToHotunplug...)
+		if err := d.setupNetwork(vmi, setupNets); err != nil {
+			log.Log.Object(vmi).Error(err.Error())
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
+			errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
 		}
 	}
 
