@@ -269,10 +269,8 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				if vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired == nil {
-					return false
-				}
-				return *vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired
+				return controller.NewVirtualMachineConditionManager().HasCondition(
+					vm, virtv1.VirtualMachineManualRecoveryRequired)
 			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeTrue())
 		}
 
@@ -566,15 +564,12 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Expect(err).ToNot(HaveOccurred())
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() *bool {
+			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				if vm.Status.VolumeUpdateState == nil ||
-					vm.Status.VolumeUpdateState.VolumeMigrationState == nil {
-					return nil
-				}
-				return vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired
-			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeNil())
+				return controller.NewVirtualMachineConditionManager().HasCondition(
+					vm, virtv1.VirtualMachineManualRecoveryRequired)
+			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
 
 			By("Starting the VM after the volume set correction")
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Start(context.Background(), vm.Name, &virtv1.StartOptions{Paused: false})

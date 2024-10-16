@@ -32,7 +32,6 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -85,14 +84,15 @@ type CloneAuthFunc func(dv *cdiv1.DataVolume, requestNamespace, requestName stri
 
 // Repeating info / error messages
 const (
-	stoppingVmMsg                         = "Stopping VM"
-	startingVmMsg                         = "Starting VM"
-	failedExtractVmkeyFromVmErrMsg        = "Failed to extract vmKey from VirtualMachine."
-	failedCreateCRforVmErrMsg             = "Failed to create controller revision for VirtualMachine."
-	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
-	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
-	failedMemoryDump                      = "Memory dump failed"
-	failedCleanupRestartRequired          = "Failed to delete RestartRequired condition or last-seen controller revisions"
+	stoppingVmMsg                             = "Stopping VM"
+	startingVmMsg                             = "Starting VM"
+	failedExtractVmkeyFromVmErrMsg            = "Failed to extract vmKey from VirtualMachine."
+	failedCreateCRforVmErrMsg                 = "Failed to create controller revision for VirtualMachine."
+	failedProcessDeleteNotificationErrMsg     = "Failed to process delete notification"
+	failureDeletingVmiErrFormat               = "Failure attempting to delete VMI: %v"
+	failedMemoryDump                          = "Memory dump failed"
+	failedCleanupRestartRequired              = "Failed to delete RestartRequired condition or last-seen controller revisions"
+	failedManualRecoveryRequiredCondSetErrMsg = "cannot start the VM since it has the manual recovery required condtion set"
 
 	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
 	// ServiceAccount doesn't have permission to create a DataVolume
@@ -1289,6 +1289,11 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, nil
 	}
 
+	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineManualRecoveryRequired, k8score.ConditionTrue) {
+		log.Log.Object(vm).Reason(err).Error(failedManualRecoveryRequiredCondSetErrMsg)
+		return vm, nil
+	}
+
 	// TODO add check for existence
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
@@ -1644,26 +1649,26 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 		// Clean-up the volume change label when the volume set has been restored
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange))
+		vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
 		return
 	}
-	if vmi == nil && vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
-		// Something went wrong with the VMI while the volume migration was in progress
-		vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired = pointer.P(true)
+	if vmi == nil {
+		if vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
+			// Something went wrong with the VMI while the volume migration was in progress
+			vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+				Type:   virtv1.VirtualMachineManualRecoveryRequired,
+				Status: k8score.ConditionTrue,
+				Reason: "VMI was removed during the volume migration",
+			})
+		}
+		return
 	}
 
-	if vmi == nil {
-		return
-	}
-	// Check if the volume update wasn't successful
-	cond := vmiCond.GetCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
-	if cond != nil && cond.Status == k8score.ConditionFalse {
-		// The volume migration has been cancelled
-		if cond.Reason == virtv1.VirtualMachineInstanceReasonVolumesChangeCancellation {
-			vm.Status.VolumeUpdateState.VolumeMigrationState = nil
-		} else {
-			// The volume migration failed for some reasons
-			vm.Status.VolumeUpdateState.VolumeMigrationState.ManualRecoveryRequired = pointer.P(true)
-		}
+	// The volume migration has been cancelled
+	if cond := vmiCond.GetCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange); cond != nil &&
+		cond.Status == k8score.ConditionFalse &&
+		cond.Reason == virtv1.VirtualMachineInstanceReasonVolumesChangeCancellation {
+		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 	}
 }
 
