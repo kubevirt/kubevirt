@@ -41,6 +41,7 @@ KUBEVIRT_SWAP_ON=${KUBEVIRT_SWAP_ON:-false}
 KUBEVIRT_KSM_ON=${KUBEVIRT_KSM_ON:-false}
 KUBEVIRT_UNLIMITEDSWAP=${KUBEVIRT_UNLIMITEDSWAP:-false}
 KUBEVIRT_CPU_MANAGER_POLICY=${KUBEVIRT_CPU_MANAGER_POLICY:-none}
+KUBVIRT_WITH_CNAO_SKIP_CONFIG=${KUBVIRT_WITH_CNAO_SKIP_CONFIG:-false}
 
 # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
 # http and https ports are accessed by testing framework and should not be randomized
@@ -54,4 +55,4 @@ provider_prefix=${JOB_NAME:-${KUBEVIRT_PROVIDER}}${EXECUTOR_NUMBER}
 job_prefix=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}
 
 mkdir -p $KUBEVIRTCI_CONFIG_PATH/$KUBEVIRT_PROVIDER
-KUBEVIRTCI_TAG=2409241245-d93dec16
+KUBEVIRTCI_TAG=2410151953-03aa94e9

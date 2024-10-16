@@ -81,7 +81,7 @@ function down() {
 }
 
 function _kubectl() {
-    export KUBECONFIG=$(./cluster-up/kubeconfig.sh)
+    export KUBECONFIG=$(${KUBEVIRTCI_PATH}/kubeconfig.sh)
     kubectl "$@"
 }
 
