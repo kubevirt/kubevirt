@@ -445,24 +445,31 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
 			})
 
-			It("should fail if VirtualMachine is not in running state", func() {
+			DescribeTable("should return an error when VM is not running", func(errMsg string, running *bool, runStrategy *v1.VirtualMachineRunStrategy) {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
 				vm := v1.VirtualMachine{
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.P(NotRunning),
+						Running:     running,
+						RunStrategy: runStrategy,
 					},
 				}
 
 				vmClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vm, nil)
 
+				if runStrategy != nil && *runStrategy == v1.RunStrategyManual {
+					vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vm.Name))
+				}
 				app.RestartVMRequestHandler(request, response)
 
 				status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-				// check the msg string that would be presented to virtctl output
-				Expect(status.Error()).To(ContainSubstring("Halted does not support manual restart requests"))
-			})
+				Expect(status.Error()).To(ContainSubstring(errMsg))
+			},
+				Entry("with Running field", "RunStategy Halted does not support manual restart requests", pointer.P(NotRunning), nil),
+				Entry("with RunStrategyHalted", "RunStategy Halted does not support manual restart requests", nil, pointer.P(v1.RunStrategyHalted)),
+				Entry("with RunStrategyManual", "VM is not running: Halted", nil, pointer.P(v1.RunStrategyManual)),
+			)
 
 			DescribeTable("should ForceRestart VirtualMachine according to options", func(restartOptions *v1.RestartOptions) {
 				request.PathParameters()["name"] = testVMName
