@@ -1101,17 +1101,19 @@ chpasswd: { expire: False }`
 		)
 
 		It("Complex example", func() {
-			const vmName = "my-vm"
-			const runStrategy = v1.RunStrategyManual
-			const terminationGracePeriod int64 = 123
-			const instancetypeKind = "virtualmachineinstancetype"
-			const instancetypeName = "my-instancetype"
-			const dsNamespace = "my-ns"
-			const dsName = "my-ds"
-			const dvtSize = "10Gi"
-			const pvcName = "my-pvc"
-			const pvcBootOrder = 1
-			const secretName = "my-secret"
+			const (
+				vmName                       = "my-vm"
+				runStrategy                  = v1.RunStrategyManual
+				terminationGracePeriod int64 = 123
+				instancetypeKind             = "virtualmachineinstancetype"
+				instancetypeName             = "my-instancetype"
+				dsNamespace                  = "my-ns"
+				dsName                       = "my-ds"
+				dvtSize                      = "10Gi"
+				pvcName                      = "my-pvc"
+				pvcBootOrder                 = 1
+				secretName                   = "my-secret"
+			)
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
 			out, err := runCmd(
@@ -1186,13 +1188,15 @@ chpasswd: { expire: False }`
 		})
 
 		It("Complex example with generated cloud-init config", func() {
-			const vmName = "my-vm"
-			const terminationGracePeriod int64 = 180
-			const pvcNamespace = "my-ns"
-			const pvcName = "my-ds"
-			const dvtSize = "10Gi"
-			const user = "my-user"
-			const sshKey = "my-ssh-key"
+			const (
+				vmName                       = "my-vm"
+				terminationGracePeriod int64 = 180
+				pvcNamespace                 = "my-ns"
+				pvcName                      = "my-ds"
+				dvtSize                      = "10Gi"
+				user                         = "my-user"
+				sshKey                       = "my-ssh-key"
+			)
 
 			out, err := runCmd(
 				setFlag(NameFlag, vmName),
@@ -1248,10 +1252,12 @@ chpasswd: { expire: False }`
 		})
 
 		It("Complex example with access credentials", func() {
-			const vmName = "my-vm"
-			const cdSource = "src:my.registry/my-image:my-tag"
-			const user = "my-user"
-			const secretName = "my-keys"
+			const (
+				vmName     = "my-vm"
+				cdSource   = "src:my.registry/my-image:my-tag"
+				user       = "my-user"
+				secretName = "my-keys"
+			)
 
 			out, err := runCmd(
 				setFlag(NameFlag, vmName),

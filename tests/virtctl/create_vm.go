@@ -124,8 +124,10 @@ chpasswd: { expire: False }`
 	})
 
 	It("Example with volume-import flag and Registry type", func() {
-		const volName = "registry-source"
-		const runStrategy = v1.RunStrategyAlways
+		const (
+			runStrategy = v1.RunStrategyAlways
+			volName     = "registry-source"
+		)
 		cdSource := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 
 		out, err := runCmd(
@@ -178,11 +180,13 @@ chpasswd: { expire: False }`
 	})
 
 	It("[test_id:9841]Complex example", func() {
-		const runStrategy = v1.RunStrategyManual
-		const terminationGracePeriod int64 = 123
-		const cdSource = "my.registry/my-image:my-tag"
-		const blankSize = "10Gi"
-		const pvcBootOrder = 1
+		const (
+			runStrategy                  = v1.RunStrategyManual
+			terminationGracePeriod int64 = 123
+			cdSource                     = "my.registry/my-image:my-tag"
+			pvcBootOrder                 = 1
+			blankSize                    = "10Gi"
+		)
 		vmName := "vm-" + rand.String(5)
 		instancetype := createInstancetype(virtClient)
 		preference := createPreference(virtClient)
@@ -290,10 +294,12 @@ chpasswd: { expire: False }`
 	})
 
 	It("[test_id:9842]Complex example with inferred instancetype and preference", func() {
-		const runStrategy = v1.RunStrategyManual
-		const terminationGracePeriod int64 = 123
-		const blankSize = "10Gi"
-		const pvcBootOrder = 1
+		const (
+			runStrategy                  = v1.RunStrategyManual
+			terminationGracePeriod int64 = 123
+			pvcBootOrder                 = 1
+			blankSize                    = "10Gi"
+		)
 		vmName := "vm-" + rand.String(5)
 		instancetype := createInstancetype(virtClient)
 		preference := createPreference(virtClient)
@@ -391,11 +397,13 @@ chpasswd: { expire: False }`
 	})
 
 	It("Complex example with memory", func() {
-		const runStrategy = v1.RunStrategyManual
-		const terminationGracePeriod int64 = 123
-		const memory = "4Gi"
-		const cdSource = "my.registry/my-image:my-tag"
-		const blankSize = "10Gi"
+		const (
+			runStrategy                  = v1.RunStrategyManual
+			terminationGracePeriod int64 = 123
+			memory                       = "4Gi"
+			cdSource                     = "my.registry/my-image:my-tag"
+			blankSize                    = "10Gi"
+		)
 		vmName := "vm-" + rand.String(5)
 		preference := createPreference(virtClient)
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
@@ -463,9 +471,11 @@ chpasswd: { expire: False }`
 	})
 
 	It("Complex example with sysprep volume", func() {
-		const runStrategy = v1.RunStrategyManual
-		const terminationGracePeriod int64 = 123
-		const cdSource = "my.registry/my-image:my-tag"
+		const (
+			runStrategy                  = v1.RunStrategyManual
+			terminationGracePeriod int64 = 123
+			cdSource                     = "my.registry/my-image:my-tag"
+		)
 
 		cm := libconfigmap.New("cm-"+rand.String(5), map[string]string{"Autounattend.xml": "test"})
 		cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
