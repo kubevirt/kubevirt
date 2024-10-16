@@ -80,7 +80,7 @@ const (
 	BlankVolumeFlag      = "volume-blank"
 
 	SysprepDisk      = "sysprepdisk"
-	SysprepConfigMap = "configMap"
+	SysprepConfigMap = "configmap"
 	SysprepSecret    = "secret"
 
 	CloudInitDisk         = "cloudinitdisk"
@@ -192,14 +192,6 @@ var volumeImportSizeOptional = map[string]bool{
 	pvc:      true,
 	snapshot: true,
 	ds:       true,
-}
-
-var runStrategies = []string{
-	string(v1.RunStrategyAlways),
-	string(v1.RunStrategyManual),
-	string(v1.RunStrategyHalted),
-	string(v1.RunStrategyOnce),
-	string(v1.RunStrategyRerunOnFailure),
 }
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -782,9 +774,17 @@ func (c *createVM) buildCloudInitConfig() (string, error) {
 }
 
 func (c *createVM) withRunStrategy(vm *v1.VirtualMachine) error {
+	runStrategies := []string{
+		string(v1.RunStrategyAlways),
+		string(v1.RunStrategyManual),
+		string(v1.RunStrategyHalted),
+		string(v1.RunStrategyOnce),
+		string(v1.RunStrategyRerunOnFailure),
+	}
+
 	for _, runStrategy := range runStrategies {
-		if runStrategy == c.runStrategy {
-			vm.Spec.RunStrategy = pointer.P(v1.VirtualMachineRunStrategy(c.runStrategy))
+		if strings.ToLower(runStrategy) == strings.ToLower(c.runStrategy) {
+			vm.Spec.RunStrategy = pointer.P(v1.VirtualMachineRunStrategy(runStrategy))
 			return nil
 		}
 	}
@@ -798,6 +798,7 @@ func (c *createVM) withInstancetype(vm *v1.VirtualMachine) error {
 		return params.FlagErr(InstancetypeFlag, "%w", err)
 	}
 
+	kind = strings.ToLower(kind)
 	if kind != "" && kind != instancetype.SingularResourceName && kind != instancetype.ClusterSingularResourceName {
 		return params.FlagErr(InstancetypeFlag, "invalid instancetype kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularResourceName, instancetype.ClusterSingularResourceName)
 	}
@@ -818,6 +819,7 @@ func (c *createVM) withPreference(vm *v1.VirtualMachine) error {
 		return params.FlagErr(PreferenceFlag, "%w", err)
 	}
 
+	kind = strings.ToLower(kind)
 	if kind != "" && kind != instancetype.SingularPreferenceResourceName && kind != instancetype.ClusterSingularPreferenceResourceName {
 		return params.FlagErr(InstancetypeFlag, "invalid preference kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularPreferenceResourceName, instancetype.ClusterSingularPreferenceResourceName)
 	}
@@ -940,7 +942,7 @@ func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
 	}
 
 	var src *v1.SysprepSource
-	switch vol.Type {
+	switch strings.ToLower(vol.Type) {
 	case SysprepConfigMap:
 		src = &v1.SysprepSource{
 			ConfigMap: &k8sv1.LocalObjectReference{
