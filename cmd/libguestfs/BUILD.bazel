@@ -1,12 +1,9 @@
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
+load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
     name = "entrypoint",
-    srcs = [":entrypoint.sh"],
+    srcs = ["entrypoint.sh"],
     mode = "0775",
     package_dir = "/",
 )
@@ -16,6 +13,14 @@ genrule(
     name = "done-file",
     outs = ["done"],
     cmd = "touch $@",
+)
+
+pkg_tar(
+    name = "version",
+    srcs = [
+        "//:get-version",
+    ],
+    package_dir = "/",
 )
 
 pkg_tar(
@@ -46,38 +51,29 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
-container_image(
+oci_image(
     name = "version-container",
     base = "//:passwd-image",
-    directory = "/",
-    files = [
-        "//:get-version",
+    tars = [
+        ":version",
     ],
+)
+
+oci_image(
+    name = "libguestfs-tools-image",
+    base = ":version-container",
+    entrypoint = ["/entrypoint.sh"],
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_s390x": [
-            "//:passwd-tar",
-            "//rpm:libguestfs-tools_s390x",
             ":appliance_layer_s390x",
+            "//rpm:libguestfs-tools_s390x",
             ":entrypoint",
         ],
         "//conditions:default": [
-            "//:passwd-tar",
-            "//rpm:libguestfs-tools_x86_64",
             ":appliance_layer_x86_64",
+            "//rpm:libguestfs-tools_x86_64",
             ":entrypoint",
         ],
     }),
-)
-
-container_image(
-    name = "libguestfs-tools-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
-    base = ":version-container",
-    directory = "/",
-    entrypoint = ["/entrypoint.sh"],
     visibility = ["//visibility:public"],
 )
