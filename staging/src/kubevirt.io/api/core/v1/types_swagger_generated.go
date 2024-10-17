@@ -769,6 +769,13 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"liveUpdateConfiguration":            "LiveUpdateConfiguration holds defaults for live update features",
 		"vmRolloutStrategy":                  "VMRolloutStrategy defines how changes to a VM object propagate to its VMI\n+nullable\n+kubebuilder:validation:Enum=Stage;LiveUpdate",
 		"commonInstancetypesDeployment":      "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources\n+nullable",
+		"instancetype":                       "Instancetype configuration\n+nullable",
+	}
+}
+
+func (InstancetypeConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"referencePolicy": "ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are:\nreference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.\nexpand - Where the instance type or preference are expanded into the VM during submission with references removed.\n+nullable\n+kubebuilder:validation:Enum=reference;expand",
 	}
 }
 
