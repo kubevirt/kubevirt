@@ -14078,6 +14078,15 @@
      }
     }
    },
+   "v1.InstancetypeConfiguration": {
+    "type": "object",
+    "properties": {
+     "referencePolicy": {
+      "description": "ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are: reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM. expand - Where the instance type or preference are expanded into the VM during submission with references removed.",
+      "type": "string"
+     }
+    }
+   },
    "v1.InstancetypeMatcher": {
     "description": "InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.",
     "type": "object",
@@ -14460,6 +14469,10 @@
        "IfNotPresent",
        "Never"
       ]
+     },
+     "instancetype": {
+      "description": "Instancetype configuration",
+      "$ref": "#/definitions/v1.InstancetypeConfiguration"
      },
      "ksmConfiguration": {
       "description": "KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).",
