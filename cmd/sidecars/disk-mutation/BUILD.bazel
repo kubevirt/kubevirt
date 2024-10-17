@@ -29,10 +29,6 @@ pkg_tar(
 
 oci_image(
     name = "example-disk-mutation-hook-sidecar-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
     base = "//cmd/sidecars:sidecar-shim-image",
     entrypoint = ["/sidecar-shim"],
     tars = [
