@@ -20,6 +20,7 @@
 package hostdevice_test
 
 import (
+	v1 "kubevirt.io/api/core/v1"
 	"os"
 	"strings"
 
@@ -77,6 +78,54 @@ var _ = Describe("Address Pool", func() {
 		})
 	})
 })
+
+var _ = Describe("Address Pool for DRA Devices", func() {
+	It("fails to pop an address given no attribute", func() {
+		pool := hostdevice.NewAddressPoolFromDeviceStatus(newDeviceStatus(resource0, pciAddresses0))
+		expectPoolPopFailure(pool, resource0)
+	})
+
+	It("fails to pop an address given no addresses for resource", func() {
+		env := []envData{newResourceEnv(resourcePrefix, resource0)}
+		withEnvironmentContext(env, func() {
+			pool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0})
+			expectPoolPopFailure(pool, resource0)
+		})
+	})
+
+	It("succeeds to pop 2 addresses from same resource", func() {
+		env := []envData{newResourceEnv(resourcePrefix, resource0, pciAddresses0, pciAddresses1)}
+		withEnvironmentContext(env, func() {
+			pool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0})
+			Expect(pool.Pop(resource0)).To(Equal(pciAddresses0))
+			Expect(pool.Pop(resource0)).To(Equal(pciAddresses1))
+		})
+	})
+
+	It("succeeds to pop 2 addresses from two resources", func() {
+		env := []envData{
+			newResourceEnv(resourcePrefix, resource0, pciAddresses0),
+			newResourceEnv(resourcePrefix, resource1, pciAddresses1),
+		}
+		withEnvironmentContext(env, func() {
+			pool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0, resource1})
+			Expect(pool.Pop(resource0)).To(Equal(pciAddresses0))
+			Expect(pool.Pop(resource1)).To(Equal(pciAddresses1))
+		})
+	})
+})
+
+func newDeviceStatus(name, address string) *v1.DeviceStatus {
+	return &v1.DeviceStatus{GPUStatuses: []v1.DeviceStatusInfo{{
+		Name: name,
+		DeviceResourceClaimStatus: &v1.DeviceResourceClaimStatus{
+			DeviceAttributes: map[string]v1.DeviceAttribute{
+				"pciAddress": {String: &address},
+			},
+		},
+	},
+	}}
+}
 
 func newResourceEnv(prefix, resourceName string, addresses ...string) envData {
 	resourceName = strings.ToUpper(resourceName)

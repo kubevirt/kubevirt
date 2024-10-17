@@ -645,6 +645,9 @@ const (
 
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
+
+	// Indicates whether the VMI has DRAStatusAttributes available or not
+	VirtualMachineInstanceDRAStatusAttributesAvailable VirtualMachineInstanceConditionType = "DRAStatusAttributesAvailable"
 )
 
 // These are valid reasons for VMI conditions.
@@ -677,6 +680,8 @@ const (
 	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
 	// Reason means that the volume update change was cancelled
 	VirtualMachineInstanceReasonVolumesChangeCancellation = "VolumesChangeCancellation"
+	// Reason means that the dra devices have been allocated and its attributes synced with VMI status
+	VirtualMachineInstanceReasonDRADevicesAllocated = "DRADevicesAllocated"
 )
 
 const (
