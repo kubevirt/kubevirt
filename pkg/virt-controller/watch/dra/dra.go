@@ -43,8 +43,9 @@ import (
 )
 
 const (
-	deleteNotifFailed        = "Failed to process delete notification"
-	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
+	deleteNotifFailed             = "Failed to process delete notification"
+	tombstoneGetObjectErrFmt      = "couldn't get object from tombstone %+v"
+	draAttributesAvailableMessage = "All DRA device have been allocated and attributes have been reconciled"
 )
 
 type DeviceInfo struct {
@@ -389,6 +390,38 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virt
 
 	newGPUStatus := &virtv1.DeviceStatus{GPUStatuses: gpuStatuses}
 	if reflect.DeepEqual(vmi.Status.DeviceStatus, newGPUStatus) {
+		// Only set the condition if all GPUs with DRA have corresponding status entries
+		if isAllDRAGPUsReconciled(vmi, newGPUStatus) {
+			condition := virtv1.VirtualMachineInstanceCondition{
+				Type:               virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable,
+				Status:             k8sv1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             virtv1.VirtualMachineInstanceReasonDRADevicesAllocated,
+				Message:            draAttributesAvailableMessage,
+			}
+			condMan := controller.NewVirtualMachineInstanceConditionManager()
+			if !condMan.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable, k8sv1.ConditionTrue) {
+				vmiCopy := vmi.DeepCopy()
+				vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
+
+				ps := patch.New(
+					patch.WithTest("/status/conditions", vmi.Status.Conditions),
+					patch.WithReplace("/status/conditions", vmiCopy.Status.Conditions),
+				)
+				patchBytes, err := ps.GeneratePayload()
+				if err != nil {
+					return err
+				}
+				logger.V(4).Infof("patching vmi to add %s condition", virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable)
+				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.TODO(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+				if err != nil {
+					logger.Errorf("error patching VMI with condition: %#v, %#v", errors.ReasonForError(err), err)
+					return err
+				}
+			}
+		} else {
+			logger.V(4).Infof("Not all DRA GPUs are reconciled yet, waiting for complete status")
+		}
 		return nil
 	}
 
@@ -409,6 +442,46 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virt
 	}
 	logger.V(6).Infof("patching vmi status successful")
 	return nil
+}
+
+// isAllDRAGPUsReconciled checks if all GPUs with DRA in the spec have corresponding status entries with attributes
+func isAllDRAGPUsReconciled(vmi *virtv1.VirtualMachineInstance, status *virtv1.DeviceStatus) bool {
+	// Count GPUs with DRA in spec
+	gpusWithDRACount := 0
+	draGPUNames := make(map[string]struct{})
+
+	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
+		if gpu.ClaimRequest != nil {
+			gpusWithDRACount++
+			draGPUNames[gpu.Name] = struct{}{}
+		}
+	}
+
+	if gpusWithDRACount == 0 {
+		return true // No DRA GPUs to reconcile
+	}
+
+	// Check if status has entries for all DRA GPUs
+	reconciledCount := 0
+	if status != nil {
+		for _, gpuStatus := range status.GPUStatuses {
+			if _, isDRAGPU := draGPUNames[gpuStatus.Name]; !isDRAGPU {
+				continue // Skip non-DRA GPUs
+			}
+
+			// Check if this GPU is fully reconciled (has attributes)
+			if gpuStatus.DeviceResourceClaimStatus != nil &&
+				gpuStatus.DeviceResourceClaimStatus.ResourceClaimName != nil &&
+				gpuStatus.DeviceResourceClaimStatus.Name != nil &&
+				gpuStatus.DeviceResourceClaimStatus.Attributes != nil &&
+				(gpuStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil ||
+					gpuStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil) {
+				reconciledCount++
+			}
+		}
+	}
+
+	return reconciledCount == gpusWithDRACount
 }
 
 func (c *DRAStatusController) isPodResourceClaimStatusFilled(pod *k8sv1.Pod) bool {
@@ -456,13 +529,14 @@ func (c *DRAStatusController) getGPUStatusUpdate(gpuInfos []DeviceInfo, pod *k8s
 				if err != nil {
 					return nil, err
 				}
-				gpuStatus.DeviceResourceClaimStatus.Attributes = &virtv1.DeviceAttribute{}
+				attrs := virtv1.DeviceAttribute{}
 				if pciAddress != "" {
-					gpuStatus.DeviceResourceClaimStatus.Attributes.PCIAddress = &pciAddress
+					attrs.PCIAddress = &pciAddress
 				}
 				if mdevUUID != "" {
-					gpuStatus.DeviceResourceClaimStatus.Attributes.MDevUUID = &mdevUUID
+					attrs.MDevUUID = &mdevUUID
 				}
+				gpuStatus.DeviceResourceClaimStatus.Attributes = &attrs
 			}
 		}
 		gpuStatuses = append(gpuStatuses, gpuStatus)
