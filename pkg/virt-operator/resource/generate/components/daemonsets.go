@@ -259,25 +259,28 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		path             string
 		mountPath        string
 		mountPropagation *corev1.MountPropagationMode
+		readOnly         bool
 	}
 	attachCertificateSecret(pod, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	attachCertificateSecret(pod, VirtHandlerServerCertSecretName, "/etc/virt-handler/servercertificates")
 	attachProfileVolume(pod)
 
 	bidi := corev1.MountPropagationBidirectional
+	htc := corev1.MountPropagationHostToContainer
 	// NOTE: the 'kubelet-pods-shortened' volume mounts the same host path as 'kubelet-pods'
 	// This is because that path holds unix domain sockets. Domain sockets fail when they're over
 	// ~ 100 characters, so that shortened volume path is to allow domain socket connections.
 	// It's ridiculous to have to account for that, but that's the situation we're in.
 	volumes := []volume{
-		{"libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", nil},
-		{"virt-share-dir", "/var/run/kubevirt", "/var/run/kubevirt", &bidi},
-		{"virt-lib-dir", "/var/lib/kubevirt", "/var/lib/kubevirt", nil},
-		{"virt-private-dir", "/var/run/kubevirt-private", "/var/run/kubevirt-private", nil},
-		{"device-plugin", "/var/lib/kubelet/device-plugins", "/var/lib/kubelet/device-plugins", nil},
-		{"kubelet-pods-shortened", kubeletPodsPath, "/pods", nil},
-		{"kubelet-pods", kubeletPodsPath, kubeletPodsPath, &bidi},
-		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil},
+		{"libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", nil, false},
+		{"virt-share-dir", "/var/run/kubevirt", "/var/run/kubevirt", &bidi, false},
+		{"virt-lib-dir", "/var/lib/kubevirt", "/var/lib/kubevirt", nil, false},
+		{"virt-private-dir", "/var/run/kubevirt-private", "/var/run/kubevirt-private", nil, false},
+		{"device-plugin", "/var/lib/kubelet/device-plugins", "/var/lib/kubelet/device-plugins", nil, false},
+		{"kubelet-pods-shortened", kubeletPodsPath, "/pods", nil, false},
+		{"kubelet-pods", kubeletPodsPath, kubeletPodsPath, &bidi, false},
+		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil, false},
+		{"sys-fs-cgroups", "/sys/fs/cgroup", "/node/sys/fs/cgroup", &htc, true},
 	}
 
 	for _, volume := range volumes {
@@ -285,6 +288,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			Name:             volume.name,
 			MountPath:        volume.mountPath,
 			MountPropagation: volume.mountPropagation,
+			ReadOnly:         volume.readOnly,
 		})
 		pod.Volumes = append(pod.Volumes, corev1.Volume{
 			Name: volume.name,
