@@ -243,6 +243,12 @@ Histogram of VM phase transitions duration from deletion time in seconds. Type: 
 ### kubevirt_vmi_phase_transition_time_seconds
 Histogram of VM phase transitions duration between different phases in seconds. Type: Histogram.
 
+### kubevirt_vmi_storage_allocation_bytes
+Allocated storage capacity in bytes. Type: Gauge.
+
+### kubevirt_vmi_storage_capacity_bytes
+Logical storage capacity in bytes. Type: Gauge.
+
 ### kubevirt_vmi_storage_flush_requests_total
 Total storage flush requests. Type: Counter.
 
@@ -254,6 +260,9 @@ Total number of I/O read operations. Type: Counter.
 
 ### kubevirt_vmi_storage_iops_write_total
 Total number of I/O write operations. Type: Counter.
+
+### kubevirt_vmi_storage_physical_bytes
+Physical storage capacity in bytes. Type: Gauge.
 
 ### kubevirt_vmi_storage_read_times_seconds_total
 Total time spent on read operations. Type: Counter.
