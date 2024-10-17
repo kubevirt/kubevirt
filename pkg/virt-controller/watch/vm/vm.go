@@ -109,15 +109,16 @@ const (
 )
 
 const (
-	HotPlugVolumeErrorReason  = "HotPlugVolumeError"
-	HotPlugCPUErrorReason     = "HotPlugCPUError"
-	MemoryDumpErrorReason     = "MemoryDumpError"
-	FailedUpdateErrorReason   = "FailedUpdateError"
-	FailedCreateReason        = "FailedCreate"
-	VMIFailedDeleteReason     = "FailedDelete"
-	AffinityChangeErrorReason = "AffinityChangeError"
-	HotPlugMemoryErrorReason  = "HotPlugMemoryError"
-	VolumesUpdateErrorReason  = "VolumesUpdateError"
+	HotPlugVolumeErrorReason     = "HotPlugVolumeError"
+	HotPlugCPUErrorReason        = "HotPlugCPUError"
+	MemoryDumpErrorReason        = "MemoryDumpError"
+	FailedUpdateErrorReason      = "FailedUpdateError"
+	FailedCreateReason           = "FailedCreate"
+	VMIFailedDeleteReason        = "FailedDelete"
+	AffinityChangeErrorReason    = "AffinityChangeError"
+	HotPlugMemoryErrorReason     = "HotPlugMemoryError"
+	VolumesUpdateErrorReason     = "VolumesUpdateError"
+	tolerationsChangeErrorReason = "TolerationsChangeError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -784,6 +785,57 @@ func (c *Controller) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 
 	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
 	return err
+}
+
+func (c *Controller) vmiTolerationsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	patchset := patch.New()
+
+	if vm.Spec.Template.Spec.Tolerations != nil {
+		if vmi.Spec.Tolerations == nil {
+			patchset.AddOption(patch.WithAdd("/spec/tolerations", vm.Spec.Template.Spec.Tolerations))
+		} else {
+			patchset.AddOption(
+				patch.WithTest("/spec/tolerations", vmi.Spec.Tolerations),
+				patch.WithReplace("/spec/tolerations", vm.Spec.Template.Spec.Tolerations))
+		}
+
+	} else {
+		patchset.AddOption(patch.WithRemove("/spec/tolerations"))
+	}
+
+	generatedPatch, err := patchset.GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
+	return err
+}
+
+func (c *Controller) handleTolerationsChangeRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || vmi.DeletionTimestamp != nil {
+		return nil
+	}
+
+	vmCopyWithInstancetype := vm.DeepCopy()
+	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+		return err
+	}
+
+	if equality.Semantic.DeepEqual(vmCopyWithInstancetype.Spec.Template.Spec.Tolerations, vmi.Spec.Tolerations) {
+		return nil
+	}
+
+	if migrations.IsMigrating(vmi) {
+		return fmt.Errorf("tolerations should not be changed during VMI migration")
+	}
+
+	if err := c.vmiTolerationsPatch(vmCopyWithInstancetype, vmi); err != nil {
+		log.Log.Object(vmi).Errorf("unable to patch vmi to update tolerations: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 func (c *Controller) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
@@ -3141,6 +3193,7 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 
 		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
 		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
+		lastSeenVM.Spec.Template.Spec.Tolerations = currentVM.Spec.Template.Spec.Tolerations
 	}
 
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
@@ -3269,6 +3322,10 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 		if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
 			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason), nil
+		}
+
+		if err := c.handleTolerationsChangeRequest(vmCopy, vmi); err != nil {
+			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling tolerations change request: %v", err), tolerationsChangeErrorReason), nil
 		}
 
 		if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
