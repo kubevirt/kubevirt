@@ -28,6 +28,9 @@ go_binary(
     x_defs = version_x_defs(),
 )
 
+load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
 passwd_entry(
     name = "nonroot-user",
     gid = 107,
@@ -52,39 +55,52 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
-container_image(
+pkg_tar(
+    name = "get-version",
+    srcs = ["//:get-version"],
+    package_dir = "/",
+)
+
+pkg_tar(
+    name = "virt-exportserver-bin",
+    srcs = [":virt-exportserver"],
+    package_dir = "/usr/bin",
+)
+
+load("@rules_oci//oci:defs.bzl", "oci_image")
+
+oci_image(
     name = "version-container",
-    directory = "/",
-    files = [
-        "//:get-version",
-    ],
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
+        "//conditions:default": "@go_image_base",
+    }),
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            ":passwd-tar",
             "//rpm:exportserverbase_aarch64",
+            ":passwd-tar",
+            ":get-version",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             ":passwd-tar",
             "//rpm:exportserverbase_s390x",
         ],
         "//conditions:default": [
-            ":passwd-tar",
             "//rpm:exportserverbase_x86_64",
+            ":passwd-tar",
+            ":get-version",
         ],
     }),
 )
 
-container_image(
+oci_image(
     name = "virt-exportserver-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = ":version-container",
-    directory = "/usr/bin/",
     entrypoint = ["/usr/bin/virt-exportserver"],
-    files = [":virt-exportserver"],
+    tars = [
+        ":virt-exportserver-bin",
+    ],
     user = "1001",
     visibility = ["//visibility:public"],
 )
