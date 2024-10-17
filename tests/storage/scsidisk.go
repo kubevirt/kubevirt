@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libnode"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -83,7 +83,7 @@ func CreateSCSIDisk(nodeName string, opts []string) (address string, device stri
 func RemoveSCSIDisk(nodeName, address string) {
 	By("Removing scsi disk")
 	args := []string{"/usr/bin/echo", "1", ">", fmt.Sprintf("/proc/1/root/sys/class/scsi_device/%s/device/delete", address)}
-	_, err := tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	_, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 
 	args = []string{"/usr/sbin/modprobe", "-r", "scsi_debug"}
@@ -93,13 +93,13 @@ func RemoveSCSIDisk(nodeName, address string) {
 
 func FixErrorDevice(nodeName string) {
 	args := []string{"/usr/bin/bash", "-c", "echo 0 > /proc/1/root/sys/bus/pseudo/drivers/scsi_debug/opts"}
-	stdout, err := tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), fmt.Sprintf("Failed to fix faulty disk, %s", stdout))
 
 	args = []string{"/usr/bin/cat", "/proc/1/root/sys/bus/pseudo/drivers/scsi_debug/opts"}
 
 	By("Checking opts of scsi_debug")
-	stdout, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	stdout, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to fix faulty disk")
 	ExpectWithOffset(1, strings.Contains(stdout, "0x0")).To(BeTrue(), fmt.Sprintf("Failed to fix faulty disk, opts don't contains 0x0, opts: %s", stdout))
 	ExpectWithOffset(1, !strings.Contains(stdout, "0x02")).To(BeTrue(), fmt.Sprintf("Failed to fix faulty disk, opts contains 0x02, opts: %s", stdout))
@@ -180,5 +180,5 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 
 func virtChrootExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
 	args = append([]string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--"}, args...)
-	return tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	return libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 }
