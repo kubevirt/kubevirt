@@ -51,10 +51,6 @@ oci_image(
 
 oci_image(
     name = "libguestfs-tools-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
     base = ":version-container",
     entrypoint = ["/entrypoint.sh"],
     visibility = ["//visibility:public"],
