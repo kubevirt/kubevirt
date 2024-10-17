@@ -2159,7 +2159,7 @@ Version: 1.2.3`)
 						Migration: &kubevirtcorev1.InterfaceBindingMigration{
 							Method: kubevirtcorev1.LinkRefresh,
 						},
-						ComputeResourceOverhead: &corev1.ResourceRequirements{
+						ComputeResourceOverhead: &kubevirtcorev1.ResourceRequirementsWithoutClaims{
 							Requests: corev1.ResourceList{
 								corev1.ResourceMemory: resource.MustParse("500Mi"),
 							},

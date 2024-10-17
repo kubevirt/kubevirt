@@ -340,8 +340,12 @@ type PersistentVolumeClaimInfo struct {
 
 	// Percentage of filesystem's size to be reserved when resizing the PVC
 	// +optional
-	FilesystemOverhead *cdiv1.Percent `json:"filesystemOverhead,omitempty"`
+	FilesystemOverhead *Percent `json:"filesystemOverhead,omitempty"`
 }
+
+// Percent is a string that can only be a value between [0,1)
+// +kubebuilder:validation:Pattern=`^(0(?:\.\d{1,3})?|1)$`
+type Percent string
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
 type VolumeStatus struct {
@@ -464,6 +468,11 @@ func (v *VirtualMachineInstance) IsMigratable() bool {
 	return false
 }
 
+func (v *VirtualMachineInstance) IsBlockMigration() bool {
+	return v.Status.MigrationMethod == BlockMigration ||
+		len(v.Status.MigratedVolumes) > 0
+}
+
 func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
@@ -568,6 +577,9 @@ const (
 
 	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
 	VirtualMachineInstanceDataVolumesReady VirtualMachineInstanceConditionType = "DataVolumesReady"
+
+	// Indicates whether the VMI is live migratable
+	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
 )
 
 // These are valid reasons for VMI conditions.
@@ -596,6 +608,10 @@ const (
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and not running
 	VirtualMachineInstanceReasonAllDVsReady = "AllDVsReady"
+	// Indicates a generic reason that the VMI isn't migratable and more details are spiecified in the condition message.
+	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
+	// Reason means that the volume update change was cancelled
+	VirtualMachineInstanceReasonVolumesChangeCancellation = "VolumesChangeCancellation"
 )
 
 const (
@@ -1525,6 +1541,7 @@ const (
 type VirtualMachineSpec struct {
 	// Running controls whether the associatied VirtualMachineInstance is created or not
 	// Mutually exclusive with RunStrategy
+	// Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
 	Running *bool `json:"running,omitempty" optional:"true"`
 
 	// Running state indicates the requested running state of the VirtualMachineInstance
@@ -1668,6 +1685,22 @@ type VirtualMachineStatus struct {
 	// RunStrategy tracks the last recorded RunStrategy used by the VM.
 	// This is needed to correctly process the next strategy (for now only the RerunOnFailure)
 	RunStrategy VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
+
+	// VolumeUpdateState contains the information about the volumes set
+	// updates related to the volumeUpdateStrategy
+	VolumeUpdateState *VolumeUpdateState `json:"volumeUpdateState,omitempty" optional:"true"`
+}
+
+type VolumeUpdateState struct {
+	// VolumeMigrationState tracks the information related to the volume migration
+	VolumeMigrationState *VolumeMigrationState `json:"volumeMigrationState,omitempty" optional:"true"`
+}
+
+type VolumeMigrationState struct {
+	// MigratedVolumes lists the source and destination volumes during the volume migration
+	// +listType=atomic
+	// +optional
+	MigratedVolumes []StorageMigratedVolumeInfo `json:"migratedVolumes,omitempty"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1726,6 +1759,9 @@ const (
 
 	// VirtualMachineRestartRequired is added when changes made to the VM can't be live-propagated to the VMI
 	VirtualMachineRestartRequired VirtualMachineConditionType = "RestartRequired"
+
+	// VirtualMachineManualRecoveryRequired is added when the VM spec needs to be manually recovered by the user
+	VirtualMachineManualRecoveryRequired VirtualMachineConditionType = "ManualRecoveryRequired"
 )
 
 type HostDiskType string
@@ -2492,6 +2528,16 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	// +kubebuilder:validation:Enum=Stage;LiveUpdate
 	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
+
+	// CommonInstancetypesDeployment controls the deployment of common-instancetypes resources
+	// +nullable
+	CommonInstancetypesDeployment *CommonInstancetypesDeployment `json:"commonInstancetypesDeployment,omitempty"`
+}
+
+type CommonInstancetypesDeployment struct {
+	// Enabled controls the deployment of common-instancetypes resources, defaults to True.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 type VMRolloutStrategy string
@@ -2544,8 +2590,8 @@ const (
 
 // SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.
 type SupportContainerResources struct {
-	Type      SupportContainerType       `json:"type"`
-	Resources k8sv1.ResourceRequirements `json:"resources"`
+	Type      SupportContainerType              `json:"type"`
+	Resources ResourceRequirementsWithoutClaims `json:"resources"`
 }
 
 type TLSProtocolVersion string
@@ -2631,7 +2677,7 @@ type MigrationConfiguration struct {
 	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
 	// CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
 	// If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-	// the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+	// the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
 	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
@@ -2824,7 +2870,7 @@ type InterfaceBindingPlugin struct {
 	// version: 1alphav1
 	NetworkAttachmentDefinition string `json:"networkAttachmentDefinition,omitempty"`
 	// DomainAttachmentType is a standard domain network attachment method kubevirt supports.
-	// Supported values: "tap".
+	// Supported values: "tap", "managedTap" (since v1.4).
 	// The standard domain attachment can be used instead or in addition to the sidecarImage.
 	// version: 1alphav1
 	DomainAttachmentType DomainAttachmentType `json:"domainAttachmentType,omitempty"`
@@ -2840,7 +2886,22 @@ type InterfaceBindingPlugin struct {
 	// ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding.
 	// version: v1alphav1
 	// +optional
-	ComputeResourceOverhead *k8sv1.ResourceRequirements `json:"computeResourceOverhead,omitempty"`
+	ComputeResourceOverhead *ResourceRequirementsWithoutClaims `json:"computeResourceOverhead,omitempty"`
+}
+
+// ResourceRequirementsWithoutClaims describes the compute resource requirements.
+// This struct was taken from the k8s.ResourceRequirements and cleaned up the `Claims` field.
+type ResourceRequirementsWithoutClaims struct {
+	// Limits describes the maximum amount of compute resources allowed.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	Limits k8sv1.ResourceList `json:"limits,omitempty" protobuf:"bytes,1,rep,name=limits,casttype=ResourceList,castkey=ResourceName"`
+	// Requests describes the minimum amount of compute resources required.
+	// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+	// otherwise to an implementation-defined value. Requests cannot exceed Limits.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	Requests k8sv1.ResourceList `json:"requests,omitempty" protobuf:"bytes,2,rep,name=requests,casttype=ResourceList,castkey=ResourceName"`
 }
 
 type DomainAttachmentType string
@@ -2849,6 +2910,9 @@ const (
 	// Tap domain attachment type is a generic way to bind ethernet connection into guests using tap device
 	// https://libvirt.org/formatdomain.html#generic-ethernet-connection.
 	Tap DomainAttachmentType = "tap"
+	// ManagedTap domain attachment type is binding an ethernet connection into guests using a tap device.
+	// The tap device is created (unless already present) on the network pod interface with a Linux bridge.
+	ManagedTap DomainAttachmentType = "managedTap"
 )
 
 type NetworkBindingDownwardAPIType string
@@ -2992,13 +3056,6 @@ func (p PreferenceMatcher) GetRevisionName() string {
 	return p.RevisionName
 }
 
-type LiveUpdateAffinity struct{}
-
-type LiveUpdateCPU struct {
-	// The maximum amount of sockets that can be hot-plugged to the Virtual Machine
-	MaxSockets *uint32 `json:"maxSockets,omitempty" optional:"true"`
-}
-
 type LiveUpdateConfiguration struct {
 	// MaxHotplugRatio is the ratio used to define the max amount
 	// of a hotplug resource that can be made available to a VM
@@ -3007,16 +3064,11 @@ type LiveUpdateConfiguration struct {
 	// defined and MaxHotplugRatio is 2 then MaxGuest = 1Gi
 	// defaults to 4
 	MaxHotplugRatio uint32 `json:"maxHotplugRatio,omitempty"`
-	// MaxCpuSockets holds the maximum amount of sockets that can be hotplugged
+	// MaxCpuSockets provides a MaxSockets value for VMs that do not provide their own.
+	// For VMs with more sockets than maximum the MaxSockets will be set to equal number of sockets.
 	MaxCpuSockets *uint32 `json:"maxCpuSockets,omitempty"`
 	// MaxGuest defines the maximum amount memory that can be allocated
 	// to the guest using hotplug.
-	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
-}
-
-type LiveUpdateMemory struct {
-	// MaxGuest defines the maximum amount memory that can be allocated for the VM.
-	// +optional
 	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
 }
 
