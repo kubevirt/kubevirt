@@ -174,17 +174,19 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
-container_image(
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_bundle",
+    "container_push",
+)
+load("@rules_oci//oci:defs.bzl", "oci_image")
+
+oci_image(
     name = "passwd-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64//image",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x//image",
-        "//conditions:default": "@go_image_base//image",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
+        "//conditions:default": "@go_image_base",
     }),
     tars = [":passwd-tar"],
     user = "1001",
