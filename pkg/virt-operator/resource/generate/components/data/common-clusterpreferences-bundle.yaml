@@ -12,7 +12,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: alpine
 spec:
   annotations:
@@ -40,7 +40,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.7
 spec:
   annotations:
@@ -68,7 +68,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.7.desktop
 spec:
   annotations:
@@ -98,7 +98,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.stream10
 spec:
   annotations:
@@ -127,7 +127,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.stream10.desktop
 spec:
   annotations:
@@ -160,7 +160,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.stream8
 spec:
   annotations:
@@ -188,7 +188,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.stream8.desktop
 spec:
   annotations:
@@ -219,13 +219,13 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.stream8.dpdk
 spec:
   annotations:
     vm.kubevirt.io/os: linux
   cpu:
-    preferredCPUTopology: preferSpread
+    preferredCPUTopology: spread
     spreadOptions:
       across: SocketsCoresThreads
       ratio: 4
@@ -252,7 +252,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.stream9
 spec:
   annotations:
@@ -281,7 +281,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.stream9.desktop
 spec:
   annotations:
@@ -313,13 +313,13 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: centos.stream9.dpdk
 spec:
   annotations:
     vm.kubevirt.io/os: linux
   cpu:
-    preferredCPUTopology: preferSpread
+    preferredCPUTopology: spread
     spreadOptions:
       across: SocketsCoresThreads
       ratio: 4
@@ -348,7 +348,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: cirros
 spec:
   annotations:
@@ -376,7 +376,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: fedora
 spec:
   annotations:
@@ -389,8 +389,8 @@ spec:
   features:
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   requirements:
     cpu:
       guest: 1
@@ -411,7 +411,7 @@ metadata:
     instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: fedora.arm64
 spec:
   annotations:
@@ -440,7 +440,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: opensuse.leap
 spec:
   annotations:
@@ -468,7 +468,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: opensuse.tumbleweed
 spec:
   annotations:
@@ -497,7 +497,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.10
 spec:
   annotations:
@@ -507,9 +507,11 @@ spec:
     preferredDiskDedicatedIoThread: true
     preferredInterfaceModel: virtio
     preferredRng: {}
+  features:
+    preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: false
+    preferredEfi:
+      secureBoot: true
   requirements:
     cpu:
       guest: 1
@@ -530,7 +532,7 @@ metadata:
     instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.10.arm64
 spec:
   annotations:
@@ -559,7 +561,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.7
 spec:
   annotations:
@@ -586,7 +588,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.7.desktop
 spec:
   annotations:
@@ -616,7 +618,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.8
 spec:
   annotations:
@@ -643,7 +645,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.8.desktop
 spec:
   annotations:
@@ -673,13 +675,13 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.8.dpdk
 spec:
   annotations:
     vm.kubevirt.io/os: linux
   cpu:
-    preferredCPUTopology: preferSpread
+    preferredCPUTopology: spread
     spreadOptions:
       across: SocketsCoresThreads
       ratio: 4
@@ -707,7 +709,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.9
 spec:
   annotations:
@@ -720,8 +722,8 @@ spec:
   features:
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   requirements:
     cpu:
       guest: 1
@@ -742,7 +744,7 @@ metadata:
     instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.9.arm64
 spec:
   annotations:
@@ -772,7 +774,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.9.desktop
 spec:
   annotations:
@@ -788,8 +790,8 @@ spec:
   features:
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   requirements:
     cpu:
       guest: 1
@@ -810,13 +812,13 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.9.dpdk
 spec:
   annotations:
     vm.kubevirt.io/os: linux
   cpu:
-    preferredCPUTopology: preferSpread
+    preferredCPUTopology: spread
     spreadOptions:
       across: SocketsCoresThreads
       ratio: 4
@@ -829,8 +831,8 @@ spec:
   features:
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   requirements:
     cpu:
       guest: 2
@@ -842,7 +844,7 @@ kind: VirtualMachineClusterPreference
 metadata:
   annotations:
     iconClass: icon-rhel
-    openshift.io/display-name: Red Hat Enterprise Linux 9 (amd64)
+    openshift.io/display-name: Red Hat Enterprise Linux 9 Realtime (amd64)
     openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
     openshift.io/provider-display-name: KubeVirt
     openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
@@ -851,13 +853,13 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: rhel.9.realtime
 spec:
   annotations:
     vm.kubevirt.io/os: linux
   cpu:
-    preferredCPUTopology: preferSpread
+    preferredCPUTopology: spread
     spreadOptions:
       across: SocketsCoresThreads
   devices:
@@ -872,8 +874,8 @@ spec:
   features:
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   requirements:
     cpu:
       guest: 1
@@ -893,7 +895,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: sles
 spec:
   annotations:
@@ -921,7 +923,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: ubuntu
 spec:
   annotations:
@@ -949,7 +951,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.10
 spec:
   annotations:
@@ -966,7 +968,7 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
@@ -991,8 +993,8 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1013,7 +1015,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.10.virtio
 spec:
   annotations:
@@ -1030,7 +1032,7 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
@@ -1057,8 +1059,8 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1079,7 +1081,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.11
 spec:
   annotations:
@@ -1096,12 +1098,13 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
-    preferredTPM: {}
+    preferredTPM:
+      persistent: true
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1122,8 +1125,9 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      persistent: true
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1144,7 +1148,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.11.virtio
 spec:
   annotations:
@@ -1161,14 +1165,15 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
-    preferredTPM: {}
+    preferredTPM:
+      persistent: true
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1189,146 +1194,15 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      persistent: true
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
       guest: 2
     memory:
       guest: 4Gi
----
-apiVersion: instancetype.kubevirt.io/v1beta1
-kind: VirtualMachineClusterPreference
-metadata:
-  annotations:
-    iconClass: icon-windows
-    openshift.io/display-name: Microsoft Windows Server 2012
-    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
-    openshift.io/provider-display-name: KubeVirt
-    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
-    tags: hidden,kubevirt,windows
-  labels:
-    instancetype.kubevirt.io/deprecated: "true"
-    instancetype.kubevirt.io/os-type: windows
-    instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
-  name: windows.2k12
-spec:
-  annotations:
-    vm.kubevirt.io/os: windows
-  clock:
-    preferredClockOffset:
-      utc: {}
-    preferredTimer:
-      hpet:
-        present: false
-      hyperv: {}
-      pit:
-        tickPolicy: delay
-      rtc:
-        tickPolicy: catchup
-  cpu:
-    preferredCPUTopology: preferSockets
-  devices:
-    preferredAutoattachInputDevice: true
-    preferredDiskBus: sata
-    preferredInterfaceModel: e1000e
-  features:
-    preferredAcpi: {}
-    preferredApic: {}
-    preferredHyperv:
-      frequencies: {}
-      ipi: {}
-      reenlightenment: {}
-      relaxed: {}
-      reset: {}
-      runtime: {}
-      spinlocks:
-        spinlocks: 8191
-      synic: {}
-      synictimer:
-        direct: {}
-      tlbflush: {}
-      vapic: {}
-      vpindex: {}
-    preferredSmm: {}
-  firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
-  preferredTerminationGracePeriodSeconds: 3600
-  requirements:
-    cpu:
-      guest: 1
-    memory:
-      guest: 512Mi
----
-apiVersion: instancetype.kubevirt.io/v1beta1
-kind: VirtualMachineClusterPreference
-metadata:
-  annotations:
-    iconClass: icon-windows
-    openshift.io/display-name: Microsoft Windows Server 2012 (virtio)
-    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
-    openshift.io/provider-display-name: KubeVirt
-    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
-    tags: hidden,kubevirt,windows
-  labels:
-    instancetype.kubevirt.io/deprecated: "true"
-    instancetype.kubevirt.io/os-type: windows
-    instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
-  name: windows.2k12.virtio
-spec:
-  annotations:
-    vm.kubevirt.io/os: windows
-  clock:
-    preferredClockOffset:
-      utc: {}
-    preferredTimer:
-      hpet:
-        present: false
-      hyperv: {}
-      pit:
-        tickPolicy: delay
-      rtc:
-        tickPolicy: catchup
-  cpu:
-    preferredCPUTopology: preferSockets
-  devices:
-    preferredAutoattachInputDevice: true
-    preferredDiskBus: virtio
-    preferredInputBus: virtio
-    preferredInputType: tablet
-    preferredInterfaceModel: virtio
-  features:
-    preferredAcpi: {}
-    preferredApic: {}
-    preferredHyperv:
-      frequencies: {}
-      ipi: {}
-      reenlightenment: {}
-      relaxed: {}
-      reset: {}
-      runtime: {}
-      spinlocks:
-        spinlocks: 8191
-      synic: {}
-      synictimer:
-        direct: {}
-      tlbflush: {}
-      vapic: {}
-      vpindex: {}
-    preferredSmm: {}
-  firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
-  preferredTerminationGracePeriodSeconds: 3600
-  requirements:
-    cpu:
-      guest: 1
-    memory:
-      guest: 512Mi
 ---
 apiVersion: instancetype.kubevirt.io/v1beta1
 kind: VirtualMachineClusterPreference
@@ -1343,7 +1217,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.2k16
 spec:
   annotations:
@@ -1360,7 +1234,7 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
@@ -1385,8 +1259,8 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1407,7 +1281,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.2k16.virtio
 spec:
   annotations:
@@ -1424,7 +1298,7 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
@@ -1451,8 +1325,8 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1473,7 +1347,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.2k19
 spec:
   annotations:
@@ -1490,7 +1364,7 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
@@ -1515,8 +1389,8 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1537,7 +1411,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.2k19.virtio
 spec:
   annotations:
@@ -1554,7 +1428,7 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
@@ -1581,8 +1455,8 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1603,7 +1477,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.2k22
 spec:
   annotations:
@@ -1620,12 +1494,13 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
-    preferredTPM: {}
+    preferredTPM:
+      persistent: true
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1646,8 +1521,9 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      persistent: true
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1668,7 +1544,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.1.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
   name: windows.2k22.virtio
 spec:
   annotations:
@@ -1685,14 +1561,15 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
-    preferredTPM: {}
+    preferredTPM:
+      persistent: true
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1713,8 +1590,145 @@ spec:
       vpindex: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      persistent: true
+      secureBoot: true
+  preferredTerminationGracePeriodSeconds: 3600
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 2Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-windows
+    openshift.io/display-name: Microsoft Windows Server 2025
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,windows
+  labels:
+    instancetype.kubevirt.io/os-type: windows
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
+  name: windows.2k25
+spec:
+  annotations:
+    vm.kubevirt.io/os: windows
+  clock:
+    preferredClockOffset:
+      utc: {}
+    preferredTimer:
+      hpet:
+        present: false
+      hyperv: {}
+      pit:
+        tickPolicy: delay
+      rtc:
+        tickPolicy: catchup
+  cpu:
+    preferredCPUTopology: sockets
+  devices:
+    preferredAutoattachInputDevice: true
+    preferredDiskBus: sata
+    preferredInterfaceModel: e1000e
+    preferredTPM:
+      persistent: true
+  features:
+    preferredAcpi: {}
+    preferredApic: {}
+    preferredHyperv:
+      frequencies: {}
+      ipi: {}
+      reenlightenment: {}
+      relaxed: {}
+      reset: {}
+      runtime: {}
+      spinlocks:
+        spinlocks: 8191
+      synic: {}
+      synictimer:
+        direct: {}
+      tlbflush: {}
+      vapic: {}
+      vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredEfi:
+      persistent: true
+      secureBoot: true
+  preferredTerminationGracePeriodSeconds: 3600
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 2Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-windows
+    openshift.io/display-name: Microsoft Windows Server 2025 (virtio)
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,windows
+  labels:
+    instancetype.kubevirt.io/os-type: windows
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.2.0
+  name: windows.2k25.virtio
+spec:
+  annotations:
+    vm.kubevirt.io/os: windows
+  clock:
+    preferredClockOffset:
+      utc: {}
+    preferredTimer:
+      hpet:
+        present: false
+      hyperv: {}
+      pit:
+        tickPolicy: delay
+      rtc:
+        tickPolicy: catchup
+  cpu:
+    preferredCPUTopology: sockets
+  devices:
+    preferredAutoattachInputDevice: true
+    preferredDiskBus: virtio
+    preferredInputBus: virtio
+    preferredInputType: tablet
+    preferredInterfaceModel: virtio
+    preferredTPM:
+      persistent: true
+  features:
+    preferredAcpi: {}
+    preferredApic: {}
+    preferredHyperv:
+      frequencies: {}
+      ipi: {}
+      reenlightenment: {}
+      relaxed: {}
+      reset: {}
+      runtime: {}
+      spinlocks:
+        spinlocks: 8191
+      synic: {}
+      synictimer:
+        direct: {}
+      tlbflush: {}
+      vapic: {}
+      vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredEfi:
+      persistent: true
+      secureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
