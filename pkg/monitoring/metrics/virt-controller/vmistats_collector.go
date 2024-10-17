@@ -54,6 +54,7 @@ var (
 		Metrics: []operatormetrics.Metric{
 			vmiInfo,
 			vmiEvictionBlocker,
+			vmiAddresses,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -84,6 +85,16 @@ var (
 		},
 		[]string{"node", "namespace", "name"},
 	)
+
+	vmiAddresses = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_status_addresses",
+			Help: "The addresses of a VirtualMachineInstance. This metric provides the address of an available network " +
+				"interface associated with the VMI in the 'address' label, and about the type of address, such as " +
+				"internal IP, in the 'type' label.",
+		},
+		[]string{"node", "namespace", "name", "address", "type"},
+	)
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -103,39 +114,35 @@ func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
 }
 
 func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
-	phaseResults := collectVMIInfo(vmis)
-	evictionBlockerResults := getEvictionBlocker(vmis)
-
-	results := make([]operatormetrics.CollectorResult, 0, len(phaseResults)+len(evictionBlockerResults))
-	results = append(results, phaseResults...)
-	results = append(results, evictionBlockerResults...)
-	return results
-}
-
-func collectVMIInfo(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
-	var cr []operatormetrics.CollectorResult
+	var crs []operatormetrics.CollectorResult
 
 	for _, vmi := range vmis {
-		os, workload, flavor := getSystemInfoFromAnnotations(vmi.Annotations)
-		instanceType := getVMIInstancetype(vmi)
-		preference := getVMIPreference(vmi)
-		kernelRelease, guestOSMachineArch, name, versionID := getGuestOSInfo(vmi)
-		guestOSMachineType := getVMIMachine(vmi)
-
-		cr = append(cr, operatormetrics.CollectorResult{
-			Metric: vmiInfo,
-			Labels: []string{
-				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				getVMIPhase(vmi), os, workload, flavor, instanceType, preference,
-				kernelRelease, guestOSMachineType, guestOSMachineArch, name, versionID,
-				strconv.FormatBool(isVMEvictable(vmi)),
-				strconv.FormatBool(isVMIOutdated(vmi)),
-			},
-			Value: 1.0,
-		})
+		crs = append(crs, collectVMIInfo(vmi))
+		crs = append(crs, getEvictionBlocker(vmi))
+		crs = append(crs, collectVMIInterfacesInfo(vmi)...)
 	}
 
-	return cr
+	return crs
+}
+
+func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.CollectorResult {
+	os, workload, flavor := getSystemInfoFromAnnotations(vmi.Annotations)
+	instanceType := getVMIInstancetype(vmi)
+	preference := getVMIPreference(vmi)
+	kernelRelease, guestOSMachineArch, name, versionID := getGuestOSInfo(vmi)
+	guestOSMachineType := getVMIMachine(vmi)
+
+	return operatormetrics.CollectorResult{
+		Metric: vmiInfo,
+		Labels: []string{
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+			getVMIPhase(vmi), os, workload, flavor, instanceType, preference,
+			kernelRelease, guestOSMachineType, guestOSMachineArch, name, versionID,
+			strconv.FormatBool(isVMEvictable(vmi)),
+			strconv.FormatBool(isVMIOutdated(vmi)),
+		},
+		Value: 1.0,
+	}
 }
 
 func getVMIPhase(vmi *k6tv1.VirtualMachineInstance) string {
@@ -238,23 +245,17 @@ func fetchResourceName(name string, indexer cache.Indexer) string {
 	return other
 }
 
-func getEvictionBlocker(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
-	var cr []operatormetrics.CollectorResult
-
-	for _, vmi := range vmis {
-		nonEvictable := 1.0
-		if isVMEvictable(vmi) {
-			nonEvictable = 0.0
-		}
-
-		cr = append(cr, operatormetrics.CollectorResult{
-			Metric: vmiEvictionBlocker,
-			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name},
-			Value:  nonEvictable,
-		})
+func getEvictionBlocker(vmi *k6tv1.VirtualMachineInstance) operatormetrics.CollectorResult {
+	nonEvictable := 1.0
+	if isVMEvictable(vmi) {
+		nonEvictable = 0.0
 	}
 
-	return cr
+	return operatormetrics.CollectorResult{
+		Metric: vmiEvictionBlocker,
+		Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name},
+		Value:  nonEvictable,
+	}
 }
 
 func isVMEvictable(vmi *k6tv1.VirtualMachineInstance) bool {
@@ -275,4 +276,25 @@ func isVMEvictable(vmi *k6tv1.VirtualMachineInstance) bool {
 func isVMIOutdated(vmi *k6tv1.VirtualMachineInstance) bool {
 	_, hasOutdatedLabel := vmi.Labels[k6tv1.OutdatedLauncherImageLabel]
 	return hasOutdatedLabel
+}
+
+func collectVMIInterfacesInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var crs []operatormetrics.CollectorResult
+
+	for _, iface := range vmi.Status.Interfaces {
+		crs = append(crs, collectVMIInterfaceInfo(vmi, iface))
+	}
+
+	return crs
+}
+
+func collectVMIInterfaceInfo(vmi *k6tv1.VirtualMachineInstance, iface k6tv1.VirtualMachineInstanceNetworkInterface) operatormetrics.CollectorResult {
+	return operatormetrics.CollectorResult{
+		Metric: vmiAddresses,
+		Labels: []string{
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+			iface.IP, "InternalIP",
+		},
+		Value: 1.0,
+	}
 }

@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +44,7 @@ var _ = Describe("VMI Stats Collector", func() {
 		setupTestCollector()
 
 		It("should handle no VMIs", func() {
-			cr := collectVMIInfo([]*k6tv1.VirtualMachineInstance{})
+			cr := reportVmisStats([]*k6tv1.VirtualMachineInstance{})
 			Expect(cr).To(BeEmpty())
 		})
 
@@ -124,7 +125,11 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			crs := collectVMIInfo(vmis)
+			var crs []operatormetrics.CollectorResult
+			for _, vmi := range vmis {
+				crs = append(crs, collectVMIInfo(vmi))
+			}
+
 			Expect(crs).To(HaveLen(5))
 
 			for i, cr := range crs {
@@ -156,7 +161,10 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			crs := collectVMIInfo(vmis)
+			var crs []operatormetrics.CollectorResult
+			for _, vmi := range vmis {
+				crs = append(crs, collectVMIInfo(vmi))
+			}
 			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
 			cr := crs[0]
@@ -189,7 +197,10 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			crs := collectVMIInfo(vmis)
+			var crs []operatormetrics.CollectorResult
+			for _, vmi := range vmis {
+				crs = append(crs, collectVMIInfo(vmi))
+			}
 			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
 			cr := crs[0]
@@ -217,12 +228,9 @@ var _ = Describe("VMI Stats Collector", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
 
-			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
+			vmi := createVMIForEviction(evictionPolicy, migrateCondStatus)
 
-			evictionBlockerResults := getEvictionBlocker(vmis)
-			Expect(evictionBlockerResults).To(HaveLen(1), "Expected 1 metric")
-
-			evictionBlockerResultMetric := evictionBlockerResults[0]
+			evictionBlockerResultMetric := getEvictionBlocker(vmi)
 			Expect(evictionBlockerResultMetric).ToNot(BeNil())
 			Expect(evictionBlockerResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_non_evictable"))
 			Expect(evictionBlockerResultMetric.Value).To(BeEquivalentTo(expectedVal))
@@ -235,24 +243,61 @@ var _ = Describe("VMI Stats Collector", func() {
 			Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
 		)
 	})
+
+	Context("VMI Interfaces info", func() {
+		DescribeTable("kubevirt_vmi_status_addresses metrics", func(ifaceValues [][]string) {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvmi",
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					NodeName:   "testNode",
+					Interfaces: interfacesFor(ifaceValues),
+				},
+			}
+
+			metrics := collectVMIInterfacesInfo(vmi)
+			Expect(metrics).To(HaveLen(len(ifaceValues)))
+
+			for i, labelValues := range ifaceValues {
+				values := append([]string{"testNode", "test-ns", "testvmi"}, labelValues...)
+				Expect(metrics[i].Labels).To(Equal(values))
+			}
+		},
+			Entry("no interfaces", [][]string{}),
+			Entry("one interface", [][]string{{"192.168.1.2", "InternalIP"}}),
+			Entry("two interfaces", [][]string{
+				{"170.170.170.170", "InternalIP"},
+				{"180.180.180.180", "InternalIP"},
+			}),
+		)
+	})
 })
 
-func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) []*k6tv1.VirtualMachineInstance {
+func interfacesFor(values [][]string) []k6tv1.VirtualMachineInstanceNetworkInterface {
+	interfaces := make([]k6tv1.VirtualMachineInstanceNetworkInterface, len(values))
+	for i, v := range values {
+		interfaces[i] = k6tv1.VirtualMachineInstanceNetworkInterface{
+			IP: v[0],
+		}
+	}
+	return interfaces
+}
 
-	vmis := []*k6tv1.VirtualMachineInstance{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "test-ns",
-				Name:      "testvmi",
-			},
-			Status: k6tv1.VirtualMachineInstanceStatus{
-				NodeName: "testNode",
-			},
+func createVMIForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) *k6tv1.VirtualMachineInstance {
+	vmi := &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "testvmi",
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{
+			NodeName: "testNode",
 		},
 	}
 
 	if migratableCondStatus != k8sv1.ConditionUnknown {
-		vmis[0].Status.Conditions = []k6tv1.VirtualMachineInstanceCondition{
+		vmi.Status.Conditions = []k6tv1.VirtualMachineInstanceCondition{
 			{
 				Type:   k6tv1.VirtualMachineInstanceIsMigratable,
 				Status: migratableCondStatus,
@@ -260,9 +305,9 @@ func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableC
 		}
 	}
 
-	vmis[0].Spec.EvictionStrategy = evictionStrategy
+	vmi.Spec.EvictionStrategy = evictionStrategy
 
-	return vmis
+	return vmi
 }
 
 func setupTestCollector() {
