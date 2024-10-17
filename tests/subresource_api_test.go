@@ -44,11 +44,9 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	instancetypebuilder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
-	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -240,122 +238,6 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				return string(spec)
 				// The first item in the SubresourceGroupVersions array is the preferred version
 			}, 60*time.Second, 1*time.Second).Should(ContainSubstring("subresources.kubevirt.io/" + v1.SubresourceGroupVersions[0].Version))
-		})
-	})
-
-	Describe("VirtualMachineInstance subresource", func() {
-		Context("Freeze Unfreeze should fail", func() {
-			var vm *v1.VirtualMachine
-
-			BeforeEach(func() {
-				var err error
-				vmi := libvmifact.NewCirros()
-				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					if errors.IsNotFound(err) {
-						return false
-					}
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.Phase == v1.Running
-				}, 180*time.Second, time.Second).Should(BeTrue())
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(180),
-				)
-			})
-
-			It("[test_id:7476]Freeze without guest agent", func() {
-				expectedErr := "Internal error occurred"
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(context.Background(), vm.Name, 0)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(expectedErr))
-			})
-
-			It("[test_id:7477]Unfreeze without guest agent", func() {
-				expectedErr := "Internal error occurred"
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Unfreeze(context.Background(), vm.Name)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(expectedErr))
-			})
-		})
-
-		Context("Freeze Unfreeze commands", func() {
-			var vm *v1.VirtualMachine
-
-			BeforeEach(func() {
-				var err error
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-				vmi.Namespace = testsuite.GetTestNamespace(vmi)
-				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					if errors.IsNotFound(err) {
-						return false
-					}
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.Phase == v1.Running
-				}, 180*time.Second, time.Second).Should(BeTrue())
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(300),
-				)
-				Eventually(ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-			})
-
-			waitVMIFSFreezeStatus := func(expectedStatus string) {
-				Eventually(func() bool {
-					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return updatedVMI.Status.FSFreezeStatus == expectedStatus
-				}, 30*time.Second, 2*time.Second).Should(BeTrue())
-			}
-
-			It("[test_id:7479]Freeze Unfreeze should succeed", func() {
-				By("Freezing VMI")
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(context.Background(), vm.Name, 0)
-				Expect(err).ToNot(HaveOccurred())
-
-				waitVMIFSFreezeStatus("frozen")
-
-				By("Unfreezing VMI")
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Unfreeze(context.Background(), vm.Name)
-				Expect(err).ToNot(HaveOccurred())
-
-				waitVMIFSFreezeStatus("")
-			})
-
-			It("[test_id:7480]Multi Freeze Unfreeze calls should succeed", func() {
-				for i := 0; i < 5; i++ {
-					By("Freezing VMI")
-					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(context.Background(), vm.Name, 0)
-					Expect(err).ToNot(HaveOccurred())
-
-					waitVMIFSFreezeStatus("frozen")
-				}
-
-				By("Unfreezing VMI")
-				for i := 0; i < 5; i++ {
-					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Unfreeze(context.Background(), vm.Name)
-					Expect(err).ToNot(HaveOccurred())
-
-					waitVMIFSFreezeStatus("")
-				}
-			})
-
-			It("Freeze without Unfreeze should trigger unfreeze after timeout", func() {
-				By("Freezing VMI")
-				unfreezeTimeout := 10 * time.Second
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(context.Background(), vm.Name, unfreezeTimeout)
-				Expect(err).ToNot(HaveOccurred())
-
-				waitVMIFSFreezeStatus("frozen")
-
-				By("Wait Unfreeze VMI to be triggered")
-				waitVMIFSFreezeStatus("")
-			})
 		})
 	})
 

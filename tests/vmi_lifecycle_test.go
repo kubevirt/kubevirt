@@ -62,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -1474,6 +1475,94 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(err).ToNot(HaveOccurred(), "Unmarshal without error")
 				Expect(status.Code).To(Equal(int32(http.StatusNotFound)), "There should not be and VMI")
 			})
+		})
+	})
+
+	Describe("Freeze/Unfreeze a VirtualMachineInstance", func() {
+		It("[test_id:7476][test_id:7477]should fail without guest agent", func() {
+			vmi := libvmifact.NewCirros()
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
+
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(MatchRegexp("Internal error occurred:.*command Freeze failed:.*QEMU guest agent is not connected"))
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unfreeze(context.Background(), vmi.Name)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(MatchRegexp("Internal error occurred:.*command Unfreeze failed:.*QEMU guest agent is not connected"))
+		})
+
+		waitVMIFSFreezeStatus := func(ns, name, expectedStatus string) {
+			Eventually(func() string {
+				vmi, err := kubevirt.Client().VirtualMachineInstance(ns).Get(context.Background(), name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.FSFreezeStatus
+			}, 30*time.Second, 2*time.Second).Should(Equal(expectedStatus))
+		}
+
+		It("[test_id:7479] should succeed", func() {
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			By("Freezing VMI")
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "frozen")
+
+			By("Unfreezing VMI")
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unfreeze(context.Background(), vmi.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "")
+		})
+
+		It("[test_id:7480] should succeed multiple times", func() {
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			By("Freezing VMI")
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
+			Expect(err).ToNot(HaveOccurred())
+
+			for i := 0; i < 5; i++ {
+				By("Freezing VMI")
+				err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "frozen")
+			}
+
+			By("Unfreezing VMI")
+			for i := 0; i < 5; i++ {
+				err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unfreeze(context.Background(), vmi.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "")
+			}
+		})
+
+		It("Freeze without Unfreeze should trigger unfreeze after timeout", func() {
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Freezing VMI")
+			unfreezeTimeout := 10 * time.Second
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, unfreezeTimeout)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "frozen")
+
+			By("Wait Unfreeze VMI to be triggered")
+			waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "")
 		})
 	})
 
