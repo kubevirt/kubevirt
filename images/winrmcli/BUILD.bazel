@@ -6,17 +6,27 @@ load(
 
 gazelle(name = "gazelle")
 
-container_image(
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "winrm-cli-tar",
+    srcs = [
+        "@com_github_masterzen_winrmcli//:winrm-cli",
+        "@com_github_packer_community_winrmcp//:winrmcp",
+    ],
+    package_dir = "/usr/bin",
+)
+
+oci_image(
     name = "winrmcli-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     base = "//images:kubevirt-testing-base",
-    directory = "/usr/bin",
-    files = [
-        "@com_github_masterzen_winrmcli//:winrm-cli",
-        "@com_github_packer_community_winrmcp//:winrmcp",
+    tars = [
+        ":winrm-cli-tar",
     ],
     visibility = ["//visibility:public"],
 )
