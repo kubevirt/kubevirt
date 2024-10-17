@@ -30,7 +30,6 @@ go_library(
         "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
-        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",

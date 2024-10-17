@@ -170,6 +170,8 @@ var _ = Describe("Application", func() {
 			migrationInformer,
 			nodeInformer,
 			pvcInformer,
+			storageClassInformer,
+			storageProfileInformer,
 			pdbInformer,
 			migrationPolicyInformer,
 			resourceQuotaInformer,

@@ -31,10 +31,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -43,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = SIGDescribe("[Serial]Backend Storage", Serial, decorators.RequiresRWXFilesystemStorage, func() {
+var _ = SIGDescribe("[Serial]Backend Storage", Serial, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -77,6 +74,7 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, decorators.RequiresRWXFil
 				break
 			}
 		}
+		Expect(storageClass).NotTo(BeEmpty(), "Failed to find a storage class that only supports filesystem in RWO")
 
 		By("Setting the VM storage class to it")
 		kv := libkubevirt.GetCurrentKv(virtClient)
@@ -89,20 +87,15 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, decorators.RequiresRWXFil
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Expecting the creation of a backend storage PVC with the right storage class")
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), backendstorage.PVCForVMI(vmi), metav1.GetOptions{})
+		pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: "persistent-state-for=" + vmi.Name,
+		})
 		Expect(err).NotTo(HaveOccurred())
+		Expect(pvcs.Items).To(HaveLen(1))
+		pvc := pvcs.Items[0]
 		Expect(pvc.Spec.StorageClassName).NotTo(BeNil())
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 		Expect(pvc.Status.AccessModes).To(HaveLen(1))
 		Expect(pvc.Status.AccessModes[0]).To(Equal(k8sv1.ReadWriteOnce))
-
-		By("Expecting the VMI to be non-migratable")
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		cond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
-		Expect(cond).NotTo(BeNil(), "LiveMigratable condition not found")
-		Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
-		Expect(cond.Reason).To(Equal(v1.VirtualMachineInstanceReasonDisksNotMigratable))
-		Expect(cond.Message).To(ContainSubstring("Backend storage PVC is not RWX"))
 	})
 })
