@@ -34,7 +34,9 @@ import (
 )
 
 var _ = Describe("netstat", func() {
-	var setup testSetup
+	var (
+		setup testSetup
+	)
 
 	BeforeEach(func() {
 		setup = newTestSetup()
@@ -849,7 +851,10 @@ func newTestSetupWithVolatileCache() testSetup {
 }
 
 func newTestSetup() testSetup {
-	var cacheCreator tempCacheCreator
+	var (
+		cacheCreator      tempCacheCreator
+		clusterConfigurer = cConfigStub{dynamicPodInterfaceNamingEnabled: true}
+	)
 	const uid = "123"
 	vmi := &v1.VirtualMachineInstance{}
 	vmi.UID = uid
@@ -858,7 +863,7 @@ func newTestSetup() testSetup {
 	return testSetup{
 		Vmi:           vmi,
 		Domain:        &api.Domain{},
-		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator),
+		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator, &clusterConfigurer),
 		cacheCreator:  &cacheCreator,
 		podIfaceCache: cache.NewPodInterfaceCache(&cacheCreator, uid),
 	}

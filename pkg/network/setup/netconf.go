@@ -48,6 +48,7 @@ type cacheCreator interface {
 
 type clusterConfigurer interface {
 	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+	DynamicPodInterfaceNamingEnabled() bool
 }
 
 type NetConf struct {
@@ -109,6 +110,12 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		ownerID = util.NonRootUID
 	}
 	queuesCapacity := int(converter.NetworkQueuesCapacity(vmi))
+
+	vmiIfacesStatuses := vmi.Status.Interfaces
+	if !c.clusterConfigurer.DynamicPodInterfaceNamingEnabled() {
+		vmiIfacesStatuses = nil
+	}
+
 	netpod := netpod.NewNetPod(
 		networks,
 		vmispec.FilterInterfacesByNetworks(vmi.Spec.Domain.Devices.Interfaces, networks),
@@ -121,7 +128,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		netpod.WithCacheCreator(c.cacheCreator),
 		netpod.WithBindingPlugins(c.clusterConfigurer.GetNetworkBindings()),
 		netpod.WithLogger(log.Log.Object(vmi)),
-		netpod.WithVMIIfaceStatuses(vmi.Status.Interfaces),
+		netpod.WithVMIIfaceStatuses(vmiIfacesStatuses),
 	)
 
 	if err := netpod.Setup(); err != nil {

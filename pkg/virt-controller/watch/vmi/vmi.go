@@ -178,7 +178,7 @@ type annotationsGenerator interface {
 	GenerateFromActivePod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) map[string]string
 }
 
-type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
+type statusUpdater func(clusterConfig *virtconfig.ClusterConfig, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
 
 type Controller struct {
 	templateService         services.TemplateService
@@ -588,7 +588,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 					return err
 				}
 
-				if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
+				if err := c.updateNetworkStatus(c.clusterConfig, vmiCopy, pod); err != nil {
 					log.Log.Errorf("failed to update the interface status: %v", err)
 				}
 
@@ -652,7 +652,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return err
 		}
 
-		if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
+		if err := c.updateNetworkStatus(c.clusterConfig, vmiCopy, pod); err != nil {
 			log.Log.Errorf("failed to update the interface status: %v", err)
 		}
 
