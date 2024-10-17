@@ -224,11 +224,6 @@ oci_image(
 
 oci_image(
     name = "virt-launcher-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = ":version-container",
     entrypoint = ["/usr/bin/virt-launcher"],
     tars = [":setcaps"],

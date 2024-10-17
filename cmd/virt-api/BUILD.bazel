@@ -50,6 +50,7 @@ oci_image(
 
 oci_image(
     name = "virt-api-image",
+    base = ":version-container",
     entrypoint = ["/usr/bin/virt-api"],
     tars = [
         "virt-api-bin",
