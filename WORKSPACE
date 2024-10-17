@@ -110,14 +110,23 @@ http_archive(
 )
 
 http_archive(
-    name = "io_bazel_rules_docker",
-    sha256 = "95d39fd84ff4474babaf190450ee034d958202043e366b9fc38f438c9e6c3334",
-    strip_prefix = "rules_docker-0.16.0",
-    urls = [
-        "https://github.com/bazelbuild/rules_docker/releases/download/v0.16.0/rules_docker-v0.16.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/95d39fd84ff4474babaf190450ee034d958202043e366b9fc38f438c9e6c3334",
-    ],
+    name = "rules_oci",
+    sha256 = "acbf8f40e062f707f8754e914dcb0013803c6e5e3679d3e05b571a9f5c7e0b43",
+    strip_prefix = "rules_oci-2.0.1",
+    url = "https://github.com/bazel-contrib/rules_oci/releases/download/v2.0.1/rules_oci-v2.0.1.tar.gz",
 )
+
+load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
+
+rules_oci_dependencies()
+
+load("@rules_oci//oci:repositories.bzl", "oci_register_toolchains")
+
+oci_register_toolchains(
+    name = "oci",
+)
+
+load("@rules_oci//oci:pull.bzl", "oci_pull")
 
 http_archive(
     name = "com_github_ash2k_bazel_tools",
@@ -313,106 +322,87 @@ go_repository(
     importpath = "github.com/google/go-containerregistry",
 )
 
-# bazel docker rules
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-    "container_pull",
-)
-load(
-    "@io_bazel_rules_docker//repositories:repositories.bzl",
-    container_repositories = "repositories",
-)
-
-container_repositories()
-
-load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
-
-container_deps()
 
 # Pull go_image_base
-container_pull(
+oci_pull(
     name = "go_image_base",
     digest = "sha256:0ba6aa6b538aeae3d0f716ea8837703eb147173cd673241662e89adb794da829",
-    registry = "gcr.io",
-    repository = "distroless/base-debian12",
+    image = "gcr.io/distroless/base-debian12",
 )
 
-container_pull(
+oci_pull(
     name = "go_image_base_aarch64",
     digest = "sha256:9ee08ca352647dad1511153afb18f4a6dbb4f56bafc7d618d0082c16a14cfdf1",
-    registry = "gcr.io",
-    repository = "distroless/base-debian12",
+    image = "gcr.io/distroless/base-debian12",
 )
 
-container_pull(
+oci_pull(
     name = "go_image_base_s390x",
     digest = "sha256:6e2e356c462d69668a0313bf45ed3de614e9d4e0b9c03fa081d3bcae143a58ba",
-    registry = "gcr.io",
-    repository = "distroless/base-debian12",
+    image = "gcr.io/distroless/base-debian12",
+)
+
+# Pull nfs-server image
+# WARNING: please update any automated process to push this image to quay.io
+# instead of index.docker.io
+# TODO build nfs-server for multi-arch
+oci_pull(
+    name = "nfs-server",
+    digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
+    image = "quay.io/kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
+)
+
+oci_pull(
+    name = "nfs-server_aarch64",
+    digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
+    image = "quay.io/kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
 )
 
 # Pull fedora container-disk preconfigured with ci tooling
 # like stress and qemu guest agent pre-configured
 # TODO build fedora_with_test_tooling for multi-arch
-container_pull(
+oci_pull(
     name = "fedora_with_test_tooling",
     digest = "sha256:ffcfed26f1784535ec5a2fed49ed80ccfd774aa09c665f95835c3d3bf3ec37aa",
-    registry = "quay.io",
-    repository = "kubevirtci/fedora-with-test-tooling",
+    image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
-container_pull(
+oci_pull(
     name = "alpine_with_test_tooling",
     digest = "sha256:4a6c258a75cff2190d768ab06e57dbf375bedb260ce4ba79dd249f077e769dc5",
-    registry = "quay.io",
-    repository = "kubevirtci/alpine-with-test-tooling-container-disk",
-    tag = "2404181910-1c58677",
+    image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
-container_pull(
+oci_pull(
     name = "fedora_with_test_tooling_aarch64",
     digest = "sha256:bae2ed95318223e6bd367efbd2839952c698b938f855684dc48eff29a2bbc9af",
-    registry = "quay.io",
-    repository = "kubevirtci/fedora-with-test-tooling",
+    image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
-container_pull(
+oci_pull(
     name = "fedora_with_test_tooling_s390x",
     digest = "sha256:43eb8c7942c98e5380a7ec816a2072617184a1d3ec2bcf225539db412d56ea3e",
-    registry = "quay.io",
-    repository = "kubevirtci/fedora-with-test-tooling",
+    image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
-container_pull(
+oci_pull(
     name = "alpine-ext-kernel-boot-demo-container-base",
     digest = "sha256:a2ddb2f568bf3814e594a14bc793d5a655a61d5983f3561d60d02afa7bbc56b4",
-    registry = "quay.io",
-    repository = "kubevirt/alpine-ext-kernel-boot-demo",
+    image = "quay.io/kubevirt/alpine-ext-kernel-boot-demo",
 )
 
 # TODO build fedora_realtime for multi-arch
-container_pull(
+oci_pull(
     name = "fedora_realtime",
     digest = "sha256:437f4e02986daf0058239f4a282d32304dcac629d5d1b4c75a74025f1ce22811",
-    registry = "quay.io",
-    repository = "kubevirt/fedora-realtime-container-disk",
+    image = "quay.io/kubevirt/fedora-realtime-container-disk",
 )
 
-container_pull(
+oci_pull(
     name = "busybox",
     digest = "sha256:545e6a6310a27636260920bc07b994a299b6708a1b26910cfefd335fdfb60d2b",
-    registry = "registry.k8s.io",
-    repository = "busybox",
-    tag = "1.27",
+    image = "registry.k8s.io/busybox",
 )
-
-load(
-    "@io_bazel_rules_docker//go:image.bzl",
-    _go_image_repos = "repositories",
-)
-
-_go_image_repos()
 
 http_archive(
     name = "io_bazel_rules_container_rpm",
