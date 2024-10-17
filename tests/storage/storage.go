@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -164,7 +165,7 @@ var _ = SIGDescribe("Storage", func() {
 			}
 
 			BeforeEach(func() {
-				nodeName = tests.NodeNameWithHandler()
+				nodeName = libnode.NodeNameWithHandler()
 				address, device = CreateErrorDisk(nodeName)
 				pv, pvc, err = CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
@@ -1354,7 +1355,7 @@ var _ = SIGDescribe("Storage", func() {
 			}
 
 			BeforeEach(func() {
-				nodeName = tests.NodeNameWithHandler()
+				nodeName = libnode.NodeNameWithHandler()
 				address, device = CreateSCSIDisk(nodeName, []string{})
 			})
 

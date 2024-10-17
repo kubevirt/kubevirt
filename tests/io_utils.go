@@ -27,23 +27,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/flags"
 )
-
-func NodeNameWithHandler() string {
-	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-	virtClient := kubevirt.Client()
-	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
-	Expect(err).ToNot(HaveOccurred())
-	node, err := virtClient.CoreV1().Nodes().Get(context.Background(), virtHandlerPods.Items[0].Spec.NodeName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return node.ObjectMeta.Name
-}
 
 func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
 	virtClient := kubevirt.Client()

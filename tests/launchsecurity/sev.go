@@ -270,7 +270,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
 
-			nodeName = tests.NodeNameWithHandler()
+			nodeName = libnode.NodeNameWithHandler()
 			Expect(nodeName).ToNot(BeEmpty())
 
 			checkCmd := []string{"ls", sevDevicePath}
