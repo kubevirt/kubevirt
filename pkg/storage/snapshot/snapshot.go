@@ -31,12 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 )
@@ -171,7 +173,14 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 	}
 
 	terminating := vmSnapshotTerminating(vmSnapshot)
+	if !terminating {
+		vmSnapshot, err = ctrl.addSnapshotFinalizer(vmSnapshot)
+		if err != nil {
+			return 0, err
+		}
+	}
 
+	canRemoveFinalizer := true
 	// Make sure status is initialized before doing anything
 	if vmSnapshot.Status != nil {
 		if source != nil {
@@ -195,10 +204,14 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 						}
 					}
 				}
-			} else if canUnlockSource(vmSnapshot, content) {
-				if _, err := source.Unlock(); err != nil {
-					return 0, err
+				canRemoveFinalizer = false
+			} else {
+				if canUnlockSource(vmSnapshot, content) {
+					if _, err := source.Unlock(); err != nil {
+						return 0, err
+					}
 				}
+				canRemoveFinalizer = !source.Locked()
 			}
 		}
 	}
@@ -219,8 +232,16 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		}
 	}
 
-	if err = ctrl.updateSnapshotStatus(vmSnapshot, content, source); err != nil {
+	vmSnapshot, err = ctrl.updateSnapshotStatus(vmSnapshot)
+	if err != nil {
 		return 0, err
+	}
+
+	if vmSnapshotDeleting(vmSnapshot) && canRemoveFinalizer {
+		vmSnapshot, err = ctrl.removeSnapshotFinalizer(vmSnapshot)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	if retry == 0 {
@@ -247,18 +268,59 @@ func (ctrl *VMSnapshotController) unfreezeSource(vmSnapshot *snapshotv1.VirtualM
 	return nil
 }
 
-func (ctrl *VMSnapshotController) removeContentFinalizer(content *snapshotv1.VirtualMachineSnapshotContent) error {
-	if controller.HasFinalizer(content, vmSnapshotContentFinalizer) {
-		cpy := content.DeepCopy()
-		controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
+func generateFinalizerPatch(test, replace []string) ([]byte, error) {
+	return patch.New(
+		patch.WithTest("/metadata/finalizers", test),
+		patch.WithReplace("/metadata/finalizers", replace),
+	).GeneratePayload()
+}
 
-		_, err := ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
+func (ctrl *VMSnapshotController) addSnapshotFinalizer(snapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshot, error) {
+	if controller.HasFinalizer(snapshot, vmSnapshotFinalizer) {
+		return snapshot, nil
 	}
 
-	return nil
+	cpy := snapshot.DeepCopy()
+	controller.AddFinalizer(cpy, vmSnapshotFinalizer)
+
+	patch, err := generateFinalizerPatch(snapshot.Finalizers, cpy.Finalizers)
+	if err != nil {
+		return snapshot, err
+	}
+
+	return ctrl.Client.VirtualMachineSnapshot(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+}
+
+func (ctrl *VMSnapshotController) removeSnapshotFinalizer(snapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshot, error) {
+	if !controller.HasFinalizer(snapshot, vmSnapshotFinalizer) {
+		return snapshot, nil
+	}
+
+	cpy := snapshot.DeepCopy()
+	controller.RemoveFinalizer(cpy, vmSnapshotFinalizer)
+
+	patch, err := generateFinalizerPatch(snapshot.Finalizers, cpy.Finalizers)
+	if err != nil {
+		return snapshot, err
+	}
+
+	return ctrl.Client.VirtualMachineSnapshot(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+}
+
+func (ctrl *VMSnapshotController) removeContentFinalizer(content *snapshotv1.VirtualMachineSnapshotContent) (*snapshotv1.VirtualMachineSnapshotContent, error) {
+	if !controller.HasFinalizer(content, vmSnapshotContentFinalizer) {
+		return content, nil
+	}
+
+	cpy := content.DeepCopy()
+	controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
+
+	patch, err := generateFinalizerPatch(content.Finalizers, cpy.Finalizers)
+	if err != nil {
+		return content, err
+	}
+
+	return ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
 func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) (time.Duration, error) {
@@ -279,7 +341,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 			log.Log.Warningf("Failed to unfreeze source for snapshot content %s/%s: %+v",
 				content.Namespace, content.Name, err)
 		}
-		err = ctrl.removeContentFinalizer(content)
+		content, err = ctrl.removeContentFinalizer(content)
 		if err != nil {
 			return 0, err
 		}
@@ -438,8 +500,8 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy.Status.ReadyToUse = &ready
 	contentCpy.Status.VolumeSnapshotStatus = volumeSnapshotStatus
 
-	if !equality.Semantic.DeepEqual(content, contentCpy) {
-		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
+	if !equality.Semantic.DeepEqual(content.Status, contentCpy.Status) {
+		if ctrl.vmSnapshotContentStatusUpdater.UpdateStatus(contentCpy); err != nil {
 			return 0, err
 		}
 	}
@@ -672,7 +734,7 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string
 	return "", fmt.Errorf("%d matching VolumeSnapshotClasses for %s", len(matches), storageClassName)
 }
 
-func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent, source snapshotSource) error {
+func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshot, error) {
 	f := false
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	if vmSnapshotCpy.Status == nil {
@@ -681,11 +743,19 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		}
 	}
 
-	canRemoveFinalizer := true
+	source, err := ctrl.getSnapshotSource(vmSnapshot)
+	if err != nil {
+		return vmSnapshot, err
+	}
+
+	content, err := ctrl.getContent(vmSnapshot)
+	if err != nil {
+		return vmSnapshot, err
+	}
+
 	if source != nil {
 		uid := source.UID()
 		vmSnapshotCpy.Status.SourceUID = &uid
-		canRemoveFinalizer = !source.Locked()
 	}
 
 	if content != nil && content.Status != nil {
@@ -720,7 +790,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 
 			indications, err := updateVMSnapshotIndications(source)
 			if err != nil {
-				return err
+				return vmSnapshot, err
 			}
 			vmSnapshotCpy.Status.Indications = indications
 		} else {
@@ -743,25 +813,14 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
 	}
 
-	if vmSnapshotDeleting(vmSnapshotCpy) {
-		// Enable the vmsnapshot to be deleted only in case the source is unlocked AND
-		// (the operation completed completed OR
-		// after waiting until the content is deleted if needed)
-		if canRemoveFinalizer && (!vmSnapshotProgressing(vmSnapshotCpy) || contentDeletedIfNeeded(vmSnapshotCpy, content)) {
-			controller.RemoveFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
+	if !equality.Semantic.DeepEqual(vmSnapshot.Status, vmSnapshotCpy.Status) {
+		if err := ctrl.vmSnapshotStatusUpdater.UpdateStatus(vmSnapshotCpy); err != nil {
+			return nil, err
 		}
-	} else {
-		// since no status subresource can update metadata and status
-		controller.AddFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
+		return vmSnapshotCpy, nil
 	}
 
-	if !equality.Semantic.DeepEqual(vmSnapshot, vmSnapshotCpy) {
-		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return vmSnapshot, nil
 }
 
 func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication, error) {
