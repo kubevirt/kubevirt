@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -93,8 +94,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Running).To(BeNil())
-			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-			Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+			Expect(vm.Spec.RunStrategy).To(PointTo(Equal(v1.RunStrategyAlways)))
 		})
 
 		It("VM with specified run strategy", func() {
@@ -106,8 +106,7 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Running).To(BeNil())
-			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+			Expect(vm.Spec.RunStrategy).To(PointTo(Equal(runStrategy)))
 		})
 
 		It("Termination grace period defaults to 180", func() {
@@ -116,20 +115,18 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
-			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(int64(180)))
+			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(int64(180))))
 		})
 
 		It("VM with specified termination grace period", func() {
 			const terminationGracePeriod int64 = 123
 
-			out, err := runCmd(setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)))
+			out, err := runCmd(setFlag(TerminationGracePeriodFlag, strconv.FormatInt(terminationGracePeriod, 10)))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
-			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
+			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(terminationGracePeriod)))
 		})
 
 		It("Memory is set to 512Mi by default", func() {
@@ -140,8 +137,7 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(defaultMemory)))
+			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse(defaultMemory))))
 		})
 
 		It("VM with specified memory", func() {
@@ -152,8 +148,7 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(memory)))
+			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse(memory))))
 		})
 
 		DescribeTable("VM with specified instancetype", func(flag, name, kind string) {
@@ -187,13 +182,11 @@ chpasswd: { expire: False }`
 			if inferFromVolumePolicy == nil {
 				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			} else {
-				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
-				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(*inferFromVolumePolicy))
+				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(PointTo(Equal(*inferFromVolumePolicy)))
 			}
 			if inferFromVolumePolicy != nil && *inferFromVolumePolicy == v1.IgnoreInferFromVolumeFailure {
 				Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-				Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
-				Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+				Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
 			} else {
 				Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 			}
@@ -227,15 +220,13 @@ chpasswd: { expire: False }`
 			if explicit {
 				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			} else {
-				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
-				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 			}
 			if explicit {
 				Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 			} else {
 				Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-				Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
-				Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+				Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
 			}
 		},
 			Entry("implicit (inference enabled by default)", false),
@@ -281,15 +272,13 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(memory)))
+			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse(memory))))
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal("my-ds"))
-			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
-			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 		})
 
 		DescribeTable("VM with specified preference", func(flag, name, kind string) {
@@ -322,8 +311,7 @@ chpasswd: { expire: False }`
 			if inferFromVolumePolicy == nil {
 				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 			} else {
-				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
-				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(*inferFromVolumePolicy))
+				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(*inferFromVolumePolicy)))
 			}
 		},
 			Entry("PvcVolumeFlag and implicit inference (enabled by default)", "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(PvcVolumeFlag, "src:my-pvc")),
@@ -356,8 +344,7 @@ chpasswd: { expire: False }`
 			if explicit {
 				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 			} else {
-				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
-				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 			}
 		},
 			Entry("implicit (inference enabled by default)", false),
@@ -402,14 +389,22 @@ chpasswd: { expire: False }`
 			if volName == "" {
 				volName = vm.Name + "-containerdisk-0"
 			}
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volName))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
+			Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+				Name: volName,
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: &v1.ContainerDiskSource{
+						Image: cdSource,
+					},
+				},
+			}))
+
 			if bootOrder > 0 {
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volName))
-				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
+					Name:      volName,
+					BootOrder: pointer.P(uint(bootOrder)),
+				}))
+			} else {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
 			}
 
 			// No inference possible in this case
@@ -439,23 +434,31 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dsName))
-			if dsNamespace != "" {
-				Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).ToNot(BeNil())
-				Expect(*vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(Equal(dsNamespace))
-			} else {
+			if dsNamespace == "" {
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(BeNil())
+			} else {
+				Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(PointTo(Equal(dsNamespace)))
 			}
 			if dvtSize != "" {
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
 			}
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+				Name: vm.Spec.DataVolumeTemplates[0].Name,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: vm.Spec.DataVolumeTemplates[0].Name,
+					},
+				},
+			}))
+
 			if bootOrder > 0 {
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
+					Name:      vm.Spec.DataVolumeTemplates[0].Name,
+					BootOrder: pointer.P(uint(bootOrder)),
+				}))
+			} else {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
 			}
 
 			// In this case inference should be possible
@@ -486,16 +489,21 @@ chpasswd: { expire: False }`
 			Entry("with namespace, name, size and bootorder", "src:my-ns/my-ds,name:my-dvt,size:10Gi,bootorder:8", "my-ns", "my-dvt", "10Gi", 8),
 		)
 
-		DescribeTable("VM with specified imported volume", func(params, name, size string, bootOrder *int, source *cdiv1.DataVolumeSource, sourceRef *cdiv1.DataVolumeSourceRef) {
+		DescribeTable("VM with specified imported volume", func(params, name, size string, bootOrder int, source *cdiv1.DataVolumeSource, sourceRef *cdiv1.DataVolumeSourceRef) {
 			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			if source != nil {
+			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
+			if source == nil {
+				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).To(BeNil())
+			} else {
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).To(Equal(source))
 			}
-			if sourceRef != nil {
+			if sourceRef == nil {
+				Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).To(BeNil())
+			} else {
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).To(Equal(sourceRef))
 			}
 			if name == "" {
@@ -508,17 +516,22 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
 			}
 
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+			Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+				Name: vm.Spec.DataVolumeTemplates[0].Name,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: vm.Spec.DataVolumeTemplates[0].Name,
+					},
+				},
+			}))
 
-			if bootOrder == nil {
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
+			if bootOrder > 0 {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
+					Name:      vm.Spec.DataVolumeTemplates[0].Name,
+					BootOrder: pointer.P(uint(bootOrder)),
+				}))
 			} else {
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).ToNot(BeNil())
-				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(*bootOrder)))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
 			}
 
 			if (source != nil && (source.PVC != nil || source.Registry != nil || source.Snapshot != nil)) ||
@@ -526,46 +539,48 @@ chpasswd: { expire: False }`
 				// In this case inference should be possible
 				Expect(vm.Spec.Instancetype).ToNot(BeNil())
 				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(vm.Spec.Template.Spec.Volumes[0].Name))
-				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
-				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 				Expect(vm.Spec.Preference).ToNot(BeNil())
 				Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.Template.Spec.Volumes[0].Name))
-				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
-				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 			} else {
 				// In this case inference should be possible
 				Expect(vm.Spec.Instancetype).To(BeNil())
 				Expect(vm.Spec.Preference).To(BeNil())
 			}
 		},
-			Entry("with blank source", "type:blank,size:256Mi", "", "256Mi", nil, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
-			Entry("with blank source and bootorder", "type:blank,size:256Mi,bootorder:1", "", "256Mi", pointer.P(1), &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
-			Entry("with blank source and name", "type:blank,size:256Mi,name:blank-name", "blank-name", "256Mi", nil, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
-			Entry("with GCS source", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials", "", "256Mi", nil, &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, nil),
-			Entry("with GCS source and bootorder", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials,bootorder:2", "", "256Mi", pointer.P(2), &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, nil),
-			Entry("with http source", "type:http,size:256Mi,url:http://url.com", "", "256Mi", nil, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, nil),
-			Entry("with http source and bootorder", "type:http,size:256Mi,url:http://url.com,bootorder:3", "", "256Mi", pointer.P(3), &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, nil),
-			Entry("with imageio source", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref", "", "256Mi", nil, &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
-			Entry("with imageio source and bootorder", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref,bootorder:4", "", "256Mi", pointer.P(4), &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
-			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc", "", "256Mi", nil, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
-			Entry("with PVC source and bootorder", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume,bootorder:5", "imported-volume", "256Mi", pointer.P(5), &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
-			Entry("with PVC source without size", "type:pvc,src:default/pvc,name:imported-volume", "imported-volume", "", nil, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
-			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume", "imported-volume", "256Mi", nil, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
-			Entry("with registry source and bootorder", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume,bootorder:6", "imported-volume", "256Mi", pointer.P(6), &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
-			Entry("with S3 source", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref", "", "256Mi", nil, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
-			Entry("with S3 source and bootorder", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref,bootorder:7", "", "256Mi", pointer.P(7), &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
-			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials", "", "256Mi", nil, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, nil),
-			Entry("with VDDK source and bootorder", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials,bootorder:8", "", "256Mi", pointer.P(8), &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, nil),
-			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume", "imported-volume", "256Mi", nil, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
-			Entry("with Snapshot source and bootorder", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume,bootorder:9", "imported-volume", "256Mi", pointer.P(9), &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
-			Entry("with Snapshot source without size", "type:snapshot,src:default/snapshot,name:imported-volume", "imported-volume", "", nil, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
-			Entry("with DataSource source", "type:ds,src:default/datasource,name:imported-ds", "imported-ds", "", nil, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
-			Entry("with DataSource source without namespace", "type:ds,src:datasource", "", "", nil, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource"}),
-			Entry("with DataSource source and bootorder", "type:ds,src:default/datasource,name:imported-ds,bootorder:1", "imported-ds", "", pointer.P(1), nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
+			Entry("with blank source", "type:blank,size:256Mi", "", "256Mi", 0, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
+			Entry("with blank source and bootorder", "type:blank,size:256Mi,bootorder:1", "", "256Mi", 1, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
+			Entry("with blank source and name", "type:blank,size:256Mi,name:blank-name", "blank-name", "256Mi", 0, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
+			Entry("with GCS source", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials", "", "256Mi", 0, &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, nil),
+			Entry("with GCS source and bootorder", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials,bootorder:2", "", "256Mi", 2, &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, nil),
+			Entry("with http source", "type:http,size:256Mi,url:http://url.com", "", "256Mi", 0, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, nil),
+			Entry("with http source and bootorder", "type:http,size:256Mi,url:http://url.com,bootorder:3", "", "256Mi", 3, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, nil),
+			Entry("with imageio source", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref", "", "256Mi", 0, &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
+			Entry("with imageio source and bootorder", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref,bootorder:4", "", "256Mi", 4, &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
+			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc", "", "256Mi", 0, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
+			Entry("with PVC source and bootorder", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume,bootorder:5", "imported-volume", "256Mi", 5, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
+			Entry("with PVC source without size", "type:pvc,src:default/pvc,name:imported-volume", "imported-volume", "", 0, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
+			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume", "imported-volume", "256Mi", 0, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
+			Entry("with registry source and bootorder", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume,bootorder:6", "imported-volume", "256Mi", 6, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
+			Entry("with S3 source", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref", "", "256Mi", 0, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
+			Entry("with S3 source and bootorder", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref,bootorder:7", "", "256Mi", 7, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
+			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials", "", "256Mi", 0, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, nil),
+			Entry("with VDDK source and bootorder", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials,bootorder:8", "", "256Mi", 8, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, nil),
+			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume", "imported-volume", "256Mi", 0, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
+			Entry("with Snapshot source and bootorder", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume,bootorder:9", "imported-volume", "256Mi", 9, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
+			Entry("with Snapshot source without size", "type:snapshot,src:default/snapshot,name:imported-volume", "imported-volume", "", 0, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
+			Entry("with DataSource source", "type:ds,src:default/datasource,name:imported-ds", "imported-ds", "", 0, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
+			Entry("with DataSource source without namespace", "type:ds,src:datasource", "", "", 0, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource"}),
+			Entry("with DataSource source and bootorder", "type:ds,src:default/datasource,name:imported-ds,bootorder:1", "imported-ds", "", 1, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
 		)
 
 		DescribeTable("VM with multiple volume-import sources and name", func(params1, params2 string, src1, src2 *cdiv1.DataVolumeSource) {
-			const size = "256Mi"
+			const (
+				size  = "256Mi"
+				name1 = "volume-source1"
+				name2 = "volume-source2"
+			)
 
 			out, err := runCmd(
 				setFlag(VolumeImportFlag, params1),
@@ -575,14 +590,17 @@ chpasswd: { expire: False }`
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
-			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(2))
+			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(name1))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).To(Equal(src1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("volume-source1"))
-
-			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+			Expect(vm.Spec.DataVolumeTemplates[1].Name).To(Equal(name2))
 			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source).To(Equal(src2))
-			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal("volume-source2"))
+			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(name1))
+			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(name2))
 
 			// No inference possible in this case
 			Expect(vm.Spec.Instancetype).To(BeNil())
@@ -616,25 +634,32 @@ chpasswd: { expire: False }`
 			if dvtSize != "" {
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
 			}
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+				Name: vm.Spec.DataVolumeTemplates[0].Name,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: vm.Spec.DataVolumeTemplates[0].Name,
+					},
+				},
+			}))
+
 			if bootOrder > 0 {
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
+					Name:      vm.Spec.DataVolumeTemplates[0].Name,
+					BootOrder: pointer.P(uint(bootOrder)),
+				}))
+			} else {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
 			}
 
 			// In this case inference should be possible
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
-			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
-			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 		},
 			Entry("with src", "src:my-ns/my-pvc", "", "", 0),
 			Entry("with src and name", "src:my-ns/my-pvc,name:my-dvt", "my-dvt", "", 0),
@@ -657,25 +682,33 @@ chpasswd: { expire: False }`
 			if volName == "" {
 				volName = pvcName
 			}
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volName))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
+			Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+				Name: volName,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
+						},
+					},
+				},
+			}))
+
 			if bootOrder > 0 {
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volName))
-				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
+					Name:      volName,
+					BootOrder: pointer.P(uint(bootOrder)),
+				}))
+			} else {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
 			}
 
 			// In this case inference should be possible
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(volName))
-			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
-			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(volName))
-			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
-			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 		},
 			Entry("with src", "src:my-pvc", "", 0),
 			Entry("with src and name", "src:my-pvc,name:my-direct-pvc", "my-direct-pvc", 0),
@@ -700,10 +733,15 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Blank).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+				Name: vm.Spec.DataVolumeTemplates[0].Name,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: vm.Spec.DataVolumeTemplates[0].Name,
+					},
+				},
+			}))
 
 			// No inference possible in this case
 			Expect(vm.Spec.Instancetype).To(BeNil())
@@ -938,12 +976,13 @@ chpasswd: { expire: False }`
 			Expect(userDataFn(vm)).To(Equal(userDataB64))
 			Expect(networkDataFn(vm)).To(Equal(networkDataB64))
 
-			decoded, err := base64.StdEncoding.DecodeString(userDataFn(vm))
+			userData, err := base64.StdEncoding.DecodeString(userDataFn(vm))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(decoded)).To(Equal(cloudInitUserData))
-			decoded, err = base64.StdEncoding.DecodeString(networkDataFn(vm))
+			Expect(string(userData)).To(Equal(cloudInitUserData))
+
+			networkData, err := base64.StdEncoding.DecodeString(networkDataFn(vm))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(decoded)).To(Equal(cloudInitNetworkData))
+			Expect(string(networkData)).To(Equal(cloudInitNetworkData))
 
 			// No inference possible in this case
 			Expect(vm.Spec.Instancetype).To(BeNil())
@@ -1177,11 +1216,9 @@ chpasswd: { expire: False }`
 			Expect(vm.Name).To(Equal(vmName))
 
 			Expect(vm.Spec.Running).To(BeNil())
-			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+			Expect(vm.Spec.RunStrategy).To(PointTo(Equal(runStrategy)))
 
-			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
-			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
+			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(terminationGracePeriod)))
 
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(instancetypeKind))
@@ -1200,8 +1237,7 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
-			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).ToNot(BeNil())
-			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(Equal(dsNamespace))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(PointTo(Equal(dsNamespace)))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dsName))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
 
@@ -1225,9 +1261,10 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitUserData))
 
-			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(pvcName))
-			Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(pvcBootOrder)))
+			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
+				Name:      pvcName,
+				BootOrder: pointer.P(uint(pvcBootOrder)),
+			}))
 		})
 
 		It("Complex example with generated cloud-init config", func() {
@@ -1254,11 +1291,9 @@ chpasswd: { expire: False }`
 			Expect(vm.Name).To(Equal(vmName))
 
 			Expect(vm.Spec.Running).To(BeNil())
-			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-			Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+			Expect(vm.Spec.RunStrategy).To(PointTo(Equal(v1.RunStrategyAlways)))
 
-			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
-			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
+			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(terminationGracePeriod)))
 
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
 			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(`imported-volume-\w{4}`))
@@ -1281,17 +1316,15 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Instancetype.Kind).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
-			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
-			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
-			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
-			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
-			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 		})
 
 		It("Complex example with access credentials", func() {
@@ -1313,20 +1346,22 @@ chpasswd: { expire: False }`
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).To(Equal(vmName))
+
 			Expect(vm.Spec.DataVolumeTemplates).To(BeEmpty())
+
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
-
-			volCdName := vm.Name + "-containerdisk-0"
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Name + "-containerdisk-0"))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
-
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
 			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(cloudInitDisk))
 			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("user: " + user))
 			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring(runCmdGAManageSSH))
 
 			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
+
 			Expect(vm.Spec.Preference).To(BeNil())
 
 			Expect(vm.Spec.Template.Spec.AccessCredentials).To(ConsistOf(
@@ -1826,33 +1861,6 @@ func configDriveNetworkDataB64(vm *v1.VirtualMachine) string {
 	return vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.NetworkDataBase64
 }
 
-func randomSingleKey() ([]string, string) {
-	key := rand.String(64)
-	return []string{
-		setFlag(SSHKeyFlag, key),
-	}, "\n  - " + key
-}
-
-func randomMultipleKeysSingleFlag() ([]string, string) {
-	var keys []string
-	for range 5 {
-		keys = append(keys, rand.String(64))
-	}
-	return []string{setFlag(SSHKeyFlag, strings.Join(keys, ","))},
-		"\n  - " + strings.Join(keys, "\n  - ")
-}
-
-func randomMultipleKeysMultipleFlags() ([]string, string) {
-	var args []string
-	keys := ""
-	for range 5 {
-		key := rand.String(64)
-		args = append(args, setFlag(SSHKeyFlag, key))
-		keys += "\n  - " + key
-	}
-	return args, keys
-}
-
 func verifyNoCloudGAManageSSH(vm *v1.VirtualMachine) {
 	Expect(noCloudUserData(vm)).To(ContainSubstring(runCmdGAManageSSH))
 }
@@ -1879,4 +1887,31 @@ func verifyConfigDriveGAManageSSHAndUser(vm *v1.VirtualMachine) {
 
 func verifyCloudInitNone(vm *v1.VirtualMachine) {
 	Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+}
+
+func randomSingleKey() ([]string, string) {
+	key := rand.String(64)
+	return []string{
+		setFlag(SSHKeyFlag, key),
+	}, "\n  - " + key
+}
+
+func randomMultipleKeysSingleFlag() ([]string, string) {
+	var keys []string
+	for range 5 {
+		keys = append(keys, rand.String(64))
+	}
+	return []string{setFlag(SSHKeyFlag, strings.Join(keys, ","))},
+		"\n  - " + strings.Join(keys, "\n  - ")
+}
+
+func randomMultipleKeysMultipleFlags() ([]string, string) {
+	var args []string
+	keys := ""
+	for range 5 {
+		key := rand.String(64)
+		args = append(args, setFlag(SSHKeyFlag, key))
+		keys += "\n  - " + key
+	}
+	return args, keys
 }
