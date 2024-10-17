@@ -305,8 +305,11 @@ var _ = SIGDescribe("Export", func() {
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileName = blockVolumeMountPath
 		}
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, md5Command(fileName))
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		var out, stderr string
+		Eventually(func() error {
+			out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, md5Command(fileName))
+			return err
+		}, 15*time.Second, 1*time.Second).Should(BeNil(), "md5sum command should succeed", out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
 
