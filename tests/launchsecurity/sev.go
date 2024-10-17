@@ -20,6 +20,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -274,13 +275,13 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(nodeName).ToNot(BeEmpty())
 
 			checkCmd := []string{"ls", sevDevicePath}
-			_, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, checkCmd)
+			_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, checkCmd)
 			isDevicePresent = (err == nil)
 
 			if !isDevicePresent {
 				By(fmt.Sprintf("Creating a fake SEV device on %s", nodeName))
 				mknodCmd := []string{"mknod", sevDevicePath, "c", "10", "124"}
-				_, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, mknodCmd)
+				_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, mknodCmd)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
@@ -296,7 +297,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			if !isDevicePresent {
 				By(fmt.Sprintf("Removing the fake SEV device from %s", nodeName))
 				rmCmd := []string{"rm", "-f", sevDevicePath}
-				_, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, rmCmd)
+				_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, rmCmd)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})

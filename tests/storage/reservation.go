@@ -21,7 +21,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -331,10 +330,10 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 			for _, node := range nodes.Items {
-				output, err := tests.ExecuteCommandInVirtHandlerPod(node.Name, []string{"mount"})
+				output, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"mount"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(output).ToNot(ContainSubstring("kubevirt/daemons/pr"))
-				output, err = tests.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", reservation.GetPrHelperSocketDir()})
+				output, err = libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", reservation.GetPrHelperSocketDir()})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(output).To(BeEmpty())
 			}

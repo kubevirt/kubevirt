@@ -2,10 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "io_utils.go",
-        "utils.go",
-    ],
+    srcs = ["utils.go"],
     importpath = "kubevirt.io/kubevirt/tests",
     visibility = ["//visibility:public"],
     deps = [
@@ -15,13 +12,10 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/console:go_default_library",
         "//tests/exec:go_default_library",
-        "//tests/flags:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
-        "//tests/libnode:go_default_library",
         "//tests/libpod:go_default_library",
         "//tests/testsuite:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
