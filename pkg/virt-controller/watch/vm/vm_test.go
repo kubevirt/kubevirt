@@ -4777,6 +4777,59 @@ var _ = Describe("VirtualMachine", func() {
 
 					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
 				})
+
+				It("should not expand and update VM with referencePolicy reference", func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								Instancetype: &v1.InstancetypeConfiguration{
+									ReferencePolicy: pointer.P(v1.Reference),
+								},
+							},
+						},
+					})
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetypeObj.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Instancetype).ToNot(BeNil())
+					Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
+				})
+
+				It("should expand and update VM with referencePolicy expand", func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								Instancetype: &v1.InstancetypeConfiguration{
+									ReferencePolicy: pointer.P(v1.Expand),
+								},
+							},
+						},
+					})
+
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetypeObj.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Instancetype).To(BeNil())
+					Expect(vm.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
+					Expect(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeObj.Spec.Memory.Guest.Value()))
+				})
 			})
 
 			Context("preference", func() {
