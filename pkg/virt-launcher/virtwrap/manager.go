@@ -1094,7 +1094,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 		c.GenericHostDevices = genericHostDevices
 
-		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+		gpuHostDevices, err := gpu.CreateHostDevices(vmi)
 		if err != nil {
 			return nil, err
 		}
