@@ -166,9 +166,6 @@ the [dataImportCronTemplates field](#configure-custom-golden-images), even if th
 Set the `deployVmConsoleProxy` feature gate to true to allow SSP operator to deploy its resources. SSP operator will 
 deploy a proxy that provides an access to the VNC console of a KubeVirt Virtual Machine (VM).
 
-**Note**: Once `deployVmConsoleProxy` is set to true, SSP operator will not delete deployed resources if `deployVmConsoleProxy` is 
-reverted back to false.
-
 **Default**: `false`
 
 ### deployKubeSecondaryDNS Feature Gate

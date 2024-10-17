@@ -196,7 +196,8 @@ var _ = Describe("SSP Operands", func() {
 			expectedResource, _, err := NewSSP(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(expectedResource.Spec.FeatureGates.DeployVmConsoleProxy).To(BeTrue())
+			Expect(expectedResource.Spec.TokenGenerationService).ToNot(BeNil())
+			Expect(expectedResource.Spec.TokenGenerationService.Enabled).To(BeTrue())
 		})
 
 		It("should create with deployCommonInstancetypes feature gate disabled", func() {

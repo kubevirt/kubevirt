@@ -158,7 +158,9 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []h
 	}
 
 	if hc.Spec.FeatureGates.DeployVMConsoleProxy != nil {
-		spec.FeatureGates.DeployVmConsoleProxy = *hc.Spec.FeatureGates.DeployVMConsoleProxy
+		spec.TokenGenerationService = &sspv1beta2.TokenGenerationService{
+			Enabled: *hc.Spec.FeatureGates.DeployVMConsoleProxy,
+		}
 	}
 
 	// Disable common-instancetypes deployment by SSP from 4.16, now handled by virt-operator
