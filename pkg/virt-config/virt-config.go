@@ -468,3 +468,13 @@ func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugi
 	}
 	return nil
 }
+
+func (c *ClusterConfig) GetInstancetypeReferencePolicy() v1.InstancetypeReferencePolicy {
+	// Default to the Reference InstancetypeReferencePolicy
+	policy := v1.Reference
+	instancetypeConfig := c.GetConfig().Instancetype
+	if instancetypeConfig != nil && instancetypeConfig.ReferencePolicy != nil {
+		policy = *instancetypeConfig.ReferencePolicy
+	}
+	return policy
+}
