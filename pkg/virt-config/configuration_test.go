@@ -790,4 +790,14 @@ var _ = Describe("test configuration", func() {
 			Expect(clusterConfig.SRIOVLiveMigrationEnabled()).To(BeTrue())
 		})
 	})
+
+	DescribeTable("GetInstancetypeReferencePolicy should return", func(instancetypeConfig *v1.InstancetypeConfiguration, expectedPolicy v1.InstancetypeReferencePolicy) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{Instancetype: instancetypeConfig})
+		Expect(clusterConfig.GetInstancetypeReferencePolicy()).To(Equal(expectedPolicy))
+	},
+		Entry("reference when InstancetypeConfiguration is nil", nil, v1.Reference),
+		Entry("reference when InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, v1.Reference),
+		Entry("reference when InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, v1.Reference),
+		Entry("expand when InstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, v1.Expand),
+	)
 })

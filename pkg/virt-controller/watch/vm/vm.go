@@ -3204,16 +3204,41 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf(fetchingRunStrategyErrFmt, err), FailedCreateReason), err
 	}
 
-	// Ensure we have ControllerRevisions of any instancetype or preferences referenced by the VM
-	err = c.instancetypeMethods.StoreControllerRevisions(vm)
-	if err != nil {
-		log.Log.Object(vm).Infof("Failed to store Instancetype ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
-		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason), nil
+	// TODO(lyarwood): Extract all instance type logic into a handler
+	switch c.clusterConfig.GetInstancetypeReferencePolicy() {
+	case virtv1.Reference:
+		// Ensure we have ControllerRevisions of any instancetype or preferences referenced by the VM
+		if err = c.instancetypeMethods.StoreControllerRevisions(vm); err != nil {
+			log.Log.Object(vm).Infof("failed to store Instancetype ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
+			c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
+			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason), nil
+		}
+	case virtv1.Expand:
+		// Do not expand if there are no instance types and preferences or they already have a revisionName
+		if (vm.Spec.Instancetype == nil && vm.Spec.Preference == nil) ||
+			(vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "") ||
+			(vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "") {
+			break
+		}
+
+		expandVMCopy, err := c.instancetypeMethods.Expand(vm, c.clusterConfig)
+		if err != nil {
+			return vm, vmi, common.NewSyncError(fmt.Errorf("error encountered while expanding instance type into VirtualMachine: %v", err), common.FailedCreateVirtualMachineReason), nil
+		}
+
+		// Only update the VM if we have changed something by applying an instance type and preference
+		if !equality.Semantic.DeepEqual(vm.Spec, expandVMCopy.Spec) {
+			updatedVm, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(context.Background(), expandVMCopy, metav1.UpdateOptions{})
+			if err != nil {
+				return vm, vmi, common.NewSyncError(fmt.Errorf("error encountered when trying to update VirtualMachine with expanded instance type and preference: %v", err), FailedUpdateErrorReason), nil
+			}
+			// Return at this point as the update will trigger another sync
+			return updatedVm, vmi, nil, nil
+		}
 	}
 
-	// Once we have ControllerRevisions make sure they are fully up to date before proceeding
-	if err := c.instancetypeMethods.Upgrade(vm); err != nil {
+	// If we have ControllerRevisions make sure they are fully up to date before proceeding
+	if err = c.instancetypeMethods.Upgrade(vm); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("failed to upgrade instancetype.kubevirt.io ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
 		return vm, vmi, common.NewSyncError(fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason), nil
