@@ -364,22 +364,6 @@ oci_pull(
     image = "gcr.io/distroless/base-debian12",
 )
 
-# Pull nfs-server image
-# WARNING: please update any automated process to push this image to quay.io
-# instead of index.docker.io
-# TODO build nfs-server for multi-arch
-oci_pull(
-    name = "nfs-server",
-    digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
-    image = "quay.io/kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
-)
-
-oci_pull(
-    name = "nfs-server_aarch64",
-    digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
-    image = "quay.io/kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
-)
-
 # Pull fedora container-disk preconfigured with ci tooling
 # like stress and qemu guest agent pre-configured
 # TODO build fedora_with_test_tooling for multi-arch

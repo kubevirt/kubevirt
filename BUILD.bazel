@@ -477,13 +477,10 @@ container_push(
 )
 
 # Customized container-disk images
-container_push(
+oci_push(
     name = "push-fedora-with-test-tooling-container-disk",
-    format = "Docker",
     image = "//containerimages:fedora-with-test-tooling",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)fedora-with-test-tooling-container-disk",
-    tag = "$(container_tag)",
+    repository = "quay.io/fedora-with-test-tooling-container-disk",
 )
 
 container_push(
@@ -514,22 +511,22 @@ container_push(
     tag = "$(container_tag)",
 )
 
-container_push(
-    name = "push-vm-killer",
-    format = "Docker",
-    image = "//images/vm-killer:vm-killer-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)vm-killer",
-    tag = "$(container_tag)",
+oci_push(
+    name = "push-nfs-server",
+    image = "//images/nfs-server:nfs-server-image",
+    repository = "quay.io/kubevirt/nfs-server",
 )
 
-container_push(
+oci_push(
+    name = "push-vm-killer",
+    image = "//images/vm-killer:vm-killer-image",
+    repository = "quay.io/kubevirt/vm-killer",
+)
+
+oci_push(
     name = "push-winrmcli",
-    format = "Docker",
     image = "//images/winrmcli:winrmcli-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)winrmcli",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/winrmcli",
 )
 
 genrule(
