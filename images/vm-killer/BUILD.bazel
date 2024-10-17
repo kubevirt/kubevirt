@@ -1,15 +1,7 @@
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
+load("@rules_oci//oci:defs.bzl", "oci_image")
 
-container_image(
+oci_image(
     name = "vm-killer-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = "//images:kubevirt-testing-base",
     user = "1001",
     visibility = ["//visibility:public"],

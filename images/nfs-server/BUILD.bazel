@@ -1,7 +1,4 @@
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
+load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
@@ -11,18 +8,14 @@ pkg_tar(
     package_dir = "/",
 )
 
-container_image(
+oci_image(
     name = "nfs-server-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
     base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@nfs-server_aarch64//image",
-        "//conditions:default": "@nfs-server//image",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@nfs-server_aarch64",
+        "//conditions:default": "@nfs-server",
     }),
     cmd = ["/entrypoint.sh"],
-    ports = [
+    exposed_ports = [
         "111/udp",
         "2049/udp",
         "32765/udp",
