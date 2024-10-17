@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -61,7 +62,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		nodeName = tests.NodeNameWithHandler()
+		nodeName = libnode.NodeNameWithHandler()
 		createFaultyDisk(nodeName, deviceName)
 		var err error
 		pv, pvc, err = CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, testsuite.GetTestNamespace(nil))
