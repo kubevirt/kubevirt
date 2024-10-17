@@ -1,7 +1,6 @@
 package operands
 
 import (
-	"context"
 	"errors"
 	"os"
 	filepath "path/filepath"
@@ -10,8 +9,6 @@ import (
 
 	log "github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,8 +20,6 @@ import (
 
 // ConsoleQuickStart resources are a short user guids
 const (
-	consoleQuickStartCrdName          = "consolequickstarts.console.openshift.io"
-	customResourceDefinitionName      = "CustomResourceDefinition"
 	quickStartManifestLocationVarName = "QUICK_START_FILES_LOCATION"
 	quickStartDefaultManifestLocation = "./quickStart"
 )
@@ -86,42 +81,10 @@ func (h qsHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 
 func (qsHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
-// This function returns 3-state error:
-//
-//	err := checkCrdExists(...)
-//	err == nil - OK, CRD exists
-//	err != nil && errors.Unwrap(err) == nil - CRD does not exist, but that ok
-//	err != nil && errors.Unwrap(err) != nil - actual error
-func checkCrdExists(ctx context.Context, Client client.Client, logger log.Logger) error {
-	qsCrd := &extv1.CustomResourceDefinition{
-		TypeMeta: metav1.TypeMeta{
-			Kind: customResourceDefinitionName,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: consoleQuickStartCrdName,
-		},
-	}
-
-	logger.Info("Read the ConsoleQuickStart CRD")
-	if err := Client.Get(ctx, client.ObjectKeyFromObject(qsCrd), qsCrd); err != nil {
-		if apierrors.IsNotFound(err) {
-			return util.NewProcessingError(nil)
-		}
-		return util.NewProcessingError(err)
-	}
-
-	return nil
-}
-
 func getQuickStartHandlers(logger log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	err := checkCrdExists(context.TODO(), Client, logger)
-	if err != nil {
-		return nil, errors.Unwrap(err)
-	}
-
 	filesLocation := util.GetManifestDirPath(quickStartManifestLocationVarName, quickStartDefaultManifestLocation)
 
-	err = util.ValidateManifestDir(filesLocation)
+	err := util.ValidateManifestDir(filesLocation)
 	if err != nil {
 		return nil, errors.Unwrap(err) // if not wrapped, then it's not an error that stops processing, and it return nil
 	}
