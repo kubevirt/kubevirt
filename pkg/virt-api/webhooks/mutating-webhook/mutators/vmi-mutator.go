@@ -85,19 +85,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		if newVMI.IsRealtimeEnabled() {
-			log.Log.V(4).Info("Add realtime node label selector")
-			addNodeSelector(newVMI, v1.RealtimeLabel)
-		}
-		if util.IsSEVVMI(newVMI) {
-			log.Log.V(4).Info("Add SEV node label selector")
-			addNodeSelector(newVMI, v1.SEVLabel)
-		}
-		if util.IsSEVESVMI(newVMI) {
-			log.Log.V(4).Info("Add SEV-ES node label selector")
-			addNodeSelector(newVMI, v1.SEVESLabel)
-		}
-
 		if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
 			_, emulatorThreadCompleteToEvenParityAnnotationExists := mutator.ClusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
 			if emulatorThreadCompleteToEvenParityAnnotationExists &&
