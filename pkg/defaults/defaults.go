@@ -31,29 +31,18 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, instancetypeMethods instancetype.Methods) {
+func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
 	setDefaultInstancetypeKind(vm)
 	setDefaultPreferenceKind(vm)
 	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
-	preferenceSpec := getPreferenceSpec(vm, instancetypeMethods)
 	setVMDefaultMachineType(vm, preferenceSpec, clusterConfig)
 	setPreferenceStorageClassName(vm, preferenceSpec)
-}
-
-func getPreferenceSpec(vm *v1.VirtualMachine, instancetypeMethods instancetype.Methods) *instancetypev1beta1.VirtualMachinePreferenceSpec {
-	if vm.Spec.Preference == nil {
-		return nil
-	}
-
-	preferenceSpec, _ := instancetypeMethods.FindPreferenceSpec(vm)
-	return preferenceSpec
 }
 
 func setVMDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, clusterConfig *virtconfig.ClusterConfig) {

@@ -116,7 +116,9 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		}
 	}
 
-	defaults.SetVirtualMachineDefaults(&vm, mutator.ClusterConfig, mutator.InstancetypeMethods)
+	// FIXME(lyarwood): Handle err here
+	preferenceSpec, _ := mutator.InstancetypeMethods.FindPreferenceSpec(&vm)
+	defaults.SetVirtualMachineDefaults(&vm, mutator.ClusterConfig, preferenceSpec)
 
 	patchBytes, err := patch.New(
 		patch.WithReplace("/spec", vm.Spec),

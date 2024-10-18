@@ -12,7 +12,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/defaults",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/instancetype:go_default_library",
         "//pkg/liveupdate/memory:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",
