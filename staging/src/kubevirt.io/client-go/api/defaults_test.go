@@ -95,7 +95,6 @@ var _ = Describe("Defaults", func() {
 				Domain: v1.DomainSpec{},
 			},
 		}
-		pointer.BoolPtr(true)
 		vmi.Spec.Domain.Features = &v1.Features{
 			ACPI: v1.FeatureState{Enabled: pointer.BoolPtr(true)},
 			APIC: &v1.FeatureAPIC{Enabled: pointer.BoolPtr(false)},
