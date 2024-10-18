@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pci-nvme-test1
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: pci.resource.kubevirt.io/v1alpha1
+kind: PciClaimParameters
+metadata:
+  name: nvme-params
+  namespace: pci-nvme-test1
+spec:
+  count: 1
+  deviceName: "devices.kubevirt.io/nvme"
+---
+apiVersion: resource.k8s.io/v1alpha2
+kind: ResourceClaim
+metadata:
+  namespace: pci-nvme-test1
+  name: test-pci-claim
+spec:
+  resourceClassName: pci.kubevirt.io
+  parametersRef:
+    apiGroup: pci.resource.kubevirt.io
+    kind: PciClaimParameters
+    name: nvme-params
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-nvme
+  name: vmi-nvme
+  namespace: pci-nvme-test1
+spec:
+  domain:
+    devices: 
+      hostDevices:
+      - name: nvme1
+        deviceName: devices.kubevirt.io/nvme
+        resourceClaim:
+          name: pci-test
+          source:
+            resourceClaimName: test-pci-claim
+    resources:
+      requests:
+        memory: 2048M 
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+    name: containerdisk
+  - cloudInitNoCloud:
+      userData: |-
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
+    name: cloudinitdisk
+

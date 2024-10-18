@@ -6247,6 +6247,39 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               name:
                                 type: string
+                              resourceClaim:
+                                description: If specified, the ResourceName of the
+                                  host device will be provisioned using DRA driver
+                                  . which will not require the deviceName field
+                                properties:
+                                  name:
+                                    description: Name is the name of the resource
+                                      claim
+                                    type: string
+                                  source:
+                                    description: Source represents the source of the
+                                      resource claim
+                                    properties:
+                                      resourceClaimName:
+                                        description: ResourceClaimName is the name
+                                          of the resource claim
+                                        type: string
+                                      resourceClaimTemplateName:
+                                        description: |-
+                                          ResourceClaimTemplateName is the name of the resource claim template
+
+
+                                          Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                                          be set.
+                                        type: string
+                                    required:
+                                    - resourceClaimName
+                                    - resourceClaimTemplateName
+                                    type: object
+                                required:
+                                - name
+                                - source
+                                type: object
                               tag:
                                 description: If specified, the virtual network interface
                                   address and its tag will be provided to the guest
@@ -8869,6 +8902,37 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               name:
                 type: string
+              resourceClaim:
+                description: If specified, the ResourceName of the host device will
+                  be provisioned using DRA driver . which will not require the deviceName
+                  field
+                properties:
+                  name:
+                    description: Name is the name of the resource claim
+                    type: string
+                  source:
+                    description: Source represents the source of the resource claim
+                    properties:
+                      resourceClaimName:
+                        description: ResourceClaimName is the name of the resource
+                          claim
+                        type: string
+                      resourceClaimTemplateName:
+                        description: |-
+                          ResourceClaimTemplateName is the name of the resource claim template
+
+
+                          Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                          be set.
+                        type: string
+                    required:
+                    - resourceClaimName
+                    - resourceClaimTemplateName
+                    type: object
+                required:
+                - name
+                - source
+                type: object
               tag:
                 description: If specified, the virtual network interface address and
                   its tag will be provided to the guest via config drive
@@ -11456,6 +11520,38 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       name:
                         type: string
+                      resourceClaim:
+                        description: If specified, the ResourceName of the host device
+                          will be provisioned using DRA driver . which will not require
+                          the deviceName field
+                        properties:
+                          name:
+                            description: Name is the name of the resource claim
+                            type: string
+                          source:
+                            description: Source represents the source of the resource
+                              claim
+                            properties:
+                              resourceClaimName:
+                                description: ResourceClaimName is the name of the
+                                  resource claim
+                                type: string
+                              resourceClaimTemplateName:
+                                description: |-
+                                  ResourceClaimTemplateName is the name of the resource claim template
+
+
+                                  Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                                  be set.
+                                type: string
+                            required:
+                            - resourceClaimName
+                            - resourceClaimTemplateName
+                            type: object
+                        required:
+                        - name
+                        - source
+                        type: object
                       tag:
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
@@ -14614,6 +14710,38 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       name:
                         type: string
+                      resourceClaim:
+                        description: If specified, the ResourceName of the host device
+                          will be provisioned using DRA driver . which will not require
+                          the deviceName field
+                        properties:
+                          name:
+                            description: Name is the name of the resource claim
+                            type: string
+                          source:
+                            description: Source represents the source of the resource
+                              claim
+                            properties:
+                              resourceClaimName:
+                                description: ResourceClaimName is the name of the
+                                  resource claim
+                                type: string
+                              resourceClaimTemplateName:
+                                description: |-
+                                  ResourceClaimTemplateName is the name of the resource claim template
+
+
+                                  Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                                  be set.
+                                type: string
+                            required:
+                            - resourceClaimName
+                            - resourceClaimTemplateName
+                            type: object
+                        required:
+                        - name
+                        - source
+                        type: object
                       tag:
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
@@ -17018,6 +17146,39 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               name:
                                 type: string
+                              resourceClaim:
+                                description: If specified, the ResourceName of the
+                                  host device will be provisioned using DRA driver
+                                  . which will not require the deviceName field
+                                properties:
+                                  name:
+                                    description: Name is the name of the resource
+                                      claim
+                                    type: string
+                                  source:
+                                    description: Source represents the source of the
+                                      resource claim
+                                    properties:
+                                      resourceClaimName:
+                                        description: ResourceClaimName is the name
+                                          of the resource claim
+                                        type: string
+                                      resourceClaimTemplateName:
+                                        description: |-
+                                          ResourceClaimTemplateName is the name of the resource claim template
+
+
+                                          Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                                          be set.
+                                        type: string
+                                    required:
+                                    - resourceClaimName
+                                    - resourceClaimTemplateName
+                                    type: object
+                                required:
+                                - name
+                                - source
+                                type: object
                               tag:
                                 description: If specified, the virtual network interface
                                   address and its tag will be provided to the guest
@@ -18977,6 +19138,37 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               name:
                 type: string
+              resourceClaim:
+                description: If specified, the ResourceName of the host device will
+                  be provisioned using DRA driver . which will not require the deviceName
+                  field
+                properties:
+                  name:
+                    description: Name is the name of the resource claim
+                    type: string
+                  source:
+                    description: Source represents the source of the resource claim
+                    properties:
+                      resourceClaimName:
+                        description: ResourceClaimName is the name of the resource
+                          claim
+                        type: string
+                      resourceClaimTemplateName:
+                        description: |-
+                          ResourceClaimTemplateName is the name of the resource claim template
+
+
+                          Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                          be set.
+                        type: string
+                    required:
+                    - resourceClaimName
+                    - resourceClaimTemplateName
+                    type: object
+                required:
+                - name
+                - source
+                type: object
               tag:
                 description: If specified, the virtual network interface address and
                   its tag will be provided to the guest via config drive
@@ -21522,6 +21714,40 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                       name:
                                         type: string
+                                      resourceClaim:
+                                        description: If specified, the ResourceName
+                                          of the host device will be provisioned using
+                                          DRA driver . which will not require the
+                                          deviceName field
+                                        properties:
+                                          name:
+                                            description: Name is the name of the resource
+                                              claim
+                                            type: string
+                                          source:
+                                            description: Source represents the source
+                                              of the resource claim
+                                            properties:
+                                              resourceClaimName:
+                                                description: ResourceClaimName is
+                                                  the name of the resource claim
+                                                type: string
+                                              resourceClaimTemplateName:
+                                                description: |-
+                                                  ResourceClaimTemplateName is the name of the resource claim template
+
+
+                                                  Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                                                  be set.
+                                                type: string
+                                            required:
+                                            - resourceClaimName
+                                            - resourceClaimTemplateName
+                                            type: object
+                                        required:
+                                        - name
+                                        - source
+                                        type: object
                                       tag:
                                         description: If specified, the virtual network
                                           interface address and its tag will be provided
@@ -26720,6 +26946,41 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: string
                                           name:
                                             type: string
+                                          resourceClaim:
+                                            description: If specified, the ResourceName
+                                              of the host device will be provisioned
+                                              using DRA driver . which will not require
+                                              the deviceName field
+                                            properties:
+                                              name:
+                                                description: Name is the name of the
+                                                  resource claim
+                                                type: string
+                                              source:
+                                                description: Source represents the
+                                                  source of the resource claim
+                                                properties:
+                                                  resourceClaimName:
+                                                    description: ResourceClaimName
+                                                      is the name of the resource
+                                                      claim
+                                                    type: string
+                                                  resourceClaimTemplateName:
+                                                    description: |-
+                                                      ResourceClaimTemplateName is the name of the resource claim template
+
+
+                                                      Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                                                      be set.
+                                                    type: string
+                                                required:
+                                                - resourceClaimName
+                                                - resourceClaimTemplateName
+                                                type: object
+                                            required:
+                                            - name
+                                            - source
+                                            type: object
                                           tag:
                                             description: If specified, the virtual
                                               network interface address and its tag
