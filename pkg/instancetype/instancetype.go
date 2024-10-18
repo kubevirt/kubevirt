@@ -29,8 +29,11 @@ import (
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/defaults"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	utils "kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -53,6 +56,7 @@ type Methods interface {
 	InferDefaultPreference(vm *virtv1.VirtualMachine) error
 	CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (Conflicts, error)
 	ApplyToVM(vm *virtv1.VirtualMachine) error
+	Expand(vm *virtv1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*virtv1.VirtualMachine, error)
 }
 
 type Conflicts []*k8sfield.Path
@@ -75,6 +79,49 @@ type InstancetypeMethods struct {
 }
 
 var _ Methods = &InstancetypeMethods{}
+
+func (m *InstancetypeMethods) Expand(vm *virtv1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*virtv1.VirtualMachine, error) {
+	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
+		return vm, nil
+	}
+
+	instancetypeSpec, err := m.FindInstancetypeSpec(vm)
+	if err != nil {
+		return nil, err
+	}
+	preferenceSpec, err := m.FindPreferenceSpec(vm)
+	if err != nil {
+		return nil, err
+	}
+	expandedVM := vm.DeepCopy()
+
+	utils.SetDefaultVolumeDisk(&expandedVM.Spec.Template.Spec)
+
+	if err := vmispec.SetDefaultNetworkInterface(clusterConfig, &expandedVM.Spec.Template.Spec); err != nil {
+		return nil, err
+	}
+
+	conflicts := m.ApplyToVmi(
+		k8sfield.NewPath("spec", "template", "spec"),
+		instancetypeSpec, preferenceSpec,
+		&expandedVM.Spec.Template.Spec,
+		&expandedVM.Spec.Template.ObjectMeta,
+	)
+	if len(conflicts) > 0 {
+		return nil, fmt.Errorf("cannot expand instancetype to VM")
+	}
+
+	// Apply defaults to VM.Spec.Template.Spec after applying instance types to ensure we don't conflict
+	if err := defaults.SetDefaultVirtualMachineInstanceSpec(clusterConfig, &expandedVM.Spec.Template.Spec); err != nil {
+		return nil, err
+	}
+
+	// Remove InstancetypeMatcher and PreferenceMatcher, so the returned VM object can be used and not cause a conflict
+	expandedVM.Spec.Instancetype = nil
+	expandedVM.Spec.Preference = nil
+
+	return expandedVM, nil
+}
 
 func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {

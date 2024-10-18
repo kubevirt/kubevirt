@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
@@ -43,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
@@ -3276,7 +3276,7 @@ func False() *bool {
 // it needs to run the mutate function before verifying converter
 func vmiArchMutate(arch string, vmi *v1.VirtualMachineInstance, c *ConverterContext) {
 	if arch == "arm64" {
-		webhooks.SetArm64Defaults(&vmi.Spec)
+		defaults.SetArm64Defaults(&vmi.Spec)
 		// bootloader has been initialized in webhooks.SetArm64Defaults,
 		// c.EFIConfiguration.SecureLoader is needed in the converter.Convert_v1_VirtualMachineInstance_To_api_Domain.
 		c.EFIConfiguration = &EFIConfiguration{
@@ -3284,6 +3284,6 @@ func vmiArchMutate(arch string, vmi *v1.VirtualMachineInstance, c *ConverterCont
 		}
 
 	} else {
-		webhooks.SetAmd64Defaults(&vmi.Spec)
+		defaults.SetAmd64Defaults(&vmi.Spec)
 	}
 }

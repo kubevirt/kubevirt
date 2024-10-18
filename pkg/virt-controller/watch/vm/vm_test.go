@@ -4213,6 +4213,9 @@ var _ = Describe("VirtualMachine", func() {
 			var (
 				vm *v1.VirtualMachine
 
+				instancetypeObj *instancetypev1beta1.VirtualMachineInstancetype
+				preference      *instancetypev1beta1.VirtualMachinePreference
+
 				fakeInstancetypeClients       instancetypeclientset.InstancetypeV1beta1Interface
 				fakeInstancetypeClient        instancetypeclientset.VirtualMachineInstancetypeInterface
 				fakeClusterInstancetypeClient instancetypeclientset.VirtualMachineClusterInstancetypeInterface
@@ -4272,42 +4275,69 @@ var _ = Describe("VirtualMachine", func() {
 					ControllerRevisionStore:  controllerrevisionInformerStore,
 					Clientset:                virtClient,
 				}
-			})
 
-			Context("instancetype", func() {
-				var (
-					instancetypeObj        *instancetypev1beta1.VirtualMachineInstancetype
-					clusterInstancetypeObj *instancetypev1beta1.VirtualMachineClusterInstancetype
-				)
-
-				BeforeEach(func() {
-					instancetypeSpec := instancetypev1beta1.VirtualMachineInstancetypeSpec{
+				instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineInstancetype",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "instancetype",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 						CPU: instancetypev1beta1.CPUInstancetype{
 							Guest: uint32(2),
 						},
 						Memory: instancetypev1beta1.MemoryInstancetype{
 							Guest: resource.MustParse("128M"),
 						},
-					}
-					instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-							Kind:       "VirtualMachineInstancetype",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:       "instancetype",
-							Namespace:  vm.Namespace,
-							UID:        resourceUID,
-							Generation: resourceGeneration,
-						},
-						Spec: instancetypeSpec,
-					}
-					_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), instancetypeObj, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					},
+				}
+				_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), instancetypeObj, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
-					err = instancetypeInformerStore.Add(instancetypeObj)
-					Expect(err).NotTo(HaveOccurred())
+				err = instancetypeInformerStore.Add(instancetypeObj)
+				Expect(err).NotTo(HaveOccurred())
 
+				preference = &instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "preference",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
+					},
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachinePreference",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Firmware: &instancetypev1beta1.FirmwarePreferences{
+							PreferredUseEfi: pointer.P(true),
+						},
+						Devices: &instancetypev1beta1.DevicePreferences{
+							PreferredDiskBus:        v1.DiskBusVirtio,
+							PreferredInterfaceModel: "virtio",
+							PreferredInputBus:       v1.InputBusUSB,
+							PreferredInputType:      v1.InputTypeTablet,
+						},
+					},
+				}
+				_, err = virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				err = preferenceInformerStore.Add(preference)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			Context("instancetype", func() {
+				var (
+					clusterInstancetypeObj *instancetypev1beta1.VirtualMachineClusterInstancetype
+				)
+
+				BeforeEach(func() {
 					clusterInstancetypeObj = &instancetypev1beta1.VirtualMachineClusterInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:       "clusterInstancetype",
@@ -4318,9 +4348,16 @@ var _ = Describe("VirtualMachine", func() {
 							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 							Kind:       "VirtualMachineClusterInstancetype",
 						},
-						Spec: instancetypeSpec,
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(2),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128M"),
+							},
+						},
 					}
-					_, err = virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetypeObj, metav1.CreateOptions{})
+					_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetypeObj, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = clusterInstancetypeInformerStore.Add(clusterInstancetypeObj)
@@ -4777,45 +4814,15 @@ var _ = Describe("VirtualMachine", func() {
 
 					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
 				})
+
 			})
 
 			Context("preference", func() {
 				var (
-					preference        *instancetypev1beta1.VirtualMachinePreference
 					clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference
 				)
 
 				BeforeEach(func() {
-					preferenceSpec := instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Firmware: &instancetypev1beta1.FirmwarePreferences{
-							PreferredUseEfi: pointer.P(true),
-						},
-						Devices: &instancetypev1beta1.DevicePreferences{
-							PreferredDiskBus:        v1.DiskBusVirtio,
-							PreferredInterfaceModel: "virtio",
-							PreferredInputBus:       v1.InputBusUSB,
-							PreferredInputType:      v1.InputTypeTablet,
-						},
-					}
-					preference = &instancetypev1beta1.VirtualMachinePreference{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:       "preference",
-							Namespace:  vm.Namespace,
-							UID:        resourceUID,
-							Generation: resourceGeneration,
-						},
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-							Kind:       "VirtualMachinePreference",
-						},
-						Spec: preferenceSpec,
-					}
-					_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
-
-					err = preferenceInformerStore.Add(preference)
-					Expect(err).NotTo(HaveOccurred())
-
 					clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:       "clusterPreference",
@@ -4826,9 +4833,19 @@ var _ = Describe("VirtualMachine", func() {
 							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 							Kind:       "VirtualMachineClusterPreference",
 						},
-						Spec: preferenceSpec,
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							Firmware: &instancetypev1beta1.FirmwarePreferences{
+								PreferredUseEfi: pointer.P(true),
+							},
+							Devices: &instancetypev1beta1.DevicePreferences{
+								PreferredDiskBus:        v1.DiskBusVirtio,
+								PreferredInterfaceModel: "virtio",
+								PreferredInputBus:       v1.InputBusUSB,
+								PreferredInputType:      v1.InputTypeTablet,
+							},
+						},
 					}
-					_, err = virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
+					_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = clusterPreferenceInformerStore.Add(clusterPreference)
@@ -5506,6 +5523,120 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 				})
+			})
+
+			Context("InstancetypeReferencePolicy", func() {
+
+				addRevisionsToVMFunc := func() {
+					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+						context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+						context.Background(), preferenceRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Instancetype.RevisionName = instancetypeRevision.Name
+					vm.Spec.Preference.RevisionName = preferenceRevision.Name
+				}
+
+				kvWithReferencePolicyExpand := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							Instancetype: &v1.InstancetypeConfiguration{
+								ReferencePolicy: pointer.P(v1.Expand),
+							},
+						},
+					},
+				}
+
+				kvWithReferencePolicyExpandAll := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							Instancetype: &v1.InstancetypeConfiguration{
+								ReferencePolicy: pointer.P(v1.ExpandAll),
+							},
+						},
+					},
+				}
+
+				BeforeEach(func() {
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name: instancetypeObj.Name,
+						Kind: instancetypeapi.SingularResourceName,
+					}
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: preference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
+				})
+
+				DescribeTable("should not expand and update VM ", func(kv *v1.KubeVirt, updateVMFunc func()) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+					updateVMFunc()
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(
+						context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+
+					addVirtualMachine(vm)
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(
+						context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Instancetype).ToNot(BeNil())
+					Expect(vm.Spec.Instancetype.Name).To(Equal(instancetypeObj.Name))
+					Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
+					Expect(vm.Spec.Preference).ToNot(BeNil())
+					Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
+					Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
+				},
+					Entry("with default referencePolicy", &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{}}}, func() {}),
+					Entry("with referencePolicy reference", &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								Instancetype: &v1.InstancetypeConfiguration{
+									ReferencePolicy: pointer.P(v1.Reference),
+								},
+							},
+						},
+					}, func() {}),
+					Entry("with referencePolicy expand and revisionNames already captured",
+						kvWithReferencePolicyExpand, addRevisionsToVMFunc,
+					),
+				)
+
+				DescribeTable("should expand and update VM", func(kv *v1.KubeVirt, updateVMFunc func()) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+					updateVMFunc()
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(
+						context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(
+						context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Instancetype).To(BeNil())
+					Expect(vm.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
+					Expect(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeObj.Spec.Memory.Guest.Value()))
+					Expect(vm.Spec.Preference).To(BeNil())
+				},
+					Entry("with referencePolicy expand", kvWithReferencePolicyExpand, func() {}),
+					Entry("with referencePolicy expandAll", kvWithReferencePolicyExpandAll, func() {}),
+					Entry("with referencePolicy expandAll and revisionNames already captured",
+						kvWithReferencePolicyExpandAll, addRevisionsToVMFunc),
+				)
 			})
 		})
 

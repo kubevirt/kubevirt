@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -115,7 +116,9 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		}
 	}
 
-	webhooks.SetVirtualMachineDefaults(&vm, mutator.ClusterConfig, mutator.InstancetypeMethods)
+	// FIXME(lyarwood): Handle err here
+	preferenceSpec, _ := mutator.InstancetypeMethods.FindPreferenceSpec(&vm)
+	defaults.SetVirtualMachineDefaults(&vm, mutator.ClusterConfig, preferenceSpec)
 
 	patchBytes, err := patch.New(
 		patch.WithReplace("/spec", vm.Spec),

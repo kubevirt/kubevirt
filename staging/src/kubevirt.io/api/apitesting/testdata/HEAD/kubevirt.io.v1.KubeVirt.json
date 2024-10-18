@@ -358,6 +358,9 @@
       "vmRolloutStrategy": "vmRolloutStrategyValue",
       "commonInstancetypesDeployment": {
         "enabled": true
+      },
+      "instancetype": {
+        "referencePolicy": "referencePolicyValue"
       }
     },
     "infra": {

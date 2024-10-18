@@ -119,6 +119,8 @@ spec:
             burst: -5
             qps: -3
     imagePullPolicy: imagePullPolicyValue
+    instancetype:
+      referencePolicy: referencePolicyValue
     ksmConfiguration:
       nodeLabelSelector:
         matchExpressions:

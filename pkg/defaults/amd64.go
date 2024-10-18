@@ -13,12 +13,7 @@
  * Copyright 2021
  *
  */
-
-/*
- * arm64 utilities are in the webhooks package because they are used both
- * by validation and mutation webhooks.
- */
-package webhooks
+package defaults
 
 import (
 	v1 "kubevirt.io/api/core/v1"

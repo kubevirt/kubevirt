@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/defaults"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -81,7 +82,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 		// Set VirtualMachineInstance defaults
 		log.Log.Object(newVMI).V(4).Info("Apply defaults")
-		if err = webhooks.SetDefaultVirtualMachineInstance(mutator.ClusterConfig, newVMI); err != nil {
+		if err = defaults.SetDefaultVirtualMachineInstance(mutator.ClusterConfig, newVMI); err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 

@@ -13,12 +13,7 @@
  * Copyright the KubeVirt Authors.
  *
  */
-
-/*
- * s390x utilities are in the webhooks package because they are used both
- * by validation and mutation webhooks.
- */
-package webhooks
+package defaults
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -59,4 +54,8 @@ func setS390xDefaultFeatures(spec *v1.VirtualMachineInstanceSpec) {
 // SetS390xDefaults is mutating function for mutating-webhook
 func SetS390xDefaults(spec *v1.VirtualMachineInstanceSpec) {
 	setDefaultS390xDisksBus(spec)
+}
+
+func IsS390X(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Architecture == "s390x"
 }
