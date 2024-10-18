@@ -119,10 +119,9 @@ http_file(
 
 http_file(
     name = "cirros_image",
-    sha256 = "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464",
+    sha256 = "07e44a73e54c94d988028515403c1ed762055e01b83a767edf3c2b387f78ce00",
     urls = [
-        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img",
-        "https://storage.googleapis.com/builddeps/932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464",
+        "https://github.com/cirros-dev/cirros/releases/download/0.6.2/cirros-0.6.2-x86_64-disk.img",
     ],
 )
 
