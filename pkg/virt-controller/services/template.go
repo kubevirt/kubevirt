@@ -665,6 +665,19 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
 	}
 
+	if vmi.IsRealtimeEnabled() {
+		log.Log.V(4).Info("Add realtime node label selector")
+		opts = append(opts, WithRealtime())
+	}
+	if util.IsSEVVMI(vmi) {
+		log.Log.V(4).Info("Add SEV node label selector")
+		opts = append(opts, WithSEVSelector())
+	}
+	if util.IsSEVESVMI(vmi) {
+		log.Log.V(4).Info("Add SEV-ES node label selector")
+		opts = append(opts, WithSEVESSelector())
+	}
+
 	return NewNodeSelectorRenderer(
 		vmi.Spec.NodeSelector,
 		t.clusterConfig.GetNodeSelectors(),
