@@ -265,217 +265,152 @@ container_bundle(
     },
 )
 
+# heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
+load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
+load("@rules_oci//oci:defs.bzl", "oci_push")
+
 # we need to push virt images with the rule from container:container in order to get the digest file
-container_push(
+oci_push(
     name = "push-virt-operator",
-    format = "Docker",
     image = "//cmd/virt-operator:virt-operator-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)virt-operator",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/virt-operator",
 )
 
-container_push(
+oci_push(
     name = "push-virt-api",
-    format = "Docker",
     image = "//cmd/virt-api:virt-api-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)virt-api",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/virt-api",
 )
 
-container_push(
+oci_push(
     name = "push-virt-controller",
-    format = "Docker",
     image = "//cmd/virt-controller:virt-controller-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)virt-controller",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/virt-controller",
 )
 
-container_push(
+oci_push(
     name = "push-virt-handler",
-    format = "Docker",
     image = "//cmd/virt-handler:virt-handler-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)virt-handler",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/virt-handler",
 )
 
-container_push(
+oci_push(
     name = "push-virt-launcher",
-    format = "Docker",
     image = "//cmd/virt-launcher:virt-launcher-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)virt-launcher",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/virt-launcher",
 )
 
-container_push(
+oci_push(
     name = "push-conformance",
     testonly = True,
-    format = "Docker",
     image = "//tests:conformance_image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)conformance",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/conformance",
 )
 
-container_push(
+oci_push(
     name = "push-libguestfs-tools",
-    format = "Docker",
     image = "//cmd/libguestfs:libguestfs-tools-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)libguestfs-tools",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/libguestfs-tools",
 )
 
-container_push(
+oci_push(
     name = "push-virt-exportserver",
-    format = "Docker",
     image = "//cmd/virt-exportserver:virt-exportserver-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)virt-exportserver",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/virt-exportserver",
 )
 
-container_push(
+oci_push(
     name = "push-virt-exportproxy",
-    format = "Docker",
     image = "//cmd/virt-exportproxy:virt-exportproxy-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)virt-exportproxy",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/virt-exportproxy",
 )
 
-container_push(
+oci_push(
     name = "push-virt-synchronization-controller",
-    format = "Docker",
     image = "//cmd/synchronization-controller:synchronization-controller-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)virt-synchronization-controller",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/virt-synchronization-controller",
 )
 
-container_push(
+oci_push(
     name = "push-pr-helper",
-    format = "Docker",
     image = "//cmd/pr-helper:pr-helper",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)pr-helper",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/pr-helper",
 )
 
 # The following container_push list is synced with the images in container_bundle "build-other-images".
 # cmd images
-container_push(
+oci_push(
     name = "push-sidecar-shim",
-    format = "Docker",
     image = "//cmd/sidecars:sidecar-shim-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)sidecar-shim",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/sidecar-shim",
 )
 
-container_push(
+oci_push(
     name = "push-network-slirp-binding",
-    format = "Docker",
     image = "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)network-slirp-binding",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/network-slirp-binding",
 )
 
-container_push(
+oci_push(
     name = "push-network-passt-binding",
-    format = "Docker",
     image = "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)network-passt-binding",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/network-passt-binding",
 )
 
-container_push(
+oci_push(
     name = "push-network-passt-binding-cni",
-    format = "Docker",
     image = "//cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)network-passt-binding-cni",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/network-passt-binding-cni",
 )
 
-container_push(
+oci_push(
     name = "push-example-hook-sidecar",
-    format = "Docker",
     image = "//cmd/sidecars/smbios:example-hook-sidecar-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)example-hook-sidecar",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/example-hook-sidecar",
 )
 
-container_push(
+oci_push(
     name = "push-example-disk-mutation-hook-sidecar",
-    format = "Docker",
     image = "//cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)example-disk-mutation-hook-sidecar",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/example-disk-mutation-hook-sidecar",
 )
 
-container_push(
+oci_push(
     name = "push-example-cloudinit-hook-sidecar",
-    format = "Docker",
     image = "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)example-cloudinit-hook-sidecar",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/example-cloudinit-hook-sidecar",
 )
 
 # container-disk images
-container_push(
+oci_push(
     name = "push-alpine-container-disk-demo",
-    format = "Docker",
     image = "//containerimages:alpine-container-disk-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)alpine-container-disk-demo",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/alpine-container-disk-demo",
 )
 
-container_push(
+oci_push(
     name = "push-cirros-container-disk-demo",
-    format = "Docker",
     image = "//containerimages:cirros-container-disk-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)cirros-container-disk-demo",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/cirros-container-disk-demo",
 )
 
-container_push(
+oci_push(
     name = "push-cirros-custom-container-disk-demo",
-    format = "Docker",
     image = "//containerimages:cirros-custom-container-disk-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)cirros-custom-container-disk-demo",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/cirros-custom-container-disk-demo",
 )
 
-container_push(
+oci_push(
     name = "push-virtio-container-disk",
-    format = "Docker",
     image = "//containerimages:virtio-container-disk-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)virtio-container-disk",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/virtio-container-disk",
 )
 
 # Kernel boot container
-container_push(
+oci_push(
     name = "push-alpine-ext-kernel-boot-demo",
-    format = "Docker",
     image = "//containerimages:alpine-ext-kernel-boot-demo-container",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)alpine-ext-kernel-boot-demo",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/alpine-ext-kernel-boot-demo",
 )
 
 # Customized container-disk images
@@ -485,38 +420,23 @@ oci_push(
     repository = "quay.io/fedora-with-test-tooling-container-disk",
 )
 
-container_push(
+oci_push(
     name = "push-alpine-with-test-tooling-container-disk",
-    format = "Docker",
     image = "//containerimages:alpine-with-test-tooling",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)alpine-with-test-tooling-container-disk",
-    tag = "$(container_tag)",
-)
-
-container_push(
-    name = "push-fedora-realtime-container-disk",
-    format = "Docker",
-    image = "//containerimages:fedora-realtime",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)fedora-realtime-container-disk",
-    tag = "$(container_tag)",
-)
-
-# testing images
-container_push(
-    name = "push-disks-images-provider",
-    format = "Docker",
-    image = "//images/disks-images-provider:disks-images-provider-image",
-    registry = "$(container_prefix)",
-    repository = "$(image_prefix)disks-images-provider",
-    tag = "$(container_tag)",
+    repository = "quay.io/kubevirt/alpine-with-test-tooling-container-disk",
 )
 
 oci_push(
-    name = "push-nfs-server",
-    image = "//images/nfs-server:nfs-server-image",
-    repository = "quay.io/kubevirt/nfs-server",
+    name = "push-fedora-realtime-container-disk",
+    image = "//containerimages:fedora-realtime",
+    repository = "quay.io/kubevirt/fedora-realtime-container-disk",
+)
+
+# testing images
+oci_push(
+    name = "push-disks-images-provider",
+    image = "//images/disks-images-provider:disks-images-provider-image",
+    repository = "quay.io/kubevirt/disks-images-provider",
 )
 
 oci_push(
