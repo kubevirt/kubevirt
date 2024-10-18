@@ -41,12 +41,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-const (
-	UsrBinVirtChroot = "/usr/bin/virt-chroot"
-	Mount            = "--mount"
-	Proc1NsMnt       = "/proc/1/ns/mnt"
-)
-
 func NodeNameWithHandler() string {
 	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtClient := kubevirt.Client()
@@ -72,6 +66,11 @@ func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout stri
 	return stdout, nil
 }
 
+func virtChrootExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
+	args = append([]string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--"}, args...)
+	return ExecuteCommandInVirtHandlerPod(nodeName, args)
+}
+
 // The tests using the function CreateErrorDisk need to be run serially as it relies on the kernel scsi_debug module
 func CreateErrorDisk(nodeName string) (address string, device string) {
 	By("Creating error disk")
@@ -81,14 +80,14 @@ func CreateErrorDisk(nodeName string) (address string, device string) {
 // CreateSCSIDisk creates a SCSI disk using the scsi_debug module. This function should be used only to check SCSI disk functionalities and not for creating a filesystem or any data. The disk is stored in ram and it isn't suitable for storing large amount of data.
 // If a test uses this function, it needs to be run serially. The device is created directly on the node and the addition and removal of the scsi_debug kernel module could create flakiness
 func CreateSCSIDisk(nodeName string, opts []string) (address string, device string) {
-	args := []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "scsi_debug"}
+	args := []string{"/usr/sbin/modprobe", "scsi_debug"}
 	args = append(args, opts...)
-	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	_, err := virtChrootExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create faulty disk")
 
 	EventuallyWithOffset(1, func() error {
-		args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/bin/sh", "-c", "/bin/grep -l scsi_debug /sys/bus/scsi/devices/*/model"}
-		stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+		args = []string{"/bin/sh", "-c", "/bin/grep -l scsi_debug /sys/bus/scsi/devices/*/model"}
+		stdout, err := virtChrootExecuteCommandInVirtHandlerPod(nodeName, args)
 		if err != nil {
 			return err
 		}
@@ -102,8 +101,8 @@ func CreateSCSIDisk(nodeName string, opts []string) (address string, device stri
 		pathname := strings.Split(stdout, "/")
 		address = pathname[5]
 
-		args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/bin/ls", "/sys/bus/scsi/devices/" + address + "/block"}
-		stdout, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+		args = []string{"/bin/ls", "/sys/bus/scsi/devices/" + address + "/block"}
+		stdout, err = virtChrootExecuteCommandInVirtHandlerPod(nodeName, args)
 		if err != nil {
 			return err
 		}
@@ -121,8 +120,8 @@ func RemoveSCSIDisk(nodeName, address string) {
 	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 
-	args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "-r", "scsi_debug"}
-	_, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+	args = []string{"/usr/sbin/modprobe", "-r", "scsi_debug"}
+	_, err = virtChrootExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 }
 
