@@ -1724,7 +1724,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 						Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
 						once the issue is resolved we can remove mpx disablement
 		*/
-		if _, exists := existingFeatures["mpx"]; !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+
+		_, exists := existingFeatures["mpx"]
+		// skip the mpx CPU feature validation for s390x as it is not supported.
+		if !isS390X(c.Architecture) && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 				Name:   "mpx",
 				Policy: "disable",
