@@ -98,11 +98,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		kv.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyLiveUpdate)
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
-	disableLiveUpdate := func() {
-		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
-		kv.Spec.Configuration.VMRolloutStrategy = nil
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
-	}
 
 	runStrategyManual := v1.RunStrategyManual
 	runStrategyHalted := v1.RunStrategyHalted
@@ -2355,7 +2350,6 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		BeforeEach(func() {
 			vmi := api.NewMinimalVMI("testvmi")
-			enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate)
 			enableLiveUpdate()
 			vm = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
@@ -2368,7 +2362,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		AfterEach(func() {
-			disableLiveUpdate()
 			disableFeatureGates()
 		})
 
@@ -2422,7 +2415,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(response.Result.Details.Causes).To(ContainElement(cause))
 			},
 				Entry("realtime is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						DedicatedCPUPlacement: true,
 						Realtime:              &v1.Realtime{},
@@ -2439,7 +2431,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with realtime VMs",
 				}),
 				Entry("launchSecurity is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.WorkloadEncryptionSEV)
+					enableFeatureGate(virtconfig.WorkloadEncryptionSEV)
 					vm.Spec.Template.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2447,7 +2439,6 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with encrypted VMs",
 				}),
 				Entry("guest mapping passthrough is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						DedicatedCPUPlacement: true,
 						NUMA: &v1.NUMA{
@@ -2505,7 +2496,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.Hotplug1GHugePagesBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.MultiArchitecture)
+					enableFeatureGate(virtconfig.MultiArchitecture)
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2524,7 +2515,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		Context("Update volume strategy", func() {
 			It("should accept the VM with the feature gate enabled", func() {
-				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy)
+				enableFeatureGate(virtconfig.VolumesUpdateStrategy)
 				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyReplacement)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeTrue())
@@ -2541,14 +2532,14 @@ var _ = Describe("Validating VM Admitter", func() {
 				}))
 			})
 			It("should accept the VM with the feature gate enabled for volume migration", func() {
-				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration)
+				enableFeatureGate(virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration)
 				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeTrue())
 				Expect(resp.Result).To(BeNil())
 			})
 			It("should reject the VM creation if the volume migration feature gate isn't enabled", func() {
-				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy)
+				enableFeatureGate(virtconfig.VolumesUpdateStrategy)
 				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeFalse())

@@ -308,7 +308,7 @@ var _ = Describe("test configuration", func() {
 		),
 	)
 
-	DescribeTable("when vmRolloutStrategy", func(vmRolloutStrategy *v1.VMRolloutStrategy, featureGates []string, expected bool) {
+	DescribeTable("when vmRolloutStrategy", func(vmRolloutStrategy *v1.VMRolloutStrategy, expected bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -316,9 +316,6 @@ var _ = Describe("test configuration", func() {
 			},
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: featureGates,
-					},
 					VMRolloutStrategy: vmRolloutStrategy,
 				},
 			},
@@ -328,17 +325,14 @@ var _ = Describe("test configuration", func() {
 		})
 		Expect(clusterConfig.IsVMRolloutStrategyLiveUpdate()).To(BeEquivalentTo(expected))
 	},
-		Entry("is nil, VMLiveUpdateFeaturesEnabled should return false",
-			nil, []string{virtconfig.VMLiveUpdateFeaturesGate}, false,
+		Entry("is nil, IsVMRolloutStrategyLiveUpdate should return false",
+			nil, false,
 		),
-		Entry("is Stage, VMLiveUpdateFeaturesEnabled should return false",
-			pointer.P(v1.VMRolloutStrategyStage), []string{virtconfig.VMLiveUpdateFeaturesGate}, false,
+		Entry("is Stage, IsVMRolloutStrategyLiveUpdate should return false",
+			pointer.P(v1.VMRolloutStrategyStage), false,
 		),
-		Entry("is LiveUpdate but the feature gate is not set, VMLiveUpdateFeaturesEnabled should return false",
-			pointer.P(v1.VMRolloutStrategyLiveUpdate), []string{}, false,
-		),
-		Entry("is LiveUpdate, VMLiveUpdateFeaturesEnabled should return true",
-			pointer.P(v1.VMRolloutStrategyLiveUpdate), []string{virtconfig.VMLiveUpdateFeaturesGate}, true,
+		Entry("is LiveUpdate, IsVMRolloutStrategyLiveUpdate should return true",
+			pointer.P(v1.VMRolloutStrategyLiveUpdate), true,
 		),
 	)
 
