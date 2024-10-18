@@ -48,7 +48,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -74,7 +75,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 		}
 		rolloutStrategy := pointer.P(virtv1.VMRolloutStrategyLiveUpdate)
 		config.PatchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy,
-			[]string{virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration})
+			[]string{featuregate.VMLiveUpdateFeaturesGate, featuregate.VolumesUpdateStrategy, featuregate.VolumeMigration})
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
 		config.WaitForConfigToBePropagatedToComponent(
@@ -625,15 +626,15 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			var err error
 			virtClient, err = kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
-			fgDisabled = !checks.HasFeature(virtconfig.HotplugVolumesGate)
+			fgDisabled = !checks.HasFeature(featuregate.HotplugVolumesGate)
 			if fgDisabled {
-				config.EnableFeatureGate(virtconfig.HotplugVolumesGate)
+				config.EnableFeatureGate(featuregate.HotplugVolumesGate)
 			}
 
 		})
 		AfterEach(func() {
 			if fgDisabled {
-				config.DisableFeatureGate(virtconfig.HotplugVolumesGate)
+				config.DisableFeatureGate(featuregate.HotplugVolumesGate)
 			}
 		})
 
