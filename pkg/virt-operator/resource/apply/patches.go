@@ -52,6 +52,7 @@ func flagsToPatches(flags *v1.Flags) []v1.CustomizeComponentsPatch {
 	patches = addFlagsPatch(components.VirtAPIName, "Deployment", flags.API, patches)
 	patches = addFlagsPatch(components.VirtControllerName, "Deployment", flags.Controller, patches)
 	patches = addFlagsPatch(components.VirtHandlerName, "DaemonSet", flags.Handler, patches)
+	patches = addKubeletPodsDirPatch(components.VirtHandlerName, "DaemonSet", flags.Handler, patches)
 
 	return patches
 }
@@ -66,6 +67,23 @@ func addFlagsPatch(name, resource string, flags map[string]string, patches []v1.
 		ResourceType: resource,
 		Patch:        fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q,"command":["%s","%s"]}]}}}}`, name, name, strings.Join(flagsToArray(flags), `","`)),
 		Type:         v1.StrategicMergePatchType,
+	})
+}
+
+func addKubeletPodsDirPatch(name, resource string, flags map[string]string, patches []v1.CustomizeComponentsPatch) []v1.CustomizeComponentsPatch {
+	if len(flags) == 0 {
+		if _, ok := flags["kubelet-pods-dir"]; !ok {
+			return patches
+		}
+	}
+	kubeletPodsDir := flags["kubelet-pods-dir"]
+	return append(patches, v1.CustomizeComponentsPatch{
+		ResourceName: name,
+		ResourceType: resource,
+		Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","volumeMounts":[{"mountPath":"%s","mountPropagation":"Bidirectional","name":"kubelet-pods"}]}],"volumes":[{"hostPath":{"path":"%s"},"name":"kubelet-pods-shortened"},{"hostPath":{"path":"%s"},"name":"kubelet-pods"}]}}}}`,
+			name, kubeletPodsDir, kubeletPodsDir, kubeletPodsDir),
+		//Patch:        fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q,"command":["%s","%s"]}]}}}}`, name, name, strings.Join(flagsToArray(flags), `","`)),
+		Type: v1.StrategicMergePatchType,
 	})
 }
 
