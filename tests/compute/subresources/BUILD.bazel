@@ -7,7 +7,6 @@ go_library(
         "openapi.go",
         "pausing.go",
         "rbac.go",
-        "softreboot.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/compute/subresources",
     visibility = ["//visibility:public"],
