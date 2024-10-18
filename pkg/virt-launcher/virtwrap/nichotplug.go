@@ -148,7 +148,9 @@ func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineIns
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
 			_, exists := indexedDomainIfaces[ifaceStatus.Name]
 			vmiSpecIface := netvmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, ifaceStatus.Name)
-
+			if vmiSpecIface == nil {
+				return false
+			}
 			return netvmispec.ContainsInfoSource(
 				ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus,
 			) && !exists && vmiSpecIface.State != v1.InterfaceStateAbsent && vmiSpecIface.SRIOV == nil
