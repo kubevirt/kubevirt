@@ -6,11 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"kubevirt.io/kubevirt/tests/libnode"
-
-	"k8s.io/client-go/util/flowcontrol"
-
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
@@ -28,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/util/flowcontrol"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v12 "kubevirt.io/api/core/v1"
@@ -36,12 +30,14 @@ import (
 	"kubevirt.io/client-go/log"
 	apicdi "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -200,6 +196,7 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	r.logNetworkAttachmentDefinitionInfo(virtCli)
 	r.logKubeVirtCR(virtCli)
 	r.logNodes(nodes)
+	r.logJobs(virtCli)
 	r.logPods(pods)
 	r.logVMs(virtCli)
 	r.logVMRestore(virtCli)
@@ -715,6 +712,15 @@ func (r *KubernetesReporter) logNamespaces(virtCli kubecli.KubevirtClient) {
 
 func (r *KubernetesReporter) logNodes(nodes *v1.NodeList) {
 	r.logObjects(nodes, "nodes")
+}
+
+func (r *KubernetesReporter) logJobs(virtCli kubecli.KubevirtClient) {
+	jobs, err := virtCli.BatchV1().Jobs(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		printError("failed to fetch jobs: %v", err)
+		return
+	}
+	r.logObjects(jobs, "jobs")
 }
 
 func (r *KubernetesReporter) logPVs(virtCli kubecli.KubevirtClient) {
