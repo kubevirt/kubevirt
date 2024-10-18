@@ -36,6 +36,7 @@ import (
 	"strings"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
@@ -1277,6 +1278,105 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 	return nil
 }
 
+func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.IOThreadsPolicy != nil {
+		return true
+	}
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
+			return true
+		}
+	}
+	return false
+}
+
+func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
+	dedicatedThreads := 0
+
+	var threadPoolLimit int
+	switch {
+	case vmi.Spec.Domain.IOThreadsPolicy == nil:
+		threadPoolLimit = 1
+	case *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyShared:
+		threadPoolLimit = 1
+	case *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyAuto:
+		// When IOThreads policy is set to auto and we've allocated a dedicated
+		// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
+		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+			threadPoolLimit = 1
+		} else {
+			numCPUs := 1
+			// Requested CPU's is guaranteed to be no greater than the limit
+			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuRequests.Value())
+			} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuLimit.Value())
+			}
+
+			threadPoolLimit = numCPUs * 2
+		}
+	}
+
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
+			dedicatedThreads += 1
+		} else {
+			autoThreads += 1
+		}
+	}
+
+	if (autoThreads + dedicatedThreads) > threadPoolLimit {
+		autoThreads = threadPoolLimit - dedicatedThreads
+		// We need at least one shared thread
+		if autoThreads < 1 {
+			autoThreads = 1
+		}
+	}
+
+	ioThreadCount = (autoThreads + dedicatedThreads)
+	return
+}
+
+func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, vcpus uint) {
+	if !hasIOThreads(vmi) {
+		return
+	}
+	ioThreadCount, autoThreads := getIOThreadsCountType(vmi)
+	if ioThreadCount != 0 {
+		if domain.Spec.IOThreads == nil {
+			domain.Spec.IOThreads = &api.IOThreads{}
+		}
+		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
+	}
+
+	currentAutoThread := defaultIOThread
+	currentDedicatedThread := uint(autoThreads + 1)
+	for i, disk := range domain.Spec.Devices.Disks {
+		// Only disks with virtio bus support IOThreads
+		if disk.Target.Bus == v1.DiskBusVirtio {
+			if vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread != nil && *vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread {
+				domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentDedicatedThread)
+				currentDedicatedThread += 1
+			} else {
+				domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentAutoThread)
+				// increment the threadId to be used next but wrap around at the thread limit
+				// the odd math here is because thread ID's start at 1, not 0
+				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+			}
+		}
+	}
+
+	for i, controller := range domain.Spec.Devices.Controllers {
+		if controller.Type == "scsi" {
+			if controller.Driver == nil {
+				domain.Spec.Devices.Controllers[i].Driver = &api.ControllerDriver{}
+			}
+			domain.Spec.Devices.Controllers[i].Driver.IOThread = pointer.P(currentAutoThread)
+			domain.Spec.Devices.Controllers[i].Driver.Queues = pointer.P(vcpus)
+		}
+	}
+}
+
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
 	var controllerDriver *api.ControllerDriver
 
@@ -1458,64 +1558,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		volumeIndices[volume.Name] = i
 	}
 
-	dedicatedThreads := 0
-	autoThreads := 0
-	useIOThreads := false
-	threadPoolLimit := 1
-
-	if vmi.Spec.Domain.IOThreadsPolicy != nil {
-		useIOThreads = true
-
-		if (*vmi.Spec.Domain.IOThreadsPolicy) == v1.IOThreadsPolicyAuto {
-			// When IOThreads policy is set to auto and we've allocated a dedicated
-			// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
-			if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-				threadPoolLimit = 1
-			} else {
-				numCPUs := 1
-				// Requested CPU's is guaranteed to be no greater than the limit
-				if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
-					numCPUs = int(cpuRequests.Value())
-				} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
-					numCPUs = int(cpuLimit.Value())
-				}
-
-				threadPoolLimit = numCPUs * 2
-			}
-		}
-	}
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		dedicatedThread := false
-		if diskDevice.DedicatedIOThread != nil {
-			dedicatedThread = *diskDevice.DedicatedIOThread
-		}
-		if dedicatedThread {
-			useIOThreads = true
-			dedicatedThreads += 1
-		} else {
-			autoThreads += 1
-		}
-	}
-
-	if (autoThreads + dedicatedThreads) > threadPoolLimit {
-		autoThreads = threadPoolLimit - dedicatedThreads
-		// We need at least one shared thread
-		if autoThreads < 1 {
-			autoThreads = 1
-		}
-	}
-
-	ioThreadCount := (autoThreads + dedicatedThreads)
-	if ioThreadCount != 0 {
-		if domain.Spec.IOThreads == nil {
-			domain.Spec.IOThreads = &api.IOThreads{}
-		}
-		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
-	}
-
-	currentAutoThread := defaultIOThread
-	currentDedicatedThread := uint(autoThreads + 1)
-
 	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	vcpus := uint(cpuCount)
@@ -1532,7 +1574,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
 	}
 
-	setIOThreadSCSIController := false
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
@@ -1557,38 +1598,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk); err != nil {
 			return err
-		}
-
-		if useIOThreads {
-			bus := getBusFromDisk(disk)
-			switch bus {
-			// Only disks with virtio bus support IOThreads
-			case v1.DiskBusVirtio:
-				ioThreadId := defaultIOThread
-				dedicatedThread := false
-				if disk.DedicatedIOThread != nil {
-					dedicatedThread = *disk.DedicatedIOThread
-				}
-
-				if dedicatedThread {
-					ioThreadId = currentDedicatedThread
-					currentDedicatedThread += 1
-				} else {
-					ioThreadId = currentAutoThread
-					// increment the threadId to be used next but wrap around at the thread limit
-					// the odd math here is because thread ID's start at 1, not 0
-					currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
-				}
-				newDisk.Driver.IOThread = &ioThreadId
-
-			// We can find a workaround by adding IOThreads to the SCSI controller
-			case v1.DiskBusSCSI:
-				setIOThreadSCSIController = true
-
-			default:
-				// TODO: if possible, find a workaround for SATA and USB buses.
-				log.Log.Infof("IOthreads not available for disk %s: Bus %s not supported", disk.Name, bus)
-			}
 		}
 
 		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
@@ -1657,13 +1666,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if needsSCSIController(vmi) {
 		scsiController := newArchConverter(c.Architecture).scsiController(c, controllerDriver)
-		if setIOThreadSCSIController {
-			if scsiController.Driver == nil {
-				scsiController.Driver = &api.ControllerDriver{}
-			}
-			scsiController.Driver.IOThread = &currentAutoThread
-			scsiController.Driver.Queues = &vcpus
-		}
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 
@@ -1733,7 +1735,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
-			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, useIOThreads)
+			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, hasIOThreads(vmi))
 			if err != nil {
 				return err
 			}
@@ -1890,6 +1892,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			Timeout: &BootMenuTimeoutMS,
 		}
 	}
+
+	setIOThreads(vmi, domain, c, vcpus)
 
 	return nil
 }
