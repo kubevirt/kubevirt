@@ -351,7 +351,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
 				if !autoattachGraphicsDevice {
-					ExpectMessage(recorder, "No graphics devices are present.")
+					ExpectMessage(recorder, Equal("No graphics devices are present."))
 				}
 			},
 				Entry("should fail if there is no graphics device", false, v1.Running),
@@ -2300,7 +2300,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			return
 		}
 
-		DescribeTable("Should fail pausing", func(running bool, paused bool, additionalOpts func(vmi *v1.VirtualMachineInstance), pauseOptions *v1.PauseOptions, expectedCode int) {
+		DescribeTable("Should fail pausing", func(running bool, paused bool, additionalOpts func(vmi *v1.VirtualMachineInstance), pauseOptions *v1.PauseOptions, expectedCode int, expectedError string) {
 			expectVMI(running, paused, additionalOpts)
 
 			bytesRepresentation, _ := json.Marshal(pauseOptions)
@@ -2309,18 +2309,19 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.PauseVMIRequestHandler(request, response)
 
 			ExpectStatusErrorWithCode(recorder, expectedCode)
+			ExpectMessage(recorder, ContainSubstring(expectedError))
 		},
-			Entry("a not running VMI", NotRunning, UnPaused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict),
-			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, nilAdditionalOps, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusConflict),
+			Entry("a not running VMI", NotRunning, UnPaused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict, "VM is not running"),
+			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, nilAdditionalOps, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusConflict, "VM is not running"),
 
-			Entry("a running but paused VMI", Running, Paused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict),
-			Entry("a running but paused VMI with dry-run option", Running, Paused, nilAdditionalOps, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusConflict),
+			Entry("a running but paused VMI", Running, Paused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict, "VMI is already paused"),
+			Entry("a running but paused VMI with dry-run option", Running, Paused, nilAdditionalOps, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusConflict, "VMI is already paused"),
 
-			Entry("a running VMI with LivenessProbe", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{}, http.StatusForbidden),
-			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusForbidden),
+			Entry("a running VMI with LivenessProbe", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
+			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
 		)
 
-		DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions) {
+		DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions, expectedError string) {
 
 			expectVMI(running, paused)
 
@@ -2330,12 +2331,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.UnpauseVMIRequestHandler(request, response)
 
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			ExpectMessage(recorder, ContainSubstring(expectedError))
 		},
-			Entry("a running, not paused VMI", Running, UnPaused, &v1.UnpauseOptions{}),
-			Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
+			Entry("a running, not paused VMI", Running, UnPaused, &v1.UnpauseOptions{}, "VMI is not paused"),
+			Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}, "VMI is not paused"),
 
-			Entry("a not running VMI", NotRunning, UnPaused, &v1.UnpauseOptions{}),
-			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
+			Entry("a not running VMI", NotRunning, UnPaused, &v1.UnpauseOptions{}, "VMI is not running"),
+			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}, "VMI is not running"),
 		)
 
 		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions, handlerExpectation gomegatypes.GomegaMatcher) {
@@ -2604,10 +2606,10 @@ func ExpectStatusErrorWithCode(recorder *httptest.ResponseRecorder, code int) *e
 	return &errors.StatusError{ErrStatus: status}
 }
 
-func ExpectMessage(recorder *httptest.ResponseRecorder, message string) {
+func ExpectMessage(recorder *httptest.ResponseRecorder, expected gomegatypes.GomegaMatcher) {
 	status := k8smetav1.Status{}
 	err := json.Unmarshal(recorder.Body.Bytes(), &status)
 
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, status.Message).To(Equal(message))
+	ExpectWithOffset(1, status.Message).To(expected)
 }
