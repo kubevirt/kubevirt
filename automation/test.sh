@@ -383,6 +383,30 @@ spec:
 EOF
 fi
 
+for (( c=1; c<=8; c++ ))
+do
+  # exhaust ceph capacity (30Gi disk in CI)
+	cat << __EOF__ | kubectl create -f -
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: dv-exhaust-ceph-${c}
+spec:
+  preallocation: true
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 6Gi
+    storageClassName: rook-ceph-block
+  source:
+    registry:
+      url: "docker://registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel"
+__EOF__
+done
+
 # add_to_label_filter appends the given label and separator to
 # $label_filter which is passed to Ginkgo --filter-label flag.
 # How to use:
