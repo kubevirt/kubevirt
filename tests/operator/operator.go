@@ -2717,6 +2717,17 @@ spec:
 			})
 		})
 	})
+
+	It("should verify that componentVersions field is present and populated", func() {
+		virtClient = kubevirt.Client()
+		kv := libkubevirt.GetCurrentKv(virtClient)
+		Expect(kv).ToNot(BeNil())
+		Expect(kv.Status.ComponentVersions).ToNot(BeNil())
+		Expect(kv.Status.ComponentVersions.VirtHandler).ToNot(BeNil())
+		Expect(kv.Status.ComponentVersions.VirtController).ToNot(BeNil())
+		Expect(kv.Status.ComponentVersions.VirtApi).ToNot(BeNil())
+	})
+
 })
 
 func patchCRD(orig *extv1.CustomResourceDefinition, modified *extv1.CustomResourceDefinition) []byte {

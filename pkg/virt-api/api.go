@@ -96,6 +96,8 @@ const (
 	httpStatusNotFoundMessage     = "Not Found"
 	httpStatusBadRequestMessage   = "Bad Request"
 	httpStatusInternalServerError = "Internal Server Error"
+
+	virtApiComponentName = "virtApi"
 )
 
 type VirtApi interface {
@@ -437,7 +439,7 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 		subws.Route(subws.GET(definitions.SubResourcePath("healthz")).
-			To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).
+			To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion, virtApiComponentName)).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
 			Operation(version.Version+"CheckHealth").
@@ -714,7 +716,7 @@ func (app *virtAPIApp) composeSubresources() {
 		Doc("Get KubeVirt API root paths").
 		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
 		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
-	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
+	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion, virtApiComponentName)).Doc("Health endpoint"))
 
 	componentProfiler := profiler.NewProfileManager(app.clusterConfig)
 

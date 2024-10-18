@@ -408,10 +408,12 @@ spec:
           - kubevirt.io
           resources:
           - kubevirts
+          - kubevirts/status
           verbs:
           - get
           - list
           - watch
+          - patch
         - apiGroups:
           - snapshot.kubevirt.io
           resources:
@@ -778,10 +780,12 @@ spec:
           - kubevirt.io
           resources:
           - kubevirts
+          - kubevirts/status
           verbs:
           - get
           - list
           - watch
+          - patch
         - apiGroups:
           - migrations.kubevirt.io
           resources:

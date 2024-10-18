@@ -34,7 +34,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func DisableFeatureGate(feature string) {
@@ -97,7 +96,7 @@ func updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kvConfig v1.KubeVirtCon
 	ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	currentGen := ds.Status.ObservedGeneration
-	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
+	kv := UpdateKubeVirtConfigValue(kvConfig)
 	EventuallyWithOffset(1, func() bool {
 		ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
