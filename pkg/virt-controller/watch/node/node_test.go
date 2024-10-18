@@ -115,6 +115,31 @@ var _ = Describe("Node controller with", func() {
 		Expect(updatedVMI.Status.Reason).To(Equal(NodeUnresponsiveReason))
 	}
 
+	deepCopyList := func(objects []interface{}) []interface{} {
+		for i := range objects {
+			objects[i] = objects[i].(runtime.Object).DeepCopyObject()
+		}
+		return objects
+	}
+
+	sanityExecute := func() {
+		stores := []cache.Store{
+			controller.vmiStore, controller.nodeStore,
+		}
+
+		listOfObjects := [][]interface{}{}
+
+		for _, store := range stores {
+			listOfObjects = append(listOfObjects, deepCopyList(store.List()))
+		}
+
+		controller.Execute()
+
+		for i, objects := range listOfObjects {
+			ExpectWithOffset(1, stores[i].List()).To(ConsistOf(objects...))
+		}
+	}
+
 	Context("pods and vmis given", func() {
 		It("should only select stuck vmis", func() {
 			node := NewHealthyNode("test")
@@ -149,7 +174,7 @@ var _ = Describe("Node controller with", func() {
 
 			addNode(node)
 
-			controller.Execute()
+			sanityExecute()
 		})
 	})
 
@@ -167,7 +192,7 @@ var _ = Describe("Node controller with", func() {
 				return true, nil, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		})
 		DescribeTable("should set a vmi without a pod to failed state if the vmi is in ", func(phase v1.VirtualMachineInstancePhase) {
@@ -224,7 +249,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			expectVMIToFailedStatus(vmi.Name)
 		})
@@ -257,7 +282,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			expectVMIToFailedStatus(vmi.Name)
 		})
@@ -277,7 +302,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			expectVMIToFailedStatus(vmi.Name)
 		})
@@ -297,7 +322,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			expectVMIToFailedStatus(vmi.Name)
 		})
@@ -317,7 +342,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{Items: []k8sv1.Pod{*NewUnhealthyPodForVirtualMachine("whatever", vmi)}}, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			expectVMIToFailedStatus(vmi.Name)
 		})

@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -245,6 +246,32 @@ var _ = Describe("Clone", func() {
 		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 	})
 
+	deepCopyList := func(objects []interface{}) []interface{} {
+		for i := range objects {
+			objects[i] = objects[i].(runtime.Object).DeepCopyObject()
+		}
+		return objects
+	}
+
+	sanityExecute := func() {
+		stores := []cache.Store{
+			controller.vmCloneIndexer, controller.snapshotContentStore, controller.restoreStore, controller.vmStore,
+			controller.snapshotContentStore, controller.pvcStore,
+		}
+
+		listOfObjects := [][]interface{}{}
+
+		for _, store := range stores {
+			listOfObjects = append(listOfObjects, deepCopyList(store.List()))
+		}
+
+		controller.Execute()
+
+		for i, objects := range listOfObjects {
+			ExpectWithOffset(1, stores[i].List()).To(ConsistOf(objects...))
+		}
+	}
+
 	Context("basic controller operations", func() {
 		Context("with source VM", func() {
 			DescribeTable("should create snapshot if not exists yet", func(phase clonev1alpha1.VirtualMachineClonePhase) {
@@ -253,7 +280,7 @@ var _ = Describe("Clone", func() {
 				addVM(sourceVM)
 				addClone(vmClone)
 
-				controller.Execute()
+				sanityExecute()
 				expectEvent(SnapshotCreated)
 				expectSnapshotExists()
 				expectCloneBeInPhase(clonev1alpha1.SnapshotInProgress)
@@ -279,7 +306,7 @@ var _ = Describe("Clone", func() {
 					addClone(vmClone)
 					addSnapshot(snapshot)
 
-					controller.Execute()
+					sanityExecute()
 					Expect(recorder.Events).To(BeEmpty())
 					expectCloneBeInPhase(clonev1alpha1.SnapshotInProgress)
 					expectRestoreDoesNotExist()
@@ -298,7 +325,7 @@ var _ = Describe("Clone", func() {
 					addSnapshot(snapshot)
 					addSnapshotContent(snapshotContent)
 
-					controller.Execute()
+					sanityExecute()
 					expectEvent(SnapshotReady)
 					expectEvent(RestoreCreated)
 					expectCloneBeInPhase(clonev1alpha1.RestoreInProgress)
@@ -330,7 +357,7 @@ var _ = Describe("Clone", func() {
 					addSnapshot(snapshot)
 					addRestore(restore)
 
-					controller.Execute()
+					sanityExecute()
 					Expect(recorder.Events).To(BeEmpty())
 					expectCloneBeInPhase(clonev1alpha1.RestoreInProgress)
 				})
@@ -347,7 +374,7 @@ var _ = Describe("Clone", func() {
 					addSnapshot(snapshot)
 					addRestore(restore)
 
-					controller.Execute()
+					sanityExecute()
 					expectEvent(RestoreReady)
 					expectCloneBeInPhase(clonev1alpha1.CreatingTargetVM)
 				})
@@ -375,7 +402,7 @@ var _ = Describe("Clone", func() {
 					addSnapshot(snapshot)
 					addRestore(restore)
 
-					controller.Execute()
+					sanityExecute()
 					Expect(recorder.Events).To(BeEmpty())
 					expectCloneBeInPhase(clonev1alpha1.CreatingTargetVM)
 				})
@@ -390,7 +417,7 @@ var _ = Describe("Clone", func() {
 					addSnapshot(snapshot)
 					addRestore(restore)
 
-					controller.Execute()
+					sanityExecute()
 					expectEvent(TargetVMCreated)
 					expectCloneBeInPhase(clonev1alpha1.Succeeded)
 					expectSnapshotDoesNotExist()
@@ -434,7 +461,7 @@ var _ = Describe("Clone", func() {
 				})
 
 				It("if not all the PVCs are bound, nothing should happen", func() {
-					controller.Execute()
+					sanityExecute()
 					Expect(recorder.Events).To(BeEmpty())
 					expectCloneBeInPhase(clonev1alpha1.Succeeded)
 					expectSnapshotExists()
@@ -444,7 +471,7 @@ var _ = Describe("Clone", func() {
 				It("if all the pvc are bound, snapshot and restore should be deleted", func() {
 					pvc = createPVC(sourceVM.Namespace, k8sv1.ClaimBound)
 					addPVC(pvc)
-					controller.Execute()
+					sanityExecute()
 					expectEvent(PVCBound)
 					expectSnapshotDoesNotExist()
 					expectRestoreDoesNotExist()
@@ -463,7 +490,7 @@ var _ = Describe("Clone", func() {
 				addClone(vmClone)
 				addRestore(restore)
 
-				controller.Execute()
+				sanityExecute()
 				expectEvent(SnapshotDeleted)
 				expectCloneBeInPhase(clonev1alpha1.Failed)
 				expectSnapshotDoesNotExist()
@@ -478,7 +505,7 @@ var _ = Describe("Clone", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
 				addSnapshot(snapshot)
 
-				controller.Execute()
+				sanityExecute()
 				expectCloneBeInPhase(clonev1alpha1.SnapshotInProgress)
 			})
 
@@ -498,7 +525,7 @@ var _ = Describe("Clone", func() {
 					addSnapshot(snapshot)
 					addRestore(restore)
 
-					controller.Execute()
+					sanityExecute()
 					expectCloneBeInPhase(clonev1alpha1.RestoreInProgress)
 					expectEvent(SnapshotReady)
 				})
@@ -521,7 +548,7 @@ var _ = Describe("Clone", func() {
 					addSnapshot(snapshot)
 					addSnapshotContent(snapshotContent)
 
-					controller.Execute()
+					sanityExecute()
 					expectCloneBeInPhase(clonev1alpha1.RestoreInProgress)
 					expectEvent(SnapshotReady)
 					expectEvent(RestoreCreationFailed)
@@ -537,7 +564,7 @@ var _ = Describe("Clone", func() {
 					addClone(vmClone)
 					//no target vm added => target vm deleted
 
-					controller.Execute()
+					sanityExecute()
 					expectCloneDeletion()
 				})
 			})
@@ -557,7 +584,7 @@ var _ = Describe("Clone", func() {
 				addClone(vmClone)
 				addSnapshot(snapshot)
 
-				controller.Execute()
+				sanityExecute()
 				Expect(recorder.Events).To(BeEmpty())
 				expectCloneBeInPhase(clonev1alpha1.SnapshotInProgress)
 				expectRestoreDoesNotExist()
@@ -573,7 +600,7 @@ var _ = Describe("Clone", func() {
 				addSnapshot(snapshot)
 				addSnapshotContent(snapshotContent)
 
-				controller.Execute()
+				sanityExecute()
 				expectEvent(SnapshotReady)
 				expectEvent(RestoreCreated)
 				expectCloneBeInPhase(clonev1alpha1.RestoreInProgress)
@@ -595,7 +622,7 @@ var _ = Describe("Clone", func() {
 				addSnapshot(snapshot)
 				addRestore(restore)
 
-				controller.Execute()
+				sanityExecute()
 				expectCloneBeInPhase(clonev1alpha1.RestoreInProgress)
 			})
 		})
@@ -686,7 +713,7 @@ var _ = Describe("Clone", func() {
 				expectedInterfaces := expectedVM.Spec.Template.Spec.Domain.Devices.Interfaces
 				expectedInterfaces[0].MacAddress = ""
 
-				controller.Execute()
+				sanityExecute()
 				expectVMCreationFromPatches(expectedVM)
 			})
 
@@ -705,7 +732,7 @@ var _ = Describe("Clone", func() {
 				expectedInterfaces := expectedVM.Spec.Template.Spec.Domain.Devices.Interfaces
 				expectedInterfaces[0].MacAddress = newMacAddress
 
-				controller.Execute()
+				sanityExecute()
 				expectVMCreationFromPatches(expectedVM)
 			})
 
@@ -743,7 +770,7 @@ var _ = Describe("Clone", func() {
 				expectedVM := sourceVM.DeepCopy()
 				expectedVM.Spec.Template.Spec.Domain.Devices.Interfaces = expectedInterfaces
 
-				controller.Execute()
+				sanityExecute()
 				expectVMCreationFromPatches(expectedVM)
 			})
 		})
@@ -769,14 +796,14 @@ var _ = Describe("Clone", func() {
 			It("should delete smbios serial if serial is not provided", func() {
 				addClone(vmClone)
 
-				controller.Execute()
+				sanityExecute()
 				expectSMbiosSerial(emptySerial)
 			})
 
 			It("if serial is defined in clone spec - should use the one in clone spec", func() {
 				vmClone.Spec.NewSMBiosSerial = pointer.P(manuallySetSerial)
 				addClone(vmClone)
-				controller.Execute()
+				sanityExecute()
 				expectSMbiosSerial(manuallySetSerial)
 			})
 		})
@@ -824,7 +851,7 @@ var _ = Describe("Clone", func() {
 					vmClone.Spec.AnnotationFilters = filters
 				}
 				addClone(vmClone)
-				controller.Execute()
+				sanityExecute()
 				expectLabelsOrAnnotations(map[string]string{
 					"prefix1/something1":    trueStr,
 					"somePrefix2/something": trueStr,
@@ -845,7 +872,7 @@ var _ = Describe("Clone", func() {
 				addVM(sourceVM)
 				addClone(vmClone)
 
-				controller.Execute()
+				sanityExecute()
 				restore, err := client.SnapshotV1beta1().VirtualMachineRestores(metav1.NamespaceDefault).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
@@ -867,7 +894,7 @@ var _ = Describe("Clone", func() {
 				addVM(sourceVM)
 				addClone(vmClone)
 
-				controller.Execute()
+				sanityExecute()
 				restore, err := client.SnapshotV1beta1().VirtualMachineRestores(metav1.NamespaceDefault).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
@@ -893,7 +920,7 @@ var _ = Describe("Clone", func() {
 				Expect(expectedFirmware).ShouldNot(BeNil())
 
 				expectedFirmware.UUID = ""
-				controller.Execute()
+				sanityExecute()
 				expectVMCreationFromPatches(expectedVM)
 			})
 		})

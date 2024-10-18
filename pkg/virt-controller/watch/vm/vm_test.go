@@ -309,10 +309,34 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(controller.vmIndexer.Add(vm)).To(Succeed())
 		}
 
+		deepCopyList := func(objects []interface{}) []interface{} {
+			for i := range objects {
+				objects[i] = objects[i].(runtime.Object).DeepCopyObject()
+			}
+			return objects
+		}
+
 		sanityExecute := func(vm *v1.VirtualMachine) {
 			added := vm.DeepCopy()
+
+			stores := []cache.Store{
+				controller.vmiIndexer, controller.vmIndexer, controller.dataSourceStore, controller.dataVolumeStore,
+				controller.namespaceStore, controller.pvcStore, controller.crIndexer,
+			}
+
+			listOfObjects := [][]interface{}{}
+
+			for _, store := range stores {
+				listOfObjects = append(listOfObjects, deepCopyList(store.List()))
+			}
+
 			controller.Execute()
+
 			Expect(equality.Semantic.DeepEqual(vm, added)).To(BeTrue(), "A cached VM was modified")
+
+			for i, objects := range listOfObjects {
+				ExpectWithOffset(1, stores[i].List()).To(ConsistOf(objects...))
+			}
 		}
 
 		It("should update conditions when failed creating DataVolume for virtualMachineInstance", func() {

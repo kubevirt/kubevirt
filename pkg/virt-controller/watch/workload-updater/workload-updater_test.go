@@ -62,6 +62,31 @@ var _ = Describe("Workload Updater", func() {
 		})
 	}
 
+	deepCopyList := func(objects []interface{}) []interface{} {
+		for i := range objects {
+			objects[i] = objects[i].(runtime.Object).DeepCopyObject()
+		}
+		return objects
+	}
+
+	sanityExecute := func() {
+		stores := []cache.Store{
+			controller.vmiStore, controller.podIndexer, controller.migrationStore, controller.kubeVirtStore,
+		}
+
+		listOfObjects := [][]interface{}{}
+
+		for _, store := range stores {
+			listOfObjects = append(listOfObjects, deepCopyList(store.List()))
+		}
+
+		controller.Execute()
+
+		for i, objects := range listOfObjects {
+			ExpectWithOffset(1, stores[i].List()).To(ConsistOf(objects...))
+		}
+	}
+
 	BeforeEach(func() {
 
 		expectedImage = "cur-image"
@@ -120,7 +145,7 @@ var _ = Describe("Workload Updater", func() {
 			controller.podIndexer.Add(pod)
 			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			migrations, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -140,7 +165,7 @@ var _ = Describe("Workload Updater", func() {
 			controller.podIndexer.Add(pod)
 			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
 
-			controller.Execute()
+			sanityExecute()
 			Expect(recorder.Events).To(BeEmpty())
 			Expect(fakeVirtClient.Actions()).To(BeEmpty())
 		})
@@ -192,7 +217,7 @@ var _ = Describe("Workload Updater", func() {
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder, reasons...)
 
 			By("Checking prometheus metric")
@@ -243,7 +268,7 @@ var _ = Describe("Workload Updater", func() {
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder, reasons...)
 
 			Expect(evictionCount).To(Equal(defaultBatchDeletionCount))
@@ -284,7 +309,7 @@ var _ = Describe("Workload Updater", func() {
 
 			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder, reasons...)
 
 			migrations, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{})
@@ -327,7 +352,7 @@ var _ = Describe("Workload Updater", func() {
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder, reasons...)
 			Expect(evictionCount).To(Equal(1))
 
@@ -356,7 +381,7 @@ var _ = Describe("Workload Updater", func() {
 			waitForNumberOfInstancesOnVMIInformerCache(controller, totalVMs)
 			kv := newKubeVirt(totalVMs)
 			addKubeVirt(kv)
-			controller.Execute()
+			sanityExecute()
 			Expect(fakeVirtClient.Actions()).To(BeEmpty())
 		})
 
@@ -381,7 +406,7 @@ var _ = Describe("Workload Updater", func() {
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder, reasons...)
 			Expect(evictionCount).To(Equal(defaultBatchDeletionCount))
 
@@ -409,7 +434,7 @@ var _ = Describe("Workload Updater", func() {
 
 			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
 
-			controller.Execute()
+			sanityExecute()
 			Expect(recorder.Events).To(BeEmpty())
 		})
 
@@ -436,7 +461,7 @@ var _ = Describe("Workload Updater", func() {
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder, reasons...)
 			Expect(evictionCount).To(Equal(batchDeletions))
 		})
@@ -467,12 +492,12 @@ var _ = Describe("Workload Updater", func() {
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
 			addKubeVirt(kv)
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder, reasons...)
 
 			// Should do nothing this second execute due to interval
 			addKubeVirt(kv)
-			controller.Execute()
+			sanityExecute()
 			Expect(recorder.Events).To(BeEmpty())
 
 			// Shift time for batch interval
@@ -480,7 +505,7 @@ var _ = Describe("Workload Updater", func() {
 
 			// Should execute another batch of deletions after sleep
 			addKubeVirt(kv)
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder, reasons...)
 			Expect(evictionCount).To(Equal(batchDeletions * 2))
 		})
@@ -563,7 +588,7 @@ var _ = Describe("Workload Updater", func() {
 			vmi := createVM(withoutAnnotation, withoutMemoryChangeCondition)
 			mig := createMig(vmi.Name, phase)
 
-			controller.Execute()
+			sanityExecute()
 			if mig.IsFinal() {
 				Expect(recorder.Events).To(BeEmpty())
 			} else {
@@ -584,7 +609,7 @@ var _ = Describe("Workload Updater", func() {
 				mig = createMig(vmi.Name, v1.MigrationRunning)
 			}
 			changeAborted := hasMig && !hasCond
-			controller.Execute()
+			sanityExecute()
 			if changeAborted {
 				testutils.ExpectEvent(recorder, SuccessfulChangeAbortionReason)
 				_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(mig.Namespace).Get(context.Background(), mig.Name, metav1.GetOptions{})
@@ -601,7 +626,7 @@ var _ = Describe("Workload Updater", func() {
 		DescribeTable("should always cancel the migration when the testWorkloadUpdateMigrationAbortion annotation is present", func(hasCond bool) {
 			vmi := createVM(withAnnotation, hasCond)
 			mig := createMig(vmi.Name, v1.MigrationRunning)
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulChangeAbortionReason)
 			_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(mig.Namespace).Get(context.Background(), mig.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
@@ -617,7 +642,7 @@ var _ = Describe("Workload Updater", func() {
 				return true, nil, fmt.Errorf("some error")
 			})
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, FailedChangeAbortionReason)
 			_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(mig.Namespace).Get(context.Background(), mig.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -643,7 +668,7 @@ var _ = Describe("Workload Updater", func() {
 			)
 			controller.vmiStore.Add(vmi)
 			createMig(vmi.Name, v1.MigrationRunning)
-			controller.Execute()
+			sanityExecute()
 			Expect(recorder.Events).To(BeEmpty())
 			// Ensure that the deletion operation isn't called. The test reproduces the race when the migration operation
 			// was completed, but the migration object was still in running phase and it was accidentally deleted.
