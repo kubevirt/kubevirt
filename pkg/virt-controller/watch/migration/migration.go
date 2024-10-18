@@ -62,6 +62,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
 const (
@@ -94,6 +95,7 @@ type Controller struct {
 	templateService      services.TemplateService
 	clientset            kubecli.KubevirtClient
 	Queue                workqueue.RateLimitingInterface
+	pendingQueue         *watchutil.PendingQueue
 	vmiStore             cache.Store
 	podIndexer           cache.Indexer
 	migrationIndexer     cache.Indexer
@@ -134,6 +136,7 @@ func NewController(templateService services.TemplateService,
 	c := &Controller{
 		templateService:      templateService,
 		Queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
+		pendingQueue:         watchutil.NewPendingQueue(),
 		vmiStore:             vmiInformer.GetStore(),
 		podIndexer:           podInformer.GetIndexer(),
 		migrationIndexer:     migrationInformer.GetIndexer(),
@@ -224,6 +227,9 @@ func (c *Controller) runWorker() {
 }
 
 func (c *Controller) Execute() bool {
+	if c.Queue.Len() == 0 {
+		c.pendingQueue.FlushTo(c.Queue)
+	}
 	key, quit := c.Queue.Get()
 	if quit {
 		return false
@@ -332,7 +338,7 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
-	needsSync := c.podExpectations.SatisfiedExpectations(key) && vmiExists
+	needsSync := c.podExpectations.SatisfiedExpectations(key)
 
 	logger.V(4).Infof("processing migration: needsSync %t, hasVMI %t, targetPod len %d", needsSync, vmiExists, len(targetPods))
 
@@ -396,8 +402,16 @@ func (c *Controller) canMigrateVMI(migration *virtv1.VirtualMachineInstanceMigra
 
 }
 
-func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
+// flushPendingQueueOnMigrationCompletion checks if a migration just finished.
+// If it did, it will enqueue all items from the pendingQueue to the main queue and empty the pendingQueue.
+func (c *Controller) flushPendingQueueOnMigrationCompletion(oldVMIM, newVMIM *virtv1.VirtualMachineInstanceMigration) {
+	if oldVMIM.Status.Phase == newVMIM.Status.Phase || !newVMIM.IsFinal() {
+		return
+	}
+	c.pendingQueue.FlushTo(c.Queue)
+}
 
+func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
 	var pod *k8sv1.Pod = nil
 	var attachmentPod *k8sv1.Pod = nil
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
@@ -515,6 +529,8 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 			return err
 		}
 	}
+
+	c.flushPendingQueueOnMigrationCompletion(migration, migrationCopy)
 
 	return nil
 }
@@ -1014,7 +1030,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
 		// Let's wait until some migrations are done
-		c.Queue.AddAfter(key, time.Second*5)
+		c.pendingQueue.Add(key)
 		return nil
 	}
 
@@ -1026,9 +1042,9 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 
 	if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
 		// Let's ensure that we only have two outbound migrations per node
-		// XXX: Make this configurable, thinkg about inbound migration limit, bandwidh per migration, and so on.
+		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
-		c.Queue.AddAfter(key, time.Second*5)
+		c.pendingQueue.Add(key)
 		return nil
 	}
 
@@ -1838,7 +1854,7 @@ func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*
 	return sum, nil
 }
 
-// findRunningMigrations calcules how many migrations are running or in flight to be triggered to running
+// findRunningMigrations calculates how many migrations are running or in flight to be triggered to running
 // Migrations which are in running phase are added alongside with migrations which are still pending but
 // where we already see a target pod.
 func (c *Controller) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
