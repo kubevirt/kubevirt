@@ -1060,3 +1060,7 @@ func (SEVSecretOptions) SwaggerDoc() map[string]string {
 		"secret": "Base64 encoded encrypted launch secret.",
 	}
 }
+
+func (ComponentVersions) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}

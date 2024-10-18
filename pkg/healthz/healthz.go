@@ -23,14 +23,27 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 
 	restful "github.com/emicklei/go-restful/v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+)
+
+const (
+	virtApiComponentName        = "virtApi"
+	virtHandlerComponentName    = "virtHandler"
+	virtControllerComponentName = "virtController"
 )
 
 type KubeApiHealthzVersion struct {
@@ -68,7 +81,7 @@ func (h *KubeApiHealthzVersion) GetVersion() (v interface{}) {
    KubeApiHealthzVersion.Clear() when it encounters an error.
 */
 
-func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, hVersion *KubeApiHealthzVersion) func(_ *restful.Request, response *restful.Response) {
+func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, hVersion *KubeApiHealthzVersion, component string) func(_ *restful.Request, response *restful.Response) {
 	return func(_ *restful.Request, response *restful.Response) {
 		res := map[string]interface{}{}
 		var version = hVersion.GetVersion()
@@ -96,7 +109,9 @@ func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, h
 		}
 
 		res["apiserver"] = map[string]interface{}{"connectivity": "ok", "version": version}
-		res["config-resource-version"] = clusterConfig.GetResourceVersion()
+		resourceVersion := clusterConfig.GetResourceVersion()
+		res["config-resource-version"] = resourceVersion
+		reportComponentVersion(clusterConfig, component, resourceVersion)
 		response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
 		return
 	}
@@ -107,4 +122,64 @@ func unhealthy(err error, clusterConfig *virtconfig.ClusterConfig, response *res
 	res["apiserver"] = map[string]interface{}{"connectivity": "failed", "error": fmt.Sprintf("%v", err)}
 	res["config-resource-version"] = clusterConfig.GetResourceVersion()
 	response.WriteHeaderAndJson(http.StatusInternalServerError, res, restful.MIME_JSON)
+}
+
+func reportComponentVersion(clusterConfig *virtconfig.ClusterConfig, componentName string, resourceVersion string) {
+	cli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Failed to get KubeVirt client")
+		return
+	}
+
+	kv := clusterConfig.GetConfigFromKubeVirtCR()
+	if kv == nil {
+		return
+	}
+
+	podSuffix := getPodSuffixFromHostname()
+
+	shouldPatch, patchPath := prepareComponentVersionsPatch(kv, componentName, podSuffix, resourceVersion)
+	if !shouldPatch {
+		return
+	}
+
+	patchPayload, err := patch.New(patch.WithReplace(patchPath, resourceVersion)).GeneratePayload()
+
+	_, err = cli.KubeVirt(kv.Namespace).PatchStatus(context.Background(), kv.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Failed to patch KubeVirt CR status")
+		return
+	}
+}
+
+func prepareComponentVersionsPatch(kv *v1.KubeVirt, componentName, podSuffix, resourceVersion string) (bool, string) {
+	componentVersions := kv.Status.ComponentVersions
+
+	var componentMap map[string]string
+
+	switch componentName {
+	case virtControllerComponentName:
+		componentMap = componentVersions.VirtController
+	case virtHandlerComponentName:
+		componentMap = componentVersions.VirtHandler
+	case virtApiComponentName:
+		componentMap = componentVersions.VirtApi
+	default:
+		return false, ""
+	}
+
+	currentVersion, exists := componentMap[podSuffix]
+	if !exists || currentVersion < resourceVersion {
+		patchPath := fmt.Sprintf("/status/componentVersions/%s/%s", componentName, podSuffix)
+		return true, patchPath
+	}
+
+	// No patch needed if the version is already up-to-date
+	return false, ""
+}
+
+func getPodSuffixFromHostname() string {
+	hostname := os.Getenv("HOSTNAME")
+	podParts := strings.Split(hostname, "-")
+	return podParts[len(podParts)-1]
 }

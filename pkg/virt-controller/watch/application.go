@@ -127,6 +127,8 @@ const (
 
 	defaultPromCertFilePath = "/etc/virt-controller/certificates/tls.crt"
 	defaultPromKeyFilePath  = "/etc/virt-controller/certificates/tls.key"
+
+	virtControllerComponentName = "virtController"
 )
 
 var (
@@ -346,7 +348,7 @@ func Execute() {
 
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
+	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion, virtControllerComponentName)).Doc("Health endpoint"))
 	webService.Route(webService.GET("/leader").To(app.leaderProbe).Doc("Leader endpoint"))
 
 	componentProfiler := profiler.NewProfileManager(app.clusterConfig)

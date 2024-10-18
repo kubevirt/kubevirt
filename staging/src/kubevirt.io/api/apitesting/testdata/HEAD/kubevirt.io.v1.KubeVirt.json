@@ -911,6 +911,17 @@
         "lastGeneration": -14,
         "hash": "hashValue"
       }
-    ]
+    ],
+    "componentVersions": {
+      "virtController": {
+        "virtControllerKey": "virtControllerValue"
+      },
+      "virtHandler": {
+        "virtHandlerKey": "virtHandlerValue"
+      },
+      "virtApi": {
+        "virtApiKey": "virtApiValue"
+      }
+    }
   }
 }
