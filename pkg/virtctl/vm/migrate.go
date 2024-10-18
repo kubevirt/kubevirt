@@ -23,6 +23,9 @@ import (
 	"context"
 	"fmt"
 
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
@@ -32,7 +35,10 @@ import (
 
 const COMMAND_MIGRATE = "migrate"
 
+var nodeName string
+
 func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:     "migrate (VM)",
 		Short:   "Migrate a virtual machine.",
@@ -43,6 +49,8 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.migrateRun(args)
 		},
 	}
+
+	cmd.Flags().StringVar(&nodeName, "nodeName", nodeName, "--nodeName=<nodeName>: Flag to migrate this VM to a specific node regardless of its affinity rules. If it's omitted, recommended, the scheduler becomes responsible for finding the best Node to migrate the VM to.")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -58,7 +66,20 @@ func (o *Command) migrateRun(args []string) error {
 
 	dryRunOption := setDryRunOption(dryRun)
 
-	err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
+	var nodeSelectorTerm *k8sv1.NodeSelectorTerm
+	if nodeName != "" {
+		nodeSelectorTerm = &k8sv1.NodeSelectorTerm{
+			MatchFields: []k8sv1.NodeSelectorRequirement{
+				{
+					Key:      metav1.ObjectNameField,
+					Operator: k8sv1.NodeSelectorOpIn,
+					Values:   []string{nodeName},
+				},
+			},
+		}
+	}
+
+	err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption, AddedNodeSelectorTerm: nodeSelectorTerm})
 	if err != nil {
 		return fmt.Errorf("Error migrating VirtualMachine %v", err)
 	}
