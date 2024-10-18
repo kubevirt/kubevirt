@@ -27,6 +27,7 @@ import (
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -37,6 +38,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -51,6 +53,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", decorators.SigCompute, func(
 	const (
 		importedVolumeRegexp = `imported-volume-\w{5}`
 		sysprepDisk          = "sysprepdisk"
+		cloudInitDisk        = "cloudinitdisk"
 		cloudInitUserData    = `#cloud-config
 user: user
 password: password
@@ -73,24 +76,24 @@ chpasswd: { expire: False }`
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(vm.Name).ToNot(BeEmpty())
-		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(int64(180)))
-		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-		Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(int64(180))))
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(v1.RunStrategyAlways)))
 		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
 	})
 
 	It("Example with volume-import flag and PVC type", func() {
-		const runStrategy = v1.RunStrategyAlways
-		volumeName := "imported-volume"
+		const (
+			runStrategy = v1.RunStrategyAlways
+			volName     = "imported-volume"
+		)
 		instancetype := createInstancetype(virtClient)
 		preference := createPreference(virtClient)
 		pvc := createAnnotatedSourcePVC(instancetype.Name, preference.Name)
 
 		out, err := runCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
-			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,src:%s/%s,name:%s", size, pvc.Namespace, pvc.Name, volumeName)),
+			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,src:%s/%s,name:%s", size, pvc.Namespace, pvc.Name, volName)),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		vm, err := decodeVM(out)
@@ -99,31 +102,43 @@ chpasswd: { expire: False }`
 		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-		Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
-		Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(runStrategy)))
+
 		Expect(vm.Spec.Instancetype).ToNot(BeNil())
 		Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
 		Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
 		Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
 		Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+
 		Expect(vm.Spec.Preference).ToNot(BeNil())
 		Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
 		Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
-		Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 		Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
-		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volumeName))
-		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(volumeName))
+		Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
+
+		Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
+		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(volName))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal(pvc.Name))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+
+		Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+			Name: volName,
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: volName,
+				},
+			},
+		}))
 	})
 
 	It("Example with volume-import flag and Registry type", func() {
-		const volName = "registry-source"
-		const runStrategy = v1.RunStrategyAlways
+		const (
+			runStrategy = v1.RunStrategyAlways
+			volName     = "registry-source"
+		)
 		cdSource := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 
 		out, err := runCmd(
@@ -137,17 +152,28 @@ chpasswd: { expire: False }`
 		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volName))
-		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-		Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
-		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(runStrategy)))
+
 		Expect(vm.Spec.Instancetype).To(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
+
 		Expect(vm.Spec.Preference).To(BeNil())
+
+		Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
+		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(volName))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Registry).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Registry.URL).To(HaveValue(Equal(cdSource)))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+
+		Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+			Name: volName,
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: volName,
+				},
+			},
+		}))
 	})
 
 	It("Example with volume-import flag and Blank type", func() {
@@ -155,7 +181,7 @@ chpasswd: { expire: False }`
 
 		out, err := runCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
-			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", size)),
+			setFlag(VolumeImportFlag, "type:blank,size:"+size),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		vm, err := decodeVM(out)
@@ -164,23 +190,36 @@ chpasswd: { expire: False }`
 		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-		Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
-		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(runStrategy)))
+
 		Expect(vm.Spec.Instancetype).To(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
+
 		Expect(vm.Spec.Preference).To(BeNil())
+
+		Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Blank).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+
+		Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+			Name: vm.Spec.DataVolumeTemplates[0].Name,
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: vm.Spec.DataVolumeTemplates[0].Name,
+				},
+			},
+		}))
 	})
 
 	It("[test_id:9841]Complex example", func() {
-		const runStrategy = v1.RunStrategyManual
-		const terminationGracePeriod int64 = 123
-		const cdSource = "my.registry/my-image:my-tag"
-		const blankSize = "10Gi"
-		const pvcBootOrder = 1
+		const (
+			runStrategy                  = v1.RunStrategyManual
+			terminationGracePeriod int64 = 123
+			cdSource                     = "my.registry/my-image:my-tag"
+			pvcBootOrder                 = 1
+			blankSize                    = "10Gi"
+		)
 		vmName := "vm-" + rand.String(5)
 		instancetype := createInstancetype(virtClient)
 		preference := createPreference(virtClient)
@@ -194,11 +233,11 @@ chpasswd: { expire: False }`
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 			setFlag(InstancetypeFlag, fmt.Sprintf("%s/%s", apiinstancetype.SingularResourceName, instancetype.Name)),
 			setFlag(PreferenceFlag, fmt.Sprintf("%s/%s", apiinstancetype.SingularPreferenceResourceName, preference.Name)),
-			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:ds,src:%s/%s", dataSource.Namespace, dataSource.Name)),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,src:%s/%s", pvc.Namespace, pvc.Name)),
 			setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvc.Name, pvcBootOrder)),
-			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", blankSize)),
+			setFlag(VolumeImportFlag, "type:blank,size:"+blankSize),
 			setFlag(CloudInitUserDataFlag, userDataB64),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -210,13 +249,9 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Name).To(Equal(vmName))
 
-		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-		Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(runStrategy)))
 
-		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
-
-		Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(terminationGracePeriod)))
 
 		Expect(vm.Spec.Instancetype).ToNot(BeNil())
 		Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
@@ -236,8 +271,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
-		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).ToNot(BeNil())
-		Expect(*vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(Equal(dataSource.Namespace))
+		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(PointTo(Equal(dataSource.Namespace)))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dataSource.Name))
 
 		Expect(vm.Spec.DataVolumeTemplates[1].Name).To(MatchRegexp(importedVolumeRegexp))
@@ -253,8 +287,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(6))
 
-		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
-		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
+		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Name + "-containerdisk-0"))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
 
@@ -274,7 +307,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[4].VolumeSource.DataVolume).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[4].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[2].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[5].Name).To(Equal(CloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[5].Name).To(Equal(cloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[5].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[5].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -282,16 +315,19 @@ chpasswd: { expire: False }`
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(decoded)).To(Equal(cloudInitUserData))
 
-		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(pvc.Name))
-		Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(pvcBootOrder)))
+		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
+			Name:      pvc.Name,
+			BootOrder: pointer.P(uint(pvcBootOrder)),
+		}))
 	})
 
 	It("[test_id:9842]Complex example with inferred instancetype and preference", func() {
-		const runStrategy = v1.RunStrategyManual
-		const terminationGracePeriod int64 = 123
-		const blankSize = "10Gi"
-		const pvcBootOrder = 1
+		const (
+			runStrategy                  = v1.RunStrategyManual
+			terminationGracePeriod int64 = 123
+			pvcBootOrder                 = 1
+			blankSize                    = "10Gi"
+		)
 		vmName := "vm-" + rand.String(5)
 		instancetype := createInstancetype(virtClient)
 		preference := createPreference(virtClient)
@@ -308,7 +344,7 @@ chpasswd: { expire: False }`
 			setFlag(InferPreferenceFromFlag, dvtDsName),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:ds,src:%s/%s,name:%s", dataSource.Namespace, dataSource.Name, dvtDsName)),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,src:%s/%s,bootorder:%d", pvc.Namespace, pvc.Name, pvcBootOrder)),
-			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", blankSize)),
+			setFlag(VolumeImportFlag, "type:blank,size:"+blankSize),
 			setFlag(CloudInitUserDataFlag, userDataB64),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -320,13 +356,9 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Name).To(Equal(vmName))
 
-		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-		Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(runStrategy)))
 
-		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
-
-		Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(terminationGracePeriod)))
 
 		Expect(vm.Spec.Instancetype).ToNot(BeNil())
 		Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
@@ -346,8 +378,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtDsName))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
-		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).ToNot(BeNil())
-		Expect(*vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(Equal(dataSource.Namespace))
+		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(PointTo(Equal(dataSource.Namespace)))
 		Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dataSource.Name))
 
 		Expect(vm.Spec.DataVolumeTemplates[1].Name).To(MatchRegexp(importedVolumeRegexp))
@@ -375,7 +406,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[2].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(CloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(cloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -383,17 +414,20 @@ chpasswd: { expire: False }`
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(decoded)).To(Equal(cloudInitUserData))
 
-		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[1].Name))
-		Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(pvcBootOrder)))
+		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
+			Name:      vm.Spec.DataVolumeTemplates[1].Name,
+			BootOrder: pointer.P(uint(pvcBootOrder)),
+		}))
 	})
 
 	It("Complex example with memory", func() {
-		const runStrategy = v1.RunStrategyManual
-		const terminationGracePeriod int64 = 123
-		const memory = "4Gi"
-		const cdSource = "my.registry/my-image:my-tag"
-		const blankSize = "10Gi"
+		const (
+			runStrategy                  = v1.RunStrategyManual
+			terminationGracePeriod int64 = 123
+			memory                       = "4Gi"
+			cdSource                     = "my.registry/my-image:my-tag"
+			blankSize                    = "10Gi"
+		)
 		vmName := "vm-" + rand.String(5)
 		preference := createPreference(virtClient)
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
@@ -404,8 +438,8 @@ chpasswd: { expire: False }`
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 			setFlag(MemoryFlag, memory),
 			setFlag(PreferenceFlag, fmt.Sprintf("%s/%s", apiinstancetype.SingularPreferenceResourceName, preference.Name)),
-			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
-			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", blankSize)),
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
+			setFlag(VolumeImportFlag, "type:blank,size:"+blankSize),
 			setFlag(CloudInitUserDataFlag, userDataB64),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -417,15 +451,13 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Name).To(Equal(vmName))
 
-		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-		Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(runStrategy)))
 
-		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
+		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(terminationGracePeriod)))
 
 		Expect(vm.Spec.Instancetype).To(BeNil())
 		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(memory)))
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse(memory))))
 
 		Expect(vm.Spec.Preference).ToNot(BeNil())
 		Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
@@ -442,8 +474,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(3))
 
-		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
-		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
+		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Name + "-containerdisk-0"))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
 
@@ -451,7 +482,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(CloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(cloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -461,9 +492,11 @@ chpasswd: { expire: False }`
 	})
 
 	It("Complex example with sysprep volume", func() {
-		const runStrategy = v1.RunStrategyManual
-		const terminationGracePeriod int64 = 123
-		const cdSource = "my.registry/my-image:my-tag"
+		const (
+			runStrategy                  = v1.RunStrategyManual
+			terminationGracePeriod int64 = 123
+			cdSource                     = "my.registry/my-image:my-tag"
+		)
 
 		cm := libconfigmap.New("cm-"+rand.String(5), map[string]string{"Autounattend.xml": "test"})
 		cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
@@ -472,8 +505,8 @@ chpasswd: { expire: False }`
 		out, err := runCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
-			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
-			setFlag(SysprepVolumeFlag, fmt.Sprintf("src:%s", cm.Name)),
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
+			setFlag(SysprepVolumeFlag, "src:"+cm.Name),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		vm, err := decodeVM(out)
@@ -486,17 +519,17 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(PointTo(Equal(terminationGracePeriod)))
 
+		Expect(vm.Spec.Instancetype).To(BeNil())
 		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
 
-		// No inference possible in this case
-		Expect(vm.Spec.Instancetype).To(BeNil())
 		Expect(vm.Spec.Preference).To(BeNil())
+
+		Expect(vm.Spec.DataVolumeTemplates).To(BeEmpty())
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
 
-		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
-		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
+		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Name + "-containerdisk-0"))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
 
@@ -527,7 +560,7 @@ chpasswd: { expire: False }`
 		sshKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
 
 		out, err := runCmd(
-			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
 			setFlag(UserFlag, user),
 			setFlag(PasswordFileFlag, path), // This is required to unlock the alpine user
 			setFlag(SSHKeyFlag, sshKey),
@@ -536,15 +569,14 @@ chpasswd: { expire: False }`
 		vm, err := decodeVM(out)
 		Expect(err).ToNot(HaveOccurred())
 
-		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{DryRun: []string{}})
+		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-		Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(v1.RunStrategyAlways)))
 
 		Expect(vm.Spec.Instancetype).To(BeNil())
-		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
 
 		Expect(vm.Spec.Preference).To(BeNil())
 
@@ -552,11 +584,11 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
 
-		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
-		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
+		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Name + "-containerdisk-0"))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
 
-		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(CloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(cloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("user: " + user))
 		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("password: %s\nchpasswd: { expire: False }", password))
@@ -567,19 +599,65 @@ chpasswd: { expire: False }`
 		Expect(err).ToNot(HaveOccurred())
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-		libssh.DisableSSHAgent()
-		err = clientcmd.NewRepeatableVirtctlCommand(
-			"ssh",
-			"--namespace", vm.Namespace,
-			"--username", "alpine",
-			"--identity-file", keyFile,
-			"--known-hosts=",
-			"-t", "-o StrictHostKeyChecking=no",
-			"-t", "-o UserKnownHostsFile=/dev/null",
-			"--command", "true",
-			vm.Name,
-		)()
+		runSSHCommand(vm.Namespace, vm.Name, user, keyFile)
+	})
+
+	It("Complex example with access credentials", func() {
+		const user = "fedora"
+		cdSource := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
+
+		priv, pub, err := libssh.NewKeyPair()
 		Expect(err).ToNot(HaveOccurred())
+		keyFile := filepath.Join(GinkgoT().TempDir(), "id_rsa")
+		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
+		sshKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
+
+		secret := libsecret.New("my-keys-"+rand.String(5), libsecret.DataString{"key1": sshKey})
+		secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		out, err := runCmd(
+			setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
+			setFlag(AccessCredFlag, fmt.Sprintf("type:ssh,src:%s,method:ga,user:%s", secret.Name, user)),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		vm, err := decodeVM(out)
+		Expect(err).ToNot(HaveOccurred())
+
+		vm, err = virtClient.VirtualMachine(secret.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(vm.Spec.RunStrategy).To(PointTo(Equal(v1.RunStrategyAlways)))
+
+		Expect(vm.Spec.Instancetype).To(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
+
+		Expect(vm.Spec.Preference).To(BeNil())
+
+		Expect(vm.Spec.DataVolumeTemplates).To(BeEmpty())
+
+		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
+
+		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(vm.Name + "-containerdisk-0"))
+		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
+
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(cloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(Equal("#cloud-config\nruncmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"))
+
+		Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+		vmi, err := virtClient.VirtualMachineInstance(secret.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+
+		Eventually(func(g Gomega) {
+			vmi, err := virtClient.VirtualMachineInstance(secret.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vmi).To(HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
+		}, 60*time.Second, 1*time.Second).Should(Succeed())
+
+		runSSHCommand(secret.Namespace, vm.Name, user, keyFile)
 	})
 
 	It("Failure of implicit inference does not fail the VM creation", func() {
@@ -596,28 +674,39 @@ chpasswd: { expire: False }`
 
 		By("Asserting that implicit inference is enabled")
 		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
 		Expect(vm.Spec.Instancetype).ToNot(BeNil())
 		Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(volumeName))
-		Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
-		Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+		Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 		Expect(vm.Spec.Preference).ToNot(BeNil())
 		Expect(vm.Spec.Preference.InferFromVolume).To(Equal(volumeName))
-		Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
-		Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+		Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 
 		By("Performing dry run creation of the VM")
 		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Asserting that matchers were cleared and memory was kept")
-		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
-		Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
 		Expect(vm.Spec.Instancetype).To(BeNil())
 		Expect(vm.Spec.Preference).To(BeNil())
+
+		Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
+		Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(volumeName))
+		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
+		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
+		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
+		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal(pvc.Name))
+
+		Expect(vm.Spec.Template.Spec.Volumes).To(ConsistOf(v1.Volume{
+			Name: volumeName,
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: volumeName,
+				},
+			},
+		}))
 	})
 })
 
@@ -625,9 +714,9 @@ func setFlag(flag, parameter string) string {
 	return fmt.Sprintf("--%s=%s", flag, parameter)
 }
 
-func runCmd(args ...string) ([]byte, error) {
-	_args := append([]string{create.CREATE, VM}, args...)
-	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
+func runCmd(extraArgs ...string) ([]byte, error) {
+	args := append([]string{create.CREATE, "vm"}, extraArgs...)
+	return clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
 }
 
 func decodeVM(bytes []byte) (*v1.VirtualMachine, error) {
@@ -691,4 +780,20 @@ func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.Pe
 		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
 		apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
 	})
+}
+
+func runSSHCommand(namespace, name, user, keyFile string) {
+	libssh.DisableSSHAgent()
+	err := clientcmd.NewRepeatableVirtctlCommand(
+		"ssh",
+		"--namespace", namespace,
+		"--username", user,
+		"--identity-file", keyFile,
+		"--known-hosts=",
+		"-t", "-o StrictHostKeyChecking=no",
+		"-t", "-o UserKnownHostsFile=/dev/null",
+		"--command", "true",
+		name,
+	)()
+	Expect(err).ToNot(HaveOccurred())
 }
