@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/certificates/bootstrap:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/healthz:go_default_library",
         "//pkg/monitoring/domainstats/downwardmetrics:go_default_library",
@@ -177,7 +176,6 @@ container_image(
     entrypoint = ["/usr/bin/virt-handler"],
     files = [
         ":virt-handler",
-        "//cmd/container-disk-v2alpha:container-disk",
         "//cmd/virt-chroot",
     ],
     visibility = ["//visibility:public"],

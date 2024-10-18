@@ -17,7 +17,7 @@ const (
 	QEMUIMGPath = "/usr/bin/qemu-img"
 )
 
-func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVerification) (*containerdisk.DiskInfo, error) {
+func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVerification) (*containerdisk.ImgInfo, error) {
 	memoryLimit := fmt.Sprintf("%d", config.MemoryLimit.Value())
 
 	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
@@ -36,7 +36,7 @@ func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVeri
 		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
 	}
 
-	info := &containerdisk.DiskInfo{}
+	info := &containerdisk.ImgInfo{}
 	err = json.Unmarshal(out, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
