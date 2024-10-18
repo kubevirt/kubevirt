@@ -56,8 +56,6 @@ const (
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
 	VMPersistentState = "VMPersistentState"
 	MultiArchitecture = "MultiArchitecture"
-	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
-	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
 	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
 	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
@@ -219,10 +217,6 @@ func (config *ClusterConfig) VMPersistentStateEnabled() bool {
 
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(MultiArchitecture)
-}
-
-func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
-	return config.isFeatureGateEnabled(VMLiveUpdateFeaturesGate)
 }
 
 func (config *ClusterConfig) BochsDisplayForEFIGuestsEnabled() bool {

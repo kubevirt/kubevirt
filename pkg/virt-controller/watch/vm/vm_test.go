@@ -5723,9 +5723,6 @@ var _ = Describe("VirtualMachine", func() {
 									MaxCpuSockets: pointer.P(maxSocketsFromConfig),
 								},
 								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
 							},
 						},
 					})
@@ -5899,9 +5896,6 @@ var _ = Describe("VirtualMachine", func() {
 									MaxGuest: &maxGuestFromConfig,
 								},
 								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
 							},
 						},
 					})
@@ -6265,9 +6259,6 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
 							},
 						},
 					})
@@ -6317,7 +6308,6 @@ var _ = Describe("VirtualMachine", func() {
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{
-										virtconfig.VMLiveUpdateFeaturesGate,
 										virtconfig.VolumesUpdateStrategy,
 									},
 								},
@@ -6347,7 +6337,6 @@ var _ = Describe("VirtualMachine", func() {
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{
-										virtconfig.VMLiveUpdateFeaturesGate,
 										virtconfig.VolumesUpdateStrategy,
 										virtconfig.VolumeMigration,
 									},
@@ -6451,9 +6440,6 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
 							},
 						},
 					})
@@ -6538,9 +6524,6 @@ var _ = Describe("VirtualMachine", func() {
 						Configuration: v1.KubeVirtConfiguration{
 							LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{},
 							VMRolloutStrategy:       &liveUpdate,
-							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-							},
 						},
 					},
 				}
@@ -6563,9 +6546,6 @@ var _ = Describe("VirtualMachine", func() {
 						Configuration: v1.KubeVirtConfiguration{
 							LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{},
 							VMRolloutStrategy:       &liveUpdate,
-							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-							},
 						},
 					},
 				}
@@ -6712,7 +6692,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
 			})
 
-			DescribeTable("when changing a live-updatable field", func(fgs []string, strat *v1.VMRolloutStrategy, matcher gomegatypes.GomegaMatcher) {
+			DescribeTable("when changing a live-updatable field", func(strat *v1.VMRolloutStrategy, matcher gomegatypes.GomegaMatcher) {
 				// Add necessary stuff to reflect running VM
 				// TODO: This should be done in more places
 				vm.Status.Created = true
@@ -6722,7 +6702,6 @@ var _ = Describe("VirtualMachine", func() {
 					Type:   v1.VirtualMachineReady,
 					Status: k8sv1.ConditionTrue,
 				})
-				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 				kv.Spec.Configuration.VMRolloutStrategy = strat
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
@@ -6751,20 +6730,20 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Succeed())
 				Expect(vm.Status.Conditions).To(matcher, "restart Required")
 
-				if strat == &liveUpdate && len(fgs) > 0 {
+				if strat == &liveUpdate {
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(4)))
 				}
 			},
 				Entry("should appear if the feature gate is not set",
-					[]string{}, &liveUpdate, restartRequiredMatcher(k8sv1.ConditionTrue)),
+					&liveUpdate, restartRequiredMatcher(k8sv1.ConditionTrue)),
 				Entry("should appear if the VM rollout strategy is not set",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate}, nil, restartRequiredMatcher(k8sv1.ConditionTrue)),
+					nil, restartRequiredMatcher(k8sv1.ConditionTrue)),
 				Entry("should appear if the VM rollout strategy is set to Stage",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate}, &stage, restartRequiredMatcher(k8sv1.ConditionTrue)),
+					&stage, restartRequiredMatcher(k8sv1.ConditionTrue)),
 				Entry("should not appear if both the VM rollout strategy and feature gate are set",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate}, &liveUpdate, Not(restartRequiredMatcher(k8sv1.ConditionTrue))),
+					&liveUpdate, Not(restartRequiredMatcher(k8sv1.ConditionTrue))),
 			)
 		})
 
