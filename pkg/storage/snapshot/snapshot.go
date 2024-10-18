@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
 const (
@@ -796,7 +797,7 @@ func updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapsh
 	if vm == nil || vm.Spec.Template == nil {
 		return
 	}
-	volumes := vm.Spec.Template.Spec.Volumes
+	volumes := storageutils.GetVolumes(vm, storageutils.FLAG_INCLUDE_ALL)
 
 	volumeBackups := make(map[string]bool)
 	for _, volumeBackup := range content.Spec.VolumeBackups {
@@ -823,9 +824,9 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 
 	vmCopy := vm.DeepCopy()
 	var statuses []kubevirtv1.VolumeSnapshotStatus
-	for i, volume := range vmCopy.Spec.Template.Spec.Volumes {
+	for _, volume := range storageutils.GetVolumes(vmCopy, storageutils.FLAG_INCLUDE_ALL) {
 		log.Log.V(3).Infof("Update volume snapshot status for volume [%s]", volume.Name)
-		status := ctrl.getVolumeSnapshotStatus(vmCopy, &vmCopy.Spec.Template.Spec.Volumes[i])
+		status := ctrl.getVolumeSnapshotStatus(vmCopy, &volume)
 		statuses = append(statuses, status)
 	}
 

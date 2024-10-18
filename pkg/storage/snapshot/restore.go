@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
 const (
@@ -474,7 +475,7 @@ func (t *vmRestoreTarget) updateVMRestoreRestores() (bool, error) {
 	}
 	for k := range restores {
 		restore := &restores[k]
-		for _, volume := range snapshotVM.Spec.Template.Spec.Volumes {
+		for _, volume := range storageutils.GetVolumes(snapshotVM, storageutils.FLAG_INCLUDE_ALL) {
 			if volume.Name != restore.VolumeName {
 				continue
 			}
@@ -531,7 +532,7 @@ func (t *vmRestoreTarget) generateRestoredVMSpec() (*kubevirtv1.VirtualMachine, 
 		t.DeepCopyInto(&newTemplates[i])
 	}
 
-	for _, v := range snapshotVM.Spec.Template.Spec.Volumes {
+	for _, v := range storageutils.GetVolumes(snapshotVM, storageutils.FLAG_INCLUDE_ALL) {
 		nv := v.DeepCopy()
 		if nv.DataVolume != nil || nv.PersistentVolumeClaim != nil {
 			for _, vr := range t.vmRestore.Status.Restores {
@@ -1169,7 +1170,7 @@ func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Co
 // Returns a set of volumes not for restore
 // Currently only memory dump volumes should not be restored
 func volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) sets.String {
-	volumes := content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes
+	volumes := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, storageutils.FLAG_INCLUDE_ALL)
 	noRestore := sets.NewString()
 
 	for _, volume := range volumes {
