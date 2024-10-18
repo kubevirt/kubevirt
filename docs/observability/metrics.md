@@ -246,6 +246,12 @@ Histogram of VM phase transitions duration between different phases in seconds. 
 ### kubevirt_vmi_status_addresses
 The addresses of a VirtualMachineInstance. This metric provides the address of an available network interface associated with the VMI in the 'address' label, and about the type of address, such as internal IP, in the 'type' label. Type: Gauge.
 
+### kubevirt_vmi_storage_allocation_bytes
+Allocated storage capacity in bytes. Type: Gauge.
+
+### kubevirt_vmi_storage_capacity_bytes
+Logical storage capacity in bytes. Type: Gauge.
+
 ### kubevirt_vmi_storage_flush_requests_total
 Total storage flush requests. Type: Counter.
 
@@ -257,6 +263,9 @@ Total number of I/O read operations. Type: Counter.
 
 ### kubevirt_vmi_storage_iops_write_total
 Total number of I/O write operations. Type: Counter.
+
+### kubevirt_vmi_storage_physical_bytes
+Physical storage capacity in bytes. Type: Gauge.
 
 ### kubevirt_vmi_storage_read_times_seconds_total
 Total time spent on read operations. Type: Counter.
