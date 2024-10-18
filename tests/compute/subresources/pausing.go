@@ -17,7 +17,7 @@
  *
  */
 
-package tests_test
+package compute
 
 import (
 	"context"
@@ -41,6 +41,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/compute"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -51,7 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Pausing", decorators.SigCompute, func() {
+var _ = compute.SIGDescribe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component] Pausing", func() {
 
 	var virtClient kubecli.KubevirtClient
 
@@ -67,7 +68,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), timeout)
 		})
 
-		It("[test_id:4597]should signal paused state with condition", func() {
+		It("[test_id:4597]should signal paused state with condition", decorators.Conformance, func() {
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 
@@ -84,7 +85,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		})
 
-		It("[test_id:3224]should not be paused with a LivenessProbe configured", func() {
+		It("[test_id:3224]should not be paused with a LivenessProbe configured", decorators.Conformance, func() {
 			By("Launching a VMI with LivenessProbe")
 			vmi = libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -145,36 +146,19 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 		})
 
-		It("[test_id:4598]should signal paused state with condition", func() {
-			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
-
-			err = virtClient.VirtualMachineInstance(vm.Namespace).Unpause(context.Background(), vm.Name, &v1.UnpauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachinePaused))
-		})
-
-		It("[test_id:3081]should gracefully handle pausing the VM again", func() {
+		It("[test_id:4598][test_id:3081][test_id:3229]should signal paused state with condition and gracefully handle pausing or start the VM again", decorators.Conformance, func() {
 			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 			err = virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
 			Expect(err).To(MatchError(ContainSubstring("VMI is already paused")))
+
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).To(MatchError(ContainSubstring("VM is already running")))
 		})
 
-		It("[test_id:3060]should signal unpaused state with removed condition", func() {
-			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
-
-			err = virtClient.VirtualMachineInstance(vm.Namespace).Unpause(context.Background(), vm.Name, &v1.UnpauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachinePaused))
-		})
-
-		It("[test_id:3082]should gracefully handle unpausing again", func() {
+		It("[test_id:3060][test_id:3082]should signal unpaused state with removed condition and gracefully handle unpausing again", decorators.Conformance, func() {
 			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
@@ -187,7 +171,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).To(MatchError(ContainSubstring("VMI is not paused")))
 		})
 
-		It("[test_id:3085]should be stopped successfully", func() {
+		It("[test_id:3085]should be stopped successfully", decorators.Conformance, func() {
 			By("Pausing the VM")
 			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -211,18 +195,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 1*time.Second).Should(BeFalse())
 		})
 
-		It("[test_id:3229]should gracefully handle being started again", func() {
-			By("Pausing the VM")
-			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
-
-			By("Starting the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
-			Expect(err).To(MatchError(ContainSubstring("VM is already running")))
-		})
-
-		It("[test_id:3226]should be restarted successfully into unpaused state", func() {
+		It("[test_id:3226]should be restarted successfully into unpaused state", decorators.Conformance, func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -264,7 +237,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(matcher.ThisVMI(newVMI), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 		})
 
-		It("[test_id:3083]should connect to serial console", func() {
+		It("[test_id:3083][test_id:3084]should connect to serial and vnc console", decorators.Conformance, func() {
 			By("Pausing the VM")
 			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -273,28 +246,19 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Trying to console into the VM")
 			_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("[test_id:3084]should connect to vnc console", func() {
-			By("Pausing the VM")
-			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
 			By("Trying to vnc into the VM")
 			_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:7673]should not pause with dry run", func() {
+		It("[test_id:7673][test_id:7674]should not pause and unpause with dry run", func() {
 			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{DryRun: []string{metav1.DryRunAll}})
 			Expect(err).ToNot(HaveOccurred())
 			By("Checking that VM remains running")
 			Consistently(matcher.ThisVM(vm), 5*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachinePaused))
-		})
 
-		It("[test_id:7674]should not unpause with dry run", func() {
-			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
+			err = virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
 
