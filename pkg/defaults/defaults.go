@@ -17,7 +17,7 @@
  *
  */
 
-package webhooks
+package defaults
 
 import (
 	"strings"

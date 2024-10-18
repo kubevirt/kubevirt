@@ -13,10 +13,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 func (app *SubresourceAPIApp) ExpandSpecRequestHandler(request *restful.Request, response *restful.Response) {
@@ -117,7 +117,7 @@ func (app *SubresourceAPIApp) expandSpecResponse(vm *v1.VirtualMachine, errorFun
 	}
 
 	// Apply defaults to VM.Spec.Template.Spec after applying instance types to ensure we don't conflict
-	if err = webhooks.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &vm.Spec.Template.Spec); err != nil {
+	if err = defaults.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &vm.Spec.Template.Spec); err != nil {
 		writeError(errorFunc(err), response)
 		return
 	}

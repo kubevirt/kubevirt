@@ -13,6 +13,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
+        "//pkg/defaults:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/util:go_default_library",

@@ -26,11 +26,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 var _ = Describe("Instancetype expansion subresources", func() {
@@ -169,7 +169,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			expectedVm := vm.DeepCopy()
 
-			Expect(webhooks.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
+			Expect(defaults.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
 
 			util.SetDefaultVolumeDisk(&expectedVm.Spec.Template.Spec)
 			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
@@ -207,7 +207,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			expectedVm := vm.DeepCopy()
 
-			Expect(webhooks.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
+			Expect(defaults.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
 
 			util.SetDefaultVolumeDisk(&expectedVm.Spec.Template.Spec)
 			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
