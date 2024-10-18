@@ -15,7 +15,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -58,7 +59,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 
 			By("Adding the emulated sound card to the permitted host devices")
 			config.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{virtconfig.HostDevicesGate},
+				FeatureGates: []string{featuregate.HostDevicesGate},
 				DiskVerification: &v1.DiskVerification{
 					MemoryLimit: resource.NewScaledQuantity(2, resource.Giga),
 				},

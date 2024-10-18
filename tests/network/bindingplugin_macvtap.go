@@ -34,7 +34,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -56,7 +57,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 	)
 
 	BeforeEach(func() {
-		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+		config.EnableFeatureGate(featuregate.NetworkBindingPlugingsGate)
 	})
 
 	BeforeEach(func() {
