@@ -453,11 +453,7 @@ func (c *ClusterConfig) GetMaxHotplugRatio() uint32 {
 }
 
 func (c *ClusterConfig) IsVMRolloutStrategyLiveUpdate() bool {
-	if !c.VMLiveUpdateFeaturesEnabled() {
-		return false
-	}
 	liveConfig := c.GetConfig().VMRolloutStrategy
-
 	return liveConfig != nil && *liveConfig == v1.VMRolloutStrategyLiveUpdate
 }
 
