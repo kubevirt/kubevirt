@@ -102,13 +102,3 @@ type psOutput struct {
 	priority    int64
 	processorID int64
 }
-
-func newPs(psLine string) psOutput {
-	s := strings.Split(psLine, " ")
-	Expect(len(s)).To(BeNumerically(">", 1))
-	prio, err := strconv.ParseInt(s[0], 10, 8)
-	Expect(err).NotTo(HaveOccurred())
-	procID, err := strconv.ParseInt(s[1], 10, 8)
-	Expect(err).NotTo(HaveOccurred())
-	return psOutput{priority: prio, processorID: procID}
-}
