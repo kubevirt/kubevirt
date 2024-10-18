@@ -56,7 +56,7 @@ type NetworkHandler interface {
 	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
 	LinkDel(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
-	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
+	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, dhcpStartedFile string) error
 	HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error)
 	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
@@ -158,7 +158,7 @@ func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (str
 	return ipv4, ipv6, nil
 }
 
-func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
+func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, dhcpStartedFile string) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
 	nameservers, searchDomains, err := dns.GetResolvConfDetailsFromPod()
 	if err != nil {
@@ -186,6 +186,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 				searchDomains,
 				nic.Mtu,
 				dhcpOptions,
+				dhcpStartedFile,
 			); err != nil {
 				log.Log.Errorf("failed to run DHCP Server: %v", err)
 				panic(err)
