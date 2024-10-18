@@ -49,7 +49,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
-	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 
@@ -84,6 +83,7 @@ import (
 	dmetricsmanager "kubevirt.io/kubevirt/pkg/virt-handler/dmetrics-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	nodecapabilities "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities"
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
@@ -305,32 +305,64 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	var capabilities libvirtxml.Caps
 	var hostCpuModel string
+	var supportedFeatures []string
 
-	hostCapsFile, err := os.ReadFile(filepath.Join(nodelabeller.NodeLabellerVolumePath, "capabilities.xml"))
+	hostCapabilitiesXML, err := os.ReadFile(filepath.Join(nodecapabilities.CapabilitiesVolumePath, nodecapabilities.HostCapabilitiesFilename))
+	if err != nil {
+		panic(err)
+	}
+	capabilities, err := nodecapabilities.HostCapabilities(string(hostCapabilitiesXML))
 	if err != nil {
 		panic(err)
 	}
 
-	if err := capabilities.Unmarshal(string(hostCapsFile)); err != nil {
+	domCapabilitiesXML, err := os.ReadFile(filepath.Join(nodecapabilities.CapabilitiesVolumePath, nodecapabilities.DomCapabiliitesFilename))
+	if err != nil {
 		panic(err)
+	}
+	domCapabiliites, err := nodecapabilities.DomCapabilities(string(domCapabilitiesXML))
+	if err != nil {
+		panic(err)
+	}
+
+	supportedHostCPUs, err := nodecapabilities.SupportedHostCPUs(domCapabiliites.CPU.Modes, runtime.GOARCH)
+	if err != nil {
+		panic(err)
+	}
+	supportedSEV := nodecapabilities.SupportedHostSEV(domCapabiliites.Features.SEV)
+
+	if virtconfig.IsAMD64(runtime.GOARCH) || virtconfig.IsS390X(runtime.GOARCH) {
+		supportedFeaturesXML, err := os.ReadFile(filepath.Join(nodecapabilities.CapabilitiesVolumePath, nodecapabilities.SupportedFeaturesFilename))
+		if err != nil {
+			panic(err)
+		}
+		supportedFeatures, err = nodecapabilities.SupportedFeatures(string(supportedFeaturesXML), runtime.GOARCH)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
-	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
+	nodeLabellerController := nodelabeller.NewNodeLabeller(
+		app.clusterConfig,
 		app.virtCli.CoreV1().Nodes(),
 		app.HostOverride,
 		nodeLabellerrecorder,
+		supportedFeatures,
 		capabilities.Host.CPU.Counter,
+		supportedHostCPUs.Model,
+		supportedHostCPUs.Vendor,
+		supportedHostCPUs.UsableModels,
+		supportedHostCPUs.RequiredFeatures,
+		supportedSEV.Supported,
+		supportedSEV.SupportedES,
+		nodecapabilities.GetCapLabels(),
 	)
-	if err != nil {
-		panic(err)
-	}
 
 	// Node labelling is only relevant on x86_64 and s390x arches.
 	if virtconfig.IsAMD64(runtime.GOARCH) || virtconfig.IsS390X(runtime.GOARCH) {
-		hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
+		hostCpuModel = supportedHostCPUs.Model
 
 		go nodeLabellerController.Run(10, stop)
 	}
@@ -359,7 +391,7 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		downwardMetricsManager,
-		&capabilities,
+		capabilities,
 		hostCpuModel,
 		netsetup.NewNetConf(app.clusterConfig),
 		netsetup.NewNetStat(),
