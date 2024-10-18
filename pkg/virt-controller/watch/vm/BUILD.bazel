@@ -9,6 +9,7 @@ go_library(
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/instancetype:go_default_library",
+        "//pkg/instancetype/apply:go_default_library",
         "//pkg/liveupdate/memory:go_default_library",
         "//pkg/network/admitter:go_default_library",
         "//pkg/network/vmispec:go_default_library",
@@ -57,6 +58,8 @@ go_test(
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/instancetype:go_default_library",
+        "//pkg/instancetype/handler:go_default_library",
+        "//pkg/instancetype/preference/handler:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/status:go_default_library",
         "//pkg/pointer:go_default_library",
