@@ -5541,6 +5541,46 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			Context("InstancetypeReferencePolicy", func() {
+
+				addRevisionsToVMFunc := func() {
+					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+						context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+						context.Background(), preferenceRevision, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Instancetype.RevisionName = instancetypeRevision.Name
+					vm.Spec.Preference.RevisionName = preferenceRevision.Name
+				}
+
+				kvWithReferencePolicyExpand := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							Instancetype: &v1.InstancetypeConfiguration{
+								ReferencePolicy: pointer.P(v1.Expand),
+							},
+						},
+					},
+				}
+
+				kvWithReferencePolicyExpandAll := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							Instancetype: &v1.InstancetypeConfiguration{
+								ReferencePolicy: pointer.P(v1.ExpandAll),
+							},
+						},
+					},
+				}
+
 				BeforeEach(func() {
 					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 						Name: instancetypeObj.Name,
@@ -5585,46 +5625,13 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					}, func() {}),
 					Entry("with referencePolicy expand and revisionNames already captured",
-						&v1.KubeVirt{
-							Spec: v1.KubeVirtSpec{
-								Configuration: v1.KubeVirtConfiguration{
-									Instancetype: &v1.InstancetypeConfiguration{
-										ReferencePolicy: pointer.P(v1.Expand),
-									},
-								},
-							},
-						},
-						func() {
-							instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
-							Expect(err).ToNot(HaveOccurred())
-
-							_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-								context.Background(), instancetypeRevision, metav1.CreateOptions{})
-							Expect(err).ToNot(HaveOccurred())
-
-							preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
-							Expect(err).ToNot(HaveOccurred())
-
-							_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-								context.Background(), preferenceRevision, metav1.CreateOptions{})
-							Expect(err).ToNot(HaveOccurred())
-
-							vm.Spec.Instancetype.RevisionName = instancetypeRevision.Name
-							vm.Spec.Preference.RevisionName = preferenceRevision.Name
-						},
+						kvWithReferencePolicyExpand, addRevisionsToVMFunc,
 					),
 				)
 
-				It("should expand and update VM with referencePolicy expand", func() {
-					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								Instancetype: &v1.InstancetypeConfiguration{
-									ReferencePolicy: pointer.P(v1.Expand),
-								},
-							},
-						},
-					})
+				DescribeTable("should expand and update VM", func(kv *v1.KubeVirt, updateVMFunc func()) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+					updateVMFunc()
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(
 						context.TODO(), vm, metav1.CreateOptions{})
@@ -5639,9 +5646,13 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vm.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
 					Expect(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeObj.Spec.Memory.Guest.Value()))
 					Expect(vm.Spec.Preference).To(BeNil())
-				})
+				},
+					Entry("with referencePolicy expand", kvWithReferencePolicyExpand, func() {}),
+					Entry("with referencePolicy expandAll", kvWithReferencePolicyExpandAll, func() {}),
+					Entry("with referencePolicy expandAll and revisionNames already captured",
+						kvWithReferencePolicyExpandAll, addRevisionsToVMFunc),
+				)
 			})
-
 		})
 
 		DescribeTable("should add the default network interface",

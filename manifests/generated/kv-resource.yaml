@@ -436,6 +436,7 @@ spec:
                         enum:
                         - reference
                         - expand
+                        - expandAll
                         nullable: true
                         type: string
                     type: object
@@ -3691,6 +3692,7 @@ spec:
                         enum:
                         - reference
                         - expand
+                        - expandAll
                         nullable: true
                         type: string
                     type: object

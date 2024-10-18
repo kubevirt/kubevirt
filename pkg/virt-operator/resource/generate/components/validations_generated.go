@@ -1061,6 +1061,7 @@ var CRDsValidation map[string]string = map[string]string{
                   enum:
                   - reference
                   - expand
+                  - expandAll
                   nullable: true
                   type: string
               type: object

@@ -3205,7 +3205,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	}
 
 	// TODO(lyarwood): Extract all instance type logic into a handler
-	switch c.clusterConfig.GetInstancetypeReferencePolicy() {
+	referencePolicy := c.clusterConfig.GetInstancetypeReferencePolicy()
+	switch referencePolicy {
 	case virtv1.Reference:
 		// Ensure we have ControllerRevisions of any instancetype or preferences referenced by the VM
 		if err = c.instancetypeMethods.StoreControllerRevisions(vm); err != nil {
@@ -3213,11 +3214,11 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 			c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
 			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason), nil
 		}
-	case virtv1.Expand:
+	case virtv1.Expand, virtv1.ExpandAll:
 		// Do not expand if there are no instance types and preferences or they already have a revisionName
-		if (vm.Spec.Instancetype == nil && vm.Spec.Preference == nil) ||
+		if referencePolicy == virtv1.Expand && ((vm.Spec.Instancetype == nil && vm.Spec.Preference == nil) ||
 			(vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "") ||
-			(vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "") {
+			(vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "")) {
 			break
 		}
 

@@ -2550,7 +2550,7 @@ type InstancetypeConfiguration struct {
 	// reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.
 	// expand - Where the instance type or preference are expanded into the VM during submission with references removed.
 	// +nullable
-	// +kubebuilder:validation:Enum=reference;expand
+	// +kubebuilder:validation:Enum=reference;expand;expandAll
 	ReferencePolicy *InstancetypeReferencePolicy `json:"referencePolicy,omitempty"`
 }
 
@@ -2559,8 +2559,10 @@ type InstancetypeReferencePolicy string
 const (
 	// Copy any instance type or preference and reference from the VirtualMachine
 	Reference InstancetypeReferencePolicy = "reference"
-	// Expand any instance type or preference into the VirtualMachine
+	// Expand any instance type or preference into VirtualMachines without a revisionName already captured
 	Expand InstancetypeReferencePolicy = "expand"
+	// Expand any instance type or preferences into all VirtualMachines
+	ExpandAll InstancetypeReferencePolicy = "expandAll"
 )
 
 type CommonInstancetypesDeployment struct {
