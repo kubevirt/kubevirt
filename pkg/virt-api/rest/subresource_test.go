@@ -39,6 +39,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	gomegatypes "github.com/onsi/gomega/types"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -2262,7 +2263,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	})
 
 	Context("Pausing", func() {
-		DescribeTable("Should pause a running, not paused VMI according to options", func(pauseOptions *v1.PauseOptions) {
+		DescribeTable("Should pause a running, not paused VMI according to options", func(pauseOptions *v1.PauseOptions, handlerExpectation gomegatypes.GomegaMatcher) {
 
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -2278,28 +2279,45 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.PauseVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-
+			//In case of dry-run the request is not propagated to the handler
+			Expect(backend.ReceivedRequests()).To(handlerExpectation)
 		},
-			Entry("with default", &v1.PauseOptions{}),
-			Entry("with dry-run option", &v1.PauseOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.PauseOptions{}, HaveLen(1)),
+			Entry("with dry-run option", &v1.PauseOptions{DryRun: getDryRunOption()}, BeNil()),
 		)
 
-		DescribeTable("Should fail pausing", func(running bool, paused bool, pauseOptions *v1.PauseOptions) {
+		withLivenessProbe := func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.LivenessProbe = &v1.Probe{
+				Handler:             v1.Handler{},
+				InitialDelaySeconds: 120,
+				TimeoutSeconds:      120,
+				PeriodSeconds:       120,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
+			}
+		}
+		nilAdditionalOps := func(vmi *v1.VirtualMachineInstance) {
+			return
+		}
 
-			expectVMI(running, paused)
+		DescribeTable("Should fail pausing", func(running bool, paused bool, additionalOpts func(vmi *v1.VirtualMachineInstance), pauseOptions *v1.PauseOptions, expectedCode int) {
+			expectVMI(running, paused, additionalOpts)
 
 			bytesRepresentation, _ := json.Marshal(pauseOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			app.PauseVMIRequestHandler(request, response)
 
-			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			ExpectStatusErrorWithCode(recorder, expectedCode)
 		},
-			Entry("a not running VMI", NotRunning, UnPaused, &v1.PauseOptions{}),
-			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.PauseOptions{DryRun: getDryRunOption()}),
+			Entry("a not running VMI", NotRunning, UnPaused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict),
+			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, nilAdditionalOps, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusConflict),
 
-			Entry("a running but paused VMI", Running, Paused, &v1.PauseOptions{}),
-			Entry("a running but paused VMI with dry-run option", Running, Paused, &v1.PauseOptions{DryRun: getDryRunOption()}),
+			Entry("a running but paused VMI", Running, Paused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict),
+			Entry("a running but paused VMI with dry-run option", Running, Paused, nilAdditionalOps, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusConflict),
+
+			Entry("a running VMI with LivenessProbe", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{}, http.StatusForbidden),
+			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusForbidden),
 		)
 
 		DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions) {
@@ -2320,7 +2338,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
 		)
 
-		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions) {
+		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions, handlerExpectation gomegatypes.GomegaMatcher) {
 
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -2336,10 +2354,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.UnpauseVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-
+			//In case of dry-run the request is not propagated to the handler
+			Expect(backend.ReceivedRequests()).To(handlerExpectation)
 		},
-			Entry("with default", &v1.UnpauseOptions{}),
-			Entry("with dry-run option", &v1.UnpauseOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.UnpauseOptions{}, HaveLen(1)),
+			Entry("with dry-run option", &v1.UnpauseOptions{DryRun: getDryRunOption()}, BeNil()),
 		)
 	})
 
