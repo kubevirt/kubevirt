@@ -76,9 +76,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 
 		Context("with VNC connection", func() {
 			vncConnect := func() {
-				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()
-				defer pipeInReader.Close()
 				defer pipeOutReader.Close()
 
 				k8ResChan := make(chan error)
@@ -92,6 +90,9 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 						return
 					}
 
+					pipeInReader, _ := io.Pipe()
+					defer pipeInReader.Close()
+
 					k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
 						In:  pipeInReader,
 						Out: pipeOutWriter,
@@ -101,7 +102,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 				By("Reading from the VNC socket")
 				go func() {
 					defer GinkgoRecover()
-					buf := make([]byte, 1024, 1024)
+					buf := make([]byte, 1024)
 					// reading qemu vnc server
 					n, err := pipeOutReader.Read(buf)
 					if err != nil && err != io.EOF {
@@ -129,7 +130,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 				}
 			}
 
-			It("[test_id:1611]should allow accessing the VNC device multiple times", func() {
+			It("[test_id:1611]should allow accessing the VNC device multiple times", decorators.Conformance, func() {
 
 				for i := 0; i < 10; i++ {
 					vncConnect()
@@ -159,6 +160,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			Expect(rt.Response.Header.Get("Sec-Websocket-Protocol")).To(Equal(subresources.PlainStreamProtocolName))
 		},
 			Entry("[test_id:1612]for vnc", "vnc"),
+			// TODO: This should be moved to console tests
 			Entry("[test_id:1613]for serial console", "console"),
 		)
 
