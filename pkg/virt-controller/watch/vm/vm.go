@@ -57,6 +57,7 @@ import (
 	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -65,6 +66,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypeApply "kubevirt.io/kubevirt/pkg/instancetype/apply"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -130,7 +132,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
-	instancetypeMethods instancetype.Methods,
+	instancetypeHandler instancetypeVMControllerHandler,
+	preferenceHandler preferenceVMControllerHandler,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -146,7 +149,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		namespaceStore:         namespaceStore,
 		pvcStore:               pvcInformer.GetStore(),
 		crIndexer:              crInformer.GetIndexer(),
-		instancetypeMethods:    instancetypeMethods,
+		instancetypeHandler:    instancetypeHandler,
+		preferenceHandler:      preferenceHandler,
 		recorder:               recorder,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -234,6 +238,24 @@ type synchronizer interface {
 	Sync(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
 }
 
+type instancetypeVMControllerHandler interface {
+	ApplyToVM(*virtv1.VirtualMachine) error
+	ApplyToVMI(
+		*k8sfield.Path,
+		*instancetypev1beta1.VirtualMachineInstancetypeSpec,
+		*instancetypev1beta1.VirtualMachinePreferenceSpec,
+		*virtv1.VirtualMachineInstanceSpec,
+		*metav1.ObjectMeta,
+	) instancetypeApply.Conflicts
+	Find(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
+	Store(vm *virtv1.VirtualMachine) error
+	Upgrade(vm *virtv1.VirtualMachine) error
+}
+
+type preferenceVMControllerHandler interface {
+	Find(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
+}
+
 type Controller struct {
 	clientset              kubecli.KubevirtClient
 	Queue                  workqueue.RateLimitingInterface
@@ -244,7 +266,8 @@ type Controller struct {
 	namespaceStore         cache.Store
 	pvcStore               cache.Store
 	crIndexer              cache.Indexer
-	instancetypeMethods    instancetype.Methods
+	instancetypeHandler    instancetypeVMControllerHandler
+	preferenceHandler      preferenceVMControllerHandler
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
@@ -689,7 +712,7 @@ func (c *Controller) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virt
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeHandler.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 
@@ -792,7 +815,7 @@ func (c *Controller) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi 
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeHandler.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 
@@ -1944,7 +1967,7 @@ func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMa
 
 func (c *Controller) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 
-	instancetypeSpec, err := c.instancetypeMethods.FindInstancetypeSpec(vm)
+	instancetypeSpec, err := c.instancetypeHandler.Find(vm)
 	if err != nil {
 		return err
 	}
@@ -1956,7 +1979,7 @@ func (c *Controller) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virt
 	instancetype.AddInstancetypeNameAnnotations(vm, vmi)
 	instancetype.AddPreferenceNameAnnotations(vm, vmi)
 
-	if conflicts := c.instancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
+	if conflicts := c.instancetypeHandler.ApplyToVMI(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
 		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
 	}
 
@@ -3094,7 +3117,7 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 
 	// Expand any instance types and preferences associated with lastSeenVMSpec or the current VM before working out if things are live-updatable
 	currentVM := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(currentVM); err != nil {
+	if err := c.instancetypeHandler.ApplyToVM(currentVM); err != nil {
 		return false
 	}
 	lastSeenVM := &virtv1.VirtualMachine{
@@ -3102,7 +3125,7 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		ObjectMeta: currentVM.DeepCopy().ObjectMeta,
 		Spec:       *lastSeenVMSpec,
 	}
-	if err := c.instancetypeMethods.ApplyToVM(lastSeenVM); err != nil {
+	if err := c.instancetypeHandler.ApplyToVM(lastSeenVM); err != nil {
 		return false
 	}
 
@@ -3192,7 +3215,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	}
 
 	// Ensure we have ControllerRevisions of any instancetype or preferences referenced by the VM
-	err = c.instancetypeMethods.StoreControllerRevisions(vm)
+	err = c.instancetypeHandler.Store(vm)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to store Instancetype ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
@@ -3200,7 +3223,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	}
 
 	// Once we have ControllerRevisions make sure they are fully up to date before proceeding
-	if err := c.instancetypeMethods.Upgrade(vm); err != nil {
+	if err := c.instancetypeHandler.Upgrade(vm); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("failed to upgrade instancetype.kubevirt.io ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
 		return vm, common.NewSyncError(fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason), nil
@@ -3332,7 +3355,7 @@ func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
 
 func (c *Controller) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	if vm.Spec.Preference != nil {
-		preferenceSpec, err := c.instancetypeMethods.FindPreferenceSpec(vm)
+		preferenceSpec, err := c.preferenceHandler.Find(vm)
 		if err != nil {
 			return nil, err
 		}
@@ -3349,7 +3372,7 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeHandler.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 
