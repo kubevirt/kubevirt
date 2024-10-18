@@ -174,8 +174,9 @@ type LibvirtDomainManager struct {
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
 
-	metadataCache    *metadata.Cache
-	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
+	metadataCache        *metadata.Cache
+	domainStatsCache     *virtcache.TimeDefinedCache[*stats.DomainStats]
+	containerDiskManager *containerdisk.ContainerDiskManager
 }
 
 type pausedVMIs struct {
@@ -222,6 +223,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		migrateInfoStats:         &stats.DomainJobInfo{},
 		metadataCache:            metadataCache,
+		containerDiskManager:     containerdisk.NewContainerDiskManager(),
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -722,10 +724,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
-	disksInfo := map[string]*containerdisk.DiskInfo{}
+	disksInfo := map[string]*containerdisk.ImgInfo{}
 	for k, v := range l.disksInfo {
 		if v != nil {
-			disksInfo[k] = &containerdisk.DiskInfo{
+			disksInfo[k] = &containerdisk.ImgInfo{
 				Format:      v.Format,
 				BackingFile: v.BackingFile,
 				ActualSize:  int64(v.ActualSize),
@@ -782,11 +784,18 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}
 
+	containerDiskManager := containerdisk.NewContainerDiskManager()
 	// Create ephemeral disk for container disks
-	err = containerdisk.CreateEphemeralImages(vmi, l.ephemeralDiskCreator, disksInfo)
+	err = containerDiskManager.CreateEphemeralImages(vmi, l.ephemeralDiskCreator)
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
+
+	// Access directory for kernel boot
+	if err := containerDiskManager.AccessKernelBoot(vmi); err != nil {
+		return domain, fmt.Errorf("preparing kernel boot artifacts: %v", err)
+	}
+
 	// Create images for volumes that are marked ephemeral.
 	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi, domain)
 	if err != nil {
@@ -1112,9 +1121,12 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		logger.Reason(err).Error("failed to generate libvirt domain from VMI spec")
 		return nil, err
 	}
+	if err := l.containerDiskManager.WaitContainerDisksToBecomeReady(vmi, 30); err != nil {
+		return nil, fmt.Errorf("waiting for container disks to become ready: %v", err)
+	}
 
 	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
-		logger.Error("Conversion failed.")
+		logger.Errorf("Conversion failed: %v", err)
 		return nil, err
 	}
 
@@ -1801,11 +1813,17 @@ func (l *LibvirtDomainManager) MarkGracefulShutdownVMI() {
 		gracePeriodMetadata.MarkedForGracefulShutdown = pointer.P(true)
 	})
 	log.Log.V(4).Infof("Marked for graceful shutdown in metadata: %s", l.metadataCache.GracePeriod.String())
+	if err := l.containerDiskManager.StopContainerDiskContainers(); err != nil {
+		log.Log.Reason(err).Error("Stopping the container disk during the graceful shutdown.")
+	}
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
+	if err := l.containerDiskManager.StopContainerDiskContainers(); err != nil {
+		return err
+	}
 
 	domName := util.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
@@ -1847,6 +1865,9 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 }
 
 func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
+	if err := l.containerDiskManager.StopContainerDiskContainers(); err != nil {
+		log.Log.Reason(err).Error("Stopping the container disk during the graceful shutdown.")
+	}
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
@@ -1887,6 +1908,9 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
+	if err := l.containerDiskManager.StopContainerDiskContainers(); err != nil {
+		return err
+	}
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
