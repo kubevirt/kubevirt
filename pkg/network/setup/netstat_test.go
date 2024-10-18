@@ -34,7 +34,9 @@ import (
 )
 
 var _ = Describe("netstat", func() {
-	var setup testSetup
+	var (
+		setup testSetup
+	)
 
 	BeforeEach(func() {
 		setup = newTestSetup()
@@ -752,6 +754,7 @@ var _ = Describe("netstat", func() {
 			{Name: primaryNetworkName, PodInterfaceName: primaryPodIfaceName},
 		}
 
+		setup.NetStat = netsetup.NewNetStateWithCustomFactory(&tempCacheCreator{}, cConfigStub{dynamicPodInterfaceNamingEnabled: true})
 		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
 
 		infoSourceDomainGA := netvmispec.NewInfoSource(
@@ -764,7 +767,7 @@ var _ = Describe("netstat", func() {
 
 	DescribeTable("VMI with primary interface status reported should keep the prev PodInterfaceName", func(primaryPodIfaceName string) {
 		const primaryNetworkName = "default"
-
+		setup.NetStat = netsetup.NewNetStateWithCustomFactory(&tempCacheCreator{}, cConfigStub{dynamicPodInterfaceNamingEnabled: true})
 		setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces, newVMISpecIfaceWithBridgeBinding(primaryNetworkName))
 		setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecPodNetwork(primaryNetworkName))
 		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{{Name: primaryNetworkName, PodInterfaceName: primaryPodIfaceName}}
@@ -849,7 +852,10 @@ func newTestSetupWithVolatileCache() testSetup {
 }
 
 func newTestSetup() testSetup {
-	var cacheCreator tempCacheCreator
+	var (
+		cacheCreator      tempCacheCreator
+		clusterConfigurer = cConfigStub{dynamicPodInterfaceNamingEnabled: false}
+	)
 	const uid = "123"
 	vmi := &v1.VirtualMachineInstance{}
 	vmi.UID = uid
@@ -858,7 +864,7 @@ func newTestSetup() testSetup {
 	return testSetup{
 		Vmi:           vmi,
 		Domain:        &api.Domain{},
-		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator),
+		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator, &clusterConfigurer),
 		cacheCreator:  &cacheCreator,
 		podIfaceCache: cache.NewPodInterfaceCache(&cacheCreator, uid),
 	}

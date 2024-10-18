@@ -47,8 +47,9 @@ var _ = Describe("netconf", func() {
 		vmi      *v1.VirtualMachineInstance
 		stateMap map[string]*netpod.State
 
-		stateCache stateCacheStub
-		ns         nsExecutorStub
+		stateCache        stateCacheStub
+		ns                nsExecutorStub
+		clusterConfigurer cConfigStub
 	)
 
 	const launcherPid = 0
@@ -57,7 +58,8 @@ var _ = Describe("netconf", func() {
 		stateCache = newConfigStateCacheStub()
 		ns = nsExecutorStub{}
 		stateMap = map[string]*netpod.State{}
-		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, stateMap, cConfigStub{})
+		clusterConfigurer = cConfigStub{dynamicPodInterfaceNamingEnabled: false}
+		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, stateMap, clusterConfigurer)
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123", Name: "vmi1"}}
 	})
 
@@ -213,8 +215,14 @@ func (n nsExecutorStub) Do(f func() error) error {
 	return f()
 }
 
-type cConfigStub struct{}
+type cConfigStub struct {
+	dynamicPodInterfaceNamingEnabled bool
+}
 
 func (c cConfigStub) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
 	return map[string]v1.InterfaceBindingPlugin{}
+}
+
+func (c cConfigStub) DynamicPodInterfaceNamingEnabled() bool {
+	return c.dynamicPodInterfaceNamingEnabled
 }
