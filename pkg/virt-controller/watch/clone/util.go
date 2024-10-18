@@ -64,10 +64,6 @@ func generateRestoreName(vmCloneUID types.UID) string {
 	return fmt.Sprintf("tmp-restore-%s", string(vmCloneUID))
 }
 
-func generateVolumeName(volumeName string) string {
-	return generateNameWithRandomSuffix("clone", "volume", volumeName)
-}
-
 func generateVMName(oldVMName string) string {
 	return generateNameWithRandomSuffix(oldVMName, "clone")
 }

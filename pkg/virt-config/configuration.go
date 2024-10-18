@@ -313,25 +313,6 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 	return validateConfig(config)
 }
 
-// getCPUArchSpecificDefault get arch specific default config
-func getCPUArchSpecificDefault(cpuArch string) (string, string, []string) {
-	// get arch specific default config
-	switch cpuArch {
-	case "arm64":
-		emulatedMachinesDefault := strings.Split(DefaultAARCH64EmulatedMachines, ",")
-		return DefaultAARCH64OVMFPath, DefaultAARCH64MachineType, emulatedMachinesDefault
-	case "ppc64le":
-		emulatedMachinesDefault := strings.Split(DefaultPPC64LEEmulatedMachines, ",")
-		return DefaultARCHOVMFPath, DefaultPPC64LEMachineType, emulatedMachinesDefault
-	case "s390x":
-		emulatedMachinesDefault := strings.Split(DefaultS390XEmulatedMachines, ",")
-		return DefaultARCHOVMFPath, DefaultS390XMachineType, emulatedMachinesDefault
-	default:
-		emulatedMachinesDefault := strings.Split(DefaultAMD64EmulatedMachines, ",")
-		return DefaultARCHOVMFPath, DefaultAMD64MachineType, emulatedMachinesDefault
-	}
-}
-
 // getConfig returns the latest valid parsed config map result, or updates it
 // if a newer version is available.
 // XXX Rework this, to happen mostly in informer callbacks.
