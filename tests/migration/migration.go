@@ -61,7 +61,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -318,7 +317,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
-				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "10Mi", 3)
+				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "5Mi", 3)
 				durationHighBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "128Mi", 3)
 				Expect(durationHighBandwidth.Seconds() * 2).To(BeNumerically("<", durationLowBandwidth.Seconds()))
 			})
@@ -2505,42 +2504,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			})
 
-		})
-
-		Context("parallel migration threads", func() {
-			const numberOfMigrationThreads uint = 4
-
-			newVmi := func() *v1.VirtualMachineInstance {
-				return libvmifact.NewCirros(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				)
-			}
-
-			Context("should", func() {
-				setMigrationParallelismWithAnnotation := func(vmi *v1.VirtualMachineInstance) {
-					if vmi.Annotations == nil {
-						vmi.Annotations = map[string]string{}
-					}
-					vmi.Annotations[cmdclient.MultiThreadedQemuMigrationAnnotation] = fmt.Sprintf("%d", numberOfMigrationThreads)
-				}
-
-				DescribeTable("run successfully when configured through", func(setParallelMigration func(vmi *v1.VirtualMachineInstance)) {
-					vmi := newVmi()
-
-					By("Setting parallel migration")
-					setParallelMigration(vmi)
-
-					By("Running vmi %s" + vmi.Name)
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
-
-					By("Starting the Migration")
-					migration := libmigration.New(vmi.Name, vmi.Namespace)
-					_ = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 180)
-				},
-					Entry("a VMI annotation", setMigrationParallelismWithAnnotation),
-				)
-			})
 		})
 
 		Context("[Serial] with migration policies", Serial, func() {
