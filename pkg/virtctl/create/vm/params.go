@@ -21,6 +21,13 @@ package vm
 
 import "k8s.io/apimachinery/pkg/api/resource"
 
+type accessCredential struct {
+	Type   string `param:"type"`
+	Source string `param:"src"`
+	Method string `param:"method"`
+	User   string `param:"user"`
+}
+
 type volumeSource struct {
 	Name      string `param:"name"`
 	Source    string `param:"src"`

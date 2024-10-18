@@ -37,6 +37,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -51,6 +52,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", decorators.SigCompute, func(
 	const (
 		importedVolumeRegexp = `imported-volume-\w{5}`
 		sysprepDisk          = "sysprepdisk"
+		cloudInitDisk        = "cloudinitdisk"
 		cloudInitUserData    = `#cloud-config
 user: user
 password: password
@@ -274,7 +276,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[4].VolumeSource.DataVolume).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[4].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[2].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[5].Name).To(Equal(CloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[5].Name).To(Equal(cloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[5].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[5].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -375,7 +377,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[2].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(CloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal(cloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -451,7 +453,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 
-		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(CloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(cloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
 
@@ -536,7 +538,7 @@ chpasswd: { expire: False }`
 		vm, err := decodeVM(out)
 		Expect(err).ToNot(HaveOccurred())
 
-		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{DryRun: []string{}})
+		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
@@ -555,8 +557,9 @@ chpasswd: { expire: False }`
 		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
 		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
 		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(cdSource))
 
-		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(CloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(cloudInitDisk))
 		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
 		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("user: " + user))
 		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("password: %s\nchpasswd: { expire: False }", password))
@@ -567,19 +570,66 @@ chpasswd: { expire: False }`
 		Expect(err).ToNot(HaveOccurred())
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-		libssh.DisableSSHAgent()
-		err = clientcmd.NewRepeatableVirtctlCommand(
-			"ssh",
-			"--namespace", vm.Namespace,
-			"--username", "alpine",
-			"--identity-file", keyFile,
-			"--known-hosts=",
-			"-t", "-o StrictHostKeyChecking=no",
-			"-t", "-o UserKnownHostsFile=/dev/null",
-			"--command", "true",
-			vm.Name,
-		)()
+		runSSHCommand(vm.Namespace, vm.Name, user, keyFile)
+	})
+
+	It("Complex example with access credentials", func() {
+		const user = "fedora"
+		cdSource := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
+
+		priv, pub, err := libssh.NewKeyPair()
 		Expect(err).ToNot(HaveOccurred())
+		keyFile := filepath.Join(GinkgoT().TempDir(), "id_rsa")
+		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
+		sshKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
+
+		secret := libsecret.New("my-keys-"+rand.String(5), libsecret.DataString{"key1": sshKey})
+		secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		out, err := runCmd(
+			setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
+			setFlag(AccessCredFlag, fmt.Sprintf("type:ssh,src:%s,method:ga,user:%s", secret.Name, user)),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		vm, err := decodeVM(out)
+		Expect(err).ToNot(HaveOccurred())
+
+		vm, err = virtClient.VirtualMachine(secret.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+		Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+
+		Expect(vm.Spec.Instancetype).To(BeNil())
+		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
+
+		Expect(vm.Spec.Preference).To(BeNil())
+
+		Expect(vm.Spec.DataVolumeTemplates).To(BeEmpty())
+
+		Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
+
+		volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+		Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
+		Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
+
+		Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(cloudInitDisk))
+		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(Equal("#cloud-config\nruncmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"))
+
+		Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+		vmi, err := virtClient.VirtualMachineInstance(secret.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+
+		Eventually(func(g Gomega) {
+			vmi, err := virtClient.VirtualMachineInstance(secret.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vmi).To(HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
+		}, 60*time.Second, 1*time.Second).Should(Succeed())
+
+		runSSHCommand(secret.Namespace, vm.Name, user, keyFile)
 	})
 
 	It("Failure of implicit inference does not fail the VM creation", func() {
@@ -691,4 +741,20 @@ func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.Pe
 		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
 		apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
 	})
+}
+
+func runSSHCommand(namespace, name, user, keyFile string) {
+	libssh.DisableSSHAgent()
+	err := clientcmd.NewRepeatableVirtctlCommand(
+		"ssh",
+		"--namespace", namespace,
+		"--username", user,
+		"--identity-file", keyFile,
+		"--known-hosts=",
+		"-t", "-o StrictHostKeyChecking=no",
+		"-t", "-o UserKnownHostsFile=/dev/null",
+		"--command", "true",
+		name,
+	)()
+	Expect(err).ToNot(HaveOccurred())
 }

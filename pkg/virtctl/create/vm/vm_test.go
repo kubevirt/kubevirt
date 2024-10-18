@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -25,6 +26,8 @@ import (
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
+
+const runCmdGAManageSSH = "runcmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"
 
 var _ = Describe("create vm", func() {
 	const (
@@ -788,17 +791,17 @@ chpasswd: { expire: False }`
 			Entry("with CloudInitConfigDrive (explicit) and multiple keys in multiple flags", randomMultipleKeysMultipleFlags, configDriveUserData, setFlag(CloudInitFlag, CloudInitConfigDrive)),
 		)
 
-		It("VM with no generated cloud-init config while setting option", func() {
-			out, err := runCmd(
-				setFlag(CloudInitFlag, CloudInitNone),
-				setFlag(GAManageSSHFlag, "true"),
-			)
+		DescribeTable("VM with no generated cloud-init config while setting option", func(args ...string) {
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
-		})
+		},
+			Entry("with type CloudInitNone", setFlag(CloudInitFlag, CloudInitNone), setFlag(GAManageSSHFlag, "true")),
+			Entry("with default type and GAManageSSHFlag set to false", setFlag(GAManageSSHFlag, "false")),
+		)
 
 		DescribeTable("VM with qemu-guest-agent managing SSH enabled in cloud-init user data", func(userDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
 			args := append([]string{
@@ -811,7 +814,7 @@ chpasswd: { expire: False }`
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(CloudInitDisk))
-			Expect(userDataFn(vm)).To(ContainSubstring("runcmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"))
+			Expect(userDataFn(vm)).To(ContainSubstring(runCmdGAManageSSH))
 
 			// No inference possible in this case
 			Expect(vm.Spec.Instancetype).To(BeNil())
@@ -937,6 +940,164 @@ chpasswd: { expire: False }`
 			Entry("with CloudInitNoCloud (default)", noCloudUserData, noCloudNetworkDataB64),
 			Entry("with CloudInitNoCloud (explicit)", noCloudUserData, noCloudNetworkDataB64, setFlag(CloudInitFlag, CloudInitNoCloud)),
 			Entry("with CloudInitConfigDrive (explicit)", configDriveUserData, configDriveNetworkDataB64, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
+
+		DescribeTableSubtree("VM with access credentials with type ssh and method ga and with", func(params string) {
+			testFn := func(params string, verifyFn func(*v1.VirtualMachine), extraArgs ...string) {
+				args := append([]string{
+					setFlag(AccessCredFlag, params),
+				}, extraArgs...)
+				out, err := runCmd(args...)
+				Expect(err).ToNot(HaveOccurred())
+				vm, err := decodeVM(out)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(vm.Spec.Template.Spec.AccessCredentials).To(ConsistOf(
+					v1.AccessCredential{
+						SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+							Source: v1.SSHPublicKeyAccessCredentialSource{
+								Secret: &v1.AccessCredentialSecretSource{
+									SecretName: "my-keys",
+								},
+							},
+							PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+								QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+									Users: []string{"myuser"},
+								},
+							},
+						},
+					},
+				))
+
+				verifyFn(vm)
+			}
+
+			DescribeTable("user from param", func(verifyFn func(*v1.VirtualMachine), extraArgs ...string) {
+				params += ",user:myuser"
+				testFn(params, verifyFn, extraArgs...)
+			},
+				Entry("nocloud default", verifyNoCloudGAManageSSH),
+				Entry("nocloud explicit", verifyNoCloudGAManageSSH, setFlag(CloudInitFlag, CloudInitNoCloud)),
+				Entry("configdrive explicit", verifyConfigDriveGAManageSSH, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+				Entry("cloud-init none", verifyCloudInitNone, setFlag(CloudInitFlag, CloudInitNone)),
+				Entry("GAManageSSH false", verifyCloudInitNone, setFlag(GAManageSSHFlag, "false")),
+			)
+
+			DescribeTable("user from flag", func(verifyFn func(*v1.VirtualMachine), extraArgs ...string) {
+				extraArgs = append(extraArgs, setFlag(UserFlag, "myuser"))
+				testFn(params, verifyFn, extraArgs...)
+			},
+				Entry("nocloud default", verifyNoCloudGAManageSSHAndUser),
+				Entry("nocloud explicit", verifyNoCloudGAManageSSHAndUser, setFlag(CloudInitFlag, CloudInitNoCloud)),
+				Entry("configdrive explicit", verifyConfigDriveGAManageSSHAndUser, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+				Entry("cloud-init none", verifyCloudInitNone, setFlag(CloudInitFlag, CloudInitNone)),
+				Entry("GAManageSSH false", verifyNoCloudUser, setFlag(GAManageSSHFlag, "false")),
+			)
+		},
+			Entry("default type and method", "src:my-keys"),
+			Entry("explicit type and default method", "type:ssh,src:my-keys"),
+			Entry("explicit type and method", "type:ssh,src:my-keys,method:ga"),
+		)
+
+		DescribeTable("VM with access credentials with type ssh and method nocloud and with", func(params string, noCloud bool, extraArgs ...string) {
+			args := append([]string{
+				setFlag(AccessCredFlag, params),
+			}, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Spec.Template.Spec.AccessCredentials).To(ConsistOf(
+				v1.AccessCredential{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: "my-keys",
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+						},
+					},
+				},
+			))
+
+			if noCloud {
+				Expect(noCloudUserData(vm)).To(Equal(CloudInitConfigHeader))
+			} else {
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+			}
+		},
+			Entry("default type and explicit method, nocloud default", "src:my-keys,method:nocloud", true),
+			Entry("default type and explicit method, nocloud explicit", "src:my-keys,method:nocloud", true, setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("explicit type and method, nocloud default", "type:ssh,src:my-keys,method:nocloud", true),
+			Entry("explicit type and method, nocloud explicit", "type:ssh,src:my-keys,method:nocloud", true, setFlag(CloudInitFlag, CloudInitNoCloud)),
+		)
+
+		DescribeTable("VM with access credentials with type ssh and method configdrive and with", func(params string, configDrive bool, extraArgs ...string) {
+			args := append([]string{
+				setFlag(AccessCredFlag, params),
+			}, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Spec.Template.Spec.AccessCredentials).To(ConsistOf(
+				v1.AccessCredential{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: "my-keys",
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
+						},
+					},
+				},
+			))
+
+			if configDrive {
+				Expect(configDriveUserData(vm)).To(Equal(CloudInitConfigHeader))
+			} else {
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+			}
+		},
+			Entry("default type and explicit method, configdrive default", "src:my-keys,method:configdrive", true),
+			Entry("default type and explicit method, configdrive explicit", "src:my-keys,method:configdrive", true, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("explicit type and method, configdrive default", "type:ssh,src:my-keys,method:configdrive", true),
+			Entry("explicit type and method, configdrive explicit", "type:ssh,src:my-keys,method:configdrive", true, setFlag(CloudInitFlag, CloudInitConfigDrive)),
+		)
+
+		DescribeTable("VM with access credentials with type password and with", func(params string) {
+			out, err := runCmd(
+				setFlag(AccessCredFlag, params),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Spec.Template.Spec.AccessCredentials).To(ConsistOf(
+				v1.AccessCredential{
+					UserPassword: &v1.UserPasswordAccessCredential{
+						Source: v1.UserPasswordAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: "my-pws",
+							},
+						},
+						PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+						},
+					},
+				},
+			))
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+		},
+			Entry("explicit type and default method ga", "type:password,src:my-pws"),
+			Entry("explicit type and method", "type:password,src:my-pws,method:ga"),
 		)
 
 		It("Complex example", func() {
@@ -1084,6 +1245,57 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+		})
+
+		It("Complex example with access credentials", func() {
+			const vmName = "my-vm"
+			const cdSource = "src:my.registry/my-image:my-tag"
+			const user = "my-user"
+			const secretName = "my-keys"
+
+			out, err := runCmd(
+				setFlag(NameFlag, vmName),
+				setFlag(ContainerdiskVolumeFlag, "src:"+cdSource),
+				setFlag(UserFlag, user),
+				setFlag(AccessCredFlag, "type:ssh,src:"+secretName),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := decodeVM(out)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Name).To(Equal(vmName))
+			Expect(vm.Spec.DataVolumeTemplates).To(BeEmpty())
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
+
+			volCdName := fmt.Sprintf("%s-containerdisk-0", vm.Name)
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volCdName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
+
+			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(CloudInitDisk))
+			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring("user: " + user))
+			Expect(vm.Spec.Template.Spec.Volumes[1].CloudInitNoCloud.UserData).To(ContainSubstring(runCmdGAManageSSH))
+
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
+			Expect(vm.Spec.Preference).To(BeNil())
+
+			Expect(vm.Spec.Template.Spec.AccessCredentials).To(ConsistOf(
+				v1.AccessCredential{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: secretName,
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+								Users: []string{user},
+							},
+						},
+					},
+				},
+			))
 		})
 	})
 
@@ -1428,7 +1640,7 @@ chpasswd: { expire: False }`
 
 		DescribeTable("Invalid arguments to CloudInitFlag", func(sourceType string) {
 			out, err := runCmd(setFlag(CloudInitFlag, sourceType))
-			Expect(err).To(MatchError(fmt.Sprintf("failed to parse \"--cloud-init\" flag: invalid cloud-init data source type \"%s\", supported values are: noCloud, configDrive, none", sourceType)))
+			Expect(err).To(MatchError(fmt.Sprintf("failed to parse \"--cloud-init\" flag: invalid cloud-init data source type \"%s\", supported values are: nocloud, configdrive, none", sourceType)))
 			Expect(out).To(BeEmpty())
 		},
 			Entry("some string", "not-a-bool"),
@@ -1448,6 +1660,47 @@ chpasswd: { expire: False }`
 			Entry("CloudInitUserDataFlag and PasswordFileFlag", "password-file", setFlag(PasswordFileFlag, "testpath")),
 			Entry("CloudInitUserDataFlag and SSHKeyFlag", "ssh-key", setFlag(SSHKeyFlag, "test")),
 			Entry("CloudInitUserDataFlag and GAManageSSHFlag", "ga-manage-ssh", setFlag(GAManageSSHFlag, "true")),
+		)
+
+		DescribeTable("Invalid arguments to AccessCredFlag", func(flag, errMsg string) {
+			out, err := runCmd(setFlag(AccessCredFlag, flag))
+			Expect(err).To(MatchError(errMsg))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("Empty params", "", "failed to parse \"--access-cred\" flag: params may not be empty"),
+			Entry("Invalid param", "test=test", "failed to parse \"--access-cred\" flag: params need to have at least one colon: test=test"),
+			Entry("Unknown param", "test:test", "failed to parse \"--access-cred\" flag: unknown param(s): test:test"),
+			Entry("Missing src", "type:ssh", "failed to parse \"--access-cred\" flag: src must be specified"),
+			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--access-cred\" flag: src invalid: name cannot be empty"),
+			Entry("Invalid slashes count in src", "src:my-ns/my-src/madethisup", "failed to parse \"--access-cred\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
+			Entry("Namespace in src", "src:my-ns/my-src", "failed to parse \"--access-cred\" flag: not allowed to specify namespace of secret \"my-src\""),
+			Entry("Invalid type", "type:madeup,src:my-src", "failed to parse \"--access-cred\" flag: invalid access credential type \"madeup\", supported values are: ssh, password"),
+			Entry("Invalid method with type ssh", "type:ssh,src:my-src,method:madeup", "failed to parse \"--access-cred\" flag: invalid access credentials ssh method \"madeup\", supported values are: ga, nocloud, configdrive"),
+			Entry("No user with type ssh and method ga (default)", "type:ssh,src:my-src", "failed to parse \"--access-cred\" flag: user must be specified with access credential ssh method ga (\"--user\" flag or param \"user\")"),
+			Entry("No user with type ssh and method ga (explicit)", "type:ssh,src:my-src,method:ga", "failed to parse \"--access-cred\" flag: user must be specified with access credential ssh method ga (\"--user\" flag or param \"user\")"),
+			Entry("User with type ssh and method nocloud", "type:ssh,src:my-src,method:nocloud,user:myuser", "failed to parse \"--access-cred\" flag: user cannot be specified with selected access credential type and method"),
+			Entry("User with type ssh and method configdrive", "type:ssh,src:my-src,method:configdrive,user:myuser", "failed to parse \"--access-cred\" flag: user cannot be specified with selected access credential type and method"),
+			Entry("Invalid method with type password", "type:password,src:my-src,method:madeup", "failed to parse \"--access-cred\" flag: invalid access credentials password method \"madeup\", supported values are: ga"),
+			Entry("User with type password and method ga (default)", "type:password,src:my-src,user:myuser", "failed to parse \"--access-cred\" flag: user cannot be specified with selected access credential type and method"),
+			Entry("User with type password and method ga (explicit)", "type:password,src:my-src,method:ga,user:myuser", "failed to parse \"--access-cred\" flag: user cannot be specified with selected access credential type and method"),
+		)
+
+		DescribeTable("Cloud-init source type mismatch with AccessCredFlag", func(flag, errMsg string, extraArgs ...string) {
+			args := append([]string{
+				setFlag(AccessCredFlag, flag),
+			}, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).To(MatchError(errMsg))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("type ssh (default) and nocloud vs configdrive", "src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs configdrive", setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("type ssh (default) and nocloud vs none", "src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs none", setFlag(CloudInitFlag, CloudInitNone)),
+			Entry("type ssh (default) and configdrive vs nocloud", "src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs nocloud", setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("type ssh (default) and configdrive vs none", "src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs none", setFlag(CloudInitFlag, CloudInitNone)),
+			Entry("type ssh (explicit) and nocloud vs configdrive", "type:ssh,src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs configdrive", setFlag(CloudInitFlag, CloudInitConfigDrive)),
+			Entry("type ssh (explicit) and nocloud vs none", "type:ssh,src:my-src,method:nocloud", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: nocloud vs none", setFlag(CloudInitFlag, CloudInitNone)),
+			Entry("type ssh (explicit) and configdrive vs nocloud", "type:ssh,src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs nocloud", setFlag(CloudInitFlag, CloudInitNoCloud)),
+			Entry("type ssh (explicit) and configdrive vs none", "type:ssh,src:my-src,method:configdrive", "failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: configdrive vs none", setFlag(CloudInitFlag, CloudInitNone)),
 		)
 	})
 })
@@ -1543,4 +1796,32 @@ func randomMultipleKeysMultipleFlags() ([]string, string) {
 		keys += "\n  - " + key
 	}
 	return args, keys
+}
+
+func verifyNoCloudGAManageSSH(vm *v1.VirtualMachine) {
+	Expect(noCloudUserData(vm)).To(ContainSubstring(runCmdGAManageSSH))
+}
+
+func verifyNoCloudUser(vm *v1.VirtualMachine) {
+	Expect(noCloudUserData(vm)).To(ContainSubstring("user: myuser"))
+}
+
+func verifyNoCloudGAManageSSHAndUser(vm *v1.VirtualMachine) {
+	userData := noCloudUserData(vm)
+	Expect(userData).To(ContainSubstring(runCmdGAManageSSH))
+	Expect(userData).To(ContainSubstring("user: myuser"))
+}
+
+func verifyConfigDriveGAManageSSH(vm *v1.VirtualMachine) {
+	Expect(configDriveUserData(vm)).To(ContainSubstring(runCmdGAManageSSH))
+}
+
+func verifyConfigDriveGAManageSSHAndUser(vm *v1.VirtualMachine) {
+	userData := configDriveUserData(vm)
+	Expect(userData).To(ContainSubstring(runCmdGAManageSSH))
+	Expect(userData).To(ContainSubstring("user: myuser"))
+}
+
+func verifyCloudInitNone(vm *v1.VirtualMachine) {
+	Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
 }
