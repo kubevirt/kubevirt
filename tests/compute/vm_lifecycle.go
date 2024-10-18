@@ -121,4 +121,102 @@ var _ = SIGDescribe("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		Expect(updated).To(Receive(), "vmi should be updated")
 		done <- true
 	})
+
+	Context("with paused vmi", func() {
+		It("[test_id:4598][test_id:3060]should signal paused/unpaused state with condition", func() {
+			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork())),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			err = virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
+
+			err = virtClient.VirtualMachineInstance(vm.Namespace).Unpause(context.Background(), vm.Name, &v1.UnpauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachinePaused))
+		})
+
+		It("[test_id:3085]should be stopped successfully", func() {
+			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				withStartStrategy(pointer.P(v1.StartStrategyPaused))),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
+
+			By("Stopping the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking deletion of VMI")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300*time.Second).WithPolling(time.Second).Should(matcher.BeGone(), "The VMI did not disappear")
+
+			By("Checking status of VM")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(Not(matcher.BeReady()))
+
+			By("Ensuring a second invocation should fail")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).To(MatchError(ContainSubstring("VM is not running")))
+		})
+
+		It("[test_id:3229]should gracefully handle being started again", func() {
+			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				withStartStrategy(pointer.P(v1.StartStrategyPaused))),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
+
+			By("Starting the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).To(MatchError(ContainSubstring("VM is already running")))
+		})
+
+		It("[test_id:3226]should be restarted successfully into unpaused state", func() {
+			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork())),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			By("Pausing the VM")
+			err = virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			oldId := vmi.UID
+
+			By("Restarting the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking VMI is restarted")
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(240 * time.Second).WithPolling(time.Second).Should(matcher.BeRestarted(oldId))
+
+			By("Ensuring unpaused state")
+			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachinePaused))
+		})
+	})
 })
+
+func withStartStrategy(strategy *v1.StartStrategy) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.StartStrategy = strategy
+	}
+}
