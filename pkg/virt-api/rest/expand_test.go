@@ -15,10 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	kubevirtcore "kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
@@ -26,11 +26,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
 var _ = Describe("Instancetype expansion subresources", func() {
@@ -41,10 +39,9 @@ var _ = Describe("Instancetype expansion subresources", func() {
 	)
 
 	var (
-		vmClient            *kubecli.MockVirtualMachineInterface
-		virtClient          *kubecli.MockKubevirtClient
-		instancetypeMethods *testutils.MockInstancetypeMethods
-		app                 *SubresourceAPIApp
+		vmClient   *kubecli.MockVirtualMachineInterface
+		virtClient *kubecli.MockKubevirtClient
+		app        *SubresourceAPIApp
 
 		request  *restful.Request
 		recorder *httptest.ResponseRecorder
@@ -60,7 +57,9 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		virtClient.EXPECT().GeneratedKubeVirtClient().Return(fake.NewSimpleClientset()).AnyTimes()
 		virtClient.EXPECT().VirtualMachine(vmNamespace).Return(vmClient).AnyTimes()
 
-		instancetypeMethods = testutils.NewMockInstancetypeMethods()
+		fakeInstancetypeClients := fake.NewSimpleClientset().InstancetypeV1beta1()
+		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(fakeInstancetypeClients.VirtualMachineClusterInstancetypes()).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeInstancetypeClients.VirtualMachineClusterPreferences()).AnyTimes()
 
 		kv := &v1.KubeVirt{
 			ObjectMeta: k8smetav1.ObjectMeta{
@@ -78,7 +77,9 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		}
 
 		app = NewSubresourceAPIApp(virtClient, 0, nil, nil)
-		app.instancetypeMethods = instancetypeMethods
+		app.instancetypeMethods = &instancetype.InstancetypeMethods{
+			Clientset: virtClient,
+		}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 		app.clusterConfig = config
 
@@ -119,123 +120,124 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 
 		It("should fail if VM points to nonexistent instancetype", func() {
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return nil, fmt.Errorf("instancetype does not exist")
-			}
-
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 				Name: "nonexistent-instancetype",
 			}
 
 			recorder := callExpandSpecApi(vm)
 			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
-			Expect(statusErr.Status().Message).To(ContainSubstring("instancetype does not exist"))
+			Expect(statusErr.Status().Message).To(ContainSubstring("not found"))
 		})
 
 		It("should fail if VM points to nonexistent preference", func() {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return nil, fmt.Errorf("preference does not exist")
-			}
-
 			vm.Spec.Preference = &v1.PreferenceMatcher{
 				Name: "nonexistent-preference",
 			}
 
 			recorder := callExpandSpecApi(vm)
 			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
-			Expect(statusErr.Status().Message).To(ContainSubstring("preference does not exist"))
+			Expect(statusErr.Status().Message).To(ContainSubstring("not found"))
 		})
 
-		It("should apply instancetype to VM", func() {
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
+		It("should expand instancetype and preference within VM", func() {
+			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "VirtualMachineClusterInstancetype",
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cluster-instancetype",
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest: uint32(2),
+					},
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
+					},
+				},
 			}
-
-			cpu := &v1.CPU{Cores: 2}
-			annotations := map[string]string{
-				"annotations-1": "1",
-				"annotations-2": "2",
-			}
-
-			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
-				vmiSpec.Domain.CPU = cpu
-				vmiMetadata.Annotations = annotations
-				return nil
-			}
+			_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: "test-instancetype",
+				Name: clusterInstancetype.Name,
 			}
 
-			expectedVm := vm.DeepCopy()
-
-			Expect(defaults.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
-
-			util.SetDefaultVolumeDisk(&expectedVm.Spec.Template.Spec)
-			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volumeName))
-
-			Expect(vmispec.SetDefaultNetworkInterface(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
-			Expect(expectedVm.Spec.Template.Spec.Networks).To(HaveLen(1))
-			Expect(expectedVm.Spec.Template.Spec.Networks[0].Name).To(Equal("default"))
-
-			expectedVm.Spec.Template.Spec.Domain.CPU = cpu
-			expectedVm.Spec.Template.ObjectMeta.Annotations = annotations
-
-			recorder := callExpandSpecApi(vm)
-			responseVm := &v1.VirtualMachine{}
-			Expect(json.NewDecoder(recorder.Body).Decode(responseVm)).To(Succeed())
-
-			Expect(responseVm.Spec.Template.ObjectMeta.Annotations).To(Equal(expectedVm.Spec.Template.ObjectMeta.Annotations))
-			Expect(responseVm.Spec.Template.Spec).To(Equal(expectedVm.Spec.Template.Spec))
-		})
-
-		It("should apply preference to VM", func() {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
+			clusterPreference := &instancetypev1beta1.VirtualMachineClusterPreference{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "VirtualMachineClusterPreference",
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cluster-preference",
+				},
+				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+					},
+					Devices: &instancetypev1beta1.DevicePreferences{
+						PreferredDiskBus: v1.DiskBusVirtio,
+					},
+				},
 			}
 
-			machineType := "test-machine"
-			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
-				vmiSpec.Domain.Machine = &v1.Machine{Type: machineType}
-				return nil
-			}
+			_, err = virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: "test-preference",
+				Name: clusterPreference.Name,
 			}
 
-			expectedVm := vm.DeepCopy()
-
-			Expect(defaults.SetDefaultVirtualMachineInstanceSpec(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
-
-			util.SetDefaultVolumeDisk(&expectedVm.Spec.Template.Spec)
-			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-			Expect(expectedVm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volumeName))
-
-			Expect(vmispec.SetDefaultNetworkInterface(app.clusterConfig, &expectedVm.Spec.Template.Spec)).To(Succeed())
-			Expect(expectedVm.Spec.Template.Spec.Networks).To(HaveLen(1))
-			Expect(expectedVm.Spec.Template.Spec.Networks[0].Name).To(Equal("default"))
-			expectedVm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: machineType}
-
 			recorder := callExpandSpecApi(vm)
+			Expect(recorder.Code).To(Equal(http.StatusOK))
 			responseVm := &v1.VirtualMachine{}
 			Expect(json.NewDecoder(recorder.Body).Decode(responseVm)).To(Succeed())
 
-			Expect(responseVm.Spec.Template.Spec).To(Equal(expectedVm.Spec.Template.Spec))
+			Expect(responseVm.Spec.Instancetype).To(BeNil())
+			Expect(responseVm.Spec.Preference).To(BeNil())
+
+			Expect(responseVm.Spec.Template.ObjectMeta.Annotations).To(Equal(clusterInstancetype.Spec.Annotations))
+			Expect(responseVm.Spec.Template.Spec.Domain.CPU.Cores).To(Equal(clusterInstancetype.Spec.CPU.Guest))
+			Expect(responseVm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(clusterInstancetype.Spec.Memory.Guest.Value()))
+
+			Expect(responseVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(responseVm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volumeName))
+			Expect(responseVm.Spec.Template.Spec.Domain.Devices.Disks[0].DiskDevice.Disk).ToNot(BeNil())
+			Expect(responseVm.Spec.Template.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal(v1.DiskBusVirtio))
+			Expect(responseVm.Spec.Template.Spec.Networks).To(HaveLen(1))
+			Expect(responseVm.Spec.Template.Spec.Networks[0].Name).To(Equal("default"))
 		})
 
 		It("should fail, if there is a conflict when applying instancetype", func() {
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
+			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "VirtualMachineClusterInstancetype",
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cluster-instancetype",
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest: uint32(2),
+					},
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
+					},
+				},
 			}
+			_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
-				return instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "example", "path")}
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name: clusterInstancetype.Name,
+			}
+			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+				Sockets: 4,
 			}
 
 			recorder := callExpandSpecApi(vm)
-
 			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
 			Expect(statusErr.Status().Message).To(ContainSubstring("cannot expand instancetype to VM"))
 		})

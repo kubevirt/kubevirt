@@ -8,6 +8,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type MockInstancetypeMethods struct {
@@ -20,6 +21,7 @@ type MockInstancetypeMethods struct {
 	CheckPreferenceRequirementsFunc func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error)
 	UpgradeFunc                     func(vm *v1.VirtualMachine) error
 	ApplyToVMFunc                   func(vm *v1.VirtualMachine) error
+	ExpandFunc                      func(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*v1.VirtualMachine, error)
 }
 
 var _ instancetype.Methods = &MockInstancetypeMethods{}
@@ -60,6 +62,10 @@ func (m *MockInstancetypeMethods) ApplyToVM(vm *v1.VirtualMachine) error {
 	return m.ApplyToVMFunc(vm)
 }
 
+func (m *MockInstancetypeMethods) Expand(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*v1.VirtualMachine, error) {
+	return m.ExpandFunc(vm, clusterConfig)
+}
+
 func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 	return &MockInstancetypeMethods{
 		FindInstancetypeSpecFunc: func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
@@ -88,6 +94,9 @@ func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 		},
 		ApplyToVMFunc: func(_ *v1.VirtualMachine) error {
 			return nil
+		},
+		ExpandFunc: func(_ *v1.VirtualMachine, _ *virtconfig.ClusterConfig) (*v1.VirtualMachine, error) {
+			return nil, nil
 		},
 	}
 }
