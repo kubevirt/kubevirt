@@ -64,7 +64,7 @@ chpasswd: { expire: False }`
 	})
 
 	It("[test_id:9840]VM with random name and default settings", func() {
-		out, err := runCmd()
+		out, err := runCreateCmd()
 		Expect(err).ToNot(HaveOccurred())
 		vm, err := decodeVM(out)
 		Expect(err).ToNot(HaveOccurred())
@@ -88,7 +88,7 @@ chpasswd: { expire: False }`
 		preference := createPreference(virtClient)
 		pvc := createAnnotatedSourcePVC(instancetype.Name, preference.Name)
 
-		out, err := runCmd(
+		out, err := runCreateCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,src:%s/%s,name:%s", size, pvc.Namespace, pvc.Name, volumeName)),
 		)
@@ -126,7 +126,7 @@ chpasswd: { expire: False }`
 		const runStrategy = v1.RunStrategyAlways
 		cdSource := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 
-		out, err := runCmd(
+		out, err := runCreateCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:registry,size:%s,url:%s,name:%s", size, cdSource, volName)),
 		)
@@ -153,7 +153,7 @@ chpasswd: { expire: False }`
 	It("Example with volume-import flag and Blank type", func() {
 		const runStrategy = v1.RunStrategyAlways
 
-		out, err := runCmd(
+		out, err := runCreateCmd(
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", size)),
 		)
@@ -188,7 +188,7 @@ chpasswd: { expire: False }`
 		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), testsuite.GetTestNamespace(nil), size, nil)
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
-		out, err := runCmd(
+		out, err := runCreateCmd(
 			setFlag(NameFlag, vmName),
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
@@ -300,7 +300,7 @@ chpasswd: { expire: False }`
 		pvc := createAnnotatedSourcePVC(instancetype.Name, "something")
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
-		out, err := runCmd(
+		out, err := runCreateCmd(
 			setFlag(NameFlag, vmName),
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
@@ -398,7 +398,7 @@ chpasswd: { expire: False }`
 		preference := createPreference(virtClient)
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
-		out, err := runCmd(
+		out, err := runCreateCmd(
 			setFlag(NameFlag, vmName),
 			setFlag(RunStrategyFlag, string(runStrategy)),
 			setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
@@ -588,7 +588,7 @@ chpasswd: { expire: False }`
 		volumeName := "imported-volume"
 
 		By("Creating a VM with implicit inference (inference enabled by default)")
-		out, err := runCmd(
+		out, err := runCreateCmd(
 			setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,src:%s/%s,name:%s", size, pvc.Namespace, pvc.Name, volumeName)),
 		)
 		vm, err := decodeVM(out)
@@ -625,7 +625,7 @@ func setFlag(flag, parameter string) string {
 	return fmt.Sprintf("--%s=%s", flag, parameter)
 }
 
-func runCmd(args ...string) ([]byte, error) {
+func runCreateCmd(args ...string) ([]byte, error) {
 	_args := append([]string{create.CREATE, VM}, args...)
 	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
 }
