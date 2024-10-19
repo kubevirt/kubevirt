@@ -38,9 +38,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	network "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -56,7 +58,7 @@ var _ = SIGDescribe("Infosource", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	Context("VMI with 3 interfaces", func() {
+	Context("[Serial] VMI with 3 interfaces", Serial, func() {
 		var vmi *kvirtv1.VirtualMachineInstance
 
 		const (
@@ -75,6 +77,8 @@ var _ = SIGDescribe("Infosource", func() {
 		secondaryNetwork2 := libvmi.MultusNetwork(secondaryInterface2Name, nadName)
 
 		BeforeEach(func() {
+			config.EnableFeatureGate(virtconfig.DynamicPodInterfaceNamingGate)
+
 			By("Create NetworkAttachmentDefinition")
 			Expect(libnet.CreateNAD(testsuite.NamespaceTestDefault, nadName)).To(Succeed())
 
