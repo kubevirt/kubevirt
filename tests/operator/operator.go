@@ -2321,8 +2321,8 @@ spec:
 				nodeName = libnode.GetAllSchedulableNodes(virtClient).Items[0].Name
 
 				By("Removing profile if present")
-				_, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/rm", "-f", expectedSeccompProfilePath})
-				Expect(err).NotTo(HaveOccurred())
+				_, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(nodeName, []string{"/usr/bin/rm", "-f", expectedSeccompProfilePath})
+				Expect(err).NotTo(HaveOccurred(), stderr)
 
 				By(fmt.Sprintf("Configuring KubevirtSeccompProfile feature gate to %t", enable))
 				if enable {
@@ -2354,8 +2354,12 @@ spec:
 
 				By("Expecting to see the profile")
 				Eventually(func() error {
-					_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
-					return err
+					stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
+					if err == nil {
+						return nil
+					}
+					return fmt.Errorf("error=%v, stdout=%s, stderr=%s", err, stdout, stderr)
+
 				}, 1*time.Minute, 1*time.Second).Should(Not(HaveOccurred()))
 			})
 
@@ -2364,8 +2368,11 @@ spec:
 
 				By("Expecting to not see the profile")
 				Consistently(func() error {
-					_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
-					return err
+					stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
+					if err == nil {
+						return nil
+					}
+					return fmt.Errorf("error=%v, stdout=%s, stderr=%s", err, stdout, stderr)
 				}, 1*time.Minute, 1*time.Second).Should(MatchError(Or(ContainSubstring("No such file"), ContainSubstring("container not found"))))
 				Expect(err).To(MatchError(ContainSubstring("No such file")))
 			})

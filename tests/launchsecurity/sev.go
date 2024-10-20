@@ -275,14 +275,14 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(nodeName).ToNot(BeEmpty())
 
 			checkCmd := []string{"ls", sevDevicePath}
-			_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, checkCmd)
+			_, _, err = libnode.ExecuteCommandOnNodeThroughVirtHandler(nodeName, checkCmd)
 			isDevicePresent = (err == nil)
 
 			if !isDevicePresent {
 				By(fmt.Sprintf("Creating a fake SEV device on %s", nodeName))
 				mknodCmd := []string{"mknod", sevDevicePath, "c", "10", "124"}
-				_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, mknodCmd)
-				Expect(err).ToNot(HaveOccurred())
+				_, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(nodeName, mknodCmd)
+				Expect(err).ToNot(HaveOccurred(), stderr)
 			}
 
 			Eventually(func() bool {
@@ -297,8 +297,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			if !isDevicePresent {
 				By(fmt.Sprintf("Removing the fake SEV device from %s", nodeName))
 				rmCmd := []string{"rm", "-f", sevDevicePath}
-				_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, rmCmd)
-				Expect(err).ToNot(HaveOccurred())
+				_, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(nodeName, rmCmd)
+				Expect(err).ToNot(HaveOccurred(), stderr)
 			}
 		})
 

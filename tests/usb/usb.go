@@ -50,8 +50,8 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 		// Emulated USB devices only on c9s providers. Remove this when sig-compute 1.26 is the
 		// oldest sig-compute with test with.
 		// See: https://github.com/kubevirt/project-infra/pull/2922
-		stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"dmesg"})
-		Expect(err).ToNot(HaveOccurred())
+		stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(nodeName, []string{"dmesg"})
+		Expect(err).ToNot(HaveOccurred(), stderr)
 		if strings.Count(stdout, "idVendor=46f4") == 0 {
 			Skip("No emulated USB devices present for functional test.")
 		}
@@ -120,8 +120,8 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 				addr := hostDevice.Source.Address
 				path := fmt.Sprintf("%sdev/bus/usb/00%s/00%s", pkgUtil.HostRootMount, addr.Bus, addr.Device)
 				cmd := []string{"stat", "--printf", `"%u %g"`, path}
-				stdout, err := libnode.ExecuteCommandInVirtHandlerPod(vmi.Status.NodeName, cmd)
-				Expect(err).ToNot(HaveOccurred())
+				stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(vmi.Status.NodeName, cmd)
+				Expect(err).ToNot(HaveOccurred(), stderr)
 				Expect(stdout).Should(Equal(`"107 107"`))
 			}
 		},
