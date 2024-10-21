@@ -301,7 +301,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetype.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
@@ -490,7 +490,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetype.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {

@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -4790,8 +4791,12 @@ var _ = Describe("VirtualMachine", func() {
 						"Type":   Equal(v1.VirtualMachineFailure),
 						"Reason": Equal("FailedCreate"),
 						"Message": And(
-							ContainSubstring("Error encountered while storing Instancetype ControllerRevisions: VM field conflicts with selected Instancetype"),
-							ContainSubstring("spec.template.spec.domain.cpu"),
+							ContainSubstring("Error encountered while storing Instancetype ControllerRevisions"),
+							ContainSubstring(instancetype.VMFieldsConflictsErrorFmt, instancetype.Conflicts{
+								field.NewPath("spec.template.spec.domain.cpu.sockets"),
+								field.NewPath("spec.template.spec.domain.cpu.cores"),
+								field.NewPath("spec.template.spec.domain.cpu.threads"),
+							}),
 						),
 					}))
 					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)

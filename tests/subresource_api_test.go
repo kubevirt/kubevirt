@@ -29,6 +29,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	v1 "kubevirt.io/api/core/v1"
@@ -36,6 +37,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
+	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -549,7 +551,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 					_, err := virtClient.ExpandSpec(testsuite.GetTestNamespace(vm)).ForVirtualMachine(vm)
 					Expect(err).To(HaveOccurred())
-					Expect(err).To(MatchError("cannot expand instancetype to VM"))
+					Expect(err).To(MatchError(fmt.Sprintf(instancetypepkg.VMFieldsConflictsErrorFmt, instancetypepkg.Conflicts{field.NewPath("spec.template.spec.domain.resources.requests.memory")})))
 				},
 					Entry("with VirtualMachineInstancetype", instancetypeMatcherFn),
 					Entry("with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),

@@ -239,7 +239,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			recorder := callExpandSpecApi(vm)
 			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
-			Expect(statusErr.Status().Message).To(ContainSubstring("cannot expand instancetype to VM"))
+			Expect(statusErr.Status().Message).To(ContainSubstring(fmt.Sprintf(instancetype.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.sockets")))
 		})
 	}
 

@@ -38,6 +38,7 @@ import (
 
 const (
 	VMFieldConflictErrorFmt                         = "VM field %s conflicts with selected instance type"
+	VMFieldsConflictsErrorFmt                       = "VM fields %s conflict with selected instance type"
 	InsufficientInstanceTypeCPUResourcesErrorFmt    = "insufficient CPU resources of %d vCPU provided by instance type, preference requires %d vCPU"
 	InsufficientVMCPUResourcesErrorFmt              = "insufficient CPU resources of %d vCPU provided by VirtualMachine, preference requires %d vCPU provided as %s"
 	InsufficientInstanceTypeMemoryResourcesErrorFmt = "insufficient Memory resources of %s provided by instance type, preference requires %s"
@@ -108,7 +109,7 @@ func (m *InstancetypeMethods) Expand(vm *virtv1.VirtualMachine, clusterConfig *v
 		&expandedVM.Spec.Template.ObjectMeta,
 	)
 	if len(conflicts) > 0 {
-		return nil, fmt.Errorf("cannot expand instancetype to VM")
+		return nil, fmt.Errorf(VMFieldsConflictsErrorFmt, conflicts.String())
 	}
 
 	// Apply defaults to VM.Spec.Template.Spec after applying instance types to ensure we don't conflict
@@ -136,7 +137,7 @@ func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
 		return err
 	}
 	if conflicts := m.ApplyToVmi(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.ObjectMeta); len(conflicts) > 0 {
-		return fmt.Errorf("VM conflicts with instancetype spec in fields: [%s]", conflicts.String())
+		return fmt.Errorf(VMFieldsConflictsErrorFmt, conflicts.String())
 	}
 	return nil
 }
@@ -232,7 +233,7 @@ func (m *InstancetypeMethods) checkForInstancetypeConflicts(instancetypeSpec *in
 	vmiSpecCopy := vmiSpec.DeepCopy()
 	conflicts := m.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy, vmiMetadata)
 	if len(conflicts) > 0 {
-		return fmt.Errorf("VM field conflicts with selected Instancetype: %v", conflicts.String())
+		return fmt.Errorf(VMFieldsConflictsErrorFmt, conflicts.String())
 	}
 	return nil
 }
