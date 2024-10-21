@@ -81,12 +81,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	const fakeLibvirtLogFilters = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 	const startupTimeout = 45
 
-	AfterEach(func() {
-		// Not every test causes virt-handler to restart, but a few different contexts do.
-		// This check is fast and non-intrusive if virt-handler is already running.
-		testsuite.EnsureKVMPresent()
-	})
-
 	Context("when virt-handler is deleted", Serial, decorators.WgS390x, func() {
 		It("[test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
 			pods, err := kubevirt.Client().CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
