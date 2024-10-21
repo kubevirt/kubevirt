@@ -34,30 +34,37 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
-	"kubevirt.io/kubevirt/pkg/virtctl/utils"
+
+	"golang.org/x/term"
 )
 
-var timeout int
+type Console struct {
+	clientConfig clientcmd.ClientConfig
+	timeout      int
+	namespace    string
+	client       kubecli.KubevirtClient
+
+	stdinReader *io.PipeReader
+	stdinWriter *io.PipeWriter
+
+	stdoutReader *io.PipeReader
+	stdoutWriter *io.PipeWriter
+}
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	c := Console{clientConfig: clientConfig}
+
 	cmd := &cobra.Command{
 		Use:     "console (VMI)",
 		Short:   "Connect to a console of a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Console{clientConfig: clientConfig}
-			return c.Run(args)
-		},
+		RunE:    c.run,
 	}
 
-	cmd.Flags().IntVar(&timeout, "timeout", 5, "The number of minutes to wait for the virtual machine instance to be ready.")
+	cmd.Flags().IntVar(&c.timeout, "timeout", 5, "The number of minutes to wait for the virtual machine instance to be ready.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
-}
-
-type Console struct {
-	clientConfig clientcmd.ClientConfig
 }
 
 func usage() string {
@@ -69,32 +76,40 @@ func usage() string {
 	return usage
 }
 
-func (c *Console) Run(args []string) error {
-	namespace, _, err := c.clientConfig.Namespace()
-	if err != nil {
-		return err
-	}
+func (c *Console) run(cmd *cobra.Command, args []string) error {
 
 	vmi := args[0]
 
-	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
-	if err != nil {
+	var err error
+
+	if c.namespace, _, err = c.clientConfig.Namespace(); err != nil {
 		return err
 	}
 
-	stdinReader, stdinWriter := io.Pipe()
-	stdoutReader, stdoutWriter := io.Pipe()
+	if c.client, err = kubecli.GetKubevirtClientFromClientConfig(c.clientConfig); err != nil {
+		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
+	}
 
 	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
 	// Wait until the virtual machine is in running phase, user interrupt or timeout
+	c.stdinReader, c.stdinWriter = io.Pipe()
+	c.stdoutReader, c.stdoutWriter = io.Pipe()
+
+	return c.handleConsoleConnection(vmi)
+
+}
+
+func (c *Console) handleConsoleConnection(vmi string) error {
 	resChan := make(chan error)
 	runningChan := make(chan error)
 	waitInterrupt := make(chan os.Signal, 1)
 	signal.Notify(waitInterrupt, os.Interrupt)
 
+	var err error
+
 	go func() {
-		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
+		con, err := c.client.VirtualMachineInstance(c.namespace).SerialConsole(vmi, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: time.Duration(c.timeout) * time.Minute})
 		runningChan <- err
 
 		if err != nil {
@@ -102,8 +117,8 @@ func (c *Console) Run(args []string) error {
 		}
 
 		resChan <- con.Stream(kvcorev1.StreamOptions{
-			In:  stdinReader,
-			Out: stdoutWriter,
+			In:  c.stdinReader,
+			Out: c.stdoutWriter,
 		})
 	}()
 
@@ -117,9 +132,7 @@ func (c *Console) Run(args []string) error {
 			return err
 		}
 	}
-	err = utils.AttachConsole(stdinReader, stdoutReader, stdinWriter, stdoutWriter,
-		fmt.Sprint("Successfully connected to ", vmi, " console. The escape sequence is ^]\n"),
-		resChan)
+	err = c.attachConsole(fmt.Sprint("Successfully connected to ", vmi, " console. The escape sequence is ^]\n"), resChan)
 
 	if err != nil {
 		if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {
@@ -130,4 +143,71 @@ func (c *Console) Run(args []string) error {
 		return err
 	}
 	return nil
+}
+
+// AttachConsole attaches stdin and stdout to the console
+// in -> stdinWriter | stdinReader -> console
+// out <- stdoutReader | stdoutWriter <- console
+func (c *Console) attachConsole(message string, resChan <-chan error) (err error) {
+	stopChan := make(chan struct{}, 1)
+	writeStop := make(chan error)
+	readStop := make(chan error)
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		state, err := term.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			return fmt.Errorf("Make raw terminal failed: %s", err)
+		}
+		defer term.Restore(int(os.Stdin.Fd()), state)
+	}
+	fmt.Fprint(os.Stderr, message)
+
+	in := os.Stdin
+	out := os.Stdout
+
+	go func() {
+		interrupt := make(chan os.Signal, 1)
+		signal.Notify(interrupt, os.Interrupt)
+		<-interrupt
+		close(stopChan)
+	}()
+
+	go func() {
+		_, err := io.Copy(out, c.stdoutReader)
+		readStop <- err
+	}()
+
+	go func() {
+		defer close(writeStop)
+		buf := make([]byte, 1024, 1024)
+		for {
+			// reading from stdin
+			n, err := in.Read(buf)
+			if err != nil && err != io.EOF {
+				writeStop <- err
+				return
+			}
+			if n == 0 && err == io.EOF {
+				return
+			}
+
+			// the escape sequence
+			if buf[0] == 29 {
+				return
+			}
+			// Writing out to the console connection
+			_, err = c.stdinWriter.Write(buf[0:n])
+			if err == io.EOF {
+				return
+			}
+		}
+	}()
+
+	select {
+	case <-stopChan:
+	case err = <-readStop:
+	case err = <-writeStop:
+	case err = <-resChan:
+	}
+
+	return err
 }
