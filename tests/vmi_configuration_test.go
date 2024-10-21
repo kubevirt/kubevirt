@@ -3063,30 +3063,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("With ephemeral CD-ROM", func() {
-		var DiskBusIDE v1.DiskBus = "ide"
-
-		DescribeTable("For various bus types", func(bus v1.DiskBus, errMsg string) {
-			vmi := libvmifact.NewFedora(
-				libvmi.WithEphemeralCDRom("cdrom-0", bus, cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-			)
-
-			By(fmt.Sprintf("Starting a VMI with a %s CD-ROM", bus))
-			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			if errMsg == "" {
-				Expect(err).ToNot(HaveOccurred())
-			} else {
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(errMsg))
-			}
-		},
-			Entry("[test_id:3777] Should be accepted when using sata", v1.DiskBusSATA, ""),
-			Entry("[test_id:3809] Should be accepted when using scsi", v1.DiskBusSCSI, ""),
-			Entry("[test_id:3776] Should be rejected when using virtio", v1.DiskBusVirtio, "Bus type virtio is invalid"),
-			Entry("[test_id:3808] Should be rejected when using ide", DiskBusIDE, "IDE bus is not supported"),
-		)
-	})
-
 	Context("Custom PCI Addresses configuration", func() {
 		// The aim of the test is to validate the configurability of a range of PCI slots
 		// on the root PCI bus 0. We would like to test slots 2..1a (slots 0,1 and beyond 1a are reserved).

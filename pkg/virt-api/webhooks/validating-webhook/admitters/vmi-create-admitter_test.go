@@ -34,6 +34,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -2077,14 +2079,15 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
-		It("should reject cd-roms using virtio bus", func() {
+
+		DescribeTable("should reject cd-roms using", func(bus string, matcher types.GomegaMatcher) {
 			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testcdrom",
 				DiskDevice: v1.DiskDevice{
 					CDRom: &v1.CDRomTarget{
-						Bus: v1.DiskBusVirtio,
+						Bus: v1.DiskBus(bus),
 					},
 				},
 			})
@@ -2095,11 +2098,68 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].cdrom.bus"))
-			Expect(causes[0].Message).To(Equal("Bus type virtio is invalid for CD-ROM device"))
-		})
+			vmiBytes, err := json.Marshal(&vmi)
+			Expect(err).To(Not(HaveOccurred()))
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse(), "The VMI should not be allowed")
+			Expect(resp.Result.Details.Causes).To(ContainElement(matcher))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].cdrom.bus"))
+
+		},
+			Entry("virtio bus", "virtio", gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Message": Equal("Bus type virtio is invalid for CD-ROM device"),
+			})),
+			Entry("ide bus", "ide", gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Message": Equal("IDE bus is not supported"),
+			})),
+		)
+
+		DescribeTable("should accept cd-roms using", func(bus string) {
+			vmi := api.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testcdrom",
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: v1.DiskBus(bus),
+					},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testcdrom",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: &v1.ContainerDiskSource{Image: "fake"},
+				},
+			})
+
+			vmiBytes, err := json.Marshal(&vmi)
+			Expect(err).To(Not(HaveOccurred()))
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue(), "The VMI should be allowed")
+		},
+			Entry("sata bus", "sata"),
+			Entry("scsi bus", "scsi"),
+		)
 
 		It("should accept a boot order greater than '0'", func() {
 			vmi := api.NewMinimalVMI("testvmi")
