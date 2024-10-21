@@ -89,9 +89,6 @@ const (
 	// Expand disks to the largest size
 	kvExpandDisksGate = "ExpandDisks"
 
-	// Allow automatic numa mapping on VMs with dedicated CPUs, if requested
-	kvNUMA = "NUMA"
-
 	// Export VMs to outside of the cluster
 	kvVMExportGate = "VMExport"
 
@@ -130,7 +127,6 @@ var (
 		kvExpandDisksGate,
 		kvGPUGate,
 		kvHostDevicesGate,
-		kvNUMA,
 		kvVMExportGate,
 		kvDisableCustomSELinuxPolicyGate,
 		kvKubevirtSeccompProfile,
