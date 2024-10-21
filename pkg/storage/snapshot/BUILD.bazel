@@ -20,6 +20,7 @@ go_library(
         "//pkg/pointer:go_default_library",
         "//pkg/storage/status:go_default_library",
         "//pkg/storage/types:go_default_library",
+        "//pkg/storage/utils:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-controller/watch/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
