@@ -576,6 +576,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.Sound"))
+			Expect(causes[0].Message).To(ContainSubstring("Sound device type is not supported"))
 		})
 		It("should reject audio devices without name fields", func() {
 			vmi := api.NewMinimalVMI("testvmi")
