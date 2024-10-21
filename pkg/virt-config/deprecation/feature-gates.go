@@ -59,6 +59,9 @@ const (
 	// GA:    v1.4.0
 	HotplugNetworkIfacesGate = "HotplugNICs"
 
+	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
+	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests" // GA
+
 	PasstGate   = "Passt"   // Deprecated
 	MacvtapGate = "Macvtap" // Deprecated
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
@@ -84,6 +87,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: CommonInstancetypesDeploymentGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: GPUGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: HotplugNetworkIfacesGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: BochsDisplayForEFIGuests, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
