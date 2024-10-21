@@ -482,7 +482,7 @@ func (c *ClusterConfig) GetInstancetypeReferencePolicy() v1.InstancetypeReferenc
 	// Default to the Reference InstancetypeReferencePolicy
 	policy := v1.Reference
 	instancetypeConfig := c.GetConfig().Instancetype
-	if instancetypeConfig != nil && instancetypeConfig.ReferencePolicy != nil {
+	if c.isFeatureGateEnabled(InstancetypeReferencePolicy) && instancetypeConfig != nil && instancetypeConfig.ReferencePolicy != nil {
 		policy = *instancetypeConfig.ReferencePolicy
 	}
 	return policy
