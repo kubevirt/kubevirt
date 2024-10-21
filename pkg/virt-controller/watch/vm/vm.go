@@ -3308,10 +3308,7 @@ func (c *Controller) syncInstancetypes(vm *virtv1.VirtualMachine) (*virtv1.Virtu
 			return vm, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason)
 		}
 	case virtv1.Expand, virtv1.ExpandAll:
-		// Do not expand if there are no instance types and preferences or they already have a revisionName
-		if referencePolicy == virtv1.Expand && ((vm.Spec.Instancetype == nil && vm.Spec.Preference == nil) ||
-			(vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "") ||
-			(vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "")) {
+		if !shouldExpandInstancetypeAndPreference(vm, referencePolicy) {
 			break
 		}
 
@@ -3338,6 +3335,25 @@ func (c *Controller) syncInstancetypes(vm *virtv1.VirtualMachine) (*virtv1.Virtu
 		return vm, common.NewSyncError(fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason)
 	}
 	return vm, nil
+}
+
+func shouldExpandInstancetypeAndPreference(vm *virtv1.VirtualMachine, referencePolicy virtv1.InstancetypeReferencePolicy) bool {
+	// With Expand we only want to expand if we are using instance types and preferences with no revisionNames set
+	if referencePolicy == virtv1.Expand {
+		if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
+			return false
+		}
+		if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
+			log.Log.Object(vm).Infof("not expanding as instance type already has revisionName")
+			return false
+		}
+		if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
+			log.Log.Object(vm).Infof("not expanding as preference already has revisionName")
+			return false
+		}
+	}
+	// Otherwise for ExpandAll we always expand
+	return true
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
