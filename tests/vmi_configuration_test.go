@@ -467,6 +467,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
+				vmi := libvmifact.NewAlpine()
 				_true := true
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -1069,7 +1070,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				nodeWithHugepages := libnode.GetNodeWithHugepages(virtClient, hugepageType)
 				if nodeWithHugepages == nil {
-					Skip(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
+					Fail(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
 				}
 				// initialHugepages := nodeWithHugepages.Status.Capacity[resourceName]
 				hugepagesVmi.Spec.Affinity = &k8sv1.Affinity{
@@ -1103,23 +1104,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
-				Entry("[test_id:1671]hugepages-2Mi", Serial, "2Mi", "64Mi", "None"),
-				Entry("[test_id:1672]hugepages-1Gi", Serial, "1Gi", "1Gi", "None"),
-				Entry("[test_id:1672]hugepages-2Mi with guest memory set explicitly", Serial, "2Mi", "70Mi", "64Mi"),
+				Entry("[test_id:1671]hugepages-2Mi", decorators.RequiresHugepages2Mi, Serial, "2Mi", "64Mi", "None"),
+				Entry("[test_id:1672]hugepages-1Gi", decorators.RequiresHugepages1Gi, Serial, "1Gi", "1Gi", "None"),
+				Entry("[test_id:1672]hugepages-2Mi with guest memory set explicitly", decorators.RequiresHugepages2Mi, Serial, "2Mi", "70Mi", "64Mi"),
 			)
 
 			Context("with unsupported page size", func() {
 				It("[test_id:1673]should failed to schedule the pod", func() {
-					nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					hugepageType2Mi := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + "2Mi")
-					for _, node := range nodes.Items {
-						if _, ok := node.Status.Capacity[hugepageType2Mi]; !ok {
-							Skip("No nodes with hugepages support")
-						}
-					}
-
 					hugepagesVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("66Mi")
 
 					hugepagesVmi.Spec.Domain.Memory = &v1.Memory{
@@ -1127,7 +1118,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					}
 
 					By("Starting a VM")
-					hugepagesVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(hugepagesVmi)).Create(context.Background(), hugepagesVmi, metav1.CreateOptions{})
+					hugepagesVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(hugepagesVmi)).Create(context.Background(), hugepagesVmi, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					var vmiCondition v1.VirtualMachineInstanceCondition
@@ -2080,29 +2071,25 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", decorators.SigStorage, decorators.StorageReq, func() {
-		var dataVolume *cdiv1.DataVolume
-		var err error
 
-		BeforeEach(func() {
+		It("[test_id:1681]should set appropriate cache modes", decorators.HostDiskGate, func() {
 			if !checks.HasFeature(virtconfig.HostDiskGate) {
-				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
+				Fail("Cluster has the HostDisk featuregate disabled, use skip for HostDiskGate")
 			}
 
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
-				Skip("Skip test when Block storage is not present")
+				Fail(`Block storage is not present. You can filter by "blockrwo" label`)
 			}
 
-			dataVolume = libdv.NewDataVolume(
+			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
 			)
-			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
-		})
 
-		It("[test_id:1681]should set appropriate cache modes", func() {
 			tmpHostDiskDir := storage.RandHostDiskDir()
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -2169,7 +2156,21 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		})
 
-		It("[test_id:5360]should set appropriate IO modes", func() {
+		It("[test_id:5360]should set appropriate IO modes", decorators.BlockRWO, func() {
+			By("Creating block Datavolume")
+			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+			if !foundSC {
+				Fail("Block storage RWO is not present")
+			}
+
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
+			)
+			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
+
 			const alpineHostPath = "alpine-host-path"
 			libstorage.CreateHostPathPv(alpineHostPath, testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
 			libstorage.CreateHostPathPVC(alpineHostPath, testsuite.GetTestNamespace(nil), "1Gi")
@@ -2231,14 +2232,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, func() {
+		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, decorators.BlockRWO, func() {
 			var dataVolume *cdiv1.DataVolume
 			var err error
 
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
-				Skip("Skip test when Block storage is not present")
+				Fail(`Block storage is not present. You can filter by "blockrwo" label`)
 			}
 
 			dataVolume = libdv.NewDataVolume(
@@ -2282,14 +2283,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, func() {
+		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, decorators.BlockRWO, func() {
 			var dataVolume *cdiv1.DataVolume
 			var err error
 
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
-				Skip("Skip test when Block storage is not present")
+				Fail(`Block storage is not present. You can skip by "blockrwo" label`)
 			}
 
 			dataVolume = libdv.NewDataVolume(
@@ -2330,9 +2331,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(expectedDiskSizes)
 		})
 
-		It("[test_id:6967]Should set BlockIO when set to match volume block sizes on files", func() {
+		It("[test_id:6967]Should set BlockIO when set to match volume block sizes on files", decorators.HostDiskGate, func() {
 			if !checks.HasFeature(virtconfig.HostDiskGate) {
-				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
+				Fail("Cluster has the HostDisk featuregate disabled, use skip for HostDiskGate")
 			}
 
 			By("creating a disk image")
@@ -2468,10 +2469,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", decorators.WgArm64, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
-		var nodes *k8sv1.NodeList
-
 		isNodeHasCPUManagerLabel := func(nodeName string) bool {
-			Expect(nodeName).ToNot(BeEmpty())
 
 			nodeObject, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -2488,11 +2486,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		}
 
 		BeforeEach(func() {
-			var err error
-			nodes, err = virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(nodes.Items) == 1 {
-				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
+				Fail(`CPU pinning test that requires multiple nodes when only one node is present. You can filter by "requires-two-worker-nodes-with-cpu-manager" label`)
 			}
 		})
 
@@ -2504,7 +2501,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
 				Expect(err).ToNot(HaveOccurred())
 				if len(nodes.Items) == 0 {
-					Skip("Skip CPU manager test on clusters where CPU manager is running on all worker/compute nodes")
+					Fail(`CPU manager test on clusters where CPU manager is running on all worker/compute nodes. you can filter by "requires-two-worker-nodes-with-cpu-manager"`)
 				}
 
 				node := &nodes.Items[0]
@@ -2520,6 +2517,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 			It("[test_id:1685]non master node should have a cpumanager label", func() {
 				cpuManagerEnabled := false
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				for idx := 1; idx < len(nodes.Items); idx++ {
 					labels := nodes.Items[idx].GetLabels()
 					for label, val := range labels {

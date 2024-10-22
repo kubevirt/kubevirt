@@ -48,6 +48,7 @@ var (
 	ExcludeNativeSSH                     = Label("exclude-native-ssh")
 	Reenlightenment                      = Label("Reenlightenment")
 	TscFrequencies                       = Label("TscFrequencies")
+	HostDiskGate                         = Label("HostDiskGate")
 	VMX                                  = Label("VMX")
 	Upgrade                              = Label("Upgrade")
 	CustomSELinux                        = Label("CustomSELinux")
@@ -63,6 +64,8 @@ var (
 	RequiresNodeWithCPUManager           = Label("requires-node-with-cpu-manager")
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
+	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
+	BlockRWO                             = Label("blockrwo")
 
 	// Storage classes
 	// Requires a storage class with support for snapshots
