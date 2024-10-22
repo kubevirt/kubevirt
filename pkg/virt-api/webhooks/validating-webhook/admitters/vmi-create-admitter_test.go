@@ -1195,6 +1195,31 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Invalid IOThreadsPolicy (%s)", ioThreadPolicy)))
 		})
 
+		It("should reject invalid ioThreadsPolicy to supplementalPool and invalid number of IOthreads", func() {
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.IOThreadsPolicy = pointer.P(v1.IOThreadsPolicySupplementalPool)
+			vmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{
+				SupplementalPoolThreadCount: pointer.P(uint32(0)),
+			}
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 2,
+				DedicatedCPUPlacement: true,
+				IsolateEmulatorThread: true,
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("spec.domain.ioThreads.count"))
+			Expect(causes[0].Message).To(Equal("the number of iothreads needs to be set and positive for the dedicated policy"))
+		})
+		It("should reject invalid ioThreadsPolicy to supplementalPool and unsetted number of IOthreads", func() {
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.IOThreadsPolicy = pointer.P(v1.IOThreadsPolicySupplementalPool)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("spec.domain.ioThreads.count"))
+			Expect(causes[0].Message).To(Equal("the number of iothreads needs to be set and positive for the dedicated policy"))
+		})
+
 		It("should reject multiple configurations of vGPU displays with ramfb", func() {
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{

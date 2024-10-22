@@ -74,7 +74,7 @@ const (
 	maxDNSSearchListChars = 256
 )
 
-var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
+var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto, v1.IOThreadsPolicySupplementalPool}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
 var restrictedVmiLabels = map[string]bool{
@@ -332,6 +332,16 @@ func validateIOThreadsPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("Invalid IOThreadsPolicy (%s)", *spec.Domain.IOThreadsPolicy),
 			Field:   field.Child("domain", "ioThreadsPolicy").String(),
+		})
+	}
+
+	if *spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
+		(spec.Domain.IOThreads == nil || spec.Domain.IOThreads.SupplementalPoolThreadCount == nil ||
+			*spec.Domain.IOThreads.SupplementalPoolThreadCount < 1) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "the number of iothreads needs to be set and positive for the dedicated policy",
+			Field:   field.Child("domain", "ioThreads", "count").String(),
 		})
 	}
 
