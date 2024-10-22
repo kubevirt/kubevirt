@@ -9363,6 +9363,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredNetworkInterfaceMultiQueue optionally enables
                 the vhost multiqueue feature for virtio interfaces.
               type: boolean
+            preferredPanicDeviceModel:
+              description: PreferredPanicDeviceModel optionally defines the preferred
+                panic device model to use with panic devices.
+              type: string
             preferredRng:
               description: PreferredRng optionally defines the preferred rng device
                 to be used.
@@ -24272,6 +24276,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredNetworkInterfaceMultiQueue optionally enables
                 the vhost multiqueue feature for virtio interfaces.
               type: boolean
+            preferredPanicDeviceModel:
+              description: PreferredPanicDeviceModel optionally defines the preferred
+                panic device model to use with panic devices.
+              type: string
             preferredRng:
               description: PreferredRng optionally defines the preferred rng device
                 to be used.

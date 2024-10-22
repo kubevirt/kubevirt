@@ -31662,6 +31662,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_DevicePreferences(ref common.Ref
 							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMasquerade"),
 						},
 					},
+					"preferredPanicDeviceModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredPanicDeviceModel optionally defines the preferred panic device model to use with panic devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

@@ -320,6 +320,7 @@ func autoConvert_v1beta1_DevicePreferences_To_v1alpha1_DevicePreferences(in *v1b
 	out.PreferredNetworkInterfaceMultiQueue = (*bool)(unsafe.Pointer(in.PreferredNetworkInterfaceMultiQueue))
 	out.PreferredTPM = (*corev1.TPMDevice)(unsafe.Pointer(in.PreferredTPM))
 	// WARNING: in.PreferredInterfaceMasquerade requires manual conversion: does not exist in peer-type
+	// WARNING: in.PreferredPanicDeviceModel requires manual conversion: does not exist in peer-type
 	return nil
 }
 
