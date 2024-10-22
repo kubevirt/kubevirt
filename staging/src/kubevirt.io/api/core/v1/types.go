@@ -2539,7 +2539,32 @@ type KubeVirtConfiguration struct {
 	// CommonInstancetypesDeployment controls the deployment of common-instancetypes resources
 	// +nullable
 	CommonInstancetypesDeployment *CommonInstancetypesDeployment `json:"commonInstancetypesDeployment,omitempty"`
+
+	// Instancetype configuration
+	// +nullable
+	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
 }
+
+type InstancetypeConfiguration struct {
+	// ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are:
+	// reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.
+	// expand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated.
+	// expandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.
+	// +nullable
+	// +kubebuilder:validation:Enum=reference;expand;expandAll
+	ReferencePolicy *InstancetypeReferencePolicy `json:"referencePolicy,omitempty"`
+}
+
+type InstancetypeReferencePolicy string
+
+const (
+	// Copy any instance type or preference and reference from the VirtualMachine
+	Reference InstancetypeReferencePolicy = "reference"
+	// Expand any instance type or preference into VirtualMachines without a revisionName already captured
+	Expand InstancetypeReferencePolicy = "expand"
+	// Expand any instance type or preferences into all VirtualMachines
+	ExpandAll InstancetypeReferencePolicy = "expandAll"
+)
 
 type CommonInstancetypesDeployment struct {
 	// Enabled controls the deployment of common-instancetypes resources, defaults to True.

@@ -81,6 +81,12 @@ const (
 	NodeRestrictionGate = "NodeRestriction"
 	// DynamicPodInterfaceNaming enables a mechanism to dynamically determine the primary pod interface for KuveVirt virtual machines.
 	DynamicPodInterfaceNamingGate = "DynamicPodInterfaceNaming"
+	// Owner: @lyarwood
+	// Alpha: v1.4.0
+	//
+	// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
+	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
+	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
 )
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {

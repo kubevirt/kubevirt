@@ -790,4 +790,29 @@ var _ = Describe("test configuration", func() {
 			Expect(clusterConfig.SRIOVLiveMigrationEnabled()).To(BeTrue())
 		})
 	})
+
+	disableInstancetypeRferencePolicyFG := []string{}
+	enableInstancetypeReferencePolicyFG := []string{virtconfig.InstancetypeReferencePolicy}
+
+	DescribeTable("GetInstancetypeReferencePolicy should return", func(
+		instancetypeConfig *v1.InstancetypeConfiguration, featureGates []string, expectedPolicy v1.InstancetypeReferencePolicy) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(
+			&v1.KubeVirtConfiguration{
+				Instancetype: instancetypeConfig,
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: featureGates,
+				},
+			},
+		)
+		Expect(clusterConfig.GetInstancetypeReferencePolicy()).To(Equal(expectedPolicy))
+	},
+		Entry("reference when FG unset and InstancetypeConfiguration is nil", nil, disableInstancetypeRferencePolicyFG, v1.Reference),
+		Entry("reference when FG unset and InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, disableInstancetypeRferencePolicyFG, v1.Reference),
+		Entry("reference when FG unset and InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, disableInstancetypeRferencePolicyFG, v1.Reference),
+		Entry("reference when FG unset andInstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, disableInstancetypeRferencePolicyFG, v1.Reference),
+		Entry("reference when FG set and InstancetypeConfiguration is nil", nil, enableInstancetypeReferencePolicyFG, v1.Reference),
+		Entry("reference when FG set and InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, enableInstancetypeReferencePolicyFG, v1.Reference),
+		Entry("reference when FG set andInstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, enableInstancetypeReferencePolicyFG, v1.Reference),
+		Entry("expand when FG set andInstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, enableInstancetypeReferencePolicyFG, v1.Expand),
+	)
 })

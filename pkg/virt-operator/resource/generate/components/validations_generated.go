@@ -1049,6 +1049,23 @@ var CRDsValidation map[string]string = map[string]string{
               description: PullPolicy describes a policy for if/when to pull a container
                 image
               type: string
+            instancetype:
+              description: Instancetype configuration
+              nullable: true
+              properties:
+                referencePolicy:
+                  description: |-
+                    ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are:
+                    reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.
+                    expand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated.
+                    expandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.
+                  enum:
+                  - reference
+                  - expand
+                  - expandAll
+                  nullable: true
+                  type: string
+              type: object
             ksmConfiguration:
               description: KSMConfiguration holds the information regarding the enabling
                 the KSM in the nodes (if available).

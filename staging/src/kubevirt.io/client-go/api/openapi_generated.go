@@ -408,6 +408,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.I6300ESBWatchdog":                                                   schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref),
 		"kubevirt.io/api/core/v1.InitrdInfo":                                                         schema_kubevirtio_api_core_v1_InitrdInfo(ref),
 		"kubevirt.io/api/core/v1.Input":                                                              schema_kubevirtio_api_core_v1_Input(ref),
+		"kubevirt.io/api/core/v1.InstancetypeConfiguration":                                          schema_kubevirtio_api_core_v1_InstancetypeConfiguration(ref),
 		"kubevirt.io/api/core/v1.InstancetypeMatcher":                                                schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref),
 		"kubevirt.io/api/core/v1.Interface":                                                          schema_kubevirtio_api_core_v1_Interface(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingMethod":                                             schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref),
@@ -20117,6 +20118,25 @@ func schema_kubevirtio_api_core_v1_Input(ref common.ReferenceCallback) common.Op
 	}
 }
 
+func schema_kubevirtio_api_core_v1_InstancetypeConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"referencePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are: reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM. expand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated. expandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20994,11 +21014,17 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref:         ref("kubevirt.io/api/core/v1.CommonInstancetypesDeployment"),
 						},
 					},
+					"instancetype": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Instancetype configuration",
+							Ref:         ref("kubevirt.io/api/core/v1.InstancetypeConfiguration"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
 	}
 }
 

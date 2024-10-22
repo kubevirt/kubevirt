@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 
 	corev1 "k8s.io/api/core/v1"
@@ -157,7 +158,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	}
 
 	// Set VirtualMachine defaults on the copy before validating
-	if err = webhooks.SetDefaultVirtualMachineInstanceSpec(admitter.ClusterConfig, &vmCopy.Spec.Template.Spec); err != nil {
+	if err = defaults.SetDefaultVirtualMachineInstanceSpec(admitter.ClusterConfig, &vmCopy.Spec.Template.Spec); err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
