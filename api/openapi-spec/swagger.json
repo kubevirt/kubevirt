@@ -13568,6 +13568,14 @@
       "description": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.",
       "type": "boolean"
      },
+     "panicDevices": {
+      "description": "PanicDevices provides additional crash information when a guest crashes.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.PanicDevice"
+      }
+     },
      "rng": {
       "description": "Whether to have random number generator from host",
       "$ref": "#/definitions/v1.Rng"
@@ -15578,6 +15586,15 @@
      },
      "tickPolicy": {
       "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"discard\".",
+      "type": "string"
+     }
+    }
+   },
+   "v1.PanicDevice": {
+    "type": "object",
+    "properties": {
+     "model": {
+      "description": "Model specifies what type of panic device is provided. The panic model used when this attribute is missing depends on the hypervisor and guest arch. One of: isa, hyperv, pvpanic.",
       "type": "string"
      }
     }

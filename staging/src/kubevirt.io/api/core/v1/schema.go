@@ -49,6 +49,14 @@ const (
 	DiskErrorPolicyEnospace DiskErrorPolicy = "enospace"
 )
 
+type PanicDeviceModel string
+
+const (
+	Hyperv  PanicDeviceModel = "hyperv"
+	Isa     PanicDeviceModel = "isa"
+	Pvpanic PanicDeviceModel = "pvpanic"
+)
+
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
@@ -504,6 +512,10 @@ type Devices struct {
 	// DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.
 	// +optional
 	DownwardMetrics *DownwardMetrics `json:"downwardMetrics,omitempty"`
+	// PanicDevices provides additional crash information when a guest crashes.
+	// +optional
+	// +listtype=atomic
+	PanicDevices []PanicDevice `json:"panicDevices,omitempty"`
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
 	// +listType=atomic
@@ -627,6 +639,14 @@ type VGPUDisplayOptions struct {
 	// Defaults to true.
 	// +optional
 	RamFB *FeatureState `json:"ramFB,omitempty"`
+}
+
+type PanicDevice struct {
+	// Model specifies what type of panic device is provided.
+	// The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+	// One of: isa, hyperv, pvpanic.
+	// +optional
+	Model *PanicDeviceModel `json:"model,omitempty"`
 }
 
 type HostDevice struct {
