@@ -27,6 +27,7 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -76,8 +77,8 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 	})
 
 	Context("VirtIO-FS with multiple PVCs", func() {
-		pvc1 := "pvc-1"
-		pvc2 := "pvc-2"
+		pvc1 := "pvc-1-" + uuid.NewString()[:6]
+		pvc2 := "pvc-2-" + uuid.NewString()[:6]
 		createPVC := func(namespace, name string) {
 			sc, foundSC := libstorage.GetAvailableRWFileSystemStorageClass()
 			Expect(foundSC).To(BeTrue(), "Unable to get a FileSystem Storage Class")
@@ -89,8 +90,6 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 		It("[Serial] should be successfully started and accessible", Serial, func() {
 			createPVC(testsuite.NamespaceTestDefault, pvc1)
 			createPVC(testsuite.NamespaceTestDefault, pvc2)
-			defer libstorage.DeletePVC(pvc1, testsuite.NamespaceTestDefault)
-			defer libstorage.DeletePVC(pvc2, testsuite.NamespaceTestDefault)
 
 			virtiofsMountPath := func(pvcName string) string { return fmt.Sprintf("/mnt/virtiofs_%s", pvcName) }
 			virtiofsTestFile := func(virtiofsMountPath string) string { return fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath) }
