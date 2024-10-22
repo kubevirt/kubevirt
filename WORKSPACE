@@ -318,11 +318,6 @@ go_repository(
     importpath = "github.com/google/go-containerregistry",
 )
 
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
-
 # Pull go_image_base
 oci_pull(
     name = "go_image_base",
