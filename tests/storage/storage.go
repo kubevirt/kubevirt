@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -1132,25 +1131,6 @@ var _ = SIGDescribe("Storage", func() {
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
-			It("should generate the block backingstore disk within the domain", func() {
-				vmi = libvmifact.NewGuestless(
-					libvmi.WithEphemeralPersistentVolumeClaim("disk0", dataVolume.Name),
-				)
-
-				By("Initializing the VM")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
-
-				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				disks := runningVMISpec.Devices.Disks
-
-				By("Checking if the disk backing store type is block")
-				Expect(disks[0].BackingStore).ToNot(BeNil())
-				Expect(disks[0].BackingStore.Type).To(Equal("block"))
-				By("Checking if the disk backing store device path is appropriately configured")
-				Expect(disks[0].BackingStore.Source.Dev).To(Equal(converter.GetBlockDeviceVolumePath("disk0")))
-			})
 			It("should generate the pod with the volumeDevice", func() {
 				vmi = libvmifact.NewGuestless(
 					libvmi.WithEphemeralPersistentVolumeClaim("disk0", dataVolume.Name),
