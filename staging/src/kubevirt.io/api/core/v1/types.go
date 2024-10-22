@@ -783,6 +783,11 @@ type VirtualMachineInstanceMigrationState struct {
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the numa topology on the target node
 	TargetNodeTopology string `json:"targetNodeTopology,omitempty"`
+
+	// If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here
+	SourcePersistentStatePVCName string `json:"sourcePersistentStatePVCName,omitempty"`
+	// If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here
+	TargetPersistentStatePVCName string `json:"targetPersistentStatePVCName,omitempty"`
 }
 
 type MigrationAbortStatus string

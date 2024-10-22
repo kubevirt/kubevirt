@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +35,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -244,6 +247,8 @@ var _ = Describe("Migration watcher", func() {
 		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		controller, _ = NewController(
@@ -253,6 +258,8 @@ var _ = Describe("Migration watcher", func() {
 			migrationInformer,
 			nodeInformer,
 			pvcInformer,
+			storageClassInformer,
+			storageProfileInformer,
 			pdbInformer,
 			migrationPolicyInformer,
 			resourceQuotaInformer,

@@ -362,19 +362,18 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 	return nvramPath
 }
 
-func withBackendStorage(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
+func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName string) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
 			return nil
 		}
 
 		volumeName := "vm-state"
-		pvcName := backendstorage.PVCForVMI(vmi)
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: volumeName,
 			VolumeSource: k8sv1.VolumeSource{
 				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvcName,
+					ClaimName: backendStoragePVCName,
 					ReadOnly:  false,
 				},
 			},
