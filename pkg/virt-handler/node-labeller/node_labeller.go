@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 
@@ -45,6 +44,26 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+var DefaultObsoleteCPUModels = map[string]bool{
+	"486":        true,
+	"pentium":    true,
+	"pentium2":   true,
+	"pentium3":   true,
+	"pentiumpro": true,
+	"coreduo":    true,
+	"n270":       true,
+	"core2duo":   true,
+	"Conroe":     true,
+	"athlon":     true,
+	"phenom":     true,
+	"qemu64":     true,
+	"qemu32":     true,
+	"kvm64":      true,
+	"kvm32":      true,
+	"Opteron_G1": true,
+	"Opteron_G2": true,
+}
+
 var nodeLabellerLabels = []string{
 	kubevirtv1.CPUFeatureLabel,
 	kubevirtv1.CPUModelLabel,
@@ -61,48 +80,55 @@ var nodeLabellerLabels = []string{
 
 // NodeLabeller struct holds information needed to run node-labeller
 type NodeLabeller struct {
-	recorder                record.EventRecorder
-	nodeClient              k8scli.NodeInterface
-	host                    string
-	logger                  *log.FilteredLogger
-	clusterConfig           *virtconfig.ClusterConfig
-	hypervFeatures          supportedFeatures
-	hostCapabilities        supportedFeatures
-	queue                   workqueue.RateLimitingInterface
-	supportedFeatures       []string
-	cpuModelVendor          string
-	volumePath              string
-	domCapabilitiesFileName string
-	cpuCounter              *libvirtxml.CapsHostCPUCounter
-	hostCPUModel            hostCPUModel
-	SEV                     SEVConfiguration
-	arch                    string
+	recorder            record.EventRecorder
+	nodeClient          k8scli.NodeInterface
+	host                string
+	logger              *log.FilteredLogger
+	clusterConfig       *virtconfig.ClusterConfig
+	queue               workqueue.RateLimitingInterface
+	supportedFeatures   []string
+	cpuCounter          *libvirtxml.CapsHostCPUCounter
+	hostCPUModel        string
+	cpuModelVendor      string
+	usableModels        []string
+	cpuRequiredFeatures []string
+	sevSupported        bool
+	sevSupportedES      bool
+	hypervFeatures      []string
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter)
-
-}
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
-	n := &NodeLabeller{
-		recorder:                recorder,
-		nodeClient:              nodeClient,
-		host:                    host,
-		logger:                  log.DefaultLogger(),
-		clusterConfig:           clusterConfig,
-		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-node-labeller"),
-		volumePath:              volumePath,
-		domCapabilitiesFileName: "virsh_domcapabilities.xml",
-		cpuCounter:              cpuCounter,
-		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
-		arch:                    runtime.GOARCH,
+func NewNodeLabeller(
+	clusterConfig *virtconfig.ClusterConfig,
+	nodeClient k8scli.NodeInterface,
+	host string,
+	recorder record.EventRecorder,
+	supportedFeatures []string,
+	cpuCounter *libvirtxml.CapsHostCPUCounter,
+	hostCPUModel string,
+	cpuModelVendor string,
+	usableModels []string,
+	cpuRequiredFeatures []string,
+	sevSupported bool,
+	sevSupportedES bool,
+	hypervFeatures []string,
+) *NodeLabeller {
+	return &NodeLabeller{
+		recorder:            recorder,
+		nodeClient:          nodeClient,
+		host:                host,
+		logger:              log.DefaultLogger(),
+		clusterConfig:       clusterConfig,
+		queue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-node-labeller"),
+		supportedFeatures:   supportedFeatures,
+		cpuCounter:          cpuCounter,
+		hostCPUModel:        hostCPUModel,
+		cpuModelVendor:      cpuModelVendor,
+		usableModels:        usableModels,
+		cpuRequiredFeatures: cpuRequiredFeatures,
+		sevSupported:        sevSupported,
+		sevSupportedES:      sevSupportedES,
+		hypervFeatures:      hypervFeatures,
 	}
-
-	err := n.loadAll()
-	if err != nil {
-		return n, err
-	}
-	return n, nil
 }
 
 // Run runs node-labeller
@@ -151,34 +177,7 @@ func (n *NodeLabeller) execute() bool {
 	return true
 }
 
-func (n *NodeLabeller) loadAll() error {
-	// host supported features is only available on AMD64 and S390X nodes.
-	// This is because hypervisor-cpu-baseline virsh command doesnt work for ARM64 architecture.
-	if virtconfig.IsAMD64(n.arch) || virtconfig.IsS390X(n.arch) {
-		err := n.loadHostSupportedFeatures()
-		if err != nil {
-			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
-			return err
-		}
-	}
-
-	err := n.loadDomCapabilities()
-	if err != nil {
-		n.logger.Errorf("node-labeller could not load host dom capabilities: " + err.Error())
-		return err
-	}
-
-	n.loadHypervFeatures()
-
-	return nil
-}
-
 func (n *NodeLabeller) run() error {
-	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
-	cpuModels := n.getSupportedCpuModels(obsoleteCPUsx86)
-	cpuFeatures := n.getSupportedCpuFeatures()
-	hostCPUModel := n.GetHostCpuModel()
-
 	originalNode, err := n.nodeClient.Get(context.Background(), n.host, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -188,7 +187,7 @@ func (n *NodeLabeller) run() error {
 
 	if !skipNodeLabelling(node) {
 		//prepare new labels
-		newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
+		newLabels := n.prepareLabels(node)
 		//remove old labeller labels
 		n.removeLabellerLabels(node)
 		//add new labels
@@ -223,67 +222,93 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 	return err
 }
 
-func (n *NodeLabeller) loadHypervFeatures() {
-	n.hypervFeatures.items = getCapLabels()
-}
-
 // prepareLabels converts cpu models, features, hyperv features to map[string]string format
 // e.g. "cpu-feature.node.kubevirt.io/Penryn": "true"
-func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel, obsoleteCPUsx86 map[string]bool) map[string]string {
+func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	newLabels := make(map[string]string)
-	for key := range cpuFeatures {
-		newLabels[kubevirtv1.CPUFeatureLabel+key] = "true"
+
+	n.addCPUFeaturesLabels(newLabels)
+	n.addCPUModelsLabels(newLabels)
+	n.addHypervFeaturesLabels(newLabels)
+	n.addTSCCounterLabels(newLabels)
+	n.addRequiredCPUFeaturesLabels(newLabels)
+	n.addHostCPUModelLabels(newLabels, node)
+	n.addRealtimeCapabilityLabel(newLabels)
+	n.addSEVLabels(newLabels)
+
+	return newLabels
+}
+
+func (n *NodeLabeller) addCPUFeaturesLabels(labels map[string]string) {
+	for _, value := range n.supportedFeatures {
+		labels[kubevirtv1.CPUFeatureLabel+value] = "true"
 	}
+}
+
+func (n *NodeLabeller) addCPUModelsLabels(labels map[string]string) {
+	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
+	cpuModels := n.supportedCPUModels(obsoleteCPUsx86)
 
 	for _, value := range cpuModels {
-		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
-		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
+		labels[kubevirtv1.CPUModelLabel+value] = "true"
+		labels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
 	}
 
-	if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; !hostModelObsolete {
-		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.Name] = "true"
+	if _, hostModelObsolete := obsoleteCPUsx86[n.hostCPUModel]; !hostModelObsolete {
+		labels[kubevirtv1.SupportedHostModelMigrationCPU+n.hostCPUModel] = "true"
 	}
+}
 
-	for _, key := range n.hypervFeatures.items {
-		newLabels[kubevirtv1.HypervLabel+key] = "true"
+func (n *NodeLabeller) addHypervFeaturesLabels(labels map[string]string) {
+	for _, value := range n.hypervFeatures {
+		labels[kubevirtv1.HypervLabel+value] = "true"
 	}
+}
 
+func (n *NodeLabeller) addTSCCounterLabels(labels map[string]string) {
 	if n.hasTSCCounter() {
-		newLabels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", n.cpuCounter.Frequency)
-		newLabels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%t", n.cpuCounter.Scaling == "yes")
+		labels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", n.cpuCounter.Frequency)
+		labels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%t", n.cpuCounter.Scaling == "yes")
 	}
+}
 
-	for feature := range hostCpuModel.requiredFeatures {
-		newLabels[kubevirtv1.HostModelRequiredFeaturesLabel+feature] = "true"
+func (n *NodeLabeller) addRequiredCPUFeaturesLabels(labels map[string]string) {
+	for _, feature := range n.cpuRequiredFeatures {
+		labels[kubevirtv1.HostModelRequiredFeaturesLabel+feature] = "true"
 	}
-	if _, obsolete := obsoleteCPUsx86[hostCpuModel.Name]; obsolete {
-		newLabels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
-		err := n.alertIfHostModelIsObsolete(node, hostCpuModel.Name, obsoleteCPUsx86)
+}
+
+func (n *NodeLabeller) addHostCPUModelLabels(labels map[string]string, node *v1.Node) {
+	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
+
+	if _, obsolete := obsoleteCPUsx86[n.hostCPUModel]; obsolete {
+		labels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
+		err := n.alertIfHostModelIsObsolete(node, n.hostCPUModel, obsoleteCPUsx86)
 		if err != nil {
 			n.logger.Reason(err).Error(err.Error())
 		}
 	}
+	labels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
+	labels[kubevirtv1.HostModelCPULabel+n.hostCPUModel] = "true"
+}
 
-	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
-	newLabels[kubevirtv1.HostModelCPULabel+hostCpuModel.Name] = "true"
-
+func (n *NodeLabeller) addRealtimeCapabilityLabel(labels map[string]string) {
 	capable, err := isNodeRealtimeCapable()
 	if err != nil {
 		n.logger.Reason(err).Error("failed to identify if a node is capable of running realtime workloads")
 	}
 	if capable {
-		newLabels[kubevirtv1.RealtimeLabel] = ""
+		labels[kubevirtv1.RealtimeLabel] = ""
 	}
+}
 
-	if n.SEV.Supported == "yes" {
-		newLabels[kubevirtv1.SEVLabel] = ""
+func (n *NodeLabeller) addSEVLabels(labels map[string]string) {
+	if n.sevSupported {
+		labels[kubevirtv1.SEVLabel] = ""
 	}
-
-	if n.SEV.SupportedES == "yes" {
-		newLabels[kubevirtv1.SEVESLabel] = ""
+	if n.sevSupportedES {
+		labels[kubevirtv1.SEVESLabel] = ""
 	}
-
-	return newLabels
 }
 
 // addNodeLabels adds labels to node.
@@ -336,4 +361,21 @@ func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostMod
 
 func (n *NodeLabeller) hasTSCCounter() bool {
 	return n.cpuCounter != nil && n.cpuCounter.Name == "tsc"
+}
+
+func (n *NodeLabeller) supportedCPUModels(obsoleteCPUsx86 map[string]bool) []string {
+	supportedCPUModels := make([]string, 0)
+
+	if obsoleteCPUsx86 == nil {
+		obsoleteCPUsx86 = DefaultObsoleteCPUModels
+	}
+
+	for _, model := range n.usableModels {
+		if _, ok := obsoleteCPUsx86[model]; ok {
+			continue
+		}
+		supportedCPUModels = append(supportedCPUModels, model)
+	}
+
+	return supportedCPUModels
 }
