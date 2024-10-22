@@ -177,7 +177,6 @@ pkg_tar(
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_bundle",
-    "container_push",
 )
 load("@rules_oci//oci:defs.bzl", "oci_image")
 
