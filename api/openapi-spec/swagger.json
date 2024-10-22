@@ -18868,6 +18868,14 @@
       "description": "PreferredNetworkInterfaceMultiQueue optionally enables the vhost multiqueue feature for virtio interfaces.",
       "type": "boolean"
      },
+     "preferredPanicDevices": {
+      "description": "PreferredPanicDevices optionally defines any panic devices to be used to signal guest failures.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.PanicDevice"
+      }
+     },
      "preferredRng": {
       "description": "PreferredRng optionally defines the preferred rng device to be used.",
       "$ref": "#/definitions/v1.Rng"
