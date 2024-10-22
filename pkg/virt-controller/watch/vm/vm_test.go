@@ -4803,7 +4803,7 @@ var _ = Describe("VirtualMachine", func() {
 				BeforeEach(func() {
 					preferenceSpec := instancetypev1beta1.VirtualMachinePreferenceSpec{
 						Firmware: &instancetypev1beta1.FirmwarePreferences{
-							PreferredUseEfi: pointer.P(true),
+							DeprecatedPreferredUseEfi: pointer.P(true),
 						},
 						Devices: &instancetypev1beta1.DevicePreferences{
 							PreferredDiskBus:        v1.DiskBusVirtio,
