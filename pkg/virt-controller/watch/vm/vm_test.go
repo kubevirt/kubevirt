@@ -6455,6 +6455,101 @@ var _ = Describe("VirtualMachine", func() {
 				})
 			})
 
+			Context("Tolerations", func() {
+				DescribeTable("should be live-updated", func(existingTolerations, updatedTolerations []k8sv1.Toleration) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+								},
+							},
+						},
+					})
+
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
+
+					vm.Spec.Template.Spec.Tolerations = updatedTolerations
+					vmi.Spec.Tolerations = existingTolerations
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					Expect(kvtesting.FilterActions(&virtFakeClient.Fake, "patch", "virtualmachineinstances")).To(HaveLen(1))
+
+					By("Expecting to see the updated VMI with the added tolerations")
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vmi.Spec.Tolerations).To(Equal(updatedTolerations))
+				},
+					Entry("when adding a toleration from an empty set",
+						nil,
+						[]k8sv1.Toleration{{
+							Effect:   k8sv1.TaintEffectNoExecute,
+							Key:      "testTaint",
+							Operator: k8sv1.TolerationOpExists,
+						}},
+					),
+					Entry("when adding a new toleration",
+						[]k8sv1.Toleration{{
+							Effect:   k8sv1.TaintEffectNoExecute,
+							Key:      "testTaint",
+							Operator: k8sv1.TolerationOpExists,
+						}},
+						[]k8sv1.Toleration{
+							{
+								Effect:   k8sv1.TaintEffectNoExecute,
+								Key:      "testTaint",
+								Operator: k8sv1.TolerationOpExists,
+							},
+
+							{
+								Effect:   k8sv1.TaintEffectNoExecute,
+								Key:      "testTaint2",
+								Operator: k8sv1.TolerationOpExists,
+							},
+						},
+					),
+					Entry("when removing a toleration",
+						[]k8sv1.Toleration{
+							{
+								Effect:   k8sv1.TaintEffectNoExecute,
+								Key:      "testTaint",
+								Operator: k8sv1.TolerationOpExists,
+							},
+
+							{
+								Effect:   k8sv1.TaintEffectNoExecute,
+								Key:      "testTaint2",
+								Operator: k8sv1.TolerationOpExists,
+							},
+						},
+						[]k8sv1.Toleration{{
+							Effect:   k8sv1.TaintEffectNoExecute,
+							Key:      "testTaint",
+							Operator: k8sv1.TolerationOpExists,
+						}},
+					),
+					Entry("when removing all tolerations",
+						[]k8sv1.Toleration{{
+							Effect:   k8sv1.TaintEffectNoExecute,
+							Key:      "testTaint",
+							Operator: k8sv1.TolerationOpExists,
+						}},
+						nil,
+					),
+				)
+			})
+
 			Context("Affinity", func() {
 				It("should be live-updated", func() {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
