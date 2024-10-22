@@ -88,6 +88,7 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 	applyDiskPreferences(preferenceSpec, vmiSpec)
 	applyInterfacePreferences(preferenceSpec, vmiSpec)
 	applyInputPreferences(preferenceSpec, vmiSpec)
+	applyPanicDevicePreferences(preferenceSpec, vmiSpec)
 }
 
 func applyInputPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
@@ -100,5 +101,20 @@ func applyInputPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 		if preferenceSpec.Devices.PreferredInputType != "" && vmiInput.Type == "" {
 			vmiInput.Type = preferenceSpec.Devices.PreferredInputType
 		}
+	}
+}
+
+func applyPanicDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if preferenceSpec.Devices.PreferredPanicDeviceModel == nil {
+		return
+	}
+
+	// Only apply any preferred panic device when the same panic device has not been provided by a user already
+	for idx := range vmiSpec.Domain.Devices.PanicDevices {
+		panicDevice := &vmiSpec.Domain.Devices.PanicDevices[idx]
+		if panicDevice.Model != nil {
+			continue
+		}
+		panicDevice.Model = preferenceSpec.Devices.PreferredPanicDeviceModel
 	}
 }
