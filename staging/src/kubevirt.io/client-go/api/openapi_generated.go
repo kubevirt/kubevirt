@@ -30511,11 +30511,25 @@ func schema_kubevirtio_api_instancetype_v1beta1_DevicePreferences(ref common.Ref
 							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMasquerade"),
 						},
 					},
+					"preferredPanicDevices": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredPanicDevices optionally defines any panic devices to be used to signal QEMU guest failures.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.PanicDevice"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VGPUOptions"},
+			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.PanicDevice", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VGPUOptions"},
 	}
 }
 
