@@ -33,14 +33,14 @@ The deployment is completed when HCO custom resource reports its condition as `A
 
 For more explanation and advanced options for HCO deployment using kustomize, refer to [kustomize deployment documentation](deploy/kustomize/README.md).
 
-## Installing Unreleased Bundle Using A Custom Catalog Source  
+## Installing Unreleased Bundle Using A Custom Catalog Source
 
-Hyperconverged Cluster Operator is publishing the latest bundle to [quay.io/kubevirt](https://quay.io/repository/kubevirt) 
-before publishing tagged, stable releases to [OperatorHub.io](https://operatorhub.io).  
+Hyperconverged Cluster Operator is publishing the latest bundle to [quay.io/kubevirt](https://quay.io/repository/kubevirt)
+before publishing tagged, stable releases to [OperatorHub.io](https://operatorhub.io).
 The latest bundle is `quay.io/kubevirt/hyperconverged-cluster-bundle:1.14.0-unstable`. It is built and pushed on every merge to
-main branch, and contains the most up-to-date manifests, which are pointing to the most recent application images: `hyperconverged-cluster-operator` 
-and `hyperconverged-cluster-webhook`, which are built together with the bundle from the current code at the main branch.  
-The unreleased bundle can be consumed on a cluster by creating a CatalogSource pointing to the index image that contains 
+main branch, and contains the most up-to-date manifests, which are pointing to the most recent application images: `hyperconverged-cluster-operator`
+and `hyperconverged-cluster-webhook`, which are built together with the bundle from the current code at the main branch.
+The unreleased bundle can be consumed on a cluster by creating a CatalogSource pointing to the index image that contains
 that bundle: `quay.io/kubevirt/hyperconverged-cluster-index:1.14.0-unstable`.
 
 Make the bundle available in the cluster's packagemanifest by adding the following CatalogSource:
@@ -84,8 +84,8 @@ spec:
     channel: "candidate-v1.14"
 EOF
 ```
-Then, create the HyperConverged custom resource to complete the installation.  
-Further information about the HyperConverged CR and its possible configuration options can be found 
+Then, create the HyperConverged custom resource to complete the installation.
+Further information about the HyperConverged CR and its possible configuration options can be found
 in the [Cluster Configuration](docs/cluster-configuration.md) doc.
 ## Using the HCO without OLM or Marketplace
 
@@ -128,7 +128,7 @@ $ kubectl create ns kubevirt-hyperconverged
 ```
 
 For the next set of commands, we will use the
-[`operator-sdk`](https://github.com/operator-framework/operator-sdk/releases) CLI tool. Below commands will create a 
+[`operator-sdk`](https://github.com/operator-framework/operator-sdk/releases) CLI tool. Below commands will create a
 bundle image, push this image, and finally use that bundle image to install the HyperConverged cluster
 Operator on the OLM-enabled cluster.
 
@@ -138,11 +138,11 @@ operator-sdk bundle validate _out/bundle  # optional
 podman build -f deploy/index-image/bundle.Dockerfile -t $IMAGE_REGISTRY/$REGISTRY_NAMESPACE/hyperconverged-cluster-index:$IMAGE_TAG
 podman push $IMAGE_REGISTRY/$REGISTRY_NAMESPACE/hyperconverged-cluster-index:$IMAGE_TAG
 operator-sdk bundle validate $IMAGE_REGISTRY/$REGISTRY_NAMESPACE/hyperconverged-cluster-index:$IMAGE_TAG
-operator-sdk run bundle $IMAGE_REGISTRY/$REGISTRY_NAMESPACE/hyperconverged-cluster-index:$IMAGE_TAG
+operator-sdk run bundle -n kubevirt-hyperconverged $IMAGE_REGISTRY/$REGISTRY_NAMESPACE/hyperconverged-cluster-index:$IMAGE_TAG
 ```
 
 Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt,
-CDI (Containerized Data Importer), Network-addons, VM import, TTO (Tekton Tasks Operator) and SSP (Scheduling, Scale 
+CDI (Containerized Data Importer), Network-addons, VM import, TTO (Tekton Tasks Operator) and SSP (Scheduling, Scale
 and Performance) Operator.
 ```bash
 $ kubectl create -f deploy/hco.cr.yaml -n kubevirt-hyperconverged
