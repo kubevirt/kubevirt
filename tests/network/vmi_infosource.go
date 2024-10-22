@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	network "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -77,7 +77,7 @@ var _ = SIGDescribe("Infosource", func() {
 		secondaryNetwork2 := libvmi.MultusNetwork(secondaryInterface2Name, nadName)
 
 		BeforeEach(func() {
-			config.EnableFeatureGate(virtconfig.DynamicPodInterfaceNamingGate)
+			config.EnableFeatureGate(featuregate.DynamicPodInterfaceNamingGate)
 
 			By("Create NetworkAttachmentDefinition")
 			Expect(libnet.CreateNAD(testsuite.NamespaceTestDefault, nadName)).To(Succeed())

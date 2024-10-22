@@ -16,7 +16,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -27,7 +27,7 @@ const diskRhel = "disk-rhel"
 
 // Deprecated: SkipTestIfNoCPUManager should be converted to check & fail
 func SkipTestIfNoCPUManager() {
-	if !HasFeature(virtconfig.CPUManager) {
+	if !HasFeature(featuregate.CPUManager) {
 		ginkgo.Skip("the CPUManager feature gate is not enabled.")
 	}
 
@@ -51,7 +51,7 @@ func SkipTestIfNoFeatureGate(featureGate string) {
 
 // Deprecated: SkipTestIfNotEnoughNodesWithCPUManager should be converted to check & fail
 func SkipTestIfNotEnoughNodesWithCPUManager(nodeCount int) {
-	if !HasFeature(virtconfig.CPUManager) {
+	if !HasFeature(featuregate.CPUManager) {
 		ginkgo.Skip("the CPUManager feature gate is not enabled.")
 	}
 

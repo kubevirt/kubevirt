@@ -35,7 +35,8 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -53,7 +54,7 @@ var _ = SIGDescribe("Slirp", decorators.Networking, decorators.NetCustomBindingP
 	BeforeEach(libnet.SkipWhenClusterNotSupportIpv4)
 
 	BeforeEach(func() {
-		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+		config.EnableFeatureGate(featuregate.NetworkBindingPlugingsGate)
 	})
 
 	const slirpBindingName = "slirp"
