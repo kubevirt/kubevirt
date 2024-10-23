@@ -123,7 +123,7 @@ var _ = SIGDescribe("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 	})
 
 	Context("with paused vmi", func() {
-		It("[test_id:3085]should be stopped successfully", func() {
+		It("[test_id:3085]should be stopped successfully", decorators.Conformance, func() {
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
