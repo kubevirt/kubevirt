@@ -112,6 +112,7 @@ func AdjustKubeVirtResource() {
 		virtconfig.VMPersistentState,
 		virtconfig.VMLiveUpdateFeaturesGate,
 		virtconfig.AutoResourceLimitsGate,
+		virtconfig.InstancetypeReferencePolicy,
 	)
 	if flags.DisableCustomSELinuxPolicy {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
@@ -125,6 +126,10 @@ func AdjustKubeVirtResource() {
 		kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
 			DeprecatedPermitSlirpInterface: &testDefaultPermitSlirpInterface,
 		}
+	}
+
+	kv.Spec.Configuration.Instancetype = &v1.InstancetypeConfiguration{
+		ReferencePolicy: pointer.P(v1.ExpandAll),
 	}
 
 	storageClass, exists := libstorage.GetRWXFileSystemStorageClass()
