@@ -31,9 +31,9 @@ import (
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
@@ -186,7 +186,13 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 		return nil, false, nil
 	}
 	allPopulated := true
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
+
+	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithBackendVolume)
+	if err != nil {
+		return nil, false, err
+	}
+
+	for _, volume := range volumes {
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 		if pvcName == "" {
 			continue

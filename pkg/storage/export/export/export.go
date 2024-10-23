@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/storage/status"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -1067,7 +1068,10 @@ func (ctrl *VMExportController) createDataManifestConfigMap(vmExport *exportv1.V
 	}
 	data[vmManifest] = string(vmBytes)
 
-	datavolumes := ctrl.generateDataVolumesFromVm(vm)
+	datavolumes, err := ctrl.generateDataVolumesFromVm(vm)
+	if err != nil {
+		return nil, err
+	}
 	for _, datavolume := range datavolumes {
 		if datavolume != nil {
 			dvBytes, err := json.Marshal(datavolume)
@@ -1382,8 +1386,14 @@ func (ctrl *VMExportController) expandVirtualMachine(vm *virtv1.VirtualMachine) 
 	return vm, nil
 }
 
-func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
+func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	// TODO: Need to find a way to include/represent backend storage in the export VM manifest
+	volumes, err := storageutils.GetVolumes(vm, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, volume := range volumes {
 		volumeName := ""
 		if volume.DataVolume != nil {
 			volumeName = volume.DataVolume.Name
@@ -1395,7 +1405,7 @@ func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.Vi
 			vm.Spec.DataVolumeTemplates = ctrl.replaceUrlDVTemplate(volumeName, vm.Spec.DataVolumeTemplates)
 		}
 	}
-	return vm
+	return vm, nil
 }
 
 func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName string, templates []virtv1.DataVolumeTemplateSpec) []virtv1.DataVolumeTemplateSpec {
@@ -1434,7 +1444,10 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 	expandedVm.ObjectMeta = cleanedObjectMeta
 
 	// Update dvTemplates if exists
-	expandedVm = ctrl.updateHttpSourceDataVolumeTemplate(vm)
+	expandedVm, err = ctrl.updateHttpSourceDataVolumeTemplate(vm)
+	if err != nil {
+		return nil, err
+	}
 	vmBytes, err := json.Marshal(expandedVm)
 	if err != nil {
 		return nil, err
@@ -1442,9 +1455,14 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 	return vmBytes, nil
 }
 
-func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMachine) []*cdiv1.DataVolume {
+func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
 	res := make([]*cdiv1.DataVolume, 0)
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
+	// TODO: Need to find a way to include/represent backend storage in the export VM manifest
+	volumes, err := storageutils.GetVolumes(vm, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, volume := range volumes {
 		volumeName := ""
 		if volume.DataVolume != nil {
 			volumeName = volume.DataVolume.Name
@@ -1464,7 +1482,7 @@ func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMach
 			}
 		}
 	}
-	return res
+	return res, nil
 }
 
 func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string) *cdiv1.DataVolume {
