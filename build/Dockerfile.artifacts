@@ -14,10 +14,12 @@ ARG download_url=https://github.com/kubevirt/kubevirt/releases/download
 
 RUN eval $(cat /tmp/config  |grep KUBEVIRT_VERSION=) && \
     echo "KUBEVIRT_VERSION: $KUBEVIRT_VERSION" && \
-    for arch in amd64 arm64; do \
+    for arch in amd64 arm64 s390x; do \
         for os in linux darwin windows; do \
             if [[ ${os} == "windows" && ${arch} == "arm64" ]]; then \
                 printf "\n\n### Skipping virctl for Windows on ARM64\n"; \
+            elif [[ ${os} != "linux" && ${arch} == "s390x" ]]; then \
+                printf "\n\n### Skipping virctl for non-Linux OS on s390x\n"; \
             else \
                 extension=""; \
                 archive_extension=".zip"; \

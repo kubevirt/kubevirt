@@ -49,7 +49,7 @@ var _ = Describe("[rfe_id:5100][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 		Expect(cli.Get(ctx, client.ObjectKeyFromObject(ccd), ccd)).To(Succeed())
 
-		Expect(ccd.Spec.Links).To(HaveLen(6))
+		Expect(ccd.Spec.Links).To(HaveLen(7))
 
 		for _, link := range ccd.Spec.Links {
 			// virtctl for Windows for ARM 64 is still not shipped, avoid checking it

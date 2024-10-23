@@ -98,6 +98,10 @@ func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLID
 					Text: "Download virtctl for Linux for ARM 64",
 				},
 				{
+					Href: baseURL + "/s390x/linux/virtctl.tar.gz",
+					Text: "Download virtctl for Linux for IBM Z",
+				},
+				{
 					Href: baseURL + "/amd64/mac/virtctl.zip",
 					Text: "Download virtctl for Mac for x86_64",
 				},

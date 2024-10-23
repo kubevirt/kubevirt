@@ -44,7 +44,7 @@ var _ = Describe("CLI Download", func() {
 			Expect(cl.Get(context.TODO(), key, foundResource)).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
-			Expect(foundResource.Spec.Links).To(HaveLen(6))
+			Expect(foundResource.Spec.Links).To(HaveLen(7))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
