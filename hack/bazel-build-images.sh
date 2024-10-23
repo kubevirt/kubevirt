@@ -24,23 +24,49 @@ source hack/bootstrap.sh
 source hack/config.sh
 
 # vars are uninteresting for the build step, they are interesting for the push step only
+other_images_default="
+    //cmd/sidecars:sidecar-shim-image
+    //cmd/libguestfs:libguestfs-tools-image
+    //containerimages:alpine-container-disk-image
+    //containerimages:fedora-with-test-tooling
+    //images/disks-images-provider:disks-images-provider-image
+    //images/vm-killer:vm-killer-image
+"
+
+other_images_x86_64_aarch64="
+    //cmd/sidecars/smbios:example-hook-sidecar-image
+    //cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image
+    //cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image
+    //cmd/sidecars/network-slirp-binding:network-slirp-binding-image
+    //cmd/sidecars/network-passt-binding:network-passt-binding-image
+    //cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image
+    //cmd/pr-helper:pr-helper
+    //containerimages:cirros-container-disk-image
+    //containerimages:cirros-custom-container-disk-image
+    //containerimages:virtio-container-disk-image
+    //containerimages:alpine-ext-kernel-boot-demo-container
+    //containerimages:alpine-with-test-tooling
+    //containerimages:fedora-realtime
+    //images/winrmcli:winrmcli-image
+    //tests:conformance_image
+"
 
 case ${ARCHITECTURE} in
 "s390x" | "crossbuild-s390x")
     other_images="
-        //:build-other-images_s390x
+        $other_images_default
     "
     ;;
 "aarch64" | "crossbuild-aarch64")
     other_images="
-        //:build-other-images_aarch64
-        //tests:conformance_image
+        $other_images_default
+        $other_images_x86_64_aarch64
     "
     ;;
 *)
     other_images="
-        //:build-other-images_x86_64
-        //tests:conformance_image
+        $other_images_default
+        $other_images_x86_64_aarch64
     "
     ;;
 esac
