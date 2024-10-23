@@ -16,7 +16,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/config:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/executor:go_default_library",
@@ -126,6 +125,7 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
+        "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )

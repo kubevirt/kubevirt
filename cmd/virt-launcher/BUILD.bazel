@@ -9,7 +9,6 @@ go_library(
     deps = [
         "//pkg/cloud-init:go_default_library",
         "//pkg/config:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
         "//pkg/hooks:go_default_library",
@@ -58,7 +57,7 @@ pkg_tar(
     srcs = [
         "node-labeller/node-labeller.sh",
         ":virt-launcher",
-        "//cmd/container-disk-v2alpha:container-disk",
+        "//cmd/container-disk-v3alpha:container-disk",
         "//cmd/virt-freezer",
         "//cmd/virt-launcher-monitor",
         "//cmd/virt-probe",
