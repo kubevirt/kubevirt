@@ -1512,7 +1512,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			}, 30*time.Second, 2*time.Second).Should(Equal(expectedStatus))
 		}
 
-		It("[test_id:7479] should succeed", func() {
+		It("[test_id:7479] should succeed", decorators.Conformance, func() {
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1558,7 +1558,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			}
 		})
 
-		It("Freeze without Unfreeze should trigger unfreeze after timeout", func() {
+		It("Freeze without Unfreeze should trigger unfreeze after timeout", decorators.Conformance, func() {
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1580,7 +1580,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	Describe("Softreboot a VirtualMachineInstance", func() {
 		const vmiLaunchTimeout = 360
 
-		It("soft reboot vmi with agent connected should succeed", func() {
+		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
 
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -1591,7 +1591,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			waitForVMIRebooted(vmi, console.LoginToFedora)
 		})
 
-		It("soft reboot vmi with ACPI feature enabled should succeed", func() {
+		It("soft reboot vmi with ACPI feature enabled should succeed", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), vmiLaunchTimeout)
 
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -1603,7 +1603,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			waitForVMIRebooted(vmi, console.LoginToCirros)
 		})
 
-		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", func() {
+		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(withoutACPI()), vmiLaunchTimeout)
 
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -1638,7 +1638,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	})
 
 	Describe("Pausing/Unpausing a VirtualMachineInstance", func() {
-		It("[test_id:4597]should signal paused state with condition", func() {
+		It("[test_id:4597]should signal paused state with condition", decorators.Conformance, func() {
 			vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), 90)
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
