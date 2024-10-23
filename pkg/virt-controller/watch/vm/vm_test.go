@@ -5683,6 +5683,9 @@ var _ = Describe("VirtualMachine", func() {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 					updateVMFunc()
 
+					// Stash a copy of the original VM to assert ControllerRevision removal later
+					originalVM := vm.DeepCopy()
+
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(
 						context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
@@ -5696,6 +5699,16 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vm.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
 					Expect(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeObj.Spec.Memory.Guest.Value()))
 					Expect(vm.Spec.Preference).To(BeNil())
+
+					// Assert that the original ControllerRevisions have been cleaned up
+					if originalVM.Spec.Instancetype.RevisionName != "" {
+						_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.TODO(), originalVM.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+					}
+					if originalVM.Spec.Preference.RevisionName != "" {
+						_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.TODO(), originalVM.Spec.Preference.RevisionName, metav1.GetOptions{})
+						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+					}
 				},
 					Entry("with FG enabled and referencePolicy expand", kvWithFGEnabledReferencePolicyExpand, func() {}),
 					Entry("with FG enabled and referencePolicy expandAll", kvWithFGEnabledReferencePolicyExpandAll, func() {}),
