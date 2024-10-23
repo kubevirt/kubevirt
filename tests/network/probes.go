@@ -255,8 +255,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(BeTrue())
 		},
-			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmifact.NewCirros),
-			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmifact.NewCirros),
+			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmifact.NewAlpine),
+			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmifact.NewAlpine),
 			Entry("[test_id:5880]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
 		)
 	})
