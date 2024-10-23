@@ -236,7 +236,7 @@ var _ = Describe("VM Stats Collector", func() {
 	})
 
 	Context("VM Resource Requests", func() {
-		It("should ignore VM with empty memory resource requests", func() {
+		It("should ignore VM with empty memory resource requests and limits", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "test-ns",
@@ -251,11 +251,11 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			cr := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
+			cr := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
 			Expect(cr).To(BeZero())
 		})
 
-		It("should collect VM memory resource requests", func() {
+		It("should collect VM memory resource requests and limits", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "test-ns",
@@ -269,6 +269,9 @@ var _ = Describe("VM Stats Collector", func() {
 									Requests: k8sv1.ResourceList{
 										k8sv1.ResourceMemory: *resource.NewQuantity(1024, resource.BinarySI),
 									},
+									Limits: k8sv1.ResourceList{
+										k8sv1.ResourceMemory: *resource.NewQuantity(2048, resource.BinarySI),
+									},
 								},
 							},
 						},
@@ -276,14 +279,21 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			crs := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
-			Expect(crs).To(HaveLen(1))
+			crs := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
+			Expect(crs).To(HaveLen(2), "Expected 2 metrics")
+
+			By("checking the resource requests")
 			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[0].Value).To(BeEquivalentTo(1024))
 			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes"}))
+
+			By("checking the resource limits")
+			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_limits"))
+			Expect(crs[1].Value).To(BeEquivalentTo(2048))
+			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes"}))
 		})
 
-		It("should collect VM CPU resource requests", func() {
+		It("should collect VM CPU resource requests and limits", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "test-ns",
@@ -297,6 +307,9 @@ var _ = Describe("VM Stats Collector", func() {
 									Requests: k8sv1.ResourceList{
 										k8sv1.ResourceCPU: *resource.NewMilliQuantity(500, resource.BinarySI),
 									},
+									Limits: k8sv1.ResourceList{
+										k8sv1.ResourceCPU: *resource.NewMilliQuantity(1000, resource.BinarySI),
+									},
 								},
 							},
 						},
@@ -304,11 +317,18 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			crs := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
-			Expect(crs).To(HaveLen(1), "Expected 1 metric")
+			crs := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
+			Expect(crs).To(HaveLen(2), "Expected 2 metrics")
+
+			By("checking the resource requests")
 			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[0].Value).To(BeEquivalentTo(0.5))
 			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores"}))
+
+			By("checking the resource limits")
+			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_limits"))
+			Expect(crs[1].Value).To(BeEquivalentTo(1))
+			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores"}))
 		})
 
 		It("should collect VM CPU resource requests from domain", func() {
@@ -332,7 +352,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			crs := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
+			crs := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
 			Expect(crs).To(HaveLen(3), "Expected 1 metric")
 
 			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))

@@ -29,7 +29,7 @@ import (
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmInfo),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -60,6 +60,14 @@ var (
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vm_resource_requests",
 			Help: "Resources requested by Virtual Machine. Reports memory and CPU requests.",
+		},
+		[]string{"name", "namespace", "resource", "unit"},
+	)
+
+	vmResourceLimits = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_resource_limits",
+			Help: "Resources limits by Virtual Machine. Reports memory and CPU limits.",
 		},
 		[]string{"name", "namespace", "resource", "unit"},
 	)
@@ -161,7 +169,7 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 
 	var results []operatormetrics.CollectorResult
 	results = append(results, CollectVMsInfo(vms)...)
-	results = append(results, CollectResourceRequests(vms)...)
+	results = append(results, CollectResourceRequestsAndLimits(vms)...)
 	results = append(results, reportVmsStats(vms)...)
 	return results
 }
@@ -250,19 +258,26 @@ func getVMStatusGroup(status k6tv1.VirtualMachinePrintableStatus) string {
 	return "<unknown>"
 }
 
-func CollectResourceRequests(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var results []operatormetrics.CollectorResult
 
 	for _, vm := range vms {
-		results = append(results, collectMemoryResourceRequestsFromDomain(vm)...)
-		results = append(results, collectCpuResourceRequestsFromDomain(vm)...)
-		results = append(results, collectCpuResourceRequestsFromResources(vm)...)
+		// Memory requests and limits from domain resources
+		results = append(results, collectMemoryResourceRequestsFromDomainResources(vm)...)
+		results = append(results, collectMemoryResourceLimitsFromDomainResources(vm)...)
+
+		// CPU requests from domain CPU
+		results = append(results, collectCpuResourceRequestsFromDomainCpu(vm)...)
+
+		// CPU requests and limits from domain resources
+		results = append(results, collectCpuResourceRequestsFromDomainResources(vm)...)
+		results = append(results, collectCpuResourceLimitsFromDomainResources(vm)...)
 	}
 
 	return results
 }
 
-func collectMemoryResourceRequestsFromDomain(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func collectMemoryResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	if vm.Spec.Template == nil {
 		return []operatormetrics.CollectorResult{}
 	}
@@ -279,7 +294,24 @@ func collectMemoryResourceRequestsFromDomain(vm *k6tv1.VirtualMachine) []operato
 	}}
 }
 
-func collectCpuResourceRequestsFromDomain(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func collectMemoryResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	if vm.Spec.Template == nil {
+		return []operatormetrics.CollectorResult{}
+	}
+
+	memoryLimit := vm.Spec.Template.Spec.Domain.Resources.Limits.Memory()
+	if memoryLimit.IsZero() {
+		return []operatormetrics.CollectorResult{}
+	}
+
+	return []operatormetrics.CollectorResult{{
+		Metric: vmResourceLimits,
+		Value:  float64(memoryLimit.Value()),
+		Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
+	}}
+}
+
+func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
 	if vm.Spec.Template.Spec.Domain.CPU == nil {
@@ -313,7 +345,7 @@ func collectCpuResourceRequestsFromDomain(vm *k6tv1.VirtualMachine) []operatorme
 	return cr
 }
 
-func collectCpuResourceRequestsFromResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func collectCpuResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
 	cpuRequests := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu()
@@ -325,6 +357,24 @@ func collectCpuResourceRequestsFromResources(vm *k6tv1.VirtualMachine) []operato
 	cr = append(cr, operatormetrics.CollectorResult{
 		Metric: vmResourceRequests,
 		Value:  float64(cpuRequests.ScaledValue(resource.Milli)) / 1000,
+		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
+	})
+
+	return cr
+}
+
+func collectCpuResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	cpuLimits := vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu()
+
+	if cpuLimits == nil || cpuLimits.IsZero() {
+		return cr
+	}
+
+	cr = append(cr, operatormetrics.CollectorResult{
+		Metric: vmResourceLimits,
+		Value:  float64(cpuLimits.ScaledValue(resource.Milli)) / 1000,
 		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
 	})
 
