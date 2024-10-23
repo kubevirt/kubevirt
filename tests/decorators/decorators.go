@@ -46,7 +46,7 @@ var (
 	MigrationBasedHotplugNICs            = Label("migration-based-hotplug-NICs")
 	NetCustomBindingPlugins              = Label("netCustomBindingPlugins")
 	RequiresTwoSchedulableNodes          = Label("requires-two-schedulable-nodes")
-	VMLiveUpdateFeaturesGate             = Label("VMLiveUpdateFeaturesGate")
+	VMLiveUpdateRolloutStrategy          = Label("VMLiveUpdateRolloutStrategy")
 	USB                                  = Label("USB")
 	AutoResourceLimitsGate               = Label("AutoResourceLimitsGate")
 	RequiresTwoWorkerNodesWithCPUManager = Label("requires-two-worker-nodes-with-cpu-manager")

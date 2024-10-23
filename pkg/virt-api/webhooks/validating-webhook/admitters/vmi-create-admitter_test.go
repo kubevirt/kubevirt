@@ -860,7 +860,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should allow bigger guest memory than the memory limit if vmRolloutStrategy is set to LiveUpdate", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.VMLiveUpdateFeaturesGate}
 			kvConfig.Spec.Configuration.VMRolloutStrategy = ptr.To(v1.VMRolloutStrategyLiveUpdate)
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 

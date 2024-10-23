@@ -1362,14 +1362,11 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		})
 	})
 
-	Context("when LiveUpdate and VMLiveUpdateFeatures is enabled", func() {
+	Context("when vmRolloutStrategy LiveUpdate is enabled", func() {
 		BeforeEach(func() {
 			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 			rolloutStrategy := v1.VMRolloutStrategyLiveUpdate
 			kvCR.Spec.Configuration.VMRolloutStrategy = &rolloutStrategy
-			kvCR.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
 		})
 		Context("configure CPU hotplug", func() {

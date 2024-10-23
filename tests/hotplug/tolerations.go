@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]VM Tolerations", decorators.SigCompute, decorators.VMLiveUpdateFeaturesGate, Serial, func() {
+var _ = Describe("[sig-compute]VM Tolerations", decorators.SigCompute, decorators.VMLiveUpdateRolloutStrategy, Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)

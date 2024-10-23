@@ -45,6 +45,8 @@ const (
 	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
 	NUMAFeatureGate        = "NUMA"               // GA
 	GPUGate                = "GPU"                // GA
+	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
+	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures" // GA
 	// Owner: @lyarwood
 	// Alpha: v1.1.0
 	// Beta:  v1.2.0
@@ -88,6 +90,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: GPUGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: HotplugNetworkIfacesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: BochsDisplayForEFIGuests, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: VMLiveUpdateFeaturesGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
