@@ -197,61 +197,6 @@ config_setting(
     values = {"define": "release=true"},
 )
 
-build_other_images_default = {
-    # cmd images
-    "$(container_prefix)/$(image_prefix)sidecar-shim:$(container_tag)": "//cmd/sidecars:sidecar-shim-image",
-    "$(container_prefix)/$(image_prefix)libguestfs-tools:$(container_tag)": "//cmd/libguestfs:libguestfs-tools-image",
-    # container-disk images
-    "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
-    # Kernel boot container
-    # -
-    # Customized container-disk images
-    "$(container_prefix)/$(image_prefix)fedora-with-test-tooling-container-disk:$(container_tag)": "//containerimages:fedora-with-test-tooling",
-    # testing images
-    "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
-    "$(container_prefix)/$(image_prefix)vm-killer:$(container_tag)": "//images/vm-killer:vm-killer-image",
-}
-
-build_other_images_aarch64_x86_64 = dicts.add(
-    build_other_images_default,
-    {
-        # cmd images
-        "$(container_prefix)/$(image_prefix)example-hook-sidecar:$(container_tag)": "//cmd/sidecars/smbios:example-hook-sidecar-image",
-        "$(container_prefix)/$(image_prefix)example-disk-mutation-hook-sidecar:$(container_tag)": "//cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image",
-        "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
-        "$(container_prefix)/$(image_prefix)network-slirp-binding:$(container_tag)": "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
-        "$(container_prefix)/$(image_prefix)network-passt-binding:$(container_tag)": "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
-        "$(container_prefix)/$(image_prefix)network-passt-binding-cni:$(container_tag)": "//cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image",
-        "$(container_prefix)/$(image_prefix)pr-helper:$(container_tag)": "//cmd/pr-helper:pr-helper",
-        # container-disk images
-        "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",
-        "$(container_prefix)/$(image_prefix)cirros-custom-container-disk-demo:$(container_tag)": "//containerimages:cirros-custom-container-disk-image",
-        "$(container_prefix)/$(image_prefix)virtio-container-disk:$(container_tag)": "//containerimages:virtio-container-disk-image",
-        # Kernel boot container
-        "$(container_prefix)/$(image_prefix)alpine-ext-kernel-boot-demo:$(container_tag)": "//containerimages:alpine-ext-kernel-boot-demo-container",
-        # Customized container-disk images
-        "$(container_prefix)/$(image_prefix)alpine-with-test-tooling-container-disk:$(container_tag)": "//containerimages:alpine-with-test-tooling",
-        "$(container_prefix)/$(image_prefix)fedora-realtime-container-disk:$(container_tag)": "//containerimages:fedora-realtime",
-        # testing images
-        "$(container_prefix)/$(image_prefix)winrmcli:$(container_tag)": "//images/winrmcli:winrmcli-image",
-    },
-)
-
-container_bundle(
-    name = "build-other-images_s390x",
-    images = build_other_images_default,
-)
-
-container_bundle(
-    name = "build-other-images_aarch64",
-    images = build_other_images_aarch64_x86_64,
-)
-
-container_bundle(
-    name = "build-other-images_x86_64",
-    images = build_other_images_aarch64_x86_64,
-)
-
 # This is for generating a bundle of the core components for external processing
 container_bundle(
     name = "virt-components-bundle",
