@@ -3380,6 +3380,30 @@ func (c *Controller) syncInstancetypes(vm *virtv1.VirtualMachine) (*virtv1.Virtu
 			if err != nil {
 				return vm, common.NewSyncError(fmt.Errorf("error encountered when trying to update VirtualMachine with expanded instance type and preference: %v", err), failedUpdateErrorReason)
 			}
+
+			// We should clean up any instance type or preference ControllerRevisions after successfully expanding the VM
+			if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
+				revisionName := vm.Spec.Instancetype.RevisionName
+				if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+					context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
+					return nil, common.NewSyncError(
+						fmt.Errorf("error encountered cleaning up instance type ControllerRevision %s after successfully expanding VirtualMachine %s: %v", revisionName, vm.Name, err),
+						failedUpdateErrorReason,
+					)
+				}
+			}
+
+			if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
+				revisionName := vm.Spec.Preference.RevisionName
+				if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+					context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
+					return nil, common.NewSyncError(
+						fmt.Errorf("error encountered cleaning up preference ControllerRevision %s after successfully expanding VirtualMachine %s: %v", revisionName, vm.Name, err),
+						failedUpdateErrorReason,
+					)
+				}
+			}
+
 			// Return at this point as the update will trigger another sync
 			return updatedVm, nil
 		}
