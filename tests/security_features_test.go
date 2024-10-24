@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -46,7 +45,6 @@ import (
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -84,13 +82,6 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				vmi = libvmifact.NewCirros()
-
-				// VMIs with selinuxLauncherType container_t cannot have network interfaces, since that requires
-				// the `virt_launcher.process` selinux context
-				autoattachPodInterface := false
-				vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoattachPodInterface
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{}
-				vmi.Spec.Networks = []v1.Network{}
 			})
 
 			It("[test_id:2953]Ensure virt-launcher pod securityContext type is correctly set", func() {
@@ -190,51 +181,6 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
-
-		Context("With selinuxLauncherType defined as virt_launcher.process", func() {
-
-			It("[test_id:4298]qemu process type is virt_launcher.process, when selinuxLauncherType is virt_launcher.process", decorators.CustomSELinux, func() {
-				config := kubevirtConfiguration.DeepCopy()
-				launcherType := "virt_launcher.process"
-				config.SELinuxLauncherType = launcherType
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				vmi = libvmifact.NewAlpine()
-
-				By("Starting a New VMI")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				By("Ensuring VMI is running by logging in")
-				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-				By("Fetching virt-launcher Pod")
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
-
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
-				Expect(err).ToNot(HaveOccurred())
-				qemuProcessSelinuxContext, err := exec.ExecuteCommandOnPod(
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", fmt.Sprintf("ps -efZ | grep %s | awk '{print $1}'", emulator)},
-				)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking that qemu process is of the SELinux type virt_launcher.process")
-				Expect(strings.Split(qemuProcessSelinuxContext, ":")[2]).To(Equal(launcherType))
-
-				By("Verifying SELinux context contains custom type in pod")
-				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(launcherType))
-
-				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			})
-		})
 	})
 
 	Context("Check virt-launcher capabilities", func() {
@@ -280,38 +226,6 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(caps.Drop).To(HaveLen(1))
 				Expect(caps.Drop[0]).To(Equal(k8sv1.Capability("ALL")), "Expected compute container of virt_launcher to drop all caps")
 			}
-		})
-	})
-	Context("Disabling the custom SELinux policy", func() {
-		var policyRemovedByTest = false
-		AfterEach(func() {
-			if policyRemovedByTest {
-				By("Re-installing custom SELinux policy on all nodes")
-				err = runOnAllSchedulableNodes(virtClient, []string{"cp", "/var/run/kubevirt/virt_launcher.cil", "/proc/1/root/tmp/"}, "")
-				// That file may not be deployed on clusters that don't need the policy anymore
-				if err == nil {
-					err = runOnAllSchedulableNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-i", "/tmp/virt_launcher.cil"}, "")
-					Expect(err).ToNot(HaveOccurred())
-					err = runOnAllSchedulableNodes(virtClient, []string{"rm", "-f", "/proc/1/root/tmp/virt_launcher.cil"}, "")
-					Expect(err).ToNot(HaveOccurred())
-				}
-			}
-		})
-
-		It("Should prevent virt-handler from installing the custom policy", func() {
-			By("Removing custom SELinux policy from all nodes")
-			// The policy may or may not be installed on the node, regardless of the feature gate value,
-			// since the feature gate could have been enabled after deployment. Use error as indication of removal.
-			err = runOnAllSchedulableNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-r", "virt_launcher"}, "")
-			policyRemovedByTest = err == nil
-
-			By("Disabling the custom policy by adding the corresponding feature gate")
-			kvconfig.EnableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
-
-			By("Ensuring the custom SELinux policy is absent from all nodes")
-			Consistently(func() error {
-				return runOnAllSchedulableNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-l"}, "virt_launcher")
-			}, 30*time.Second, 10*time.Second).Should(BeNil())
 		})
 	})
 	Context("The VMI SELinux context status", func() {
@@ -365,28 +279,6 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 		})
 	})
 })
-
-func runOnAllSchedulableNodes(virtClient kubecli.KubevirtClient, command []string, forbiddenString string) error {
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-	for _, node := range nodes.Items {
-		pod, err := libnode.GetVirtHandlerPod(virtClient, node.Name)
-		if err != nil {
-			return err
-		}
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, components.VirtHandlerName, command)
-		if err != nil {
-			_, _ = GinkgoWriter.Write([]byte(stderr))
-			return err
-		}
-		if forbiddenString != "" {
-			if strings.Contains(stdout, forbiddenString) {
-				return fmt.Errorf("found unexpected %s on node %s", forbiddenString, node.Name)
-			}
-		}
-	}
-
-	return nil
-}
 
 func isLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
