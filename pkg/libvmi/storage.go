@@ -87,9 +87,14 @@ func WithEmptyDisk(diskName string, bus v1.DiskBus, capacity resource.Quantity) 
 
 // WithCDRom specifies a CDRom drive backed by a PVC to be used.
 func WithCDRom(cdRomName string, bus v1.DiskBus, claimName string) Option {
+	return WithCDRomAndVolume(bus, newPersistentVolumeClaimVolume(cdRomName, claimName))
+}
+
+// WithCDRomAndVolume specifies a CDRom drive backed by given volume and given bus.
+func WithCDRomAndVolume(bus v1.DiskBus, volume v1.Volume) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addDisk(vmi, newCDRom(cdRomName, bus))
-		addVolume(vmi, newPersistentVolumeClaimVolume(cdRomName, claimName))
+		addDisk(vmi, newCDRom(volume.Name, bus))
+		addVolume(vmi, volume)
 	}
 }
 
