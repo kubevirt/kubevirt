@@ -117,6 +117,35 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 		),
 	)
 
+	It("[test_id:TODO] should remove authorized_keys file if secret is empty", func() {
+		vmi := libvmifact.NewFedora(withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
+			QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+				Users: []string{"fedora"},
+			},
+		}))
+
+		By("Creating a secret with empty file")
+		createNewSecret(testsuite.GetTestNamespace(vmi), pubKeySecretID, libsecret.DataBytes{})
+
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+
+		By("Waiting for agent to connect")
+		Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+		By("Verifying ssh keys file is empty")
+		Expect(console.ExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "login:"},
+			&expect.BSnd{S: "fedora\n"},
+			&expect.BExp{R: "Password:"},
+			&expect.BSnd{S: fedoraPassword + "\n"},
+			&expect.BExp{R: "\\$"},
+			&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+			&expect.BExp{R: "^\\s*$"},
+		}, 3*time.Minute)).To(Succeed())
+	})
+
 	Context("with qemu guest agent", func() {
 		const customPassword = "imadethisup"
 
