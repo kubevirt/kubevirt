@@ -1479,6 +1479,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Entry("architecture is not amd64 or arm64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
 					vmiSpec.Architecture = "risc-v"
 				}),
+				Entry("guest memory is less than 1Gi", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					vmiSpec.Domain.Memory.Guest = pointer.P(resource.MustParse("512Mi"))
+				}),
 			)
 		})
 	})
