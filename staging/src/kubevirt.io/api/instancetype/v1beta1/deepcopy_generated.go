@@ -223,6 +223,13 @@ func (in *DevicePreferences) DeepCopyInto(out *DevicePreferences) {
 		*out = new(v1.InterfaceMasquerade)
 		**out = **in
 	}
+	if in.PreferredPanicDevices != nil {
+		in, out := &in.PreferredPanicDevices, &out.PreferredPanicDevices
+		*out = make([]v1.PanicDevice, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 

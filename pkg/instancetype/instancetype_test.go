@@ -1893,6 +1893,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						PreferredRng:                 &v1.Rng{},
 						PreferredTPM:                 &v1.TPMDevice{},
 						PreferredInterfaceMasquerade: &v1.InterfaceMasquerade{},
+						PreferredPanicDevices:        []v1.PanicDevice{{Model: pointer.P(v1.PanicDeviceModelHyperv)}, {}},
 					},
 				}
 			})
@@ -1960,6 +1961,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue))
 				Expect(*vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredBlockMultiQueue))
 				Expect(*vmi.Spec.Domain.Devices.TPM).To(Equal(*preferenceSpec.Devices.PreferredTPM))
+				Expect(vmi.Spec.Domain.Devices.PanicDevices).To(Equal(preferenceSpec.Devices.PreferredPanicDevices))
 			})
 
 			It("Should apply when a VMI disk doesn't have a DiskDevice target defined", func() {
@@ -2016,6 +2018,18 @@ var _ = Describe("Instancetype and Preferences", func() {
 						}
 					}
 				})
+			})
+
+			It("Should apply the missing PanicDevice preferences to a VMI", func() {
+				emptyPanicDeviceTest := v1.PanicDevice{}
+				hypervPanicDeviceTest := v1.PanicDevice{Model: pointer.P(v1.PanicDeviceModelHyperv)}
+				isaPanicDeviceTest := v1.PanicDevice{Model: pointer.P(v1.PanicDeviceModelIsa)}
+				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{isaPanicDeviceTest, emptyPanicDeviceTest}
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+				Expect(conflicts).To(BeEmpty())
+				Expect(vmi.Spec.Domain.Devices.PanicDevices[0]).To(Equal(isaPanicDeviceTest))
+				Expect(vmi.Spec.Domain.Devices.PanicDevices[1]).To(Equal(emptyPanicDeviceTest))
+				Expect(vmi.Spec.Domain.Devices.PanicDevices[2]).To(Equal(hypervPanicDeviceTest))
 			})
 		})
 
