@@ -74,7 +74,7 @@ export CRI_BIN=${CRI_BIN:-$(detect_cri)}
     SONOBUOY_EXTRA_ARGS="${SONOBUOY_EXTRA_ARGS} ${kubevirt_plugin}"
 
     commit=$(curl -sL "${nightly_build_base_url}/${latest}/commit")
-    commit="${commit:0:9}"
+    commit="${commit:0:10}"
     container_tag="--plugin-env kubevirt-conformance.CONTAINER_TAG=${latest}_${commit}"
     SONOBUOY_EXTRA_ARGS="${SONOBUOY_EXTRA_ARGS} ${container_tag}"
     
