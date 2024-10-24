@@ -1123,6 +1123,91 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("node-role.kubernetes.io/compute", "true"))
 			})
 
+			It("should add realtime node label selector with realtime workload", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
+						CPU: &v1.CPU{Realtime: &v1.Realtime{}},
+					}},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.RealtimeLabel, "true"))
+			})
+
+			It("should not add realtime node label selector when no realtime workload", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
+						CPU: &v1.CPU{Realtime: nil},
+					}},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.RealtimeLabel))))
+			})
+
+			Context("When scheduling SEV workloads", func() {
+				var vmi *v1.VirtualMachineInstance
+
+				BeforeEach(func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					vmi = api.NewMinimalVMI("testvmi")
+				})
+
+				It("should add SEV node label selector with SEV workload", func() {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SEVLabel, "true"))
+				})
+
+				It("should not add SEV node label selector when no SEV workload", func() {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.SEVLabel))))
+				})
+
+				It("should add SEV and SEV-ES node label selector with SEV-ES workload", func() {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+						SEV: &v1.SEV{
+							Policy: &v1.SEVPolicy{
+								EncryptedState: pointer.P(true),
+							},
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SEVLabel, "true"))
+					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SEVESLabel, "true"))
+				})
+
+				DescribeTable("should not add SEV-ES node label selector", func(policy *v1.SEVPolicy) {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+						SEV: &v1.SEV{
+							Policy: policy,
+						},
+					}
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.SEVESLabel))))
+				},
+					Entry("when no SEV policy is set", &v1.SEVPolicy{}),
+					Entry("when no SEV-ES policy bit is set", &v1.SEVPolicy{EncryptedState: nil}),
+					Entry("when SEV-ES policy bit is set to false", &v1.SEVPolicy{EncryptedState: pointer.P(false)}),
+				)
+			})
+
 			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				enableFeatureGate(virtconfig.HypervStrictCheckGate)
