@@ -17,5 +17,9 @@
 # Copyright 2021 Red Hat, Inc.
 #
 
+set -e
+set -x
+
+source hack/config-kubevirtci.sh
 KUBEVIRT_DEPLOY_CDI=${KUBEVIRT_DEPLOY_CDI:-true}
-source ./cluster-up/up.sh
+source "${KUBEVIRTCI_PATH}up.sh"
