@@ -93,6 +93,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"features":        "Features like acpi, apic, hyperv, smm.\n+optional",
 		"devices":         "Devices allows adding disks, network interfaces, and others",
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+		"ioThreads":       "IOThreads specifies how many IOThreads are dedicated to the disks.\n+optional",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
 		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
 	}
@@ -887,4 +888,8 @@ func (CPUTopology) SwaggerDoc() map[string]string {
 		"sockets": "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
 		"threads": "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
 	}
+}
+
+func (DiskIOThreads) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }

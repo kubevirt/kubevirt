@@ -213,6 +213,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 	causes = append(causes, validatePersistentState(field, spec, config)...)
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
+	causes = append(causes, validateIOThreads(field, spec)...)
 
 	return causes
 }
@@ -2321,5 +2322,44 @@ func validateCPUHotplug(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 			})
 		}
 	}
+	return causes
+}
+
+func validateIOThreads(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.Domain.IOThreads == nil || spec.Domain.IOThreads.Count < 1 {
+		return nil
+	}
+	if spec.Domain.IOThreadsPolicy != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("ioThreadsPolicy cannot be set together with the ioThreads option"),
+			Field:   field.Child("domain", "ioThreadsPolicy").String(),
+		})
+	}
+	if spec.Domain.CPU == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("cpu cannot be empty because ioThreadsPolicy requires dedicatedCpuPlacement and isolateEmulatorThread"),
+			Field:   field.Child("domain", "cpu").String(),
+		})
+		return causes
+	}
+	if !spec.Domain.CPU.DedicatedCPUPlacement {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("dedicatedCpuPlacement needs to be set with ioThreads"),
+			Field:   field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+		})
+	}
+	if !spec.Domain.CPU.IsolateEmulatorThread {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("isolateEmulatorThread needs to be set with ioThreads"),
+			Field:   field.Child("domain", "cpu", "isolateEmulatorThread").String(),
+		})
+	}
+
 	return causes
 }

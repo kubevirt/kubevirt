@@ -3986,6 +3986,62 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("no hyperv use", doNotUseExplicitHyperV, doNotUseHyperVPassthrough, true),
 		)
 	})
+	Context("should validate the VMIs with iothreads", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = newBaseVmi()
+			vmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{Count: uint32(4)}
+		})
+		It("with valid options", func() {
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 2,
+				DedicatedCPUPlacement: true,
+				IsolateEmulatorThread: true,
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+		It("with the ioThreadsPolicy set", func() {
+			vmi.Spec.Domain.IOThreadsPolicy = pointer.P(v1.IOThreadsPolicyAuto)
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 2,
+				DedicatedCPUPlacement: true,
+				IsolateEmulatorThread: true,
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("spec.domain.ioThreadsPolicy"))
+			Expect(causes[0].Message).To(Equal("ioThreadsPolicy cannot be set together with the ioThreads option"))
+		})
+		It("with empty CPU field", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("spec.domain.cpu"))
+			Expect(causes[0].Message).To(Equal("cpu cannot be empty because ioThreadsPolicy requires dedicatedCpuPlacement and isolateEmulatorThread"))
+		})
+		It("with dedicatedCPUPlacement set to false", func() {
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 2,
+				DedicatedCPUPlacement: false,
+				IsolateEmulatorThread: true,
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(2))
+			Expect(causes[1].Field).To(Equal("spec.domain.cpu.dedicatedCpuPlacement"))
+			Expect(causes[1].Message).To(Equal("dedicatedCpuPlacement needs to be set with ioThreads"))
+		})
+		It("with IsolateEmulatorThread set to false", func() {
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 2,
+				DedicatedCPUPlacement: true,
+				IsolateEmulatorThread: false,
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("spec.domain.cpu.isolateEmulatorThread"))
+			Expect(causes[0].Message).To(Equal("isolateEmulatorThread needs to be set with ioThreads"))
+		})
+	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {

@@ -378,16 +378,27 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 	iothreads := int(domain.Spec.IOThreads.IOThreads)
 	vcpus := int(CalculateRequestedVCPUs(domain.Spec.CPU.Topology))
 
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+	switch {
+	case vmi.Spec.Domain.IOThreads != nil && vmi.Spec.Domain.IOThreads.Count > 0:
+		indexEmulatorThread := 0
+		if emulatorThreadsCPUSet != "" {
+			indexEmulatorThread++
+		}
+		for i := 1; i <= int(vmi.Spec.Domain.IOThreads.Count); i++ {
+			// The cpus for the iothreads are additionally allocated and aren't part of the cpu set dedicated to the vcpus threads
+			cpu := vcpus + i + indexEmulatorThread
+			appendDomainIOThreadPin(domain, uint32(i), fmt.Sprintf("%d", cpu))
+		}
+	case vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread:
 		// pin the IOThread on the same pCPU as the emulator thread
 		appendDomainIOThreadPin(domain, uint32(1), emulatorThreadsCPUSet)
-	} else if iothreads >= vcpus {
+	case iothreads >= vcpus:
 		// pin an IOThread on a CPU
 		for thread := 1; thread <= iothreads; thread++ {
 			cpuset := fmt.Sprintf("%d", cpuset[thread%vcpus])
 			appendDomainIOThreadPin(domain, uint32(thread), cpuset)
 		}
-	} else {
+	default:
 		// the following will pin IOThreads to a set of cpus of a balanced size
 		// for example, for 3 threads and 8 cpus the output will look like:
 		// thread cpus
