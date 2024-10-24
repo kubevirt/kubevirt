@@ -503,3 +503,17 @@ func ConfirmMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMach
 	By("Verifying the VMI's migration mode")
 	ExpectWithOffset(1, vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
 }
+
+func WaitUntilMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode, timeout int, defaultValue v1.MigrationMode) *v1.VirtualMachineInstance {
+	By("Waiting until migration status")
+	EventuallyWithOffset(1, func() v1.MigrationMode {
+		By("Retrieving the VMI post migration")
+		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		if vmi.Status.MigrationState != nil {
+			return vmi.Status.MigrationState.Mode
+		}
+		return defaultValue
+	}, timeout, 1*time.Second).Should(Equal(expectedMode), fmt.Sprintf("migration should be in %s after %d s", expectedMode, timeout))
+	return vmi
+}

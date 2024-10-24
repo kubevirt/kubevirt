@@ -72,20 +72,6 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	waitUntilMigrationMode := func(vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode, timeout int) *v1.VirtualMachineInstance {
-		By("Waiting until migration status")
-		EventuallyWithOffset(2, func() v1.MigrationMode {
-			By("Retrieving the VMI post migration")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			if vmi.Status.MigrationState != nil {
-				return vmi.Status.MigrationState.Mode
-			}
-			return v1.MigrationPreCopy
-		}, timeout, 1*time.Second).Should(Equal(expectedMode), fmt.Sprintf("migration should be in %s after %d s", expectedMode, timeout))
-		return vmi
-	}
-
 	Describe("Starting a VirtualMachineInstance ", func() {
 
 		Context("migration postcopy", func() {
@@ -270,7 +256,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						migration = libmigration.RunMigration(virtClient, migration)
 
 						// check VMI, confirm migration state
-						waitUntilMigrationMode(vmi, v1.MigrationPostCopy, 300)
+						libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPostCopy, 300, v1.MigrationPreCopy)
 
 						// launch a migration killer pod on the node
 						By("Starting migration killer pods")

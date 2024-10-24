@@ -1229,7 +1229,11 @@ func (d *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	// Update paused condition in case VMI was paused / unpaused
 	if domain != nil && domain.Status.Status == api.Paused {
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			calculatePausedCondition(vmi, domain.Status.Reason)
+			reason := domain.Status.Reason
+			if d.isVMIPausedDuringMigration(vmi) {
+				reason = api.ReasonPausedMigration
+			}
+			calculatePausedCondition(vmi, reason)
 		}
 	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 		log.Log.Object(vmi).V(3).Info("Removing paused condition")
@@ -1581,10 +1585,20 @@ func sshRelatedCommandsSupported(commands []v1.GuestAgentCommandInfo) bool {
 }
 
 func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
+	now := metav1.NewTime(time.Now())
 	switch reason {
+	case api.ReasonPausedMigration:
+		log.Log.Object(vmi).V(3).Info("Adding paused condition")
+		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			Type:               v1.VirtualMachineInstancePaused,
+			Status:             k8sv1.ConditionTrue,
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+			Reason:             "PausedByMigrationMonitor",
+			Message:            "VMI was paused by the migration monitor",
+		})
 	case api.ReasonPausedUser:
 		log.Log.Object(vmi).V(3).Info("Adding paused condition")
-		now := metav1.NewTime(time.Now())
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstancePaused,
 			Status:             k8sv1.ConditionTrue,
@@ -1595,7 +1609,6 @@ func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateCh
 		})
 	case api.ReasonPausedIOError:
 		log.Log.Object(vmi).V(3).Info("Adding paused condition")
-		now := metav1.NewTime(time.Now())
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstancePaused,
 			Status:             k8sv1.ConditionTrue,
@@ -2637,6 +2650,12 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	return
 }
 
+func (d *VirtualMachineController) isVMIPausedDuringMigration(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.Mode == v1.MigrationPaused &&
+		!vmi.Status.MigrationState.Completed
+}
+
 func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
 
 	if vmi.Status.MigrationState != nil &&
@@ -2774,6 +2793,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
 			AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
 			AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
+			AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
 		}
 
 		if threadCountStr, exists := origVMI.Annotations[cmdclient.MultiThreadedQemuMigrationAnnotation]; exists {
