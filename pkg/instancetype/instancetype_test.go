@@ -2228,6 +2228,45 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(BeTrue())
 				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeNil())
 			})
+
+			It("should not overwrite EFI when using PreferredEfi - bug #12985", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: pointer.P(false),
+						},
+					},
+				}
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredEfi: &v1.EFI{
+							SecureBoot: pointer.P(true),
+							Persistent: pointer.P(true),
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).ToNot(BeNil())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeFalse())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(BeNil())
+			})
+
+			It("should not apply PreferredEfi when VM already using BIOS - bug #12985", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{},
+					},
+				}
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredEfi: &v1.EFI{},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS).ToNot(BeNil())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).To(BeNil())
+			})
 		})
 
 		Context("Preference.Machine", func() {
