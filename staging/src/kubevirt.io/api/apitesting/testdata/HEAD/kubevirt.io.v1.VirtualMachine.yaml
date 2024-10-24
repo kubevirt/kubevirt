@@ -853,3 +853,30 @@ status:
   - enabled: true
     name: nameValue
     reason: reasonValue
+  volumeUpdateState:
+    volumeMigrationState:
+      manualRecoveryRequired: true
+      migratedVolumes:
+      - destinationPVCInfo:
+          accessModes:
+          - accessModesValue
+          capacity:
+            capacityKey: "0"
+          claimName: claimNameValue
+          filesystemOverhead: filesystemOverheadValue
+          preallocated: true
+          requests:
+            requestsKey: "0"
+          volumeMode: volumeModeValue
+        sourcePVCInfo:
+          accessModes:
+          - accessModesValue
+          capacity:
+            capacityKey: "0"
+          claimName: claimNameValue
+          filesystemOverhead: filesystemOverheadValue
+          preallocated: true
+          requests:
+            requestsKey: "0"
+          volumeMode: volumeModeValue
+        volumeName: volumeNameValue
