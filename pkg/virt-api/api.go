@@ -31,31 +31,27 @@ import (
 	"syscall"
 	"time"
 
-	builderv3 "k8s.io/kube-openapi/pkg/builder3"
-	"k8s.io/kube-openapi/pkg/common/restfuladapter"
-	"k8s.io/kube-openapi/pkg/validation/spec"
-
-	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-
-	restful "github.com/emicklei/go-restful/v3"
+	"github.com/emicklei/go-restful/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	certificate2 "k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-
-	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
+	builderv3 "k8s.io/kube-openapi/pkg/builder3"
+	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	"k8s.io/kube-openapi/pkg/spec3"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
-
-	v12 "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -68,6 +64,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
+	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -701,6 +699,7 @@ func (app *virtAPIApp) composeSubresources() {
 			paths := []string{
 				"/apis",
 				"/openapi/v2",
+				"/openapi/v3",
 			}
 			for _, version := range v1.SubresourceGroupVersions {
 				paths = append(paths, definitions.GroupBasePath(version))
@@ -747,17 +746,29 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusOK, "OK", metav1.APIGroupList{}).
 		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
 
-	once := sync.Once{}
-	var openapispec *spec.Swagger
+	oncev2 := sync.Once{}
+	var openapispecv2 *spec.Swagger
 	ws.Route(ws.GET("openapi/v2").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON).
 		To(func(request *restful.Request, response *restful.Response) {
-			once.Do(func() {
-				openapispec = openapi.LoadOpenAPISpec([]*restful.WebService{ws, subwss[0]})
-				openapispec.Info.Version = virtversion.Get().String()
+			oncev2.Do(func() {
+				openapispecv2 = openapi.LoadOpenAPISpec([]*restful.WebService{ws, subwss[0]})
+				openapispecv2.Info.Version = virtversion.Get().String()
 			})
-			response.WriteAsJson(openapispec)
+			response.WriteAsJson(openapispecv2)
+		}))
+	oncev3 := sync.Once{}
+	var openapispecv3 *spec3.OpenAPI
+	ws.Route(ws.GET("openapi/v3").
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON).
+		To(func(request *restful.Request, response *restful.Response) {
+			oncev3.Do(func() {
+				openapispecv3 = openapi.LoadOpenAPIV3Spec([]*restful.WebService{ws, subwss[0]})
+				openapispecv3.Info.Version = virtversion.Get().String()
+			})
+			response.WriteAsJson(openapispecv3)
 		}))
 
 	restful.Add(ws)
@@ -787,7 +798,7 @@ func (app *virtAPIApp) Compose() {
 
 func (app *virtAPIApp) ConfigureOpenAPIService() {
 	config := openapi.CreateV3Config()
-	config.GetDefinitions = v12.GetOpenAPIDefinitions
+	config.GetDefinitions = api.GetOpenAPIDefinitions
 	spec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
 	if err != nil {
 		panic(err)
