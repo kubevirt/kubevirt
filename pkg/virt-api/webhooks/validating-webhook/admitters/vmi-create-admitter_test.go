@@ -1428,6 +1428,24 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.startStrategy"))
 			Expect(causes[0].Message).To(Equal("either fake.startStrategy or fake.livenessProbe should be provided.Pausing VMI with LivenessProbe is not supported"))
 		})
+
+		It("should allow valid panic device model", func() {
+			vmi := api.NewMinimalVMI("testvm")
+			panicDeviceModel := v1.Hyperv
+			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: &panicDeviceModel}}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject invalid panic device model", func() {
+			vmi := api.NewMinimalVMI("testvm")
+			panicDeviceModel := v1.PanicDeviceModel("bad")
+			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: &panicDeviceModel}}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf(invalidPanicDeviceModelErrFmt, panicDeviceModel)))
+		})
+
 		Context("with kernel boot defined", func() {
 
 			createKernelBoot := func(kernelArgs, initrdPath, kernelPath, image string) *v1.KernelBoot {
