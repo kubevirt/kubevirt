@@ -500,6 +500,12 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 	if vmExport.DeletionTimestamp != nil {
 		return 0, nil
 	}
+	if vmExport.Labels == nil {
+		vmExport.Labels = make(map[string]string)
+	}
+	if vmExport.Annotations == nil {
+		vmExport.Annotations = make(map[string]string)
+	}
 
 	service, err := ctrl.getOrCreateExportService(vmExport)
 	if err != nil {
@@ -807,6 +813,11 @@ func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.Virt
 }
 
 func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.VirtualMachineExport) *corev1.Service {
+	labels := map[string]string{virtv1.AppLabel: exportv1.App}
+	for key, value := range vmExport.Labels {
+		labels[key] = value
+	}
+
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ctrl.getExportServiceName(vmExport),
@@ -818,9 +829,8 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 					Kind:    exportGVK.Kind,
 				}),
 			},
-			Labels: map[string]string{
-				virtv1.AppLabel: exportv1.App,
-			},
+			Labels:      labels,
+			Annotations: vmExport.Annotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -893,7 +903,13 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	deadline := certParams.Duration - certParams.RenewBefore
 	podManifest := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
 	podManifest.Labels = map[string]string{exportServiceLabel: ctrl.getExportLabelValue(vmExport)}
+	for key, value := range vmExport.Labels {
+		podManifest.Labels[key] = value
+	}
 	podManifest.Annotations = map[string]string{annCertParams: scp}
+	for key, value := range vmExport.Annotations {
+		podManifest.Annotations[key] = value
+	}
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot:   pointer.P(true),
 		FSGroup:        pointer.P(int64(kvm)),
