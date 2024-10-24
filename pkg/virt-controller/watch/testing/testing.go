@@ -21,8 +21,11 @@ package testing
 import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/google/uuid"
+	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
@@ -100,4 +103,29 @@ func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string)
 
 func DefaultVirtualMachine(started bool) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 	return DefaultVirtualMachineWithNames(started, "testvmi", "testvmi")
+}
+
+type interf interface {
+	Execute() bool
+}
+
+func deepCopyList(objects []interface{}) []interface{} {
+	for i := range objects {
+		objects[i] = objects[i].(runtime.Object).DeepCopyObject()
+	}
+	return objects
+}
+
+func SanityExecute(c interf, stores []cache.Store, g gomega.Gomega) {
+	listOfObjects := [][]interface{}{}
+
+	for _, store := range stores {
+		listOfObjects = append(listOfObjects, deepCopyList(store.List()))
+	}
+
+	c.Execute()
+
+	for i, objects := range listOfObjects {
+		g.ExpectWithOffset(1, stores[i].List()).To(gomega.ConsistOf(objects...))
+	}
 }
