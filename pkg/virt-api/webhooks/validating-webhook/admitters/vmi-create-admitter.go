@@ -78,6 +78,7 @@ const (
 
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
+var validPanicDeviceModels = []v1.PanicDeviceModel{v1.PanicDeviceModelHyperv, v1.PanicDeviceModelIsa, v1.PanicDeviceModelPvpanic}
 
 var restrictedVmiLabels = map[string]bool{
 	v1.CreatedByLabel:               true,
@@ -213,6 +214,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 	causes = append(causes, validatePersistentState(field, spec, config)...)
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
+	causes = append(causes, validatePanicDevices(field, spec)...)
 
 	return causes
 }
@@ -2321,5 +2323,34 @@ func validateCPUHotplug(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 			})
 		}
 	}
+	return causes
+}
+
+func validatePanicDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if len(spec.Domain.Devices.PanicDevices) == 0 {
+		return causes
+	}
+	isValidPanicDeviceModel := func(model *v1.PanicDeviceModel) bool {
+		if model == nil {
+			return true
+		}
+		for _, m := range validPanicDeviceModels {
+			if *model == m {
+				return true
+			}
+		}
+		return false
+	}
+	for idx, panicDevice := range spec.Domain.Devices.PanicDevices {
+		if !isValidPanicDeviceModel(panicDevice.Model) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Invalid PanicDeviceModel (%s)", *panicDevice.Model),
+				Field:   field.Child("domain", "devices", "panicDevices").Index(idx).Child("model").String(),
+			})
+		}
+	}
+
 	return causes
 }
