@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/storage/utils"
@@ -77,6 +78,7 @@ const (
 
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto, v1.IOThreadsPolicySupplementalPool}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
+var validPanicDeviceModels = []v1.PanicDeviceModel{v1.Hyperv, v1.Isa, v1.Pvpanic}
 
 var restrictedVmiLabels = map[string]bool{
 	v1.CreatedByLabel:               true,
@@ -93,6 +95,8 @@ const (
 )
 
 var isValidExpression = regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
+
+var invalidPanicDeviceModelErrFmt = "invalid PanicDeviceModel(%s)"
 
 // SpecValidator validates the given VMI spec
 type SpecValidator func(*k8sfield.Path, *v1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause
@@ -240,6 +244,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateVideoConfig(field, spec, config)...)
+	causes = append(causes, validatePanicDevices(field, spec, config)...)
 
 	return causes
 }
@@ -2431,6 +2436,47 @@ func validateVideoConfig(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 			Message: "Video configuration is not allowed when autoattachGraphicsDevice is set to false",
 			Field:   field.Child("video").String(),
 		})
+	}
+
+	return causes
+}
+
+func validatePanicDeviceModel(field *k8sfield.Path, model *v1.PanicDeviceModel) *metav1.StatusCause {
+	if model == nil {
+		return nil
+	}
+	if !slices.Contains(validPanicDeviceModels, *model) {
+		return &metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf(invalidPanicDeviceModelErrFmt, *model),
+			Field:   field.String(),
+		}
+	}
+	return nil
+}
+
+func validatePanicDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if len(spec.Domain.Devices.PanicDevices) == 0 {
+		return causes
+	}
+	arch := spec.Architecture
+	if arch == "" {
+		arch = config.GetDefaultArchitecture()
+	}
+
+	if arch == "s390x" || arch == "ppc64le" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("custom panic devices are not supported on %s architecture", arch),
+			Field:   field.Child("domain", "devices", "panicDevices").String(),
+		})
+	}
+
+	for idx, panicDevice := range spec.Domain.Devices.PanicDevices {
+		if cause := validatePanicDeviceModel(field.Child("domain", "devices", "panicDevices").Index(idx).Child("model"), panicDevice.Model); cause != nil {
+			causes = append(causes, *cause)
+		}
 	}
 
 	return causes
