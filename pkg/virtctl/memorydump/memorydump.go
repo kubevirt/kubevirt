@@ -44,13 +44,14 @@ import (
 )
 
 const (
-	claimNameArg    = "claim-name"
-	createClaimArg  = "create-claim"
-	storageClassArg = "storage-class"
-	accessModeArg   = "access-mode"
-	portForwardArg  = "port-forward"
-	formatArg       = "format"
-	localPortArg    = "local-port"
+	ClaimNameFlag    = "claim-name"
+	CreateClaimFlag  = "create-claim"
+	StorageClassFlag = "storage-class"
+	AccessModeFlag   = "access-mode"
+	PortForwardFlag  = "port-forward"
+	FormatFlag       = "format"
+	LocalPortFlag    = "local-port"
+	OutputFileFlag   = "output"
 
 	configName         = "config"
 	filesystemOverhead = v1.Percent("0.055")
@@ -75,11 +76,8 @@ type command struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-type memoryDumpCompleteFunc func(kubecli.KubevirtClient, string, string, time.Duration, time.Duration) (string, error)
-
-// WaitMemoryDumpCompleted is used to store the function to wait for the memory dump to be complete.
-// Useful for unit tests.
-var WaitMemoryDumpComplete memoryDumpCompleteFunc = waitForMemoryDump
+// WaitForMemoryDumpCompleteFn allows overriding the function to wait for the memory dump object to be complete (useful for unit testing)
+var WaitForMemoryDumpCompleteFn = WaitForMemoryDumpComplete
 
 func usageMemoryDump() string {
 	usage := `  #Dump memory of a virtual machine instance called 'myvm' to an existing pvc called 'memoryvolume'.
@@ -116,14 +114,14 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
-	cmd.Flags().BoolVar(&createClaim, createClaimArg, false, "Create the pvc that will conatin the memory dump")
-	cmd.Flags().BoolVar(&portForward, portForwardArg, false, "Configure and set port-forward in a random port to download the memory dump")
-	cmd.Flags().StringVar(&format, formatArg, "", "Specifies the format of the memory dump download (gzipped or raw).")
-	cmd.Flags().StringVar(&localPort, localPortArg, "0", "Specify port for port-forward")
-	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
-	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
-	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the memory dump to be downloaded.")
+	cmd.Flags().StringVar(&claimName, ClaimNameFlag, "", "pvc name to contain the memory dump")
+	cmd.Flags().BoolVar(&createClaim, CreateClaimFlag, false, "Create the pvc that will conatin the memory dump")
+	cmd.Flags().BoolVar(&portForward, PortForwardFlag, false, "Configure and set port-forward in a random port to download the memory dump")
+	cmd.Flags().StringVar(&format, FormatFlag, "", "Specifies the format of the memory dump download (gzipped or raw).")
+	cmd.Flags().StringVar(&localPort, LocalPortFlag, "0", "Specify port for port-forward")
+	cmd.Flags().StringVar(&storageClass, StorageClassFlag, "", "The storage class for the PVC.")
+	cmd.Flags().StringVar(&accessMode, AccessModeFlag, "", "The access mode for the PVC.")
+	cmd.Flags().StringVar(&outputFile, OutputFileFlag, "", "Specifies the output path of the memory dump to be downloaded.")
 
 	return cmd
 }
@@ -313,7 +311,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 	}
 
 	// Wait for the memorydump to complete
-	claimName, err := WaitMemoryDumpComplete(virtClient, namespace, vmName, processingWaitInterval, processingWaitTotal)
+	claimName, err := WaitForMemoryDumpCompleteFn(virtClient, namespace, vmName, processingWaitInterval, processingWaitTotal)
 	if err != nil {
 		return err
 	}
@@ -360,7 +358,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 	return vmexport.DownloadVirtualMachineExport(virtClient, vmExportInfo)
 }
 
-func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
+func WaitForMemoryDumpComplete(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
 	var claimName string
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
