@@ -207,6 +207,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateLiveMigration(field, spec, config)...)
 	causes = append(causes, validateMDEVRamFB(field, spec)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validateResourceClaims(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 	causes = append(causes, validateVSOCK(field, spec, config)...)
@@ -460,6 +461,24 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 			Message: "Host Devices feature gate is not enabled in kubevirt-config",
 			Field:   field.Child("HostDevices").String(),
 		})
+	}
+	return causes
+}
+
+func validateResourceClaims(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	isDRAenabled := config.DynamicResourceAllocationEnabled()
+
+	if !isDRAenabled {
+		for idx, hostDevice := range spec.Domain.Devices.HostDevices {
+			if hostDevice.ResourceClaim != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "ResourceClaim is not allowed when DynamicResourceAllocation is not enabled",
+					Field:   field.Child("domain", "devices", "hostDevices").Index(idx).Child("resourceClaim").String(),
+				})
+			}
+		}
 	}
 	return causes
 }

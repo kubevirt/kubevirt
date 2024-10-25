@@ -399,7 +399,14 @@
               {
                 "name": "nameValue",
                 "deviceName": "deviceNameValue",
-                "tag": "tagValue"
+                "tag": "tagValue",
+                "resourceClaim": {
+                  "name": "nameValue",
+                  "source": {
+                    "resourceClaimName": "resourceClaimNameValue",
+                    "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
+                  }
+                }
               }
             ],
             "clientPassthrough": {},
