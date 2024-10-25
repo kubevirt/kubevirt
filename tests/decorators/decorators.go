@@ -15,6 +15,7 @@ var (
 	SigComputeRealtime   = Label("sig-compute-realtime")
 	SigComputeMigrations = Label("sig-compute-migrations")
 	SigMonitoring        = Label("sig-monitoring")
+	SigPerformance       = Label("sig-performance")
 
 	// HW
 	GPU         = Label("GPU")
