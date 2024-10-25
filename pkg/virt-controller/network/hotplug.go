@@ -69,6 +69,16 @@ func ApplyDynamicIfaceRequestOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachine
 			vmiIface.State = v1.InterfaceStateAbsent
 		}
 	}
+	// Also unplug VMI interfaces that don't exist in VM spec
+	vmSpecCopy := vm.Spec.DeepCopy()
+	vmIndexedInterfaces := vmispec.IndexInterfaceSpecByName(vmSpecCopy.Template.Spec.Domain.Devices.Interfaces)
+	for _, vmiIface := range vmiSpecCopy.Domain.Devices.Interfaces {
+		_, existsInVMSpec := vmIndexedInterfaces[vmiIface.Name]
+		if !existsInVMSpec {
+			vmiIface := vmispec.LookupInterfaceByName(vmiSpecCopy.Domain.Devices.Interfaces, vmiIface.Name)
+			vmiIface.State = v1.InterfaceStateAbsent
+		}
+	}
 	return vmiSpecCopy
 }
 
