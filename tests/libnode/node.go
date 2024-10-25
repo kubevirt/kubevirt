@@ -333,6 +333,15 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 	return nil
 }
 
+func GetNodeNameWithHandler() string {
+	virtClient := kubevirt.Client()
+	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"})
+	Expect(err).ToNot(HaveOccurred())
+	node, err := virtClient.CoreV1().Nodes().Get(context.Background(), virtHandlerPods.Items[0].Spec.NodeName, k8smetav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return node.ObjectMeta.Name
+}
+
 func GetArch() string {
 	virtCli := kubevirt.Client()
 	nodeList := GetAllSchedulableNodes(virtCli).Items
