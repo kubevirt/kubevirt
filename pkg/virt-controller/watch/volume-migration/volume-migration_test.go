@@ -81,11 +81,11 @@ var _ = Describe("Volume Migration", func() {
 			), libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), withFilesystemVolume("disk1", "vol4"),
 			)), fmt.Errorf("invalid volumes to update with migration: filesystems: [disk1]")),
-			Entry("with an invalid hotplugged volume", libvmi.New(
-				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), withFilesystemVolume("disk1", "vol1"),
+			Entry("with valid hotplugged volume", libvmi.New(
+				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), withHotpluggedVolume("disk1", "vol1"),
 			), libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), withHotpluggedVolume("disk1", "vol4"),
-			)), fmt.Errorf("invalid volumes to update with migration: hotplugged: [disk1]")),
+			)), nil),
 		)
 	})
 

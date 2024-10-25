@@ -115,12 +115,6 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 			continue
 		}
 
-		// Hotplugged volumes
-		if storagetypes.IsHotplugVolume(&v) {
-			invalidVols.hotplugged = append(invalidVols.hotplugged, v.Name)
-			valid = false
-			continue
-		}
 		// Filesystems
 		if _, ok := filesystems[v.Name]; ok {
 			invalidVols.fs = append(invalidVols.fs, v.Name)
