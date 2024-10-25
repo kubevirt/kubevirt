@@ -222,7 +222,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			Expect(err).To(MatchError(ContainSubstring("VM is not running")))
 		})
 
-		It("[test_id:3007][QUARANTINE] Should force restart a VM with terminationGracePeriodSeconds>0", decorators.Quarantine, func() {
+		It("[test_id:3007] Should force restart a VM with terminationGracePeriodSeconds>0", func() {
 			By("getting a VM with high TerminationGracePeriod")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)))
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
