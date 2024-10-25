@@ -91,6 +91,14 @@ func MigrationFailed(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func MigrationCompleted(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+		return true
+	}
+
+	return false
+}
+
 func VMIEvictionStrategy(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) *v1.EvictionStrategy {
 	if vmi != nil && vmi.Spec.EvictionStrategy != nil {
 		return vmi.Spec.EvictionStrategy
