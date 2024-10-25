@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "generated_mock_mount.go",
+        "kernelboot.go",
         "mount.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/container-disk",
