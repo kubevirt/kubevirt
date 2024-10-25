@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = DescribeInfra("changes to the kubernetes client", func() {
+var _ = DescribeSerialInfra("changes to the kubernetes client", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		err        error
