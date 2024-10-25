@@ -56,51 +56,6 @@ var _ = Describe("Validating Preference Admitter", func() {
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
 	})
 
-	It("should reject unsupported PreferredCPUTopolgy value", func() {
-		unsupportedTopology := instancetypev1beta1.PreferredCPUTopology("foo")
-		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
-			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(unsupportedTopology),
-				},
-			},
-		}
-		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
-		Expect(response.Result.Details.Causes).To(HaveLen(1))
-		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(preferredCPUTopologyUnknownErrFmt, unsupportedTopology)))
-		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "preferredCPUTopology").String()))
-	})
-
-	DescribeTable("should reject unsupported SpreadOptions Across value", func(preferredCPUTopology instancetypev1beta1.PreferredCPUTopology) {
-		var unsupportedAcrossValue instancetypev1beta1.SpreadAcross = "foobar"
-		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
-			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-				PreferSpreadSocketToCoreRatio: uint32(3),
-				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: &preferredCPUTopology,
-					SpreadOptions: &instancetypev1beta1.SpreadOptions{
-						Across: pointer.P(unsupportedAcrossValue),
-					},
-				},
-			},
-		}
-		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
-		Expect(response.Result.Details.Causes).To(HaveLen(1))
-		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(spreadAcrossUnsupportedErrFmt, unsupportedAcrossValue)))
-		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "across").String()))
-	},
-		Entry("with spread", instancetypev1beta1.Spread),
-		Entry("with preferSpread", instancetypev1beta1.DeprecatedPreferSpread),
-	)
-
 	DescribeTable("should reject when spreading vCPUs across CoresThreads with a ratio higher than 2 set through", func(preferenceObj instancetypev1beta1.VirtualMachinePreference) {
 		ar := createPreferenceAdmissionReview(&preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
 		response := admitter.Admit(context.Background(), ar)
@@ -221,32 +176,6 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
 	})
-
-	DescribeTable("should reject unsupported SpreadOptions Across value", func(preferredCPUTopology instancetypev1beta1.PreferredCPUTopology) {
-		var unsupportedAcrossValue instancetypev1beta1.SpreadAcross = "foobar"
-		clusterPreferenceObj = &instancetypev1beta1.VirtualMachineClusterPreference{
-			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-				PreferSpreadSocketToCoreRatio: uint32(3),
-				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: &preferredCPUTopology,
-					SpreadOptions: &instancetypev1beta1.SpreadOptions{
-						Across: pointer.P(unsupportedAcrossValue),
-					},
-				},
-			},
-		}
-		ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
-		Expect(response.Result.Details.Causes).To(HaveLen(1))
-		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(spreadAcrossUnsupportedErrFmt, unsupportedAcrossValue)))
-		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "across").String()))
-	},
-		Entry("with spread", instancetypev1beta1.Spread),
-		Entry("with preferSpread", instancetypev1beta1.DeprecatedPreferSpread),
-	)
 
 	DescribeTable("should reject when spreading vCPUs across CoresThreads with a ratio higher than 2 set through", func(clusterPreferenceObj instancetypev1beta1.VirtualMachineClusterPreference) {
 		ar := createClusterPreferenceAdmissionReview(&clusterPreferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)

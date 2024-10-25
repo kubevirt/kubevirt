@@ -139,3 +139,16 @@ func WithPreferredDiskBus(bus v1.DiskBus) PreferenceSpecOption {
 		spec.Devices.PreferredDiskBus = bus
 	}
 }
+
+func WithSpreadAcross(across instancetypev1beta1.SpreadAcross) PreferenceSpecOption {
+	return func(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
+		if spec.CPU == nil {
+			spec.CPU = &instancetypev1beta1.CPUPreferences{}
+		}
+		if spec.CPU.SpreadOptions == nil {
+			spec.CPU.SpreadOptions = &instancetypev1beta1.SpreadOptions{}
+		}
+		spec.CPU.PreferredCPUTopology = pointer.P(instancetypev1beta1.Spread)
+		spec.CPU.SpreadOptions.Across = pointer.P(across)
+	}
+}
