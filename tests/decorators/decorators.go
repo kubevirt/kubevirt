@@ -38,6 +38,7 @@ var (
 	Reenlightenment                      = Label("Reenlightenment")
 	TscFrequencies                       = Label("TscFrequencies")
 	PasstGate                            = Label("PasstGate")
+	HostDiskGate                         = Label("HostDiskGate")
 	VMX                                  = Label("VMX")
 	Upgrade                              = Label("Upgrade")
 	CustomSELinux                        = Label("CustomSELinux")
@@ -52,6 +53,8 @@ var (
 	RequiresTwoWorkerNodesWithCPUManager = Label("requires-two-worker-nodes-with-cpu-manager")
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
+	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
+	BlockRWO                             = Label("blockrwo")
 
 	// Storage classes
 	RequiresSnapshotStorageClass = Label("RequiresSnapshotStorageClass")
