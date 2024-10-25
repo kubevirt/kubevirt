@@ -134,7 +134,7 @@ type SysprepSource struct {
 type CloudInitNoCloudSource struct {
 	// UserDataSecretRef references a k8s secret that contains NoCloud userdata.
 	// + optional
-	UserDataSecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
+	UserDataSecretRef *v1.LocalObjectReference `json:"userDataSecretRef,omitempty"`
 	// UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string.
 	// + optional
 	UserDataBase64 string `json:"userDataBase64,omitempty"`
