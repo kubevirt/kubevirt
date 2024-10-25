@@ -32,11 +32,14 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -47,7 +50,12 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/testsuite"
+)
+
+const (
+	virtApiComponentName        = "virt-api"
+	virtHandlerComponentName    = "virt-handler"
+	virtControllerComponentName = "virt-controller"
 )
 
 type compare func(string, string) bool
@@ -91,10 +99,39 @@ func PatchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubec
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
 // and then waits  to allow the configuration events to be propagated to the consumers.
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
+	kv := UpdateKubeVirtConfigValue(kvConfig)
 
 	waitForConfigToBePropagated(kv.ResourceVersion)
 	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
+
+	return kv
+}
+
+// UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource
+func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
+
+	virtClient := kubevirt.Client()
+
+	kv := libkubevirt.GetCurrentKv(virtClient)
+	old, err := json.Marshal(kv)
+	Expect(err).ToNot(HaveOccurred())
+
+	if equality.Semantic.DeepEqual(kv.Spec.Configuration, kvConfig) {
+		return kv
+	}
+
+	Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "Tests which alter the global kubevirt configuration must not be executed in parallel, see https://onsi.github.io/ginkgo/#serial-specs")
+
+	updatedKV := kv.DeepCopy()
+	updatedKV.Spec.Configuration = kvConfig
+	newJson, err := json.Marshal(updatedKV)
+	Expect(err).ToNot(HaveOccurred())
+
+	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, kv)
+	Expect(err).ToNot(HaveOccurred())
+
+	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
 	return kv
 }
@@ -121,9 +158,9 @@ func ExpectResourceVersionToBeLessEqualThanConfigVersion(resourceVersion, config
 }
 
 func waitForConfigToBePropagated(resourceVersion string) {
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
+	checkComponentVersions(virtHandlerComponentName, resourceVersion)
+	checkComponentVersions(virtControllerComponentName, resourceVersion)
+	checkComponentVersions(virtApiComponentName, resourceVersion)
 }
 
 func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare, duration time.Duration) {
@@ -161,6 +198,34 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 		}
 		return nil
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
+}
+
+func checkComponentVersions(componentName string, resourceVersion string) {
+	rv, err := strconv.ParseInt(resourceVersion, 10, 32)
+	Expect(err).ToNot(HaveOccurred())
+
+	virtClient := kubevirt.Client()
+
+	EventuallyWithOffset(3, func(g Gomega) {
+		kv := libkubevirt.GetCurrentKv(virtClient)
+		g.Expect(kv.Status.ComponentVersions).ToNot(BeNil())
+		var componentVersions map[string]string
+		switch componentName {
+		case virtHandlerComponentName:
+			componentVersions = kv.Status.ComponentVersions.VirtHandler
+		case virtControllerComponentName:
+			componentVersions = kv.Status.ComponentVersions.VirtController
+		case virtApiComponentName:
+			componentVersions = kv.Status.ComponentVersions.VirtApi
+		}
+		g.Expect(componentVersions).ToNot(BeNil())
+
+		for _, version := range componentVersions {
+			crv, err := strconv.ParseInt(version, 10, 32)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(crv).To(BeNumerically(">=", rv))
+		}
+	}, 60*time.Second, 1*time.Second).Should(Succeed())
 }
 
 func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
