@@ -105,63 +105,6 @@ var _ = Describe("Network Name Scheme", func() {
 			}),
 	)
 
-	Context("CreateNetworkNameSchemeByPodNetworkStatus", func() {
-		const (
-			redNetworkName      = "red"
-			redIfaceHashedName  = "podb1f51a511f1"
-			redIfaceOrdinalName = "net1"
-
-			greenNetworkName      = "green"
-			greenIfaceHashedName  = "podba4788b226a"
-			greenIfaceOrdinalName = "net2"
-		)
-
-		DescribeTable("should return mapping between VMI networks and the pod interfaces names according to Multus network-status annotation",
-			func(networks []virtv1.Network, networkStatus map[string]networkv1.NetworkStatus, expectedNameScheme map[string]string) {
-				Expect(namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, networkStatus)).To(Equal(expectedNameScheme))
-			},
-			Entry("when Multus network-status annotation is absent",
-				multusNetworks(redNetworkName, greenNetworkName),
-				map[string]networkv1.NetworkStatus{},
-				map[string]string{
-					redNetworkName:   redIfaceHashedName,
-					greenNetworkName: greenIfaceHashedName,
-				},
-			),
-			Entry("given only pod network",
-				[]virtv1.Network{newPodNetwork()},
-				map[string]networkv1.NetworkStatus{
-					"default": {Interface: namescheme.PrimaryPodInterfaceName},
-				},
-				map[string]string{
-					"default": namescheme.PrimaryPodInterfaceName,
-				},
-			),
-			Entry("when the annotation reflects the pod interfaces naming is hashed",
-				multusNetworks(redNetworkName, greenNetworkName),
-				map[string]networkv1.NetworkStatus{
-					redNetworkName:   {Interface: redIfaceHashedName},
-					greenNetworkName: {Interface: greenIfaceHashedName},
-				},
-				map[string]string{
-					redNetworkName:   redIfaceHashedName,
-					greenNetworkName: greenIfaceHashedName,
-				},
-			),
-			Entry("when the annotation reflects the pod interface naming is ordinal",
-				multusNetworks(redNetworkName, greenNetworkName),
-				map[string]networkv1.NetworkStatus{
-					redNetworkName:   {Interface: redIfaceOrdinalName},
-					greenNetworkName: {Interface: greenIfaceOrdinalName},
-				},
-				map[string]string{
-					redNetworkName:   redIfaceOrdinalName,
-					greenNetworkName: greenIfaceOrdinalName,
-				},
-			),
-		)
-	})
-
 	Context("CreateFromNetworkStatuses", func() {
 		const (
 			network1Name         = "red"
@@ -197,37 +140,6 @@ var _ = Describe("Network Name Scheme", func() {
 				[]networkv1.NetworkStatus{{Interface: podIface1OrdinalName}, {Interface: podIface2OrdinalName}},
 				map[string]string{network1Name: podIface1OrdinalName, network2Name: podIface2OrdinalName},
 			),
-		)
-	})
-
-	Context("PodHasOrdinalInterfaceName", func() {
-		DescribeTable("should return TRUE, given network status with ordinal interface names",
-			func(podNetworkStatus map[string]networkv1.NetworkStatus) {
-				Expect(namescheme.PodHasOrdinalInterfaceName(podNetworkStatus)).To(BeTrue())
-			},
-			Entry("with primary pod network interface", map[string]networkv1.NetworkStatus{
-				"A": {Interface: "eth0"},
-				"B": {Interface: "net1"},
-				"C": {Interface: "net2"},
-			}),
-			Entry("without primary pod network interface", map[string]networkv1.NetworkStatus{
-				"A": {Interface: "net1"},
-				"B": {Interface: "net2"},
-			}),
-		)
-		DescribeTable("should return FALSE, given network status with hashed interface names",
-			func(podNetworkStatus map[string]networkv1.NetworkStatus) {
-				Expect(namescheme.PodHasOrdinalInterfaceName(podNetworkStatus)).To(BeFalse())
-			},
-			Entry("with primary pod network interface", map[string]networkv1.NetworkStatus{
-				"A": {Interface: "eth0"},
-				"B": {Interface: "podb1f51a511f1"},
-				"C": {Interface: "pod16477688c0e"},
-			}),
-			Entry("without primary pod network interface", map[string]networkv1.NetworkStatus{
-				"A": {Interface: "podb1f51a511f1"},
-				"B": {Interface: "pod16477688c0e"},
-			}),
 		)
 	})
 

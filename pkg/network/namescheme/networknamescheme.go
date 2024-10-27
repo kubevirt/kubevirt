@@ -122,18 +122,6 @@ func generateOrdinalInterfaceName(idx int) string {
 	return fmt.Sprintf("%s%d", ordinalIfacePrefix, idx)
 }
 
-// CreateNetworkNameSchemeByPodNetworkStatus create pod network name scheme according to the given VMI spec networks
-// and pod network status.
-// In case the pod network status has at least one interface with ordinal interface name it returns the ordinal network
-// name-scheme, Otherwise, returns the hashed network name scheme.
-func CreateNetworkNameSchemeByPodNetworkStatus(networks []v1.Network, networkStatus map[string]networkv1.NetworkStatus) map[string]string {
-	if PodHasOrdinalInterfaceName(networkStatus) {
-		return CreateOrdinalNetworkNameScheme(networks)
-	}
-
-	return CreateHashedNetworkNameScheme(networks)
-}
-
 // CreateFromNetworkStatuses creates a mapping of network name to pod interface name
 // based on the given VMI spec networks and pod network statuses.
 // In case the pod network status list has at least one interface with ordinal interface name -
@@ -144,16 +132,6 @@ func CreateFromNetworkStatuses(networks []v1.Network, networkStatuses []networkv
 	}
 
 	return CreateHashedNetworkNameScheme(networks)
-}
-
-// PodHasOrdinalInterfaceName check if the given pod network status has at least one pod interface with ordinal name
-func PodHasOrdinalInterfaceName(podNetworkStatus map[string]networkv1.NetworkStatus) bool {
-	for _, networkStatus := range podNetworkStatus {
-		if OrdinalSecondaryInterfaceName(networkStatus.Interface) {
-			return true
-		}
-	}
-	return false
 }
 
 // PodHasOrdinalInterfaceName2 checks if the given pod network status has at least one pod interface with ordinal name
