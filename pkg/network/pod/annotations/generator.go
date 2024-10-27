@@ -80,7 +80,7 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 // GenerateFromSource generates ordinal pod interfaces naming scheme for a migration target in case the migration source pod uses it
 func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8Scorev1.Pod) (map[string]string, error) {
-	if !namescheme.PodHasOrdinalInterfaceName2(multus.NetworkStatusesFromPod(sourcePod)) {
+	if !namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(sourcePod)) {
 		return nil, nil
 	}
 

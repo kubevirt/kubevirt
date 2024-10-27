@@ -143,10 +143,10 @@ var _ = Describe("Network Name Scheme", func() {
 		)
 	})
 
-	Context("PodHasOrdinalInterfaceName2", func() {
+	Context("PodHasOrdinalInterfaceName", func() {
 		DescribeTable("should return TRUE, given network status with ordinal interface names",
 			func(podNetworkStatuses []networkv1.NetworkStatus) {
-				Expect(namescheme.PodHasOrdinalInterfaceName2(podNetworkStatuses)).To(BeTrue())
+				Expect(namescheme.PodHasOrdinalInterfaceName(podNetworkStatuses)).To(BeTrue())
 			},
 			Entry("with primary pod network interface",
 				[]networkv1.NetworkStatus{
@@ -163,7 +163,7 @@ var _ = Describe("Network Name Scheme", func() {
 
 		DescribeTable("should return FALSE",
 			func(podNetworkStatuses []networkv1.NetworkStatus) {
-				Expect(namescheme.PodHasOrdinalInterfaceName2(podNetworkStatuses)).To(BeFalse())
+				Expect(namescheme.PodHasOrdinalInterfaceName(podNetworkStatuses)).To(BeFalse())
 			},
 			Entry("When networks statutes is empty", []networkv1.NetworkStatus{}),
 			Entry("when networks statutes has primary pod and hashed secondary network interface",
