@@ -134,6 +134,18 @@ func CreateNetworkNameSchemeByPodNetworkStatus(networks []v1.Network, networkSta
 	return CreateHashedNetworkNameScheme(networks)
 }
 
+// CreateFromNetworkStatuses creates a mapping of network name to pod interface name
+// based on the given VMI spec networks and pod network statuses.
+// In case the pod network status list has at least one interface with ordinal interface name -
+// the function will return an ordinal network name-scheme.
+func CreateFromNetworkStatuses(networks []v1.Network, networkStatuses []networkv1.NetworkStatus) map[string]string {
+	if PodHasOrdinalInterfaceName2(networkStatuses) {
+		return CreateOrdinalNetworkNameScheme(networks)
+	}
+
+	return CreateHashedNetworkNameScheme(networks)
+}
+
 // PodHasOrdinalInterfaceName check if the given pod network status has at least one pod interface with ordinal name
 func PodHasOrdinalInterfaceName(podNetworkStatus map[string]networkv1.NetworkStatus) bool {
 	for _, networkStatus := range podNetworkStatus {

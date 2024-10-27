@@ -161,6 +161,45 @@ var _ = Describe("Network Name Scheme", func() {
 			),
 		)
 	})
+
+	Context("CreateFromNetworkStatuses", func() {
+		const (
+			network1Name         = "red"
+			podIface1HashedName  = "podb1f51a511f1"
+			podIface1OrdinalName = "net1"
+
+			network2Name         = "green"
+			podIface2HashedName  = "podba4788b226a"
+			podIface2OrdinalName = "net2"
+		)
+
+		DescribeTable("should map VMI network names to pod interfaces names",
+			func(networks []virtv1.Network, networkStatuses []networkv1.NetworkStatus, expectedNameScheme map[string]string) {
+				Expect(namescheme.CreateFromNetworkStatuses(networks, networkStatuses)).To(Equal(expectedNameScheme))
+			},
+			Entry("when network status slice is empty",
+				multusNetworks(network1Name, network2Name),
+				[]networkv1.NetworkStatus{},
+				map[string]string{network1Name: podIface1HashedName, network2Name: podIface2HashedName},
+			),
+			Entry("given only pod network",
+				[]virtv1.Network{newPodNetwork()},
+				[]networkv1.NetworkStatus{{Interface: namescheme.PrimaryPodInterfaceName}},
+				map[string]string{"default": namescheme.PrimaryPodInterfaceName},
+			),
+			Entry("when the pod interfaces use a hashed naming scheme",
+				multusNetworks(network1Name, network2Name),
+				[]networkv1.NetworkStatus{{Interface: podIface1HashedName}, {Interface: podIface2HashedName}},
+				map[string]string{network1Name: podIface1HashedName, network2Name: podIface2HashedName},
+			),
+			Entry("when the pod interfaces use an ordinal naming scheme",
+				multusNetworks(network1Name, network2Name),
+				[]networkv1.NetworkStatus{{Interface: podIface1OrdinalName}, {Interface: podIface2OrdinalName}},
+				map[string]string{network1Name: podIface1OrdinalName, network2Name: podIface2OrdinalName},
+			),
+		)
+	})
+
 	Context("PodHasOrdinalInterfaceName", func() {
 		DescribeTable("should return TRUE, given network status with ordinal interface names",
 			func(podNetworkStatus map[string]networkv1.NetworkStatus) {

@@ -33,11 +33,11 @@ func MapNetworkNameToDeviceInfo(networks []v1.Network,
 	networkStatuses []networkv1.NetworkStatus,
 ) map[string]*networkv1.DeviceInfo {
 	multusInterfaceNameToNetworkStatus := multus.NetworkStatusesByPodIfaceName(networkStatuses)
-	networkNameScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, multusInterfaceNameToNetworkStatus)
+	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(networks, networkStatuses)
 
 	networkDeviceInfo := map[string]*networkv1.DeviceInfo{}
 	for _, iface := range interfaces {
-		multusInterfaceName := networkNameScheme[iface.Name]
+		multusInterfaceName := podIfaceNamesByNetworkName[iface.Name]
 		networkStatusEntry, exist := multusInterfaceNameToNetworkStatus[multusInterfaceName]
 		if exist && networkStatusEntry.DeviceInfo != nil {
 			networkDeviceInfo[iface.Name] = networkStatusEntry.DeviceInfo
