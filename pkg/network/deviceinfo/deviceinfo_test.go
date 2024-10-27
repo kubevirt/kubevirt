@@ -19,10 +19,10 @@
 package deviceinfo_test
 
 import (
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -33,68 +33,54 @@ import (
 var _ = Describe("DeviceInfo", func() {
 	const deviceInfoPlugin = "deviceinfo"
 
-	networkStatusWithMixedNetworks := `[
+	networkStatusWithMixedNetworks := []networkv1.NetworkStatus{
 		{
-		    "name": "kindnet",
-		    "interface": "eth0",
-		    "ips": [
-		      "10.244.1.9"
-		    ],
-		    "mac": "3a:7e:42:fa:37:c6",
-            "default": true,
-		    "dns": {}
-	    },
-	    {
-		    "name": "default/nad1",
-		    "interface": "pod6446d58d6df",
-		    "mac": "8a:37:d9:e7:0f:18",
-		    "dns": {}
-	    },
-	    {
-		    "name": "default/nad2",
-		    "interface": "pod2c26b46b68f",
-		    "dns": {},
-		    "device-info": {
-		      "type": "pci",
-		      "version": "1.0.0",
-		      "pci": {
-			    "pci-address": "0000:65:00.2"
-		      }
-		    }
-	    }
-    ]`
+			Name:      "kindnet",
+			Interface: "eth0",
+			IPs:       []string{"10.244.1.9"},
+			Mac:       "3a:7e:42:fa:37:c6",
+			Default:   true,
+			DNS:       networkv1.DNS{},
+		},
+		{
+			Name:      "default/nad1",
+			Interface: "pod6446d58d6df",
+			Mac:       "8a:37:d9:e7:0f:18",
+			DNS:       networkv1.DNS{},
+		},
+		{
+			Name:      "default/nad2",
+			Interface: "pod2c26b46b68f",
+			DNS:       networkv1.DNS{},
+			DeviceInfo: &networkv1.DeviceInfo{
+				Type:    "pci",
+				Version: "1.0.0",
+				Pci:     &networkv1.PciDevice{PciAddress: "0000:65:00.2"},
+			},
+		},
+	}
 
-	networkStatusWithPrimaryInterfaceOnly := `[
-	    {
-		    "name": "kindnet",
-		    "interface": "eth0",
-		    "ips": [
-		      "10.244.2.131"
-		    ],
-		    "mac": "82:cf:7c:98:43:7e",
-		    "default": true,
-		    "dns": {}
-	    }
-    ]`
+	networkStatusWithPrimaryInterfaceOnly := []networkv1.NetworkStatus{
+		{
+			Name:      "kindnet",
+			Interface: "eth0",
+			IPs:       []string{"10.244.2.131"},
+			Mac:       "82:cf:7c:98:43:7e",
+			Default:   true,
+			DNS:       networkv1.DNS{},
+		},
+	}
 
-	DescribeTable("should return an error",
-		func(networkStatusAnnotationValue string) {
+	DescribeTable("should return an empty map",
+		func(networkStatuses []networkv1.NetworkStatus) {
 			networks := []v1.Network{*libvmi.MultusNetwork("foo", "default/nad1")}
 			interfaces := []v1.Interface{newBindingPluginInterface("foo", deviceInfoPlugin)}
-			_, err := deviceinfo.MapNetworkNameToDeviceInfo(networks, networkStatusAnnotationValue, interfaces)
-			Expect(err).To(HaveOccurred())
-		},
-		Entry("when networkStatus annotation is empty", ""),
-		Entry("when networkStatus annotation has invalid format", "invalid"),
-	)
 
-	It("should return empty map when the interface is not in the multus status", func() {
-		networkList := []v1.Network{*libvmi.MultusNetwork("notfoo", "default/nad1")}
-		interfaceList := []v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding("notfoo")}
-		Expect(deviceinfo.MapNetworkNameToDeviceInfo(
-			networkList, networkStatusWithPrimaryInterfaceOnly, interfaceList,
-		)).To(BeEmpty())
-	})
+			Expect(deviceinfo.MapNetworkNameToDeviceInfo(networks, interfaces, networkStatuses)).To(BeEmpty())
+		},
+		Entry("when networkStatus list is nil", nil),
+		Entry("when the interface is not in the multus status", networkStatusWithPrimaryInterfaceOnly),
+	)
 
 	It("should return network device info mapping with multiple networks", func() {
 		networks := []v1.Network{
@@ -112,9 +98,7 @@ var _ = Describe("DeviceInfo", func() {
 		expectedMap := map[string]*networkv1.DeviceInfo{
 			"foo": {Type: "pci", Version: "1.0.0", Pci: &networkv1.PciDevice{PciAddress: "0000:65:00.2"}},
 		}
-		Expect(deviceinfo.MapNetworkNameToDeviceInfo(
-			networks, networkStatusWithMixedNetworks, interfaces,
-		)).To(Equal(expectedMap))
+		Expect(deviceinfo.MapNetworkNameToDeviceInfo(networks, interfaces, networkStatusWithMixedNetworks)).To(Equal(expectedMap))
 	})
 })
 

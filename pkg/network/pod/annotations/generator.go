@@ -26,8 +26,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/log"
-
 	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
@@ -107,12 +105,7 @@ func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8
 		return iface.SRIOV != nil || vmispec.HasBindingPluginDeviceInfo(iface, g.clusterConfig.GetNetworkBindings())
 	})
 
-	networkStatusAnnotation := pod.Annotations[networkv1.NetworkStatusAnnot]
-	networkDeviceInfoMap, err := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, networkStatusAnnotation, ifaces)
-	if err != nil {
-		log.Log.Warningf("failed to create network device-info-map: %v", err)
-	}
-
+	networkDeviceInfoMap := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, ifaces, multus.NetworkStatusesFromPod(pod))
 	if len(networkDeviceInfoMap) == 0 {
 		return nil
 	}
