@@ -33,6 +33,22 @@ import (
 )
 
 var _ = Describe("Network Status", func() {
+	Context("NetworkStatusesByPodIfaceName", func() {
+		It("Should map network statuses by pod interface name with multiple networks", func() {
+			networkStatuses := []networkv1.NetworkStatus{
+				{Name: "cluster-default", Interface: "eth0"},
+				{Name: "meganet", Interface: "pod7e0055a6880"},
+			}
+
+			expected := map[string]networkv1.NetworkStatus{
+				"eth0":           {Name: "cluster-default", Interface: "eth0"},
+				"pod7e0055a6880": {Name: "meganet", Interface: "pod7e0055a6880"},
+			}
+
+			Expect(multus.NetworkStatusesByPodIfaceName(networkStatuses)).To(Equal(expected))
+		})
+	})
+
 	Context("NonDefaultNetworkStatusIndexedByPodIfaceName", func() {
 		DescribeTable("It should return empty", func(networkStatuses []networkv1.NetworkStatus) {
 			Expect(multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)).To(BeEmpty())

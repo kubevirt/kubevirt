@@ -27,6 +27,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 )
 
@@ -62,10 +63,5 @@ func mapMultusInterfaceNameToNetworkStatus(networkStatusAnnotationValue string) 
 		return nil, fmt.Errorf("failed to unmarshal network-status annotation: %v", err)
 	}
 
-	multusInterfaceNameToNetworkStatusMap := map[string]networkv1.NetworkStatus{}
-	for _, networkStatus := range networkStatusList {
-		multusInterfaceNameToNetworkStatusMap[networkStatus.Interface] = networkStatus
-	}
-
-	return multusInterfaceNameToNetworkStatusMap, nil
+	return multus.NetworkStatusesByPodIfaceName(networkStatusList), nil
 }
