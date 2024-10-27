@@ -49,54 +49,6 @@ var _ = Describe("Network Status", func() {
 		})
 	})
 
-	Context("NonDefaultNetworkStatusIndexedByPodIfaceName", func() {
-		DescribeTable("It should return empty", func(networkStatuses []networkv1.NetworkStatus) {
-			Expect(multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)).To(BeEmpty())
-		},
-			Entry("when network-status is empty", []networkv1.NetworkStatus{}),
-			Entry("when network-status contains only pod network",
-				[]networkv1.NetworkStatus{
-					{
-						Name:    "k8s-pod-network",
-						IPs:     []string{"10.244.196.146", "fd10:244::c491"},
-						Default: true,
-						DNS:     networkv1.DNS{},
-					},
-				},
-			),
-		)
-
-		It("Should return a map of pod interface name to network status containing just secondary networks", func() {
-			networkStatuses := []networkv1.NetworkStatus{
-				{
-					Name:    "k8s-pod-network",
-					IPs:     []string{"10.244.196.146", "fd10:244::c491"},
-					Default: true,
-					DNS:     networkv1.DNS{},
-				},
-				{
-					Name:      "meganet",
-					Interface: "pod7e0055a6880",
-					Mac:       "8a:37:d9:e7:0f:18",
-					DNS:       networkv1.DNS{},
-				},
-			}
-
-			result := multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)
-
-			expectedResult := map[string]networkv1.NetworkStatus{
-				"pod7e0055a6880": {
-					Name:      "meganet",
-					Interface: "pod7e0055a6880",
-					Mac:       "8a:37:d9:e7:0f:18",
-					Default:   false,
-				},
-			}
-
-			Expect(result).To(Equal(expectedResult))
-		})
-	})
-
 	Context("NetworkStatusesFromPod", func() {
 		DescribeTable("should return an empty slice", func(podAnnotations map[string]string) {
 			Expect(multus.NetworkStatusesFromPod(newStubPod(podAnnotations))).To(BeEmpty())

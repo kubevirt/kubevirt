@@ -98,7 +98,7 @@ func calculateSecondaryIfaceStatuses(
 ) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
-	indexedMultusStatusIfaces := multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)
+	networkStatusesByPodIfaceName := multus.NetworkStatusesByPodIfaceName(networkStatuses)
 	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmi.Spec.Networks, networkStatuses)
 	for _, network := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
 		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
@@ -107,7 +107,7 @@ func calculateSecondaryIfaceStatuses(
 			return nil, fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
 		}
 
-		_, exists := indexedMultusStatusIfaces[podIfaceName]
+		_, exists := networkStatusesByPodIfaceName[podIfaceName]
 		switch {
 		case exists && vmiIfaceStatus == nil:
 			interfaceStatuses = append(interfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{

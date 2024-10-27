@@ -40,19 +40,6 @@ func NetworkStatusesByPodIfaceName(networkStatuses []networkv1.NetworkStatus) ma
 	return statusesByPodIfaceName
 }
 
-func NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses []networkv1.NetworkStatus) map[string]networkv1.NetworkStatus {
-	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
-
-	for _, ns := range networkStatuses {
-		if ns.Default {
-			continue
-		}
-		indexedNetworkStatus[ns.Interface] = ns
-	}
-
-	return indexedNetworkStatus
-}
-
 func NetworkStatusesFromPod(pod *k8scorev1.Pod) []networkv1.NetworkStatus {
 	var networkStatuses []networkv1.NetworkStatus
 
