@@ -26,17 +26,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	appsv1 "k8s.io/api/apps/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -125,14 +122,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 
 		AfterEach(func() {
 			scales.RestoreAllScales()
-
-			time.Sleep(10 * time.Second)
-			alerts := []string{
-				virtOperator.downAlert, virtOperator.noReadyAlert, virtOperator.lowCountAlert,
-				virtController.downAlert, virtController.noReadyAlert, virtController.lowCountAlert,
-				virtApi.downAlert, virtApi.noReadyAlert, virtApi.lowCountAlert,
-			}
-			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, alerts...)
+			waitUntilComponentsAlertsDoNotExist(virtClient)
 		})
 
 		It("VirtOperatorDown and NoReadyVirtOperator should be triggered when virt-operator is down", func() {
@@ -201,8 +191,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			Expect(err).To(Or(Not(HaveOccurred()), MatchError(errors.IsAlreadyExists, "IsAlreadyExists")))
 			scales.RestoreAllScales()
 
-			time.Sleep(10 * time.Second)
-			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtOperator.downAlert, virtApi.downAlert, virtController.downAlert, virtHandler.downAlert)
+			waitUntilComponentsAlertsDoNotExist(virtClient)
 		})
 
 		It("VirtApiRESTErrorsBurst and VirtApiRESTErrorsHigh should be triggered when requests to virt-api are failing", func() {
@@ -246,7 +235,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		PIt("VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
+		It("VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -263,10 +252,24 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 	})
 })
 
-func patchDeployment(virtClient kubecli.KubevirtClient, deployment *appsv1.Deployment) {
-	payload, err := patch.New(patch.WithReplace("/spec", deployment.Spec)).GeneratePayload()
-	Expect(err).ToNot(HaveOccurred())
+func waitUntilComponentsAlertsDoNotExist(virtClient kubecli.KubevirtClient) {
+	componentsAlerts := []string{
+		// virt-operator
+		virtOperator.downAlert, virtOperator.noReadyAlert,
+		virtOperator.restErrorsBurtsAlert, virtOperator.lowCountAlert,
 
-	_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
+		// virt-controller
+		virtController.downAlert, virtController.noReadyAlert,
+		virtController.restErrorsBurtsAlert, virtController.lowCountAlert,
+
+		// virt-api
+		virtApi.downAlert, virtApi.noReadyAlert,
+		virtApi.restErrorsBurtsAlert, virtApi.lowCountAlert,
+
+		// virt-handler
+		virtHandler.noReadyAlert,
+		virtHandler.restErrorsBurtsAlert, virtHandler.lowCountAlert,
+	}
+
+	libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 10*time.Minute, componentsAlerts...)
 }
