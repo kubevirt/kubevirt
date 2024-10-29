@@ -56,6 +56,7 @@ var (
 	USB                                  = Label("USB")
 	AutoResourceLimitsGate               = Label("AutoResourceLimitsGate")
 	RequiresTwoWorkerNodesWithCPUManager = Label("requires-two-worker-nodes-with-cpu-manager")
+	RequiresNodeWithCPUManager           = Label("requires-node-with-cpu-manager")
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 

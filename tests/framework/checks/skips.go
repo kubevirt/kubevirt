@@ -24,23 +24,6 @@ import (
 
 const diskRhel = "disk-rhel"
 
-// Deprecated: SkipTestIfNoCPUManager should be converted to check & fail
-func SkipTestIfNoCPUManager() {
-	if !HasFeature(virtconfig.CPUManager) {
-		ginkgo.Skip("the CPUManager feature gate is not enabled.")
-	}
-
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	for _, node := range nodes.Items {
-		if IsCPUManagerPresent(&node) {
-			return
-		}
-	}
-	ginkgo.Skip("no node with CPUManager detected", 1)
-}
-
 // Deprecated: SkipTestIfNoFeatureGate should be converted to check & fail
 func SkipTestIfNoFeatureGate(featureGate string) {
 	if !HasFeature(featureGate) {

@@ -35,11 +35,10 @@ var _ = Describe("[sig-compute]NUMA", Serial, decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
-		checks.SkipTestIfNoCPUManager()
 		virtClient = kubevirt.Client()
 	})
 
-	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", decorators.RequiresNodeWithCPUManager, func() {
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		var err error
 		cpuVMI := libvmifact.NewCirros()
