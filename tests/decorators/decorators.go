@@ -54,9 +54,12 @@ var (
 	RequiresHugepages2Mi                 = []interface{}{Label("requireHugepages2Mi")}
 
 	// Storage classes
+	// Requires a storage class with support for snapshots
 	RequiresSnapshotStorageClass = []interface{}{Label("RequiresSnapshotStorageClass")}
 	// Requires a storage class without support for snapshots
 	RequiresNoSnapshotStorageClass = []interface{}{Label("RequiresNoSnapshotStorageClass")}
+	// Requires a storage class with ReadWriteMany Block support
+	RequiresRWXBlock = []interface{}{Label("RequiresRWXBlock")}
 
 	// Kubernetes versions
 	Kubernetes130 = []interface{}{Label("kubernetes130")}

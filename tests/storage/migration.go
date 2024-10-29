@@ -49,6 +49,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -288,7 +289,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			waitForMigrationToSucceed(vm.Name, ns)
 		})
 
-		It("should migrate the source volume from a source and destination block RWX DVs", func() {
+		It("should migrate the source volume from a source and destination block RWX DVs", decorators.RequiresRWXBlock, func() {
 			volName := "disk0"
 			sc, exist := libstorage.GetRWXBlockStorageClass()
 			Expect(exist).To(BeTrue())
