@@ -147,19 +147,35 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
-	DescribeTable("path validation should fail", func(path string) {
-		Expect(validatePath(k8sfield.NewPath("fake"), path)).To(HaveLen(1))
+	DescribeTable("container disk path validation should fail", func(containerDiskPath, expectedCause string) {
+		vmi := newBaseVmi(libvmi.WithContainerDisk("testdisk", "testimage"))
+		vmi.Spec.Volumes[0].ContainerDisk.Path = containerDiskPath
+
+		ar, err := newAdmissionReviewForVMICreation(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
+		Expect(resp.Result.Message).To(Equal(expectedCause))
 	},
-		Entry("if path is not absolute", "a/b/c"),
-		Entry("if path contains relative elements", "/a/b/c/../d"),
-		Entry("if path is root", "/"),
+		Entry("when path is not absolute", "a/b/c", "spec.volumes[0].containerDisk must be an absolute path to a file without relative components"),
+		Entry("when path contains relative components", "/a/b/c/../d", "spec.volumes[0].containerDisk must be an absolute path to a file without relative components"),
+		Entry("when path is root", "/", "spec.volumes[0].containerDisk must not point to root"),
 	)
 
-	DescribeTable("path validation should succeed", func(path string) {
-		Expect(validatePath(k8sfield.NewPath("fake"), path)).To(BeEmpty())
+	DescribeTable("container disk path validation should succeed", func(containerDiskPath string) {
+		vmi := newBaseVmi(libvmi.WithContainerDisk("testdisk", "testimage"))
+		vmi.Spec.Volumes[0].ContainerDisk.Path = containerDiskPath
+
+		ar, err := newAdmissionReviewForVMICreation(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeTrue())
 	},
-		Entry("if path is absolute", "/a/b/c"),
-		Entry("if path is absolute and has trailing slash", "/a/b/c/"),
+		Entry("when path is absolute", "/a/b/c"),
+		Entry("when path is absolute and has trailing slash", "/a/b/c/"),
 	)
 
 	Context("tolerations with eviction policies given", func() {
