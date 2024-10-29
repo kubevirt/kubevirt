@@ -60,6 +60,8 @@ var (
 	RequiresNoSnapshotStorageClass = Label("RequiresNoSnapshotStorageClass")
 	// Requires a storage class with ReadWriteMany Block support
 	RequiresRWXBlock = Label("RequiresRWXBlock")
+	// Requires a storage class with Block storage support
+	RequiresBlockStorage = Label("RequiresBlockStorage")
 	// Kubernetes versions
 	Kubernetes130 = Label("kubernetes130")
 	// WG archs
