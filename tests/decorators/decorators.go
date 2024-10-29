@@ -60,6 +60,8 @@ var (
 	RequiresNoSnapshotStorageClass = []interface{}{Label("RequiresNoSnapshotStorageClass")}
 	// Requires a storage class with ReadWriteMany Block support
 	RequiresRWXBlock = []interface{}{Label("RequiresRWXBlock")}
+	// Requires a storage class with Block storage support
+	RequiresBlockStorage = []interface{}{Label("RequiresBlockStorage")}
 
 	// Kubernetes versions
 	Kubernetes130 = []interface{}{Label("kubernetes130")}
