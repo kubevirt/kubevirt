@@ -40,7 +40,7 @@ var _ = Describe("[rfe_id:5108][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			for _, key := range item.Keys {
 				_, ok := cm.Data[key]
-				ExpectWithOffset(1, ok).Should(BeTrue())
+				ExpectWithOffset(1, ok).To(BeTrue())
 			}
 		}
 	})

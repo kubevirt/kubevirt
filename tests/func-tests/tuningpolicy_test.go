@@ -93,8 +93,8 @@ func checkTuningPolicy(ctx context.Context, cli client.Client, expected kvv1.Tok
 }
 
 func checkReloadableComponentConfiguration(g Gomega, actual *kvv1.ReloadableComponentConfiguration, expected kvv1.TokenBucketRateLimiter) {
-	g.ExpectWithOffset(1, actual).ShouldNot(BeNil())
-	g.ExpectWithOffset(1, actual.RestClient).ShouldNot(BeNil())
-	g.ExpectWithOffset(1, actual.RestClient.RateLimiter).ShouldNot(BeNil())
-	g.ExpectWithOffset(1, actual.RestClient.RateLimiter.TokenBucketRateLimiter).Should(HaveValue(Equal(expected)))
+	g.ExpectWithOffset(1, actual).ToNot(BeNil())
+	g.ExpectWithOffset(1, actual.RestClient).ToNot(BeNil())
+	g.ExpectWithOffset(1, actual.RestClient.RateLimiter).ToNot(BeNil())
+	g.ExpectWithOffset(1, actual.RestClient.RateLimiter.TokenBucketRateLimiter).To(HaveValue(Equal(expected)))
 }

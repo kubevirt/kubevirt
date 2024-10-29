@@ -404,7 +404,7 @@ func verifyOperatorHealthMetricValue(ctx context.Context, promClient promApiv1.A
 
 func getMetricValue(ctx context.Context, promClient promApiv1.API, metricName string) float64 {
 	queryResult, _, err := promClient.Query(ctx, metricName, time.Now())
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	resultVector := queryResult.(promModel.Vector)
 	if len(resultVector) == 0 {
@@ -414,7 +414,7 @@ func getMetricValue(ctx context.Context, promClient promApiv1.API, metricName st
 	ExpectWithOffset(1, resultVector).To(HaveLen(1))
 
 	metricValue, err := strconv.ParseFloat(resultVector[0].Value.String(), 64)
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return metricValue
 }
@@ -428,14 +428,14 @@ func getPrometheusRule(ctx context.Context, cli rest.Interface) monitoringv1.Pro
 		Namespace(tests.InstallNamespace).
 		AbsPath("/apis", monitoringv1.SchemeGroupVersion.Group, monitoringv1.SchemeGroupVersion.Version).
 		Timeout(10*time.Second).
-		Do(ctx).Into(&prometheusRule)).Should(Succeed())
+		Do(ctx).Into(&prometheusRule)).To(Succeed())
 	return prometheusRule
 }
 
 func checkRunbookURLAvailability(rule monitoringv1.Rule) {
 	resp, err := runbookClient.Head(rule.Annotations["runbook_url"])
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook is not available", rule.Alert))
-	ExpectWithOffset(1, resp.StatusCode).Should(Equal(http.StatusOK), fmt.Sprintf("%s runbook is not available", rule.Alert))
+	ExpectWithOffset(1, resp.StatusCode).To(Equal(http.StatusOK), fmt.Sprintf("%s runbook is not available", rule.Alert))
 }
 
 func initializePromClient(prometheusURL string, token string) promApiv1.API {

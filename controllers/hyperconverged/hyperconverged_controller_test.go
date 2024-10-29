@@ -3870,20 +3870,20 @@ var _ = Describe("HyperconvergedController", func() {
 
 func verifyUnsafeMetrics(expected int, annotation string) {
 	count, err := metrics.GetUnsafeModificationsCount(annotation)
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
-	ExpectWithOffset(1, count).Should(BeEquivalentTo(expected))
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, count).To(BeEquivalentTo(expected))
 }
 
 func verifyHyperConvergedCRExistsMetricTrue() {
 	hcExists, err := metrics.IsHCOMetricHyperConvergedExists()
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
-	ExpectWithOffset(1, hcExists).Should(BeTrue())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, hcExists).To(BeTrue())
 }
 
 func verifyHyperConvergedCRExistsMetricFalse() {
 	hcExists, err := metrics.IsHCOMetricHyperConvergedExists()
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
-	ExpectWithOffset(1, hcExists).Should(BeFalse())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, hcExists).To(BeFalse())
 }
 
 func verifySystemHealthStatusHealthy(hco *hcov1beta1.HyperConverged) {

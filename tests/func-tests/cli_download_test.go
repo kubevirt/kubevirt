@@ -64,7 +64,7 @@ var _ = Describe("[rfe_id:5100][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 				_ = resp.Body.Close()
 
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				ExpectWithOffset(1, resp).Should(HaveHTTPStatus(http.StatusOK))
+				ExpectWithOffset(1, resp).To(HaveHTTPStatus(http.StatusOK))
 			}
 		}
 	})

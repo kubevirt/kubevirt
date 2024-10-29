@@ -106,9 +106,9 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 })
 
 func checkLabels(labels map[string]string) {
-	ExpectWithOffset(1, labels).Should(HaveKey("app.kubernetes.io/component"))
-	ExpectWithOffset(1, labels).Should(HaveKey("app.kubernetes.io/version"))
-	ExpectWithOffset(1, labels).Should(HaveKeyWithValue("app", "kubevirt-hyperconverged"))
-	ExpectWithOffset(1, labels).Should(HaveKeyWithValue("app.kubernetes.io/part-of", "hyperconverged-cluster"))
-	ExpectWithOffset(1, labels).Should(HaveKeyWithValue("app.kubernetes.io/managed-by", "hco-operator"))
+	ExpectWithOffset(1, labels).To(HaveKey("app.kubernetes.io/component"))
+	ExpectWithOffset(1, labels).To(HaveKey("app.kubernetes.io/version"))
+	ExpectWithOffset(1, labels).To(HaveKeyWithValue("app", "kubevirt-hyperconverged"))
+	ExpectWithOffset(1, labels).To(HaveKeyWithValue("app.kubernetes.io/part-of", "hyperconverged-cluster"))
+	ExpectWithOffset(1, labels).To(HaveKeyWithValue("app.kubernetes.io/managed-by", "hco-operator"))
 }

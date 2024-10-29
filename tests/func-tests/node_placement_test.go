@@ -253,7 +253,7 @@ func listInfraNodes(ctx context.Context, cli *kubernetes.Clientset) *v1.NodeList
 	infraNodes, err := cli.CoreV1().Nodes().List(ctx, k8smetav1.ListOptions{
 		LabelSelector: "node.kubernetes.io/hco-test-node-type==infra",
 	})
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return infraNodes
 }

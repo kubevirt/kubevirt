@@ -1170,8 +1170,8 @@ func validateImageStream(found *imagev1.ImageStream, hook *isHooks) {
 		Expect(tag).ToNot(BeNil())
 		validationTagMap[tagName] = true
 
-		ExpectWithOffset(1, tag.From).Should(Equal(hook.tags[tagName].From))
-		ExpectWithOffset(1, tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Scheduled: true}))
+		ExpectWithOffset(1, tag.From).To(Equal(hook.tags[tagName].From))
+		ExpectWithOffset(1, tag.ImportPolicy).To(Equal(imagev1.TagImportPolicy{Scheduled: true}))
 	}
 
 	ExpectWithOffset(1, validateAllTags(validationTagMap)).To(BeTrue())
