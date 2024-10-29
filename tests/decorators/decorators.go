@@ -28,6 +28,10 @@ var (
 	Invtsc      = Label("Invtsc")
 	KSMRequired = Label("KSM-required")
 
+	// Deployment
+	SingleReplica = Label("single-replica")
+	MultiReplica  = Label("multi-replica")
+
 	// Features
 	CPUModel                             = Label("cpumodel")
 	SoftwareEmulation                    = Label("software-emulation")
