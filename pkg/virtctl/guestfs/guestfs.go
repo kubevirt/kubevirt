@@ -59,6 +59,12 @@ type guestfsCommand struct {
 	pullPolicy   string
 }
 
+// Following variables allow overriding the default functions (useful for unit testing)
+var CreateClientFunc = CreateClient
+var CreateAttacherFunc = CreateAttacher
+var ImageSetFunc = SetImage
+var ImageInfoGetFunc = GetImageInfo
+
 // NewGuestfsShellCommand returns a cobra.Command for starting libguestfs-tool pod and attach it to a pvc
 func NewGuestfsShellCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	c := guestfsCommand{clientConfig: clientConfig}
@@ -88,72 +94,6 @@ func usage() string {
 	return usage
 }
 
-// ClientCreator is a function to return the Kubernetes client
-type ClientCreator func(config *rest.Config, virtClientConfig clientcmd.ClientConfig) (*K8sClient, error)
-
-var createClientFunc ClientCreator
-
-// SetClient allows overriding the default Kubernetes client. Useful for creating a mock function for the testing.
-func SetClient(f ClientCreator) {
-	createClientFunc = f
-}
-
-// SetDefaulClient sets the default function to create the Kubernetes client
-func SetDefaulClient() {
-	createClientFunc = createClient
-}
-
-// AttacherCreator is a function that attach a command to a pod using the Kubernetes client
-type AttacherCreator func(client *K8sClient, p *corev1.Pod, command string) error
-
-var createAttacherFunc AttacherCreator
-
-// SetAttacher allows overriding the default attacher function. Useful for creating a mock function for the testing.
-func SetAttacher(f AttacherCreator) {
-	createAttacherFunc = f
-}
-
-// SetDefaulAttacher sets the default function to attach to a pod
-func SetDefaulAttacher() {
-	createAttacherFunc = createAttacher
-}
-
-// ImageSet is a function to set the setImage
-type ImageSet func(virtClient kubecli.KubevirtClient) (string, error)
-
-// ImageInfoGet is a function to get image info
-type ImageInfoGet func(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error)
-
-var ImageSetFunc ImageSet
-var ImageInfoGetFunc ImageInfoGet
-
-// SetImageSetFunc sets the function to set the image
-func SetImageSetFunc(f ImageSet) {
-	ImageSetFunc = f
-}
-
-// SetDefaultImageSet sets the default function to set the image
-func SetDefaultImageSet() {
-	ImageSetFunc = setImage
-}
-
-// SetImageInfoGetFunc sets the function to get image info
-func SetImageInfoGetFunc(f ImageInfoGet) {
-	ImageInfoGetFunc = f
-}
-
-// SetDefaultImageInfoGetFunc sets the default function to get image info
-func SetDefaultImageInfoGetFunc() {
-	ImageInfoGetFunc = getImageInfo
-}
-
-func init() {
-	SetDefaulClient()
-	SetDefaulAttacher()
-	SetDefaultImageSet()
-	SetDefaultImageInfoGetFunc()
-}
-
 func (c *guestfsCommand) run(_ *cobra.Command, args []string) error {
 	c.pvc = args[0]
 	namespace, _, err := c.clientConfig.Namespace()
@@ -171,7 +111,7 @@ func (c *guestfsCommand) run(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	client, err := createClientFunc(conf, c.clientConfig)
+	client, err := CreateClientFunc(conf, c.clientConfig)
 	if err != nil {
 		return err
 	}
@@ -208,8 +148,8 @@ type K8sClient struct {
 	VirtClient kubecli.KubevirtClient
 }
 
-// setImage sets the image name based on the information retrieved by the KubeVirt server.
-func setImage(virtClient kubecli.KubevirtClient) (string, error) {
+// SetImage sets the image name based on the information retrieved by the KubeVirt server.
+func SetImage(virtClient kubecli.KubevirtClient) (string, error) {
 	var imageName string
 	info, err := ImageInfoGetFunc(virtClient)
 	if err != nil {
@@ -239,8 +179,8 @@ func setImage(virtClient kubecli.KubevirtClient) (string, error) {
 	return image, nil
 }
 
-// getImageInfo gets the image info based on the information on KubeVirt CR
-func getImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error) {
+// GetImageInfo gets the image info based on the information on KubeVirt CR
+func GetImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error) {
 	info, err := virtClient.GuestfsVersion().Get()
 	if err != nil {
 		return nil, err
@@ -249,7 +189,7 @@ func getImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, erro
 	return info, nil
 }
 
-func createClient(config *rest.Config, virtClientConfig clientcmd.ClientConfig) (*K8sClient, error) {
+func CreateClient(config *rest.Config, virtClientConfig clientcmd.ClientConfig) (*K8sClient, error) {
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return &K8sClient{}, err
@@ -569,8 +509,8 @@ func (c *guestfsCommand) createLibguestfsPod(cmd string, args []string, isBlock 
 	return pod, nil
 }
 
-// createAttacher attaches the stdin, stdout, and stderr to the container shell
-func createAttacher(client *K8sClient, p *corev1.Pod, command string) error {
+// CreateAttacher attaches the stdin, stdout, and stderr to the container shell
+func CreateAttacher(client *K8sClient, p *corev1.Pod, command string) error {
 	req := client.Client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(p.Name).
@@ -618,7 +558,7 @@ func (c *guestfsCommand) createInteractivePodWithPVC(client *K8sClient, ns, comm
 	if err != nil {
 		return err
 	}
-	return createAttacherFunc(client, p, command)
+	return CreateAttacherFunc(client, p, command)
 }
 
 func (client *K8sClient) removePod(ns, podName string) error {

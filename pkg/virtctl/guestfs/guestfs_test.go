@@ -107,23 +107,24 @@ var _ = Describe("Guestfs shell", func() {
 
 	Context("attach to PVC", func() {
 		BeforeEach(func() {
-			guestfs.SetImageSetFunc(fakeSetImage)
-			guestfs.SetAttacher(fakeAttacherCreator)
+			guestfs.ImageSetFunc = fakeSetImage
+			guestfs.CreateAttacherFunc = fakeAttacherCreator
 		})
 
 		AfterEach(func() {
-			guestfs.SetDefaultImageSet()
-			guestfs.SetDefaulAttacher()
+			guestfs.ImageSetFunc = guestfs.SetImage
+			guestfs.CreateAttacherFunc = guestfs.CreateAttacher
+			guestfs.CreateClientFunc = guestfs.CreateClient
 		})
 
 		It("Succesfully attach to PVC", func() {
-			guestfs.SetClient(fakeCreateClientPVC)
+			guestfs.CreateClientFunc = fakeCreateClientPVC
 			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
 			Expect(cmd()).To(Succeed())
 		})
 
 		It("PVC in use", func() {
-			guestfs.SetClient(fakeCreateClientPVCinUse)
+			guestfs.CreateClientFunc = fakeCreateClientPVCinUse
 			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
@@ -131,7 +132,7 @@ var _ = Describe("Guestfs shell", func() {
 		})
 
 		It("PVC doesn't exist", func() {
-			guestfs.SetClient(fakeCreateClient)
+			guestfs.CreateClientFunc = fakeCreateClient
 			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
@@ -139,14 +140,14 @@ var _ = Describe("Guestfs shell", func() {
 		})
 
 		It("UID cannot be used with root", func() {
-			guestfs.SetClient(fakeCreateClientPVC)
+			guestfs.CreateClientFunc = fakeCreateClientPVC
 			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName, "--root=true", "--uid=1001")
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("cannot set uid if root is true")))
 		})
 		It("GID can be use only together with the uid flag", func() {
-			guestfs.SetClient(fakeCreateClientPVC)
+			guestfs.CreateClientFunc = fakeCreateClientPVC
 			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName, "--gid=1001")
 			err := cmd()
 			Expect(err).To(HaveOccurred())
@@ -187,21 +188,21 @@ var _ = Describe("Guestfs shell", func() {
 		}
 
 		AfterEach(func() {
-			guestfs.SetDefaultImageInfoGetFunc()
+			guestfs.ImageInfoGetFunc = guestfs.GetImageInfo
 		})
 
 		It("Image prefix from kubevirt config not discarded", func() {
-			guestfs.SetImageInfoGetFunc(fakeGetImageInfoNoCustomURL)
+			guestfs.ImageInfoGetFunc = fakeGetImageInfoNoCustomURL
 			Expect(guestfs.ImageSetFunc(kubevirtClient)).Should(HaveValue(Equal("someregistry.io/kubevirt/some-prefix-libguestfs-tools@89af657d3c226ac3083a0986e19efe70c9ccd7e7278137e9df24b9b430182aa7")))
 		})
 
 		It("Image override alone is enough to assemble url", func() {
-			guestfs.SetImageInfoGetFunc(fakeGetImageInfoWithCustomURL)
+			guestfs.ImageInfoGetFunc = fakeGetImageInfoWithCustomURL
 			Expect(guestfs.ImageSetFunc(kubevirtClient)).To(HaveValue(Equal("someregistry.io/kubevirt/libguestfs-tools-centos9@sha256:128736c7736a8791fb8a8de7d92a4f9be886dc6d8e77d01db8bd55253399099b")))
 		})
 
 		It("Image override takes precedence over registry specifics", func() {
-			guestfs.SetImageInfoGetFunc(fakeGetImageInfoWithCustomURLAndRegistrySpecifics)
+			guestfs.ImageInfoGetFunc = fakeGetImageInfoWithCustomURLAndRegistrySpecifics
 			Expect(guestfs.ImageSetFunc(kubevirtClient)).Should(HaveValue(Equal("someregistry.io/kubevirt/libguestfs-tools-centos9@sha256:128736c7736a8791fb8a8de7d92a4f9be886dc6d8e77d01db8bd55253399099b")))
 		})
 	})
