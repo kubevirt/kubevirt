@@ -363,6 +363,7 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 
 		It("should migrate the source volume from a block source and filesystem destination DVs", func() {
 			volName := "disk0"
+			dstSize := "1.2Gi"
 			sc, exist := libstorage.GetRWOBlockStorageClass()
 			Expect(exist).To(BeTrue())
 			srcDV := libdv.NewDataVolume(
@@ -381,7 +382,7 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 			destDV := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
-					libdv.StorageWithVolumeSize(size),
+					libdv.StorageWithVolumeSize(dstSize),
 					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
 				),
 			)
