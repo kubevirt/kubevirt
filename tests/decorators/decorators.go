@@ -29,6 +29,7 @@ var (
 	KSMRequired = Label("KSM-required")
 
 	// Features
+	CpuModel                             = Label("cpumodel")
 	Sysprep                              = Label("Sysprep")
 	Windows                              = Label("Windows")
 	Networking                           = Label("Networking")
