@@ -871,7 +871,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		})
 
-		Context("with default cpu model", Serial, decorators.WgS390x, func() {
+		Context("with default cpu model", Serial, decorators.WgS390x, decorators.CPUModel, func() {
 			var originalConfig v1.KubeVirtConfiguration
 			var supportedCpuModels []string
 			var defaultCPUModel string
@@ -885,7 +885,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				supportedCpuModels = libnode.GetSupportedCPUModels(*nodes)
 				if len(supportedCpuModels) < 2 {
-					Skip("need at least 2 supported cpuModels for this test")
+					Fail("need at least 2 supported cpu models for this test")
 				}
 				defaultCPUModel = supportedCpuModels[0]
 				vmiCPUModel = supportedCpuModels[1]
@@ -940,7 +940,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 			It("should add node selector to virt-launcher when setting default cpuModel in kubevirtCR", func() {
 				if len(supportedCpuModels) < 1 {
-					Skip("Must have at least one supported cpuModel for this test")
+					Fail("Must have at least one supported cpu model for this test")
 				}
 				defaultCPUModel := supportedCpuModels[0]
 				config := originalConfig.DeepCopy()
@@ -958,7 +958,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("should prefer node selector of the vmi if cpuModel field is set in kubevirtCR and in the vmi", func() {
 				if len(supportedCpuModels) < 2 {
-					Skip("Must have at least one supported cpuModel for this test")
+					Fail("Must have at least two supported cpuModel for this test")
 				}
 				vmiCPUModel := supportedCpuModels[1]
 				defaultCPUModel := supportedCpuModels[0]
