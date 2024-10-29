@@ -18,7 +18,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -188,22 +187,6 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 		ginkgo.Skip("Skip monitoring tests when PrometheusRule CRD is not available in the cluster")
 	} else if err != nil {
 		util.PanicOnError(err)
-	}
-}
-
-// Deprecated: SkipIfSingleReplica should be converted to check & fail
-func SkipIfSingleReplica(virtClient kubecli.KubevirtClient) {
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil && *(kv.Spec.Infra.Replicas) == 1 {
-		ginkgo.Skip("Skip multi-replica test on single-replica deployments")
-	}
-}
-
-// Deprecated: SkipIfMultiReplica should be converted to check & fail
-func SkipIfMultiReplica(virtClient kubecli.KubevirtClient) {
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Infra == nil || kv.Spec.Infra.Replicas == nil || *(kv.Spec.Infra.Replicas) > 1 {
-		ginkgo.Skip("Skip single-replica test on multi-replica deployments")
 	}
 }
 

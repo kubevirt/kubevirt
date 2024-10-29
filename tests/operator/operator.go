@@ -670,7 +670,7 @@ spec:
 
 					return true
 				}),
-			Entry("[test_id:6256] poddisruptionbudgets",
+			Entry("[test_id:6256] poddisruptionbudgets", decorators.MultiReplica,
 				func() {
 					patchBytes, err := patch.New(
 						patch.WithAdd("/spec/selector/matchLabels",
@@ -686,9 +686,6 @@ spec:
 				},
 
 				func() runtime.Object {
-					// No virt-controller PDB on single-replica deployments
-					checks.SkipIfSingleReplica(virtClient)
-
 					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return pdb
