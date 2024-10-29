@@ -323,7 +323,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			waitForMigrationToSucceed(vm.Name, ns)
 		})
 
-		It("should migrate the source volume from a source and destination block RWX DVs", func() {
+		It("should migrate the source volume from a source and destination block RWX DVs", decorators.RequiresRWXBlock, func() {
 			volName := "disk0"
 			sc, exist := libstorage.GetRWXBlockStorageClass()
 			Expect(exist).To(BeTrue())
