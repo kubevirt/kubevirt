@@ -305,7 +305,7 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 			waitForMigrationToSucceed(vm.Name, ns)
 		},
 			Entry("to a filesystem volume", fsPVC),
-			Entry("to a block volume", blockPVC),
+			Entry("to a block volume", decorators.RequiresBlockStorage, blockPVC),
 		)
 
 		It("should migrate the source volume from a source DV to a destination DV", func() {
@@ -361,7 +361,7 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 			waitForMigrationToSucceed(vm.Name, ns)
 		})
 
-		It("should migrate the source volume from a block source and filesystem destination DVs", func() {
+		It("should migrate the source volume from a block source and filesystem destination DVs", decorators.RequiresBlockStorage, func() {
 			volName := "disk0"
 			sc, exist := libstorage.GetRWOBlockStorageClass()
 			Expect(exist).To(BeTrue())
