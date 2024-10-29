@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
@@ -59,10 +58,6 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 	)
 
 	BeforeEach(func() {
-		if !checks.HasAtLeastTwoNodes() {
-			Skip("this test requires at least 2 nodes")
-		}
-
 		virtCli = kubevirt.Client()
 
 		originalKV = libkubevirt.GetCurrentKv(virtCli)
@@ -174,7 +169,7 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		return eventsQueue
 	}
 
-	It("should successfully upgrade virt-handler", func() {
+	It("should successfully upgrade virt-handler", decorators.RequiresTwoSchedulableNodes, func() {
 		var expectedEventsLock sync.Mutex
 		expectedEvents := []string{
 			"maxUnavailable=1",
