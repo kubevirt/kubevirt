@@ -30,21 +30,6 @@ func SkipTestIfNoFeatureGate(featureGate string) {
 	}
 }
 
-// Deprecated: SkipTestIfNotRealtimeCapable should be converted to check & fail
-func SkipTestIfNotRealtimeCapable() {
-
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	for _, node := range nodes.Items {
-		if IsRealtimeCapable(&node) && IsCPUManagerPresent(&node) && Has2MiHugepages(&node) {
-			return
-		}
-	}
-	ginkgo.Skip("no node capable of running realtime workloads detected", 1)
-
-}
-
 // Deprecated: SkipTestIfNotSEVCapable should be converted to check & fail
 func SkipTestIfNotSEVCapable() {
 	virtClient := kubevirt.Client()
