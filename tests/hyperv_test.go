@@ -67,10 +67,10 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			reEnlightenmentVMI = vmiWithReEnlightenment()
 		})
 
-		When("TSC frequency is exposed on the cluster", func() {
+		When("TSC frequency is exposed on the cluster", decorators.Invtsc, func() {
 			BeforeEach(func() {
 				if !isTSCFrequencyExposed(virtClient) {
-					Skip("TSC frequency is not exposed on the cluster")
+					Fail("TSC frequency is not exposed on the cluster")
 				}
 			})
 
