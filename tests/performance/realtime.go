@@ -54,7 +54,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 	BeforeEach(func() {
 		skipIfNoRealtimePerformanceTests()
 		virtClient = kubevirt.Client()
-		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
+		checks.SkipTestIfNotEnoughNodesWith2MiHugepages(1)
 	})
 
 	It("running cyclictest and collecting results directly from VM", func() {

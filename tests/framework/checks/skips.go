@@ -16,7 +16,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
@@ -28,32 +27,6 @@ const diskRhel = "disk-rhel"
 func SkipTestIfNoFeatureGate(featureGate string) {
 	if !HasFeature(featureGate) {
 		ginkgo.Skip(fmt.Sprintf("the %v feature gate is not enabled.", featureGate))
-	}
-}
-
-// Deprecated: SkipTestIfNotEnoughNodesWithCPUManager should be converted to check & fail
-func SkipTestIfNotEnoughNodesWithCPUManager(nodeCount int) {
-	if !HasFeature(virtconfig.CPUManager) {
-		ginkgo.Skip("the CPUManager feature gate is not enabled.")
-	}
-
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	found := 0
-	for _, node := range nodes.Items {
-		if IsCPUManagerPresent(&node) {
-			found++
-		}
-	}
-
-	if found < nodeCount {
-		msg := fmt.Sprintf(
-			"not enough node with CPUManager detected: expected %v nodes, but got %v",
-			nodeCount,
-			found,
-		)
-		ginkgo.Skip(msg, 1)
 	}
 }
 
@@ -77,12 +50,6 @@ func SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount int) {
 		)
 		ginkgo.Skip(msg, 1)
 	}
-}
-
-// Deprecated: SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages should be converted to check & fail
-func SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(nodeCount int) {
-	SkipTestIfNotEnoughNodesWithCPUManager(nodeCount)
-	SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount)
 }
 
 // Deprecated: SkipTestIfNotRealtimeCapable should be converted to check & fail
