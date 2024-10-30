@@ -331,9 +331,9 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Expect(exist).To(BeTrue())
 			srcDV := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(size),
-					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(size),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 				),
 			)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
@@ -344,9 +344,9 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Expect(exist).To(BeTrue())
 			destDV := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(size),
-					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(size),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
 				),
 			)
 			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
