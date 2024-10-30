@@ -34,6 +34,8 @@ var (
 
 	// Features
 	CPUModel                             = Label("cpumodel")
+	VSOCK                                = Label("vsock")
+	VirtioFS                             = Label("virtiofs")
 	SoftwareEmulation                    = Label("software-emulation")
 	Sysprep                              = Label("Sysprep")
 	Windows                              = Label("Windows")
