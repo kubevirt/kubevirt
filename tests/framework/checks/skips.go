@@ -30,28 +30,6 @@ func SkipTestIfNoFeatureGate(featureGate string) {
 	}
 }
 
-// Deprecated: SkipTestIfNotEnoughNodesWith2MiHugepages should be converted to check & fail
-func SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount int) {
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	found := 0
-	for _, node := range nodes.Items {
-		if Has2MiHugepages(&node) {
-			found++
-		}
-	}
-
-	if found < nodeCount {
-		msg := fmt.Sprintf(
-			"not enough node with 2Mi hugepages detected: expected %v nodes, but got %v",
-			nodeCount,
-			found,
-		)
-		ginkgo.Skip(msg, 1)
-	}
-}
-
 // Deprecated: SkipTestIfNotRealtimeCapable should be converted to check & fail
 func SkipTestIfNotRealtimeCapable() {
 
