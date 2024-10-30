@@ -12,12 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -28,20 +26,6 @@ func SkipTestIfNoFeatureGate(featureGate string) {
 	if !HasFeature(featureGate) {
 		ginkgo.Skip(fmt.Sprintf("the %v feature gate is not enabled.", featureGate))
 	}
-}
-
-// Deprecated: SkipTestIfNotSEVESCapable should be converted to check & fail
-func SkipTestIfNotSEVESCapable() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	for _, node := range nodes.Items {
-		if IsSEVCapable(&node, v1.SEVESLabel) {
-			return
-		}
-	}
-	ginkgo.Skip("no node capable of running SEV-ES workloads detected", 1)
 }
 
 func RecycleImageOrFail(virtClient kubecli.KubevirtClient, imageName string) {

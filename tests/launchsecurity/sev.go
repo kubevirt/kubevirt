@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -314,9 +313,6 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES bool, sevstr string) {
-				if withES {
-					checks.SkipTestIfNotSEVESCapable()
-				}
 				vmi := newSEVFedora(withES)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
@@ -337,7 +333,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			// SEV-ES disabled, SEV enabled
 			Entry("It should launch with base SEV features enabled", false, "SEV"),
 			// SEV-ES enabled
-			Entry("It should launch with SEV-ES features enabled", true, "SEV SEV-ES"),
+			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, "SEV SEV-ES"),
 		)
 
 		It("should run guest attestation", func() {
