@@ -55,13 +55,12 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
 	BeforeEach(func() {
 		config.EnableFeatureGate(virtconfig.VSOCKGate)
-		checks.SkipTestIfNoFeatureGate(virtconfig.VSOCKGate)
 		virtClient = kubevirt.Client()
 	})
 

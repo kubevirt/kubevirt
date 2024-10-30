@@ -251,10 +251,6 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		}, tikBase64, tekBase64
 	}
 
-	BeforeEach(func() {
-		checks.SkipTestIfNoFeatureGate(virtconfig.WorkloadEncryptionSEV)
-	})
-
 	Context("device management", Serial, func() {
 		const (
 			sevResourceName = "devices.kubevirt.io/sev"

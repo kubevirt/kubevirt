@@ -19,13 +19,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -77,10 +75,6 @@ var _ = Describe("[sig-compute-realtime]Realtime", Serial, decorators.SigCompute
 	})
 
 	Context("should start the realtime VM", func() {
-		BeforeEach(func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.CPUManager)
-			checks.SkipTestIfNotRealtimeCapable()
-		})
 
 		It("when no mask is specified", func() {
 			const noMask = ""
