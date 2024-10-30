@@ -39,7 +39,7 @@ var _ = Describe("[sig-compute]NUMA", Serial, decorators.SigCompute, func() {
 	})
 
 	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", decorators.RequiresNodeWithCPUManager, func() {
-		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
+		checks.SkipTestIfNotEnoughNodesWith2MiHugepages(1)
 		var err error
 		cpuVMI := libvmifact.NewCirros()
 		cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")

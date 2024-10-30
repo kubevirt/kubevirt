@@ -2490,7 +2490,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 	Context(" with CPU pinning and huge pages", Serial, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		It("should not make migrations fail", func() {
-			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
+			checks.SkipTestIfNotEnoughNodesWith2MiHugepages(2)
 			var err error
 			cpuVMI := libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -2513,7 +2513,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 		Context("and NUMA passthrough", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 			It("should not make migrations fail", func() {
-				checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
+				checks.SkipTestIfNotEnoughNodesWith2MiHugepages(2)
 				cpuVMI := libvmifact.NewAlpine(
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -2753,7 +2753,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			// We will get focused to run on migration test lanes because we contain the word "Migration".
 			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
-			checks.SkipTestIfNotEnoughNodesWithCPUManager(2)
 			nodes = libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient)
 
 			By("creating a template for a pause pod with 1 dedicated CPU core")
