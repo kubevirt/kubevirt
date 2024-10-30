@@ -51,6 +51,9 @@ func UpdateStatus(clusterConfig clusterConfigChecker, vmi *v1.VirtualMachineInst
 
 	interfaceStatuses = append(interfaceStatuses, secondaryIfaceStatuses...)
 
+	// Preserve interfaces discovered by the virt-handler which are not specified in the VMI.Spec.
+	interfaceStatuses = append(interfaceStatuses, filterUnspecifiedSpecIfaces(vmi.Status.Interfaces, vmi.Spec.Networks)...)
+
 	vmi.Status.Interfaces = interfaceStatuses
 	return nil
 }
@@ -123,4 +126,21 @@ func calculateSecondaryIfaceStatuses(
 	}
 
 	return interfaceStatuses, nil
+}
+
+func filterUnspecifiedSpecIfaces(
+	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+	networks []v1.Network,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	var unspecifiedIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+
+	networksByName := vmispec.IndexNetworkSpecByName(networks)
+
+	for _, ifaceStatus := range ifaceStatuses {
+		if _, exist := networksByName[ifaceStatus.Name]; !exist {
+			unspecifiedIfaceStatuses = append(unspecifiedIfaceStatuses, ifaceStatus)
+		}
+	}
+
+	return unspecifiedIfaceStatuses
 }
