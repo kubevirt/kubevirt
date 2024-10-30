@@ -41,13 +41,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
+
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
 
@@ -528,9 +529,8 @@ func (c *command) getUploadToken() (string, error) {
 func (c *command) waitDvUploadScheduled() error {
 	loggedStatus := false
 	//
-	err := wait.PollImmediate(uploadReadyWaitInterval, time.Duration(c.uploadPodWaitSecs)*time.Second, func() (bool, error) {
-		dv, err := c.client.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Get(context.Background(), c.name, metav1.GetOptions{})
-
+	err := virtwait.PollImmediately(uploadReadyWaitInterval, time.Duration(c.uploadPodWaitSecs)*time.Second, func(ctx context.Context) (bool, error) {
+		dv, err := c.client.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Get(ctx, c.name, metav1.GetOptions{})
 		if err != nil {
 			// DataVolume controller may not have created the DV yet ? TODO:
 			if k8serrors.IsNotFound(err) {
@@ -570,8 +570,8 @@ func (c *command) waitDvUploadScheduled() error {
 func (c *command) waitUploadServerReady() error {
 	loggedStatus := false
 
-	err := wait.PollImmediate(uploadReadyWaitInterval, time.Duration(c.uploadPodWaitSecs)*time.Second, func() (bool, error) {
-		pvc, err := c.client.CoreV1().PersistentVolumeClaims(c.namespace).Get(context.Background(), c.name, metav1.GetOptions{})
+	err := virtwait.PollImmediately(uploadReadyWaitInterval, time.Duration(c.uploadPodWaitSecs)*time.Second, func(ctx context.Context) (bool, error) {
+		pvc, err := c.client.CoreV1().PersistentVolumeClaims(c.namespace).Get(ctx, c.name, metav1.GetOptions{})
 		if err != nil {
 			// DataVolume controller may not have created the PVC yet
 			if k8serrors.IsNotFound(err) {
@@ -606,8 +606,8 @@ func (c *command) waitUploadServerReady() error {
 }
 
 func waitUploadProcessingComplete(client kubernetes.Interface, cmd *cobra.Command, namespace, name string, interval, timeout time.Duration) error {
-	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	err := virtwait.PollImmediately(interval, timeout, func(ctx context.Context) (bool, error) {
+		pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

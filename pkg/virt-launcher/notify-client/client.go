@@ -16,13 +16,13 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/reference"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
@@ -200,7 +200,7 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 	}
 
 	var response *notifyv1.Response
-	err = utilwait.PollImmediate(n.intervalTimeout, n.totalTimeout, func() (done bool, err error) {
+	err = virtwait.PollImmediately(n.intervalTimeout, n.totalTimeout, func(ctx context.Context) (done bool, err error) {
 		n.connLock.Lock()
 		defer n.connLock.Unlock()
 
@@ -210,10 +210,9 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 			return false, nil
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), n.sendTimeout)
+		ctx, cancel := context.WithTimeout(ctx, n.sendTimeout)
 		defer cancel()
 		response, err = n.v1client.HandleDomainEvent(ctx, &request)
-
 		if err != nil {
 			log.Log.Reason(err).Errorf("Failed to send domain notify event. closing connection.")
 			n._close()
@@ -587,7 +586,7 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 	}
 
 	var response *notifyv1.Response
-	err = utilwait.PollImmediate(n.intervalTimeout, n.totalTimeout, func() (done bool, err error) {
+	err = virtwait.PollImmediately(n.intervalTimeout, n.totalTimeout, func(ctx context.Context) (done bool, err error) {
 		n.connLock.Lock()
 		defer n.connLock.Unlock()
 
@@ -597,10 +596,9 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 			return false, nil
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), n.sendTimeout)
+		ctx, cancel := context.WithTimeout(ctx, n.sendTimeout)
 		defer cancel()
 		response, err = n.v1client.HandleK8SEvent(ctx, &request)
-
 		if err != nil {
 			log.Log.Reason(err).Errorf("Failed to send k8s notify event. closing connection.")
 			n._close()

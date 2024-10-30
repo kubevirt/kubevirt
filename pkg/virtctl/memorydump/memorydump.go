@@ -31,11 +31,12 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
@@ -360,8 +361,8 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 
 func WaitForMemoryDumpComplete(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
 	var claimName string
-	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+	err := virtwait.PollImmediately(interval, timeout, func(ctx context.Context) (bool, error) {
+		vm, err := virtClient.VirtualMachine(namespace).Get(ctx, vmName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

@@ -30,17 +30,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	expect "github.com/google/goexpect"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	expect "github.com/google/goexpect"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
@@ -620,8 +619,8 @@ func defaultCloudInitNetworkData() string {
 
 func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, mac string, timeout time.Duration) (string, error) {
 	var ifaceName string
-	err := wait.Poll(timeout, 5*time.Second, func() (done bool, err error) {
-		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), k8smetav1.GetOptions{})
+	err := virtwait.PollImmediately(5*time.Second, timeout, func(ctx context.Context) (done bool, err error) {
+		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(ctx, vmi.GetName(), k8smetav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -686,7 +685,7 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 		// downward API mount not become ready on time.
 		// Kubevirt re-enqueues such requests and eventually reconcile this state.
 		// Tacking issue: https://github.com/kubevirt/kubevirt/issues/12691
-		"failed to create SR-IOV hostdevices: failed to create PCI address pool with network status from file: timed out waiting for the condition: file is not populated with network-info",
+		"failed to create SR-IOV hostdevices: failed to create PCI address pool with network status from file: context deadline exceeded: file is not populated with network-info",
 	}
 
 	libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithWarningsIgnoreList(warningsIgnoreList))
@@ -714,8 +713,8 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	const timeout = 30 * time.Second
-	return wait.PollImmediate(1*time.Second, timeout, func() (done bool, err error) {
-		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+	return virtwait.PollImmediately(1*time.Second, timeout, func(ctx context.Context) (done bool, err error) {
+		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(ctx, vmi.Name, k8smetav1.GetOptions{})
 		if k8serrors.IsNotFound(err) {
 			return true, nil
 		}

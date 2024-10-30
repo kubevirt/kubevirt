@@ -20,6 +20,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -80,7 +81,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			var latestPod k8sv1.Pod
-			err := wait.PollUntilContextTimeout(context.TODO(), 5*time.Second, 1*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
+			err := virtwait.PollImmediately(5*time.Second, 1*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 			return &latestPod, err
 		}
 
@@ -99,7 +100,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		var latestPod k8sv1.Pod
-		err := wait.PollUntilContextTimeout(context.TODO(), time.Second, 1*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
+		err := virtwait.PollImmediately(time.Second, 1*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 		return &latestPod, err
 	}
 
@@ -394,7 +395,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			var latestPod k8sv1.Pod
-			err := wait.PollUntilContextTimeout(context.TODO(), time.Second, 2*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
+			err := virtwait.PollImmediately(time.Second, 2*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 			return err
 		}
 

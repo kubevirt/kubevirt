@@ -29,10 +29,9 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	v1 "kubevirt.io/api/core/v1"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
@@ -208,8 +207,8 @@ func waitForPodCompleted(podNamespace string, podName string) error {
 
 func waitVMMacvtapIfaceIPReport(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
 	var vmiIP string
-	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+	err := virtwait.PollImmediately(time.Second, timeout, func(ctx context.Context) (done bool, err error) {
+		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(ctx, vmi.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

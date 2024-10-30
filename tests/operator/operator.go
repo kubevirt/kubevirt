@@ -59,7 +59,6 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/apimachinery/pkg/util/wait"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -69,6 +68,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -2401,7 +2401,7 @@ spec:
 				Expect(err).ToNot(HaveOccurred())
 				fetchVMI := matcher.ThisVMI(vmi)
 				psaRelatedErrorDetected := false
-				err = wait.PollImmediate(time.Second, 30*time.Second, func() (done bool, err error) {
+				err = virtwait.PollImmediately(time.Second, 30*time.Second, func(_ context.Context) (done bool, err error) {
 					vmi, err := fetchVMI()
 					if err != nil {
 						return done, err
