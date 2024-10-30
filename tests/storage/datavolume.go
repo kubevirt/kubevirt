@@ -281,7 +281,22 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			if pvCapacitySize.Cmp(pvcRequestSize) > 0 {
 				Expect(getVirtualSize(vmi, dataVolume)).To(Equal((pvcRequestSize.Value())))
 			} else {
-				overheadPercentage, err := strconv.ParseFloat(string(*vmi.Status.VolumeStatus[1].PersistentVolumeClaimInfo.FilesystemOverhead), 64)
+				volumeStatus := v1.VolumeStatus{}
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, volStatus := range vmi.Status.VolumeStatus {
+						if volStatus.Name == "disk0" {
+							volumeStatus = volStatus
+							return true
+						}
+					}
+					return false
+				}, 30*time.Second, time.Second).Should(BeTrue(), "Expected VolumeStatus for 'disk0' to be available")
+
+				Expect(volumeStatus.PersistentVolumeClaimInfo).ToNot(BeNil())
+				Expect(volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead).ToNot(BeNil())
+				overheadPercentage, err := strconv.ParseFloat(string(*volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead), 64)
 				Expect(err).ToNot(HaveOccurred())
 				overheadSize := float64(pvcRequestSize.Value()) * (1.0 - overheadPercentage)
 				expectedSize := alignImageSizeTo1MiB(int64(overheadSize))
