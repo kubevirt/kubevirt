@@ -30,19 +30,6 @@ func SkipTestIfNoFeatureGate(featureGate string) {
 	}
 }
 
-// Deprecated: SkipTestIfNotSEVCapable should be converted to check & fail
-func SkipTestIfNotSEVCapable() {
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	for _, node := range nodes.Items {
-		if IsSEVCapable(&node, v1.SEVLabel) {
-			return
-		}
-	}
-	ginkgo.Skip("no node capable of running SEV workloads detected", 1)
-}
-
 // Deprecated: SkipTestIfNotSEVESCapable should be converted to check & fail
 func SkipTestIfNotSEVESCapable() {
 	virtClient, err := kubecli.GetKubevirtClient()
