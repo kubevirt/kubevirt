@@ -2488,9 +2488,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		)
 	})
 
-	Context(" with CPU pinning and huge pages", Serial, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+	Context(" with CPU pinning and huge pages", Serial, decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresHugepages2Mi, func() {
 		It("should not make migrations fail", func() {
-			checks.SkipTestIfNotEnoughNodesWith2MiHugepages(2)
 			var err error
 			cpuVMI := libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -2511,9 +2510,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			migration := libmigration.New(cpuVMI.Name, cpuVMI.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 		})
-		Context("and NUMA passthrough", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+		Context("and NUMA passthrough", decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresHugepages2Mi, func() {
 			It("should not make migrations fail", func() {
-				checks.SkipTestIfNotEnoughNodesWith2MiHugepages(2)
 				cpuVMI := libvmifact.NewAlpine(
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
