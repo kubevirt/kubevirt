@@ -298,6 +298,9 @@ func startExampleGuestAgent(vmi *v1.VirtualMachineInstance, useTLS bool, port ui
 		serverArgs = strings.Join([]string{serverArgs, "--use-tls"}, " ")
 	}
 
+	err := console.RunCommand(vmi, "lsof /usr/bin/example-guest-agent", 10*time.Second)
+	Expect(err).ToNot(HaveOccurred())
+
 	return console.ExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "chmod +x /usr/bin/example-guest-agent\n"},
 		&expect.BExp{R: console.PromptExpression},
