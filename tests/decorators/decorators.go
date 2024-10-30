@@ -21,6 +21,7 @@ var (
 	GPU         = Label("GPU")
 	VGPU        = Label("VGPU")
 	SEV         = Label("SEV")
+	SEVES       = Label("SEVES")
 	SRIOV       = Label("SRIOV")
 	StorageReq  = Label("storage-req")
 	Multus      = Label("Multus")
