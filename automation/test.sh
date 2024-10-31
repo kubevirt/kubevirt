@@ -431,18 +431,18 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
-    label_filter='(sig-compute-realtime)'
+    label_filter='(sig-compute-realtime) && !(software-emulation, SEV, SEVES)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    label_filter='(sig-compute-migrations && !(GPU,VGPU))'
+    label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(software-emulation, SEV, SEVES)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(software-emulation, SEV, SEVES))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations) && !(software-emulation, SEV, SEVES))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations) && !(software-emulation, SEV, SEVES))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -489,6 +489,9 @@ add_to_label_filter '(!exclude-native-ssh)' '&&'
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes))' '&&'
+  add_to_label_filter '!(multi-replica)' '&&'
+else
+  add_to_label_filter '!(single-replica)' '&&'
 fi
 
 # Single stack IPv6 cluster should skip tests that require dual stack cluster
