@@ -61,7 +61,6 @@ import (
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -1799,7 +1798,7 @@ var _ = SIGDescribe("Export", func() {
 		checkWithJsonOutput(pod, export, vm)
 	})
 
-	It("[QUARANTINE] Should generate DVs and expanded VM definition on http endpoint with multiple volumes", decorators.Quarantine, func() {
+	It("Should generate DVs and expanded VM definition on http endpoint with multiple volumes", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
@@ -1911,14 +1910,18 @@ var _ = SIGDescribe("Export", func() {
 		err = yaml.Unmarshal([]byte(split[2]), diskDV)
 		Expect(err).ToNot(HaveOccurred())
 		diskDV.Name = fmt.Sprintf("%s-clone", diskDV.Name)
-		diskDV.Spec.Storage.StorageClassName = virtpointer.P(sc)
-		Expect(diskDV.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.CirrosVolumeSize)))
-		blankDv = &cdiv1.DataVolume{}
-		err = yaml.Unmarshal([]byte(split[3]), blankDv)
+		diskDV.Spec.Storage.StorageClassName = &sc
+		diskPVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dataVolume)).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		blankDv.Name = fmt.Sprintf("%s-clone", blankDv.Name)
-		blankDv.Spec.Storage.StorageClassName = virtpointer.P(sc)
-		Expect(blankDv.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.BlankVolumeSize)))
+		Expect(diskDV.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(diskPVC.Spec.Resources.Requests[k8sv1.ResourceStorage]))
+		blankDiskDV := &cdiv1.DataVolume{}
+		err = yaml.Unmarshal([]byte(split[3]), blankDiskDV)
+		Expect(err).ToNot(HaveOccurred())
+		blankDiskDV.Name = fmt.Sprintf("%s-clone", blankDv.Name)
+		blankDiskDV.Spec.Storage.StorageClassName = &sc
+		blankPVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(blankDv)).Get(context.Background(), blankDv.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(blankDiskDV.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(blankPVC.Spec.Resources.Requests[k8sv1.ResourceStorage]))
 
 		By("Getting token secret header")
 		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader), token.Data["token"])
@@ -1942,8 +1945,8 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resSecret).ToNot(BeNil())
 		diskDV = createDataVolume(diskDV)
 		Expect(diskDV).ToNot(BeNil())
-		blankDv = createDataVolume(blankDv)
-		Expect(blankDv).ToNot(BeNil())
+		blankDiskDV = createDataVolume(blankDiskDV)
+		Expect(blankDiskDV).ToNot(BeNil())
 		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
