@@ -2077,7 +2077,7 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 		return
 	}
 
-	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
+	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Namespace+"/"+vmi.ObjectMeta.Name+"/"+string(vmi.ObjectMeta.UID))).String())
 }
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
