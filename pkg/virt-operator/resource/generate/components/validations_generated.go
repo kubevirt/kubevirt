@@ -526,37 +526,6 @@ var CRDsValidation map[string]string = map[string]string{
                 Resources represents the minimum resources the volume should have.
                 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
               properties:
-                claims:
-                  description: |-
-                    Claims lists the names of resources, defined in spec.resourceClaims,
-                    that are used by this container.
-
-                    This is an alpha field and requires enabling the
-                    DynamicResourceAllocation feature gate.
-
-                    This field is immutable. It can only be set for containers.
-                  items:
-                    description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                    properties:
-                      name:
-                        description: |-
-                          Name must match the name of one entry in pod.spec.resourceClaims of
-                          the Pod where this field is used. It makes that resource available
-                          inside a container.
-                        type: string
-                      request:
-                        description: |-
-                          Request is the name chosen for a request in the referenced claim.
-                          If empty, everything from the claim is made available, otherwise
-                          only the result of this request.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type: array
-                  x-kubernetes-list-map-keys:
-                  - name
-                  x-kubernetes-list-type: map
                 limits:
                   additionalProperties:
                     anyOf:
@@ -4507,37 +4476,6 @@ var CRDsValidation map[string]string = map[string]string{
                           Resources represents the minimum resources the volume should have.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                         properties:
-                          claims:
-                            description: |-
-                              Claims lists the names of resources, defined in spec.resourceClaims,
-                              that are used by this container.
-
-                              This is an alpha field and requires enabling the
-                              DynamicResourceAllocation feature gate.
-
-                              This field is immutable. It can only be set for containers.
-                            items:
-                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                              properties:
-                                name:
-                                  description: |-
-                                    Name must match the name of one entry in pod.spec.resourceClaims of
-                                    the Pod where this field is used. It makes that resource available
-                                    inside a container.
-                                  type: string
-                                request:
-                                  description: |-
-                                    Request is the name chosen for a request in the referenced claim.
-                                    If empty, everything from the claim is made available, otherwise
-                                    only the result of this request.
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                            type: array
-                            x-kubernetes-list-map-keys:
-                            - name
-                            x-kubernetes-list-type: map
                           limits:
                             additionalProperties:
                               anyOf:
@@ -19791,38 +19729,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   Resources represents the minimum resources the volume should have.
                                   More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                                 properties:
-                                  claims:
-                                    description: |-
-                                      Claims lists the names of resources, defined in spec.resourceClaims,
-                                      that are used by this container.
-
-                                      This is an alpha field and requires enabling the
-                                      DynamicResourceAllocation feature gate.
-
-                                      This field is immutable. It can only be set for containers.
-                                    items:
-                                      description: ResourceClaim references one entry
-                                        in PodSpec.ResourceClaims.
-                                      properties:
-                                        name:
-                                          description: |-
-                                            Name must match the name of one entry in pod.spec.resourceClaims of
-                                            the Pod where this field is used. It makes that resource available
-                                            inside a container.
-                                          type: string
-                                        request:
-                                          description: |-
-                                            Request is the name chosen for a request in the referenced claim.
-                                            If empty, everything from the claim is made available, otherwise
-                                            only the result of this request.
-                                          type: string
-                                      required:
-                                      - name
-                                      type: object
-                                    type: array
-                                    x-kubernetes-list-map-keys:
-                                    - name
-                                    x-kubernetes-list-type: map
                                   limits:
                                     additionalProperties:
                                       anyOf:
@@ -24976,38 +24882,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       Resources represents the minimum resources the volume should have.
                                       More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                                     properties:
-                                      claims:
-                                        description: |-
-                                          Claims lists the names of resources, defined in spec.resourceClaims,
-                                          that are used by this container.
-
-                                          This is an alpha field and requires enabling the
-                                          DynamicResourceAllocation feature gate.
-
-                                          This field is immutable. It can only be set for containers.
-                                        items:
-                                          description: ResourceClaim references one
-                                            entry in PodSpec.ResourceClaims.
-                                          properties:
-                                            name:
-                                              description: |-
-                                                Name must match the name of one entry in pod.spec.resourceClaims of
-                                                the Pod where this field is used. It makes that resource available
-                                                inside a container.
-                                              type: string
-                                            request:
-                                              description: |-
-                                                Request is the name chosen for a request in the referenced claim.
-                                                If empty, everything from the claim is made available, otherwise
-                                                only the result of this request.
-                                              type: string
-                                          required:
-                                          - name
-                                          type: object
-                                        type: array
-                                        x-kubernetes-list-map-keys:
-                                        - name
-                                        x-kubernetes-list-type: map
                                       limits:
                                         additionalProperties:
                                           anyOf:

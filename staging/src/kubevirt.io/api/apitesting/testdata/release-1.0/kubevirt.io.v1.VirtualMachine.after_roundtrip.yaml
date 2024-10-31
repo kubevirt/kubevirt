@@ -100,7 +100,6 @@ spec:
           matchLabels:
             matchLabelsKey: matchLabelsValue
         storageClassName: storageClassNameValue
-        volumeAttributesClassName: volumeAttributesClassNameValue
         volumeMode: volumeModeValue
         volumeName: volumeNameValue
       source:
@@ -281,10 +280,6 @@ spec:
                   - valuesValue
                 matchLabels:
                   matchLabelsKey: matchLabelsValue
-              matchLabelKeys:
-              - matchLabelKeysValue
-              mismatchLabelKeys:
-              - mismatchLabelKeysValue
               namespaceSelector:
                 matchExpressions:
                 - key: keyValue
@@ -306,10 +301,6 @@ spec:
                 - valuesValue
               matchLabels:
                 matchLabelsKey: matchLabelsValue
-            matchLabelKeys:
-            - matchLabelKeysValue
-            mismatchLabelKeys:
-            - mismatchLabelKeysValue
             namespaceSelector:
               matchExpressions:
               - key: keyValue
@@ -332,10 +323,6 @@ spec:
                   - valuesValue
                 matchLabels:
                   matchLabelsKey: matchLabelsValue
-              matchLabelKeys:
-              - matchLabelKeysValue
-              mismatchLabelKeys:
-              - mismatchLabelKeysValue
               namespaceSelector:
                 matchExpressions:
                 - key: keyValue
@@ -357,10 +344,6 @@ spec:
                 - valuesValue
               matchLabels:
                 matchLabelsKey: matchLabelsValue
-            matchLabelKeys:
-            - matchLabelKeysValue
-            mismatchLabelKeys:
-            - mismatchLabelKeysValue
             namespaceSelector:
               matchExpressions:
               - key: keyValue
@@ -768,7 +751,6 @@ spec:
             name: nameValue
           secret:
             name: nameValue
-  updateVolumesStrategy: updateVolumesStrategyValue
 status:
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
@@ -791,7 +773,6 @@ status:
   printableStatus: printableStatusValue
   ready: true
   restoreInProgress: restoreInProgressValue
-  runStrategy: runStrategyValue
   snapshotInProgress: snapshotInProgressValue
   startFailure:
     consecutiveFailCount: -20
@@ -851,29 +832,3 @@ status:
   - enabled: true
     name: nameValue
     reason: reasonValue
-  volumeUpdateState:
-    volumeMigrationState:
-      migratedVolumes:
-      - destinationPVCInfo:
-          accessModes:
-          - accessModesValue
-          capacity:
-            capacityKey: "0"
-          claimName: claimNameValue
-          filesystemOverhead: filesystemOverheadValue
-          preallocated: true
-          requests:
-            requestsKey: "0"
-          volumeMode: volumeModeValue
-        sourcePVCInfo:
-          accessModes:
-          - accessModesValue
-          capacity:
-            capacityKey: "0"
-          claimName: claimNameValue
-          filesystemOverhead: filesystemOverheadValue
-          preallocated: true
-          requests:
-            requestsKey: "0"
-          volumeMode: volumeModeValue
-        volumeName: volumeNameValue
