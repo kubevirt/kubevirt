@@ -1020,7 +1020,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("instance type with dedicatedCPUPlacement enabled", decorators.RequiresNodeWithCPUManager, func() {
-
 		It("should be accepted and result in running VirtualMachineInstance", func() {
 			vmi := libvmifact.NewGuestless()
 
