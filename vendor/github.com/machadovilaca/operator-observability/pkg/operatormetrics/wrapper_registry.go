@@ -122,7 +122,7 @@ func metricExists(metric Metric) bool {
 }
 
 func unregisterMetric(metric Metric) error {
-	if succeeded := Unregister(metric.getCollector()); succeeded {
+	if succeeded := Unregister(metric.GetCollector()); succeeded {
 		delete(operatorRegistry.registeredMetrics, metric.GetOpts().Name)
 		return nil
 	}
@@ -131,7 +131,7 @@ func unregisterMetric(metric Metric) error {
 }
 
 func registerMetric(metric Metric) error {
-	err := Register(metric.getCollector())
+	err := Register(metric.GetCollector())
 	if err != nil {
 		return err
 	}

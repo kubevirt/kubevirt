@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/kubevirt/cluster-network-addons-operator v0.96.0
 	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20240505100225-e29dee0bb12b
-	github.com/machadovilaca/operator-observability v0.0.21
+	github.com/machadovilaca/operator-observability v0.0.23
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.2
 	github.com/openshift/api v3.9.1-0.20190517100836-d5b34b957e91+incompatible

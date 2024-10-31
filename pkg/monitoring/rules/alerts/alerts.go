@@ -20,7 +20,7 @@ const (
 	runbookURLTemplateEnv          = "RUNBOOK_URL_TEMPLATE"
 )
 
-func Register() error {
+func Register(operatorRegistry *operatorrules.Registry) error {
 	alerts := [][]promv1.Rule{
 		operatorAlerts(),
 	}
@@ -35,7 +35,7 @@ func Register() error {
 
 	}
 
-	return operatorrules.RegisterAlerts(alerts...)
+	return operatorRegistry.RegisterAlerts(alerts...)
 }
 
 func getRunbookURLTemplate() string {

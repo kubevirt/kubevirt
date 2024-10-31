@@ -14,13 +14,15 @@ const (
 	ruleName = hcoutil.HyperConvergedName + "-prometheus-rule"
 )
 
+var operatorRegistry = operatorrules.NewRegistry()
+
 func SetupRules() error {
-	err := recordingrules.Register()
+	err := recordingrules.Register(operatorRegistry)
 	if err != nil {
 		return err
 	}
 
-	err = alerts.Register()
+	err = alerts.Register(operatorRegistry)
 	if err != nil {
 		return err
 	}
@@ -29,7 +31,7 @@ func SetupRules() error {
 }
 
 func BuildPrometheusRule(namespace string, owner metav1.OwnerReference) (*promv1.PrometheusRule, error) {
-	rules, err := operatorrules.BuildPrometheusRule(
+	rules, err := operatorRegistry.BuildPrometheusRule(
 		ruleName,
 		namespace,
 		hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring),
@@ -44,9 +46,9 @@ func BuildPrometheusRule(namespace string, owner metav1.OwnerReference) (*promv1
 }
 
 func ListRecordingRules() []operatorrules.RecordingRule {
-	return operatorrules.ListRecordingRules()
+	return operatorRegistry.ListRecordingRules()
 }
 
 func ListAlerts() []promv1.Rule {
-	return operatorrules.ListAlerts()
+	return operatorRegistry.ListAlerts()
 }
