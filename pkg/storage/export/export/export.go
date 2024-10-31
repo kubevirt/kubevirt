@@ -1506,26 +1506,26 @@ func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMach
 
 func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string) *cdiv1.DataVolume {
 	pvc := ctrl.getPVCsFromName(namespace, name)
-	if pvc != nil {
-		pvc.Spec.VolumeName = ""
-		pvc.Spec.StorageClassName = nil
-		// Don't copy datasources, will be populated by CDI with the datavolume
-		pvc.Spec.DataSource = nil
-		pvc.Spec.DataSourceRef = nil
-		return &cdiv1.DataVolume{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
-			Spec: cdiv1.DataVolumeSpec{
-				Source: &cdiv1.DataVolumeSource{
-					HTTP: &cdiv1.DataVolumeSourceHTTP{
-						URL: "",
-					},
-				},
-				PVC: &pvc.Spec,
-			},
-		}
+	if pvc == nil {
+		return nil
 	}
-	return nil
+
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: &cdiv1.DataVolumeSource{
+				HTTP: &cdiv1.DataVolumeSourceHTTP{
+					URL: "",
+				},
+			},
+			Storage: &cdiv1.StorageSpec{
+				AccessModes: pvc.Spec.AccessModes,
+				VolumeMode:  pvc.Spec.VolumeMode,
+				Resources:   pvc.Spec.Resources,
+			},
+		},
+	}
 }
