@@ -39,6 +39,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -921,20 +922,16 @@ var _ = Describe("Converter", func() {
 			})
 		})
 
-		DescribeTable("CPU mpx feature", func(arch string, hasMPX bool) {
+		DescribeTable("CPU mpx feature", func(arch string, matcher types.GomegaMatcher) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c.Architecture = arch
 			vmi.Spec.Domain.CPU = &v1.CPU{}
 			domain := vmiToDomain(vmi, c)
-			if hasMPX {
-				Expect(domain.Spec.CPU.Features).To(HaveExactElements(api.CPUFeature{Name: "mpx", Policy: "disable"}))
-			} else {
-				Expect(domain.Spec.CPU.Features).To(BeNil())
-			}
+			Expect(domain.Spec.CPU.Features).To(matcher)
 		},
-			Entry("should be nil for s390x", "s390x", false),
-			Entry("should be present for amd64", "amd64", true),
-			Entry("should be present for arm64", "arm64", true),
+			Entry("should be nil for s390x", "s390x", BeNil()),
+			Entry("should be present for amd64", "amd64", HaveExactElements(api.CPUFeature{Name: "mpx", Policy: "disable"})),
+			Entry("should be nil for arm64", "arm64", BeNil()),
 		)
 
 		Context("when downwardMetrics are exposed via virtio-serial", func() {
