@@ -1991,8 +1991,6 @@ func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMa
 		vmi.Spec = *removeMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
 
-	setupStableFirmwareUUID(vm, vmi)
-
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
 	vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
@@ -2060,23 +2058,23 @@ const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
 
 var firmwareUUIDns = uuid.MustParse(magicUUID)
 
-// setStableUUID makes sure the VirtualMachineInstance being started has a 'stable' UUID.
-// The UUID is 'stable' if doesn't change across reboots.
-func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-
-	logger := log.Log.Object(vm)
-
-	if vmi.Spec.Domain.Firmware == nil {
-		vmi.Spec.Domain.Firmware = &virtv1.Firmware{}
+// syncFirmwareUUID makes sure VirtualMachine has a stable UUID persisted in its spec
+func syncFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	if vm.Spec.Template.Spec.Domain.Firmware == nil {
+		vm.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{}
 	}
 
-	existingUUID := vmi.Spec.Domain.Firmware.UUID
+	existingUUID := vm.Spec.Template.Spec.Domain.Firmware.UUID
 	if existingUUID != "" {
-		logger.V(4).Infof("Using existing UUID '%s'", existingUUID)
 		return
 	}
 
-	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
+	// This code generates a non-uniqe identification. Two VMs with the
+	// same name but on different namespaces or on different clusters get
+	// the same ID. We have to keep this for a while because modifying this
+	// logic would modify the ID of existing VMs.
+	// https://github.com/kubevirt/kubevirt/issues/13156
+	vm.Spec.Template.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
 }
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
@@ -3304,6 +3302,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		vmCopy.ObjectMeta = syncedVM.ObjectMeta
 		vmCopy.Spec = syncedVM.Spec
 	}
+
+	syncFirmwareUUID(vmCopy, vmi)
 
 	if err := c.handleVolumeRequests(vmCopy, vmi); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), hotplugVolumeErrorReason), nil
