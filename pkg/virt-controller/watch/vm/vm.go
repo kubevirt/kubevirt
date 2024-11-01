@@ -2056,7 +2056,6 @@ func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 }
 
 // no special meaning, randomly generated on my box.
-// TODO: do we want to use another constants? see examples in RFC4122
 const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
 
 var firmwareUUIDns = uuid.MustParse(magicUUID)
