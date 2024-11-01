@@ -7,3 +7,6 @@ if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
     git diff
     exit 1
 fi
+
+
+bazel build --config=${ARCHITECTURE} //...
