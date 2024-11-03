@@ -380,6 +380,7 @@ spec:
     server: "nfs"
     path: /
   storageClassName: windows
+  persistentVolumeReclaimPolicy: Recycle
 EOF
 fi
 
