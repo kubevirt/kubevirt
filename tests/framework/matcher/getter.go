@@ -42,13 +42,16 @@ func ThisVMI(vmi *virtv1.VirtualMachineInstance) func() (*virtv1.VirtualMachineI
 
 // ThisVMIWith fetches the latest state of the VirtualMachineInstance based on namespace and name. If the object does not exist, nil is returned.
 func ThisVMIWith(namespace string, name string) func() (*virtv1.VirtualMachineInstance, error) {
-	return func() (p *virtv1.VirtualMachineInstance, err error) {
+	return func() (*virtv1.VirtualMachineInstance, error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return nil, nil
+		p, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return
+		return p, nil
 	}
 }
 
