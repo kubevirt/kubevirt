@@ -62,7 +62,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		nodeName = libnode.NodeNameWithHandler()
+		nodeName = libnode.GetNodeNameWithHandler()
 		createFaultyDisk(nodeName, deviceName)
 		var err error
 		pv, pvc, err = CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, testsuite.GetTestNamespace(nil))

@@ -44,7 +44,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 		kv := libkubevirt.GetCurrentKv(virtClient)
 		config = kv.Spec.Configuration
 
-		nodeName := libnode.NodeNameWithHandler()
+		nodeName := libnode.GetNodeNameWithHandler()
 		Expect(nodeName).ToNot(BeEmpty())
 
 		// Emulated USB devices only on c9s providers. Remove this when sig-compute 1.26 is the
