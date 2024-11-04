@@ -20,10 +20,18 @@
 package multus
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/precond"
 )
 
@@ -41,4 +49,27 @@ func NetAttachDefNamespacedName(namespace, fullNetworkName string) types.Namespa
 		Namespace: precond.MustNotBeEmpty(namespace),
 		Name:      fullNetworkName,
 	}
+}
+
+func GetNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
+	networkToResourceMap = make(map[string]string)
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus != nil {
+			nadNamespacedName := NetAttachDefNamespacedName(vmi.Namespace, network.Multus.NetworkName)
+			crd, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(nadNamespacedName.Namespace).Get(context.Background(), nadNamespacedName.Name, metav1.GetOptions{})
+			if err != nil {
+				return map[string]string{}, fmt.Errorf("failed to locate network attachment definition %s", nadNamespacedName.String())
+			}
+			networkToResourceMap[network.Name] = getResourceNameForNetwork(crd)
+		}
+	}
+	return
+}
+
+func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {
+	resourceName, ok := network.Annotations[ResourceNameAnnotation]
+	if ok {
+		return resourceName
+	}
+	return "" // meaning the network is not served by resources
 }
