@@ -165,7 +165,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	}
 
 	BeforeEach(func() {
-		checks.SkipIfMigrationIsNotPossible()
 		virtClient = kubevirt.Client()
 		migrationBandwidthLimit = resource.MustParse("1Ki")
 	})
