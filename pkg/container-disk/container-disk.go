@@ -42,8 +42,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-var containerDiskOwner = "qemu"
-
 var podsBaseDir = util.KubeletPodsDir
 
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
@@ -133,11 +131,6 @@ func SetKubeletPodsDirectory(dir string) {
 func setPodsDirectory(dir string) error {
 	podsBaseDir = dir
 	return os.MkdirAll(dir, 0750)
-}
-
-// The unit test suite uses this function
-func setLocalDataOwner(user string) {
-	containerDiskOwner = user
 }
 
 // GetDiskTargetPartFromLauncherView returns (path to disk image, image type, and error)
