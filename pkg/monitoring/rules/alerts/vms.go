@@ -31,11 +31,11 @@ var (
 	vmsAlerts = []promv1.Rule{
 		{
 			Alert: "KubevirtVmHighMemoryUsage",
-			Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes < 52428800 or kubevirt_vm_container_free_memory_bytes_based_on_rss < 52428800"),
+			Expr:  intstr.FromString("count(kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes < 52428800 or kubevirt_vm_container_free_memory_bytes_based_on_rss < 52428800)"),
 			For:   ptr.To(promv1.Duration("1m")),
 			Annotations: map[string]string{
-				"description": fmt.Sprintf("Container {{ $labels.container }} in pod {{ $labels.pod }} in namespace {{ $labels.namespace }} free memory is less than %s and it is close to requested memory", fiftyMB.String()),
-				"summary":     "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime.",
+				"description": fmt.Sprintf("There are {{ $value }} VMs where free memory is less than %s and it is close to requested memory", fiftyMB.String()),
+				"summary":     "VMs are at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
