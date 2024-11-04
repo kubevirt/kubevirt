@@ -32,8 +32,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -77,7 +75,6 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 			}, 300)).To(Succeed(), "PCR extension doesn't work correctly")
 
 			By("Migrating the VMI")
-			checks.SkipIfMigrationIsNotPossible()
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 

@@ -37,8 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -60,7 +58,6 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", func() {
 	)
 
 	BeforeEach(func() {
-		checks.SkipIfMigrationIsNotPossible()
 		virtClient = kubevirt.Client()
 	})
 

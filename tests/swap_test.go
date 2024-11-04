@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -65,8 +64,6 @@ var _ = Describe("[sig-compute]SwapTest", Serial, decorators.SigCompute, func() 
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		checks.SkipIfMigrationIsNotPossible()
-
 		virtClient = kubevirt.Client()
 
 		nodes := libnode.GetAllSchedulableNodes(virtClient)

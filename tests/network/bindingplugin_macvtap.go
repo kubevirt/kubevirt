@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -114,8 +113,6 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 	Context("VMI migration", func() {
 		var clientVMI *v1.VirtualMachineInstance
-
-		BeforeEach(checks.SkipIfMigrationIsNotPossible)
 
 		BeforeEach(func() {
 			clientVMI = libvmifact.NewAlpineWithTestTooling(

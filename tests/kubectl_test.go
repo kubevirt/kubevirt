@@ -8,7 +8,6 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -166,8 +165,6 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		var virtClient kubecli.KubevirtClient
 
 		BeforeEach(func() {
-			checks.SkipIfMigrationIsNotPossible()
-
 			virtClient = kubevirt.Client()
 		})
 
