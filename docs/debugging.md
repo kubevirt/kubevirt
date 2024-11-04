@@ -71,5 +71,16 @@ journalctl -u kubelet
 This shows the basic principle on how remote debugging can be done.
 
  - Add delve to the container
- - Start delve on a specific port ( `dlv attach <pid> --headless --listen=0.0.0.0:1234`)
+ - Start delve on a specific port ( `dlv attach <pid> --headless=true --api-version=2 --listen=:1234`)
  - Use kube-proxy to forward the port to your machine
+
+## Local execution of the kubevirt process
+Not all processses can easily be executed locally, since some of the processes require specific 
+dependencies that exist in the runtime pod and node
+For processes that are easily executed locally, such as `virt-controler`, the following program arguments
+can be passed to virt-controller `--kubeconfig /path/to/kubeconfig --leader-elect-lease-duration 99h` in order 
+to successfully debug.
+> **Note** `/path/to/kubeconfig` must point to a running kubrenetes cluster with kubevirt installed
+> 
+> **Note** It is recommended to scale down both `virt-controller` and also `virt-operator` deployments to
+0 replicas, because otherwise it will override the `virt-controller` deployment manifest.
