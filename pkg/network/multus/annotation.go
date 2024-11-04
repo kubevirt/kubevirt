@@ -39,9 +39,9 @@ const (
 	// The value of this annotation should be a NetworkAttachmentDefinition's name
 	DefaultNetworkCNIAnnotation = "v1.multus-cni.io/default-network"
 
-	// MULTUS_RESOURCE_NAME_ANNOTATION represents a resource name that is associated with the network.
+	// ResourceNameAnnotation represents a resource name that is associated with the network.
 	// It could be found on NetworkAttachmentDefinition objects.
-	MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
+	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
 )
 
 func GenerateCNIAnnotation(

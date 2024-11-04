@@ -49,7 +49,7 @@ func GetNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 }
 
 func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {
-	resourceName, ok := network.Annotations[multus.MULTUS_RESOURCE_NAME_ANNOTATION]
+	resourceName, ok := network.Annotations[multus.ResourceNameAnnotation]
 	if ok {
 		return resourceName
 	}

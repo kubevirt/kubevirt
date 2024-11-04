@@ -39,7 +39,7 @@ var _ = Describe("getResourceNameForNetwork", func() {
 		network := &networkv1.NetworkAttachmentDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					multus.MULTUS_RESOURCE_NAME_ANNOTATION: "fake.com/fakeResource",
+					multus.ResourceNameAnnotation: "fake.com/fakeResource",
 				},
 			},
 		}
