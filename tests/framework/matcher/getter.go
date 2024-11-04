@@ -62,13 +62,16 @@ func ThisVM(vm *virtv1.VirtualMachine) func() (*virtv1.VirtualMachine, error) {
 
 // ThisVMWith fetches the latest state of the VirtualMachine based on namespace and name. If the object does not exist, nil is returned.
 func ThisVMWith(namespace string, name string) func() (*virtv1.VirtualMachine, error) {
-	return func() (p *virtv1.VirtualMachine, err error) {
+	return func() (*virtv1.VirtualMachine, error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return nil, nil
+		p, err := virtClient.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return
+		return p, nil
 	}
 }
 
