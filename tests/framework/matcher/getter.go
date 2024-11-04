@@ -23,15 +23,18 @@ func ThisPod(pod *v1.Pod) func() (*v1.Pod, error) {
 
 // ThisPodWith fetches the latest state of the pod based on namespace and name. If the object does not exist, nil is returned.
 func ThisPodWith(namespace string, name string) func() (*v1.Pod, error) {
-	return func() (p *v1.Pod, err error) {
+	return func() (*v1.Pod, error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.CoreV1().Pods(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return nil, nil
+		p, err := virtClient.CoreV1().Pods(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
 		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
 		p.Kind = "Pod"
-		return
+		return p, nil
 	}
 }
 
@@ -99,15 +102,18 @@ func ThisDV(dv *v1beta1.DataVolume) func() (*v1beta1.DataVolume, error) {
 
 // ThisDVWith fetches the latest state of the DataVolume based on namespace and name. If the object does not exist, nil is returned.
 func ThisDVWith(namespace string, name string) func() (*v1beta1.DataVolume, error) {
-	return func() (p *v1beta1.DataVolume, err error) {
+	return func() (*v1beta1.DataVolume, error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return nil, nil
+		p, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
 		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
 		p.Kind = "DataVolume"
-		return
+		return p, nil
 	}
 }
 
@@ -118,15 +124,18 @@ func ThisPVC(pvc *v1.PersistentVolumeClaim) func() (*v1.PersistentVolumeClaim, e
 
 // ThisPVCWith fetches the latest state of the PersistentVolumeClaim based on namespace and name. If the object does not exist, nil is returned.
 func ThisPVCWith(namespace string, name string) func() (*v1.PersistentVolumeClaim, error) {
-	return func() (p *v1.PersistentVolumeClaim, err error) {
+	return func() (*v1.PersistentVolumeClaim, error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return nil, nil
+		p, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
 		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
 		p.Kind = "PersistentVolumeClaim"
-		return
+		return p, nil
 	}
 }
 
@@ -137,26 +146,32 @@ func ThisMigration(migration *virtv1.VirtualMachineInstanceMigration) func() (*v
 
 // ThisMigrationWith fetches the latest state of the Migration based on namespace and name. If the object does not exist, nil is returned.
 func ThisMigrationWith(namespace string, name string) func() (*virtv1.VirtualMachineInstanceMigration, error) {
-	return func() (p *virtv1.VirtualMachineInstanceMigration, err error) {
+	return func() (*virtv1.VirtualMachineInstanceMigration, error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.VirtualMachineInstanceMigration(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return nil, nil
+		p, err := virtClient.VirtualMachineInstanceMigration(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return
+		return p, nil
 	}
 }
 
 // ThisDeploymentWith fetches the latest state of the Deployment based on namespace and name. If the object does not exist, nil is returned.
 func ThisDeploymentWith(namespace string, name string) func() (*k8sv1.Deployment, error) {
-	return func() (p *k8sv1.Deployment, err error) {
+	return func() (*k8sv1.Deployment, error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.AppsV1().Deployments(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return nil, nil
+		p, err := virtClient.AppsV1().Deployments(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
 		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
 		p.Kind = "Deployment"
-		return
+		return p, nil
 	}
 }
