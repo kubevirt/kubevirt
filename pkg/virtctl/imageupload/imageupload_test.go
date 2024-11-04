@@ -473,9 +473,9 @@ var _ = Describe("ImageUpload", func() {
 		updateCDIConfig(config)
 
 		imageupload.UploadProcessingCompleteFunc = waitProcessingComplete
-		imageupload.SetHTTPClientCreator(func(bool) *http.Client {
+		imageupload.GetHTTPClientFn = func(bool) *http.Client {
 			return server.Client()
-		})
+		}
 	}
 
 	testInitAsync := func(statusCode int, async bool, kubeobjects ...runtime.Object) {
@@ -487,7 +487,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	testDone := func() {
-		imageupload.SetDefaultHTTPClientCreator()
+		imageupload.GetHTTPClientFn = imageupload.GetHTTPClient
 		server.Close()
 	}
 
