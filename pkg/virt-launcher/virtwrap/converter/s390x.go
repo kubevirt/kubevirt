@@ -51,3 +51,7 @@ func (archConverterS390X) scsiController(c *ConverterContext, driver *api.Contro
 func (archConverterS390X) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	return false
 }
+
+func (archConverterS390X) supportCPUHotplug() bool {
+	return true
+}

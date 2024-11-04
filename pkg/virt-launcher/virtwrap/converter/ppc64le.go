@@ -50,3 +50,7 @@ func (archConverterPPC64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
 	return true
 }
+
+func (archConverterPPC64) supportCPUHotplug() bool {
+	return true
+}

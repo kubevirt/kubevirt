@@ -1415,7 +1415,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		CPUs:      cpuCount,
 	}
 	// set the maximum number of sockets here to allow hot-plug CPUs
-	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 {
+	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && newArchConverter(c.Architecture).supportCPUHotplug() {
 		domainVCPUTopologyForHotplug(vmi, domain)
 	}
 
