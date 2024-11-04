@@ -25,6 +25,8 @@ import (
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/kubevirt/pkg/network/multus"
 )
 
 var _ = Describe("getResourceNameForNetwork", func() {
@@ -37,7 +39,7 @@ var _ = Describe("getResourceNameForNetwork", func() {
 		network := &networkv1.NetworkAttachmentDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					MULTUS_RESOURCE_NAME_ANNOTATION: "fake.com/fakeResource",
+					multus.MULTUS_RESOURCE_NAME_ANNOTATION: "fake.com/fakeResource",
 				},
 			},
 		}

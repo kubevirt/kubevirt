@@ -33,8 +33,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/multus"
 )
 
-const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
-
 func GetNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
 	networkToResourceMap = make(map[string]string)
 	for _, network := range vmi.Spec.Networks {
@@ -51,7 +49,7 @@ func GetNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 }
 
 func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {
-	resourceName, ok := network.Annotations[MULTUS_RESOURCE_NAME_ANNOTATION]
+	resourceName, ok := network.Annotations[multus.MULTUS_RESOURCE_NAME_ANNOTATION]
 	if ok {
 		return resourceName
 	}
