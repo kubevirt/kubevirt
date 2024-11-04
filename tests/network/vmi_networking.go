@@ -184,8 +184,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 
 		Context("with propagated IP from a pod", func() {
-
-			DescribeTable("should be able to reach", func(op k8sv1.NodeSelectorOperator, hostNetwork bool) {
+			DescribeTable("should be able to reach", func(hostNetwork bool) {
 				namespace := testsuite.GetTestNamespace(nil)
 				if hostNetwork {
 					namespace = testsuite.NamespacePrivileged
@@ -199,38 +198,30 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				ip := inboundVMI.Status.Interfaces[0].IP
 
-				//TODO if node count 1, skip the nv12.NodeSelectorOpOut
+				By("start connectivity job on the same node as the VM")
+				localNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
+				localNodeTCPJob.Spec.Template.Spec.HostNetwork = hostNetwork
+				localNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpIn, inboundVMI.Status.NodeName)}
+				localNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), localNodeTCPJob, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(job.WaitForJobToSucceed(localNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on the same node")
+
 				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(nodes.Items).ToNot(BeEmpty())
-				if len(nodes.Items) == 1 && op == k8sv1.NodeSelectorOpNotIn {
-					Skip("Skip network test that requires multiple nodes when only one node is present.")
+				if len(nodes.Items) == 1 {
+					Skip("Skip network TCP connectivity test across nodes because only one node present")
+				} else {
+					By("start connectivity job on different node")
+					remoteNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
+					remoteNodeTCPJob.Spec.Template.Spec.HostNetwork = hostNetwork
+					remoteNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpNotIn, inboundVMI.Status.NodeName)}
+					remoteNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), remoteNodeTCPJob, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(job.WaitForJobToSucceed(remoteNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on different node")
 				}
-
-				tcpJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
-				tcpJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
-					NodeAffinity: &k8sv1.NodeAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-								{
-									MatchExpressions: []k8sv1.NodeSelectorRequirement{
-										{Key: k8sv1.LabelHostname, Operator: op, Values: []string{inboundVMI.Status.NodeName}},
-									},
-								},
-							},
-						},
-					},
-				}
-				tcpJob.Spec.Template.Spec.HostNetwork = hostNetwork
-
-				tcpJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), tcpJob, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed())
 			},
-				Entry("[test_id:1543]on the same node from Pod", k8sv1.NodeSelectorOpIn, false),
-				Entry("[test_id:1544]on a different node from Pod", k8sv1.NodeSelectorOpNotIn, false),
-				Entry("[test_id:1545]on the same node from Node", k8sv1.NodeSelectorOpIn, true),
-				Entry("[test_id:1546]on a different node from Node", k8sv1.NodeSelectorOpNotIn, true),
+				Entry("[test_id:1544] from pod network", false),
+				Entry("[test_id:1543] from node network", true),
 			)
 		})
 
@@ -924,4 +915,18 @@ func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewCirros(
 		libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), mac)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+}
+
+func newNodeAffinity(selector k8sv1.NodeSelectorOperator, nodeName string) *k8sv1.NodeAffinity {
+	req := k8sv1.NodeSelectorRequirement{
+		Key:      k8sv1.LabelHostname,
+		Operator: selector,
+		Values:   []string{nodeName},
+	}
+	term := []k8sv1.NodeSelectorTerm{{
+		MatchExpressions: []k8sv1.NodeSelectorRequirement{req}},
+	}
+	return &k8sv1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+		NodeSelectorTerms: term,
+	}}
 }
