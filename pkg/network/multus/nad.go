@@ -27,8 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -51,25 +49,25 @@ func NetAttachDefNamespacedName(namespace, fullNetworkName string) types.Namespa
 	}
 }
 
-func GetNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
-	networkToResourceMap = make(map[string]string)
-	for _, network := range vmi.Spec.Networks {
-		if network.Multus != nil {
-			nadNamespacedName := NetAttachDefNamespacedName(vmi.Namespace, network.Multus.NetworkName)
-			crd, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(nadNamespacedName.Namespace).Get(context.Background(), nadNamespacedName.Name, metav1.GetOptions{})
-			if err != nil {
-				return map[string]string{}, fmt.Errorf("failed to locate network attachment definition %s", nadNamespacedName.String())
-			}
-			networkToResourceMap[network.Name] = getResourceNameForNetwork(crd)
-		}
-	}
-	return
-}
+func NetworkToResource(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (map[string]string, error) {
+	networkToResourceMap := map[string]string{}
 
-func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {
-	resourceName, ok := network.Annotations[ResourceNameAnnotation]
-	if ok {
-		return resourceName
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus == nil {
+			continue
+		}
+
+		nadNamespacedName := NetAttachDefNamespacedName(vmi.Namespace, network.Multus.NetworkName)
+		netAttachDef, err := virtClient.NetworkClient().
+			K8sCniCncfIoV1().
+			NetworkAttachmentDefinitions(nadNamespacedName.Namespace).
+			Get(context.Background(), nadNamespacedName.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to locate network attachment definition %s", nadNamespacedName.String())
+		}
+
+		networkToResourceMap[network.Name] = netAttachDef.Annotations[ResourceNameAnnotation]
 	}
-	return "" // meaning the network is not served by resources
+
+	return networkToResourceMap, nil
 }
