@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
-package tests
+
+package storage
 
 import (
 	"context"
@@ -34,43 +35,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/flags"
 )
-
-const (
-	UsrBinVirtChroot = "/usr/bin/virt-chroot"
-	Mount            = "--mount"
-	Proc1NsMnt       = "/proc/1/ns/mnt"
-)
-
-func NodeNameWithHandler() string {
-	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-	virtClient := kubevirt.Client()
-	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
-	Expect(err).ToNot(HaveOccurred())
-	node, err := virtClient.CoreV1().Nodes().Get(context.Background(), virtHandlerPods.Items[0].Spec.NodeName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return node.ObjectMeta.Name
-}
-
-func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
-	virtClient := kubevirt.Client()
-
-	pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
-	if err != nil {
-		return stdout, err
-	}
-
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", args)
-	if err != nil {
-		return stdout, fmt.Errorf("Failed excuting command=%v, error=%v, stdout=%s, stderr=%s", args, err, stdout, stderr)
-	}
-	return stdout, nil
-}
 
 // The tests using the function CreateErrorDisk need to be run serially as it relies on the kernel scsi_debug module
 func CreateErrorDisk(nodeName string) (address string, device string) {
@@ -81,14 +46,14 @@ func CreateErrorDisk(nodeName string) (address string, device string) {
 // CreateSCSIDisk creates a SCSI disk using the scsi_debug module. This function should be used only to check SCSI disk functionalities and not for creating a filesystem or any data. The disk is stored in ram and it isn't suitable for storing large amount of data.
 // If a test uses this function, it needs to be run serially. The device is created directly on the node and the addition and removal of the scsi_debug kernel module could create flakiness
 func CreateSCSIDisk(nodeName string, opts []string) (address string, device string) {
-	args := []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "scsi_debug"}
+	args := []string{"/usr/sbin/modprobe", "scsi_debug"}
 	args = append(args, opts...)
-	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	_, err := virtChrootExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create faulty disk")
 
 	EventuallyWithOffset(1, func() error {
-		args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/bin/sh", "-c", "/bin/grep -l scsi_debug /sys/bus/scsi/devices/*/model"}
-		stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+		args = []string{"/bin/sh", "-c", "/bin/grep -l scsi_debug /sys/bus/scsi/devices/*/model"}
+		stdout, err := virtChrootExecuteCommandInVirtHandlerPod(nodeName, args)
 		if err != nil {
 			return err
 		}
@@ -102,8 +67,8 @@ func CreateSCSIDisk(nodeName string, opts []string) (address string, device stri
 		pathname := strings.Split(stdout, "/")
 		address = pathname[5]
 
-		args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/bin/ls", "/sys/bus/scsi/devices/" + address + "/block"}
-		stdout, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+		args = []string{"/bin/ls", "/sys/bus/scsi/devices/" + address + "/block"}
+		stdout, err = virtChrootExecuteCommandInVirtHandlerPod(nodeName, args)
 		if err != nil {
 			return err
 		}
@@ -118,23 +83,23 @@ func CreateSCSIDisk(nodeName string, opts []string) (address string, device stri
 func RemoveSCSIDisk(nodeName, address string) {
 	By("Removing scsi disk")
 	args := []string{"/usr/bin/echo", "1", ">", fmt.Sprintf("/proc/1/root/sys/class/scsi_device/%s/device/delete", address)}
-	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	_, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 
-	args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "-r", "scsi_debug"}
-	_, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+	args = []string{"/usr/sbin/modprobe", "-r", "scsi_debug"}
+	_, err = virtChrootExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 }
 
 func FixErrorDevice(nodeName string) {
 	args := []string{"/usr/bin/bash", "-c", "echo 0 > /proc/1/root/sys/bus/pseudo/drivers/scsi_debug/opts"}
-	stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), fmt.Sprintf("Failed to fix faulty disk, %s", stdout))
 
 	args = []string{"/usr/bin/cat", "/proc/1/root/sys/bus/pseudo/drivers/scsi_debug/opts"}
 
 	By("Checking opts of scsi_debug")
-	stdout, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+	stdout, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to fix faulty disk")
 	ExpectWithOffset(1, strings.Contains(stdout, "0x0")).To(BeTrue(), fmt.Sprintf("Failed to fix faulty disk, opts don't contains 0x0, opts: %s", stdout))
 	ExpectWithOffset(1, !strings.Contains(stdout, "0x02")).To(BeTrue(), fmt.Sprintf("Failed to fix faulty disk, opts contains 0x02, opts: %s", stdout))
@@ -211,4 +176,9 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 	}
 
 	return pv, pvc, err
+}
+
+func virtChrootExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
+	args = append([]string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--"}, args...)
+	return libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 }

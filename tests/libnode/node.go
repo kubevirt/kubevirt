@@ -333,6 +333,16 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 	return nil
 }
 
+func NodeNameWithHandler() string {
+	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+	virtClient := kubevirt.Client()
+	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+	node, err := virtClient.CoreV1().Nodes().Get(context.Background(), virtHandlerPods.Items[0].Spec.NodeName, k8smetav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return node.ObjectMeta.Name
+}
+
 func GetArch() string {
 	virtCli := kubevirt.Client()
 	nodeList := GetAllSchedulableNodes(virtCli).Items
@@ -457,4 +467,12 @@ func ExecuteCommandOnNodeThroughVirtHandler(nodeName string, command []string) (
 		return "", "", err
 	}
 	return exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, command)
+}
+
+func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
+	stdout, stderr, err := ExecuteCommandOnNodeThroughVirtHandler(nodeName, args)
+	if err != nil {
+		return stdout, fmt.Errorf("failed excuting command=%v, error=%v, stdout=%s, stderr=%s", args, err, stdout, stderr)
+	}
+	return stdout, nil
 }

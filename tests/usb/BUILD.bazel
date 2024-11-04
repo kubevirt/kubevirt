@@ -17,6 +17,7 @@ go_library(
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libkubevirt:go_default_library",
         "//tests/libkubevirt/config:go_default_library",
+        "//tests/libnode:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/testsuite:go_default_library",
