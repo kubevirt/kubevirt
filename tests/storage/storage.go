@@ -163,7 +163,7 @@ var _ = SIGDescribe("Storage", func() {
 			}
 
 			BeforeEach(func() {
-				nodeName = libnode.NodeNameWithHandler()
+				nodeName = libnode.GetNodeNameWithHandler()
 				address, device = CreateErrorDisk(nodeName)
 				pv, pvc, err = CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
@@ -1334,7 +1334,7 @@ var _ = SIGDescribe("Storage", func() {
 			}
 
 			BeforeEach(func() {
-				nodeName = libnode.NodeNameWithHandler()
+				nodeName = libnode.GetNodeNameWithHandler()
 				address, device = CreateSCSIDisk(nodeName, []string{})
 			})
 
