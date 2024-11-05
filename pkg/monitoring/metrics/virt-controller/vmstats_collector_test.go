@@ -32,6 +32,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("VM Stats Collector", func() {
@@ -366,6 +369,106 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(crs[2].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[2].Value).To(BeEquivalentTo(1))
 			Expect(crs[2].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "sockets"}))
+		})
+	})
+
+	Context("PVC allocated size metric collection", func() {
+		BeforeEach(func() {
+			persistentVolumeClaimInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		})
+
+		createPVC := func(namespace, name string, size resource.Quantity, volumeMode *k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolumeClaim {
+			storageClassName := "rook-ceph-block"
+
+			return &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+					VolumeMode:  volumeMode,
+					Resources: k8sv1.VolumeResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceStorage: size,
+						},
+					},
+					StorageClassName: &storageClassName,
+				},
+			}
+		}
+
+		It("should collect PVC size metrics correctly", func() {
+			pvc := createPVC("default", "test-vm-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
+			err := persistentVolumeClaimInformer.GetIndexer().Add(pvc)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "test-vm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Volumes: []k6tv1.Volume{
+								{
+									Name: "rootdisk",
+									VolumeSource: k6tv1.VolumeSource{
+										PersistentVolumeClaim: &k6tv1.PersistentVolumeClaimVolumeSource{
+											PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+												ClaimName: "test-vm-pvc",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			results := CollectDiskAllocatedSize([]*k6tv1.VirtualMachine{vm})
+
+			Expect(results).ToNot(BeEmpty())
+			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
+			Expect(results[0].Value).To(Equal(float64(5 * 1024 * 1024 * 1024)))
+			Expect(results[0].Labels).To(Equal([]string{"test-vm", "default", "test-vm-pvc", "Filesystem", "rootdisk"}))
+		})
+
+		It("should handle PVC with nil volume mode", func() {
+			pvc := createPVC("default", "test-vm-pvc-nil-mode", resource.MustParse("3Gi"), nil)
+			err := persistentVolumeClaimInformer.GetIndexer().Add(pvc)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "test-vm-nil-mode",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Volumes: []k6tv1.Volume{
+								{
+									Name: "rootdisk",
+									VolumeSource: k6tv1.VolumeSource{
+										PersistentVolumeClaim: &k6tv1.PersistentVolumeClaimVolumeSource{
+											PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+												ClaimName: "test-vm-pvc-nil-mode",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			results := CollectDiskAllocatedSize([]*k6tv1.VirtualMachine{vm})
+
+			Expect(results).ToNot(BeEmpty())
+			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
+			Expect(results[0].Value).To(Equal(float64(3 * 1024 * 1024 * 1024)))
+			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "null", "rootdisk"}))
 		})
 	})
 })
