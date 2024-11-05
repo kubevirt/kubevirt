@@ -109,23 +109,6 @@ func IsPodNetworkWithBridgeBindingInterface(networks []v1.Network, ifaces []v1.I
 	return true
 }
 
-func PopInterfaceByNetwork(
-	statusIfaces []v1.VirtualMachineInstanceNetworkInterface,
-	network *v1.Network,
-) (*v1.VirtualMachineInstanceNetworkInterface, []v1.VirtualMachineInstanceNetworkInterface) {
-	if network == nil {
-		return nil, statusIfaces
-	}
-	for index, currStatusIface := range statusIfaces {
-		if currStatusIface.Name == network.Name {
-			primaryIface := statusIfaces[index]
-			statusIfaces = append(statusIfaces[:index], statusIfaces[index+1:]...)
-			return &primaryIface, statusIfaces
-		}
-	}
-	return nil, statusIfaces
-}
-
 func LookupInterfaceStatusByMac(
 	interfaces []v1.VirtualMachineInstanceNetworkInterface,
 	macAddress string,
