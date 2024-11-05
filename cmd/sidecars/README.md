@@ -205,7 +205,7 @@ see if the desired changes to baseboard manufacturer get reflected:
 
 ```shell
 # Once the VM is ready, connect to its display and login using name and password "fedora"
-cluster/virtctl.sh vnc vmi-with-sidecar-hook-configmap
+hack/virtctl.sh vnc vmi-with-sidecar-hook-configmap
 
 # Check whether the base board manufacturer value was successfully overwritten
 sudo dmidecode -s baseboard-manufacturer

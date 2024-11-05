@@ -1,7 +1,7 @@
 #!/bin/bash -xe
 
 source hack/common.sh
-source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
+source kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
 function wait_for_rollout() {

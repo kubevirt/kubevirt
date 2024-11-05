@@ -14,34 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2021 Red Hat, Inc.
+# Copyright 2018 Red Hat, Inc.
 #
 
 set -e
-set -x
 
 source hack/config-kubevirtci.sh
 
-TEMP_FILE=$(mktemp -p /tmp -t kubevirt.deploy.XXXX)
+source ${KUBEVIRTCI_PATH}/hack/common.sh
+source ${KUBEVIRTCI_CLUSTER_PATH}/$KUBEVIRT_PROVIDER/provider.sh
+source ${KUBEVIRTCI_PATH}/hack/config.sh
 
-trap 'rm -f $TEMP_FILE' EXIT SIGINT
+CONFIG_ARGS=
 
-function main() {
-    ./hack/cluster-clean.sh >$TEMP_FILE 2>&1 &
-    CLEAN_PID=$!
+if [ -n "$kubeconfig" ]; then
+    CONFIG_ARGS="--kubeconfig=${kubeconfig}"
+elif [ -n "$KUBECONFIG" ]; then
+    CONFIG_ARGS="--kubeconfig=${KUBECONFIG}"
+fi
 
-    ./hack/cluster-build.sh
-    ./hack/manifests.sh
-
-    echo "waiting for cluster-clean to finish"
-    if ! wait $CLEAN_PID; then
-        echo "cluster-clean failed, output was:"
-        cat $TEMP_FILE
-        exit 1
-    fi
-
-    ./hack/deploy-to-nodes.sh
-    ./hack/cluster-deploy.sh
-}
-
-main "$@"
+_out/cmd/virtctl/virtctl $CONFIG_ARGS "$@"
