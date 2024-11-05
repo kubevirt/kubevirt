@@ -412,7 +412,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 }
 
 func (n NetPod) networkQueues(vmiIfaceIndex int) int {
-	if n.vmiSpecIfaces[vmiIfaceIndex].Model == v1.VirtIO || n.vmiSpecIfaces[vmiIfaceIndex].Model == "" {
+	if ifaceModel := n.vmiSpecIfaces[vmiIfaceIndex].Model; ifaceModel == "" || ifaceModel == v1.VirtIO {
 		return n.queuesCap
 	}
 	return 0
