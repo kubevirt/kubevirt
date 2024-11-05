@@ -37,27 +37,27 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 )
 
-var timeout int
+type consoleCommand struct {
+	clientConfig clientcmd.ClientConfig
+	timeout      int
+}
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	c := consoleCommand{clientConfig: clientConfig}
+
 	cmd := &cobra.Command{
 		Use:     "console (VMI)",
 		Short:   "Connect to a console of a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Console{clientConfig: clientConfig}
 			return c.Run(args)
 		},
 	}
 
-	cmd.Flags().IntVar(&timeout, "timeout", 5, "The number of minutes to wait for the virtual machine instance to be ready.")
+	cmd.Flags().IntVar(&c.timeout, "timeout", 5, "The number of minutes to wait for the virtual machine instance to be ready.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
-}
-
-type Console struct {
-	clientConfig clientcmd.ClientConfig
 }
 
 func usage() string {
@@ -69,7 +69,7 @@ func usage() string {
 	return usage
 }
 
-func (c *Console) Run(args []string) error {
+func (c *consoleCommand) Run(args []string) error {
 	namespace, _, err := c.clientConfig.Namespace()
 	if err != nil {
 		return err
@@ -94,7 +94,7 @@ func (c *Console) Run(args []string) error {
 	signal.Notify(waitInterrupt, os.Interrupt)
 
 	go func() {
-		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
+		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: time.Duration(c.timeout) * time.Minute})
 		runningChan <- err
 
 		if err != nil {
