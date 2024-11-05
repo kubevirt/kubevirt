@@ -696,6 +696,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	Name string `json:"name,omitempty"`
 	// List of all IP addresses of a Virtual Machine interface
 	IPs []string `json:"ipAddresses,omitempty"`
+	// PodInterfaceName represents the name of the pod network interface
+	PodInterfaceName string `json:"podInterfaceName,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
 	// Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.
@@ -781,6 +783,11 @@ type VirtualMachineInstanceMigrationState struct {
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the numa topology on the target node
 	TargetNodeTopology string `json:"targetNodeTopology,omitempty"`
+
+	// If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here
+	SourcePersistentStatePVCName string `json:"sourcePersistentStatePVCName,omitempty"`
+	// If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here
+	TargetPersistentStatePVCName string `json:"targetPersistentStatePVCName,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -845,6 +852,11 @@ const (
 	Unknown VirtualMachineInstancePhase = "Unknown"
 )
 
+// Annotations in the KubeVirt custom resource are used to modify KubeVirt's behavior, often serving as workarounds for bugs in other layers.
+const (
+	// VGADisplayForEFIGuestsX86Annotation when set, x86 EFI guests will be started with VGA display instead of Bochs
+	VGADisplayForEFIGuestsX86Annotation string = "kubevirt.io/vga-display-efi-x86"
+)
 const (
 	// AppLabel and AppName labels marks resources that belong to KubeVirt. An optional value
 	// may indicate which specific KubeVirt component a resource belongs to.
@@ -2532,7 +2544,32 @@ type KubeVirtConfiguration struct {
 	// CommonInstancetypesDeployment controls the deployment of common-instancetypes resources
 	// +nullable
 	CommonInstancetypesDeployment *CommonInstancetypesDeployment `json:"commonInstancetypesDeployment,omitempty"`
+
+	// Instancetype configuration
+	// +nullable
+	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
 }
+
+type InstancetypeConfiguration struct {
+	// ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are:
+	// reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.
+	// expand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated.
+	// expandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.
+	// +nullable
+	// +kubebuilder:validation:Enum=reference;expand;expandAll
+	ReferencePolicy *InstancetypeReferencePolicy `json:"referencePolicy,omitempty"`
+}
+
+type InstancetypeReferencePolicy string
+
+const (
+	// Copy any instance type or preference and reference from the VirtualMachine
+	Reference InstancetypeReferencePolicy = "reference"
+	// Expand any instance type or preference into VirtualMachines without a revisionName already captured
+	Expand InstancetypeReferencePolicy = "expand"
+	// Expand any instance type or preferences into all VirtualMachines
+	ExpandAll InstancetypeReferencePolicy = "expandAll"
+)
 
 type CommonInstancetypesDeployment struct {
 	// Enabled controls the deployment of common-instancetypes resources, defaults to True.

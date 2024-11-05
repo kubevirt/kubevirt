@@ -1770,9 +1770,20 @@ rules:
 - apiGroups:
   - snapshot.kubevirt.io
   resources:
-  - '*'
+  - virtualmachinesnapshots
+  - virtualmachinesnapshots/status
+  - virtualmachinesnapshotcontents
+  - virtualmachinesnapshotcontents/status
+  - virtualmachinerestores
+  - virtualmachinerestores/status
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
 - apiGroups:
   - export.kubevirt.io
   resources:

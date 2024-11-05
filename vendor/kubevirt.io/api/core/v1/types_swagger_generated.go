@@ -187,13 +187,14 @@ func (VirtualMachineInstanceMigrationCondition) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"ipAddress":     "IP address of a Virtual Machine interface. It is always the first item of\nIPs",
-		"mac":           "Hardware address of a Virtual Machine interface",
-		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
-		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
-		"interfaceName": "The interface name inside the Virtual Machine",
-		"infoSource":    "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
-		"queueCount":    "Specifies how many queues are allocated by MultiQueue",
+		"ipAddress":        "IP address of a Virtual Machine interface. It is always the first item of\nIPs",
+		"mac":              "Hardware address of a Virtual Machine interface",
+		"name":             "Name of the interface, corresponds to name of the network assigned to the interface",
+		"ipAddresses":      "List of all IP addresses of a Virtual Machine interface",
+		"podInterfaceName": "PodInterfaceName represents the name of the pod network interface",
+		"interfaceName":    "The interface name inside the Virtual Machine",
+		"infoSource":       "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
+		"queueCount":       "Specifies how many queues are allocated by MultiQueue",
 	}
 }
 
@@ -234,6 +235,8 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"migrationConfiguration":         "Migration configurations to apply",
 		"targetCPUSet":                   "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",
 		"targetNodeTopology":             "If the VMI requires dedicated CPUs, this field will\nhold the numa topology on the target node",
+		"sourcePersistentStatePVCName":   "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
+		"targetPersistentStatePVCName":   "If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here",
 	}
 }
 
@@ -768,6 +771,13 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"liveUpdateConfiguration":            "LiveUpdateConfiguration holds defaults for live update features",
 		"vmRolloutStrategy":                  "VMRolloutStrategy defines how changes to a VM object propagate to its VMI\n+nullable\n+kubebuilder:validation:Enum=Stage;LiveUpdate",
 		"commonInstancetypesDeployment":      "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources\n+nullable",
+		"instancetype":                       "Instancetype configuration\n+nullable",
+	}
+}
+
+func (InstancetypeConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"referencePolicy": "ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are:\nreference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.\nexpand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated.\nexpandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.\n+nullable\n+kubebuilder:validation:Enum=reference;expand;expandAll",
 	}
 }
 
