@@ -1385,6 +1385,35 @@ chpasswd: { expire: False }`
 
 	Describe("Manifest is not created successfully", func() {
 		const (
+			paramsEmptyError       = "params may not be empty"
+			paramsInvalidError     = "params need to have at least one colon: test=test"
+			paramsUnknownError     = "unknown param(s): test:test"
+			emptyNameError         = "name cannot be empty"
+			invalidSlashCountError = "invalid count 3 of slashes in prefix/name"
+
+			boolInvalidError          = "strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"
+			bootOrderInvalidError     = "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"
+			bootOrderNegativeError    = "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"
+			bootOrderZeroError        = "bootorder must be greater than 0"
+			sizeInvalidError          = "failed to parse param \"size\": unable to parse quantity's suffix"
+			sizeMissingError          = "size must be specified"
+			srcEmptyNameError         = "src invalid: name cannot be empty"
+			srcInvalidSlashCountError = "src invalid: invalid count 3 of slashes in prefix/name"
+			srcMissingError           = "src must be specified"
+
+			inferenceNoVolumeError = "at least one volume is needed to infer an instance type or preference"
+			noVolumeError          = "there is no volume with name \"does-not-exist\""
+
+			pvcMissingNamespaceError      = "namespace of pvc \"my-pvc\" must be specified"
+			snapshotMissingNamespaceError = "namespace of snapshot \"my-snapshot\" must be specified"
+
+			volumeImportDuplicateError  = "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\""
+			volumePvcDuplicateError     = "failed to parse \"--volume-pvc\" flag: there is already a volume with name \"my-name\""
+			cloudInitDiskDuplicateError = "there is already a volume with name \"cloudinitdisk\""
+
+			userMissingError    = "user must be specified with access credential ssh method ga (\"--user\" flag or param \"user\")"
+			userNotAllowedError = "user cannot be specified with selected access credential type and method"
+
 			invalidInferenceVolumeError   = "inference of instancetype or preference works only with datasources, datavolumes or pvcs"
 			dvInvalidInferenceVolumeError = "this datavolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
 		)
@@ -1423,25 +1452,25 @@ chpasswd: { expire: False }`
 			Expect(out).To(BeEmpty())
 		},
 			Entry("Invalid kind", "madethisup/my-instancetype", "invalid instancetype kind \"madethisup\", supported values are: virtualmachineinstancetype, virtualmachineclusterinstancetype"),
-			Entry("Invalid argument count", "virtualmachineinstancetype/my-instancetype/madethisup", "invalid count 3 of slashes in prefix/name"),
-			Entry("Empty name", "virtualmachineinstancetype/", "name cannot be empty"),
+			Entry("Invalid argument count", "virtualmachineinstancetype/my-instancetype/madethisup", invalidSlashCountError),
+			Entry("Empty name", "virtualmachineinstancetype/", emptyNameError),
 		)
 
 		It("Invalid parameter to InferInstancetypeFlag", func() {
 			out, err := runCmd(setFlag(InferInstancetypeFlag, "not-a-bool"))
-			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--infer-instancetype\" flag: strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"))
+			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--infer-instancetype\" flag: " + boolInvalidError))
 			Expect(out).To(BeEmpty())
 		})
 
 		It("InferInstancetypeFlag needs at least one volume", func() {
 			out, err := runCmd(setFlag(InferInstancetypeFlag, "true"))
-			Expect(err).To(MatchError("at least one volume is needed to infer an instance type or preference"))
+			Expect(err).To(MatchError(inferenceNoVolumeError))
 			Expect(out).To(BeEmpty())
 		})
 
 		It("Volume specified in InferInstancetypeFromFlag should exist", func() {
 			out, err := runCmd(setFlag(InferInstancetypeFromFlag, "does-not-exist"))
-			Expect(err).To(MatchError("there is no volume with name \"does-not-exist\""))
+			Expect(err).To(MatchError(noVolumeError))
 			Expect(out).To(BeEmpty())
 		})
 
@@ -1465,25 +1494,25 @@ chpasswd: { expire: False }`
 			Expect(out).To(BeEmpty())
 		},
 			Entry("Invalid kind", "madethisup/my-preference", "invalid preference kind \"madethisup\", supported values are: virtualmachinepreference, virtualmachineclusterpreference"),
-			Entry("Invalid argument count", "virtualmachinepreference/my-preference/madethisup", "invalid count 3 of slashes in prefix/name"),
-			Entry("Empty name", "virtualmachinepreference/", "name cannot be empty"),
+			Entry("Invalid argument count", "virtualmachinepreference/my-preference/madethisup", invalidSlashCountError),
+			Entry("Empty name", "virtualmachinepreference/", emptyNameError),
 		)
 
 		It("Invalid argument to InferPreferenceFlag", func() {
 			out, err := runCmd(setFlag(InferPreferenceFlag, "not-a-bool"))
-			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--infer-preference\" flag: strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"))
+			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--infer-preference\" flag: " + boolInvalidError))
 			Expect(out).To(BeEmpty())
 		})
 
 		It("InferPreferenceFlag needs at least one volume", func() {
 			out, err := runCmd(setFlag(InferPreferenceFlag, "true"))
-			Expect(err).To(MatchError("at least one volume is needed to infer an instance type or preference"))
+			Expect(err).To(MatchError(inferenceNoVolumeError))
 			Expect(out).To(BeEmpty())
 		})
 
 		It("Volume specified in InferPreferenceFromFlag should exist", func() {
 			out, err := runCmd(setFlag(InferPreferenceFromFlag, "does-not-exist"))
-			Expect(err).To(MatchError("there is no volume with name \"does-not-exist\""))
+			Expect(err).To(MatchError(noVolumeError))
 			Expect(out).To(BeEmpty())
 		})
 
@@ -1518,13 +1547,13 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError("failed to parse \"--volume-containerdisk\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "params may not be empty"),
-			Entry("Invalid param", "test=test", "params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "unknown param(s): test:test"),
-			Entry("Missing src", "name:test", "src must be specified"),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
-			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("Bootorder set to 0", "src:my.registry/my-image:my-tag,bootorder:0", "bootorder must be greater than 0"),
+			Entry("Empty params", "", paramsEmptyError),
+			Entry("Invalid param", "test=test", paramsInvalidError),
+			Entry("Unknown param", "test:test", paramsUnknownError),
+			Entry("Missing src", "name:test", srcMissingError),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
+			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
+			Entry("Bootorder set to 0", "src:my.registry/my-image:my-tag,bootorder:0", bootOrderZeroError),
 		)
 
 		DescribeTable("Invalid parameters to DataSourceVolumeFlag", func(params, errMsg string) {
@@ -1532,16 +1561,16 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError("failed to parse \"--volume-import\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "params may not be empty"),
-			Entry("Invalid param", "test=test", "params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "unknown param(s): test:test"),
-			Entry("Missing src", "name:test", "src must be specified"),
-			Entry("Empty name in src", "src:my-ns/", "src invalid: name cannot be empty"),
-			Entry("Invalid slashes count in src", "src:my-ns/my-ds/madethisup", "src invalid: invalid count 3 of slashes in prefix/name"),
-			Entry("Invalid quantity in size", "size:10Gu", "failed to parse param \"size\": unable to parse quantity's suffix"),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
-			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("Bootorder set to 0", "src:my-ds,bootorder:0", "bootorder must be greater than 0"),
+			Entry("Empty params", "", paramsEmptyError),
+			Entry("Invalid param", "test=test", paramsInvalidError),
+			Entry("Unknown param", "test:test", paramsUnknownError),
+			Entry("Missing src", "name:test", srcMissingError),
+			Entry("Empty name in src", "src:my-ns/", srcEmptyNameError),
+			Entry("Invalid slashes count in src", "src:my-ns/my-ds/madethisup", srcInvalidSlashCountError),
+			Entry("Invalid quantity in size", "size:10Gu", sizeInvalidError),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
+			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
+			Entry("Bootorder set to 0", "src:my-ds,bootorder:0", bootOrderZeroError),
 		)
 
 		DescribeTable("Invalid parameters to ClonePvcVolumeFlag", func(params, errMsg string) {
@@ -1549,17 +1578,17 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError("failed to parse \"--volume-import\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "params may not be empty"),
-			Entry("Invalid param", "test=test", "params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "unknown param(s): test:test"),
-			Entry("Missing src", "name:test", "src must be specified"),
-			Entry("Empty name in src", "src:my-ns/", "src invalid: name cannot be empty"),
-			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "src invalid: invalid count 3 of slashes in prefix/name"),
-			Entry("Missing namespace in src", "src:my-pvc", "namespace of pvc \"my-pvc\" must be specified"),
-			Entry("Invalid quantity in size", "size:10Gu", "failed to parse param \"size\": unable to parse quantity's suffix"),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
-			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", "bootorder must be greater than 0"),
+			Entry("Empty params", "", paramsEmptyError),
+			Entry("Invalid param", "test=test", paramsInvalidError),
+			Entry("Unknown param", "test:test", paramsUnknownError),
+			Entry("Missing src", "name:test", srcMissingError),
+			Entry("Empty name in src", "src:my-ns/", srcEmptyNameError),
+			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", srcInvalidSlashCountError),
+			Entry("Missing namespace in src", "src:my-pvc", pvcMissingNamespaceError),
+			Entry("Invalid quantity in size", "size:10Gu", sizeInvalidError),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
+			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
+			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", bootOrderZeroError),
 		)
 
 		DescribeTable("Invalid parameters to PvcVolumeFlag", func(params, errMsg string) {
@@ -1567,16 +1596,16 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError("failed to parse \"--volume-pvc\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "params may not be empty"),
-			Entry("Invalid param", "test=test", "params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "unknown param(s): test:test"),
-			Entry("Missing src", "name:test", "src must be specified"),
-			Entry("Empty name in src", "src:my-ns/", "src invalid: name cannot be empty"),
-			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "src invalid: invalid count 3 of slashes in prefix/name"),
+			Entry("Empty params", "", paramsEmptyError),
+			Entry("Invalid param", "test=test", paramsInvalidError),
+			Entry("Unknown param", "test:test", paramsUnknownError),
+			Entry("Missing src", "name:test", srcMissingError),
+			Entry("Empty name in src", "src:my-ns/", srcEmptyNameError),
+			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", srcInvalidSlashCountError),
 			Entry("Namespace in src", "src:my-ns/my-pvc", "not allowed to specify namespace of pvc \"my-pvc\""),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
-			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("Bootorder set to 0", "src:my-pvc,bootorder:0", "bootorder must be greater than 0"),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
+			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
+			Entry("Bootorder set to 0", "src:my-pvc,bootorder:0", bootOrderZeroError),
 		)
 
 		DescribeTable("Invalid parameters to BlankVolumeFlag", func(params, errMsg string) {
@@ -1584,10 +1613,10 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError("failed to parse \"--volume-import\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "params may not be empty"),
-			Entry("Invalid param", "test=test", "params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "unknown param(s): test:test"),
-			Entry("Missing size", "name:my-blank", "size must be specified"),
+			Entry("Empty params", "", paramsEmptyError),
+			Entry("Invalid param", "test=test", paramsInvalidError),
+			Entry("Unknown param", "test:test", paramsUnknownError),
+			Entry("Missing size", "name:my-blank", sizeMissingError),
 		)
 
 		DescribeTable("Invalid parameters to VolumeImportFlag", func(params, errMsg string) {
@@ -1595,46 +1624,46 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError("failed to parse \"--volume-import\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Missing size with blank volume source", "type:blank", "size must be specified"),
+			Entry("Missing size with blank volume source", "type:blank", sizeMissingError),
 			Entry("Missing type value", "size:256Mi", "type must be specified"),
 			Entry("Invalid type value", "type:madeup", "invalid volume import type \"madeup\", see help for supported values"),
-			Entry("Unknown param for blank volume source", "type:blank,size:256Mi,testparam:", "unknown param(s): testparam:"),
-			Entry("Missing size with GCS volume source", "type:gcs,url:http://url.com", "size must be specified"),
+			Entry("Unknown param for blank volume source", "type:blank,size:256Mi,test:test", paramsUnknownError),
+			Entry("Missing size with GCS volume source", "type:gcs,url:http://url.com", sizeMissingError),
 			Entry("Missing url with GCS volume source", "type:gcs,size:256Mi", "url is required with gcs volume source"),
-			Entry("Missing size with http volume source", "type:http,url:http://url.com", "size must be specified"),
+			Entry("Missing size with http volume source", "type:http,url:http://url.com", sizeMissingError),
 			Entry("Missing url with http volume source", "type:http,size:256Mi", "url is required with http volume source"),
-			Entry("Missing size with imageIO volume source", "type:imageio,url:http://imageio.com,diskid:0", "size must be specified"),
+			Entry("Missing size with imageIO volume source", "type:imageio,url:http://imageio.com,diskid:0", sizeMissingError),
 			Entry("Missing url with imageIO volume source", "type:imageio,diskid:0,size:256Mi", "url and diskid are both required with imageio volume source"),
 			Entry("Missing diskid with imageIO volume source", "type:imageio,url:http://imageio.com,size:256Mi", "url and diskid are both required with imageio volume source"),
-			Entry("Missing src in pvc volume source", "type:pvc,size:256Mi", "src must be specified"),
-			Entry("Invalid src without slash in pvc volume source", "type:pvc,size:256Mi,src:noslashingvalue", "namespace of pvc \"noslashingvalue\" must be specified"),
-			Entry("Invalid src in pvc volume source", "type:pvc,size:256Mi,src:", "src must be specified"),
-			Entry("Missing src namespace in pvc volume source", "type:pvc,size:256Mi,src:/my-pvc", "namespace of pvc \"my-pvc\" must be specified"),
-			Entry("Missing src name in pvc volume source", "type:pvc,size:256Mi,src:default/", "src invalid: name cannot be empty"),
-			Entry("Missing src in snapshot volume source", "type:snapshot,size:256Mi", "src must be specified"),
-			Entry("Invalid src without slash in snapshot volume source", "type:snapshot,size:256Mi,src:noslashingvalue", "namespace of snapshot \"noslashingvalue\" must be specified"),
-			Entry("Invalid src in snapshot volume source", "type:snapshot,size:256Mi,src:", "src must be specified"),
-			Entry("Missing src namespace in snapshot volume source", "type:snapshot,size:256Mi,src:/my-snapshot", "namespace of snapshot \"my-snapshot\" must be specified"),
-			Entry("Missing src name in snapshot volume source", "type:snapshot,size:256Mi,src:default/", "src invalid: name cannot be empty"),
-			Entry("Missing size with S3 volume source", "type:s3,url:http://url.com", "size must be specified"),
+			Entry("Missing src in pvc volume source", "type:pvc,size:256Mi", srcMissingError),
+			Entry("Invalid src without slash in pvc volume source", "type:pvc,size:256Mi,src:my-pvc", pvcMissingNamespaceError),
+			Entry("Invalid src in pvc volume source", "type:pvc,size:256Mi,src:", srcMissingError),
+			Entry("Missing src namespace in pvc volume source", "type:pvc,size:256Mi,src:/my-pvc", pvcMissingNamespaceError),
+			Entry("Missing src name in pvc volume source", "type:pvc,size:256Mi,src:default/", srcEmptyNameError),
+			Entry("Missing src in snapshot volume source", "type:snapshot,size:256Mi", srcMissingError),
+			Entry("Invalid src without slash in snapshot volume source", "type:snapshot,size:256Mi,src:my-snapshot", snapshotMissingNamespaceError),
+			Entry("Invalid src in snapshot volume source", "type:snapshot,size:256Mi,src:", srcMissingError),
+			Entry("Missing src namespace in snapshot volume source", "type:snapshot,size:256Mi,src:/my-snapshot", snapshotMissingNamespaceError),
+			Entry("Missing src name in snapshot volume source", "type:snapshot,size:256Mi,src:default/", srcEmptyNameError),
+			Entry("Missing size with S3 volume source", "type:s3,url:http://url.com", sizeMissingError),
 			Entry("Missing url in S3 volume source", "type:s3,size:256Mi", "url is required with s3 volume source"),
-			Entry("Missing size with registry volume source", "type:registry,imagestream:my-image", "size must be specified"),
+			Entry("Missing size with registry volume source", "type:registry,imagestream:my-image", sizeMissingError),
 			Entry("Invalid value for pullmethod with registry volume source", "type:registry,size:256Mi,pullmethod:invalid,imagestream:my-image", "pullmethod must be set to pod or node"),
 			Entry("Both url and imagestream defined in registry volume source", "type:registry,size:256Mi,pullmethod:node,imagestream:my-image,url:http://url.com", "exactly one of url or imagestream must be defined"),
 			Entry("Missing url and imagestream in registry volume source", "type:registry,size:256Mi", "exactly one of url or imagestream must be defined"),
-			Entry("Missing size with vddk volume source", "type:vddk,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid", "size must be specified"),
+			Entry("Missing size with vddk volume source", "type:vddk,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid", sizeMissingError),
 			Entry("Missing backingfile with vddk volume source", "type:vddk,size:256Mi,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid", "backingfile is required with vddk volume source"),
 			Entry("Missing secretref with vddk volume source", "type:vddk,size:256Mi,backingfile:test-backingfile,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid", "secretref is required with vddk volume source"),
 			Entry("Missing thumbprint with vddk volume source", "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,url:http://url.com,uuid:test-uuid", "thumbprint is required with vddk volume source"),
 			Entry("Missing url with vddk volume source", "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,uuid:test-uuid", "url is required with vddk volume source"),
 			Entry("Missing uuid with vddk volume source", "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com", "uuid is required with vddk volume source"),
-			Entry("Missing src in ds volume source ref", "type:ds,size:256Mi", "src must be specified"),
-			Entry("Empty name in src", "type:pvc,name:my-ns/", "src must be specified"),
-			Entry("Invalid slashes count in src", "type:pvc,name:my-ns/my-pvc/madethisup", "src must be specified"),
-			Entry("Invalid quantity in size", "type:blank,size:10Gu", "failed to parse param \"size\": unable to parse quantity's suffix"),
-			Entry("Invalid number in bootorder", "type:blank,size:256Mi,bootorder:10Gu", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
-			Entry("Negative number in bootorder", "type:blank,size:256Mi,bootorder:-1", "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("Bootorder set to 0", "type:blank,size:256Mi,bootorder:0", "bootorder must be greater than 0"),
+			Entry("Missing src in ds volume source ref", "type:ds,size:256Mi", srcMissingError),
+			Entry("Empty name in src", "type:pvc,name:my-ns/", srcMissingError),
+			Entry("Invalid slashes count in src", "type:pvc,name:my-ns/my-pvc/madethisup", srcMissingError),
+			Entry("Invalid quantity in size", "type:blank,size:10Gu", sizeInvalidError),
+			Entry("Invalid number in bootorder", "type:blank,size:256Mi,bootorder:10Gu", bootOrderInvalidError),
+			Entry("Negative number in bootorder", "type:blank,size:256Mi,bootorder:-1", bootOrderNegativeError),
+			Entry("Bootorder set to 0", "type:blank,size:256Mi,bootorder:0", bootOrderZeroError),
 		)
 
 		DescribeTable("Invalid parameters to SysprepVolumeFlag", func(params, errMsg string) {
@@ -1642,13 +1671,13 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError("failed to parse \"--volume-sysprep\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "params may not be empty"),
-			Entry("Invalid param", "test=test", "params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "unknown param(s): test:test"),
-			Entry("Missing src", "type:configMap", "src must be specified"),
+			Entry("Empty params", "", paramsEmptyError),
+			Entry("Invalid param", "test=test", paramsInvalidError),
+			Entry("Unknown param", "test:test", paramsUnknownError),
+			Entry("Missing src", "type:configMap", srcMissingError),
 			Entry("Invalid type", "type:madeup,src:my-src", "invalid sysprep source type \"madeup\", supported values are: configmap, secret"),
-			Entry("Empty name in src", "src:my-ns/", "src invalid: name cannot be empty"),
-			Entry("Invalid slashes count in src", "src:my-ns/my-src/madethisup", "src invalid: invalid count 3 of slashes in prefix/name"),
+			Entry("Empty name in src", "src:my-ns/", srcEmptyNameError),
+			Entry("Invalid slashes count in src", "src:my-ns/my-src/madethisup", srcInvalidSlashCountError),
 			Entry("Namespace in src", "src:my-ns/my-src", "not allowed to specify namespace of configmap or secret \"my-src\""),
 		)
 
@@ -1661,43 +1690,43 @@ chpasswd: { expire: False }`
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 			),
-			Entry("Duplicate DataSource", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
+			Entry("Duplicate DataSource", volumeImportDuplicateError,
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-name"),
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
+			Entry("Duplicate imported PVC", volumeImportDuplicateError,
 				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 			),
-			Entry("Duplicate PVC", "failed to parse \"--volume-pvc\" flag: there is already a volume with name \"my-name\"",
+			Entry("Duplicate PVC", volumePvcDuplicateError,
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 			),
-			Entry("Duplicate blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
+			Entry("Duplicate blank volume", volumeImportDuplicateError,
 				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 			),
-			Entry("Duplicate PVC and Containerdisk", "failed to parse \"--volume-pvc\" flag: there is already a volume with name \"my-name\"",
+			Entry("Duplicate PVC and Containerdisk", volumePvcDuplicateError,
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 			),
-			Entry("Duplicate PVC and DataSource", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
+			Entry("Duplicate PVC and DataSource", volumeImportDuplicateError,
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate PVC and imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
+			Entry("Duplicate PVC and imported PVC", volumeImportDuplicateError,
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 			),
-			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
+			Entry("Duplicate PVC and blank volume", volumeImportDuplicateError,
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 			),
-			Entry("There can only be one cloudInitDisk (UserData)", "there is already a volume with name \"cloudinitdisk\"",
+			Entry("There can only be one cloudInitDisk (UserData)", cloudInitDiskDuplicateError,
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitUserDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))),
 			),
-			Entry("There can only be one cloudInitDisk (NetworkData)", "there is already a volume with name \"cloudinitdisk\"",
+			Entry("There can only be one cloudInitDisk (NetworkData)", cloudInitDiskDuplicateError,
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitNetworkDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))),
 			),
@@ -1724,7 +1753,7 @@ chpasswd: { expire: False }`
 
 		It("Invalid parameter to GAManageSSHFlag", func() {
 			out, err := runCmd(setFlag(GAManageSSHFlag, "not-a-bool"))
-			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--ga-manage-ssh\" flag: strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"))
+			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--ga-manage-ssh\" flag: " + boolInvalidError))
 			Expect(out).To(BeEmpty())
 		})
 
@@ -1757,22 +1786,22 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError("failed to parse \"--access-cred\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Empty params", "", "params may not be empty"),
-			Entry("Invalid param", "test=test", "params need to have at least one colon: test=test"),
-			Entry("Unknown param", "test:test", "unknown param(s): test:test"),
-			Entry("Missing src", "type:ssh", "src must be specified"),
-			Entry("Empty name in src", "src:my-ns/", "src invalid: name cannot be empty"),
-			Entry("Invalid slashes count in src", "src:my-ns/my-src/madethisup", "src invalid: invalid count 3 of slashes in prefix/name"),
+			Entry("Empty params", "", paramsEmptyError),
+			Entry("Invalid param", "test=test", paramsInvalidError),
+			Entry("Unknown param", "test:test", paramsUnknownError),
+			Entry("Missing src", "type:ssh", srcMissingError),
+			Entry("Empty name in src", "src:my-ns/", srcEmptyNameError),
+			Entry("Invalid slashes count in src", "src:my-ns/my-src/madethisup", srcInvalidSlashCountError),
 			Entry("Namespace in src", "src:my-ns/my-src", "not allowed to specify namespace of secret \"my-src\""),
 			Entry("Invalid type", "type:madeup,src:my-src", "invalid access credential type \"madeup\", supported values are: ssh, password"),
 			Entry("Invalid method with type ssh", "type:ssh,src:my-src,method:madeup", "invalid access credentials ssh method \"madeup\", supported values are: ga, nocloud, configdrive"),
-			Entry("No user with type ssh and method ga (default)", "type:ssh,src:my-src", "user must be specified with access credential ssh method ga (\"--user\" flag or param \"user\")"),
-			Entry("No user with type ssh and method ga (explicit)", "type:ssh,src:my-src,method:ga", "user must be specified with access credential ssh method ga (\"--user\" flag or param \"user\")"),
-			Entry("User with type ssh and method nocloud", "type:ssh,src:my-src,method:nocloud,user:myuser", "user cannot be specified with selected access credential type and method"),
-			Entry("User with type ssh and method configdrive", "type:ssh,src:my-src,method:configdrive,user:myuser", "user cannot be specified with selected access credential type and method"),
+			Entry("No user with type ssh and method ga (default)", "type:ssh,src:my-src", userMissingError),
+			Entry("No user with type ssh and method ga (explicit)", "type:ssh,src:my-src,method:ga", userMissingError),
+			Entry("User with type ssh and method nocloud", "type:ssh,src:my-src,method:nocloud,user:myuser", userNotAllowedError),
+			Entry("User with type ssh and method configdrive", "type:ssh,src:my-src,method:configdrive,user:myuser", userNotAllowedError),
 			Entry("Invalid method with type password", "type:password,src:my-src,method:madeup", "invalid access credentials password method \"madeup\", supported values are: ga"),
-			Entry("User with type password and method ga (default)", "type:password,src:my-src,user:myuser", "user cannot be specified with selected access credential type and method"),
-			Entry("User with type password and method ga (explicit)", "type:password,src:my-src,method:ga,user:myuser", "user cannot be specified with selected access credential type and method"),
+			Entry("User with type password and method ga (default)", "type:password,src:my-src,user:myuser", userNotAllowedError),
+			Entry("User with type password and method ga (explicit)", "type:password,src:my-src,method:ga,user:myuser", userNotAllowedError),
 		)
 
 		DescribeTable("Cloud-init source type mismatch with AccessCredFlag", func(params, cloudInit, errMsg string) {
@@ -1780,17 +1809,17 @@ chpasswd: { expire: False }`
 				setFlag(AccessCredFlag, params),
 				setFlag(CloudInitFlag, cloudInit),
 			)
-			Expect(err).To(MatchError("failed to parse \"--access-cred\" flag: " + errMsg))
+			Expect(err).To(MatchError("failed to parse \"--access-cred\" flag: method param and value passed to --cloud-init have to match: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("type ssh (default) and nocloud vs configdrive", "src:my-src,method:nocloud", cloudInitConfigDrive, "method param and value passed to --cloud-init have to match: nocloud vs configdrive"),
-			Entry("type ssh (default) and nocloud vs none", "src:my-src,method:nocloud", cloudInitNone, "method param and value passed to --cloud-init have to match: nocloud vs none"),
-			Entry("type ssh (default) and configdrive vs nocloud", "src:my-src,method:configdrive", cloudInitNoCloud, "method param and value passed to --cloud-init have to match: configdrive vs nocloud"),
-			Entry("type ssh (default) and configdrive vs none", "src:my-src,method:configdrive", cloudInitNone, "method param and value passed to --cloud-init have to match: configdrive vs none"),
-			Entry("type ssh (explicit) and nocloud vs configdrive", "type:ssh,src:my-src,method:nocloud", cloudInitConfigDrive, "method param and value passed to --cloud-init have to match: nocloud vs configdrive"),
-			Entry("type ssh (explicit) and nocloud vs none", "type:ssh,src:my-src,method:nocloud", cloudInitNone, "method param and value passed to --cloud-init have to match: nocloud vs none"),
-			Entry("type ssh (explicit) and configdrive vs nocloud", "type:ssh,src:my-src,method:configdrive", cloudInitNoCloud, "method param and value passed to --cloud-init have to match: configdrive vs nocloud"),
-			Entry("type ssh (explicit) and configdrive vs none", "type:ssh,src:my-src,method:configdrive", cloudInitNone, "method param and value passed to --cloud-init have to match: configdrive vs none"),
+			Entry("type ssh (default) and nocloud vs configdrive", "src:my-src,method:nocloud", cloudInitConfigDrive, "nocloud vs configdrive"),
+			Entry("type ssh (default) and nocloud vs none", "src:my-src,method:nocloud", cloudInitNone, "nocloud vs none"),
+			Entry("type ssh (default) and configdrive vs nocloud", "src:my-src,method:configdrive", cloudInitNoCloud, "configdrive vs nocloud"),
+			Entry("type ssh (default) and configdrive vs none", "src:my-src,method:configdrive", cloudInitNone, "configdrive vs none"),
+			Entry("type ssh (explicit) and nocloud vs configdrive", "type:ssh,src:my-src,method:nocloud", cloudInitConfigDrive, "nocloud vs configdrive"),
+			Entry("type ssh (explicit) and nocloud vs none", "type:ssh,src:my-src,method:nocloud", cloudInitNone, "nocloud vs none"),
+			Entry("type ssh (explicit) and configdrive vs nocloud", "type:ssh,src:my-src,method:configdrive", cloudInitNoCloud, "configdrive vs nocloud"),
+			Entry("type ssh (explicit) and configdrive vs none", "type:ssh,src:my-src,method:configdrive", cloudInitNone, "configdrive vs none"),
 		)
 	})
 })
