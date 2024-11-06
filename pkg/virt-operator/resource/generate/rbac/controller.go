@@ -318,6 +318,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachinesnapshots/status",
 					"virtualmachinesnapshotcontents",
 					"virtualmachinesnapshotcontents/status",
+					"virtualmachinesnapshotcontents/finalizers",
 					"virtualmachinerestores",
 					"virtualmachinerestores/status",
 				},
@@ -368,6 +369,18 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"*",
+				},
+			},
+			// Implied by asterisk but prefer adding explicitly since it's crucial for OwnerReferencesPermissionEnforcement
+			{
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachines/finalizers",
+				},
+				Verbs: []string{
+					"update",
 				},
 			},
 			{
