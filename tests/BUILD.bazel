@@ -75,6 +75,7 @@ go_test(
         "pool_test.go",
         "portforward_test.go",
         "replicaset_test.go",
+        "reset_test.go",
         "security_features_test.go",
         "softreboot_test.go",
         "stability_test.go",

@@ -514,6 +514,7 @@ type VirDomain interface {
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
 	Reboot(flags libvirt.DomainRebootFlagValues) error
+	Reset(flags uint32) error
 	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
