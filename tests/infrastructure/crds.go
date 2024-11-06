@@ -38,7 +38,7 @@ import (
 	crds "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
-var _ = DescribeInfra("CRDs", Serial, decorators.SigCompute, func() {
+var _ = DescribeInfra("[Serial]CRDs", Serial, decorators.SigCompute, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
