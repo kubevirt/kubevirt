@@ -26,6 +26,7 @@ const (
 	unpauseTemplateURI        = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
 	freezeTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
 	unfreezeTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
+	resetTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/reset"
 	softRebootTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/softreboot"
 	guestInfoTemplateURI      = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
 	userListTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
@@ -61,6 +62,7 @@ type VirtHandlerConn interface {
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	ResetURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SEVFetchCertChainURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SEVQueryLaunchMeasurementURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -199,6 +201,10 @@ func (v *virtHandlerConn) FreezeURI(vmi *virtv1.VirtualMachineInstance) (string,
 
 func (v *virtHandlerConn) UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(unfreezeTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) ResetURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(resetTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error) {

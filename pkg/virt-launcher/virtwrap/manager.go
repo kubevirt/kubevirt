@@ -119,6 +119,7 @@ type DomainManager interface {
 	UnpauseVMI(*v1.VirtualMachineInstance) error
 	FreezeVMI(*v1.VirtualMachineInstance, int32) error
 	UnfreezeVMI(*v1.VirtualMachineInstance) error
+	ResetVMI(*v1.VirtualMachineInstance) error
 	SoftRebootVMI(*v1.VirtualMachineInstance) error
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
@@ -1773,6 +1774,23 @@ func (l *LibvirtDomainManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error
 		log.Log.Errorf("Failed to unfreeze vmi, %s", err.Error())
 		return err
 	}
+	return nil
+}
+
+func (l *LibvirtDomainManager) ResetVMI(vmi *v1.VirtualMachineInstance) error {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Getting the domain for reset failed.")
+		return err
+	}
+
+	defer dom.Free()
+	if err = dom.Reset(0); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Resetting the domain failed.")
+		return err
+	}
+
 	return nil
 }
 

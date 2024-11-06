@@ -114,6 +114,12 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(client.UnfreezeVirtualMachine(vmi)).To(Succeed())
 		})
 
+		It("should reset a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().ResetVMI(vmi)
+			Expect(client.ResetVirtualMachine(vmi)).To(Succeed())
+		})
+
 		It("should soft reboot a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().SoftRebootVMI(vmi)
