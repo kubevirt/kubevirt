@@ -522,7 +522,7 @@ func (ctrl *VMSnapshotController) createVolumeSnapshot(
 			content.Namespace, volumeBackup.PersistentVolumeClaim.Name)
 	}
 
-	volumeSnapshotClass, err := ctrl.getVolumeSnapshotClass(*sc)
+	volumeSnapshotClass, err := ctrl.getVolumeSnapshotClass(*sc, content.Spec.VolumeSnapshotClassName)
 	if err != nil {
 		log.Log.Warningf("Couldn't find VolumeSnapshotClass for %s", *sc)
 		return nil, err
@@ -644,6 +644,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 			VirtualMachineSnapshotName: &vmSnapshot.Name,
 			Source:                     sourceSpec,
 			VolumeBackups:              volumeBackups,
+			VolumeSnapshotClassName:    vmSnapshot.Spec.VolumeSnapshotClassName,
 		},
 	}
 
@@ -685,7 +686,7 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 		return nil, nil
 	}
 
-	volumeSnapshotClass, err := ctrl.getVolumeSnapshotClass(*pvc.Spec.StorageClassName)
+	volumeSnapshotClass, err := ctrl.getVolumeSnapshotClass(*pvc.Spec.StorageClassName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -699,7 +700,11 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 	return nil, nil
 }
 
-func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string) (string, error) {
+func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string, specifiedClassName *string) (string, error) {
+	if specifiedClassName != nil {
+		return *specifiedClassName, nil
+	}
+
 	obj, exists, err := ctrl.StorageClassInformer.GetStore().GetByKey(storageClassName)
 	if !exists || err != nil {
 		return "", err
@@ -931,7 +936,7 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.Virtual
 		return kubevirtv1.VolumeSnapshotStatus{Name: volume.Name, Enabled: false, Reason: err.Error()}
 	}
 
-	snap, err := ctrl.getVolumeSnapshotClass(sc)
+	snap, err := ctrl.getVolumeSnapshotClass(sc, nil)
 	if err != nil {
 		return kubevirtv1.VolumeSnapshotStatus{Name: volume.Name, Enabled: false, Reason: err.Error()}
 	}
