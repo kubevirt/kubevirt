@@ -2218,6 +2218,32 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 	})
 
+	Context("Reset", func() {
+		It("Should reset a running VMI", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/reset"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
+
+			expectVMI(true, false)
+
+			app.ResetVMIRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("Should fail reset on a not running VMI", func() {
+
+			expectVMI(false, false)
+
+			app.ResetVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+	})
+
 	Context("SoftReboot", func() {
 		It("Should soft reboot a running VMI", func() {
 			backend.AppendHandlers(
