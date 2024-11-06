@@ -61,9 +61,10 @@ var _ = Describe("Restore controller", func() {
 	createRestore := func() *snapshotv1.VirtualMachineRestore {
 		return &snapshotv1.VirtualMachineRestore{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      vmRestoreName,
-				Namespace: testNamespace,
-				UID:       uid,
+				Name:              vmRestoreName,
+				Namespace:         testNamespace,
+				UID:               uid,
+				CreationTimestamp: timeStamp,
 			},
 			Spec: snapshotv1.VirtualMachineRestoreSpec{
 				Target: corev1.TypedLocalObjectReference{
@@ -493,6 +494,7 @@ var _ = Describe("Restore controller", func() {
 
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
+				testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
 				Expect(*updateCalls).To(Equal(1))
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
@@ -1416,6 +1418,162 @@ var _ = Describe("Restore controller", func() {
 					controller.processVMRestoreWorkItem()
 					Expect(*patchCount).To(Equal(1))
 				})
+			})
+
+			Describe("restore vm with TargetReadinessPolicy", func() {
+				It("WaitEventually - should not fail even if grace period passed", func() {
+					r := createRestoreWithOwner()
+					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreWaitEventually)
+					//change creation time such that it will make the default grace period pass
+					// with TargetReadinessPolicy waitEventually restore should not fail
+					r.CreationTimestamp = metav1.Time{Time: r.CreationTimestamp.Time.Add(-snapshotv1.DefaultGracePeriod)}
+					vm := createModifiedVM()
+					vmi := createVMI(vm)
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+							newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+						},
+					}
+					vmSource.Add(vm)
+					vmiSource.Add(vmi)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					Expect(*updateStatusCalls).To(Equal(1))
+				})
+
+				It("StopTarget - should call stop on VM target", func() {
+					r := createRestoreWithOwner()
+					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+					vm := createModifiedVM()
+					vmi := createVMI(vm)
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+							newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+						},
+					}
+					vmSource.Add(vm)
+					vmiSource.Add(vmi)
+					vmInterface.EXPECT().Stop(context.Background(), vm.Name, &kubevirtv1.StopOptions{}).Return(nil).Times(1)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					Expect(*updateStatusCalls).To(Equal(1))
+				})
+
+				It("default - GracePeriodAndFail - should fail when grace period passed", func() {
+					r := createRestoreWithOwner()
+					//change creation time such that it will make the default grace period pass
+					// with default TargetReadinessPolicy GracePeriodAndFail restore should fail once
+					// the grace period passed
+					r.CreationTimestamp = metav1.Time{Time: r.CreationTimestamp.Time.Add(-snapshotv1.DefaultGracePeriod)}
+					vm := createModifiedVM()
+					vmi := createVMI(vm)
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, "Operation failed"),
+							newReadyCondition(corev1.ConditionFalse, "Operation failed"),
+							newFailureCondition(corev1.ConditionTrue, "Restore target failed to be ready within 5m0s"),
+						},
+					}
+					vmSource.Add(vm)
+					vmiSource.Add(vmi)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					Expect(*updateStatusCalls).To(Equal(1))
+				})
+
+				It("default - GracePeriodAndFail - should not fail if grace period passed but target became ready", func() {
+					r := createRestoreWithOwner()
+					r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+							newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+						},
+					}
+					//change creation time such that it will make the default grace period pass
+					// with default TargetReadinessPolicy GracePeriodAndFail if target became ready
+					// in that time restore should not fail
+					r.CreationTimestamp = metav1.Time{Time: r.CreationTimestamp.Time.Add(-snapshotv1.DefaultGracePeriod)}
+
+					rc := r.DeepCopy()
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
+							newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
+						},
+					}
+					addInitialVolumeRestores(rc)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+
+					vm := createModifiedVM()
+					vmSource.Add(vm)
+					expectUpdateVMRestoreInProgress(vm)
+
+					addVirtualMachineRestore(r)
+					controller.processVMRestoreWorkItem()
+					Expect(*updateStatusCalls).To(Equal(1))
+				})
+
+				It("FailImmediate - should fail immediately", func() {
+					r := createRestoreWithOwner()
+					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreFailImmediate)
+					vm := createModifiedVM()
+					vmi := createVMI(vm)
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, "Operation failed"),
+							newReadyCondition(corev1.ConditionFalse, "Operation failed"),
+							newFailureCondition(corev1.ConditionTrue, "Restore target not ready"),
+						},
+					}
+					vmSource.Add(vm)
+					vmiSource.Add(vmi)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					Expect(*updateStatusCalls).To(Equal(1))
+				})
+			})
+
+			It("Failed restore should be terminating state", func() {
+				r := createRestoreWithOwner()
+				r.OwnerReferences = nil
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: pointer.P(false),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "Operation failed"),
+						newReadyCondition(corev1.ConditionFalse, "Operation failed"),
+						newFailureCondition(corev1.ConditionTrue, "Restore target not ready"),
+					},
+				}
+				vm := createModifiedVM()
+				vmi := createVMI(vm)
+				vmSource.Add(vm)
+				vmiSource.Add(vmi)
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
 			})
 		})
 
