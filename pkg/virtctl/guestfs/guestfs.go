@@ -23,8 +23,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
-	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 )
 
 const (
@@ -541,7 +541,7 @@ func CreateAttacher(client *K8sClient, p *corev1.Pod, command string) error {
 			Stderr: stdoutWriter,
 		})
 	}()
-	return utils.AttachConsole(stdinReader, stdoutReader, stdinWriter, stdoutWriter,
+	return console.Attach(stdinReader, stdoutReader, stdinWriter, stdoutWriter,
 		"If you don't see a command prompt, try pressing enter.", resChan)
 }
 
