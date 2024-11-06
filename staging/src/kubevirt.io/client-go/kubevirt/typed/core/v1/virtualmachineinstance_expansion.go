@@ -47,6 +47,7 @@ type VirtualMachineInstanceExpansion interface {
 	Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error
 	Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error
 	Unfreeze(ctx context.Context, name string) error
+	Reset(ctx context.Context, name string) error
 	SoftReboot(ctx context.Context, name string) error
 	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
@@ -172,6 +173,18 @@ func (c *virtualMachineInstances) Unfreeze(ctx context.Context, name string) err
 		Resource("virtualmachineinstances").
 		Name(name).
 		SubResource("unfreeze").
+		Do(ctx).
+		Error()
+}
+
+func (c *virtualMachineInstances) Reset(ctx context.Context, name string) error {
+	log.Log.Infof("Reset VMI")
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachineinstances").
+		Name(name).
+		SubResource("reset").
 		Do(ctx).
 		Error()
 }
