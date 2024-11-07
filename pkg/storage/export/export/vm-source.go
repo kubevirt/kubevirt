@@ -191,7 +191,7 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 	}
 	allPopulated := true
 
-	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithBackendVolume)
+	volumes, err := storageutils.GetVolumes(vm, nil)
 	if err != nil {
 		return nil, false, err
 	}
