@@ -186,7 +186,13 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 		return nil, false, nil
 	}
 	allPopulated := true
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
+
+	volumes, err := storageutils.GetVolumes(vm, nil)
+	if err != nil {
+		return nil, false, err
+	}
+
+	for _, volume := range volumes {
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 		if pvcName == "" {
 			continue
