@@ -581,6 +581,7 @@ rules:
   - virtualmachinesnapshots/status
   - virtualmachinesnapshotcontents
   - virtualmachinesnapshotcontents/status
+  - virtualmachinesnapshotcontents/finalizers
   - virtualmachinerestores
   - virtualmachinerestores/status
   verbs:
@@ -626,6 +627,12 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines/finalizers
+  verbs:
+  - update
 - apiGroups:
   - subresources.kubevirt.io
   resources:

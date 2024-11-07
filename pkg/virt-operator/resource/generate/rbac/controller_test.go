@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright 2024 The KubeVirt Authors.
+ *
  */
 
 package rbac
@@ -52,6 +53,8 @@ var _ = Describe("RBAC", func() {
 			Entry("for vmclones", "clone.kubevirt.io", "virtualmachineclones"),
 			Entry("for vmexports", "export.kubevirt.io", "virtualmachineexports"),
 			Entry("for vmpools", "pool.kubevirt.io", "virtualmachinepools"),
+			Entry("for vmsnapshotcontents", "snapshot.kubevirt.io", "virtualmachinesnapshotcontents"),
+			Entry("for vms", "kubevirt.io", "virtualmachines"),
 		)
 	})
 })
