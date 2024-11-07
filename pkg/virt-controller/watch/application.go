@@ -441,6 +441,7 @@ func Execute() {
 		app.clusterPreferenceInformer,
 		app.preferenceInformer,
 		app.migrationInformer,
+		app.kvPodInformer,
 		app.clusterConfig,
 	); err != nil {
 		golog.Fatal(err)
