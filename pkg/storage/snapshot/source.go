@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	utils "kubevirt.io/kubevirt/pkg/util"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -89,7 +90,11 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	}
 
 	if !vmOnline {
-		pvcNames := s.pvcNames()
+		pvcNames, err := s.pvcNames()
+		if err != nil {
+			return false, err
+		}
+
 		pods, err := watchutil.PodsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
 		if err != nil {
 			return false, err
@@ -239,7 +244,7 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 	snapshotCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(snapshot, snapshot.GroupVersionKind())}
 
 	snapshotCR, err = s.controller.Client.AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return "", err
 	}
 
@@ -372,14 +377,21 @@ func (s *vmSnapshotSource) Unfreeze() error {
 }
 
 func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
-	return storagetypes.GetPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes), nil
+	volumes, err := storageutils.GetVolumes(s.vm, s.controller.Client, storageutils.WithAllVolumes)
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return storagetypes.GetPVCsFromVolumes(volumes), nil
 }
 
-func (s *vmSnapshotSource) pvcNames() sets.String {
-	pvcs := storagetypes.GetPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes)
+func (s *vmSnapshotSource) pvcNames() (sets.String, error) {
 	ss := sets.NewString()
+	pvcs, err := s.PersistentVolumeClaims()
+	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
+		return ss, err
+	}
 	for _, pvc := range pvcs {
 		ss.Insert(pvc)
 	}
-	return ss
+	return ss, nil
 }
