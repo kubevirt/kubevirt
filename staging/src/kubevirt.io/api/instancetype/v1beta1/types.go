@@ -520,6 +520,11 @@ type FirmwarePreferences struct {
 	//
 	// +optional
 	PreferredUseSecureBoot *bool `json:"preferredUseSecureBoot,omitempty"`
+
+	// PreferredEfi optionally enables EFI
+	//
+	// +optional
+	PreferredEfi *v1.EFI `json:"preferredEfi,omitempty"`
 }
 
 // MachinePreferences contains various optional defaults for Machine.
