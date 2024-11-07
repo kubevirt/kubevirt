@@ -72,3 +72,25 @@ func (archConverterARM64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 func (archConverterARM64) supportCPUHotplug() bool {
 	return false
 }
+
+func (archConverterARM64) isSMBiosNeeded() bool {
+	// ARM64 use UEFI boot by default, set SMBios is unnecessary.
+	return false
+}
+
+func (archConverterARM64) transitionalModelType(useVirtioTransitional bool) string {
+	return defaultTransitionalModelType(useVirtioTransitional)
+}
+
+func (archConverterARM64) isROMTuningSupported() bool {
+	return true
+}
+
+func (archConverterARM64) requiresMPXCPUValidation() bool {
+	// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
+	return false
+}
+
+func (archConverterARM64) shouldVerboseLogsBeEnabled() bool {
+	return false
+}

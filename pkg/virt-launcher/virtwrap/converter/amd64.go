@@ -91,3 +91,23 @@ func (archConverterAMD64) isUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
 func (archConverterAMD64) supportCPUHotplug() bool {
 	return true
 }
+
+func (archConverterAMD64) isSMBiosNeeded() bool {
+	return true
+}
+
+func (archConverterAMD64) transitionalModelType(useVirtioTransitional bool) string {
+	return defaultTransitionalModelType(useVirtioTransitional)
+}
+
+func (archConverterAMD64) isROMTuningSupported() bool {
+	return true
+}
+
+func (archConverterAMD64) requiresMPXCPUValidation() bool {
+	return true
+}
+
+func (archConverterAMD64) shouldVerboseLogsBeEnabled() bool {
+	return true
+}

@@ -1487,10 +1487,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	// Take SMBios values from the VirtualMachineOptions
-	// SMBios option does not work in Power, attempting to set it will result in the following error message:
-	// "Option not supported for this target" issued by qemu-system-ppc64, so don't set it in case GOARCH is ppc64le
-	// ARM64 use UEFI boot by default, set SMBios is unnecessory.
-	if isAMD64(c.Architecture.GetArchitecture()) {
+	if c.Architecture.isSMBiosNeeded() {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
 		}
@@ -1742,8 +1739,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		*/
 
 		_, exists := existingFeatures["mpx"]
-		// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
-		if isAMD64(c.Architecture.GetArchitecture()) && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+		if c.Architecture.requiresMPXCPUValidation() && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 				Name:   "mpx",
 				Policy: "disable",
@@ -1856,7 +1852,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if isAMD64(c.Architecture.GetArchitecture()) {
+	if c.Architecture.shouldVerboseLogsBeEnabled() {
 		virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY))
 		if err == nil && virtLauncherLogVerbosity > services.EXT_LOG_VERBOSITY_THRESHOLD {
 			// isa-debugcon device is only for x86_64
@@ -2047,15 +2043,8 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 }
 
 func InterpretTransitionalModelType(useVirtioTransitional *bool, archString string) string {
-	// "virtio-non-transitional" and "virtio-transitional" are both PCI devices, so they don't work on s390x.
-	// "virtio" is a generic model that can be either PCI or CCW depending on the machine type
-	if isS390X(archString) {
-		return "virtio"
-	}
-	if useVirtioTransitional != nil && *useVirtioTransitional {
-		return "virtio-transitional"
-	}
-	return "virtio-non-transitional"
+	vtenabled := useVirtioTransitional != nil && *useVirtioTransitional
+	return NewArchConverter(archString).transitionalModelType(vtenabled)
 }
 
 func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {

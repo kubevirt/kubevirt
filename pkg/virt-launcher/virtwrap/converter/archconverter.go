@@ -35,6 +35,11 @@ type ArchConverter interface {
 	scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller
 	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	supportCPUHotplug() bool
+	isSMBiosNeeded() bool
+	transitionalModelType(useVirtioTransitional bool) string
+	isROMTuningSupported() bool
+	requiresMPXCPUValidation() bool
+	shouldVerboseLogsBeEnabled() bool
 }
 
 func NewArchConverter(arch string) ArchConverter {
@@ -60,4 +65,11 @@ func defaultSCSIController(c *ConverterContext, driver *api.ControllerDriver) ap
 		Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 		Driver: driver,
 	}
+}
+
+func defaultTransitionalModelType(useVirtioTransitional bool) string {
+	if useVirtioTransitional {
+		return "virtio-transitional"
+	}
+	return "virtio-non-transitional"
 }

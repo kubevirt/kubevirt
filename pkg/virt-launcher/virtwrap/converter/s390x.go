@@ -59,3 +59,26 @@ func (archConverterS390X) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 func (archConverterS390X) supportCPUHotplug() bool {
 	return true
 }
+
+func (archConverterS390X) isSMBiosNeeded() bool {
+	return false
+}
+
+func (archConverterS390X) transitionalModelType(_ bool) string {
+	// "virtio-non-transitional" and "virtio-transitional" are both PCI devices, so they don't work on s390x.
+	// "virtio" is a generic model that can be either PCI or CCW depending on the machine type
+	return "virtio"
+}
+
+func (archConverterS390X) isROMTuningSupported() bool {
+	return false
+}
+
+func (archConverterS390X) requiresMPXCPUValidation() bool {
+	// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
+	return false
+}
+
+func (archConverterS390X) shouldVerboseLogsBeEnabled() bool {
+	return false
+}
