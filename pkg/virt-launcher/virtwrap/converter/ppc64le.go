@@ -24,11 +24,15 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = archConverter(&archConverterPPC64{})
+var _ = ArchConverter(&archConverterPPC64{})
 
 type archConverterPPC64 struct{}
 
-func (archConverterPPC64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) {
+func (archConverterPPC64) GetArchitecture() string {
+	return "ppc64le"
+}
+
+func (archConverterPPC64) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{

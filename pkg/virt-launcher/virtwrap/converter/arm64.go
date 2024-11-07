@@ -24,9 +24,13 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = archConverter(&archConverterARM64{})
+var _ = ArchConverter(&archConverterARM64{})
 
 type archConverterARM64 struct{}
+
+func (archConverterARM64) GetArchitecture() string {
+	return "arm64"
+}
 
 func (archConverterARM64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
 	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.

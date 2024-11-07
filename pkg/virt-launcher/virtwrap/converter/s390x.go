@@ -24,11 +24,15 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = archConverter(&archConverterS390X{})
+var _ = ArchConverter(&archConverterS390X{})
 
 type archConverterS390X struct{}
 
-func (archConverterS390X) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
+func (archConverterS390X) GetArchitecture() string {
+	return "s390x"
+}
+
+func (archConverterS390X) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
@@ -39,7 +43,7 @@ func (archConverterS390X) addGraphicsDevice(vmi *v1.VirtualMachineInstance, doma
 	}
 }
 
-func (archConverterS390X) scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
+func (archConverterS390X) scsiController(_ *ConverterContext, driver *api.ControllerDriver) api.Controller {
 	return api.Controller{
 		Type:   "scsi",
 		Index:  "0",

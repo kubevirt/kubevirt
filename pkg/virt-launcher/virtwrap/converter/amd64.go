@@ -26,9 +26,13 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = archConverter(&archConverterAMD64{})
+var _ = ArchConverter(&archConverterAMD64{})
 
 type archConverterAMD64 struct{}
+
+func (archConverterAMD64) GetArchitecture() string {
+	return "amd64"
+}
 
 func (archConverterAMD64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) {
 	// For AMD64 + EFI, use bochs. For BIOS, use VGA

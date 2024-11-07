@@ -218,7 +218,7 @@ var _ = Describe("LibvirtHelper", func() {
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		domain := &api.Domain{}
 		c := &converter.ConverterContext{
-			Architecture:     runtime.GOARCH,
+			Architecture:     converter.NewArchConverter(runtime.GOARCH),
 			VirtualMachine:   vmi,
 			AllowEmulation:   true,
 			SMBios:           &cmdv1.SMBios{},

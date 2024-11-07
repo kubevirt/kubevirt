@@ -29,14 +29,15 @@ const (
 	graphicsDeviceDefaultVRAM  uint = 16384
 )
 
-type archConverter interface {
+type ArchConverter interface {
+	GetArchitecture() string
 	addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext)
 	scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller
 	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	supportCPUHotplug() bool
 }
 
-func newArchConverter(arch string) archConverter {
+func NewArchConverter(arch string) ArchConverter {
 	switch {
 	case isARM64(arch):
 		return archConverterARM64{}
@@ -56,7 +57,7 @@ func defaultSCSIController(c *ConverterContext, driver *api.ControllerDriver) ap
 	return api.Controller{
 		Type:   "scsi",
 		Index:  "0",
-		Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture),
+		Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 		Driver: driver,
 	}
 }
