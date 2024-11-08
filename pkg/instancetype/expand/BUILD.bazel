@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//pkg/defaults:go_default_library",
         "//pkg/instancetype/apply:go_default_library",
+        "//pkg/instancetype/errors:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",
         "//pkg/network/vmispec:go_default_library",

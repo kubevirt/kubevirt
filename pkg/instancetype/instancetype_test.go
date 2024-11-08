@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -303,7 +304,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetype.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
@@ -492,7 +493,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetype.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {

@@ -27,15 +27,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	utils "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-)
-
-const (
-	VMFieldsConflictsErrorFmt = "VM fields %s conflict with selected instance type"
 )
 
 type Expander struct {
@@ -89,7 +86,7 @@ func (e *Expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, er
 		&expandedVM.Spec.Template.ObjectMeta,
 	)
 	if len(conflicts) > 0 {
-		return nil, fmt.Errorf(VMFieldsConflictsErrorFmt, conflicts.String())
+		return nil, fmt.Errorf(instancetypeErrors.VMFieldsConflictsErrorFmt, conflicts.String())
 	}
 
 	// Apply defaults to VM.Spec.Template.Spec after applying instance types to ensure we don't conflict

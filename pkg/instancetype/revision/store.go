@@ -37,12 +37,11 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/util"
 )
-
-const VMFieldsConflictsErrorFmt = "VM fields %s conflict with selected instance type"
 
 func (h *RevisionHandler) Store(vm *virtv1.VirtualMachine) error {
 	instancetypeRevision, err := h.storeInstancetypeRevision(vm)
@@ -122,7 +121,7 @@ func (h *RevisionHandler) checkForInstancetypeConflicts(
 	vmiSpecCopy := vmiSpec.DeepCopy()
 	conflicts := apply.NewVMIApplier().ApplyToVMI(field.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy, vmiMetadata)
 	if len(conflicts) > 0 {
-		return fmt.Errorf(VMFieldsConflictsErrorFmt, conflicts.String())
+		return fmt.Errorf(instancetypeErrors.VMFieldsConflictsErrorFmt, conflicts.String())
 	}
 	return nil
 }

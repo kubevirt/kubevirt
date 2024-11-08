@@ -14,6 +14,7 @@ go_library(
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/compatibility:go_default_library",
+        "//pkg/instancetype/errors:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",
         "//pkg/util:go_default_library",

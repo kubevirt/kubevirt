@@ -17,6 +17,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
@@ -31,8 +32,12 @@ import (
 )
 
 const (
-	VMFieldsConflictsErrorFmt = "VM fields %s conflict with selected instance type"
-	VMFieldConflictErrorFmt   = "VM field %s conflicts with selected instance type"
+	VMFieldConflictErrorFmt = "VM field %s conflicts with selected instance type"
+)
+
+// FIXME(lyarwood): Move remaining users to instancetypeErrors.VMFieldsConflictsErrorFmt
+var (
+	VMFieldsConflictsErrorFmt = instancetypeErrors.VMFieldsConflictsErrorFmt
 )
 
 type Methods interface {

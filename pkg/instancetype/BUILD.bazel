@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//pkg/instancetype/annotations:go_default_library",
         "//pkg/instancetype/apply:go_default_library",
+        "//pkg/instancetype/errors:go_default_library",
         "//pkg/instancetype/expand:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/infer:go_default_library",
