@@ -2,7 +2,6 @@
 package instancetype
 
 import (
-	"fmt"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -16,9 +15,9 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
 	preferenceAnnotations "kubevirt.io/kubevirt/pkg/instancetype/preference/annotations"
@@ -28,8 +27,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	utils "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -73,46 +70,9 @@ type InstancetypeMethods struct {
 var _ Methods = &InstancetypeMethods{}
 
 func (m *InstancetypeMethods) Expand(vm *virtv1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*virtv1.VirtualMachine, error) {
-	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
-		return vm, nil
-	}
-
-	instancetypeSpec, err := m.FindInstancetypeSpec(vm)
-	if err != nil {
-		return nil, err
-	}
-	preferenceSpec, err := m.FindPreferenceSpec(vm)
-	if err != nil {
-		return nil, err
-	}
-	expandedVM := vm.DeepCopy()
-
-	utils.SetDefaultVolumeDisk(&expandedVM.Spec.Template.Spec)
-
-	if err := vmispec.SetDefaultNetworkInterface(clusterConfig, &expandedVM.Spec.Template.Spec); err != nil {
-		return nil, err
-	}
-
-	conflicts := m.ApplyToVmi(
-		k8sfield.NewPath("spec", "template", "spec"),
-		instancetypeSpec, preferenceSpec,
-		&expandedVM.Spec.Template.Spec,
-		&expandedVM.Spec.Template.ObjectMeta,
-	)
-	if len(conflicts) > 0 {
-		return nil, fmt.Errorf(VMFieldsConflictsErrorFmt, conflicts.String())
-	}
-
-	// Apply defaults to VM.Spec.Template.Spec after applying instance types to ensure we don't conflict
-	if err := defaults.SetDefaultVirtualMachineInstanceSpec(clusterConfig, &expandedVM.Spec.Template.Spec); err != nil {
-		return nil, err
-	}
-
-	// Remove InstancetypeMatcher and PreferenceMatcher, so the returned VM object can be used and not cause a conflict
-	expandedVM.Spec.Instancetype = nil
-	expandedVM.Spec.Preference = nil
-
-	return expandedVM, nil
+	instancetypeFinder := find.NewSpecFinder(m.InstancetypeStore, m.ClusterInstancetypeStore, m.ControllerRevisionStore, m.Clientset)
+	preferenceFinder := preferenceFind.NewSpecFinder(m.PreferenceStore, m.ClusterPreferenceStore, m.ControllerRevisionStore, m.Clientset)
+	return expand.New(clusterConfig, instancetypeFinder, preferenceFinder).Expand(vm)
 }
 
 func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
