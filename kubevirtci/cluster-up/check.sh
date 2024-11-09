@@ -26,12 +26,17 @@ fi
 
 KVM_ARCH=""
 KVM_NESTED="unknown"
+KVM_HPAGE="unknown"
 if [ -f "/sys/module/kvm_intel/parameters/nested" ]; then
 	KVM_NESTED=$( cat /sys/module/kvm_intel/parameters/nested )
 	KVM_ARCH="intel"
 elif [ -f "/sys/module/kvm_amd/parameters/nested" ]; then
 	KVM_NESTED=$( cat /sys/module/kvm_amd/parameters/nested )
 	KVM_ARCH="amd"
+elif [ -f "/sys/module/kvm/parameters/nested" ]; then
+	KVM_NESTED=$( cat /sys/module/kvm/parameters/nested )
+	KVM_ARCH="s390x"
+	KVM_HPAGE=$( cat /sys/module/kvm/parameters/hpage )
 fi
 
 function is_enabled() {
@@ -48,4 +53,8 @@ if is_enabled "$KVM_NESTED"; then
 	echo "[ OK ] $KVM_ARCH nested virtualization enabled"
 else
 	echo "[ERR ] $KVM_ARCH nested virtualization not enabled"
+fi
+
+if is_enabled "$KVM_HPAGE" && [ "$(uname -m)" = "s390x" ]; then
+	echo "[ERR ] $KVM_HPAGE KVM hugepage enabled. It needs to be disabled while nested virtualization is enabled for s390x"
 fi
