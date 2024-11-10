@@ -17,15 +17,16 @@ var (
 	SigMonitoring        = Label("sig-monitoring")
 
 	// HW
-	GPU         = Label("GPU")
-	VGPU        = Label("VGPU")
-	SEV         = Label("SEV")
-	SRIOV       = Label("SRIOV")
-	StorageReq  = Label("storage-req")
-	Multus      = Label("Multus")
-	Macvtap     = Label("Macvtap")
-	Invtsc      = Label("Invtsc")
-	KSMRequired = Label("KSM-required")
+	GPU                  = Label("GPU")
+	VGPU                 = Label("VGPU")
+	SEV                  = Label("SEV")
+	SRIOV                = Label("SRIOV")
+	StorageReq           = Label("storage-req")
+	BlockStorageRequired = Label("block-storage-required")
+	Multus               = Label("Multus")
+	Macvtap              = Label("Macvtap")
+	Invtsc               = Label("Invtsc")
+	KSMRequired          = Label("KSM-required")
 
 	// Features
 	Sysprep                              = Label("Sysprep")
