@@ -2126,7 +2126,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", decorators.SigStorage, decorators.StorageReq, func() {
+	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", decorators.SigStorage, decorators.StorageReq, decorators.BlockStorageRequired, func() {
 		var dataVolume *cdiv1.DataVolume
 		var err error
 
@@ -2136,9 +2136,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-			if !foundSC {
-				Skip("Skip test when Block storage is not present")
-			}
+			Expect(foundSC).To(BeTrue(), "Block storage is not present")
 
 			dataVolume = libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
@@ -2282,15 +2280,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, func() {
+		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, decorators.BlockStorageRequired, func() {
 			var dataVolume *cdiv1.DataVolume
 			var err error
 
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-			if !foundSC {
-				Skip("Skip test when Block storage is not present")
-			}
+			Expect(foundSC).To(BeTrue(), "Block storage is not present")
 
 			dataVolume = libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
@@ -2333,15 +2329,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, func() {
+		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, decorators.BlockStorageRequired, func() {
 			var dataVolume *cdiv1.DataVolume
 			var err error
 
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-			if !foundSC {
-				Skip("Skip test when Block storage is not present")
-			}
+			Expect(foundSC).To(BeTrue(), "Block storage is not present")
 
 			dataVolume = libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),

@@ -155,7 +155,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		return size - remainder
 	}
 
-	Context("[storage-req]PVC expansion", decorators.StorageReq, func() {
+	Context("[storage-req]PVC expansion", decorators.StorageReq, decorators.BlockStorageRequired, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
 
@@ -163,9 +163,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			exists := false
 			if volumeMode == k8sv1.PersistentVolumeBlock {
 				sc, exists = libstorage.GetRWOBlockStorageClass()
-				if !exists {
-					Skip("Skip test when Block storage is not present")
-				}
+				Expect(exists).To(BeTrue(), "Block storage is not present")
 			} else {
 				sc, exists = libstorage.GetRWOFileSystemStorageClass()
 				if !exists {

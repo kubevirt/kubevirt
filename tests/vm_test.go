@@ -117,9 +117,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 			sc, foundSC := libstorage.GetRWOBlockStorageClass()
-			if !foundSC {
-				Skip("Skip test when Block storage is not present")
-			}
+			Expect(foundSC).To(BeTrue(), "Block storage is not present")
+
 			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), sc, k8sv1.PersistentVolumeBlock)
 		}
 
@@ -268,7 +267,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		},
 			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewCirros(), nil }, false),
 			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk, true),
-			Entry("[storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk, false),
+			Entry("[storage-req]with Block Disk", decorators.StorageReq, decorators.BlockStorageRequired, newVirtualMachineInstanceWithBlockDisk, false),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", decorators.Conformance, func() {
@@ -332,14 +331,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(vmiPod.Name).ToNot(Equal(firstPod.Name))
 		})
 
-		DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(createTemplate vmiBuilder) {
+		DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(createTemplate vmiBuilder, vmi1 *v1.VirtualMachineInstance, dv1 *cdiv1.DataVolume) {
+
 			template, dv := createTemplate()
 			defer libstorage.DeleteDataVolume(&dv)
 			libvmops.StopVirtualMachine(libvmops.StartVirtualMachine(createVM(virtClient, template)))
 		},
-			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewCirros(), nil }),
+			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewCirros(), nil }, libvmifact.NewCirros(), nil),
 			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
-			Entry("[storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
+			Entry("[storage-req]with Block Disk", decorators.StorageReq, decorators.BlockStorageRequired, newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", decorators.Conformance, func() {

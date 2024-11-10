@@ -396,15 +396,14 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
-			It("should migrate vmi and use Live Migration method with read-only disks", func() {
+			It("should migrate vmi and use Live Migration method with read-only disks", decorators.BlockStorageRequired, func() {
 				By("Defining a VMI with PVC disk and read-only CDRoms")
 				if !libstorage.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 				sc, exists := libstorage.GetRWXBlockStorageClass()
-				if !exists {
-					Skip("Skip test when Block storage is not present")
-				}
+				Expect(exists).To(BeTrue(), "Block storage is not present")
+
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 					libdv.WithStorage(
@@ -920,11 +919,9 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
 			})
-			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, func() {
+			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, decorators.BlockStorageRequired, func() {
 				sc, exists := libstorage.GetRWXBlockStorageClass()
-				if !exists {
-					Skip("Skip test when Block storage is not present")
-				}
+				Expect(exists).To(BeTrue(), "Block storage is not present")
 
 				By("Starting the VirtualMachineInstance")
 				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
@@ -980,15 +977,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration1)
 			})
 		})
-		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, func() {
+		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, decorators.BlockStorageRequired, func() {
 			var sc string
 			var exists bool
 
 			BeforeEach(func() {
 				sc, exists = libstorage.GetRWXBlockStorageClass()
-				if !exists {
-					Skip("Skip test when Block storage is not present")
-				}
+				Expect(exists).To(BeTrue(), "Block storage is not present")
 			})
 
 			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
@@ -1825,13 +1820,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 			})
 		})
-		Context("[storage-req]with an Alpine non-shared block volume PVC", decorators.StorageReq, func() {
+		Context("[storage-req]with an Alpine non-shared block volume PVC", decorators.StorageReq, decorators.BlockStorageRequired, func() {
 
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				sc, exists := libstorage.GetRWOBlockStorageClass()
-				if !exists {
-					Skip("Skip test when Block storage is not present")
-				}
+				Expect(exists).To(BeTrue(), "Block storage is not present")
 
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteOnce, sc, libvmi.WithHostname(string(cd.ContainerDiskAlpine)))
@@ -1865,9 +1858,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 
 				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteMany)
-				if !foundSC {
-					Skip("Skip test when Block storage is not present")
-				}
+				Expect(foundSC).To(BeTrue(), "Block storage is not present")
 
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
@@ -1940,7 +1931,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
 			},
 				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk),
+				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, decorators.BlockStorageRequired, newVirtualMachineInstanceWithFedoraRWXBlockDisk),
 			)
 
 			It("[sig-compute][test_id:3241]Immediate migration cancellation after migration starts running cancel a migration by deleting vmim object", func() {
