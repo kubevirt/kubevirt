@@ -27,6 +27,9 @@ var (
 	Invtsc      = Label("Invtsc")
 	KSMRequired = Label("KSM-required")
 
+	// Customization
+	KubeVirtSpecCustomization = Label("kubevirt-spec-customization")
+
 	// Features
 	Sysprep                              = Label("Sysprep")
 	Windows                              = Label("Windows")
