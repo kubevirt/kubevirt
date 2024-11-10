@@ -3067,11 +3067,8 @@ func patchKV(name string, patches *patch.PatchSet) {
 	data, err := patches.GeneratePayload()
 	Expect(err).ToNot(HaveOccurred())
 
-	Eventually(func() error {
-		_, err := kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-		return err
-	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
 }
 
 var (
