@@ -1416,13 +1416,8 @@ spec:
 				sanityCheckDeploymentsExist()
 
 				By("setting the right uninstall strategy")
-				Eventually(func() error {
-					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					kv.Spec.UninstallStrategy = v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
-					_, err = virtClient.KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
-					return err
-				}, 60*time.Second, time.Second).ShouldNot(HaveOccurred())
+				patches := patch.New(patch.WithReplace("/spec/uninstallStrategy", v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist))
+				patchKV(originalKv.Name, patches)
 
 				By("creating a simple VMI")
 				vmi := libvmifact.NewCirros()
