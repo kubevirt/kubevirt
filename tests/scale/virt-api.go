@@ -22,7 +22,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
 
-var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, decorators.KubeVirtSpecCustomization, func() {
 	var virtClient kubecli.KubevirtClient
 	numberOfNodes := 0
 
