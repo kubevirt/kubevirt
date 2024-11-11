@@ -1411,19 +1411,34 @@ spec:
 		})
 
 		Describe("[rfe_id:3578][crit:high][vendor:cnv-qe@redhat.com][level:component] deleting with BlockUninstallIfWorkloadsExist", func() {
-			It("[test_id:3683]should be blocked if a workload exists", func() {
+			BeforeEach(func() {
 				allKvInfraPodsAreReady(originalKv)
 				sanityCheckDeploymentsExist()
 
 				By("setting the right uninstall strategy")
-				Eventually(func() error {
+				patchBytes, err := patch.New(patch.WithAdd("/spec/uninstallStrategy", v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist)).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() (v1.KubeVirtUninstallStrategy, error) {
 					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					kv.Spec.UninstallStrategy = v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
-					_, err = virtClient.KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
-					return err
-				}, 60*time.Second, time.Second).ShouldNot(HaveOccurred())
+					return kv.Spec.UninstallStrategy, err
+				}, 60*time.Second, time.Second).Should(Equal(v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist))
+			})
 
+			AfterEach(func() {
+				By("cleaning the uninstall strategy")
+				patchBytes, err := patch.New(patch.WithRemove("/spec/uninstallStrategy")).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() (v1.KubeVirtUninstallStrategy, error) {
+					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
+					return kv.Spec.UninstallStrategy, err
+				}, 60*time.Second, time.Second).Should(BeEmpty())
+			})
+
+			It("[test_id:3683]should be blocked if a workload exists", func() {
 				By("creating a simple VMI")
 				vmi := libvmifact.NewCirros()
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
