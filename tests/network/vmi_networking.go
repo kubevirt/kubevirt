@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -285,35 +283,24 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("VirtualMachineInstance with no networks and disabled automatic attachment of interfaces", func() {
-		It("[test_id:1774]should not configure any external interfaces", func() {
-			vmi := libvmifact.NewAlpine(libvmi.WithAutoAttachPodInterface(false))
+	It("[test_id:1774]should not configure any external interfaces when a VMI has no networks and auto attachment is disabled", func() {
+		vmi := libvmifact.NewAlpine(libvmi.WithAutoAttachPodInterface(false))
 
-			var err error
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		var err error
+		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-			Expect(vmi.Spec.Domain.Devices.Interfaces).To(BeEmpty())
+		Expect(vmi.Spec.Domain.Devices.Interfaces).To(BeEmpty())
 
-			By("checking that loopback is the only guest interface")
-			err = console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
-				&expect.BExp{R: "1"},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("[test_id:1775]should start a VMI with no network", func() {
-			vmi := libvmifact.NewAlpine()
-			vmi.Spec.Domain.Devices.AutoattachPodInterface = pointer.P(false)
-			var err error
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-		})
+		By("checking that loopback is the only guest interface")
+		err = console.SafeExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
+			&expect.BExp{R: "1"},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("VMI with an interface that has ACPI Index set", func() {
