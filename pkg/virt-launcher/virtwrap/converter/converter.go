@@ -1726,8 +1726,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		*/
 
 		_, exists := existingFeatures["mpx"]
-		// skip the mpx CPU feature validation for s390x as it is not supported.
-		if !isS390X(c.Architecture) && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+		// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
+		if isAMD64(c.Architecture) && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 				Name:   "mpx",
 				Policy: "disable",
