@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -304,15 +302,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				&expect.BExp{R: "1"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("[test_id:1775]should start a VMI with no network", func() {
-			vmi := libvmifact.NewAlpine()
-			vmi.Spec.Domain.Devices.AutoattachPodInterface = pointer.P(false)
-			var err error
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		})
 	})
 

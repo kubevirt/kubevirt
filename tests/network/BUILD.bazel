@@ -35,7 +35,6 @@ go_library(
         "//pkg/network/namescheme:go_default_library",
         "//pkg/network/setup:go_default_library",
         "//pkg/network/vmispec:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/virt-config:go_default_library",
