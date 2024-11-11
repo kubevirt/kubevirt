@@ -691,7 +691,7 @@ tests:
       - labels: 'kubevirt_hyperconverged_operator_health_status{name="kubevirt-hyperconverged"}'
         value: 2
 
-  # Test kubevirt_hco_misconfigured_descheduler
+# Test kubevirt_hco_misconfigured_descheduler
 - interval: 1m
   input_series:
     - series: 'kubevirt_hco_misconfigured_descheduler'
@@ -770,3 +770,49 @@ tests:
             operator_health_impact: "critical"
             kubernetes_operator_part_of: "kubevirt"
             kubernetes_operator_component: "hyperconverged-cluster-operator"
+
+# Test OperatorConditionsUnhealthy
+- interval: 1m
+  input_series:
+    - series: 'kubevirt_hco_system_health_status{reason="SOME_ERROR"}'
+      values: "stale stale 2 stale"
+
+    - series: 'kubevirt_hco_system_health_status{reason="SOME_WARNING"}'
+      values: "stale stale stale stale 1 stale"
+
+  alert_rule_test:
+    - eval_time: 1m
+      alertname: OperatorConditionsUnhealthy
+      exp_alerts: [ ]
+
+    - eval_time: 1m
+      alertname: OperatorConditionsUnhealthy
+      exp_alerts: [ ]
+
+    - eval_time: 2m
+      alertname: OperatorConditionsUnhealthy
+      exp_alerts:
+        - exp_annotations:
+            description: "HCO and its secondary resources are in a critical state due to SOME_ERROR."
+            summary: "HCO and its secondary resources are in a critical state."
+            runbook_url: "https://kubevirt.io/monitoring/runbooks/OperatorConditionsUnhealthy"
+          exp_labels:
+            severity: "critical"
+            operator_health_impact: "critical"
+            kubernetes_operator_part_of: "kubevirt"
+            kubernetes_operator_component: "hyperconverged-cluster-operator"
+            reason: "SOME_ERROR"
+
+    - eval_time: 4m
+      alertname: OperatorConditionsUnhealthy
+      exp_alerts:
+        - exp_annotations:
+            description: "HCO and its secondary resources are in a warning state due to SOME_WARNING."
+            summary: "HCO and its secondary resources are in a warning state."
+            runbook_url: "https://kubevirt.io/monitoring/runbooks/OperatorConditionsUnhealthy"
+          exp_labels:
+            severity: "warning"
+            operator_health_impact: "warning"
+            kubernetes_operator_part_of: "kubevirt"
+            kubernetes_operator_component: "hyperconverged-cluster-operator"
+            reason: "SOME_WARNING"

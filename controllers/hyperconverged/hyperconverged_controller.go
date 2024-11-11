@@ -1014,8 +1014,6 @@ func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) {
 		req.Instance.Status.SystemHealthStatus = systemHealthStatus
 		req.StatusDirty = true
 	}
-
-	metrics.SetHCOMetricSystemHealthStatus(getNumericalHealthStatus(systemHealthStatus))
 }
 
 func (r *ReconcileHyperConverged) setLabels(req *common.HcoRequest) {
@@ -1071,33 +1069,42 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 }
 
 func (r *ReconcileHyperConverged) getSystemHealthStatus(conditions common.HcoConditions) string {
-	if isSystemHealthStatusError(conditions) {
+	if isError, reason := isSystemHealthStatusError(conditions); isError {
+		metrics.SetHCOSystemError(reason)
 		return systemHealthStatusError
 	}
 
-	if isSystemHealthStatusWarning(conditions) {
+	if isWarning, reason := isSystemHealthStatusWarning(conditions); isWarning {
+		metrics.SetHCOSystemWarning(reason)
 		return systemHealthStatusWarning
 	}
 
+	metrics.SetHCOSystemHealthy()
 	return systemHealthStatusHealthy
 }
 
-func isSystemHealthStatusError(conditions common.HcoConditions) bool {
-	return !conditions.IsStatusConditionTrue(hcov1beta1.ConditionAvailable) || conditions.IsStatusConditionTrue(hcov1beta1.ConditionDegraded)
-}
-
-func isSystemHealthStatusWarning(conditions common.HcoConditions) bool {
-	return !conditions.IsStatusConditionTrue(hcov1beta1.ConditionReconcileComplete) || conditions.IsStatusConditionTrue(hcov1beta1.ConditionProgressing)
-}
-
-func getNumericalHealthStatus(status string) float64 {
-	healthStatusCodes := map[string]float64{
-		systemHealthStatusHealthy: metrics.SystemHealthStatusHealthy,
-		systemHealthStatusWarning: metrics.SystemHealthStatusWarning,
-		systemHealthStatusError:   metrics.SystemHealthStatusError,
+func isSystemHealthStatusError(conditions common.HcoConditions) (bool, string) {
+	if cond, found := conditions.GetCondition(hcov1beta1.ConditionDegraded); found && cond.Status == metav1.ConditionTrue {
+		return true, cond.Reason
 	}
 
-	return healthStatusCodes[status]
+	if cond, found := conditions.GetCondition(hcov1beta1.ConditionAvailable); found && cond.Status != metav1.ConditionTrue {
+		return true, cond.Reason
+	}
+
+	return false, ""
+}
+
+func isSystemHealthStatusWarning(conditions common.HcoConditions) (bool, string) {
+	if cond, found := conditions.GetCondition(hcov1beta1.ConditionProgressing); found && cond.Status == metav1.ConditionTrue {
+		return true, cond.Reason
+	}
+
+	if cond, found := conditions.GetCondition(hcov1beta1.ConditionReconcileComplete); found && cond.Status != metav1.ConditionTrue {
+		return true, cond.Reason
+	}
+
+	return false, ""
 }
 
 func getNumOfChangesJSONPatch(jsonPatch string) int {

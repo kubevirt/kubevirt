@@ -96,7 +96,11 @@ func (hcoCli HCOPrometheusClient) GetHCOMetric(ctx context.Context, query string
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, query) {
-			res, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, query)), 64)
+			parts := strings.Fields(line)
+			if len(parts) < 2 {
+				return 0, fmt.Errorf("metric line does not contain a value")
+			}
+			res, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
 			if err != nil {
 				return 0, fmt.Errorf("error converting %s to int: %v\n", line, err)
 			}

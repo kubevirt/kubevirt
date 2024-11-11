@@ -52,11 +52,12 @@ var (
 		},
 	)
 
-	systemHealthStatus = operatormetrics.NewGauge(
+	systemHealthStatus = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_hco_system_health_status",
 			Help: "Indicates whether the system health status is healthy (0), warning (1), or error (2), by aggregating the conditions of HCO and its secondary resources",
 		},
+		[]string{"reason"},
 	)
 )
 
@@ -117,15 +118,22 @@ func IsHCOMetricHyperConvergedExists() (bool, error) {
 	return value == hyperConvergedExists, nil
 }
 
-// SetHCOMetricSystemHealthStatus sets the gauge to status
-func SetHCOMetricSystemHealthStatus(status float64) {
-	systemHealthStatus.Set(status)
+func SetHCOSystemHealthy() {
+	systemHealthStatus.WithLabelValues("healthy").Set(SystemHealthStatusHealthy)
+}
+
+func SetHCOSystemWarning(reason string) {
+	systemHealthStatus.WithLabelValues(reason).Set(SystemHealthStatusWarning)
+}
+
+func SetHCOSystemError(reason string) {
+	systemHealthStatus.WithLabelValues(reason).Set(SystemHealthStatusError)
 }
 
 // GetHCOMetricSystemHealthStatus returns current value of gauge. If error is not nil then value is undefined
-func GetHCOMetricSystemHealthStatus() (float64, error) {
+func GetHCOMetricSystemHealthStatus(reason string) (float64, error) {
 	dto := &ioprometheusclient.Metric{}
-	err := systemHealthStatus.Write(dto)
+	err := systemHealthStatus.WithLabelValues(reason).Write(dto)
 	value := dto.Gauge.GetValue()
 
 	if err != nil {
