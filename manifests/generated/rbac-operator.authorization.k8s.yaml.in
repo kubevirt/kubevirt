@@ -643,6 +643,7 @@ rules:
   - virtualmachineinstances/removevolume
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
+  - virtualmachineinstances/reset
   - virtualmachineinstances/softreboot
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
@@ -857,6 +858,7 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/reset
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
   verbs:
@@ -1012,6 +1014,7 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/reset
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
   verbs:
