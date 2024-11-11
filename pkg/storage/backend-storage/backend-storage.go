@@ -258,7 +258,7 @@ func (bs *BackendStorage) getStorageClass() (string, error) {
 	kvDefault := ""
 	for _, obj := range bs.scStore.List() {
 		sc := obj.(*storagev1.StorageClass)
-		if sc.Annotations["storageclass.cdi.kubevirt.io/is-default-class"] == "true" {
+		if sc.Annotations["storageclass.kubevirt.io/is-default-virt-class"] == "true" {
 			kvDefault = sc.Name
 		}
 		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
