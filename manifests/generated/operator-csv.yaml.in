@@ -640,6 +640,7 @@ spec:
           - virtualmachineinstances/removevolume
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
+          - virtualmachineinstances/reset
           - virtualmachineinstances/softreboot
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
@@ -854,6 +855,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/reset
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
           verbs:
@@ -1003,6 +1005,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/reset
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
           verbs:
