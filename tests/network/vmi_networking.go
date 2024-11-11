@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,7 +43,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -284,22 +285,19 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("VirtualMachineInstance with disabled automatic attachment of interfaces", func() {
+	Context("VirtualMachineInstance with no networks and disabled automatic attachment of interfaces", func() {
 		It("[test_id:1774]should not configure any external interfaces", func() {
-			By("checking loopback is the only guest interface")
-			autoAttach := false
-			detachedVMI := libvmifact.NewAlpine()
-			// Remove the masquerade interface to use the default bridge one
-			detachedVMI.Spec.Domain.Devices.Interfaces = nil
-			detachedVMI.Spec.Networks = nil
-			detachedVMI.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
+			vmi := libvmifact.NewAlpine(libvmi.WithAutoAttachPodInterface(false))
 
 			var err error
-			detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-			err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
+			Expect(vmi.Spec.Domain.Devices.Interfaces).To(BeEmpty())
+
+			By("checking that loopback is the only guest interface")
+			err = console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
