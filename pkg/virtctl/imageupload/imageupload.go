@@ -93,7 +93,7 @@ const (
 	OptimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
 
-type processingCompleteFunc func(kubernetes.Interface, string, string, time.Duration, time.Duration) error
+type processingCompleteFunc func(kubernetes.Interface, *cobra.Command, string, string, time.Duration, time.Duration) error
 
 // UploadProcessingCompleteFunc the function called while determining if post transfer processing is complete.
 var UploadProcessingCompleteFunc processingCompleteFunc = waitUploadProcessingComplete
@@ -120,8 +120,9 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 				return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 			}
 
-			c.namespace = namespace
+			c.cmd = cmd
 			c.client = client
+			c.namespace = namespace
 			return c.run(args)
 		},
 	}
@@ -176,6 +177,7 @@ func usage() string {
 }
 
 type command struct {
+	cmd                     *cobra.Command
 	client                  kubecli.KubevirtClient
 	insecure                bool
 	uploadProxyURL          string
@@ -318,14 +320,14 @@ func (c *command) run(args []string) error {
 			}
 		}
 
-		fmt.Printf("%s %s/%s created\n", reflect.TypeOf(obj).Elem().Name(), obj.GetNamespace(), obj.GetName())
+		c.cmd.Printf("%s %s/%s created\n", reflect.TypeOf(obj).Elem().Name(), obj.GetNamespace(), obj.GetName())
 	} else {
 		pvc, err = c.ensurePVCSupportsUpload(pvc)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Using existing PVC %s/%s\n", c.namespace, pvc.Name)
+		c.cmd.Printf("Using existing PVC %s/%s\n", c.namespace, pvc.Name)
 	}
 
 	if c.createPVC {
@@ -356,7 +358,7 @@ func (c *command) run(args []string) error {
 		c.uploadProxyURL = fmt.Sprintf("https://%s", c.uploadProxyURL)
 	}
 
-	fmt.Printf("Uploading data to %s\n", c.uploadProxyURL)
+	c.cmd.Printf("Uploading data to %s\n", c.uploadProxyURL)
 
 	token, err := c.getUploadToken()
 	if err != nil {
@@ -373,12 +375,12 @@ func (c *command) run(args []string) error {
 		}
 	}
 
-	fmt.Println("Uploading data completed successfully, waiting for processing to complete, you can hit ctrl-c without interrupting the progress")
-	err = UploadProcessingCompleteFunc(c.client, c.namespace, c.name, processingWaitInterval, processingWaitTotal)
+	c.cmd.Println("Uploading data completed successfully, waiting for processing to complete, you can hit ctrl-c without interrupting the progress")
+	err = UploadProcessingCompleteFunc(c.client, c.cmd, c.namespace, c.name, processingWaitInterval, processingWaitTotal)
 	if err != nil {
-		fmt.Printf("Timed out waiting for post upload processing to complete, please check upload pod status for progress\n")
+		c.cmd.Printf("Timed out waiting for post upload processing to complete, please check upload pod status for progress\n")
 	} else {
-		fmt.Printf("Uploading %s completed successfully\n", c.imagePath)
+		c.cmd.Printf("Uploading %s completed successfully\n", c.imagePath)
 	}
 
 	return err
@@ -459,13 +461,13 @@ func (c *command) uploadData(token string, file *os.File) error {
 	req.Header.Add("Content-Type", "application/octet-stream")
 	req.ContentLength = fi.Size()
 
-	fmt.Println()
+	c.cmd.Println()
 	bar.Start()
 
 	resp, err := client.Do(req)
 
 	bar.Finish()
-	fmt.Println()
+	c.cmd.Println()
 
 	if err != nil {
 		return err
@@ -509,7 +511,7 @@ func (c *command) waitDvUploadScheduled() error {
 		if err != nil {
 			// DataVolume controller may not have created the DV yet ? TODO:
 			if k8serrors.IsNotFound(err) {
-				fmt.Printf("DV %s not found... \n", c.name)
+				c.cmd.Printf("DV %s not found... \n", c.name)
 				return false, nil
 			}
 
@@ -527,13 +529,13 @@ func (c *command) waitDvUploadScheduled() error {
 				return false, err
 			}
 			if !loggedStatus {
-				fmt.Printf("Waiting for PVC %s upload pod to be ready...\n", c.name)
+				c.cmd.Printf("Waiting for PVC %s upload pod to be ready...\n", c.name)
 				loggedStatus = true
 			}
 		}
 
 		if done && loggedStatus {
-			fmt.Printf("Pod now ready\n")
+			c.cmd.Printf("Pod now ready\n")
 		}
 
 		return done, nil
@@ -565,13 +567,13 @@ func (c *command) waitUploadServerReady() error {
 				return false, err
 			}
 			if !loggedStatus {
-				fmt.Printf("Waiting for PVC %s upload pod to be ready...\n", c.name)
+				c.cmd.Printf("Waiting for PVC %s upload pod to be ready...\n", c.name)
 				loggedStatus = true
 			}
 		}
 
 		if done && loggedStatus {
-			fmt.Printf("Pod now ready\n")
+			c.cmd.Printf("Pod now ready\n")
 		}
 
 		return done, nil
@@ -580,7 +582,7 @@ func (c *command) waitUploadServerReady() error {
 	return err
 }
 
-func waitUploadProcessingComplete(client kubernetes.Interface, namespace, name string, interval, timeout time.Duration) error {
+func waitUploadProcessingComplete(client kubernetes.Interface, cmd *cobra.Command, namespace, name string, interval, timeout time.Duration) error {
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
@@ -591,7 +593,7 @@ func waitUploadProcessingComplete(client kubernetes.Interface, namespace, name s
 		podPhase := pvc.Annotations[PodPhaseAnnotation]
 
 		if podPhase == string(v1.PodSucceeded) {
-			fmt.Printf("Processing completed successfully\n")
+			cmd.Printf("Processing completed successfully\n")
 		}
 
 		return podPhase == string(v1.PodSucceeded), nil
@@ -773,7 +775,7 @@ func (c *command) ensurePVCSupportsUpload(pvc *v1.PersistentVolumeClaim) (*v1.Pe
 func (c *command) getAndValidateUploadPVC() (*v1.PersistentVolumeClaim, error) {
 	pvc, err := c.client.CoreV1().PersistentVolumeClaims(c.namespace).Get(context.Background(), c.name, metav1.GetOptions{})
 	if err != nil {
-		fmt.Printf("PVC %s/%s not found \n", c.namespace, c.name)
+		c.cmd.Printf("PVC %s/%s not found \n", c.namespace, c.name)
 		return nil, err
 	}
 
@@ -945,7 +947,7 @@ func (c *command) createNewDataSource() error {
 
 	_, err := c.client.CdiClient().CdiV1beta1().DataSources(c.namespace).Create(context.Background(), ds, metav1.CreateOptions{})
 	if err == nil {
-		fmt.Printf("Created a new DataSource %s/%s\n", c.namespace, c.name)
+		c.cmd.Printf("Created a new DataSource %s/%s\n", c.namespace, c.name)
 	}
 	return err
 }
@@ -973,7 +975,7 @@ func (c *command) updateExistingDataSource(ds *cdiv1.DataSource) error {
 	}
 
 	if _, err = c.client.CdiClient().CdiV1beta1().DataSources(ds.Namespace).Patch(context.Background(), ds.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err == nil {
-		fmt.Printf("Updated an existing DataSource %s/%s\n", ds.Namespace, ds.Name)
+		c.cmd.Printf("Updated an existing DataSource %s/%s\n", ds.Namespace, ds.Name)
 	}
 	return err
 }
