@@ -10,13 +10,13 @@ wget -q https://dl.google.com/go/go1.22.6.linux-amd64.tar.gz
 tar -C /usr/local -xf go*.tar.gz
 export PATH=/usr/local/go/bin:$PATH
 
-# get latest KubeVirt commits
+# get latest KubeVirt commit
 latest_kubevirt=$(curl -sL https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/latest)
 latest_kubevirt_image=$(curl -sL "https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/${latest_kubevirt}/kubevirt-operator.yaml" | grep 'OPERATOR_IMAGE' -A1 | tail -n 1 | sed 's/.*value: //g')
 IFS=: read -r kv_image kv_tag <<< "${latest_kubevirt_image}"
 latest_kubevirt_commit=$(curl -sL "https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/${latest_kubevirt}/commit")
 
-# get latest CDI commits
+# get latest CDI commit
 latest_cdi=$(curl -sL https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/containerized-data-importer/latest)
 latest_cdi_image=$(curl -sL "https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/containerized-data-importer/${latest_cdi}/cdi-operator.yaml" | grep "image:" | sed -E "s|^ +image: (.*)$|\1|")
 IFS=: read -r cdi_image cdi_tag <<< "${latest_cdi_image}"
@@ -93,7 +93,7 @@ make cluster-up
 export KUBECONFIG=$(_kubevirtci/cluster-up/kubeconfig.sh)
 
 export KUBEVIRTCI_TAG=$(curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest)
-export KUBECTL=$(pwd)/cluster-up/kubectl.sh
+export KUBECTL=$(pwd)/_kubevirtci/cluster-up/kubectl.sh
 
 # install OLM on the cluster
 # latest OLM, v0.29.0 is broken. Forcing a working OLM version
