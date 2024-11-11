@@ -132,6 +132,9 @@ until _kubectl wait -n ${namespace} kv kubevirt --for condition=Available --time
     sleep 1m
 done
 
+# debug sig-storage flake where console log container dies without any logs
+_kubectl patch kv -n ${namespace} kubevirt --type merge -p '{"spec": {"configuration": {"developerConfiguration": {"logVerbosity": {"virtLauncher": 5}}}}}'
+
 configure_prometheus
 
 echo "Done $0"
