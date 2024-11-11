@@ -76,6 +76,7 @@ const (
 	apiVMInstancesFreeze                    = "virtualmachineinstances/freeze"
 	apiVMInstancesUnfreeze                  = "virtualmachineinstances/unfreeze"
 	apiVMInstancesSoftReboot                = "virtualmachineinstances/softreboot"
+	apiVMInstancesReset                     = "virtualmachineinstances/reset"
 	apiVMInstancesGuestOSInfo               = "virtualmachineinstances/guestosinfo"
 	apiVMInstancesFileSysList               = "virtualmachineinstances/filesystemlist"
 	apiVMInstancesUserList                  = "virtualmachineinstances/userlist"
@@ -218,6 +219,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesFreeze,
 					apiVMInstancesUnfreeze,
 					apiVMInstancesSoftReboot,
+					apiVMInstancesReset,
 					apiVMInstancesSEVSetupSession,
 					apiVMInstancesSEVInjectLaunchSecret,
 				},
@@ -401,6 +403,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesFreeze,
 					apiVMInstancesUnfreeze,
 					apiVMInstancesSoftReboot,
+					apiVMInstancesReset,
 					apiVMInstancesSEVSetupSession,
 					apiVMInstancesSEVInjectLaunchSecret,
 				},
