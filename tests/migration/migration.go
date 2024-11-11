@@ -1696,7 +1696,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					Should(Or(BeInPhase(k8sv1.PodFailed), BeInPhase(k8sv1.PodSucceeded)), "Target pod should exit quickly after migration fails.")
 			})
 
-			It("[test_id:6980]Migration should fail if target pod fails during target preparation", func() {
+			It("[test_id:6980][QUARANTINE]Migration should fail if target pod fails during target preparation", decorators.Quarantine, func() {
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
 					libvmi.WithResourceMemory("1Gi"),

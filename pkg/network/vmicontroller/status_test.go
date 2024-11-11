@@ -471,6 +471,33 @@ var _ = Describe("Status Update", func() {
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
 	})
 
+	It("Should keep existing interface status for an interface created within the guest", func() {
+		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: "", InfoSource: vmispec.InfoSourceGuestAgent, IP: "192.168.50.10"},
+		}
+
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+		)
+
+		podAnnotations := map[string]string{
+			networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+		}
+
+		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+
+		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: "", InfoSource: vmispec.InfoSourceGuestAgent, IP: "192.168.50.10"},
+		}
+
+		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
+
 	It("Should keep existing interface status when info source is empty and Multus network-status is missing", func() {
 		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName},

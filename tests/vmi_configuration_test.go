@@ -3426,13 +3426,13 @@ func withSerialBIOS() libvmi.Option {
 func getKvmPitMask(qemupid, nodeName string) (output string, err error) {
 	kvmpitcomm := "kvm-pit/" + qemupid
 	args := []string{"pgrep", "-f", kvmpitcomm}
-	output, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	output, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	Expect(err).ToNot(HaveOccurred())
 
 	kvmpitpid := strings.TrimSpace(output)
 	tasksetcmd := "taskset -c -p " + kvmpitpid + " | cut -f2 -d:"
 	args = []string{"/bin/bash", "-c", tasksetcmd}
-	output, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	output, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	Expect(err).ToNot(HaveOccurred())
 
 	return strings.TrimSpace(output), err

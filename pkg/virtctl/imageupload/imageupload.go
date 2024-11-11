@@ -93,30 +93,13 @@ const (
 	OptimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
 
-// HTTPClientCreator is a function that creates http clients
-type HTTPClientCreator func(bool) *http.Client
-
-var httpClientCreatorFunc HTTPClientCreator
-
 type processingCompleteFunc func(kubernetes.Interface, string, string, time.Duration, time.Duration) error
 
 // UploadProcessingCompleteFunc the function called while determining if post transfer processing is complete.
 var UploadProcessingCompleteFunc processingCompleteFunc = waitUploadProcessingComplete
 
-// SetHTTPClientCreator allows overriding the default http client
-// useful for unit tests
-func SetHTTPClientCreator(f HTTPClientCreator) {
-	httpClientCreatorFunc = f
-}
-
-// SetDefaultHTTPClientCreator sets the http client creator back to default
-func SetDefaultHTTPClientCreator() {
-	httpClientCreatorFunc = getHTTPClient
-}
-
-func init() {
-	SetDefaultHTTPClientCreator()
-}
+// GetHTTPClientFn allows overriding the default http client (useful for unit testing)
+var GetHTTPClientFn = GetHTTPClient
 
 // NewImageUploadCommand returns a cobra.Command for handling the uploading of VM images
 func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -401,7 +384,7 @@ func (c *command) run(args []string) error {
 	return err
 }
 
-func getHTTPClient(insecure bool) *http.Client {
+func GetHTTPClient(insecure bool) *http.Client {
 	client := &http.Client{}
 
 	if insecure {
@@ -441,7 +424,7 @@ func ConstructUploadProxyPathAsync(uploadProxyURL, token string, insecure bool) 
 	}
 
 	// Attempt to discover async URL
-	client := httpClientCreatorFunc(insecure)
+	client := GetHTTPClientFn(insecure)
 	req, _ := http.NewRequest("HEAD", u.String(), nil)
 	req.Header.Add("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
@@ -469,7 +452,7 @@ func (c *command) uploadData(token string, file *os.File) error {
 	bar.Set(pb.Bytes, true)
 	reader := bar.NewProxyReader(file)
 
-	client := httpClientCreatorFunc(c.insecure)
+	client := GetHTTPClientFn(c.insecure)
 	req, _ := http.NewRequest("POST", url, io.NopCloser(reader))
 
 	req.Header.Add("Authorization", "Bearer "+token)

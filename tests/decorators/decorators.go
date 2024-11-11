@@ -54,9 +54,14 @@ var (
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 
 	// Storage classes
+	// Requires a storage class with support for snapshots
 	RequiresSnapshotStorageClass = Label("RequiresSnapshotStorageClass")
 	// Requires a storage class without support for snapshots
 	RequiresNoSnapshotStorageClass = Label("RequiresNoSnapshotStorageClass")
+	// Requires a storage class with ReadWriteMany Block support
+	RequiresRWXBlock = Label("RequiresRWXBlock")
+	// Requires a storage class with Block storage support
+	RequiresBlockStorage = Label("RequiresBlockStorage")
 	// Kubernetes versions
 	Kubernetes130 = Label("kubernetes130")
 	// WG archs

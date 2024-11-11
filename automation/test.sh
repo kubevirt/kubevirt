@@ -88,6 +88,8 @@ elif [[ $TARGET =~ sig-compute-serial ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
 elif [[ $TARGET =~ sig-compute-parallel ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
+elif [[ $TARGET =~ sig-compute-conformance ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
@@ -108,7 +110,7 @@ if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   export KUBEVIRT_DEPLOY_NFS_CSI=true
 fi
 
-if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
+if [ ! -d "kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
   exit 1
 fi
@@ -214,8 +216,8 @@ elif [[ $TARGET =~ windows.* ]]; then
   safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
 fi
 
-kubectl() { KUBEVIRTCI_VERBOSE=false cluster-up/kubectl.sh "$@"; }
-cli() { cluster-up/cli.sh "$@"; }
+kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
+cli() { kubevirtci/cluster-up/cli.sh "$@"; }
 
 determine_cri_bin() {
     if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
@@ -439,6 +441,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
     ginko_params="${ginko_params} --skip=\\[Serial\\]"
     label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
+  elif [[ $TARGET =~ sig-compute-conformance ]]; then
+    label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
     label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
@@ -497,6 +501,11 @@ fi
 
 if [ -z "$KUBEVIRT_HUGEPAGES_2M" ]; then
   add_to_label_filter '(!requireHugepages2Mi)' '&&'
+fi
+
+# Always override as we want to fail if anything is requiring special handling
+if [[ $TARGET =~ sig-compute-conformance ]]; then
+    label_filter='(sig-compute && conformance)'
 fi
 
 # Prepare RHEL PV for Template testing

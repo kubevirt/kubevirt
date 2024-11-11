@@ -82,25 +82,23 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 // GenerateFromSource generates ordinal pod interfaces naming scheme for a migration target in case the migration source pod uses it
 func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8Scorev1.Pod) (map[string]string, error) {
-	annotations := map[string]string{}
-
-	if namescheme.PodHasOrdinalInterfaceName2(multus.NetworkStatusesFromPod(sourcePod)) {
-		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
-		multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
-			vmi.Namespace,
-			vmi.Spec.Domain.Devices.Interfaces,
-			vmi.Spec.Networks,
-			ordinalNameScheme,
-			g.clusterConfig,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		annotations[networkv1.NetworkAttachmentAnnot] = multusNetworksAnnotation
+	if !namescheme.PodHasOrdinalInterfaceName2(multus.NetworkStatusesFromPod(sourcePod)) {
+		return nil, nil
 	}
 
-	return annotations, nil
+	ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
+	multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
+		vmi.Namespace,
+		vmi.Spec.Domain.Devices.Interfaces,
+		vmi.Spec.Networks,
+		ordinalNameScheme,
+		g.clusterConfig,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]string{networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation}, nil
 }
 
 // GenerateFromActivePod generates additional pod annotations, bases on information that exists on a live virt-launcher pod

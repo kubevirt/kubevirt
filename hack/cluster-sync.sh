@@ -18,6 +18,9 @@
 #
 
 set -e
+set -x
+
+source hack/config-kubevirtci.sh
 
 TEMP_FILE=$(mktemp -p /tmp -t kubevirt.deploy.XXXX)
 

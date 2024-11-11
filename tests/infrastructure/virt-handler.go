@@ -34,7 +34,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -56,7 +55,7 @@ var _ = DescribeInfra("virt-handler", func() {
 		nodesWithKSM := make([]string, 0)
 		for _, node := range nodes.Items {
 			command := []string{"cat", "/sys/kernel/mm/ksm/run"}
-			_, err := tests.ExecuteCommandInVirtHandlerPod(node.Name, command)
+			_, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, command)
 			if err == nil {
 				nodesWithKSM = append(nodesWithKSM, node.Name)
 			}
@@ -115,7 +114,7 @@ var _ = DescribeInfra("virt-handler", func() {
 		for _, node := range nodesToEnableKSM {
 			Eventually(func() (string, error) {
 				command := []string{"cat", "/sys/kernel/mm/ksm/run"}
-				ksmValue, err := tests.ExecuteCommandInVirtHandlerPod(node, command)
+				ksmValue, err := libnode.ExecuteCommandInVirtHandlerPod(node, command)
 				if err != nil {
 					return "", err
 				}
@@ -139,7 +138,7 @@ var _ = DescribeInfra("virt-handler", func() {
 		for _, node := range nodesToEnableKSM {
 			Eventually(func() (string, error) {
 				command := []string{"cat", "/sys/kernel/mm/ksm/run"}
-				ksmValue, err := tests.ExecuteCommandInVirtHandlerPod(node, command)
+				ksmValue, err := libnode.ExecuteCommandInVirtHandlerPod(node, command)
 				if err != nil {
 					return "", err
 				}

@@ -2423,14 +2423,13 @@ func (d *VirtualMachineController) helperVmShutdown(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
-	// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
-	if isACPIEnabled(vmi, domain) && tryGracefully {
+	if domainHasGracePeriod(domain) && tryGracefully {
 		if expired, timeLeft := d.hasGracePeriodExpired(domain); !expired {
 			return d.handleVMIShutdown(vmi, domain, client, timeLeft)
 		}
 		log.Log.Object(vmi).Infof("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
 	} else {
-		log.Log.Object(vmi).Infof("ACPI feature not available, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
+		log.Log.Object(vmi).Infof("Graceful shutdown not set, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
 	}
 
 	err = client.KillVirtualMachine(vmi)
