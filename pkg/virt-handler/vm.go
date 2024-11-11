@@ -3076,6 +3076,9 @@ func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 			log.Log.Object(vmi).Errorf("Failure to find process: %s", err.Error())
 			return err
 		}
+		if proc == nil {
+			return fmt.Errorf("failed to find process with tid: %d", tid)
+		}
 		comm := proc.Executable()
 		if strings.Contains(comm, "CPU ") && strings.Contains(comm, "KVM") {
 			continue
