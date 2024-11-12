@@ -25,6 +25,34 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+func CalculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
+	vmiNonAbsentSpecIfaces := FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiNonAbsentSpecIfaces)
+
+	ifacesStatusByName := IndexInterfaceStatusByName(vmi.Status.Interfaces, nil)
+	ifacesToAnnotate := FilterInterfacesSpec(vmiNonAbsentSpecIfaces, func(iface v1.Interface) bool {
+		_, ifaceInStatus := ifacesStatusByName[iface.Name]
+		sriovIfaceNotPlugged := iface.SRIOV != nil && !ifaceInStatus
+		return !sriovIfaceNotPlugged
+	})
+
+	networksToAnnotate := FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToAnnotate)
+
+	ifacesToHotplug := FilterInterfacesSpec(ifacesToAnnotate, func(iface v1.Interface) bool {
+		_, inStatus := ifacesStatusByName[iface.Name]
+		return !inStatus
+	})
+	ifacesToHotplugExist := len(ifacesToHotplug) > 0
+
+	isIfaceChangeRequired := ifacesToHotplugExist || ifacesToHotUnplugExist
+	if !isIfaceChangeRequired {
+		return nil, nil, false
+	}
+	return ifacesToAnnotate, networksToAnnotate, isIfaceChangeRequired
+}
+
 func NetworksToHotplugWhosePodIfacesAreReady(vmi *v1.VirtualMachineInstance) []v1.Network {
 	var networksToHotplug []v1.Network
 	interfacesToHoplug := IndexInterfaceStatusByName(
