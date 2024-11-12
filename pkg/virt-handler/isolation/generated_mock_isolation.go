@@ -5,8 +5,8 @@ package isolation
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	go_ps "github.com/mitchellh/go-ps"
 	mountinfo "github.com/moby/sys/mountinfo"
+	process "github.com/shirou/gopsutil/v4/process"
 
 	safepath "kubevirt.io/kubevirt/pkg/safepath"
 )
@@ -94,9 +94,9 @@ func (_mr *_MockIsolationResultRecorder) Mounts(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Mounts", arg0)
 }
 
-func (_m *MockIsolationResult) GetQEMUProcess() (go_ps.Process, error) {
+func (_m *MockIsolationResult) GetQEMUProcess() (*process.Process, error) {
 	ret := _m.ctrl.Call(_m, "GetQEMUProcess")
-	ret0, _ := ret[0].(go_ps.Process)
+	ret0, _ := ret[0].(*process.Process)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
