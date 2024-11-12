@@ -64,3 +64,7 @@ func (archConverterARM64) scsiController(c *ConverterContext, driver *api.Contro
 func (archConverterARM64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	return true
 }
+
+func (archConverterARM64) supportCPUHotplug() bool {
+	return false
+}

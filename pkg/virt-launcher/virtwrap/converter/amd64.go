@@ -83,3 +83,7 @@ func (archConverterAMD64) isUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
 
 	return false
 }
+
+func (archConverterAMD64) supportCPUHotplug() bool {
+	return true
+}

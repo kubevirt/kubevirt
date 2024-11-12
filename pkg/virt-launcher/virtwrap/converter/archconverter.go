@@ -33,6 +33,7 @@ type archConverter interface {
 	addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext)
 	scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller
 	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
+	supportCPUHotplug() bool
 }
 
 func newArchConverter(arch string) archConverter {

@@ -886,6 +886,24 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.VCPUs.VCPU[5].Enabled).To(Equal("no"), "Expecting the 6th vcpu to be disabled")
 			})
 
+			It("should not define hotplugable topology for ARM64", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Architecture = "arm64"
+				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:      2,
+					MaxSockets: 3,
+					Sockets:    2,
+				}
+				c.Architecture = "arm64"
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(2)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(2)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(4)), "Expect vcpus")
+				Expect(domainSpec.VCPUs).To(BeNil(), "Expecting topology for hotplug")
+			})
+
 			DescribeTable("should convert CPU model", func(model string) {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
