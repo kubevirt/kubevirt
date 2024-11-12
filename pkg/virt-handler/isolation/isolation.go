@@ -38,7 +38,7 @@ import (
 
 	ps "github.com/mitchellh/go-ps"
 	mount "github.com/moby/sys/mountinfo"
-
+	_ "github.com/shirou/gopsutil/v4/process"
 	"kubevirt.io/kubevirt/pkg/safepath"
 
 	"kubevirt.io/client-go/log"
