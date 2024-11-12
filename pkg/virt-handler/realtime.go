@@ -45,7 +45,7 @@ func (d *VirtualMachineController) configureVCPUScheduler(vmi *v1.VirtualMachine
 	if err != nil {
 		return err
 	}
-	vcpus, err := getVCPUThreadIDs(qemuProcess.Pid())
+	vcpus, err := getVCPUThreadIDs(int(qemuProcess.Pid))
 	if err != nil {
 		return err
 	}

@@ -29,7 +29,7 @@ import (
 	"time"
 	"unsafe"
 
-	ps "github.com/mitchellh/go-ps"
+	ps "github.com/shirou/gopsutil/v4/process"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -112,30 +112,51 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		return fmt.Errorf("failed to get all processes: %v", err)
 	}
 
+	var virtqemudProcess *ps.Process
 	for _, process := range processes {
-		// consider all processes that are virt-launcher children
-		if process.PPid() != launcherPid {
+		ProcessName, err := process.Name()
+		if err != nil {
+			log.Log.V(4).Reason(err).Infof("Cannot find name for PID %d", process.Pid)
 			continue
 		}
 
 		// virtqemud process sets the memory lock limit before fork/exec-ing into qemu
-		if process.Executable() != "virtqemud" {
+		if ProcessName != "virtqemud" {
 			continue
 		}
 
-		// make the best estimate for memory required by libvirt
-		memlockSize := services.GetMemoryOverhead(vm, runtime.GOARCH, additionalOverheadRatio)
-		// Add base memory requested for the VM
-		vmiMemoryReq := vm.Spec.Domain.Resources.Requests.Memory()
-		memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
-
-		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
+		// consider all processes that are virt-launcher children
+		ppid, err := process.Ppid()
 		if err != nil {
-			return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", process.Pid(), memlockSize.Value(), err)
+			log.Log.V(4).Reason(err).Infof("Cannot find PPID for process %s with PID %d", ProcessName, process.Pid)
+			continue
 		}
+
+		if int(ppid) != launcherPid {
+			continue
+		}
+
 		// we assume a single process should match
+		virtqemudProcess = process
 		break
 	}
+
+	if virtqemudProcess == nil {
+		return fmt.Errorf("cannot find the virtqemud process")
+	}
+
+	virtqemudPid := int(virtqemudProcess.Pid)
+	// make the best estimate for memory required by libvirt
+	memlockSize := services.GetMemoryOverhead(vm, runtime.GOARCH, additionalOverheadRatio)
+	// Add base memory requested for the VM
+	vmiMemoryReq := vm.Spec.Domain.Resources.Requests.Memory()
+	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
+
+	err = setProcessMemoryLockRLimit(virtqemudPid, memlockSize.Value())
+	if err != nil {
+		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", virtqemudPid, memlockSize.Value(), err)
+	}
+
 	return nil
 }
 
@@ -156,7 +177,7 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	if err != nil {
 		return err
 	}
-	qemuProcessID := qemuProcess.Pid()
+	qemuProcessID := int(qemuProcess.Pid)
 	// make the best estimate for memory required by libvirt
 	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
 	// Add base memory requested for the VM
@@ -175,7 +196,7 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
 
 // findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
-func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error) {
+func findIsolatedQemuProcess(processes []*ps.Process, pid int) (*ps.Process, error) {
 	processes = childProcesses(processes, pid)
 	for _, execPrefix := range qemuProcessExecutablePrefixes {
 		if qemuProcess := lookupProcessByExecutablePrefix(processes, execPrefix); qemuProcess != nil {
@@ -234,12 +255,15 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 }
 
 func getPPid(pid int) (int, error) {
-	process, err := ps.FindProcess(pid)
+	process, err := ps.NewProcess(int32(pid))
 	if err != nil {
-		return -1, err
+		return -1, fmt.Errorf("process with pid %d does not exist: %w", pid, err)
 	}
-	if process == nil {
-		return -1, fmt.Errorf("failed to find process with pid: %d", pid)
+
+	ppid, err := process.Ppid()
+	if err != nil {
+		return -1, fmt.Errorf("error finding PPID for process with pid %d: %w", pid, err)
 	}
-	return process.PPid(), nil
+
+	return int(ppid), nil
 }

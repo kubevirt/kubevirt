@@ -2962,7 +2962,7 @@ func (d *VirtualMachineController) affinePitThread(vmi *v1.VirtualMachineInstanc
 	if err != nil {
 		return err
 	}
-	qemupid := qemuprocess.Pid()
+	qemupid := int(qemuprocess.Pid)
 	if err != nil {
 		return err
 	}

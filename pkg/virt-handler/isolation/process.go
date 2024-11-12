@@ -22,15 +22,25 @@ package isolation
 import (
 	"strings"
 
-	"github.com/mitchellh/go-ps"
+	"kubevirt.io/client-go/log"
+
+	ps "github.com/shirou/gopsutil/v4/process"
 )
 
 // childProcesses given a list of processes, it returns the ones that are children
 // of the given PID.
-func childProcesses(processes []ps.Process, pid int) []ps.Process {
-	var childProcesses []ps.Process
+func childProcesses(processes []*ps.Process, pid int) []*ps.Process {
+	var childProcesses []*ps.Process
+
 	for _, process := range processes {
-		if process.PPid() == pid {
+		processPpid, err := process.Ppid()
+		if err != nil {
+			processName, _ := process.Name()
+			log.Log.V(5).Reason(err).Infof("cannot find parent PID for process %s with PID %d", processName, process.Pid)
+			continue
+		}
+
+		if int(processPpid) == pid {
 			childProcesses = append(childProcesses, process)
 		}
 	}
@@ -40,12 +50,18 @@ func childProcesses(processes []ps.Process, pid int) []ps.Process {
 
 // lookupProcessByExecutablePrefix given list of processes, it return the first occurrence
 // of a process with the given executable prefix.
-func lookupProcessByExecutablePrefix(processes []ps.Process, execPrefix string) ps.Process {
+func lookupProcessByExecutablePrefix(processes []*ps.Process, execPrefix string) *ps.Process {
 	if execPrefix == "" {
 		return nil
 	}
 	for _, process := range processes {
-		if strings.HasPrefix(process.Executable(), execPrefix) {
+		processName, err := process.Name()
+		if err != nil {
+			log.Log.V(5).Reason(err).Infof("cannot find process name for process with PID %d", process.Pid)
+			continue
+		}
+
+		if strings.HasPrefix(processName, execPrefix) {
 			return process
 		}
 	}

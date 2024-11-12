@@ -36,9 +36,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
-	ps "github.com/mitchellh/go-ps"
 	mount "github.com/moby/sys/mountinfo"
-	_ "github.com/shirou/gopsutil/v4/process"
+	ps "github.com/shirou/gopsutil/v4/process"
+
 	"kubevirt.io/kubevirt/pkg/safepath"
 
 	"kubevirt.io/client-go/log"
@@ -61,7 +61,7 @@ type IsolationResult interface {
 	// mounts for the process
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
 	// returns the QEMU process
-	GetQEMUProcess() (ps.Process, error)
+	GetQEMUProcess() (*ps.Process, error)
 	// returns the KVM PIT pid
 	KvmPitPid() (int, error)
 }
@@ -138,7 +138,7 @@ func (r *RealIsolationResult) PPid() int {
 }
 
 // GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID
-func (r *RealIsolationResult) GetQEMUProcess() (ps.Process, error) {
+func (r *RealIsolationResult) GetQEMUProcess() (*ps.Process, error) {
 	processes, err := ps.Processes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all processes: %v", err)
@@ -186,17 +186,24 @@ func (r *RealIsolationResult) KvmPitPid() (int, error) {
 		return -1, err
 	}
 	processes, _ := ps.Processes()
-	nspid, err := GetNspid(qemuprocess.Pid())
+	nspid, err := GetNspid(int(qemuprocess.Pid))
 	if err != nil || nspid == -1 {
 		return -1, err
 	}
 	pitstr := "kvm-pit/" + strconv.Itoa(nspid)
 
 	for _, process := range processes {
-		if process.Executable() == pitstr {
-			return process.Pid(), nil
+		processName, err := process.Name()
+		if err != nil {
+			log.Log.Reason(err).Infof("failed to get process name for pid %d", qemuprocess.Pid)
+			continue
+		}
+
+		if processName == pitstr {
+			return int(process.Pid), nil
 		}
 	}
+
 	return -1, nil
 }
 
