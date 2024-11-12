@@ -440,7 +440,7 @@ func (c *Controller) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 		return false
 	}
 
-	obj, exists, _ := c.vmStore.GetByKey(vmi.Namespace + "/" + controllerRef.Name)
+	obj, exists, _ := c.vmStore.GetByKey(controller.NamespacedKey(vmi.Namespace, controllerRef.Name))
 	if !exists {
 		return false
 	}
@@ -1159,7 +1159,7 @@ func (c *Controller) addPVC(obj interface{}) {
 
 	persistentStateFor, exists := pvc.Labels[backendstorage.PVCPrefix]
 	if exists {
-		vmiKey := pvc.Namespace + "/" + persistentStateFor
+		vmiKey := controller.NamespacedKey(pvc.Namespace, persistentStateFor)
 		c.pvcExpectations.CreationObserved(vmiKey)
 		c.Queue.Add(vmiKey)
 		return // The PVC is a backend-storage PVC, won't be listed by `c.listVMIsMatchingDV()`
@@ -1439,7 +1439,7 @@ func (c *Controller) enqueueVirtualMachine(obj interface{}) {
 func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineInstance {
 	if controllerRef != nil && controllerRef.Kind == "Pod" {
 		// This could be an attachment pod, look up the pod, and check if it is owned by a VMI.
-		obj, exists, err := c.podIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+		obj, exists, err := c.podIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 		if err != nil {
 			return nil
 		}
@@ -1454,7 +1454,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.Ow
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
 		return nil
 	}
-	vmi, exists, err := c.vmiIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	vmi, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}

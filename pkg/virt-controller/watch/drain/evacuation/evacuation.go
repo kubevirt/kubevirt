@@ -201,7 +201,7 @@ func (c *EvacuationController) addMigration(obj interface{}) {
 		c.migrationExpectations.CreationObserved(key)
 		node = key
 	} else {
-		o, exists, err := c.vmiIndexer.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		o, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName))
 		if err != nil {
 			return
 		}
@@ -242,7 +242,7 @@ func (c *EvacuationController) enqueueMigration(obj interface{}) {
 			return
 		}
 	}
-	o, exists, err := c.vmiIndexer.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+	o, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName))
 	if err != nil {
 		return
 	}
@@ -271,7 +271,7 @@ func (c *EvacuationController) resolveControllerRef(namespace string, controller
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
 		return nil
 	}
-	vmi, exists, err := c.vmiIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	vmi, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
