@@ -4,6 +4,17 @@ set -ex
 
 source "hack/cri-bin.sh"
 
+function dump() {
+    rv=$?
+    if [ "x$rv" != "x0" ]; then
+        echo "Error during HCO CR deployment: exit status: $rv"
+        ${KUBECTL} logs -n olm -l app=olm-operator
+        ${KUBECTL} get pod -n kubevirt-hyperconverged
+        echo "*** HCO CR deployment failed ***"
+    fi
+    exit $rv
+}
+
 # Get golang
 $CRI_BIN login --username "$(cat "${QUAY_USER}")" --password-stdin quay.io < "${QUAY_PASSWORD}"
 wget -q https://dl.google.com/go/go1.22.6.linux-amd64.tar.gz
@@ -100,12 +111,14 @@ export KUBECTL=$(pwd)/_kubevirtci/cluster-up/kubectl.sh
 # TODO: drop the --version command line parameter when https://github.com/operator-framework/operator-lifecycle-manager/issues/3419 is resolved.
 ./operator-sdk olm install --version=v0.28.0
 
+trap "dump" INT TERM EXIT
+
 # install HCO on the cluster
 $KUBECTL create ns kubevirt-hyperconverged
-./operator-sdk run bundle -n kubevirt-hyperconverged --timeout=10m ${BUNDLE_IMAGE_NAME}
+./operator-sdk run bundle -n kubevirt-hyperconverged --timeout=15m ${BUNDLE_IMAGE_NAME}
 
 # deploy the HyperConverged CR
-$KUBECTL apply -n kubevirt-hyperconverged deploy/hco.cr.yaml
+$KUBECTL apply -n kubevirt-hyperconverged -f deploy/hco.cr.yaml
 $KUBECTL wait -n kubevirt-hyperconverged hco kubevirt-hyperconverged --for=condition=Available --timeout=5m
 
 hco_bucket="kubevirt-prow/devel/nightly/release/kubevirt/hyperconverged-cluster-operator"
