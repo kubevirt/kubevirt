@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["strings.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/ebitengine/purego/internal/strings",
+    importpath = "github.com/ebitengine/purego/internal/strings",
+    visibility = ["//vendor/github.com/ebitengine/purego:__subpackages__"],
+)

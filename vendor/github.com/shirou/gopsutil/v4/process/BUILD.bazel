@@ -1,0 +1,78 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "process.go",
+        "process_bsd.go",
+        "process_darwin.go",
+        "process_darwin_amd64.go",
+        "process_darwin_arm64.go",
+        "process_fallback.go",
+        "process_freebsd.go",
+        "process_freebsd_386.go",
+        "process_freebsd_amd64.go",
+        "process_freebsd_arm.go",
+        "process_freebsd_arm64.go",
+        "process_linux.go",
+        "process_openbsd.go",
+        "process_openbsd_386.go",
+        "process_openbsd_amd64.go",
+        "process_openbsd_arm.go",
+        "process_openbsd_arm64.go",
+        "process_plan9.go",
+        "process_posix.go",
+        "process_solaris.go",
+        "process_windows.go",
+        "process_windows_32bit.go",
+        "process_windows_64bit.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/shirou/gopsutil/v4/process",
+    importpath = "github.com/shirou/gopsutil/v4/process",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/shirou/gopsutil/v4/cpu:go_default_library",
+        "//vendor/github.com/shirou/gopsutil/v4/internal/common:go_default_library",
+        "//vendor/github.com/shirou/gopsutil/v4/mem:go_default_library",
+        "//vendor/github.com/shirou/gopsutil/v4/net:go_default_library",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//vendor/github.com/tklauser/go-sysconf:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:darwin": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:freebsd": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ios": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//vendor/github.com/tklauser/go-sysconf:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:openbsd": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:solaris": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "@io_bazel_rules_go//go/platform:windows_386": [
+            "//vendor/golang.org/x/sys/windows:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:windows_amd64": [
+            "//vendor/golang.org/x/sys/windows:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:windows_arm": [
+            "//vendor/golang.org/x/sys/windows:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:windows_arm64": [
+            "//vendor/golang.org/x/sys/windows:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

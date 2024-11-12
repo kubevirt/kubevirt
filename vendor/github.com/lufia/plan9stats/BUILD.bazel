@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "cpu.go",
+        "doc.go",
+        "host.go",
+        "int.go",
+        "opts.go",
+        "stats.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/lufia/plan9stats",
+    importpath = "github.com/lufia/plan9stats",
+    visibility = ["//visibility:public"],
+)

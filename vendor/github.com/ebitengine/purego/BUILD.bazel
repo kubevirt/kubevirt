@@ -1,0 +1,144 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "abi_amd64.h",
+        "abi_arm64.h",
+        "cgo.go",
+        "dlerror.go",
+        "dlfcn.go",
+        "dlfcn_android.go",
+        "dlfcn_darwin.go",
+        "dlfcn_freebsd.go",
+        "dlfcn_linux.go",
+        "dlfcn_nocgo_freebsd.go",
+        "dlfcn_nocgo_linux.go",
+        "dlfcn_stubs.s",
+        "func.go",
+        "go_runtime.go",
+        "is_ios.go",
+        "nocgo.go",
+        "struct_amd64.go",
+        "struct_arm64.go",
+        "struct_other.go",
+        "sys_amd64.s",
+        "sys_arm64.s",
+        "sys_unix_arm64.s",
+        "syscall.go",
+        "syscall_cgo_linux.go",
+        "syscall_sysv.go",
+        "syscall_windows.go",
+        "zcallback_amd64.s",
+        "zcallback_arm64.s",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/ebitengine/purego",
+    importpath = "github.com/ebitengine/purego",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//vendor/github.com/ebitengine/purego/internal/fakecgo:go_default_library",
+            "//vendor/github.com/ebitengine/purego/internal/strings:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:darwin": [
+            "//vendor/github.com/ebitengine/purego/internal/fakecgo:go_default_library",
+            "//vendor/github.com/ebitengine/purego/internal/strings:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:freebsd": [
+            "//vendor/github.com/ebitengine/purego/internal/fakecgo:go_default_library",
+            "//vendor/github.com/ebitengine/purego/internal/strings:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ios": [
+            "//vendor/github.com/ebitengine/purego/internal/fakecgo:go_default_library",
+            "//vendor/github.com/ebitengine/purego/internal/strings:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//vendor/github.com/ebitengine/purego/internal/fakecgo:go_default_library",
+            "//vendor/github.com/ebitengine/purego/internal/strings:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:windows": [
+            "//vendor/github.com/ebitengine/purego/internal/strings:go_default_library",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "@io_bazel_rules_go//go/platform:android_386": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:android_amd64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:android_arm": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:android_arm64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:darwin_386": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:darwin_amd64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:darwin_arm": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:darwin_arm64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:freebsd_386": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:freebsd_amd64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:freebsd_arm": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:freebsd_arm64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ios_amd64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ios_arm64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_386": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_amd64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_arm": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_arm64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_mips": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_mips64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_mips64le": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_mipsle": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_ppc64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_riscv64": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_s390x": [
+            "//vendor/github.com/ebitengine/purego/internal/cgo:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

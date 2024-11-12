@@ -1,0 +1,81 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "sysconf.go",
+        "sysconf_bsd.go",
+        "sysconf_darwin.go",
+        "sysconf_dragonfly.go",
+        "sysconf_freebsd.go",
+        "sysconf_generic.go",
+        "sysconf_linux.go",
+        "sysconf_netbsd.go",
+        "sysconf_openbsd.go",
+        "sysconf_posix.go",
+        "sysconf_solaris.go",
+        "sysconf_unsupported.go",
+        "zsysconf_defs_darwin.go",
+        "zsysconf_defs_dragonfly.go",
+        "zsysconf_defs_freebsd.go",
+        "zsysconf_defs_linux.go",
+        "zsysconf_defs_netbsd.go",
+        "zsysconf_defs_openbsd.go",
+        "zsysconf_defs_solaris.go",
+        "zsysconf_values_freebsd_386.go",
+        "zsysconf_values_freebsd_amd64.go",
+        "zsysconf_values_freebsd_arm.go",
+        "zsysconf_values_freebsd_arm64.go",
+        "zsysconf_values_linux_386.go",
+        "zsysconf_values_linux_amd64.go",
+        "zsysconf_values_linux_arm.go",
+        "zsysconf_values_linux_arm64.go",
+        "zsysconf_values_linux_mips.go",
+        "zsysconf_values_linux_mips64.go",
+        "zsysconf_values_linux_mips64le.go",
+        "zsysconf_values_linux_mipsle.go",
+        "zsysconf_values_linux_ppc64.go",
+        "zsysconf_values_linux_ppc64le.go",
+        "zsysconf_values_linux_riscv64.go",
+        "zsysconf_values_linux_s390x.go",
+        "zsysconf_values_netbsd_386.go",
+        "zsysconf_values_netbsd_amd64.go",
+        "zsysconf_values_netbsd_arm.go",
+        "zsysconf_values_netbsd_arm64.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/tklauser/go-sysconf",
+    importpath = "github.com/tklauser/go-sysconf",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//vendor/github.com/tklauser/numcpus:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:darwin": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:dragonfly": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:freebsd": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ios": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//vendor/github.com/tklauser/numcpus:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:netbsd": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:openbsd": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:solaris": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

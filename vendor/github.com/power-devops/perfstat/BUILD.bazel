@@ -1,0 +1,47 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "c_helpers.c",
+        "c_helpers.h",
+        "config.go",
+        "cpustat.go",
+        "diskstat.go",
+        "doc.go",
+        "fsstat.go",
+        "helpers.go",
+        "lparstat.go",
+        "lvmstat.go",
+        "memstat.go",
+        "netstat.go",
+        "procstat.go",
+        "sysconf.go",
+        "systemcfg.go",
+        "types_cpu.go",
+        "types_disk.go",
+        "types_fs.go",
+        "types_lpar.go",
+        "types_lvm.go",
+        "types_memory.go",
+        "types_network.go",
+        "types_process.go",
+        "uptime.go",
+    ],
+    cgo = True,
+    clinkopts = select({
+        "@io_bazel_rules_go//go/platform:aix": [
+            "-lperfstat",
+        ],
+        "//conditions:default": [],
+    }),
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/power-devops/perfstat",
+    importpath = "github.com/power-devops/perfstat",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:aix": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

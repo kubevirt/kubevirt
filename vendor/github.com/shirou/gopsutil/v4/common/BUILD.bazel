@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["env.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/shirou/gopsutil/v4/common",
+    importpath = "github.com/shirou/gopsutil/v4/common",
+    visibility = ["//visibility:public"],
+)

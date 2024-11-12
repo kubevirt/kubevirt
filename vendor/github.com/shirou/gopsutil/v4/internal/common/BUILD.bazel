@@ -1,0 +1,48 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "binary.go",
+        "common.go",
+        "common_darwin.go",
+        "common_freebsd.go",
+        "common_linux.go",
+        "common_netbsd.go",
+        "common_openbsd.go",
+        "common_unix.go",
+        "common_windows.go",
+        "endian.go",
+        "sleep.go",
+        "warnings.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/shirou/gopsutil/v4/internal/common",
+    importpath = "github.com/shirou/gopsutil/v4/internal/common",
+    visibility = ["//vendor/github.com/shirou/gopsutil/v4:__subpackages__"],
+    deps = [
+        "//vendor/github.com/shirou/gopsutil/v4/common:go_default_library",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:darwin": [
+            "//vendor/github.com/ebitengine/purego:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:freebsd": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ios": [
+            "//vendor/github.com/ebitengine/purego:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:netbsd": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:openbsd": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:windows": [
+            "//vendor/github.com/yusufpapurcu/wmi:go_default_library",
+            "//vendor/golang.org/x/sys/windows:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)
