@@ -101,18 +101,26 @@ func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod 
 
 // GenerateFromActivePod generates additional pod annotations, bases on information that exists on a live virt-launcher pod
 func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8Scorev1.Pod) map[string]string {
+	annotations := map[string]string{}
+
+	if deviceInfoAnnotation := g.generateDeviceInfoAnnotation(vmi, pod); deviceInfoAnnotation != "" {
+		annotations[downwardapi.NetworkInfoAnnot] = deviceInfoAnnotation
+	}
+
+	return annotations
+}
+
+func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8Scorev1.Pod) string {
 	ifaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.SRIOV != nil || vmispec.HasBindingPluginDeviceInfo(iface, g.clusterConfig.GetNetworkBindings())
 	})
 
 	networkDeviceInfoMap := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, ifaces, multus.NetworkStatusesFromPod(pod))
 	if len(networkDeviceInfoMap) == 0 {
-		return nil
+		return ""
 	}
 
-	networkDeviceInfoAnnotation := downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)
-
-	return map[string]string{downwardapi.NetworkInfoAnnot: networkDeviceInfoAnnotation}
+	return downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)
 }
 
 func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
