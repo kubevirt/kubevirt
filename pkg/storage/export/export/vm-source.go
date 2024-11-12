@@ -147,7 +147,11 @@ func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachin
 		return false, "", err
 	}
 	if exists {
-		return exists, fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name), nil
+		// Only if the VMI is running, the source VM is in use
+		if vmi.Status.Phase != virtv1.Succeeded && vmi.Status.Phase != virtv1.Failed {
+			return exists, fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name), nil
+		}
+		return false, "", nil
 	}
 	return exists, "", nil
 }
