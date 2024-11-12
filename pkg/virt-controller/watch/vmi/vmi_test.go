@@ -21,14 +21,11 @@ package vmi
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -54,7 +51,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -104,34 +100,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		retrievedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(retrievedPod.Annotations).To(SatisfyAll(matchers...))
-	}
-
-	prependInjectPodPatch := func(pod *k8sv1.Pod) {
-		kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			originalPodBytes, err := json.Marshal(pod)
-			if err != nil {
-				return false, nil, err
-			}
-
-			patch := action.(testing.PatchAction)
-			patchBytes := patch.GetPatch()
-
-			patchJSON, err := jsonpatch.DecodePatch(patchBytes)
-			if err != nil {
-				return false, nil, err
-			}
-			newPodBytes, err := patchJSON.Apply(originalPodBytes)
-			if err != nil {
-				return false, nil, err
-			}
-
-			var newPod *k8sv1.Pod
-			if err = json.Unmarshal(newPodBytes, &newPod); err != nil {
-				return false, nil, err
-			}
-
-			return true, newPod, nil
-		})
 	}
 
 	ignorePodUpdates := func() {
@@ -3344,154 +3312,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	})
 
-	Context("dynamic interface attachment", func() {
-		const vmName = "vm1"
-
-		var (
-			pod *k8sv1.Pod
-			vmi *virtv1.VirtualMachineInstance
-		)
-
-		expectPodStatusUpdateFailed := func(pod *k8sv1.Pod) {
-			kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-				_, ok := action.(testing.PatchAction)
-				Expect(ok).To(BeTrue())
-				return true, pod, fmt.Errorf("your cluster is doomed")
-			})
-		}
-
-		const (
-			firstVMInterface  = "oldIface1"
-			firstVMNetwork    = "oldnet1"
-			secondVMInterface = "oldiface2"
-			secondVMNetwork   = "oldnet2"
-		)
-
-		Context("k8s API is down", func() {
-			BeforeEach(func() {
-				vmi = api.NewMinimalVMI(vmName)
-				vmi.Spec.Networks = append(
-					vmi.Spec.Networks,
-					newNetwork(firstVMNetwork, firstVMInterface), newNetwork(secondVMNetwork, secondVMInterface),
-				)
-				vmi.Spec.Domain.Devices.Interfaces = append(
-					vmi.Spec.Domain.Devices.Interfaces,
-					virtv1.Interface{Name: firstVMInterface}, virtv1.Interface{Name: secondVMInterface},
-				)
-
-				var err error
-				pod, err = newPodForVirtualMachineWithMultusAnnotations(vmi, k8sv1.PodRunning, config)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectPodStatusUpdateFailed(pod)
-			})
-
-			It("pod multus status cannot be updated", func() {
-				Expect(controller.updateMultusAnnotation(
-					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces[:1], vmi.Spec.Networks[:1], pod)).To(HaveOccurred())
-			})
-		})
-
-		Context("pod status update", func() {
-			BeforeEach(func() {
-				vmi = api.NewMinimalVMI(vmName)
-				pod = newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-				Expect(pod.Annotations).NotTo(HaveKey(networkv1.NetworkAttachmentAnnot))
-				prependInjectPodPatch(pod)
-			})
-
-			DescribeTable("update pods network annotation with", func(networks []virtv1.Network, interfaces []virtv1.Interface, matchers ...gomegaTypes.GomegaMatcher) {
-				vmi.Spec.Networks = networks
-				vmi.Spec.Domain.Devices.Interfaces = interfaces
-				Expect(controller.updateMultusAnnotation(
-					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
-				for _, matcher := range matchers {
-					Expect(pod.Annotations).To(matcher)
-				}
-			},
-				Entry("a single interface",
-					[]virtv1.Network{{
-						Name:          "iface1",
-						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "net1"}},
-					}},
-					[]virtv1.Interface{{
-						Name: "iface1",
-					}},
-					HaveKeyWithValue(
-						networkv1.NetworkAttachmentAnnot,
-						`[{"name":"net1","namespace":"default","interface":"pod7e0055a6880"}]`)),
-				Entry("multiple interfaces",
-					[]virtv1.Network{{
-						Name:          "iface1",
-						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "net1"}},
-					}, {
-						Name:          "iface2",
-						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "net1"}},
-					}},
-					[]virtv1.Interface{{
-						Name:       "iface1",
-						MacAddress: "mac1",
-					}, {
-						Name:       "iface2",
-						MacAddress: "mac2",
-					}},
-					HaveKeyWithValue(
-						networkv1.NetworkAttachmentAnnot,
-						`[{"name":"net1","namespace":"default","mac":"mac1","interface":"pod7e0055a6880"},{"name":"net1","namespace":"default","mac":"mac2","interface":"pod48802102d24"}]`)),
-			)
-			DescribeTable("the subject interface name, in the pod networks annotation, should be in similar form as other interfaces",
-				func(testPodNetworkStatus []networkv1.NetworkStatus, expectedMultusNetworksAnnotation string) {
-					vmi = api.NewMinimalVMI(vmName)
-					vmi.Spec.Domain.Devices.Interfaces = []virtv1.Interface{{
-						Name:                   "red",
-						InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Bridge: &virtv1.InterfaceBridge{}}}, {
-						Name:                   "blue",
-						InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Bridge: &virtv1.InterfaceBridge{}}}}
-
-					vmi.Spec.Networks = []virtv1.Network{{
-						Name:          "red",
-						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "red-net"}}}, {
-						Name:          "blue",
-						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "blue-net"}}}}
-
-					pod, err := newPodForVirtualMachineWithMultusAnnotations(vmi, k8sv1.PodRunning, config, testPodNetworkStatus...)
-					Expect(err).ToNot(HaveOccurred())
-
-					prependInjectPodPatch(pod)
-
-					Expect(controller.updateMultusAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
-
-					Expect(pod.Annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
-					Expect(pod.Annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetworksAnnotation))
-				},
-				Entry("when Multus network-status annotation interfaces has ordinal names",
-					[]networkv1.NetworkStatus{
-						{
-							Interface: "net1", Name: "red-net",
-						},
-					},
-					// expected Multus network annotation
-					`[
-							{"interface":"net1", "name":"red-net", "namespace": "default"},
-							{"interface":"net2", "name":"blue-net", "namespace": "default"}
-					]`,
-				),
-				Entry("when Multus network-status annotation interfaces has hashed names",
-					[]networkv1.NetworkStatus{
-						{
-							Interface: "podb1f51a511f1", Name: "red-net",
-						},
-					},
-					// expected Multus network annotation
-					`[
-							{"interface":"podb1f51a511f1", "name":"red-net", "namespace": "default"},
-							{"interface":"pod16477688c0e", "name":"blue-net", "namespace": "default"}
-					]`,
-				),
-			)
-		})
-	})
-
 	Context("Aggregating DataVolume conditions", func() {
 
 		dvVolumeSource1 := virtv1.VolumeSource{
@@ -3866,26 +3686,6 @@ func newPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 	}
 }
 
-func newPodForVirtualMachineWithMultusAnnotations(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase, config *virtconfig.ClusterConfig, podNetworkStatus ...networkv1.NetworkStatus) (*k8sv1.Pod, error) {
-	pod := newPodForVirtualMachine(vmi, phase)
-
-	multusAnnotations, err := multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)
-	if err != nil {
-		return nil, err
-	}
-	pod.Annotations[networkv1.NetworkAttachmentAnnot] = multusAnnotations
-
-	if len(podNetworkStatus) > 0 {
-		podCurrentNetworksJSON, err := json.Marshal(podNetworkStatus)
-		if err != nil {
-			return nil, err
-		}
-		pod.Annotations[networkv1.NetworkStatusAnnot] = string(podCurrentNetworksJSON)
-	}
-
-	return pod, nil
-}
-
 func newHotplugPVC(name, namespace string, phase k8sv1.PersistentVolumeClaimPhase) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -3965,17 +3765,6 @@ func addActivePods(vmi *virtv1.VirtualMachineInstance, podUID types.UID, hostNam
 		}
 	}
 	return vmi
-}
-
-func newNetwork(netAttachDefName string, name string) virtv1.Network {
-	return virtv1.Network{
-		Name: name,
-		NetworkSource: virtv1.NetworkSource{
-			Multus: &virtv1.MultusNetwork{
-				NetworkName: netAttachDefName,
-			},
-		},
-	}
 }
 
 type fakeAllocator struct {
