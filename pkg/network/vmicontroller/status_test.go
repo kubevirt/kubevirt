@@ -90,16 +90,13 @@ var _ = Describe("Status Update", func() {
 		customIfaceName = "custom-iface"
 	)
 
-	dynamicPodInterfaceNamingEnabled := stubClusterConfigChecker{dynamicPodInterfaceNamingEnabled: true}
-	dynamicPodInterfaceNamingDisabled := stubClusterConfigChecker{dynamicPodInterfaceNamingEnabled: false}
-
 	DescribeTable("Shouldn't generate interface status for a VMI without interfaces", func(podAnnotations map[string]string) {
 		vmi := libvmi.New(
 			libvmi.WithNamespace(testNamespace),
 			libvmi.WithAutoAttachPodInterface(false),
 		)
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 		Expect(vmi.Status.Interfaces).To(BeEmpty())
 	},
 		Entry("When the Multus network-status annotation is absent", nil),
@@ -115,7 +112,7 @@ var _ = Describe("Status Update", func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingEnabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultNetworkName, PodInterfaceName: "eth0"},
@@ -144,7 +141,7 @@ var _ = Describe("Status Update", func() {
 			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
 		)
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingEnabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},
@@ -169,27 +166,13 @@ var _ = Describe("Status Update", func() {
 		)
 
 		annotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithCustomPrimaryNet}
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingEnabled, vmi, newPodFromVMI(vmi, annotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, annotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultNetworkName, PodInterfaceName: customIfaceName},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
-	})
-
-	It("Should not report custom pod primary interface name with dynamic pod naming"+
-		"feature gate disabled", func() {
-		vmi := libvmi.New(
-			libvmi.WithNamespace(testNamespace),
-			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
-
-		annotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithCustomPrimaryNet}
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, annotations))).To(Succeed())
-
-		Expect(vmi.Status.Interfaces).To(BeEmpty())
 	})
 
 	DescribeTable("Should generate interface status for Multus default network (not matched on status)",
@@ -208,8 +191,7 @@ var _ = Describe("Status Update", func() {
 				}),
 			)
 
-			Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingEnabled,
-				vmi, newPodFromVMI(vmi, map[string]string{}))).To(Succeed())
+			Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, map[string]string{}))).To(Succeed())
 
 			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 				{Name: alternativeNetworkName, PodInterfaceName: "eth0"},
@@ -254,7 +236,7 @@ var _ = Describe("Status Update", func() {
 			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
 		)
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingEnabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: alternativeNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},
@@ -290,7 +272,7 @@ var _ = Describe("Status Update", func() {
 
 		podAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation}
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		Expect(vmi.Status.Interfaces).To(BeEmpty())
 	})
@@ -303,7 +285,7 @@ var _ = Describe("Status Update", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
 			)
 
-			Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+			Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 			expectedInterfaces := []v1.VirtualMachineInstanceNetworkInterface{
 				{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceMultusStatus},
@@ -335,7 +317,7 @@ var _ = Describe("Status Update", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
 			)
 
-			Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingEnabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+			Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 				{Name: defaultNetworkName, PodInterfaceName: expectedPrimaryInterfaceName},
@@ -360,40 +342,33 @@ var _ = Describe("Status Update", func() {
 		),
 	)
 
-	DescribeTable("Should add the primary interface status for an existing VMI with primary and secondary networks",
-		func(clusterConfig stubClusterConfigChecker, expectedPrimaryInterface *v1.VirtualMachineInstanceNetworkInterface) {
-			existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-				{Name: secondaryNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceMultusStatus},
-			}
+	It("Should add the primary interface status for an existing VMI with primary and secondary networks", func() {
+		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: secondaryNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceMultusStatus},
+		}
 
-			vmi := libvmi.New(
-				libvmi.WithNamespace(testNamespace),
-				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
-				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
-			)
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+		)
 
-			podAnnotations := map[string]string{
-				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
-				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
-			}
-			Expect(vmicontroller.UpdateStatus(&clusterConfig, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		podAnnotations := map[string]string{
+			networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+		}
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
-			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{}
-			if expectedPrimaryInterface != nil {
-				expectedInterfacesStatus = append(expectedInterfacesStatus, *expectedPrimaryInterface)
-			}
-			expectedInterfacesStatus = append(expectedInterfacesStatus,
-				v1.VirtualMachineInstanceNetworkInterface{Name: secondaryNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceMultusStatus})
+		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultNetworkName, PodInterfaceName: "eth0"},
+			{Name: secondaryNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceMultusStatus},
+		}
 
-			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
-		},
-		Entry("with dynamic pod interface naming enabled",
-			dynamicPodInterfaceNamingEnabled, &v1.VirtualMachineInstanceNetworkInterface{Name: defaultNetworkName, PodInterfaceName: "eth0"}),
-		Entry("without dynamic pod interface naming enabled", dynamicPodInterfaceNamingDisabled, nil),
-	)
+		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
 
 	It("Should keep the Multus info source when VMI.status has an interface and it is reported by Multus network-status", func() {
 		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
@@ -412,7 +387,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 		}
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceMultusStatus},
@@ -437,7 +412,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 		}
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName},
@@ -462,7 +437,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 		}
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceGuestAgent},
@@ -488,7 +463,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 		}
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceMultusStatus},
@@ -514,7 +489,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 		}
 
-		Expect(vmicontroller.UpdateStatus(&dynamicPodInterfaceNamingDisabled, vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName},
@@ -538,12 +513,4 @@ func WithInterfacesStatus(interfaces []v1.VirtualMachineInstanceNetworkInterface
 	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
 		vmiStatus.Interfaces = interfaces
 	}
-}
-
-type stubClusterConfigChecker struct {
-	dynamicPodInterfaceNamingEnabled bool
-}
-
-func (s stubClusterConfigChecker) DynamicPodInterfaceNamingEnabled() bool {
-	return s.dynamicPodInterfaceNamingEnabled
 }
