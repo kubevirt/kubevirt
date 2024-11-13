@@ -100,7 +100,10 @@ chmod +x operator-sdk
 
 # start K8s cluster
 export KUBEVIRT_PROVIDER=k8s-1.31
+export KUBEVIRT_MEMORY_SIZE=12G
+export KUBEVIRT_NUM_NODES=4
 make cluster-up
+
 export KUBECONFIG=$(_kubevirtci/cluster-up/kubeconfig.sh)
 
 export KUBEVIRTCI_TAG=$(curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest)
@@ -115,7 +118,7 @@ trap "dump" INT TERM EXIT
 
 # install HCO on the cluster
 $KUBECTL create ns kubevirt-hyperconverged
-./operator-sdk run bundle -n kubevirt-hyperconverged --timeout=15m ${BUNDLE_IMAGE_NAME}
+./operator-sdk run bundle -n kubevirt-hyperconverged --timeout=30m ${BUNDLE_IMAGE_NAME}
 
 # deploy the HyperConverged CR
 $KUBECTL apply -n kubevirt-hyperconverged -f deploy/hco.cr.yaml
