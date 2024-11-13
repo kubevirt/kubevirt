@@ -28,11 +28,12 @@ func applyMachinePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpe
 		return
 	}
 
-	if vmiSpec.Domain.Machine == nil {
-		vmiSpec.Domain.Machine = &virtv1.Machine{}
-	}
-
-	if preferenceSpec.Machine.PreferredMachineType != "" && vmiSpec.Domain.Machine.Type == "" {
-		vmiSpec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
+	if preferenceSpec.Machine.PreferredMachineType != "" {
+		if vmiSpec.Domain.Machine == nil {
+			vmiSpec.Domain.Machine = &virtv1.Machine{}
+		}
+		if vmiSpec.Domain.Machine.Type == "" {
+			vmiSpec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
+		}
 	}
 }
