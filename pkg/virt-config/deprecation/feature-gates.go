@@ -70,6 +70,9 @@ const (
 	// GA:    v1.5.0
 	NetworkBindingPlugingsGate = "NetworkBindingPlugins" // GA
 
+	// DynamicPodInterfaceNamingGate enables a mechanism to dynamically determine the primary pod interface for KubeVirt virtual machines.
+	DynamicPodInterfaceNamingGate = "DynamicPodInterfaceNaming" // GA
+
 	PasstGate   = "Passt"   // Deprecated
 	MacvtapGate = "Macvtap" // Deprecated
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
@@ -98,6 +101,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: BochsDisplayForEFIGuests, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMLiveUpdateFeaturesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: NetworkBindingPlugingsGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: DynamicPodInterfaceNamingGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
