@@ -82,7 +82,7 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 
-	ps "github.com/mitchellh/go-ps"
+	ps "github.com/shirou/gopsutil/v4/process"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -3042,7 +3042,7 @@ func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 	hktids := make([]int, 0, 10)
 
 	for _, tid := range tids {
-		proc, err := ps.FindProcess(tid)
+		proc, err := ps.NewProcess(int32(tid))
 		if err != nil {
 			log.Log.Object(vmi).Errorf("Failure to find process: %s", err.Error())
 			return err
@@ -3050,7 +3050,11 @@ func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 		if proc == nil {
 			return fmt.Errorf("failed to find process with tid: %d", tid)
 		}
-		comm := proc.Executable()
+		comm, err := proc.Name()
+		if err != nil {
+			log.Log.Object(vmi).Errorf("Failure to find process name with PID %d: %s", proc.Pid, err.Error())
+			return err
+		}
 		if strings.Contains(comm, "CPU ") && strings.Contains(comm, "KVM") {
 			continue
 		}
