@@ -68,7 +68,10 @@ func (r *Registry) ListAlerts() []promv1.Rule {
 	}
 
 	slices.SortFunc(alerts, func(a, b promv1.Rule) int {
-		return cmp.Compare(a.Alert, b.Alert)
+		aKey := a.Alert + ":" + a.Expr.String()
+		bKey := b.Alert + ":" + b.Expr.String()
+
+		return cmp.Compare(aKey, bKey)
 	})
 
 	return alerts
