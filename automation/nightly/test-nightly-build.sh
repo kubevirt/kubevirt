@@ -93,6 +93,13 @@ INDEX_REGISTRY_IMAGE_NAME=${INDEX_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-in
 BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${IMAGE_PREFIX}/${BUNDLE_REGISTRY_IMAGE_NAME}:${IMAGE_TAG}"
 INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${IMAGE_PREFIX}/${INDEX_REGISTRY_IMAGE_NAME}:${IMAGE_TAG}"
 
+# build succeeded: publish the nightly build
+hco_bucket="kubevirt-prow/devel/nightly/release/kubevirt/hyperconverged-cluster-operator"
+echo "${BUNDLE_IMAGE_NAME}" > hco-bundle
+echo "${INDEX_IMAGE_NAME}" > hco-index
+gsutil cp ./hco-bundle "gs://${hco_bucket}/${build_date}/hco-bundle-image"
+gsutil cp ./hco-index "gs://${hco_bucket}/${build_date}/hco-index-image"
+
 # download operator-sdk
 sdk_url=$(curl https://api.github.com/repos/operator-framework/operator-sdk/releases/latest | jq -rM '.assets[] | select(.name == "operator-sdk_linux_amd64") | .browser_download_url')
 wget $sdk_url -O operator-sdk
@@ -124,10 +131,19 @@ $KUBECTL create ns kubevirt-hyperconverged
 $KUBECTL apply -n kubevirt-hyperconverged -f deploy/hco.cr.yaml
 $KUBECTL wait -n kubevirt-hyperconverged hco kubevirt-hyperconverged --for=condition=Available --timeout=5m
 
-hco_bucket="kubevirt-prow/devel/nightly/release/kubevirt/hyperconverged-cluster-operator"
+# build func test
+go install github.com/onsi/ginkgo/v2/ginkgo@$(grep github.com/onsi/ginkgo go.mod | cut -d " " -f2)
+test_path="./tests/func-tests"
+ginkgo build -o functest.test ${test_path}
+
+REPORT_FLAG=""
+if [[ -n ${ARTIFACTS} ]]; then
+  REPORT_FLAG="${ARTIFACTS}/junit.xml"
+fi
+
+# run functest
+./functest.test  -ginkgo.v -ginkgo.junit-report="${REPORT_FLAG}" -installed-namespace="kubevirt-hyperconverged" --ginkgo.label-filter='!OpenShift && !SINGLE_NODE_ONLY'
+
+# functional test passed: publish latest nightly build
 echo "${build_date}" > build-date
-echo "${BUNDLE_IMAGE_NAME}" > hco-bundle
-echo "${INDEX_IMAGE_NAME}" > hco-index
-gsutil cp ./hco-bundle "gs://${hco_bucket}/${build_date}/hco-bundle-image"
-gsutil cp ./hco-index "gs://${hco_bucket}/${build_date}/hco-index-image"
 gsutil cp ./build-date gs://${hco_bucket}/latest
