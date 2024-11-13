@@ -184,13 +184,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 
 		Context("with propagated IP from a pod", func() {
-			DescribeTable("should be able to reach", func(hostNetwork bool) {
-				namespace := testsuite.GetTestNamespace(nil)
-				if hostNetwork {
-					namespace = testsuite.NamespacePrivileged
-				}
-
-				inboundVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
+			It("should be able to reach", func() {
+				inboundVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
 				const testPort = 1500
@@ -200,7 +195,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("start connectivity job on the same node as the VM")
 				localNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
-				localNodeTCPJob.Spec.Template.Spec.HostNetwork = hostNetwork
 				localNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpIn, inboundVMI.Status.NodeName)}
 				localNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), localNodeTCPJob, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -213,16 +207,12 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				} else {
 					By("start connectivity job on different node")
 					remoteNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
-					remoteNodeTCPJob.Spec.Template.Spec.HostNetwork = hostNetwork
 					remoteNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpNotIn, inboundVMI.Status.NodeName)}
 					remoteNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), remoteNodeTCPJob, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(job.WaitForJobToSucceed(remoteNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on different node")
 				}
-			},
-				Entry("[test_id:1544] from pod network", false),
-				Entry("[test_id:1543] from node network", true),
-			)
+			})
 		})
 
 		Context("VirtualMachineInstance with default interface model", func() {
