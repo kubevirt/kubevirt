@@ -2369,7 +2369,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				nil,
+				&v1.VirtualMachineInstanceSpec{},
 			),
 			Entry("by an instance type for Memory",
 				&instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -2384,7 +2384,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				nil,
+				&v1.VirtualMachineInstanceSpec{},
 			),
 			Entry("by a VM for vCPUs using PreferSockets (default)",
 				nil,
