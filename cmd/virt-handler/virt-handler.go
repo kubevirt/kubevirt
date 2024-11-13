@@ -362,7 +362,7 @@ func (app *virtHandlerApp) Run() {
 		&capabilities,
 		hostCpuModel,
 		netsetup.NewNetConf(app.clusterConfig),
-		netsetup.NewNetStat(app.clusterConfig),
+		netsetup.NewNetStat(),
 		netbinding.MemoryCalculator{},
 	)
 	if err != nil {
