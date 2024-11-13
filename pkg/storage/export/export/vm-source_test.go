@@ -411,11 +411,12 @@ var _ = Describe("PVC source", func() {
 		Entry("PVCs", createVMWithPVCs, "kubevirt", "kubevirt", verifyKubevirtInternal),
 		Entry("Memorydump and pvc", createVMWithPVCandMemoryDump, "kubevirt", "archive", verifyMixedInternal),
 	)
-	It("Should create VM export, when VM is stopped, but VMI exists in succeeded state", func() {
+
+	DescribeTable("Should create VM export, when VM is stopped, but VMI exists", func(vmiPhase virtv1.VirtualMachineInstancePhase) {
 		testVMExport := createVMVMExport()
 		controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
 		vmi := createVMIWithDataVolumes()
-		vmi.Status.Phase = virtv1.Succeeded
+		vmi.Status.Phase = vmiPhase
 		controller.VMIInformer.GetStore().Add(vmi)
 		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
 		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
@@ -438,7 +439,10 @@ var _ = Describe("PVC source", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(retry).To(BeEquivalentTo(0))
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
-	})
+	},
+		Entry("with succeeded phase", virtv1.Succeeded),
+		Entry("with failed phase", virtv1.Failed),
+	)
 
 	It("Should NOT create VM export, when VM is started", func() {
 		testVMExport := createVMVMExport()
