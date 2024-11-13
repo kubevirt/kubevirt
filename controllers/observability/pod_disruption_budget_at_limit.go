@@ -46,6 +46,7 @@ func (r *Reconciler) ensurePodDisruptionBudgetAtLimitIsSilenced() error {
 				Value:   "PodDisruptionBudgetAtLimit",
 			},
 			{
+				IsEqual: true,
 				IsRegex: true,
 				Name:    "poddisruptionbudget",
 				Value:   "kubevirt-disruption-budget-.*",
