@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"os"
@@ -139,6 +140,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&c.archivePath, "archive-path", "", "Path to the local archive.")
 	cmd.Flags().BoolVar(&c.noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
 	cmd.Flags().UintVar(&c.uploadPodWaitSecs, "wait-secs", 300, "Seconds to wait for upload pod to start.")
+	cmd.Flags().UintVar(&c.uploadRetries, "retry", 5, "When upload server returns a transient error, we retry this number of times before giving up")
 	cmd.Flags().BoolVar(&c.forceBind, "force-bind", false, "Force bind the PVC, ignoring the WaitForFirstConsumer logic.")
 	cmd.Flags().BoolVar(&c.dataSource, "datasource", false, "Create a DataSource pointing to the created DataVolume/PVC.")
 	cmd.Flags().StringVar(&c.defaultInstancetype, "default-instancetype", "", "The default instance type to associate with the image.")
@@ -195,6 +197,7 @@ type command struct {
 	defaultPreference       string
 	defaultPreferenceKind   string
 	uploadPodWaitSecs       uint
+	uploadRetries           uint
 	blockVolume             bool
 	noCreate                bool
 	createPVC               bool
@@ -439,7 +442,7 @@ func ConstructUploadProxyPathAsync(uploadProxyURL, token string, insecure bool) 
 }
 
 func (c *command) uploadData(token string, file *os.File) error {
-	url, err := ConstructUploadProxyPathAsync(c.uploadProxyURL, token, c.insecure)
+	uploadURL, err := ConstructUploadProxyPathAsync(c.uploadProxyURL, token, c.insecure)
 	if err != nil {
 		return err
 	}
@@ -455,30 +458,50 @@ func (c *command) uploadData(token string, file *os.File) error {
 	reader := bar.NewProxyReader(file)
 
 	client := GetHTTPClientFn(c.insecure)
-	req, _ := http.NewRequest("POST", url, io.NopCloser(reader))
+	req, _ := http.NewRequest("POST", uploadURL, io.NopCloser(reader))
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/octet-stream")
 	req.ContentLength = fi.Size()
 
+	clientDo := func() error {
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("unexpected return value %d, %s", resp.StatusCode, string(body))
+		}
+		return nil
+	}
+
 	c.cmd.Println()
 	bar.Start()
 
-	resp, err := client.Do(req)
+	retry := uint(0)
+	for retry < c.uploadRetries {
+		if err = clientDo(); err == nil {
+			break
+		}
+		retry++
+		if retry < c.uploadRetries {
+			time.Sleep(time.Duration(retry*rand.UintN(50)) * time.Millisecond)
+		}
+	}
 
 	bar.Finish()
 	c.cmd.Println()
 
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("unexpected return value %d, %s", resp.StatusCode, string(body))
+	if err != nil && retry == c.uploadRetries {
+		return fmt.Errorf("error uploading image after %d retries: %w", c.uploadRetries, err)
 	}
 
 	return nil
