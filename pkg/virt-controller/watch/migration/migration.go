@@ -1580,7 +1580,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.Ow
 	if controllerRef.Kind != virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind {
 		return nil
 	}
-	migration, exists, err := c.migrationIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	migration, exists, err := c.migrationIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
@@ -1779,7 +1779,7 @@ func (c *Controller) addPVC(obj interface{}) {
 	if !exists {
 		return
 	}
-	migrationKey := pvc.Namespace + "/" + migrationName
+	migrationKey := controller.NamespacedKey(pvc.Namespace, migrationName)
 	c.pvcExpectations.CreationObserved(migrationKey)
 	c.Queue.Add(migrationKey)
 }
@@ -1959,7 +1959,8 @@ func (c *Controller) deleteVMI(obj interface{}) {
 func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*virtv1.VirtualMachineInstanceMigration) (int, error) {
 	sum := 0
 	for _, migration := range runningMigrations {
-		if vmi, exists, _ := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
+		key := controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName)
+		if vmi, exists, _ := c.vmiStore.GetByKey(key); exists {
 			if vmi.(*virtv1.VirtualMachineInstance).Status.NodeName == node {
 				sum = sum + 1
 			}
@@ -1981,7 +1982,8 @@ func (c *Controller) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMi
 			runningMigrations = append(runningMigrations, migration)
 			continue
 		}
-		vmi, exists, err := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		key := controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName)
+		vmi, exists, err := c.vmiStore.GetByKey(key)
 		if err != nil {
 			return nil, err
 		}

@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -92,7 +93,8 @@ func pvcForMigrationTargetFromStore(pvcStore cache.Store, migration *corev1.Virt
 
 func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) *v1.PersistentVolumeClaim {
 	if migration.Status.MigrationState != nil && migration.Status.MigrationState.TargetPersistentStatePVCName != "" {
-		obj, exists, err := pvcStore.GetByKey(migration.Namespace + "/" + migration.Status.MigrationState.TargetPersistentStatePVCName)
+		key := controller.NamespacedKey(migration.Namespace, migration.Status.MigrationState.TargetPersistentStatePVCName)
+		obj, exists, err := pvcStore.GetByKey(key)
 		if err != nil || !exists {
 			return nil
 		}
@@ -418,7 +420,7 @@ func (bs *BackendStorage) IsPVCReady(vmi *corev1.VirtualMachineInstance, pvcName
 		return true, nil
 	}
 
-	obj, exists, err := bs.pvcStore.GetByKey(vmi.Namespace + "/" + pvcName)
+	obj, exists, err := bs.pvcStore.GetByKey(controller.NamespacedKey(vmi.Namespace, pvcName))
 	if err != nil {
 		return false, err
 	}

@@ -739,7 +739,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 	if controllerRef.Kind != virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind {
 		return nil
 	}
-	rs, exists, err := c.vmiRSIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	rs, exists, err := c.vmiRSIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}

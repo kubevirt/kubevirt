@@ -141,7 +141,7 @@ func (c *Controller) resolveVMIControllerRef(namespace string, controllerRef *v1
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
 		return nil
 	}
-	vm, exists, err := c.vmIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	vm, exists, err := c.vmIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
@@ -379,7 +379,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 	if controllerRef.Kind != poolv1.VirtualMachinePoolKind {
 		return nil
 	}
-	pool, exists, err := c.poolIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	pool, exists, err := c.poolIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
