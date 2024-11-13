@@ -193,20 +193,6 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	return nil
 }
 
-var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
-
-// findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
-func findIsolatedQemuProcess(processes []*ps.Process, pid int) (*ps.Process, error) {
-	processes = childProcesses(processes, pid)
-	for _, execPrefix := range qemuProcessExecutablePrefixes {
-		if qemuProcess := lookupProcessByExecutablePrefix(processes, execPrefix); qemuProcess != nil {
-			return qemuProcess, nil
-		}
-	}
-
-	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
-}
-
 // setProcessMemoryLockRLimit Adjusts process MEMLOCK
 // soft-limit (current) and hard-limit (max) to the given size.
 func setProcessMemoryLockRLimit(pid int, size int64) error {

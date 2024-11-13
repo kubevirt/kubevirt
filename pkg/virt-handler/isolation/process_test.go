@@ -20,8 +20,6 @@
 package isolation
 
 import (
-	"github.com/mitchellh/go-ps"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -32,17 +30,17 @@ var _ = Describe("process", func() {
 		processTestPID      = 110
 		nonExistPPid        = 300
 	)
-	emptyProcessList := []ps.Process{}
+	emptyProcessList := []ProcessStub{}
 	procStub1 := ProcessStub{ppid: 1, pid: 120, binary: processTestExecPath}
 	procStub2 := ProcessStub{ppid: processTestPID, pid: 2222, binary: "processB"}
 	procStub3 := ProcessStub{ppid: 1, pid: 110, binary: "processC"}
 	procStub4 := ProcessStub{ppid: processTestPID, pid: 3333, binary: "processD"}
-	testProcesses := []ps.Process{procStub1, procStub3, procStub2, procStub4}
+	testProcesses := []ProcessStub{procStub1, procStub3, procStub2, procStub4}
 
 	Context("find child processes", func() {
 		DescribeTable("should return the correct child processes of the given pid",
-			func(processes []ps.Process, ppid int, expectedProcesses []ps.Process) {
-				Expect(childProcesses(processes, ppid)).
+			func(processes []ProcessStub, ppid int, expectedProcesses []ProcessStub) {
+				Expect(convertToProcessStub(childProcessesAux(convertToProcessType(processes), ppid))).
 					To(ConsistOf(expectedProcesses))
 			},
 			Entry("given no input processes, there are no child processes",
@@ -52,7 +50,7 @@ var _ = Describe("process", func() {
 				testProcesses, nonExistPPid, emptyProcessList,
 			),
 			Entry("given process list and pid where there are child processes of the given pid",
-				testProcesses, processTestPID, []ps.Process{procStub2, procStub4},
+				testProcesses, processTestPID, []ProcessStub{procStub2, procStub4},
 			),
 		)
 	})
@@ -61,8 +59,8 @@ var _ = Describe("process", func() {
 		procStub5 := ProcessStub{ppid: 100, pid: 220, binary: processTestExecPath}
 
 		DescribeTable("should find no process",
-			func(processes []ps.Process, executablePrefix string) {
-				Expect(lookupProcessByExecutablePrefix(processes, executablePrefix)).To(BeNil())
+			func(processes []ProcessStub, executablePrefix string) {
+				Expect(lookupProcessByExecutablePrefixAux(convertToProcessType(processes), executablePrefix)).To(BeNil())
 			},
 			Entry("given no input processes and empty string as executable prefix",
 				emptyProcessList, "",
@@ -76,9 +74,9 @@ var _ = Describe("process", func() {
 		)
 
 		DescribeTable("should return the first occurrence of a process with the given executable prefix",
-			func(processes []ps.Process, executablePrefix string, expectedProcess ps.Process) {
-				Expect(lookupProcessByExecutablePrefix(processes, executablePrefix)).
-					To(Equal(expectedProcess))
+			func(processes []ProcessStub, executablePrefix string, expectedProcess ProcessStub) {
+				Expect(lookupProcessByExecutablePrefixAux(convertToProcessType(processes), executablePrefix).(*ProcessStub)).
+					To(Equal(&expectedProcess))
 			},
 			Entry("given processes list that includes exactly one process with the executable prefix",
 				testProcesses, processTestExecPath, procStub1,
@@ -91,19 +89,40 @@ var _ = Describe("process", func() {
 })
 
 type ProcessStub struct {
-	ppid   int
-	pid    int
+	ppid   int32
+	pid    int32
 	binary string
 }
 
-func (p ProcessStub) Pid() int {
+var _ processType = &ProcessStub{}
+var _ []processType = convertToProcessType([]ProcessStub{})
+
+func (p ProcessStub) Pid() int32 {
 	return p.pid
 }
 
-func (p ProcessStub) PPid() int {
-	return p.ppid
+func (p ProcessStub) Ppid() (int32, error) {
+	return p.ppid, nil
 }
 
-func (p ProcessStub) Executable() string {
-	return p.binary
+func (p ProcessStub) Name() (string, error) {
+	return p.binary, nil
+}
+
+func convertToProcessType(slice []ProcessStub) []processType {
+	var result []processType
+	for _, proc := range slice {
+		result = append(result, &proc)
+	}
+	return result
+}
+
+func convertToProcessStub(slice []processType) []ProcessStub {
+	var result []ProcessStub
+	for _, pt := range slice {
+		if ps, ok := pt.(*ProcessStub); ok {
+			result = append(result, *ps)
+		}
+	}
+	return result
 }
