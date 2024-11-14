@@ -388,6 +388,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"subresources.kubevirt.io",
 				},
 				Resources: []string{
+					"virtualmachines/stop",
 					"virtualmachineinstances/addvolume",
 					"virtualmachineinstances/removevolume",
 					"virtualmachineinstances/freeze",
