@@ -38,6 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests/console"
@@ -1110,6 +1111,43 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					deleteRestore(restore)
 					restore = nil
 				}
+			})
+
+			It("restore should allow grace period for the target to be ready", func() {
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+				restore = createRestoreDefWithMacAddressPatch(vm, vm.Name, snapshot.Name)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				events.ExpectEvent(restore, corev1.EventTypeNormal, "RestoreTargetNotReady")
+				By(stoppingVM)
+				vm = libvmops.StopVirtualMachine(vm)
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+			})
+
+			It("restore should stop target if targetReadinessPolicy is StopTarget", func() {
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+				restore = createRestoreDefWithMacAddressPatch(vm, vm.Name, snapshot.Name)
+				restore.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+
+				By("Making sure VM was stopped in the restore")
+				Consistently(ThisVM(vm), 60*time.Second, 5*time.Second).Should(Not(BeReady()))
+
+				By("Making sure restored VM is runnable")
+				libvmops.StartVirtualMachine(vm)
 			})
 
 			// This test is relevant to provisioner which round up the recieved size of
