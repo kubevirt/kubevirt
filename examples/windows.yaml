@@ -31,5 +31,5 @@ spec:
       vapic: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true

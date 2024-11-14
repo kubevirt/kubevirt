@@ -1607,12 +1607,12 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
 		return
 	}
 
-	if firmware.PreferredUseEfi != nil && *firmware.PreferredUseEfi && vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil {
+	if firmware.DeprecatedPreferredUseEfi != nil && *firmware.DeprecatedPreferredUseEfi && vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil {
 		vmiFirmware.Bootloader.EFI = &virtv1.EFI{}
 	}
 
-	if firmware.PreferredUseSecureBoot != nil && vmiFirmware.Bootloader.EFI != nil && vmiFirmware.Bootloader.EFI.SecureBoot == nil {
-		vmiFirmware.Bootloader.EFI.SecureBoot = pointer.P(*firmware.PreferredUseSecureBoot)
+	if firmware.DeprecatedPreferredUseSecureBoot != nil && vmiFirmware.Bootloader.EFI != nil && vmiFirmware.Bootloader.EFI.SecureBoot == nil {
+		vmiFirmware.Bootloader.EFI.SecureBoot = pointer.P(*firmware.DeprecatedPreferredUseSecureBoot)
 	}
 }
 
