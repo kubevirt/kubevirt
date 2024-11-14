@@ -1652,7 +1652,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, "Migration Target is listening")
 		})
 
-		It("should signal target pod to early exit on failed migration", func() {
+		It("should signal target pod to early exit on failed migration and immediately re-enqueue the vmi", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
@@ -1673,6 +1673,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			client.EXPECT().Ping()
 			client.EXPECT().SignalTargetPodCleanup(vmi)
 			controller.Execute()
+			Expect(mockQueue.Len()).To(Equal(0))
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
 		})
 
 		It("should abort target prep if VMI is deleted", func() {
