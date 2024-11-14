@@ -2778,6 +2778,8 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 		log.Log.Object(vmi).Infof("Signaled target pod for failed migration to clean up")
 		// nothing left to do here if the migration failed.
+		// Re-enqueue to trigger handler final cleanup
+		d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
 		return nil
 	} else if migrations.IsMigrating(vmi) {
 		// If the migration has already started,
