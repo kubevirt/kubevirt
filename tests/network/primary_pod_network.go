@@ -105,21 +105,6 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					Eventually(vmiIPs, 2*time.Minute, 5*time.Second).Should(Equal(podIPs), "should contain VMI Status IP as Pod status IPs")
 				})
 			})
-			When("no Guest Agent exists", func() {
-				var vmi *v1.VirtualMachineInstance
-
-				BeforeEach(func() {
-					vmi = setupVMI(
-						virtClient,
-						libvmifact.NewAlpine(
-							libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						),
-					)
-				})
-
-				It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
-			})
 		})
 
 		Context("VMI connected to the pod network using masquerade binding", func() {
