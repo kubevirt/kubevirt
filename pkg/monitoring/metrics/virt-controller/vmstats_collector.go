@@ -143,22 +143,17 @@ func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 	var cr []operatormetrics.CollectorResult
 
 	for _, vm := range vms {
-		cr = append(cr, CollectResourceRequests(vms)...)
+		cr = append(cr, CollectResourceRequests(vm)...)
 		cr = append(cr, ReportVmStats(vm)...)
 	}
 
 	return cr
 }
 
-func CollectResourceRequests(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
-	var results []operatormetrics.CollectorResult
-
-	for _, vm := range vms {
-		results = append(results, collectMemoryResourceRequestsFromDomainResources(vm)...)
-		results = append(results, collectCpuResourceRequestsFromDomainCpu(vm)...)
-		results = append(results, collectCpuResourceRequestsFromDomainResources(vm)...)
-	}
-
+func CollectResourceRequests(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	results := collectMemoryResourceRequestsFromDomainResources(vm)
+	results = append(results, collectCpuResourceRequestsFromDomainCpu(vm)...)
+	results = append(results, collectCpuResourceRequestsFromDomainResources(vm)...)
 	return results
 }
 

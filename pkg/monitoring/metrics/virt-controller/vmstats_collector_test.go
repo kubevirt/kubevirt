@@ -106,8 +106,8 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			cr := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
-			Expect(cr).To(BeZero())
+			cr := CollectResourceRequests(vm)
+			Expect(cr).To(BeEmpty())
 		})
 
 		It("should collect VM memory resource requests", func() {
@@ -134,7 +134,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			crs := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
+			crs := CollectResourceRequests(vm)
 			Expect(crs).To(HaveLen(1))
 
 			By("checking the resource requests")
@@ -167,7 +167,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			crs := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
+			crs := CollectResourceRequests(vm)
 			Expect(crs).To(HaveLen(1))
 
 			By("checking the resource requests")
@@ -197,7 +197,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			crs := CollectResourceRequests([]*k6tv1.VirtualMachine{vm})
+			crs := CollectResourceRequests(vm)
 			Expect(crs).To(HaveLen(3), "Expected 1 metric")
 
 			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
