@@ -355,6 +355,9 @@ var _ = Describe("PVC source", func() {
 					},
 				},
 			},
+			Status: virtv1.VirtualMachineInstanceStatus{
+				Phase: virtv1.Running,
+			},
 		}
 	}
 
@@ -407,6 +410,38 @@ var _ = Describe("PVC source", func() {
 		Entry("DataVolumes", createVMWithDataVolumes, "kubevirt", "kubevirt", verifyKubevirtInternal),
 		Entry("PVCs", createVMWithPVCs, "kubevirt", "kubevirt", verifyKubevirtInternal),
 		Entry("Memorydump and pvc", createVMWithPVCandMemoryDump, "kubevirt", "archive", verifyMixedInternal),
+	)
+
+	DescribeTable("Should create VM export, when VM is stopped, but VMI exists", func(vmiPhase virtv1.VirtualMachineInstancePhase) {
+		testVMExport := createVMVMExport()
+		controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
+		vmi := createVMIWithDataVolumes()
+		vmi.Status.Phase = vmiPhase
+		controller.VMIInformer.GetStore().Add(vmi)
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyKubevirtInternal(vmExport, vmExport.Name, testNamespace, "volume1", "volume2")
+			for _, condition := range vmExport.Status.Conditions {
+				if condition.Type == exportv1.ConditionReady {
+					Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+					Expect(condition.Reason).To(Equal(podReadyReason))
+				}
+			}
+			return true, vmExport, nil
+		})
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+		testutils.ExpectEvent(recorder, serviceCreatedEvent)
+	},
+		Entry("with succeeded phase", virtv1.Succeeded),
+		Entry("with failed phase", virtv1.Failed),
 	)
 
 	It("Should NOT create VM export, when VM is started", func() {
