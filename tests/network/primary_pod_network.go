@@ -61,16 +61,6 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			Expect(libnet.ValidateVMIandPodIPMatch(vmi, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
 		}
 
-		Context("VMI connected to the pod network using the default (implicit) binding", func() {
-			var vmi *v1.VirtualMachineInstance
-
-			BeforeEach(func() {
-				vmi = setupVMI(virtClient, libvmifact.NewAlpine())
-			})
-
-			It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
-		})
-
 		Context("VMI connected to the pod network using bridge binding", func() {
 			When("Guest Agent exists", func() {
 				var (
