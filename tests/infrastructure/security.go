@@ -46,6 +46,7 @@ var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulabl
 	var (
 		virtClient kubecli.KubevirtClient
 	)
+	const minNodesWithVirtHandler = 2
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -54,12 +55,13 @@ var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulabl
 
 	It("Should disallow to modify VMs on different node", func() {
 		nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-		if len(nodes) < 2 {
+		if len(nodes) < minNodesWithVirtHandler {
 			Fail("Requires multiple nodes with virt-handler running")
 		}
+		startTimeout := 60
 
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, startTimeout)
 
 		node := vmi.Status.NodeName
 
@@ -87,7 +89,7 @@ var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulabl
 			TLSClientConfig: rest.TLSClientConfig{
 				Insecure: true,
 			},
-			BearerToken: string(token),
+			BearerToken: token,
 		})
 		Expect(err).ToNot(HaveOccurred())
 
