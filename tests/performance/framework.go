@@ -25,6 +25,8 @@ import (
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
+
+	"kubevirt.io/kubevirt/tests/decorators"
 )
 
 var (
@@ -54,7 +56,7 @@ func init() {
 }
 
 func SIGDescribe(text string, args ...interface{}) bool {
-	return Describe("[sig-performance][Serial] "+text, Serial, args)
+	return Describe("[sig-performance][Serial] "+text, decorators.SigPerformance, Serial, args)
 }
 
 func FSIGDescribe(text string, args ...interface{}) bool {
@@ -74,5 +76,5 @@ func skipIfNoRealtimePerformanceTests() {
 }
 
 func KWOKDescribe(text string, args ...interface{}) bool {
-	return Describe("[sig-performance]"+text, Label("KWOK", "sig-performance"), Serial, args)
+	return Describe("[sig-performance]"+text, Label("KWOK"), decorators.SigPerformance, Serial, args)
 }
