@@ -577,6 +577,7 @@ spec:
           resources:
           - virtualmachinesnapshots
           - virtualmachinesnapshots/status
+          - virtualmachinesnapshots/finalizers
           - virtualmachinesnapshotcontents
           - virtualmachinesnapshotcontents/status
           - virtualmachinesnapshotcontents/finalizers
@@ -629,6 +630,7 @@ spec:
           - kubevirt.io
           resources:
           - virtualmachines/finalizers
+          - virtualmachineinstances/finalizers
           verbs:
           - update
         - apiGroups:
