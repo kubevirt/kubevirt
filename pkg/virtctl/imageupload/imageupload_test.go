@@ -769,6 +769,38 @@ var _ = Describe("ImageUpload", func() {
 			assertDataSource(ds, targetName, targetNamespace)
 		})
 
+		DescribeTable("Should retry on server returning error code", func(expected int, extraArgs ...string) {
+			testInit(http.StatusOK)
+
+			attempts := 1
+			server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if attempts < expected {
+					w.WriteHeader(http.StatusBadGateway)
+					attempts++
+				} else {
+					w.WriteHeader(http.StatusOK)
+				}
+			}))
+
+			args := append([]string{
+				commandName,
+				"--pvc-name", targetName,
+				"--pvc-size", pvcSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--image-path", imagePath,
+			}, extraArgs...)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+			Expect(cmd()).To(Succeed())
+			Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
+			validatePVC()
+
+			Expect(attempts).To(Equal(expected))
+		},
+			Entry("with default configuration", 6),
+			Entry("with explicit amount of retries", 11, "--retry=10"),
+		)
+
 		AfterEach(func() {
 			testDone()
 		})
@@ -900,19 +932,32 @@ var _ = Describe("ImageUpload", func() {
 			Expect(cmd()).NotTo(Succeed())
 		})
 
-		It("Upload fails when using a nonexistent storageClass", func() {
+		DescribeTable("Upload fails when using a nonexistent storageClass", func(resource string) {
+			const (
+				errFmt              = "storageclasses.storage.k8s.io \"%s\" not found"
+				invalidStorageClass = "no-sc"
+			)
+
 			testInit(http.StatusInternalServerError)
-			invalidStorageClass := "no-sc"
 			kubeClient.Fake.PrependReactor("get", "storageclasses", func(action testing.Action) (bool, runtime.Object, error) {
 				_, ok := action.(testing.GetAction)
 				Expect(ok).To(BeTrue())
-				return false, nil, nil
+				return true, nil, fmt.Errorf(errFmt, invalidStorageClass)
 			})
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
-				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--storage-class", invalidStorageClass)
-			Expect(cmd()).NotTo(Succeed())
-		})
+			err := clientcmd.NewRepeatableVirtctlCommand(commandName,
+				resource, targetName,
+				"--size", pvcSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--image-path", imagePath,
+				"--storage-class", invalidStorageClass,
+			)()
+			Expect(err).To(MatchError(ContainSubstring(errFmt, invalidStorageClass)))
+		},
+			Entry("DataVolume", "dv"),
+			Entry("PVC", "pvc"),
+		)
 
 		DescribeTable("Bad args", func(errString string, args []string) {
 			testInit(http.StatusOK)
