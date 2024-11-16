@@ -164,7 +164,7 @@ func admitStorageUpdate(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks [
 		return permanentAr
 	}
 
-	hotplugAr := verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap, newDiskMap, oldDiskMap)
+	hotplugAr := verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap, newDiskMap, oldDiskMap, migratedVolumeMap)
 	if hotplugAr != nil {
 		return hotplugAr
 	}
@@ -177,11 +177,13 @@ func admitStorageUpdate(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks [
 	return nil
 }
 
-func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk) *admissionv1.AdmissionResponse {
+func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk,
+	migratedVols map[string]bool) *admissionv1.AdmissionResponse {
 	for k, v := range newHotplugVolumeMap {
 		if _, ok := oldHotplugVolumeMap[k]; ok {
+			_, okMigVol := migratedVols[k]
 			// New and old have same volume, ensure they are the same
-			if !equality.Semantic.DeepEqual(v, oldHotplugVolumeMap[k]) {
+			if !equality.Semantic.DeepEqual(v, oldHotplugVolumeMap[k]) && !okMigVol {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
