@@ -56,14 +56,17 @@ var _ = DescribeSerialInfra("Start a VirtualMachineInstance", func() {
 		It("[test_id:4642]should elect a new controller pod", func() {
 			By("Deleting the virt-controller leader pod")
 			leaderPodName := libinfra.GetLeader()
-			Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), leaderPodName, metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(
+				context.Background(), leaderPodName,
+				metav1.DeleteOptions{})).To(Succeed())
 
 			By("Expecting a new leader to get elected")
 			Eventually(libinfra.GetLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
 
 			By("Starting a new VirtualMachineInstance")
 			vmi := libvmifact.NewAlpine()
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
+			obj, err := virtClient.RestClient().Post().Resource(
+				"virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 			Expect(err).ToNot(HaveOccurred())
 			vmiObj, ok := obj.(*v1.VirtualMachineInstance)
 			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
