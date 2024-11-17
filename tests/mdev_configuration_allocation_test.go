@@ -272,12 +272,18 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 				&expect.BExp{R: console.RetValue("1")},
 			}, 250)).To(Succeed(), "Device not found")
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
+			lsfb, err := console.RunCommandAndStoreOutput(vmi, "find /sys/bus/pci/devices/$(grep -l 1eb8 /sys/bus/pci/devices/*/device | cut -d/ -f6)/", time.Second*5)
+			fmt.Printf("\nDEBUG2 find=%v\nerr=%v\n\n\n", lsfb, err)
+
 			// make sure that one mdev has display and ramfb on
 			By("Maiking sure that a boot display is enabled")
-			Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
-			Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, dev := range domSpec.Devices.HostDevices {
+				Expect(dev.Display).To(ContainSubstring("on"))
+				Expect(dev.RamFB).To(ContainSubstring("on"))
+			}
 		})
 		It("Should successfully passthrough a mediated device with a disabled display", func() {
 			_false := false
@@ -301,12 +307,19 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			vmi = createdVmi
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			// make sure that another mdev explicitly turned off its display
 			By("Maiking sure that a boot display is disabled")
-			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should not be enabled")
-			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should not be enabled")
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			lsfb, err := console.RunCommandAndStoreOutput(vmi, "find /sys/bus/pci/devices/$(grep -l 1eb8 /sys/bus/pci/devices/*/device | cut -d/ -f6)/", time.Second*5)
+			fmt.Printf("\nDEBUG3 find=%v\nerr=%v\n\n\n", lsfb, err)
+			lsfb, err = console.RunCommandAndStoreOutput(vmi, "find /sys/bus/pci/devices/$(grep -l 1eb8 /sys/bus/pci/devices/*/device | cut -d/ -f6)/|xargs cat", time.Second*5)
+			fmt.Printf("\nDEBUG3 START-->\n\n\n\n\n cat=%v DEBUG END--<\n\n\n\n\nerr=%v\n", lsfb, err)
+
+			for _, dev := range domSpec.Devices.HostDevices {
+				Expect(dev.Display).To(Not(ContainSubstring("on")))
+				Expect(dev.RamFB).To(Not(ContainSubstring("on")))
+			}
 		})
 		It("Should override default mdev configuration on a specific node", func() {
 			newDesiredMdevTypeName := "nvidia-223"
