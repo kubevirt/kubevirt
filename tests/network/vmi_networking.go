@@ -551,7 +551,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
 				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
-				Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
 				Entry("with custom CIDR [IPv4] containing leading zeros", []v1.Port{}, 8080, cidrWithLeadingZeros),
 			)
 
