@@ -120,11 +120,8 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	if c.clusterConfigurer.DynamicPodInterfaceNamingEnabled() {
 		interfacesStatus = restorePodIfaceNameForPrimaryIface(interfacesStatus, primaryNetwork, vmi.Status.Interfaces)
 	}
-	var primaryInterfaceStatus *v1.VirtualMachineInstanceNetworkInterface
-	primaryInterfaceStatus, interfacesStatus = netvmispec.PopInterfaceByNetwork(interfacesStatus, primaryNetwork)
-	if primaryInterfaceStatus != nil {
-		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
-	}
+
+	interfacesStatus = movePrimaryIfaceStatusToFront(interfacesStatus, primaryNetwork)
 
 	interfacesStatus = ifacesStatusFromMultus(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
 
@@ -159,6 +156,25 @@ func restorePodIfaceNameForPrimaryIface(
 
 	primaryIfaceStatus.PodInterfaceName = prevPrimaryIfaceStatus.PodInterfaceName
 	return interfacesStatus
+}
+
+func movePrimaryIfaceStatusToFront(interfacesStatus []v1.VirtualMachineInstanceNetworkInterface, primaryNetwork *v1.Network) []v1.VirtualMachineInstanceNetworkInterface {
+	if primaryNetwork == nil {
+		return interfacesStatus
+	}
+
+	primaryIfaceStatusIndex := slices.IndexFunc(interfacesStatus, func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+		return ifaceStatus.Name == primaryNetwork.Name
+	})
+
+	// primary iface status was not found or is already placed first
+	if primaryIfaceStatusIndex <= 0 {
+		return interfacesStatus
+	}
+
+	ifacesStatusCopy := slices.Clone(interfacesStatus)
+	ifacesStatusCopy[0], ifacesStatusCopy[primaryIfaceStatusIndex] = ifacesStatusCopy[primaryIfaceStatusIndex], ifacesStatusCopy[0]
+	return ifacesStatusCopy
 }
 
 func ifacesStatusFromMultus(
