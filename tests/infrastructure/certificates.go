@@ -51,8 +51,8 @@ var _ = DescribeSerialInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com
 	var (
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset
-		err              error
 	)
+	const vmiLaunchTimeOut = 60
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
@@ -79,7 +79,9 @@ var _ = DescribeSerialInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com
 			patch.WithReplace("/data/tls.key", ""),
 		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), components.KubeVirtCASecretName, types.JSONPatchType, secretPatch, metav1.PatchOptions{})
+		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(
+			context.Background(), components.KubeVirtCASecretName,
+			types.JSONPatchType, secretPatch, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("checking that the CA secret gets restored with a new ca bundle")
@@ -98,7 +100,8 @@ var _ = DescribeSerialInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com
 
 		By("checking that the ca bundle gets propagated to the validating webhook")
 		Eventually(func() bool {
-			webhook, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
+			webhook, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
+				context.Background(), components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(webhook.Webhooks) > 0 {
 				return libinfra.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
@@ -107,7 +110,8 @@ var _ = DescribeSerialInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com
 		}, 10*time.Second, 1*time.Second).Should(BeTrue())
 		By("checking that the ca bundle gets propagated to the mutating webhook")
 		Eventually(func() bool {
-			webhook, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
+			webhook, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
+				context.Background(), components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(webhook.Webhooks) > 0 {
 				return libinfra.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
@@ -117,30 +121,32 @@ var _ = DescribeSerialInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com
 
 		By("checking that the ca bundle gets propagated to the apiservice")
 		Eventually(func() bool {
-			apiService, err := aggregatorClient.ApiregistrationV1().APIServices().Get(context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
+			apiService, err := aggregatorClient.ApiregistrationV1().APIServices().Get(
+				context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return libinfra.ContainsCrt(apiService.Spec.CABundle, newCA)
 		}, 10*time.Second, 1*time.Second).Should(BeTrue())
 
 		By("checking that we can still start virtual machines and connect to the VMI")
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiLaunchTimeOut)
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 	})
 
 	It("[sig-compute][test_id:4100] should be valid during the whole rotation process", func() {
 		oldAPICert := libinfra.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
-		oldHandlerCert := libinfra.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
-		Expect(err).ToNot(HaveOccurred())
+		oldHandlerCert := libinfra.EnsurePodsCertIsSynced(
+			fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 
 		By("destroying the CA certificate")
-		err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Delete(context.Background(), components.KubeVirtCASecretName, metav1.DeleteOptions{})
+		err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Delete(
+			context.Background(), components.KubeVirtCASecretName, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 		Eventually(func() (rotated bool) {
 			vmi := libvmifact.NewAlpine()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiLaunchTimeOut)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -170,7 +176,8 @@ var _ = DescribeSerialInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com
 			patch.WithReplace("/data/tls.key", ""),
 		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), secretName, types.JSONPatchType, secretPatch, metav1.PatchOptions{})
+		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(
+			context.Background(), secretName, types.JSONPatchType, secretPatch, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("checking that the secret gets restored with a new certificate")
