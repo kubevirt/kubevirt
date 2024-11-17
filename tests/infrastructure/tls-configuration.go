@@ -45,7 +45,6 @@ import (
 )
 
 var _ = DescribeSerialInfra("tls configuration", func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	// FIPS-compliant so we can test on different platforms (otherwise won't revert properly)
@@ -70,7 +69,6 @@ var _ = DescribeSerialInfra("tls configuration", func() {
 		newKv := libkubevirt.GetCurrentKv(virtClient)
 		Expect(newKv.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(BeEquivalentTo(v1.VersionTLS12))
 		Expect(newKv.Spec.Configuration.TLSConfiguration.Ciphers).To(BeEquivalentTo([]string{cipher.Name}))
-
 	})
 
 	It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components", func() {

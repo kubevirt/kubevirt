@@ -37,18 +37,15 @@ import (
 )
 
 var _ = DescribeInfra("CRDs", func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
 	It("[test_id:5177]Should have structural schema", func() {
-		ourCRDs := []string{crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
-			crds.VIRTUALMACHINEINSTANCEREPLICASET, crds.VIRTUALMACHINEPOOL,
-			crds.VIRTUALMACHINEINSTANCEMIGRATION, crds.MIGRATIONPOLICY,
-			crds.KUBEVIRT,
+		ourCRDs := []string{
+			crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
+			crds.VIRTUALMACHINEINSTANCEREPLICASET, crds.VIRTUALMACHINEINSTANCEMIGRATION, crds.KUBEVIRT,
 			crds.VIRTUALMACHINESNAPSHOT, crds.VIRTUALMACHINESNAPSHOTCONTENT,
 			crds.VIRTUALMACHINECLONE,
 			crds.VIRTUALMACHINEEXPORT,

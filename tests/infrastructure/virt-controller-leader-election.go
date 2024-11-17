@@ -43,10 +43,7 @@ import (
 )
 
 var _ = DescribeSerialInfra("Start a VirtualMachineInstance", func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -73,5 +70,4 @@ var _ = DescribeSerialInfra("Start a VirtualMachineInstance", func() {
 			libwait.WaitForSuccessfulVMIStart(vmiObj)
 		})
 	})
-
 })

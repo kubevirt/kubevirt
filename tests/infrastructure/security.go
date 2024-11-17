@@ -42,10 +42,7 @@ import (
 )
 
 var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes, decorators.Kubernetes130, func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	const minNodesWithVirtHandler = 2
 
 	BeforeEach(func() {
@@ -78,7 +75,8 @@ var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulabl
 		token, err := exec.ExecuteCommandOnPod(
 			pod,
 			"virt-handler",
-			[]string{"cat",
+			[]string{
+				"cat",
 				"/var/run/secrets/kubernetes.io/serviceaccount/token",
 			},
 		)
@@ -106,5 +104,4 @@ var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulabl
 			ContainSubstring("Node restriction, virt-handler is only allowed to modify VMIs it owns"),
 		))
 	})
-
 })

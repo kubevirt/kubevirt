@@ -30,9 +30,7 @@ import (
 )
 
 var _ = DescribeSerialInfra("cluster profiler for pprof data aggregation", func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})

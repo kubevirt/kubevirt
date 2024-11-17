@@ -68,10 +68,7 @@ const (
 )
 
 var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 
 	// start a VMI, wait for it to run and return the node it runs on
 	startVMI := func(vmi *v1.VirtualMachineInstance) string {
@@ -108,7 +105,6 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 	*/
 
 	It("[test_id:4135]should find VMI namespace on namespace label of the metric", func() {
-
 		/*
 			This test is required because in cases of misconfigurations on
 			monitoring objects (such for the ServiceMonitor), our rules will
@@ -171,7 +167,8 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 				`query=kubevirt_vmi_memory_resident_bytes{namespace=%q,name=%q}`,
 				vmi.Namespace,
 				vmi.Name,
-			)}
+			),
+		}
 
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(&op, "virt-operator", cmd)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), stdout, stderr, err))
@@ -192,7 +189,6 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 })
 
 var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
-
 	var (
 		virtClient kubecli.KubevirtClient
 		err        error

@@ -50,7 +50,6 @@ import (
 )
 
 var _ = DescribeSerialInfra("Node-labeller", func() {
-
 	const trueStr = "true"
 
 	var (
@@ -108,7 +107,6 @@ var _ = DescribeSerialInfra("Node-labeller", func() {
 	}
 
 	Context("basic labeling", func() {
-
 		type patch struct {
 			Op    string            `json:"op"`
 			Path  string            `json:"path"`
@@ -116,7 +114,6 @@ var _ = DescribeSerialInfra("Node-labeller", func() {
 		}
 
 		It("skip node reconciliation when node has skip annotation", func() {
-
 			for i, node := range nodesWithKVM {
 				node.Labels[nonExistingCPUModelLabel] = trueStr
 				p := []patch{
@@ -317,7 +314,6 @@ var _ = DescribeSerialInfra("Node-labeller", func() {
 	})
 
 	Context("[Serial]node with obsolete host-model cpuModel", Serial, func() {
-
 		var node *k8sv1.Node
 		var obsoleteModel string
 		var kvConfig *v1.KubeVirtConfiguration
@@ -414,6 +410,5 @@ var _ = DescribeSerialInfra("Node-labeller", func() {
 			// Remove as Node is persistent
 			events.DeleteEvents(node, k8sv1.EventTypeWarning, "HostModelIsObsolete")
 		})
-
 	})
 })
