@@ -117,6 +117,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiPod, err := libpod.GetPodByVirtualMachineInstance(outboundVMI, outboundVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
+				Expect(libnet.ValidateVMIandPodIPMatch(outboundVMI, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
+
 				var mtu int
 				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
 					By(fmt.Sprintf("checking %s MTU inside the pod", ifaceName))
@@ -175,9 +177,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					Expect(vmi.Status.Interfaces[0].MAC).To(Equal(vmi.Spec.Domain.Devices.Interfaces[0].MacAddress))
 				}
 				Expect(libnet.CheckMacAddress(vmi, "eth0", vmi.Status.Interfaces[0].MAC)).To(Succeed())
-
 			},
-				Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
+				Entry("[test_id:1539]the Inbound VirtualMachineInstance with default (implicit) binding", &inboundVMI),
 				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
 				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
 			)
