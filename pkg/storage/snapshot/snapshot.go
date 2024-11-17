@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -356,9 +357,12 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		return contentDeletionInterval, nil
 
 	}
+	contentCpy := content.DeepCopy()
+	if contentCpy.Status == nil {
+		contentCpy.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{}
+	}
 
 	contentCreated := vmSnapshotContentCreated(content)
-	currentlyError := (content.Status != nil && content.Status.Error != nil) || vmSnapshotError(vmSnapshot) != nil
 
 	for _, volumeBackup := range content.Spec.VolumeBackups {
 		if volumeBackup.VolumeSnapshotName == nil {
@@ -393,12 +397,6 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 				continue
 			}
 
-			if currentlyError {
-				log.Log.V(3).Infof("Not creating snapshot %s because in error state", vsName)
-				skippedSnapshots = append(skippedSnapshots, vsName)
-				continue
-			}
-
 			if !didFreeze {
 				source, err := ctrl.getSnapshotSource(vmSnapshot)
 				if err != nil {
@@ -417,7 +415,13 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 				if !frozen {
 					err := source.Freeze()
 					if err != nil {
-						return 0, err
+						contentCpy.Status.Error = &snapshotv1.Error{
+							Time:    currentTime(),
+							Message: pointer.P(err.Error()),
+						}
+						contentCpy.Status.ReadyToUse = pointer.P(false)
+						// Retry again in 5 seconds
+						return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 					}
 
 					// assuming that VM is frozen once Freeze() returns
@@ -450,10 +454,6 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 	created, ready := true, true
 	errorMessage := ""
-	contentCpy := content.DeepCopy()
-	if contentCpy.Status == nil {
-		contentCpy.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{}
-	}
 	contentCpy.Status.Error = nil
 
 	if len(deletedSnapshots) > 0 {
@@ -461,11 +461,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) missing", strings.Join(deletedSnapshots, ","))
 	} else if len(skippedSnapshots) > 0 {
 		created, ready = false, false
-		if vmSnapshot == nil || vmSnapshotDeleting(vmSnapshot) {
-			errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because vm snapshot is deleted", strings.Join(skippedSnapshots, ","))
-		} else {
-			errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because in error state", strings.Join(skippedSnapshots, ","))
-		}
+		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because vm snapshot is deleted", strings.Join(skippedSnapshots, ","))
 	} else {
 		for _, vss := range volumeSnapshotStatus {
 			if vss.CreationTime == nil {
@@ -500,13 +496,17 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy.Status.ReadyToUse = &ready
 	contentCpy.Status.VolumeSnapshotStatus = volumeSnapshotStatus
 
-	if !equality.Semantic.DeepEqual(content.Status, contentCpy.Status) {
-		if ctrl.vmSnapshotContentStatusUpdater.UpdateStatus(contentCpy); err != nil {
-			return 0, err
+	return 0, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
+}
+
+func (ctrl *VMSnapshotController) updateVmSnapshotContentStatus(oldContent, newContent *snapshotv1.VirtualMachineSnapshotContent) error {
+	if !equality.Semantic.DeepEqual(oldContent.Status, newContent.Status) {
+		if err := ctrl.vmSnapshotContentStatusUpdater.UpdateStatus(newContent); err != nil {
+			return err
 		}
 	}
 
-	return 0, nil
+	return nil
 }
 
 func (ctrl *VMSnapshotController) createVolumeSnapshot(
