@@ -292,7 +292,10 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-				libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				),
 				libdv.WithNamespace(namespace),
 			)
 			defer libstorage.DeleteDataVolume(&dataVolume)
