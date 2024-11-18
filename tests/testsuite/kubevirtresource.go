@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	putil "kubevirt.io/kubevirt/pkg/util"
@@ -163,17 +162,6 @@ func RestoreKubeVirtResource() {
 		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(context.Background(), originalKV.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
 		util.PanicOnError(err)
 	}
-}
-
-func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
-	allowEmulation := false
-
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration != nil {
-		allowEmulation = kv.Spec.Configuration.DeveloperConfiguration.UseEmulation
-	}
-
-	return allowEmulation
 }
 
 // UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource

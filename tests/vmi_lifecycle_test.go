@@ -83,8 +83,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 	var vmi *v1.VirtualMachineInstance
 
-	var allowEmulation *bool
-
 	const fakeLibvirtLogFilters = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 	const startupTimeout = 45
 
@@ -1285,17 +1283,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			)
 		})
 
-		Context("VirtualMachineInstance Emulation Mode", decorators.WgS390x, func() {
-			BeforeEach(func() {
-				// allowEmulation won't change in a test suite run, so cache it
-				if allowEmulation == nil {
-					emulation := testsuite.ShouldAllowEmulation(kubevirt.Client())
-					allowEmulation = &emulation
-				}
-				if !(*allowEmulation) {
-					Skip("Software emulation is not enabled on this cluster")
-				}
-			})
+		Context("VirtualMachineInstance Emulation Mode", decorators.WgS390x, decorators.SoftwareEmulation, func() {
 
 			It("[test_id:1643]should enable emulation in virt-launcher", func() {
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1396,16 +1384,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("VM Accelerated Mode", decorators.WgS390x, func() {
-			BeforeEach(func() {
-				// allowEmulation won't change in a test suite run, so cache it
-				if allowEmulation == nil {
-					emulation := testsuite.ShouldAllowEmulation(kubevirt.Client())
-					allowEmulation = &emulation
-				}
-				if *allowEmulation {
-					Skip("Software emulation is enabled on this cluster")
-				}
-			})
 
 			It("[test_id:1646]should request a KVM and TUN device", func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
