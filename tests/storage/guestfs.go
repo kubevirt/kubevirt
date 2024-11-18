@@ -61,7 +61,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", Label("guestfs"), func() {
 		f := &fakeAttacher{}
 		f.doneAttacher = make(chan bool, 1)
 		f.doneGuestfs = make(chan bool, 1)
-		guestfs.SetAttacher(f.fakeCreateAttacher)
+		guestfs.CreateAttacherFunc = f.fakeCreateAttacher
 		return f
 	}
 
