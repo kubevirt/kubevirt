@@ -86,8 +86,11 @@ func NewController(templateService services.TemplateService,
 ) (*Controller, error) {
 
 	c := &Controller{
-		templateService:         templateService,
-		Queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
+		templateService: templateService,
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmi"},
+		),
 		vmiIndexer:              vmiInformer.GetIndexer(),
 		vmStore:                 vmInformer.GetStore(),
 		podIndexer:              podInformer.GetIndexer(),
@@ -178,7 +181,7 @@ type statusUpdater func(clusterConfig *virtconfig.ClusterConfig, vmi *virtv1.Vir
 type Controller struct {
 	templateService         services.TemplateService
 	clientset               kubecli.KubevirtClient
-	Queue                   workqueue.RateLimitingInterface
+	Queue                   workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer              cache.Indexer
 	vmStore                 cache.Store
 	podIndexer              cache.Indexer
@@ -237,11 +240,11 @@ func (c *Controller) Execute() bool {
 		return false
 	}
 
-	virtControllerVMIWorkQueueTracer.StartTrace(key.(string), "virt-controller VMI workqueue", trace.Field{Key: "Workqueue Key", Value: key})
-	defer virtControllerVMIWorkQueueTracer.StopTrace(key.(string))
+	virtControllerVMIWorkQueueTracer.StartTrace(key, "virt-controller VMI workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerVMIWorkQueueTracer.StopTrace(key)
 
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)

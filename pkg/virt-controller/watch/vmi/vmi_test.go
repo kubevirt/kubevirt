@@ -68,7 +68,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	var controller *Controller
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
+	var mockQueue *testutils.MockWorkQueue[string]
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
 	// We pass the store to backend storage and we don't have direct access

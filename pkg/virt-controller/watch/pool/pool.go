@@ -44,7 +44,7 @@ import (
 // Controller is the main Controller struct.
 type Controller struct {
 	clientset       kubecli.KubevirtClient
-	queue           workqueue.RateLimitingInterface
+	queue           workqueue.TypedRateLimitingInterface[string]
 	vmIndexer       cache.Indexer
 	vmiStore        cache.Store
 	poolIndexer     cache.Indexer
@@ -83,8 +83,11 @@ func NewController(clientset kubecli.KubevirtClient,
 	recorder record.EventRecorder,
 	burstReplicas uint) (*Controller, error) {
 	c := &Controller{
-		clientset:       clientset,
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-pool"),
+		clientset: clientset,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-pool"},
+		),
 		poolIndexer:     poolInformer.GetIndexer(),
 		vmiStore:        vmiInformer.GetStore(),
 		vmIndexer:       vmInformer.GetIndexer(),
@@ -1176,10 +1179,10 @@ func (c *Controller) Execute() bool {
 	}
 	defer c.queue.Done(key)
 
-	virtControllerPoolWorkQueueTracer.StartTrace(key.(string), "virt-controller VMPool workqueue", trace.Field{Key: "Workqueue Key", Value: key})
-	defer virtControllerPoolWorkQueueTracer.StopTrace(key.(string))
+	virtControllerPoolWorkQueueTracer.StartTrace(key, "virt-controller VMPool workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerPoolWorkQueueTracer.StopTrace(key)
 
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing pool %v", key)

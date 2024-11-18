@@ -91,7 +91,7 @@ var _ = Describe("PVC source", func() {
 		k8sClient                   *k8sfake.Clientset
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
-		mockVMExportQueue           *testutils.MockWorkQueue
+		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
 		certDir                     string

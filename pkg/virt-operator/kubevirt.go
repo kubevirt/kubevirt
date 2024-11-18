@@ -61,8 +61,8 @@ type strategyCacheEntry struct {
 
 type KubeVirtController struct {
 	clientset            kubecli.KubevirtClient
-	queue                workqueue.RateLimitingInterface
-	delayedQueueAdder    func(key interface{}, queue workqueue.RateLimitingInterface)
+	queue                workqueue.TypedRateLimitingInterface[string]
+	delayedQueueAdder    func(key string, queue workqueue.TypedRateLimitingInterface[string])
 	recorder             record.EventRecorder
 	config               util.OperatorConfig
 	stores               util.Stores
@@ -82,9 +82,9 @@ func NewKubeVirtController(
 	operatorNamespace string,
 ) (*KubeVirtController, error) {
 
-	rl := workqueue.NewMaxOfRateLimiter(
-		workqueue.NewItemExponentialFailureRateLimiter(5*time.Second, 1000*time.Second),
-		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Every(5*time.Second), 1)},
+	rl := workqueue.NewTypedMaxOfRateLimiter[string](
+		workqueue.NewTypedItemExponentialFailureRateLimiter[string](5*time.Second, 1000*time.Second),
+		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Every(5*time.Second), 1)},
 	)
 	stores := util.Stores{
 		KubeVirtCache:                         informers.KubeVirt.GetStore(),
@@ -120,10 +120,13 @@ func NewKubeVirtController(
 	c := KubeVirtController{
 		clientset:        clientset,
 		aggregatorClient: aggregatorClient,
-		queue:            workqueue.NewNamedRateLimitingQueue(rl, VirtOperator),
-		recorder:         recorder,
-		config:           config,
-		stores:           stores,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			rl,
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: VirtOperator},
+		),
+		recorder: recorder,
+		config:   config,
+		stores:   stores,
 		kubeVirtExpectations: util.Expectations{
 			ServiceAccount:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
 			ClusterRole:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
@@ -151,7 +154,7 @@ func NewKubeVirtController(
 		},
 
 		operatorNamespace: operatorNamespace,
-		delayedQueueAdder: func(key interface{}, queue workqueue.RateLimitingInterface) {
+		delayedQueueAdder: func(key string, queue workqueue.TypedRateLimitingInterface[string]) {
 			queue.AddAfter(key, defaultAddDelay)
 		},
 	}
@@ -765,7 +768,7 @@ func (c *KubeVirtController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Errorf("reenqueuing KubeVirt %v", key)

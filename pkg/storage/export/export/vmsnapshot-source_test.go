@@ -92,7 +92,7 @@ var _ = Describe("VMSnapshot source", func() {
 		k8sClient                   *k8sfake.Clientset
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
-		mockVMExportQueue           *testutils.MockWorkQueue
+		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
 		certDir                     string

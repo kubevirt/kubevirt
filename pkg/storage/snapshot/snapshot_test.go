@@ -284,10 +284,10 @@ var _ = Describe("Snapshot controlleer", func() {
 		var stop chan struct{}
 		var controller *VMSnapshotController
 		var recorder *record.FakeRecorder
-		var mockVMSnapshotQueue *testutils.MockWorkQueue
-		var mockVMSnapshotContentQueue *testutils.MockWorkQueue
-		var mockCRDQueue *testutils.MockWorkQueue
-		var mockVMQueue *testutils.MockWorkQueue
+		var mockVMSnapshotQueue *testutils.MockWorkQueue[string]
+		var mockVMSnapshotContentQueue *testutils.MockWorkQueue[string]
+		var mockCRDQueue *testutils.MockWorkQueue[string]
+		var mockVMQueue *testutils.MockWorkQueue[string]
 
 		var vmSnapshotClient *kubevirtfake.Clientset
 		var k8sSnapshotClient *k8ssnapshotfake.Clientset

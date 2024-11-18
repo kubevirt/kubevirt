@@ -42,10 +42,10 @@ var _ = Describe("Node controller with", func() {
 	var stop chan struct{}
 	var controller *Controller
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
+	var mockQueue *testutils.MockWorkQueue[string]
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
-	var vmiFeeder *testutils.VirtualMachineFeeder
+	var vmiFeeder *testutils.VirtualMachineFeeder[string]
 
 	syncCaches := func(stop chan struct{}) {
 		go nodeInformer.Run(stop)

@@ -68,7 +68,7 @@ type NodeLabeller struct {
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
 	hostCapabilities        supportedFeatures
-	queue                   workqueue.RateLimitingInterface
+	queue                   workqueue.TypedRateLimitingInterface[string]
 	supportedFeatures       []string
 	cpuModelVendor          string
 	volumePath              string
@@ -85,12 +85,15 @@ func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 }
 func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
 	n := &NodeLabeller{
-		recorder:                recorder,
-		nodeClient:              nodeClient,
-		host:                    host,
-		logger:                  log.DefaultLogger(),
-		clusterConfig:           clusterConfig,
-		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-node-labeller"),
+		recorder:      recorder,
+		nodeClient:    nodeClient,
+		host:          host,
+		logger:        log.DefaultLogger(),
+		clusterConfig: clusterConfig,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-node-labeller"},
+		),
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		cpuCounter:              cpuCounter,

@@ -131,7 +131,7 @@ var _ = Describe("Export controller", func() {
 		virtClient                  *kubecli.MockKubevirtClient
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
-		mockVMExportQueue           *testutils.MockWorkQueue
+		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
 		certDir                     string

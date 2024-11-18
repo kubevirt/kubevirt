@@ -43,10 +43,10 @@ var _ = Describe("Evacuation", func() {
 	var podInformer cache.SharedIndexInformer
 	var podSource *framework.FakeControllerSource
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
+	var mockQueue *testutils.MockWorkQueue[string]
 	var kubeClient *fake.Clientset
-	var migrationFeeder *testutils.MigrationFeeder
-	var vmiFeeder *testutils.VirtualMachineFeeder
+	var migrationFeeder *testutils.MigrationFeeder[string]
+	var vmiFeeder *testutils.VirtualMachineFeeder[string]
 
 	var controller *evacuation.EvacuationController
 

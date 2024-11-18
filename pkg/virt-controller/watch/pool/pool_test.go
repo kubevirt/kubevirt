@@ -90,7 +90,7 @@ var _ = Describe("Pool", func() {
 
 		var controller *Controller
 		var recorder *record.FakeRecorder
-		var mockQueue *testutils.MockWorkQueue
+		var mockQueue *testutils.MockWorkQueue[string]
 		var fakeVirtClient *kubevirtfake.Clientset
 		var k8sClient *k8sfake.Clientset
 

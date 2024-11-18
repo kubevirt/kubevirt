@@ -211,7 +211,7 @@ type VMExportController struct {
 
 	KubevirtNamespace string
 
-	vmExportQueue workqueue.RateLimitingInterface
+	vmExportQueue workqueue.TypedRateLimitingInterface[string]
 
 	caCertManager *bootstrap.FileCertificateManager
 
@@ -262,7 +262,10 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
-	ctrl.vmExportQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-export-vmexport")
+	ctrl.vmExportQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-export-vmexport"},
+	)
 
 	_, err = ctrl.VMExportInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{

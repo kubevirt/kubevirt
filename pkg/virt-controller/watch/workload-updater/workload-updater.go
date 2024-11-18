@@ -61,7 +61,7 @@ const defaultBatchDeletionCount = 10
 
 type WorkloadUpdateController struct {
 	clientset             kubecli.KubevirtClient
-	queue                 workqueue.RateLimitingInterface
+	queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiStore              cache.Store
 	podIndexer            cache.Indexer
 	migrationStore        cache.Store
@@ -96,13 +96,16 @@ func NewWorkloadUpdateController(
 	clusterConfig *virtconfig.ClusterConfig,
 ) (*WorkloadUpdateController, error) {
 
-	rl := workqueue.NewMaxOfRateLimiter(
-		workqueue.NewItemExponentialFailureRateLimiter(defaultThrottleInterval, 300*time.Second),
-		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Every(defaultThrottleInterval), 1)},
+	rl := workqueue.NewTypedMaxOfRateLimiter[string](
+		workqueue.NewTypedItemExponentialFailureRateLimiter[string](defaultThrottleInterval, 300*time.Second),
+		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Every(defaultThrottleInterval), 1)},
 	)
 
 	c := &WorkloadUpdateController{
-		queue:                 workqueue.NewNamedRateLimitingQueue(rl, "virt-controller-workload-update"),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			rl,
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-workload-update"},
+		),
 		vmiStore:              vmiInformer.GetStore(),
 		podIndexer:            podInformer.GetIndexer(),
 		migrationStore:        migrationInformer.GetStore(),
@@ -282,7 +285,7 @@ func (c *WorkloadUpdateController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing workload updates for KubeVirt %v", key)

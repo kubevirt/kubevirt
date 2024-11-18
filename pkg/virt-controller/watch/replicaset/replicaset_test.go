@@ -48,8 +48,8 @@ var _ = Describe("Replicaset", func() {
 		var stop chan struct{}
 		var controller *Controller
 		var recorder *record.FakeRecorder
-		var mockQueue *testutils.MockWorkQueue
-		var vmiFeeder *testutils.VirtualMachineFeeder
+		var mockQueue *testutils.MockWorkQueue[string]
+		var vmiFeeder *testutils.VirtualMachineFeeder[string]
 
 		syncCaches := func(stop chan struct{}) {
 			go vmiInformer.Run(stop)

@@ -63,7 +63,7 @@ var _ = Describe("Clone", func() {
 	var (
 		controller *VMCloneController
 		recorder   *record.FakeRecorder
-		mockQueue  *testutils.MockWorkQueue
+		mockQueue  *testutils.MockWorkQueue[string]
 
 		client    *kubevirtfake.Clientset
 		k8sClient *k8sfake.Clientset
