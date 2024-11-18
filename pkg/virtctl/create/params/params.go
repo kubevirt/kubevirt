@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -59,29 +61,29 @@ func Supported(obj interface{}) string {
 
 	var params []string
 	objValType := objVal.Type()
-	for i := 0; i < objValType.NumField(); i++ {
+	for i := range objValType.NumField() {
 		structField := objValType.Field(i)
 
-		k := structField.Tag.Get(paramTag)
-		if k == "" {
+		tagVal := structField.Tag.Get(paramTag)
+		if tagVal == "" {
 			continue
 		}
 
-		t := ""
+		fieldType := ""
 		switch {
 		case structField.Type.Kind() == reflect.String:
-			t = structField.Type.String()
+			fieldType = structField.Type.String()
 		case structField.Type == reflect.TypeOf((*uint)(nil)):
-			t = structField.Type.Elem().String()
+			fieldType = structField.Type.Elem().String()
 		case structField.Type == reflect.TypeOf(&resource.Quantity{}):
-			t = structField.Type.Elem().String()
+			fieldType = structField.Type.Elem().String()
 		case structField.Type.Kind() == reflect.Slice && structField.Type.Elem().Kind() == reflect.String:
-			t = structField.Type.String()
+			fieldType = structField.Type.String()
 		default:
 			panic(fmt.Errorf("unsupported struct field \"%s\" with kind \"%s\"", structField.Name, structField.Type.Kind()))
 		}
 
-		params = append(params, fmt.Sprintf("%s:%s", k, t))
+		params = append(params, fmt.Sprintf("%s:%s", tagVal, fieldType))
 	}
 
 	return strings.Join(params, ",")
@@ -90,14 +92,16 @@ func Supported(obj interface{}) string {
 // Map assigns the parameter value into the right struct field, which is represented by obj.
 // For example, if we use Map("param1", "value1", &myFlag) with MyFlag struct above, Param1 field would be
 // assigned with "value1".
+// Note that this function may modify the passed in object, even if an error is returned.
+// The reason for this is that we don't know the type of the passed in object and if there is a copy
+// function for it. It is up to the caller to create a copy of the passed in object if required.
 func Map(flagName, paramsStr string, obj interface{}) error {
 	params, err := split(paramsStr)
 	if err != nil {
 		return FlagErr(flagName, "%w", err)
 	}
 
-	err = apply(params, obj)
-	if err != nil {
+	if err := apply(params, obj); err != nil {
 		return FlagErr(flagName, "%w", err)
 	}
 
@@ -119,8 +123,7 @@ func split(paramsStr string) (map[string]string, error) {
 	}
 
 	paramsMap := map[string]string{}
-	s := strings.Split(paramsStr, ",")
-	for _, param := range s {
+	for _, param := range strings.Split(paramsStr, ",") {
 		sParam := strings.SplitN(param, ":", 2)
 		if len(sParam) != 2 {
 			return nil, fmt.Errorf("params need to have at least one colon: %s", param)
@@ -144,15 +147,15 @@ func apply(paramsMap map[string]string, obj interface{}) error {
 	}
 
 	objValElemType := objValElem.Type()
-	for i := 0; i < objValElemType.NumField(); i++ {
+	for i := range objValElemType.NumField() {
 		structField := objValElemType.Field(i)
 
-		k := structField.Tag.Get(paramTag)
-		if k == "" {
+		tagVal := structField.Tag.Get(paramTag)
+		if tagVal == "" {
 			continue
 		}
 
-		v, ok := paramsMap[k]
+		paramVal, ok := paramsMap[tagVal]
 		if !ok {
 			continue
 		}
@@ -160,27 +163,26 @@ func apply(paramsMap map[string]string, obj interface{}) error {
 		field := objValElem.Field(i)
 		switch {
 		case field.Kind() == reflect.String:
-			field.SetString(v)
+			field.SetString(paramVal)
 		case field.Type() == reflect.TypeOf((*uint)(nil)):
-			u64, err := strconv.ParseUint(v, 10, 32)
+			u64, err := strconv.ParseUint(paramVal, 10, 32)
 			if err != nil {
-				return fmt.Errorf("failed to parse param \"%s\": %w", k, err)
+				return fmt.Errorf("failed to parse param \"%s\": %w", tagVal, err)
 			}
-			u := uint(u64)
-			field.Set(reflect.ValueOf(&u))
+			field.Set(reflect.ValueOf(pointer.P(uint(u64))))
 		case field.Type() == reflect.TypeOf(&resource.Quantity{}):
-			quantity, err := resource.ParseQuantity(v)
+			quantity, err := resource.ParseQuantity(paramVal)
 			if err != nil {
-				return fmt.Errorf("failed to parse param \"%s\": %w", k, err)
+				return fmt.Errorf("failed to parse param \"%s\": %w", tagVal, err)
 			}
 			field.Set(reflect.ValueOf(&quantity))
 		case field.Kind() == reflect.Slice && field.Type().Elem().Kind() == reflect.String:
-			field.Set(reflect.ValueOf(strings.Split(v, ";")))
+			field.Set(reflect.ValueOf(strings.Split(paramVal, ";")))
 		default:
 			return fmt.Errorf("unsupported struct field \"%s\" with kind \"%s\"", structField.Name, field.Kind())
 		}
 
-		delete(paramsMap, k)
+		delete(paramsMap, tagVal)
 	}
 
 	return nil
@@ -215,10 +217,10 @@ func GetParamByName(paramName, paramsStr string) (string, error) {
 		return "", err
 	}
 
-	paramValue, exists := paramsMap[paramName]
+	paramVal, exists := paramsMap[paramName]
 	if !exists {
 		return "", &NotFoundError{Name: paramName}
 	}
 
-	return paramValue, nil
+	return paramVal, nil
 }

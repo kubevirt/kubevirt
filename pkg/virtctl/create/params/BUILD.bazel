@@ -5,7 +5,10 @@ go_library(
     srcs = ["params.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/create/params",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library"],
+    deps = [
+        "//pkg/pointer:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+    ],
 )
 
 go_test(
