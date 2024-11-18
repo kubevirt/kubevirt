@@ -13,7 +13,7 @@ jobs:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
       REGISTRY_NAMESPACE: kubevirt
-      OPM_VERSION: v1.35.0
+      OPM_VERSION: v1.47.0
     steps:
       - name: resolve the correct branch of the tag
         run: |
