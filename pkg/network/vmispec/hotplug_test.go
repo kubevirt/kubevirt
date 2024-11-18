@@ -123,29 +123,6 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 				[]v1.Network{{Name: testNetworkName1}, {Name: testNetworkName2}, {Name: testNetworkName3}},
 				expectToChange,
 			),
-			Entry("when vmi interfaces have an extra SRIOV interface which requires hotplug, change is not required since SRIOV hotplug to a pod is not supported",
-				libvmi.New(
-					libvmi.WithInterface(v1.Interface{Name: testNetworkName1}),
-					libvmi.WithInterface(v1.Interface{Name: testNetworkName2, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
-					libvmi.WithInterface(v1.Interface{Name: testNetworkName3, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
-					libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-					libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
-					libvmi.WithNetwork(&v1.Network{Name: testNetworkName3}),
-					withInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: testNetworkName1}),
-					withInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: testNetworkName2}),
-				),
-				&k8sv1.Pod{
-					ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-						networkv1.NetworkStatusAnnot: `[
-						{"interface":"net1", "name":"red-net", "namespace": "default"},
-						{"interface":"net2", "name":"blue-net", "namespace": "default"}
-					]`,
-					}},
-				},
-				nil,
-				nil,
-				expectNoChange,
-			),
 			Entry("when a vmi interface has state set to `absent`, requiring hotunplug",
 				libvmi.New(
 					libvmi.WithInterface(v1.Interface{Name: testNetworkName1}),

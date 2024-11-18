@@ -683,6 +683,28 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(multusNetworksAnnotationWithTwoNets))
 		})
 
+		It("Should not generate network attachment annotation when an SR-IOV iface is hot plugged", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(network1Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default"}),
+				)),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+			}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
+		})
+
 		It("Should generate network attachment annotation when a secondary interface is hot unplugged", func() {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
