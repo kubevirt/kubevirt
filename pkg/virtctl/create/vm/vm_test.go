@@ -1389,7 +1389,7 @@ chpasswd: { expire: False }`
 			paramsInvalidError     = "params need to have at least one colon: test=test"
 			paramsUnknownError     = "unknown param(s): test:test"
 			emptyNameError         = "name cannot be empty"
-			invalidSlashCountError = "invalid count 3 of slashes in prefix/name"
+			invalidSlashCountError = "invalid count 2 of slashes in prefix/name"
 
 			boolInvalidError          = "strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"
 			bootOrderInvalidError     = "failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"
@@ -1398,7 +1398,7 @@ chpasswd: { expire: False }`
 			sizeInvalidError          = "failed to parse param \"size\": unable to parse quantity's suffix"
 			sizeMissingError          = "size must be specified"
 			srcEmptyNameError         = "src invalid: name cannot be empty"
-			srcInvalidSlashCountError = "src invalid: invalid count 3 of slashes in prefix/name"
+			srcInvalidSlashCountError = "src invalid: invalid count 2 of slashes in prefix/name"
 			srcMissingError           = "src must be specified"
 
 			inferenceNoVolumeError = "at least one volume is needed to infer an instance type or preference"

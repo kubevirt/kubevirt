@@ -195,7 +195,7 @@ func SplitPrefixedName(prefixedName string) (prefix string, name string, err err
 		prefix = s[0]
 		name = s[1]
 	default:
-		return "", "", fmt.Errorf("invalid count %d of slashes in prefix/name", l)
+		return "", "", fmt.Errorf("invalid count %d of slashes in prefix/name", l-1)
 	}
 
 	if name == "" {

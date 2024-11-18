@@ -222,7 +222,8 @@ var _ = Describe("params", func() {
 			Expect(prefix).To(BeEmpty())
 			Expect(name).To(BeEmpty())
 		},
-			Entry("more than one slash", "testns/testname/test", "invalid count 3 of slashes in prefix/name"),
+			Entry("two slashes", "testns/testname/test", "invalid count 2 of slashes in prefix/name"),
+			Entry("three slashes", "testns/testname/test/test2", "invalid count 3 of slashes in prefix/name"),
 			Entry("empty string", "", "name cannot be empty"),
 			Entry("empty name after slash", "testns/", "name cannot be empty"),
 		)
