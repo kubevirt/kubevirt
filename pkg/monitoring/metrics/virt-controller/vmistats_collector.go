@@ -75,6 +75,8 @@ var (
 			"guest_os_kernel_release", "guest_os_machine", "guest_os_arch", "guest_os_name", "guest_os_version_id",
 			// State info
 			"evictable", "outdated",
+			// Pod info
+			"vmi_pod",
 		},
 	)
 
@@ -131,6 +133,7 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 	preference := getVMIPreference(vmi)
 	kernelRelease, guestOSMachineArch, name, versionID := getGuestOSInfo(vmi)
 	guestOSMachineType := getVMIMachine(vmi)
+	vmiPod := getVMIPod(vmi)
 
 	return operatormetrics.CollectorResult{
 		Metric: vmiInfo,
@@ -140,6 +143,7 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 			kernelRelease, guestOSMachineType, guestOSMachineArch, name, versionID,
 			strconv.FormatBool(isVMEvictable(vmi)),
 			strconv.FormatBool(isVMIOutdated(vmi)),
+			vmiPod,
 		},
 		Value: 1.0,
 	}
@@ -200,6 +204,28 @@ func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string
 	}
 
 	return
+}
+
+func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {
+	objs, err := kvPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	if err != nil {
+		return none
+	}
+
+	for _, obj := range objs {
+		pod, ok := obj.(*k8sv1.Pod)
+		if !ok {
+			continue
+		}
+
+		if pod.Labels["kubevirt.io/created-by"] == string(vmi.UID) && pod.Status.Phase == k8sv1.PodRunning {
+			if vmi.Status.NodeName == pod.Spec.NodeName {
+				return pod.Name
+			}
+		}
+	}
+
+	return none
 }
 
 func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {

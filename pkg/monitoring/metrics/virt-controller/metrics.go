@@ -49,6 +49,7 @@ var (
 	clusterPreferenceInformer     cache.SharedIndexInformer
 	preferenceInformer            cache.SharedIndexInformer
 	vmiMigrationInformer          cache.SharedIndexInformer
+	kvPodInformer                 cache.SharedIndexInformer
 	clusterConfig                 *virtconfig.ClusterConfig
 )
 
@@ -61,6 +62,7 @@ func SetupMetrics(
 	clusterPreference cache.SharedIndexInformer,
 	preference cache.SharedIndexInformer,
 	vmiMigration cache.SharedIndexInformer,
+	pod cache.SharedIndexInformer,
 	virtClusterConfig *virtconfig.ClusterConfig,
 ) error {
 	vmInformer = vm
@@ -71,6 +73,7 @@ func SetupMetrics(
 	clusterPreferenceInformer = clusterPreference
 	preferenceInformer = preference
 	vmiMigrationInformer = vmiMigration
+	kvPodInformer = pod
 	clusterConfig = virtClusterConfig
 
 	if err := client.SetupMetrics(); err != nil {
