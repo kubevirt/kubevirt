@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -133,16 +134,22 @@ var _ = Describe("params", func() {
 			param1 := rand.String(10)
 			param2 := rand.Intn(10)
 			param3 := fmt.Sprintf("%dGi", rand.Intn(10))
-			paramsStr := fmt.Sprintf("param1:%s,param2:%d,param3:%s", param1, param2, param3)
+			var param4 []string
+			for _ = range rand.IntnRange(1, 10) {
+				param4 = append(param4, rand.String(10))
+			}
+			paramsStr := fmt.Sprintf("param1:%s,param2:%d,param3:%s,param4:%s", param1, param2, param3, strings.Join(param4, ";"))
 			testStruct := &struct {
 				Param1 string             `param:"param1"`
 				Param2 *uint              `param:"param2"`
 				Param3 *resource.Quantity `param:"param3"`
+				Param4 []string           `param:"param4"`
 			}{}
 			Expect(params.Map(flagName, paramsStr, testStruct)).To(Succeed())
 			Expect(testStruct.Param1).To(Equal(param1))
 			Expect(testStruct.Param2).To(PointTo(Equal(uint(param2))))
 			Expect(testStruct.Param3).To(PointTo(Equal(resource.MustParse(param3))))
+			Expect(testStruct.Param4).To(Equal(param4))
 		})
 
 		It("should ignore fields without param tag", func() {

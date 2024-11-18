@@ -174,6 +174,8 @@ func apply(paramsMap map[string]string, obj interface{}) error {
 				return fmt.Errorf("failed to parse param \"%s\": %w", k, err)
 			}
 			field.Set(reflect.ValueOf(&quantity))
+		case field.Kind() == reflect.Slice && field.Type().Elem().Kind() == reflect.String:
+			field.Set(reflect.ValueOf(strings.Split(v, ";")))
 		default:
 			return fmt.Errorf("unsupported struct field \"%s\" with kind \"%s\"", structField.Name, field.Kind())
 		}
