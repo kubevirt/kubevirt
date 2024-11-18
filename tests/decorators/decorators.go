@@ -30,6 +30,7 @@ var (
 
 	// Features
 	CPUModel                             = Label("cpumodel")
+	SoftwareEmulation                    = Label("software-emulation")
 	Sysprep                              = Label("Sysprep")
 	Windows                              = Label("Windows")
 	Networking                           = Label("Networking")

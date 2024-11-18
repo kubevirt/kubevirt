@@ -467,10 +467,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
-				if testsuite.ShouldAllowEmulation(virtClient) {
-					Skip("Software emulation should not be enabled for this test to run")
-				}
-
 				_true := true
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
