@@ -117,8 +117,8 @@ func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8
 }
 
 func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) (string, bool) {
-	vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi)
-	if !dynamicIfacesExist {
+	vmiSpecIfaces, vmiSpecNets, ifaceChangeRequired := ifacesAndNetsForMultusAnnotationUpdate(vmi)
+	if !ifaceChangeRequired {
 		return "", false
 	}
 
@@ -171,7 +171,7 @@ func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
 	return len(interfacesWithMasqueradeBinding) > 0
 }
 
-func calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
+func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
 	vmiNonAbsentSpecIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State != v1.InterfaceStateAbsent
 	})
@@ -192,9 +192,9 @@ func calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi *v1.VirtualMach
 	})
 	ifacesToHotplugExist := len(ifacesToHotplug) > 0
 
-	isIfaceChangeRequired := ifacesToHotplugExist || ifacesToHotUnplugExist
-	if !isIfaceChangeRequired {
+	ifaceChangeRequired := ifacesToHotplugExist || ifacesToHotUnplugExist
+	if !ifaceChangeRequired {
 		return nil, nil, false
 	}
-	return ifacesToAnnotate, networksToAnnotate, isIfaceChangeRequired
+	return ifacesToAnnotate, networksToAnnotate, ifaceChangeRequired
 }
