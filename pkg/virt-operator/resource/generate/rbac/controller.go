@@ -316,6 +316,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachinesnapshots",
 					"virtualmachinesnapshots/status",
+					"virtualmachinesnapshots/finalizers",
 					"virtualmachinesnapshotcontents",
 					"virtualmachinesnapshotcontents/status",
 					"virtualmachinesnapshotcontents/finalizers",
@@ -378,6 +379,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachines/finalizers",
+					"virtualmachineinstances/finalizers",
 				},
 				Verbs: []string{
 					"update",
