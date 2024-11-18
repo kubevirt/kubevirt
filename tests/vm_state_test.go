@@ -194,7 +194,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 			Entry("TPM across migration and restart", decorators.SigCompute, decorators.NoFlakeCheck, tpm, !efi, rwo, "migrate", "restart"),
 			Entry("TPM across restart and migration", decorators.SigCompute, decorators.NoFlakeCheck, tpm, !efi, rwo, "restart", "migrate"),
 			Entry("EFI across migration and restart", decorators.SigCompute, decorators.NoFlakeCheck, !tpm, efi, rwo, "migrate", "restart"),
-			Entry("TPM+EFI across migration and restart", decorators.SigCompute, decorators.NoFlakeCheck, tpm, efi, rwo, "migrate", "restart"),
+			Entry("TPM+EFI across migration and restart", decorators.SigCompute, decorators.NoFlakeCheck, decorators.Conformance, tpm, efi, rwo, "migrate", "restart"),
 		)
 		It("should remove persistent storage PVC if VMI is not owned by a VM", decorators.SigCompute, func() {
 			By("Creating a VMI with persistent TPM enabled")
