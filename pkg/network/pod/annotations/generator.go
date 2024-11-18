@@ -117,7 +117,7 @@ func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8
 }
 
 func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) (string, bool) {
-	vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := vmispec.CalculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi)
+	vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi)
 	if !dynamicIfacesExist {
 		return "", false
 	}
@@ -169,4 +169,32 @@ func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
 	})
 
 	return len(interfacesWithMasqueradeBinding) > 0
+}
+
+func calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
+	vmiNonAbsentSpecIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiNonAbsentSpecIfaces)
+
+	ifacesStatusByName := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces, nil)
+	ifacesToAnnotate := vmispec.FilterInterfacesSpec(vmiNonAbsentSpecIfaces, func(iface v1.Interface) bool {
+		_, ifaceInStatus := ifacesStatusByName[iface.Name]
+		sriovIfaceNotPlugged := iface.SRIOV != nil && !ifaceInStatus
+		return !sriovIfaceNotPlugged
+	})
+
+	networksToAnnotate := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToAnnotate)
+
+	ifacesToHotplug := vmispec.FilterInterfacesSpec(ifacesToAnnotate, func(iface v1.Interface) bool {
+		_, inStatus := ifacesStatusByName[iface.Name]
+		return !inStatus
+	})
+	ifacesToHotplugExist := len(ifacesToHotplug) > 0
+
+	isIfaceChangeRequired := ifacesToHotplugExist || ifacesToHotUnplugExist
+	if !isIfaceChangeRequired {
+		return nil, nil, false
+	}
+	return ifacesToAnnotate, networksToAnnotate, isIfaceChangeRequired
 }
