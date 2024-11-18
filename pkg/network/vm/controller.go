@@ -9,7 +9,8 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  * See the License for the specific language governing permissions and
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  *
  * Copyright 2024 Red Hat, Inc.
@@ -30,7 +31,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	kubevirt "kubevirt.io/client-go/kubevirt"
+	"kubevirt.io/client-go/kubevirt"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -76,7 +77,7 @@ func NewController(clientset kubevirt.Interface, podGetter podFromVMIGetter) *Co
 	}
 }
 
-func (v *Controller) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
+func (c *Controller) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return vm, nil
 	}
@@ -99,7 +100,7 @@ func (v *Controller) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance)
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 
-	hasOrdinalIfaces, err := v.hasOrdinalNetworkInterfaces(vmi)
+	hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi)
 	if err != nil {
 		return vm, &syncError{
 			fmt.Errorf("error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err),
@@ -109,7 +110,7 @@ func (v *Controller) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance)
 	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
 	vmiCopy.Spec = *updatedVmiSpec
 
-	if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
+	if err := c.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
 		return vm, &syncError{
 			fmt.Errorf("error encountered when trying to patch vmi: %v", err),
 			hotPlugNetworkInterfaceErrorReason,
@@ -119,8 +120,8 @@ func (v *Controller) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance)
 	return vmCopy, nil
 }
 
-func (v *Controller) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInstance) (bool, error) {
-	pod, err := v.podGetter.CurrentPod(vmi)
+func (c *Controller) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInstance) (bool, error) {
+	pod, err := c.podGetter.CurrentPod(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to fetch pod from cache.")
 		return false, err
@@ -147,12 +148,18 @@ func (c *Controller) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpe
 	if err != nil {
 		return err
 	}
-	_, err = c.clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = c.clientset.KubevirtV1().
+		VirtualMachineInstances(vmi.Namespace).
+		Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 
 	return err
 }
 
-func clearDetachedInterfaces(specIfaces []v1.Interface, specNets []v1.Network, statusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface) ([]v1.Interface, []v1.Network) {
+func clearDetachedInterfaces(
+	specIfaces []v1.Interface,
+	specNets []v1.Network,
+	statusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
+) ([]v1.Interface, []v1.Network) {
 	var ifaces []v1.Interface
 	for _, iface := range specIfaces {
 		if _, existInStatus := statusIfaces[iface.Name]; (existInStatus && iface.State == v1.InterfaceStateAbsent) ||
@@ -164,13 +171,19 @@ func clearDetachedInterfaces(specIfaces []v1.Interface, specNets []v1.Network, s
 	return ifaces, vmispec.FilterNetworksByInterfaces(specNets, ifaces)
 }
 
-func applyDynamicIfaceRequestOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, hasOrdinalIfaces bool) *v1.VirtualMachineInstanceSpec {
+func applyDynamicIfaceRequestOnVMI(
+	vm *v1.VirtualMachine,
+	vmi *v1.VirtualMachineInstance,
+	hasOrdinalIfaces bool,
+) *v1.VirtualMachineInstanceSpec {
 	vmiSpecCopy := vmi.Spec.DeepCopy()
 	vmiIndexedInterfaces := vmispec.IndexInterfaceSpecByName(vmiSpecCopy.Domain.Devices.Interfaces)
 	vmIndexedNetworks := vmispec.IndexNetworkSpecByName(vm.Spec.Template.Spec.Networks)
 	for _, vmIface := range vm.Spec.Template.Spec.Domain.Devices.Interfaces {
 		_, existsInVMISpec := vmiIndexedInterfaces[vmIface.Name]
-		shouldBeHotPlug := !existsInVMISpec && vmIface.State != v1.InterfaceStateAbsent && (vmIface.InterfaceBindingMethod.Bridge != nil || vmIface.InterfaceBindingMethod.SRIOV != nil)
+		shouldBeHotPlug := !existsInVMISpec &&
+			vmIface.State != v1.InterfaceStateAbsent &&
+			(vmIface.InterfaceBindingMethod.Bridge != nil || vmIface.InterfaceBindingMethod.SRIOV != nil)
 		shouldBeHotUnplug := !hasOrdinalIfaces && existsInVMISpec && vmIface.State == v1.InterfaceStateAbsent
 		if shouldBeHotPlug {
 			vmiSpecCopy.Networks = append(vmiSpecCopy.Networks, vmIndexedNetworks[vmIface.Name])
