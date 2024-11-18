@@ -81,7 +81,7 @@ var _ = Describe("params", func() {
 	Context("Supported", func() {
 		It("should panic on unsupported object", func() {
 			testFn := func() { params.Supported("something") }
-			Expect(testFn).To(PanicWith("passed in interface needs to be a struct"))
+			Expect(testFn).To(PanicWith(MatchError("passed in interface needs to be a struct")))
 		})
 
 		It("should detect fields with supported types and param tag", func() {
@@ -121,9 +121,9 @@ var _ = Describe("params", func() {
 			Entry("param without colon", "nocolon", "params need to have at least one colon: nocolon"),
 		)
 
-		DescribeTable("should panic on invalid objects", func(obj interface{}, panicMsg string) {
-			testFn := func() { _ = params.Map(flagName, "param:value", obj) }
-			Expect(testFn).To(PanicWith(panicMsg))
+		DescribeTable("should fail on invalid objects", func(obj interface{}, errMsg string) {
+			err := params.Map(flagName, "param:value", obj)
+			Expect(err).To(MatchError(parseFlagErr + errMsg))
 		},
 			Entry("not a pointer", "something", "passed in interface needs to be a pointer"),
 			Entry("not a struct", pointer.P("something"), "passed in pointer needs to point to a struct"),
@@ -171,13 +171,13 @@ var _ = Describe("params", func() {
 			Entry("quantity suffix invalid", "uint:8,quantity:1Gu", "failed to parse param \"quantity\": unable to parse quantity's suffix"),
 		)
 
-		It("should panic on unsupported fields with param tag", func() {
+		It("should fail on unsupported fields with param tag", func() {
 			const paramsStr = "param:true"
 			testStruct := &struct {
 				Param bool `param:"param"`
 			}{}
-			testFn := func() { _ = params.Map(flagName, paramsStr, testStruct) }
-			Expect(testFn).To(PanicWith(MatchError("unsupported struct field \"Param\" with kind \"bool\"")))
+			err := params.Map(flagName, paramsStr, testStruct)
+			Expect(err).To(MatchError(parseFlagErr + "unsupported struct field \"Param\" with kind \"bool\""))
 		})
 
 		It("should fail on single unknown param", func() {

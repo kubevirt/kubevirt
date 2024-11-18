@@ -54,7 +54,7 @@ The functions below use reflection to automatically handle such flags.
 func Supported(obj interface{}) string {
 	objVal := reflect.ValueOf(obj)
 	if objVal.Kind() != reflect.Struct {
-		panic("passed in interface needs to be a struct")
+		panic(errors.New("passed in interface needs to be a struct"))
 	}
 
 	var params []string
@@ -135,12 +135,12 @@ func split(paramsStr string) (map[string]string, error) {
 func apply(paramsMap map[string]string, obj interface{}) error {
 	objVal := reflect.ValueOf(obj)
 	if objVal.Kind() != reflect.Ptr {
-		panic("passed in interface needs to be a pointer")
+		return errors.New("passed in interface needs to be a pointer")
 	}
 
 	objValElem := objVal.Elem()
 	if objValElem.Kind() != reflect.Struct {
-		panic("passed in pointer needs to point to a struct")
+		return errors.New("passed in pointer needs to point to a struct")
 	}
 
 	objValElemType := objValElem.Type()
@@ -175,7 +175,7 @@ func apply(paramsMap map[string]string, obj interface{}) error {
 			}
 			field.Set(reflect.ValueOf(&quantity))
 		default:
-			panic(fmt.Errorf("unsupported struct field \"%s\" with kind \"%s\"", structField.Name, field.Kind()))
+			return fmt.Errorf("unsupported struct field \"%s\" with kind \"%s\"", structField.Name, field.Kind())
 		}
 
 		delete(paramsMap, k)
