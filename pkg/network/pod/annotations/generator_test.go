@@ -467,6 +467,215 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(actualNetInfo.Interfaces).To(ConsistOf(expectedNetInfo))
 		})
 	})
+
+	Context("NIC Hotplug / Hotunplug", func() {
+		const (
+			network1Name                     = "red"
+			networkAttachmentDefinitionName1 = "some-net"
+
+			network2Name                     = "blue"
+			networkAttachmentDefinitionName2 = "other-net"
+
+			multusNetworksAnnotation = `[{"name":"some-net","namespace":"default","interface":"podb1f51a511f1"}]`
+
+			multusOrdinalNetworksAnnotation = `[{"name":"some-net","namespace":"default","interface":"net1"}]`
+
+			multusNetworksAnnotationWithTwoNets = `[` +
+				`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1"},` +
+				`{"name":"other-net","namespace":"default","interface":"pod16477688c0e"}` +
+				`]`
+
+			multusOrdinalNetworksAnnotationWithTwoNets = `[` +
+				`{"name":"some-net","namespace":"default","interface":"net1"},` +
+				`{"name":"other-net","namespace":"default","interface":"net2"}` +
+				`]`
+
+			multusNetworkStatusWithPrimaryNet = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				`]`
+
+			multusNetworkStatusWithPrimaryAndSecondaryNets = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				`{"name":"some-net","interface":"podb1f51a511f1","mac":"8a:37:d9:e7:0f:18","dns":{}}` +
+				`]`
+
+			multusOrdinalNetworkStatusWithPrimaryAndSecondaryNets = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				`{"name":"some-net","interface":"net1","mac":"8a:37:d9:e7:0f:18","dns":{}}` +
+				`]`
+
+			multusNetworkStatusWithPrimaryAndTwoSecondaryNets = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				`{"name":"some-net","interface":"podb1f51a511f1","mac":"8a:37:d9:e7:0f:18","dns":{}}` +
+				`{"name":"other-net","interface":"pod16477688c0e","mac":"25:bb:e2:a3:e8:4d","dns":{}}` +
+				`]`
+		)
+
+		var clusterConfig *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+			kv.Namespace = kubevirtNamespace
+
+			clusterConfig = newClusterConfig(kv)
+		})
+
+		DescribeTable("Should not generate network attachment annotation", func(podAnnotations map[string]string) {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			pod := newStubVirtLauncherPod(vmi, map[string]string{})
+			generator := annotations.NewGenerator(clusterConfig)
+
+			annotations := generator.GenerateFromActivePod(vmi, pod)
+			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
+		},
+			Entry("when network-status annotation is missing", map[string]string{}),
+			Entry("when network-status annotation has just the primary network",
+				map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet},
+			),
+		)
+
+		DescribeTable("Should not generate network attachment annotation when all spec interfaces are present",
+			func(podAnnotations map[string]string) {
+				vmi := libvmi.New(
+					libvmi.WithNamespace(testNamespace),
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network1Name)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				)
+
+				pod := newStubVirtLauncherPod(vmi, podAnnotations)
+				generator := annotations.NewGenerator(clusterConfig)
+
+				annotations := generator.GenerateFromActivePod(vmi, pod)
+				Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
+			},
+			Entry("with hashed naming scheme",
+				map[string]string{
+					networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+					networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+				},
+			),
+			Entry("with ordinal naming scheme",
+				map[string]string{
+					networkv1.NetworkAttachmentAnnot: multusOrdinalNetworksAnnotation,
+					networkv1.NetworkStatusAnnot:     multusOrdinalNetworkStatusWithPrimaryAndSecondaryNets,
+				},
+			),
+		)
+
+		It("Should generate network attachment annotation when VMI is not connected to secondary networks and an interface is hot plugged",
+			func() {
+				vmi := libvmi.New(
+					libvmi.WithNamespace(testNamespace),
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network1Name)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				)
+
+				podAnnotations := map[string]string{
+					networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+				}
+				generator := annotations.NewGenerator(clusterConfig)
+				annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+				Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(multusNetworksAnnotation))
+			})
+
+		DescribeTable(
+			"Should generate network attachment annotation when VMI is connected to a secondary network and an interface is hot plugged",
+			func(podAnnotations map[string]string, expectedMultusAnnotation string) {
+				vmi := libvmi.New(
+					libvmi.WithNamespace(testNamespace),
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network1Name)),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network2Name)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+				)
+
+				generator := annotations.NewGenerator(clusterConfig)
+				annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+				Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusAnnotation))
+			},
+			Entry("with hashed naming scheme",
+				map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSecondaryNets},
+				multusNetworksAnnotationWithTwoNets,
+			),
+			Entry("with ordinal naming scheme",
+				map[string]string{networkv1.NetworkStatusAnnot: multusOrdinalNetworkStatusWithPrimaryAndSecondaryNets},
+				multusOrdinalNetworksAnnotationWithTwoNets,
+			),
+		)
+
+		It("Should generate network attachment annotation when multiple secondary interfaces are hot plugged", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network1Name)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network2Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+			}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(multusNetworksAnnotationWithTwoNets))
+		})
+
+		It("Should generate network attachment annotation when a secondary interface is hot unplugged", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network2Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotationWithTwoNets,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndTwoSecondaryNets,
+			}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			const expectedMultusNetAttach = `[{"name":"other-net","namespace":"default","interface":"pod16477688c0e"}]`
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetAttach))
+		})
+
+		It("Should remove the Multus network attachment annotation when the last secondary interface is hot unplugged", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+			}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations).To(HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, ""))
+		})
+	})
 })
 
 func newClusterConfig(kv *v1.KubeVirt) *virtconfig.ClusterConfig {
