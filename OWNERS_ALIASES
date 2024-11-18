@@ -5,7 +5,6 @@ aliases:
     - rmohr
     - stu-gott
     - fabiand
-    - AlonaKaplan
     - jean-edouard
     - mhenriks
     - enp0s3
@@ -25,6 +24,7 @@ aliases:
     - ashleyschuett
     - zcahana
     - dhiller # 2024-03-15
+    - AlonaKaplan
   code-reviewers:
     - stu-gott
     - vladikr
@@ -54,8 +54,9 @@ aliases:
     - xpivarc
     - acardace
     - dhiller
-    - AlonaKaplan
     - 0xFelix
+  sig-test-emeritus_approvers:
+    - AlonaKaplan
 
   #
   # SIG Network
@@ -66,8 +67,9 @@ aliases:
     - RamLavi
     - ormergi
   sig-network-approvers:
-    - AlonaKaplan
     - EdDev
+  sig-network-emeritus_approvers:
+    - AlonaKaplan
 
   #
   # SIG Scale
