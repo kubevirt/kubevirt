@@ -485,28 +485,24 @@ func RunAndImmediatelyCancelMigration(migration *v1.VirtualMachineInstanceMigrat
 }
 
 func RunMigrationAndExpectFailure(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
-	var err error
+
 	virtClient := kubevirt.Client()
 	By("Starting a Migration")
-	Eventually(func() error {
-		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
-		return err
-	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-	By("Waiting until the Migration Completes")
+	createdMigration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
-	uid := ""
+	By("Waiting until the Migration Completes")
 	Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
-		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+		migration, err := virtClient.VirtualMachineInstanceMigration(createdMigration.Namespace).Get(context.Background(), createdMigration.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		phase := migration.Status.Phase
 		Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
 
-		uid = string(migration.UID)
 		return phase
 
 	}, timeout, 1*time.Second).Should(Equal(v1.MigrationFailed))
-	return uid
+	return string(createdMigration.UID)
 }
 
 func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) {
