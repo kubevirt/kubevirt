@@ -2335,8 +2335,9 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 					// no pod meanst that waiting for it to initialize makes no sense
 					return true, true, nil
 				}
+
 				// pod is still there, if there is no socket let's wait for it to become ready
-				if clientInfo.NotInitializedSince.Before(time.Now().Add(-3 * time.Minute)) {
+				if d.hotplugVolumesReady(vmi) && clientInfo.NotInitializedSince.Before(time.Now().Add(-3*time.Minute)) {
 					return true, true, nil
 				}
 				return false, false, nil
