@@ -38,7 +38,6 @@ var (
 	ExcludeNativeSsh                     = Label("exclude-native-ssh")
 	Reenlightenment                      = Label("Reenlightenment")
 	TscFrequencies                       = Label("TscFrequencies")
-	PasstGate                            = Label("PasstGate")
 	VMX                                  = Label("VMX")
 	Upgrade                              = Label("Upgrade")
 	CustomSELinux                        = Label("CustomSELinux")
