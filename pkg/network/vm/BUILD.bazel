@@ -2,8 +2,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["vmcontroller.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/virt-controller/network",
+    srcs = ["controller.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/network/vm",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
@@ -23,8 +23,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "network_suite_test.go",
-        "vmcontroller_test.go",
+        "controller_test.go",
+        "vm_suite_test.go",
     ],
     deps = [
         ":go_default_library",

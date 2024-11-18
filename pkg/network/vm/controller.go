@@ -16,7 +16,7 @@
  *
  */
 
-package network
+package vm
 
 import (
 	"context"
