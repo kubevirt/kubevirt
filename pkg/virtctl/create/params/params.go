@@ -185,9 +185,11 @@ func apply(paramsMap map[string]string, obj interface{}) error {
 }
 
 // SplitPrefixedName splits prefixedName with "/" as a separator
-func SplitPrefixedName(prefixedName string) (prefix string, name string, err error) {
-	s := strings.Split(prefixedName, "/")
+func SplitPrefixedName(prefixedName string) (string, string, error) {
+	name := ""
+	prefix := ""
 
+	s := strings.Split(prefixedName, "/")
 	switch l := len(s); l {
 	case 1:
 		name = s[0]
@@ -202,7 +204,7 @@ func SplitPrefixedName(prefixedName string) (prefix string, name string, err err
 		return "", "", errors.New("name cannot be empty")
 	}
 
-	return
+	return prefix, name, nil
 }
 
 func GetParamByName(paramName, paramsStr string) (string, error) {
