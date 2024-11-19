@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2024 Red Hat, Inc.
+ * Copyright The KubeVirt Authors
  *
  */
 
@@ -65,6 +65,7 @@ func Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Error reseting VirtualMachineInstance %s: %v", vmi, err)
 	}
 
-	fmt.Printf("VMI %s was scheduled to %s\n", vmi, COMMAND_RESET)
+	cmd.Printf("VMI %s was scheduled to %s\n", vmi, COMMAND_RESET)
+
 	return nil
 }
