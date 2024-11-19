@@ -69,21 +69,29 @@ var (
 	embedDomainTemplatePPC64le string
 	//go:embed testdata/domain_arm64.xml.tmpl
 	embedDomainTemplateARM64 string
+	//go:embed testdata/domain_s390x.xml.tmpl
+	embedDomainTemplateS390X string
 	//go:embed testdata/domain_x86_64_root.xml.tmpl
 	embedDomainTemplateRootBus string
 )
 
-const (
-	argNoMemBalloon      = `<memballoon model="none"></memballoon>`
-	argMemBalloon0period = `<memballoon model="virtio-non-transitional" freePageReporting="on"></memballoon>`
-	argMemBalloon5period = `<memballoon model="virtio-non-transitional" freePageReporting="on">
-      <stats period="5"></stats>
-    </memballoon>`
-	argMemBalloon10period = `<memballoon model="virtio-non-transitional" freePageReporting="on">
-      <stats period="10"></stats>
-    </memballoon>`
-	blockPVCName = "pvc_block_test"
-)
+const blockPVCName = "pvc_block_test"
+
+func memBalloonWithModelAndPeriod(model string, period int) string {
+	const argMemBalloonFmt = `<memballoon model="%s" freePageReporting="on">%s</memballoon>`
+	if model == "none" {
+		return `<memballoon model="none"></memballoon>`
+	}
+
+	if period == 0 {
+		return fmt.Sprintf(argMemBalloonFmt, model, "")
+	}
+
+	return fmt.Sprintf(argMemBalloonFmt, model, fmt.Sprintf(`
+      <stats period="%d"></stats>
+    `, period))
+
+}
 
 var _ = Describe("getOptimalBlockIO", func() {
 
@@ -138,8 +146,8 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("with v1.Disk", func() {
-		DescribeTable("Should define disk capacity as the minimum of capacity and request", func(requests, capacity, expected int64) {
-			context := &ConverterContext{Architecture: NewArchConverter(runtime.GOARCH)}
+		DescribeTable("Should define disk capacity as the minimum of capacity and request", func(arch string, requests, capacity, expected int64) {
+			context := &ConverterContext{Architecture: NewArchConverter(arch)}
 			v1Disk := v1.Disk{
 				Name: "myvolume",
 				DiskDevice: v1.DiskDevice{
@@ -164,8 +172,14 @@ var _ = Describe("Converter", func() {
 			Expect(apiDisk.Capacity).ToNot(BeNil())
 			Expect(*apiDisk.Capacity).To(Equal(expected))
 		},
-			Entry("Higher request than capacity", int64(9999), int64(1111), int64(1111)),
-			Entry("Lower request than capacity", int64(1111), int64(9999), int64(1111)),
+			Entry("Higher request than capacity on amd64", amd64, int64(9999), int64(1111), int64(1111)),
+			Entry("Lower request than capacity on amd64", amd64, int64(1111), int64(9999), int64(1111)),
+			Entry("Higher request than capacity on arm64", arm64, int64(9999), int64(1111), int64(1111)),
+			Entry("Lower request than capacity on arm64", arm64, int64(1111), int64(9999), int64(1111)),
+			Entry("Higher request than capacity on ppc64le", ppc64le, int64(9999), int64(1111), int64(1111)),
+			Entry("Lower request than capacity on ppc64le", ppc64le, int64(1111), int64(9999), int64(1111)),
+			Entry("Higher request than capacity on s390x", s390x, int64(9999), int64(1111), int64(1111)),
+			Entry("Lower request than capacity on s390x", s390x, int64(1111), int64(9999), int64(1111)),
 		)
 
 		DescribeTable("Should assign scsi controller to", func(diskDevice v1.DiskDevice) {
@@ -215,10 +229,10 @@ var _ = Describe("Converter", func() {
 			xml := diskToDiskXML(arch, kubevirtDisk)
 			Expect(xml).To(Equal(convertedDisk))
 		},
-			Entry("on amd64", "amd64", "virtio-non-transitional"),
-			Entry("on arm64", "arm64", "virtio-non-transitional"),
-			Entry("on ppc64le", "ppc64le", "virtio-non-transitional"),
-			Entry("on s390x", "s390x", "virtio"),
+			Entry("on amd64", amd64, "virtio-non-transitional"),
+			Entry("on arm64", arm64, "virtio-non-transitional"),
+			Entry("on ppc64le", ppc64le, "virtio-non-transitional"),
+			Entry("on s390x", s390x, "virtio"),
 		)
 
 		DescribeTable("should set disk I/O mode if requested", func(arch string) {
@@ -234,10 +248,10 @@ var _ = Describe("Converter", func() {
 </Disk>`
 			Expect(xml).To(Equal(expectedXML))
 		},
-			Entry("on amd64", "amd64"),
-			Entry("on arm64", "arm64"),
-			Entry("on ppc64le", "ppc64le"),
-			Entry("on s390x", "s390x"),
+			Entry("on amd64", amd64),
+			Entry("on arm64", arm64),
+			Entry("on ppc64le", ppc64le),
+			Entry("on s390x", s390x),
 		)
 
 		DescribeTable("should not set disk I/O mode if not requested", func(arch string) {
@@ -251,10 +265,10 @@ var _ = Describe("Converter", func() {
 </Disk>`
 			Expect(xml).To(Equal(expectedXML))
 		},
-			Entry("on amd64", "amd64"),
-			Entry("on arm64", "arm64"),
-			Entry("on ppc64le", "ppc64le"),
-			Entry("on s390x", "s390x"),
+			Entry("on amd64", amd64),
+			Entry("on arm64", arm64),
+			Entry("on ppc64le", ppc64le),
+			Entry("on s390x", s390x),
 		)
 
 		DescribeTable("Should omit boot order when not provided", func(arch, expectedModel string) {
@@ -275,10 +289,10 @@ var _ = Describe("Converter", func() {
 			xml := diskToDiskXML(arch, kubevirtDisk)
 			Expect(xml).To(Equal(convertedDisk))
 		},
-			Entry("on amd64", "amd64", "virtio-non-transitional"),
-			Entry("on arm64", "arm64", "virtio-non-transitional"),
-			Entry("on ppc64le", "ppc64le", "virtio-non-transitional"),
-			Entry("on s390x", "s390x", "virtio"),
+			Entry("on amd64", amd64, "virtio-non-transitional"),
+			Entry("on arm64", arm64, "virtio-non-transitional"),
+			Entry("on ppc64le", ppc64le, "virtio-non-transitional"),
+			Entry("on s390x", s390x, "virtio"),
 		)
 
 		It("Should add blockio fields when custom sizes are provided", func() {
@@ -322,10 +336,10 @@ var _ = Describe("Converter", func() {
 			xml := diskToDiskXML(arch, v1Disk)
 			Expect(xml).To(Equal(expectedXML))
 		},
-			Entry("on amd64", "amd64", "virtio-non-transitional"),
-			Entry("on arm64", "arm64", "virtio-non-transitional"),
-			Entry("on ppc64le", "ppc64le", "virtio-non-transitional"),
-			Entry("on s390x", "s390x", "virtio"),
+			Entry("on amd64", amd64, "virtio-non-transitional"),
+			Entry("on arm64", arm64, "virtio-non-transitional"),
+			Entry("on ppc64le", ppc64le, "virtio-non-transitional"),
+			Entry("on s390x", s390x, "virtio"),
 		)
 	})
 
@@ -630,25 +644,32 @@ var _ = Describe("Converter", func() {
 		})
 
 		var convertedDomain = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateX86_64, domainType, "%s"))
-		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain, argMemBalloon5period)
-		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain, argMemBalloon0period)
-		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain, argNoMemBalloon)
+		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
+		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
+		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("none", 0))
 
-		convertedDomain = fmt.Sprintf(convertedDomain, argMemBalloon10period)
+		convertedDomain = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
 		var convertedDomainppc64le = strings.TrimSpace(fmt.Sprintf(embedDomainTemplatePPC64le, domainType, "%s"))
-		var convertedDomainppc64leWith5Period = fmt.Sprintf(convertedDomainppc64le, argMemBalloon5period)
-		var convertedDomainppc64leWith0Period = fmt.Sprintf(convertedDomainppc64le, argMemBalloon0period)
-		var convertedDomainppc64leWithFalseAutoattach = fmt.Sprintf(convertedDomainppc64le, argNoMemBalloon)
+		var convertedDomainppc64leWith5Period = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
+		var convertedDomainppc64leWith0Period = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
+		var convertedDomainppc64leWithFalseAutoattach = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("none", 0))
 
-		convertedDomainppc64le = fmt.Sprintf(convertedDomainppc64le, argMemBalloon10period)
+		convertedDomainppc64le = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
 		var convertedDomainarm64 = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateARM64, domainType, "%s"))
-		var convertedDomainarm64With5Period = fmt.Sprintf(convertedDomainarm64, argMemBalloon5period)
-		var convertedDomainarm64With0Period = fmt.Sprintf(convertedDomainarm64, argMemBalloon0period)
-		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64, argNoMemBalloon)
+		var convertedDomainarm64With5Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
+		var convertedDomainarm64With0Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
+		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("none", 0))
 
-		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64, argMemBalloon10period)
+		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
+
+		var convertedDomains390x = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateS390X, domainType, "%s"))
+		var convertedDomains390xWith5Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 5))
+		var convertedDomains390xWith0Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 0))
+		var convertedDomains390xWithFalseAutoattach = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("none", 0))
+
+		convertedDomains390x = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 10))
 
 		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateRootBus, domainType))
 
@@ -683,18 +704,18 @@ var _ = Describe("Converter", func() {
 		})
 
 		DescribeTable("should use virtio-transitional models if requested", func(arch string) {
+			c.Architecture = NewArchConverter(arch)
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.DisableHotplug = false
 			c.UseVirtioTransitional = true
-			c.Architecture = NewArchConverter(arch)
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = &c.UseVirtioTransitional
 			dom := vmiToDomain(vmi, c)
 			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
 		},
-			Entry("on amd64 with success", "amd64"),
-			Entry("on arm64 with success", "arm64"),
-			Entry("on ppc64le with success", "ppc64le"),
+			Entry("on amd64 with success", amd64),
+			Entry("on arm64 with success", arm64),
+			Entry("on ppc64le with success", ppc64le),
 			//TODO add s390x entry with custom check of model used (disks/interfaces/controllers/devices will use different models)
 		)
 
@@ -711,9 +732,10 @@ var _ = Describe("Converter", func() {
 			vmiArchMutate(arch, vmi, c)
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
-			Entry("for amd64", "amd64", convertedDomain),
-			Entry("for ppc64le", "ppc64le", convertedDomainppc64le),
-			Entry("for arm64", "arm64", convertedDomainarm64),
+			Entry("for amd64", amd64, convertedDomain),
+			Entry("for ppc64le", ppc64le, convertedDomainppc64le),
+			Entry("for arm64", arm64, convertedDomainarm64),
+			Entry("for s390x", s390x, convertedDomains390x),
 		)
 
 		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string, period uint) {
@@ -724,12 +746,14 @@ var _ = Describe("Converter", func() {
 			c.MemBalloonStatsPeriod = period
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
-			Entry("when context define 5 period on memballoon device for amd64", "amd64", convertedDomainWith5Period, uint(5)),
-			Entry("when context define 5 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith5Period, uint(5)),
-			Entry("when context define 5 period on memballoon device for arm64", "arm64", convertedDomainarm64With5Period, uint(5)),
-			Entry("when context define 0 period on memballoon device for amd64 ", "amd64", convertedDomainWith0Period, uint(0)),
-			Entry("when context define 0 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith0Period, uint(0)),
-			Entry("when context define 0 period on memballoon device for arm64", "arm64", convertedDomainarm64With0Period, uint(0)),
+			Entry("when context define 5 period on memballoon device for amd64", amd64, convertedDomainWith5Period, uint(5)),
+			Entry("when context define 5 period on memballoon device for ppc64le", ppc64le, convertedDomainppc64leWith5Period, uint(5)),
+			Entry("when context define 5 period on memballoon device for arm64", arm64, convertedDomainarm64With5Period, uint(5)),
+			Entry("when context define 5 period on memballoon device for s390x", s390x, convertedDomains390xWith5Period, uint(5)),
+			Entry("when context define 0 period on memballoon device for amd64 ", amd64, convertedDomainWith0Period, uint(0)),
+			Entry("when context define 0 period on memballoon device for ppc64le", ppc64le, convertedDomainppc64leWith0Period, uint(0)),
+			Entry("when context define 0 period on memballoon device for arm64", arm64, convertedDomainarm64With0Period, uint(0)),
+			Entry("when context define 0 period on memballoon device for s390x", s390x, convertedDomains390xWith0Period, uint(0)),
 		)
 
 		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
@@ -740,9 +764,10 @@ var _ = Describe("Converter", func() {
 			vmiArchMutate(arch, vmi, c)
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
-			Entry("when Autoattach memballoon device is false for amd64", "amd64", convertedDomainWithFalseAutoattach),
-			Entry("when Autoattach memballoon device is false for ppc64le", "ppc64le", convertedDomainppc64leWithFalseAutoattach),
-			Entry("when Autoattach memballoon device is false for arm64", "arm64", convertedDomainarm64WithFalseAutoattach),
+			Entry("when Autoattach memballoon device is false for amd64", amd64, convertedDomainWithFalseAutoattach),
+			Entry("when Autoattach memballoon device is false for ppc64le", ppc64le, convertedDomainppc64leWithFalseAutoattach),
+			Entry("when Autoattach memballoon device is false for arm64", arm64, convertedDomainarm64WithFalseAutoattach),
+			Entry("when Autoattach memballoon device is false for s390x", s390x, convertedDomains390xWithFalseAutoattach),
 		)
 
 		It("should use kvm if present", func() {
@@ -754,8 +779,8 @@ var _ = Describe("Converter", func() {
 			It("should be converted to a libvirt Domain with vmi defaults set", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-				c.Architecture = NewArchConverter("amd64")
-				vmiArchMutate("amd64", vmi, c)
+				c.Architecture = NewArchConverter(amd64)
+				vmiArchMutate(amd64, vmi, c)
 				spec := vmiToDomain(vmi, c).Spec.DeepCopy()
 				Expect(PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
 				data, err := xml.MarshalIndent(spec, "", "  ")
@@ -919,14 +944,14 @@ var _ = Describe("Converter", func() {
 
 			It("should not define hotplugable topology for ARM64", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				vmi.Spec.Architecture = "arm64"
+				vmi.Spec.Architecture = arm64
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:      2,
 					MaxSockets: 3,
 					Sockets:    2,
 				}
-				c.Architecture = NewArchConverter("arm64")
+				c.Architecture = NewArchConverter(arm64)
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(2)), "Expect cores")
 				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(2)), "Expect sockets")
@@ -978,9 +1003,9 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.CPU.Features).To(matcher)
 		},
-			Entry("should be nil for s390x", "s390x", BeNil()),
-			Entry("should be present for amd64", "amd64", HaveExactElements(api.CPUFeature{Name: "mpx", Policy: "disable"})),
-			Entry("should be nil for arm64", "arm64", BeNil()),
+			Entry("should be nil for s390x", s390x, BeNil()),
+			Entry("should be present for amd64", amd64, HaveExactElements(api.CPUFeature{Name: "mpx", Policy: "disable"})),
+			Entry("should be nil for arm64", arm64, BeNil()),
 		)
 
 		Context("when downwardMetrics are exposed via virtio-serial", func() {
@@ -1089,10 +1114,10 @@ var _ = Describe("Converter", func() {
 				},
 			}))
 		},
-			Entry("on amd64", "amd64", "virtio-non-transitional"),
-			Entry("on arm64", "arm64", "virtio-non-transitional"),
-			Entry("on ppc64le", "ppc64le", "virtio-non-transitional"),
-			Entry("on s390x", "s390x", "virtio-scsi"),
+			Entry("on amd64", amd64, "virtio-non-transitional"),
+			Entry("on arm64", arm64, "virtio-non-transitional"),
+			Entry("on ppc64le", ppc64le, "virtio-non-transitional"),
+			Entry("on s390x", s390x, "virtio-scsi"),
 		)
 
 		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and iothreads NOT set", func(arch, expectedModel string) {
@@ -1111,10 +1136,10 @@ var _ = Describe("Converter", func() {
 				Model: expectedModel,
 			}))
 		},
-			Entry("on amd64", "amd64", "virtio-non-transitional"),
-			Entry("on arm64", "arm64", "virtio-non-transitional"),
-			Entry("on ppc64le", "ppc64le", "virtio-non-transitional"),
-			Entry("on s390x", "s390x", "virtio-scsi"),
+			Entry("on amd64", amd64, "virtio-non-transitional"),
+			Entry("on arm64", arm64, "virtio-non-transitional"),
+			Entry("on ppc64le", ppc64le, "virtio-non-transitional"),
+			Entry("on s390x", s390x, "virtio-scsi"),
 		)
 
 		It("should not add a virtio-scsi controller if no scsi disk is present", func() {
@@ -1143,14 +1168,14 @@ var _ = Describe("Converter", func() {
 
 			Expect(disabled).To(matcher, "Expect controller not to be disabled")
 		},
-			Entry("should not be disabled on amd64 usb device is present", "amd64", "usb", BeFalse()),
-			Entry("should not be disabled on amd64 when device with no bus is present", "amd64", "", BeFalse()),
-			Entry("should not be disabled on arm64 usb device is present", "arm64", "usb", BeFalse()),
-			Entry("should not be disabled on arm64 when device with no bus is present", "arm64", "", BeFalse()),
-			Entry("should not be disabled on ppc64le usb device is present", "ppc64le", "usb", BeFalse()),
-			Entry("should not be disabled on ppc64le when device with no bus is present", "ppc64le", "", BeFalse()),
-			Entry("should be disabled on s390x when usb device is present", "s390x", "usb", BeTrue()),
-			Entry("should be disabled on s390x when device with no bus is present", "s390x", "", BeTrue()),
+			Entry("should not be disabled on amd64 usb device is present", amd64, "usb", BeFalse()),
+			Entry("should not be disabled on amd64 when device with no bus is present", amd64, "", BeFalse()),
+			Entry("should not be disabled on arm64 usb device is present", arm64, "usb", BeFalse()),
+			Entry("should not be disabled on arm64 when device with no bus is present", arm64, "", BeFalse()),
+			Entry("should not be disabled on ppc64le usb device is present", ppc64le, "usb", BeFalse()),
+			Entry("should not be disabled on ppc64le when device with no bus is present", ppc64le, "", BeFalse()),
+			Entry("should be disabled on s390x when usb device is present", s390x, "usb", BeTrue()),
+			Entry("should be disabled on s390x when device with no bus is present", s390x, "", BeTrue()),
 		)
 
 		It("should fail when input device is set to ps2 bus", func() {
@@ -1248,16 +1273,16 @@ var _ = Describe("Converter", func() {
 				Model: expectedModel,
 			}))
 		},
-			Entry("should be enabled on amd64 when number of USB client devices > 0", "amd64", "qemu-xhci"),
-			Entry("should be enabled on ppc64le ", "ppc64le", "qemu-xhci"),
-			Entry("should be enabled on arm64 ", "arm64", "qemu-xhci"),
-			Entry("should be disabled on s390x", "s390x", "none"),
+			Entry("should be enabled on amd64 when number of USB client devices > 0", amd64, "qemu-xhci"),
+			Entry("should be enabled on ppc64le ", ppc64le, "qemu-xhci"),
+			Entry("should be enabled on arm64 ", arm64, "qemu-xhci"),
+			Entry("should be disabled on s390x", s390x, "none"),
 		)
 
 		It("should not enable usb redirection when numberOfDevices == 0", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.ClientPassthrough = nil
-			c.Architecture = NewArchConverter("amd64")
+			c.Architecture = NewArchConverter(amd64)
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Redirs).To(BeNil())
 			Expect(domain.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
@@ -1736,7 +1761,7 @@ var _ = Describe("Converter", func() {
 			Entry("and not add the graphics and video device if it is set to false on s390x", pointer.P(false), 0, s390x),
 		)
 
-		It("Should have one vnc", func() {
+		DescribeTable("Should have one vnc", func(arch string) {
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -1748,12 +1773,17 @@ var _ = Describe("Converter", func() {
 				},
 			}
 
-			domain := vmiToDomain(&vmi, &ConverterContext{Architecture: NewArchConverter(runtime.GOARCH), AllowEmulation: true})
+			domain := vmiToDomain(&vmi, &ConverterContext{Architecture: NewArchConverter(arch), AllowEmulation: true})
 			Expect(domain.Spec.Devices.Graphics).To(HaveLen(1))
-			Expect(domain.Spec.Devices.Graphics).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			Expect(domain.Spec.Devices.Graphics).To(HaveExactElements(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Type": Equal("vnc"),
 			})))
-		})
+		},
+			Entry("on amd64", amd64),
+			Entry("on arm64", arm64),
+			Entry("on ppc64le", ppc64le),
+			Entry("on s390x", s390x),
+		)
 	})
 
 	Context("HyperV", func() {
@@ -2698,25 +2728,25 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.Devices.Video[0].Model.VRam).To(BeNil())
 			}
 		},
-			Entry("VGA on amd64 with BIOS and BochsDisplayForEFIGuests unset", "amd64", v1.Bootloader{BIOS: &v1.BIOS{}}, false, "vga"),
-			Entry("VGA on amd64 with BIOS and BochsDisplayForEFIGuests set", "amd64", v1.Bootloader{BIOS: &v1.BIOS{}}, true, "vga"),
-			Entry("VGA on amd64 with EFI and BochsDisplayForEFIGuests unset", "amd64", v1.Bootloader{EFI: &v1.EFI{}}, false, "vga"),
-			Entry("Bochs on amd64 with EFI and BochsDisplayForEFIGuests set", "amd64", v1.Bootloader{EFI: &v1.EFI{}}, true, "bochs"),
+			Entry("VGA on amd64 with BIOS and BochsDisplayForEFIGuests unset", amd64, v1.Bootloader{BIOS: &v1.BIOS{}}, false, "vga"),
+			Entry("VGA on amd64 with BIOS and BochsDisplayForEFIGuests set", amd64, v1.Bootloader{BIOS: &v1.BIOS{}}, true, "vga"),
+			Entry("VGA on amd64 with EFI and BochsDisplayForEFIGuests unset", amd64, v1.Bootloader{EFI: &v1.EFI{}}, false, "vga"),
+			Entry("Bochs on amd64 with EFI and BochsDisplayForEFIGuests set", amd64, v1.Bootloader{EFI: &v1.EFI{}}, true, "bochs"),
 
-			Entry("VIRTIO on amd64 with BIOS and BochsDisplayForEFIGuests unset", "arm64", v1.Bootloader{BIOS: &v1.BIOS{}}, false, "virtio"),
-			Entry("VIRTIO on amd64 with BIOS and BochsDisplayForEFIGuests set", "arm64", v1.Bootloader{BIOS: &v1.BIOS{}}, true, "virtio"),
-			Entry("VIRTIO on amd64 with EFI and BochsDisplayForEFIGuests unset", "arm64", v1.Bootloader{EFI: &v1.EFI{}}, false, "virtio"),
-			Entry("VIRTIO on amd64 with EFI and BochsDisplayForEFIGuests set", "arm64", v1.Bootloader{EFI: &v1.EFI{}}, true, "virtio"),
+			Entry("VIRTIO on amd64 with BIOS and BochsDisplayForEFIGuests unset", arm64, v1.Bootloader{BIOS: &v1.BIOS{}}, false, "virtio"),
+			Entry("VIRTIO on amd64 with BIOS and BochsDisplayForEFIGuests set", arm64, v1.Bootloader{BIOS: &v1.BIOS{}}, true, "virtio"),
+			Entry("VIRTIO on amd64 with EFI and BochsDisplayForEFIGuests unset", arm64, v1.Bootloader{EFI: &v1.EFI{}}, false, "virtio"),
+			Entry("VIRTIO on amd64 with EFI and BochsDisplayForEFIGuests set", arm64, v1.Bootloader{EFI: &v1.EFI{}}, true, "virtio"),
 
-			Entry("VIRTIO on s390x with BIOS and BochsDisplayForEFIGuests unset", "s390x", v1.Bootloader{BIOS: &v1.BIOS{}}, false, "virtio"),
-			Entry("VIRTIO on s390x with BIOS and BochsDisplayForEFIGuests set", "s390x", v1.Bootloader{BIOS: &v1.BIOS{}}, true, "virtio"),
-			Entry("VIRTIO on s390x with EFI and BochsDisplayForEFIGuests unset", "s390x", v1.Bootloader{EFI: &v1.EFI{}}, false, "virtio"),
-			Entry("VIRTIO on s390x with EFI and BochsDisplayForEFIGuests set", "s390x", v1.Bootloader{EFI: &v1.EFI{}}, true, "virtio"),
+			Entry("VIRTIO on s390x with BIOS and BochsDisplayForEFIGuests unset", s390x, v1.Bootloader{BIOS: &v1.BIOS{}}, false, "virtio"),
+			Entry("VIRTIO on s390x with BIOS and BochsDisplayForEFIGuests set", s390x, v1.Bootloader{BIOS: &v1.BIOS{}}, true, "virtio"),
+			Entry("VIRTIO on s390x with EFI and BochsDisplayForEFIGuests unset", s390x, v1.Bootloader{EFI: &v1.EFI{}}, false, "virtio"),
+			Entry("VIRTIO on s390x with EFI and BochsDisplayForEFIGuests set", s390x, v1.Bootloader{EFI: &v1.EFI{}}, true, "virtio"),
 
-			Entry("VGA on ppc64le with BIOS and BochsDisplayForEFIGuests unset", "ppc64le", v1.Bootloader{BIOS: &v1.BIOS{}}, false, "vga"),
-			Entry("VGA on ppc64le with BIOS and BochsDisplayForEFIGuests set", "ppc64le", v1.Bootloader{BIOS: &v1.BIOS{}}, true, "vga"),
-			Entry("VGA on ppc64le with EFI and BochsDisplayForEFIGuests unset", "ppc64le", v1.Bootloader{EFI: &v1.EFI{}}, false, "vga"),
-			Entry("VGA on ppc64le with EFI and BochsDisplayForEFIGuests set", "ppc64le", v1.Bootloader{EFI: &v1.EFI{}}, true, "vga"),
+			Entry("VGA on ppc64le with BIOS and BochsDisplayForEFIGuests unset", ppc64le, v1.Bootloader{BIOS: &v1.BIOS{}}, false, "vga"),
+			Entry("VGA on ppc64le with BIOS and BochsDisplayForEFIGuests set", ppc64le, v1.Bootloader{BIOS: &v1.BIOS{}}, true, "vga"),
+			Entry("VGA on ppc64le with EFI and BochsDisplayForEFIGuests unset", ppc64le, v1.Bootloader{EFI: &v1.EFI{}}, false, "vga"),
+			Entry("VGA on ppc64le with EFI and BochsDisplayForEFIGuests set", ppc64le, v1.Bootloader{EFI: &v1.EFI{}}, true, "vga"),
 		)
 	})
 
@@ -2822,10 +2852,10 @@ var _ = Describe("Converter", func() {
 				}
 				Expect(foundScsiController).To(BeTrue(), "did not find SCSI controller when expected")
 			},
-				Entry("on amd64", "amd64", "virtio-non-transitional"),
-				Entry("on arm64", "arm64", "virtio-non-transitional"),
-				Entry("on ppc64le", "ppc64le", "virtio-non-transitional"),
-				Entry("on s390x", "s390x", "virtio-scsi"),
+				Entry("on amd64", amd64, "virtio-non-transitional"),
+				Entry("on arm64", arm64, "virtio-non-transitional"),
+				Entry("on ppc64le", ppc64le, "virtio-non-transitional"),
+				Entry("on s390x", s390x, "virtio-scsi"),
 			)
 
 			It("should not automatically add virtio-scsi controller, if hotplug disabled", func() {
@@ -3383,15 +3413,17 @@ func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterCont
 // As the arch specific default disk is set in the mutating webhook, so in some tests,
 // it needs to run the mutate function before verifying converter
 func vmiArchMutate(arch string, vmi *v1.VirtualMachineInstance, c *ConverterContext) {
-	if arch == "arm64" {
+	switch arch {
+	case arm64:
 		defaults.SetArm64Defaults(&vmi.Spec)
 		// bootloader has been initialized in webhooks.SetArm64Defaults,
 		// c.EFIConfiguration.SecureLoader is needed in the converter.Convert_v1_VirtualMachineInstance_To_api_Domain.
 		c.EFIConfiguration = &EFIConfiguration{
 			SecureLoader: false,
 		}
-
-	} else {
+	case amd64, ppc64le:
 		defaults.SetAmd64Defaults(&vmi.Spec)
+	case s390x:
+		defaults.SetS390xDefaults(&vmi.Spec)
 	}
 }
