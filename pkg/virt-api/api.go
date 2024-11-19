@@ -319,7 +319,7 @@ func (app *virtAPIApp) composeSubresources() {
 			To(subresourceApp.ResetVMIRequestHandler).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Reset").
-			Doc("Soft reboot a VirtualMachineInstance object.").
+			Doc("Reset a VirtualMachineInstance object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
@@ -625,6 +625,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/unfreeze",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/reset",
 						Namespaced: true,
 					},
 					{
