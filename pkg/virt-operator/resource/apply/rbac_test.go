@@ -261,7 +261,7 @@ var _ = Describe("RBAC test", func() {
 			By("Adding object to cache")
 			var err error
 
-			injectOperatorMetadata(kv, getRbacMetaObject(object), version, imageRegistry, id, true)
+			injectOperatorMetadata(kv, getRbacMetaObject(object), version, imageRegistry, id)
 			err = getRbacCache(&reconciler, object).Add(object)
 
 			kind := object.GetObjectKind().GroupVersionKind().Kind

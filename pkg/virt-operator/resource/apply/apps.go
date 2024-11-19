@@ -49,9 +49,10 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	apps := r.clientset.AppsV1()
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 
-	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
-	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
+	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id)
+	injectBaseOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry)
 	InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec, RequireControlPlanePreferNonWorker)
+	injectPodTemplateOperatorMetadata(&deployment.ObjectMeta, &deployment.Spec.Template)
 
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil {
 		replicas := int32(*kv.Spec.Infra.Replicas)
@@ -157,12 +158,16 @@ func (r *Reconciler) patchDaemonSet(oldDs, newDs *appsv1.DaemonSet) (*appsv1.Dae
 
 func (r *Reconciler) getCanaryPods(daemonSet *appsv1.DaemonSet) []*corev1.Pod {
 	canaryPods := []*corev1.Pod{}
+	var hash string
+	if daemonSet.Annotations != nil {
+		hash = daemonSet.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
+	}
 
 	for _, obj := range r.stores.InfrastructurePodCache.List() {
 		pod := obj.(*corev1.Pod)
 		owner := metav1.GetControllerOf(pod)
 
-		if owner != nil && owner.Name == daemonSet.Name && util.PodIsUpToDate(pod, r.kv) {
+		if owner != nil && owner.Name == daemonSet.Name && util.PodIsUpToDate(pod, r.kv, hash) {
 			canaryPods = append(canaryPods, pod)
 		}
 	}
@@ -171,12 +176,15 @@ func (r *Reconciler) getCanaryPods(daemonSet *appsv1.DaemonSet) []*corev1.Pod {
 
 func (r *Reconciler) howManyUpdatedAndReadyPods(daemonSet *appsv1.DaemonSet) int32 {
 	var updatedReadyPods int32
-
+	var hash string
+	if daemonSet.Annotations != nil {
+		hash = daemonSet.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
+	}
 	for _, obj := range r.stores.InfrastructurePodCache.List() {
 		pod := obj.(*corev1.Pod)
 		owner := metav1.GetControllerOf(pod)
 
-		if owner != nil && owner.Name == daemonSet.Name && util.PodIsUpToDate(pod, r.kv) && util.PodIsReady(pod) {
+		if owner != nil && owner.Name == daemonSet.Name && util.PodIsUpToDate(pod, r.kv, hash) && util.PodIsReady(pod) {
 			updatedReadyPods++
 		}
 	}
@@ -269,9 +277,10 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	apps := r.clientset.AppsV1()
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 
-	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id, true)
-	injectOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
+	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id)
+	injectBaseOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry)
 	InjectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec, AnyNode)
+	injectPodTemplateOperatorMetadata(&daemonSet.ObjectMeta, &daemonSet.Spec.Template)
 
 	if daemonSet.GetName() == "virt-handler" {
 		setMaxDevices(r.kv, daemonSet)
@@ -331,7 +340,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
 
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
-	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
+	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id)
 
 	pdbClient := r.clientset.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
 

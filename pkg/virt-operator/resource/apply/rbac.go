@@ -50,7 +50,7 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 	cachedRoleInterface, exists, _ := getRbacCache(r, required).Get(required)
 	requiredMeta := getRbacMetaObject(required)
 
-	injectOperatorMetadata(r.kv, requiredMeta, imageTag, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, requiredMeta, imageTag, imageRegistry, id)
 	if !exists {
 		// Create non existent
 		err = getRbacCreateFunction(r, required)()

@@ -2987,15 +2987,6 @@ func allKvInfraPodsAreReady(kv *v1.KubeVirt) {
 				}
 			}
 
-			id, ok := pod.Annotations[v1.InstallStrategyIdentifierAnnotation]
-			if !ok {
-				return fmt.Errorf("pod %s is owned by operator but has no id annotation", pod.Name)
-			}
-
-			expectedID := curKv.Status.ObservedDeploymentID
-			if id != expectedID {
-				return fmt.Errorf("pod %s is of version %s when we expected id %s", pod.Name, id, expectedID)
-			}
 			foundReadyAndOwnedPod = true
 		}
 

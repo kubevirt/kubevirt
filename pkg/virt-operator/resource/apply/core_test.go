@@ -152,7 +152,7 @@ var _ = Describe("Apply", func() {
 				}
 			}
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
-			injectOperatorMetadata(kv, &requiredCMs[0].ObjectMeta, version, imageRegistry, id, true)
+			injectOperatorMetadata(kv, &requiredCMs[0].ObjectMeta, version, imageRegistry, id)
 
 			existingCM := requiredCM.DeepCopy()
 			crt := createCrt()
@@ -187,7 +187,7 @@ var _ = Describe("Apply", func() {
 				}
 			}
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
-			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id, true)
+			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id)
 
 			existingCM := requiredCM.DeepCopy()
 			existingCM.Data = map[string]string{
@@ -238,7 +238,7 @@ var _ = Describe("Apply", func() {
 				}
 			}
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
-			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id, true)
+			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id)
 
 			existingCM := requiredCM.DeepCopy()
 			crt := createCrt()
@@ -322,7 +322,7 @@ var _ = Describe("Apply", func() {
 			pr := newServiceAccount()
 
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
-			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
+			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id)
 
 			stores.ServiceAccountCache.Add(pr)
 
@@ -339,7 +339,7 @@ var _ = Describe("Apply", func() {
 		It("should patch ServiceAccount on sync when they are not equal", func() {
 			pr := newServiceAccount()
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
-			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
+			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id)
 
 			stores.ServiceAccountCache.Add(pr)
 

@@ -29,7 +29,7 @@ func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
 
 func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, caBundle []byte) error {
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-	injectOperatorMetadata(r.kv, &apiService.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &apiService.ObjectMeta, version, imageRegistry, id)
 	apiService.Spec.CABundle = caBundle
 
 	var cachedAPIService *apiregv1.APIService

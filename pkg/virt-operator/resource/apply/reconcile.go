@@ -84,7 +84,21 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry,
 	return false
 }
 
-func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, version string, imageRegistry string, id string, injectCustomizationMetadata bool) {
+func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, version string, imageRegistry string, id string) {
+	injectBaseOperatorMetadata(kv, objectMeta, version, imageRegistry)
+	objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = id
+	objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = strconv.FormatInt(kv.ObjectMeta.GetGeneration(), 10)
+}
+
+func injectPodTemplateOperatorMetadata(objectMeta *metav1.ObjectMeta, templateSpec *corev1.PodTemplateSpec) {
+	// Clear hash annotation before calculate new hash, in case of podTemplateSpec hash change by hash annotation itself
+	templateSpec.ObjectMeta.Annotations[v1.KubeVirtPodTemplateAnnotationHash] = ""
+	hash := util.ComputeHash(templateSpec)
+	objectMeta.Annotations[v1.KubeVirtPodTemplateAnnotationHash] = hash
+	templateSpec.ObjectMeta.Annotations[v1.KubeVirtPodTemplateAnnotationHash] = hash
+}
+
+func injectBaseOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, version string, imageRegistry string) {
 	if objectMeta.Labels == nil {
 		objectMeta.Labels = make(map[string]string)
 	}
@@ -105,10 +119,6 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	}
 	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = version
 	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = imageRegistry
-	objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = id
-	if injectCustomizationMetadata {
-		objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = strconv.FormatInt(kv.ObjectMeta.GetGeneration(), 10)
-	}
 }
 
 func GetAppComponent(kv *v1.KubeVirt) string {
@@ -451,7 +461,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 		},
 		Webhooks: webhooks,
 	}
-	injectOperatorMetadata(r.kv, &validationWebhook.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &validationWebhook.ObjectMeta, version, imageRegistry, id)
 
 	r.expectations.ValidationWebhook.RaiseExpectations(r.kvKey, 1, 0)
 	_, err := r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), validationWebhook, metav1.CreateOptions{})

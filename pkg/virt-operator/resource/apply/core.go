@@ -97,7 +97,7 @@ func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error
 	core := r.clientset.CoreV1()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
-	injectOperatorMetadata(r.kv, &service.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &service.ObjectMeta, version, imageRegistry, id)
 
 	obj, exists, _ := r.stores.ServiceCache.Get(service)
 
@@ -215,7 +215,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 
 	secret = secret.DeepCopy()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-	injectOperatorMetadata(r.kv, &secret.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &secret.ObjectMeta, version, imageRegistry, id)
 
 	log.DefaultLogger().V(4).Infof("checking certificate %v", secret.Name)
 
@@ -429,7 +429,7 @@ func generateServicePatch(
 func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) error {
 	core := r.clientset.CoreV1()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-	injectOperatorMetadata(r.kv, &sa.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &sa.ObjectMeta, version, imageRegistry, id)
 
 	obj, exists, _ := r.stores.ServiceAccountCache.Get(sa)
 	if !exists {
@@ -559,7 +559,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 	log.DefaultLogger().V(4).Infof("checking ca config map %v", configMap.Name)
 
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-	injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id)
 
 	obj, exists, _ := r.stores.ConfigMapCache.Get(configMap)
 

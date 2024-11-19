@@ -70,7 +70,7 @@ var _ = Describe("Apply Prometheus", func() {
 		sm := components.NewServiceMonitorCR("namespace", "mNamespace", true)
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
-		injectOperatorMetadata(kv, &sm.ObjectMeta, version, imageRegistry, id, true)
+		injectOperatorMetadata(kv, &sm.ObjectMeta, version, imageRegistry, id)
 
 		stores.ServiceMonitorCache.Add(sm)
 
@@ -88,7 +88,7 @@ var _ = Describe("Apply Prometheus", func() {
 		sm := components.NewServiceMonitorCR("namespace", "mNamespace", true)
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
-		injectOperatorMetadata(kv, &sm.ObjectMeta, version, imageRegistry, id, true)
+		injectOperatorMetadata(kv, &sm.ObjectMeta, version, imageRegistry, id)
 
 		stores.ServiceMonitorCache.Add(sm)
 
@@ -138,7 +138,7 @@ var _ = Describe("Apply Prometheus", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
-		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
+		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id)
 
 		stores.PrometheusRuleCache.Add(pr)
 
@@ -158,7 +158,7 @@ var _ = Describe("Apply Prometheus", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
-		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
+		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id)
 
 		stores.PrometheusRuleCache.Add(pr)
 

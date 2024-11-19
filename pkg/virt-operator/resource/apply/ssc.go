@@ -31,7 +31,7 @@ func (r *Reconciler) createOrUpdateSCC() error {
 			cachedSCC = obj.(*secv1.SecurityContextConstraints)
 		}
 
-		injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
+		injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id)
 		if !exists {
 			r.expectations.SCC.RaiseExpectations(r.kvKey, 1, 0)
 			_, err := sec.SecurityContextConstraints().Create(context.Background(), scc, metav1.CreateOptions{})
@@ -43,7 +43,7 @@ func (r *Reconciler) createOrUpdateSCC() error {
 			log.Log.V(2).Infof("SCC %v created", scc.Name)
 		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
-			injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
+			injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id)
 			_, err := sec.SecurityContextConstraints().Update(context.Background(), scc, metav1.UpdateOptions{})
 			if err != nil {
 				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)

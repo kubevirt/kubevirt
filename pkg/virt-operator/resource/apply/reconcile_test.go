@@ -144,7 +144,7 @@ var _ = Describe("Apply", func() {
 			kv.Status.TargetDeploymentID = Id
 
 			deployment := appsv1.Deployment{}
-			injectOperatorMetadata(kv, &deployment.ObjectMeta, "fakeversion", "fakeregistry", "fakeid", false)
+			injectOperatorMetadata(kv, &deployment.ObjectMeta, "fakeversion", "fakeregistry", "fakeid")
 
 			// NOTE we are purposfully not using the defined constant values
 			// in types.go here. This test is explicitly verifying that those

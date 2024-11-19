@@ -73,7 +73,7 @@ var _ = Describe("Apply Instancetypes", func() {
 			}
 
 			imageTag, imageRegistry, id := getTargetVersionRegistryID(reconciler.kv)
-			injectOperatorMetadata(reconciler.kv, &instancetype.ObjectMeta, imageTag, imageRegistry, id, true)
+			injectOperatorMetadata(reconciler.kv, &instancetype.ObjectMeta, imageTag, imageRegistry, id)
 		})
 
 		It("should create instancetype", func() {
@@ -142,7 +142,7 @@ var _ = Describe("Apply Instancetypes", func() {
 			}
 
 			imageTag, imageRegistry, id := getTargetVersionRegistryID(reconciler.kv)
-			injectOperatorMetadata(reconciler.kv, &preference.ObjectMeta, imageTag, imageRegistry, id, true)
+			injectOperatorMetadata(reconciler.kv, &preference.ObjectMeta, imageTag, imageRegistry, id)
 		})
 
 		It("should create preference", func() {

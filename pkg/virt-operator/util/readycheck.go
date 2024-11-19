@@ -20,6 +20,8 @@
 package util
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -46,6 +48,10 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 		log.Log.V(4).Infof("DaemonSet %v not ready yet", daemonset.Name)
 		return false
 	}
+	var hash string
+	if daemonset.Annotations != nil {
+		hash = daemonset.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
+	}
 
 	// cross check that we have 'daemonset.Status.NumberReady' pods with
 	// the desired version tag. This ensures we wait for rolling update to complete
@@ -59,7 +65,7 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 				continue
 			}
 
-			if !PodIsUpToDate(pod, kv) {
+			if !PodIsUpToDate(pod, kv, hash) {
 				log.Log.Infof("DaemonSet %v waiting for out of date pods to terminate.", daemonset.Name)
 				return false
 			}
@@ -94,6 +100,10 @@ func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores St
 		log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
 		return false
 	}
+	var hash string
+	if deployment.Annotations != nil {
+		hash = deployment.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
+	}
 
 	// cross check that we have 'deployment.Status.ReadyReplicas' pods with
 	// the desired version tag. This ensures we wait for rolling update to complete
@@ -107,7 +117,7 @@ func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores St
 				continue
 			}
 
-			if !PodIsUpToDate(pod, kv) {
+			if !PodIsUpToDate(pod, kv, hash) {
 				log.Log.Infof("Deployment %v waiting for out of date pods to terminate.", deployment.Name)
 				return false
 			}
@@ -143,7 +153,7 @@ func podHasNamePrefix(pod *k8sv1.Pod, namePrefix string) bool {
 	return strings.Contains(pod.Name, namePrefix)
 }
 
-func PodIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {
+func PodIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt, hash string) bool {
 	if pod.Annotations == nil {
 		return false
 	}
@@ -158,8 +168,8 @@ func PodIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {
 		return false
 	}
 
-	id, ok := pod.Annotations[v1.InstallStrategyIdentifierAnnotation]
-	if !ok || id != kv.Status.TargetDeploymentID {
+	podHash, ok := pod.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
+	if !ok || podHash != hash {
 		return false
 	}
 
@@ -192,3 +202,10 @@ func PodIsCrashLooping(pod *k8sv1.Pod) bool {
 
 	return haveContainersCrashed(pod.Status.ContainerStatuses)
 }
+
+func ComputeHash(template *k8sv1.PodTemplateSpec) string {
+	hasher := sha1.New()
+	hasher.Write([]byte(template.String()))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+

@@ -951,6 +951,8 @@ const (
 	InstallStrategyConfigMapEncoding = "kubevirt.io/install-strategy-cm-encoding"
 	// This annotation is a hash of all customizations that live under spec.CustomizeComponents
 	KubeVirtCustomizeComponentAnnotationHash = "kubevirt.io/customizer-identifier"
+	// This annotation is a hash of all customizations that live under spec.CustomizeComponents
+	KubeVirtPodTemplateAnnotationHash = "kubevirt.io/pod-template-identifier"
 	// This annotation represents the kubevirt generation that was used to create a resource
 	KubeVirtGenerationAnnotation = "kubevirt.io/generation"
 	// This annotation represents that this object is for temporary use during updates
