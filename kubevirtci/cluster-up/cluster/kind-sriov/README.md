@@ -21,24 +21,24 @@ export KUBEVIRT_PROVIDER=kind-1.23-sriov
 export KUBEVIRT_NUM_NODES=3
 make cluster-up
 
-$ cluster-up/kubectl.sh get nodes
+$ kubevirtci/cluster-up/kubectl.sh get nodes
 NAME                  STATUS   ROLES                  AGE   VERSION
 sriov-control-plane   Ready    control-plane,master   20h   v1.23.13
 sriov-worker          Ready    worker                 20h   v1.23.13
 sriov-worker2         Ready    worker                 20h   v1.23.13
 
-$ cluster-up/kubectl.sh get pods -n kube-system -l app=multus
+$ kubevirtci/cluster-up/kubectl.sh get pods -n kube-system -l app=multus
 NAME                         READY   STATUS    RESTARTS   AGE
 kube-multus-ds-amd64-d45n4   1/1     Running   0          20h
 kube-multus-ds-amd64-g26xh   1/1     Running   0          20h
 kube-multus-ds-amd64-mfh7c   1/1     Running   0          20h
 
-$ cluster-up/kubectl.sh get pods -n sriov -l app=sriov-cni
+$ kubevirtci/cluster-up/kubectl.sh get pods -n sriov -l app=sriov-cni
 NAME                            READY   STATUS    RESTARTS   AGE
 kube-sriov-cni-ds-amd64-fv5cr   1/1     Running   0          20h
 kube-sriov-cni-ds-amd64-q95q9   1/1     Running   0          20h
 
-$ cluster-up/kubectl.sh get pods -n sriov -l app=sriovdp
+$ kubevirtci/cluster-up/kubectl.sh get pods -n sriov -l app=sriovdp
 NAME                                   READY   STATUS    RESTARTS   AGE
 kube-sriov-device-plugin-amd64-h7h84   1/1     Running   0          20h
 kube-sriov-device-plugin-amd64-xrr5z   1/1     Running   0          20h
