@@ -32,25 +32,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
 	"golang.org/x/sys/unix"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
 	k8sv1 "k8s.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -58,7 +47,6 @@ import (
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
-
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
@@ -66,8 +54,16 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
 const deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
@@ -123,15 +119,6 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	DomainAttachmentByInterfaceName map[string]string
-}
-
-func contains(volumes []string, name string) bool {
-	for _, v := range volumes {
-		if name == v {
-			return true
-		}
-	}
-	return false
 }
 
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
@@ -210,7 +197,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		IO:    diskDevice.IO,
 	}
 	if diskDevice.Disk != nil || diskDevice.LUN != nil {
-		if !contains(c.VolumesDiscardIgnore, diskDevice.Name) {
+		if !slices.Contains(c.VolumesDiscardIgnore, diskDevice.Name) {
 			disk.Driver.Discard = "unmap"
 		}
 		volumeStatus, ok := volumeStatusMap[diskDevice.Name]
@@ -708,7 +695,7 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Source.File = GetFilesystemVolumePath(volumeName)
-	if !contains(volumesDiscardIgnore, volumeName) {
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
 	return nil
@@ -719,7 +706,7 @@ func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, di
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
-	if !contains(volumesDiscardIgnore, volumeName) {
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
@@ -730,7 +717,7 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
-	if !contains(volumesDiscardIgnore, volumeName) {
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.Name = volumeName
@@ -743,7 +730,7 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
-	if !contains(volumesDiscardIgnore, volumeName) {
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
