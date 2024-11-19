@@ -1707,21 +1707,33 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Video).To(HaveLen(devices))
 			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
 
-			if isARM64(arch) && (autoAttach == nil || *autoAttach) {
-				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
-				Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
-				Expect(domain.Spec.Devices.Inputs[1].Type).To(Equal(v1.InputTypeKeyboard))
-			}
-			if isAMD64(arch) && (autoAttach == nil || *autoAttach) {
-				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("vga"))
+			if autoAttach == nil || *autoAttach {
+				switch arch {
+				case amd64, ppc64le:
+					Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("vga"))
+					Expect(domain.Spec.Devices.Inputs).To(BeEmpty())
+				case arm64:
+					Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
+					Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
+					Expect(domain.Spec.Devices.Inputs[1].Type).To(Equal(v1.InputTypeKeyboard))
+				case s390x:
+					Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
+					Expect(domain.Spec.Devices.Inputs).To(BeEmpty())
+				}
 			}
 		},
-			Entry("and add the graphics and video device if it is not set on amd64", nil, 1, "amd64"),
-			Entry("and add the graphics and video device if it is set to true on amd64", pointer.P(true), 1, "amd64"),
-			Entry("and not add the graphics and video device if it is set to false on amd64", pointer.P(false), 0, "amd64"),
-			Entry("and add the graphics and video device if it is not set on arm64", nil, 1, "arm64"),
-			Entry("and add the graphics and video device if it is set to true on arm64", pointer.P(true), 1, "arm64"),
-			Entry("and not add the graphics and video device if it is set to false on arm64", pointer.P(false), 0, "arm64"),
+			Entry("and add the graphics and video device if it is not set on amd64", nil, 1, amd64),
+			Entry("and add the graphics and video device if it is set to true on amd64", pointer.P(true), 1, amd64),
+			Entry("and not add the graphics and video device if it is set to false on amd64", pointer.P(false), 0, amd64),
+			Entry("and add the graphics and video device if it is not set on arm64", nil, 1, arm64),
+			Entry("and add the graphics and video device if it is set to true on arm64", pointer.P(true), 1, arm64),
+			Entry("and not add the graphics and video device if it is set to false on arm64", pointer.P(false), 0, arm64),
+			Entry("and add the graphics and video device if it is not set on ppc64le", nil, 1, ppc64le),
+			Entry("and add the graphics and video device if it is set to true on ppc64le", pointer.P(true), 1, ppc64le),
+			Entry("and not add the graphics and video device if it is set to false on ppc64le", pointer.P(false), 0, ppc64le),
+			Entry("and add the graphics and video device if it is not set on s390x", nil, 1, s390x),
+			Entry("and add the graphics and video device if it is set to true on s390x", pointer.P(true), 1, s390x),
+			Entry("and not add the graphics and video device if it is set to false on s390x", pointer.P(false), 0, s390x),
 		)
 
 		It("Should have one vnc", func() {

@@ -134,22 +134,6 @@ func contains(volumes []string, name string) bool {
 	return false
 }
 
-func isAMD64(arch string) bool {
-	return arch == "amd64"
-}
-
-func isARM64(arch string) bool {
-	return arch == "arm64"
-}
-
-func isPPC64(arch string) bool {
-	return arch == "ppc64le"
-}
-
-func isS390X(arch string) bool {
-	return arch == "s390x"
-}
-
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
 	// Ensure we assign this disk to the correct scsi controller
 	if disk.Address == nil {
