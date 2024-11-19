@@ -2219,7 +2219,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 
-			expectVMI(true, false)
+			expectVMI(Running, UnPaused)
 
 			app.ResetVMIRequestHandler(request, response)
 
@@ -2228,7 +2228,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 		It("Should fail reset on a not running VMI", func() {
 
-			expectVMI(false, false)
+			expectVMI(NotRunning, UnPaused)
 
 			app.ResetVMIRequestHandler(request, response)
 
