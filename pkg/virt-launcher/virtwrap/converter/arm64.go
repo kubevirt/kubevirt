@@ -24,9 +24,13 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = archConverter(&archConverterARM64{})
+var _ = ArchConverter(&archConverterARM64{})
 
 type archConverterARM64 struct{}
+
+func (archConverterARM64) GetArchitecture() string {
+	return "arm64"
+}
 
 func (archConverterARM64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
 	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
@@ -66,5 +70,27 @@ func (archConverterARM64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 }
 
 func (archConverterARM64) supportCPUHotplug() bool {
+	return false
+}
+
+func (archConverterARM64) isSMBiosNeeded() bool {
+	// ARM64 use UEFI boot by default, set SMBios is unnecessary.
+	return false
+}
+
+func (archConverterARM64) transitionalModelType(useVirtioTransitional bool) string {
+	return defaultTransitionalModelType(useVirtioTransitional)
+}
+
+func (archConverterARM64) isROMTuningSupported() bool {
+	return true
+}
+
+func (archConverterARM64) requiresMPXCPUValidation() bool {
+	// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
+	return false
+}
+
+func (archConverterARM64) shouldVerboseLogsBeEnabled() bool {
 	return false
 }

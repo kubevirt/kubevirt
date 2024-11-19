@@ -1017,7 +1017,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
-		Architecture:          runtime.GOARCH,
+		Architecture:          converter.NewArchConverter(runtime.GOARCH),
 		VirtualMachine:        vmi,
 		AllowEmulation:        allowEmulation,
 		CPUSet:                podCPUSet,
@@ -1119,7 +1119,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	}
 
 	// Set defaults which are not coming from the cluster
-	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
+	api.NewDefaulter(c.Architecture.GetArchitecture()).SetObjectDefaults_Domain(domain)
 
 	dom, err := l.lookupOrCreateVirDomain(domain, vmi, options)
 	if err != nil {

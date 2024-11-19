@@ -412,7 +412,7 @@ var _ = Describe("Manager", func() {
 		serialConsoleLogDisabled := clusterConfig.IsSerialConsoleLogDisabled()
 
 		c := &converter.ConverterContext{
-			Architecture:      runtime.GOARCH,
+			Architecture:      converter.NewArchConverter(runtime.GOARCH),
 			VirtualMachine:    vmi,
 			AllowEmulation:    true,
 			SMBios:            &cmdv1.SMBios{},

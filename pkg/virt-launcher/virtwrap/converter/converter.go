@@ -96,7 +96,7 @@ type EFIConfiguration struct {
 }
 
 type ConverterContext struct {
-	Architecture                    string
+	Architecture                    ArchConverter
 	AllowEmulation                  bool
 	Secrets                         map[string]*k8sv1.Secret
 	VirtualMachine                  *v1.VirtualMachineInstance
@@ -182,7 +182,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Address = addr
 		}
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
-			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
+			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
@@ -814,7 +814,7 @@ func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *ConverterCon
 		Name: "qemu",
 	}
 	// This disk always needs `virtio`. Validation ensures that bus is unset or is already virtio
-	disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
+	disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 	disk.Source = api.DiskSource{
 		File: config.DownwardMetricDisk,
 	}
@@ -902,7 +902,7 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watc
 func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
 
 	// default rng model for KVM/QEMU virtualization
-	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
+	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 
 	// default backend model, random
 	rng.Backend = &api.RngBackend{
@@ -1141,7 +1141,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		ballooning.Model = "none"
 		ballooning.Stats = nil
 	} else {
-		ballooning.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
+		ballooning.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
@@ -1415,7 +1415,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		CPUs:      cpuCount,
 	}
 	// set the maximum number of sockets here to allow hot-plug CPUs
-	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && newArchConverter(c.Architecture).supportCPUHotplug() {
+	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.supportCPUHotplug() {
 		domainVCPUTopologyForHotplug(vmi, domain)
 	}
 
@@ -1487,10 +1487,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	// Take SMBios values from the VirtualMachineOptions
-	// SMBios option does not work in Power, attempting to set it will result in the following error message:
-	// "Option not supported for this target" issued by qemu-system-ppc64, so don't set it in case GOARCH is ppc64le
-	// ARM64 use UEFI boot by default, set SMBios is unnecessory.
-	if isAMD64(c.Architecture) {
+	if c.Architecture.isSMBiosNeeded() {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
 		}
@@ -1673,13 +1670,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		Index: "0",
 		Model: "none",
 	}
-	if newArchConverter(c.Architecture).isUSBNeeded(vmi) {
+	if c.Architecture.isUSBNeeded(vmi) {
 		usbController.Model = "qemu-xhci"
 	}
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 
 	if needsSCSIController(vmi) {
-		scsiController := newArchConverter(c.Architecture).scsiController(c, controllerDriver)
+		scsiController := c.Architecture.scsiController(c, controllerDriver)
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 
@@ -1742,8 +1739,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		*/
 
 		_, exists := existingFeatures["mpx"]
-		// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
-		if isAMD64(c.Architecture) && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+		if c.Architecture.requiresMPXCPUValidation() && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 				Name:   "mpx",
 				Policy: "disable",
@@ -1782,7 +1778,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:   "virtio-serial",
 			Index:  "0",
-			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture),
+			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 			Driver: controllerDriver,
 		})
 
@@ -1822,7 +1818,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		newArchConverter(c.Architecture).addGraphicsDevice(vmi, domain, c)
+		c.Architecture.addGraphicsDevice(vmi, domain, c)
 		domain.Spec.Devices.Graphics = []api.Graphics{
 			{
 				Listen: &api.GraphicsListen{
@@ -1856,7 +1852,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if isAMD64(c.Architecture) {
+	if c.Architecture.shouldVerboseLogsBeEnabled() {
 		virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY))
 		if err == nil && virtLauncherLogVerbosity > services.EXT_LOG_VERBOSITY_THRESHOLD {
 			// isa-debugcon device is only for x86_64
@@ -2047,15 +2043,8 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 }
 
 func InterpretTransitionalModelType(useVirtioTransitional *bool, archString string) string {
-	// "virtio-non-transitional" and "virtio-transitional" are both PCI devices, so they don't work on s390x.
-	// "virtio" is a generic model that can be either PCI or CCW depending on the machine type
-	if isS390X(archString) {
-		return "virtio"
-	}
-	if useVirtioTransitional != nil && *useVirtioTransitional {
-		return "virtio-transitional"
-	}
-	return "virtio-non-transitional"
+	vtenabled := useVirtioTransitional != nil && *useVirtioTransitional
+	return NewArchConverter(archString).transitionalModelType(vtenabled)
 }
 
 func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
