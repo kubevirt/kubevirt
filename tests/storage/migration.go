@@ -91,9 +91,10 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			destPVC string
 		)
 		const (
-			fsPVC    = "filesystem"
-			blockPVC = "block"
-			size     = "1Gi"
+			fsPVC            = "filesystem"
+			blockPVC         = "block"
+			size             = "1Gi"
+			sizeWithOverhead = "1.2Gi"
 		)
 
 		waitMigrationToNotExist := func(vmiName, ns string) {
@@ -130,6 +131,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize(size),
+					libdv.StorageWithFilesystemVolumeMode(),
 				),
 			)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
@@ -253,7 +255,8 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			// Create dest PVC
 			switch mode {
 			case fsPVC:
-				libstorage.CreateFSPVC(destPVC, ns, size, nil)
+				// Add some overhead to the target PVC for filesystem.
+				libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
 			case blockPVC:
 				libstorage.CreateBlockPVC(destPVC, ns, size)
 			default:
@@ -853,6 +856,8 @@ func createBlankDV(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.Da
 		libdv.WithBlankImageSource(),
 		libdv.WithStorage(libdv.StorageWithStorageClass(sc),
 			libdv.StorageWithVolumeSize(size),
+			libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+			libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
 		),
 	)
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
