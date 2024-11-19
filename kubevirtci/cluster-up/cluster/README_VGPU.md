@@ -16,7 +16,7 @@ make cluster-up
 The cluster can be accessed as usual:
 
 ```bash
-$ cluster-up/kubectl.sh get nodes
+$ kubevirtci/cluster-up/kubectl.sh get nodes
 NAME                  STATUS   ROLES    AGE     VERSION
 vgpu-control-plane   Ready    master   6m14s   v1.x.y
 ```
