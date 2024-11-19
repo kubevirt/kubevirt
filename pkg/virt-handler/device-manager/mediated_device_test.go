@@ -26,6 +26,7 @@ const (
 	fakeMdevResourceName      = "example.org/fake123"
 	fakeMdevUUID              = "53764d0e-85a0-42b4-af5c-2046b460b1dc"
 	fakeIntelMdevUUID         = "54444d0e-85a0-42b4-af5c-2046b4bbb1aa"
+	fakeAddress               = "0000:00:00.0"
 )
 
 var _ = Describe("Mediated Device", func() {

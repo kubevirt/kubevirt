@@ -40,9 +40,10 @@ import (
 )
 
 const (
-	vfioDevicePath = "/dev/vfio/"
-	vfioMount      = "/dev/vfio/vfio"
-	pciBasePath    = "/sys/bus/pci/devices"
+	vfioDevicePath    = "/dev/vfio/"
+	vfioMount         = "/dev/vfio/vfio"
+	pciBasePath       = "/sys/bus/pci/devices"
+	deviceIDSeparator = "|"
 )
 
 type PCIDevice struct {
@@ -132,9 +133,10 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 
 func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string) (devs []*pluginapi.Device) {
 	for _, pciDevice := range pciDevices {
-		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
+		deviceID := strings.Join([]string{pciDevice.iommuGroup, pciDevice.pciAddress}, deviceIDSeparator)
+		iommuToPCIMap[deviceID] = pciDevice.pciAddress
 		dpiDev := &pluginapi.Device{
-			ID:     pciDevice.iommuGroup,
+			ID:     deviceID,
 			Health: pluginapi.Healthy,
 		}
 		if pciDevice.numaNode >= 0 {
@@ -205,7 +207,8 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 
 	// probe all devices
 	for _, dev := range dpi.devs {
-		vfioDevice := filepath.Join(devicePath, dev.ID)
+		iommuGroup := strings.Split(dev.ID, deviceIDSeparator)[0]
+		vfioDevice := filepath.Join(devicePath, iommuGroup)
 		err = watcher.Add(vfioDevice)
 		if err != nil {
 			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
