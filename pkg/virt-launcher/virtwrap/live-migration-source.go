@@ -627,7 +627,7 @@ func (m *migrationMonitor) startMonitor() {
 		if stats == nil {
 			stats, err = dom.GetJobStats(0)
 			if err != nil {
-				logger.Reason(err).Error("failed to get domain job info")
+				logger.Reason(err).Warning("failed to get domain job info, will retry")
 				continue
 			}
 		}
