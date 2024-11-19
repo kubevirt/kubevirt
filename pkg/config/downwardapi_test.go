@@ -26,11 +26,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/client-go/api"
 
-	k8sv1 "k8s.io/api/core/v1"
-
-	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 var _ = Describe("DownwardAPI", func() {
@@ -54,25 +55,9 @@ var _ = Describe("DownwardAPI", func() {
 	})
 
 	It("Should create a new downwardapi iso disk", func() {
-		vmi := api.NewMinimalVMI("fake-vmi")
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "downwardapi-volume",
-			VolumeSource: v1.VolumeSource{
-				DownwardAPI: &v1.DownwardAPIVolumeSource{
-					Fields: []k8sv1.DownwardAPIVolumeFile{
-						{
-							Path: "labels",
-							FieldRef: &k8sv1.ObjectFieldSelector{
-								FieldPath: "metadata.labels",
-							},
-						},
-					},
-				},
-			},
-		})
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "downwardapi-volume",
-		})
+		vmi := libvmi.New(
+			libvmi.WithDownwardAPIDisk("downwardapi-volume"),
+		)
 
 		err := CreateDownwardAPIDisks(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
