@@ -2126,7 +2126,7 @@ func (c *Controller) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (vi
 		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
 	}
 
-	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig), nil
+	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig)
 }
 
 func (c *Controller) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
