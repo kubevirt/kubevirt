@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2019 Red Hat, Inc.
+ * Copyright The KubeVirt Authors
  *
  */
 
@@ -24,11 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -37,9 +32,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -50,28 +46,23 @@ func waitForVMIReset(vmi *v1.VirtualMachineInstance) error {
 	}
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: ".*Detected virtualization kvm.*"},
+		&expect.BExp{R: ".*Hypervisor detected.*KVM.*"},
 	}, 300)
 }
 
 var _ = Describe("[level:component][sig-compute]Reset", decorators.SigCompute, func() {
 	const vmiLaunchTimeout = 360
 
-	var virtClient kubecli.KubevirtClient
+	It("should succeed", func() {
+		vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpineWithTestTooling(), vmiLaunchTimeout)
 
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
-
-	It("reset vmi with should succeed", func() {
-		vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
-
-		Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		By("Checking that the VirtualMachineInstance console has expected output")
+		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 		errChan := make(chan error)
 		go func() {
 			time.Sleep(5)
-			errChan <- virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Reset(context.Background(), vmi.Name)
+			errChan <- kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Reset(context.Background(), vmi.Name)
 		}()
 
 		start := time.Now().UTC().Unix()

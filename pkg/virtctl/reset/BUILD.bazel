@@ -20,7 +20,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/libvmi:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//tests/clientcmd:go_default_library",
