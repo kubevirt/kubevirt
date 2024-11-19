@@ -58,7 +58,7 @@ import (
 	kvapi "kubevirt.io/client-go/api"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	kubevirtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	sev "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
@@ -310,7 +310,7 @@ var _ = Describe("Converter", func() {
 						Bus: v1.VirtIO,
 					},
 				},
-				Shareable: True(),
+				Shareable: pointer.P(true),
 			}
 			var expectedXML = fmt.Sprintf(`<Disk device="disk" type="" model="%s">
   <source></source>
@@ -360,23 +360,23 @@ var _ = Describe("Converter", func() {
 				},
 				Timer: &v1.Timer{
 					HPET: &v1.HPETTimer{
-						Enabled:    False(),
+						Enabled:    pointer.P(false),
 						TickPolicy: v1.HPETTickPolicyDelay,
 					},
 					KVM: &v1.KVMTimer{
-						Enabled: True(),
+						Enabled: pointer.P(true),
 					},
 					PIT: &v1.PITTimer{
-						Enabled:    False(),
+						Enabled:    pointer.P(false),
 						TickPolicy: v1.PITTickPolicyDiscard,
 					},
 					RTC: &v1.RTCTimer{
-						Enabled:    True(),
+						Enabled:    pointer.P(true),
 						TickPolicy: v1.RTCTickPolicyCatchup,
 						Track:      v1.TrackGuest,
 					},
 					Hyperv: &v1.HypervTimer{
-						Enabled: True(),
+						Enabled: pointer.P(true),
 					},
 				},
 			}
@@ -384,22 +384,22 @@ var _ = Describe("Converter", func() {
 				APIC:       &v1.FeatureAPIC{},
 				SMM:        &v1.FeatureState{},
 				KVM:        &v1.FeatureKVM{Hidden: true},
-				Pvspinlock: &v1.FeatureState{Enabled: False()},
+				Pvspinlock: &v1.FeatureState{Enabled: pointer.P(false)},
 				Hyperv: &v1.FeatureHyperv{
-					Relaxed:         &v1.FeatureState{Enabled: False()},
-					VAPIC:           &v1.FeatureState{Enabled: True()},
-					Spinlocks:       &v1.FeatureSpinlocks{Enabled: True()},
-					VPIndex:         &v1.FeatureState{Enabled: True()},
-					Runtime:         &v1.FeatureState{Enabled: False()},
-					SyNIC:           &v1.FeatureState{Enabled: True()},
-					SyNICTimer:      &v1.SyNICTimer{Enabled: True(), Direct: &v1.FeatureState{Enabled: True()}},
-					Reset:           &v1.FeatureState{Enabled: True()},
-					VendorID:        &v1.FeatureVendorID{Enabled: False(), VendorID: "myvendor"},
-					Frequencies:     &v1.FeatureState{Enabled: False()},
-					Reenlightenment: &v1.FeatureState{Enabled: False()},
-					TLBFlush:        &v1.FeatureState{Enabled: True()},
-					IPI:             &v1.FeatureState{Enabled: True()},
-					EVMCS:           &v1.FeatureState{Enabled: False()},
+					Relaxed:         &v1.FeatureState{Enabled: pointer.P(false)},
+					VAPIC:           &v1.FeatureState{Enabled: pointer.P(true)},
+					Spinlocks:       &v1.FeatureSpinlocks{Enabled: pointer.P(true)},
+					VPIndex:         &v1.FeatureState{Enabled: pointer.P(true)},
+					Runtime:         &v1.FeatureState{Enabled: pointer.P(false)},
+					SyNIC:           &v1.FeatureState{Enabled: pointer.P(true)},
+					SyNICTimer:      &v1.SyNICTimer{Enabled: pointer.P(true), Direct: &v1.FeatureState{Enabled: pointer.P(true)}},
+					Reset:           &v1.FeatureState{Enabled: pointer.P(true)},
+					VendorID:        &v1.FeatureVendorID{Enabled: pointer.P(false), VendorID: "myvendor"},
+					Frequencies:     &v1.FeatureState{Enabled: pointer.P(false)},
+					Reenlightenment: &v1.FeatureState{Enabled: pointer.P(false)},
+					TLBFlush:        &v1.FeatureState{Enabled: pointer.P(true)},
+					IPI:             &v1.FeatureState{Enabled: pointer.P(true)},
+					EVMCS:           &v1.FeatureState{Enabled: pointer.P(false)},
 				},
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
@@ -420,7 +420,7 @@ var _ = Describe("Converter", func() {
 							Bus: v1.VirtIO,
 						},
 					},
-					DedicatedIOThread: True(),
+					DedicatedIOThread: pointer.P(true),
 				},
 				{
 					Name: "nocloud",
@@ -429,16 +429,16 @@ var _ = Describe("Converter", func() {
 							Bus: v1.VirtIO,
 						},
 					},
-					DedicatedIOThread: True(),
+					DedicatedIOThread: pointer.P(true),
 				},
 				{
 					Name: "cdrom_tray_unspecified",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: False(),
+							ReadOnly: pointer.P(false),
 						},
 					},
-					DedicatedIOThread: False(),
+					DedicatedIOThread: pointer.P(false),
 				},
 				{
 					Name: "cdrom_tray_open",
@@ -478,19 +478,19 @@ var _ = Describe("Converter", func() {
 					Name: "sysprep",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: False(),
+							ReadOnly: pointer.P(false),
 						},
 					},
-					DedicatedIOThread: False(),
+					DedicatedIOThread: pointer.P(false),
 				},
 				{
 					Name: "sysprep_secret",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: False(),
+							ReadOnly: pointer.P(false),
 						},
 					},
-					DedicatedIOThread: False(),
+					DedicatedIOThread: pointer.P(false),
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
@@ -624,8 +624,7 @@ var _ = Describe("Converter", func() {
 				Serial: "e4686d2c-6e8d-4335-b8fd-81bee22f4815",
 			}
 
-			gracePerod := int64(5)
-			vmi.Spec.TerminationGracePeriodSeconds = &gracePerod
+			vmi.Spec.TerminationGracePeriodSeconds = pointer.P(int64(5))
 
 			vmi.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		})
@@ -736,7 +735,7 @@ var _ = Describe("Converter", func() {
 		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = False()
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
 			c.Architecture = NewArchConverter(arch)
 			vmiArchMutate(arch, vmi, c)
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
@@ -1194,7 +1193,7 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Devices.Disks[0] = v1.Disk{
 				Name:              "disk",
-				DedicatedIOThread: kubevirtpointer.P(true),
+				DedicatedIOThread: pointer.P(true),
 				IO:                ioPolicy,
 			}
 			domain := vmiToDomain(vmi, c)
@@ -1429,9 +1428,8 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("should add VSOCK section when present",
 			func(useVirtioTransitional bool) {
-				cid := uint32(100)
-				vmi.Status.VSOCKCID = &cid
-				vmi.Spec.Domain.Devices.AutoattachVSOCK = kubevirtpointer.P(true)
+				vmi.Status.VSOCKCID = pointer.P(uint32(100))
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 				c.UseVirtioTransitional = useVirtioTransitional
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 				Expect(domainSpec.Devices.VSOCK).ToNot(BeNil())
@@ -1466,10 +1464,10 @@ var _ = Describe("Converter", func() {
 			Expect(string(domainSpec.Devices.Disks[0].Driver.ErrorPolicy)).To(Equal(expected))
 		},
 			Entry("ErrorPolicy not specified", nil, "stop"),
-			Entry("ErrorPolicy equal to stop", kubevirtpointer.P(v1.DiskErrorPolicyStop), "stop"),
-			Entry("ErrorPolicy equal to ignore", kubevirtpointer.P(v1.DiskErrorPolicyIgnore), "ignore"),
-			Entry("ErrorPolicy equal to report", kubevirtpointer.P(v1.DiskErrorPolicyReport), "report"),
-			Entry("ErrorPolicy equal to enospace", kubevirtpointer.P(v1.DiskErrorPolicyEnospace), "enospace"),
+			Entry("ErrorPolicy equal to stop", pointer.P(v1.DiskErrorPolicyStop), "stop"),
+			Entry("ErrorPolicy equal to ignore", pointer.P(v1.DiskErrorPolicyIgnore), "ignore"),
+			Entry("ErrorPolicy equal to report", pointer.P(v1.DiskErrorPolicyReport), "report"),
+			Entry("ErrorPolicy equal to enospace", pointer.P(v1.DiskErrorPolicyEnospace), "enospace"),
 		)
 
 	})
@@ -1719,11 +1717,11 @@ var _ = Describe("Converter", func() {
 			}
 		},
 			Entry("and add the graphics and video device if it is not set on amd64", nil, 1, "amd64"),
-			Entry("and add the graphics and video device if it is set to true on amd64", True(), 1, "amd64"),
-			Entry("and not add the graphics and video device if it is set to false on amd64", False(), 0, "amd64"),
+			Entry("and add the graphics and video device if it is set to true on amd64", pointer.P(true), 1, "amd64"),
+			Entry("and not add the graphics and video device if it is set to false on amd64", pointer.P(false), 0, "amd64"),
 			Entry("and add the graphics and video device if it is not set on arm64", nil, 1, "arm64"),
-			Entry("and add the graphics and video device if it is set to true on arm64", True(), 1, "arm64"),
-			Entry("and not add the graphics and video device if it is set to false on arm64", False(), 0, "arm64"),
+			Entry("and add the graphics and video device if it is set to true on arm64", pointer.P(true), 1, "arm64"),
+			Entry("and not add the graphics and video device if it is set to false on arm64", pointer.P(false), 0, "arm64"),
 		)
 
 		It("Should have one vnc", func() {
@@ -1809,7 +1807,7 @@ var _ = Describe("Converter", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Features: &v1.Features{
-							HypervPassthrough: &v1.HyperVPassthrough{Enabled: kubevirtpointer.P(true)},
+							HypervPassthrough: &v1.HyperVPassthrough{Enabled: pointer.P(true)},
 						},
 					},
 				},
@@ -1851,8 +1849,8 @@ var _ = Describe("Converter", func() {
 
 		},
 			Entry("and add the serial console if it is not set", nil, 1),
-			Entry("and add the serial console if it is set to true", True(), 1),
-			Entry("and not add the serial console if it is set to false", False(), 0),
+			Entry("and add the serial console if it is set to true", pointer.P(true), 1),
+			Entry("and not add the serial console if it is set to false", pointer.P(false), 0),
 		)
 	})
 
@@ -1882,7 +1880,7 @@ var _ = Describe("Converter", func() {
 											Bus: v1.VirtIO,
 										},
 									},
-									DedicatedIOThread: True(),
+									DedicatedIOThread: pointer.P(true),
 								},
 								{
 									Name: "shared",
@@ -1891,7 +1889,7 @@ var _ = Describe("Converter", func() {
 											Bus: v1.VirtIO,
 										},
 									},
-									DedicatedIOThread: False(),
+									DedicatedIOThread: pointer.P(false),
 								},
 								{
 									Name: "omitted1",
@@ -2051,7 +2049,7 @@ var _ = Describe("Converter", func() {
 											Bus: v1.VirtIO,
 										},
 									},
-									DedicatedIOThread: True(),
+									DedicatedIOThread: pointer.P(true),
 								},
 								{
 									Name: sharedDiskName,
@@ -2060,7 +2058,7 @@ var _ = Describe("Converter", func() {
 											Bus: v1.VirtIO,
 										},
 									},
-									DedicatedIOThread: False(),
+									DedicatedIOThread: pointer.P(false),
 								},
 								{
 									Name: incompatibleDiskName,
@@ -2158,7 +2156,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 
-			vmi.Spec.Domain.Devices.BlockMultiQueue = True()
+			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
 				k8sv1.ResourceCPU:    resource.MustParse("2"),
@@ -2474,7 +2472,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = True()
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
 				k8sv1.ResourceCPU:    resource.MustParse("2"),
@@ -2642,10 +2640,10 @@ var _ = Describe("Converter", func() {
 			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(efiVars))
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		},
-			Entry("should use SecureBoot", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
+			Entry("should use SecureBoot", pointer.P(true), "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
 			Entry("should use SecureBoot when SB not defined", nil, "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
-			Entry("should not use SecureBoot", False(), "OVMF_CODE.fd", "OVMF_VARS.fd"),
-			Entry("should not use SecureBoot when OVMF_CODE.fd not present", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.fd"),
+			Entry("should not use SecureBoot", pointer.P(false), "OVMF_CODE.fd", "OVMF_VARS.fd"),
+			Entry("should not use SecureBoot when OVMF_CODE.fd not present", pointer.P(true), "OVMF_CODE.secboot.fd", "OVMF_VARS.fd"),
 		)
 
 		It("EFI vars should be in the right place when running as root", func() {
@@ -2658,7 +2656,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: kubevirtpointer.P(false),
+						SecureBoot: pointer.P(false),
 					},
 				},
 			}
@@ -2941,7 +2939,7 @@ var _ = Describe("Converter", func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = kubevirtpointer.P(true)
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(true)
 			nonVirtioIface := v1.Interface{Name: "red", Model: "e1000"}
 			secondaryNetwork := v1.Network{Name: "red"}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -2955,13 +2953,13 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: kubevirtpointer.P(false),
+					Enabled: pointer.P(false),
 				},
 			}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: kubevirtpointer.P(false),
+						SecureBoot: pointer.P(false),
 					},
 				},
 			}
@@ -2986,7 +2984,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						EncryptedState: kubevirtpointer.P(true),
+						EncryptedState: pointer.P(true),
 					},
 				},
 			}
@@ -3054,7 +3052,7 @@ var _ = Describe("Converter", func() {
 		BeforeEach(func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: kubevirtpointer.P(int64(fakeFrequency))}
+			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.P(int64(fakeFrequency))}
 			c = &ConverterContext{
 				Architecture:   NewArchConverter(runtime.GOARCH),
 				AllowEmulation: true,
@@ -3092,7 +3090,7 @@ var _ = Describe("Converter", func() {
 			It("hyperV reenlightenment", func() {
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &v1.FeatureHyperv{
-						Reenlightenment: &v1.FeatureState{Enabled: kubevirtpointer.P(true)},
+						Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)},
 					},
 				}
 
@@ -3165,8 +3163,7 @@ var _ = Describe("Converter", func() {
 			}
 
 			if startPaused {
-				strategy := v1.StartStrategyPaused
-				vmi.Spec.StartStrategy = &strategy
+				vmi.Spec.StartStrategy = pointer.P(v1.StartStrategyPaused)
 			}
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
@@ -3369,16 +3366,6 @@ func xmlToDomainSpec(data string) *api.DomainSpec {
 
 func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterContext) *api.DomainSpec {
 	return xmlToDomainSpec(vmiToDomainXML(vmi, c))
-}
-
-func True() *bool {
-	b := true
-	return &b
-}
-
-func False() *bool {
-	b := false
-	return &b
 }
 
 // As the arch specific default disk is set in the mutating webhook, so in some tests,
