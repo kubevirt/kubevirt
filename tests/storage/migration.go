@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -95,23 +96,6 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			size     = "1Gi"
 		)
 
-		waitMigrationToExist := func(vmiName, ns string) {
-			Eventually(func() bool {
-				ls := labels.Set{
-					virtv1.VolumesUpdateMigration: vmiName,
-				}
-				migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
-					metav1.ListOptions{
-						LabelSelector: ls.String(),
-					})
-				Expect(err).ToNot(HaveOccurred())
-				if len(migList.Items) < 0 {
-					return false
-				}
-				return true
-
-			}, 120*time.Second, time.Second).Should(BeTrue())
-		}
 		waitMigrationToNotExist := func(vmiName, ns string) {
 			Eventually(func() bool {
 				ls := labels.Set{
@@ -139,23 +123,6 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			}, 120*time.Second, time.Second).Should(BeTrue())
 		}
 
-		waitForMigrationToSucceed := func(vmiName, ns string) {
-			waitMigrationToExist(vmiName, ns)
-			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName,
-					metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				if vmi.Status.MigrationState == nil {
-					return false
-				}
-				if !vmi.Status.MigrationState.Completed {
-					return false
-				}
-				Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
-
-				return true
-			}, 120*time.Second, time.Second).Should(BeTrue())
-		}
 		createDV := func() *cdiv1.DataVolume {
 			sc, exist := libstorage.GetRWOFileSystemStorageClass()
 			Expect(exist).To(BeTrue())
@@ -301,7 +268,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
 				return claim == destPVC
 			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 		},
 			Entry("to a filesystem volume", fsPVC),
 			Entry("to a block volume", blockPVC),
@@ -320,7 +287,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 		})
 
 		It("should migrate the source volume from a source and destination block RWX DVs", func() {
@@ -357,7 +324,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 		})
 
 		It("should migrate the source volume from a block source and filesystem destination DVs", func() {
@@ -397,7 +364,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 		})
 
 		It("should migrate a PVC with a VM using a containerdisk", func() {
@@ -435,7 +402,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				}
 				return false
 			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 		})
 
 		It("should cancel the migration by the reverting to the source volume", func() {
@@ -446,7 +413,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			createUnschedulablePVC(destPVC, ns, size)
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
-			waitMigrationToExist(vm.Name, ns)
+			waitMigrationToExist(virtClient, vm.Name, ns)
 			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 			By("Cancel the volume migration")
 			updateVMWithPVC(vm, volName, dv.Name)
@@ -534,7 +501,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			createUnschedulablePVC(destPVC, ns, size)
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
-			waitMigrationToExist(vm.Name, ns)
+			waitMigrationToExist(virtClient, vm.Name, ns)
 			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 
 			By("Restarting the VM during the volume migration")
@@ -584,7 +551,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			createUnschedulablePVC(destPVC, ns, size)
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
-			waitMigrationToExist(vm.Name, ns)
+			waitMigrationToExist(virtClient, vm.Name, ns)
 			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 			Eventually(func() []virtv1.StorageMigratedVolumeInfo {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -621,6 +588,7 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 
 	Describe("Hotplug volumes", func() {
 		var fgDisabled bool
+		const size = "1Gi"
 		BeforeEach(func() {
 			var err error
 			virtClient, err = kubecli.GetKubevirtClient()
@@ -636,6 +604,19 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				config.DisableFeatureGate(virtconfig.HotplugVolumesGate)
 			}
 		})
+
+		waitForHotplugVol := func(vmName, ns, volName string) {
+			Eventually(func() string {
+				updatedVMI, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
+					if volumeStatus.Name == volName && volumeStatus.HotplugVolume != nil {
+						return volumeStatus.Target
+					}
+				}
+				return ""
+			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
+		}
 
 		DescribeTable("should be able to add and remove a volume with the volume migration feature gate enabled", func(persist bool) {
 			const volName = "vol0"
@@ -710,7 +691,69 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			Entry("with a persistent volume", true),
 			Entry("with an ephemeral volume", false),
 		)
+
+		It("should be able to migrate an hotplugged volume", func() {
+			const volName = "vol0"
+			ns := testsuite.GetTestNamespace(nil)
+			dv := createBlankDV(virtClient, ns, "2G")
+			vmi := libvmifact.NewCirros(
+				libvmi.WithNamespace(ns),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+			)
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+			)
+			vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+
+			volumeSource := &v1.HotplugVolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: dv.Name,
+				},
+			}
+
+			// Add the volume
+			addOpts := &v1.AddVolumeOptions{
+				Name: volName,
+				Disk: &v1.Disk{
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+					},
+					//					Serial: volName,
+				},
+				VolumeSource: volumeSource,
+			}
+			Expect(virtClient.VirtualMachine(ns).AddVolume(context.Background(), vm.Name, addOpts)).ToNot(HaveOccurred())
+			waitForHotplugVol(vm.Name, vm.Namespace, volName)
+
+			dvDst := createBlankDV(virtClient, vm.Namespace, "2Gi")
+			By("Update volumes")
+			var index int
+			Eventually(func() int {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for i, v := range vm.Spec.Template.Spec.Volumes {
+					if v.Name == volName {
+						index = i
+						return i
+					}
+				}
+				return -1
+			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).Should(BeNumerically(">", -1))
+			p, err := patch.New(
+				patch.WithReplace(fmt.Sprintf("/spec/template/spec/volumes/%d/dataVolume/name", index), dvDst.Name),
+				patch.WithReplace("/spec/updateVolumesStrategy", virtv1.UpdateVolumesStrategyMigration),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			waitForMigrationToSucceed(virtClient, vm.Name, vm.Namespace)
+		})
 	})
+
 })
 
 func createUnschedulablePVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
@@ -816,4 +859,39 @@ func createBlankDV(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.Da
 		dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return dv
+}
+
+func waitMigrationToExist(virtClient kubecli.KubevirtClient, vmiName, ns string) {
+	Eventually(func() bool {
+		ls := labels.Set{
+			virtv1.VolumesUpdateMigration: vmiName,
+		}
+		migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
+			metav1.ListOptions{
+				LabelSelector: ls.String(),
+			})
+		Expect(err).ToNot(HaveOccurred())
+		if len(migList.Items) < 0 {
+			return false
+		}
+		return true
+
+	}, 120*time.Second, time.Second).Should(BeTrue())
+}
+
+func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns string) {
+	waitMigrationToExist(virtClient, vmiName, ns)
+	Eventually(func() bool {
+		vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName,
+			metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		if vmi.Status.MigrationState == nil {
+			return false
+		}
+		if !vmi.Status.MigrationState.Completed {
+			return false
+		}
+
+		return true
+	}, 120*time.Second, time.Second).Should(BeTrue())
 }
