@@ -76,7 +76,7 @@ var _ = Describe("AccessCredentials", func() {
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
 		domain := &api.Domain{}
 		c := &converter.ConverterContext{
-			Architecture:   runtime.GOARCH,
+			Architecture:   converter.NewArchConverter(runtime.GOARCH),
 			VirtualMachine: vmi,
 			AllowEmulation: true,
 			SMBios:         &cmdv1.SMBios{},

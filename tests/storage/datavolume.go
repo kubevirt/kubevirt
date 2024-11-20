@@ -281,7 +281,22 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			if pvCapacitySize.Cmp(pvcRequestSize) > 0 {
 				Expect(getVirtualSize(vmi, dataVolume)).To(Equal((pvcRequestSize.Value())))
 			} else {
-				overheadPercentage, err := strconv.ParseFloat(string(*vmi.Status.VolumeStatus[1].PersistentVolumeClaimInfo.FilesystemOverhead), 64)
+				volumeStatus := v1.VolumeStatus{}
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, volStatus := range vmi.Status.VolumeStatus {
+						if volStatus.Name == "disk0" {
+							volumeStatus = volStatus
+							return true
+						}
+					}
+					return false
+				}, 30*time.Second, time.Second).Should(BeTrue(), "Expected VolumeStatus for 'disk0' to be available")
+
+				Expect(volumeStatus.PersistentVolumeClaimInfo).ToNot(BeNil())
+				Expect(volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead).ToNot(BeNil())
+				overheadPercentage, err := strconv.ParseFloat(string(*volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead), 64)
 				Expect(err).ToNot(HaveOccurred())
 				overheadSize := float64(pvcRequestSize.Value()) * (1.0 - overheadPercentage)
 				expectedSize := alignImageSizeTo1MiB(int64(overheadSize))
@@ -1219,7 +1234,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
-				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.FedoraVolumeSize)),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+					libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+				),
 				libdv.WithForceBindAnnotation(), // So we can wait for DV to finish before starting the VMI
 			)
 
@@ -1492,30 +1511,6 @@ func volumeExpansionAllowed(sc string) bool {
 	Expect(err).ToNot(HaveOccurred())
 	return storageClass.AllowVolumeExpansion != nil &&
 		*storageClass.AllowVolumeExpansion
-}
-
-func newRandomVMWithDataVolume() (*v1.VirtualMachine, bool) {
-	sc, exists := libstorage.GetRWOFileSystemStorageClass()
-	if !exists {
-		return nil, false
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-		libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
-	)
-
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dataVolume.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm, true
 }
 
 func renderVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {

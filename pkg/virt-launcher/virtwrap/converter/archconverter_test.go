@@ -23,8 +23,8 @@ import (
 
 var _ = Describe("Arch Converter", func() {
 
-	DescribeTable("Should create a new archConverter for the correct architecture", func(arch string, result archConverter) {
-		ac := newArchConverter(arch)
+	DescribeTable("Should create a new archConverter for the correct architecture", func(arch string, result ArchConverter) {
+		ac := NewArchConverter(arch)
 
 		Expect(ac).To(Equal(result))
 	},

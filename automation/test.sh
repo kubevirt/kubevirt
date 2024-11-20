@@ -474,6 +474,11 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!PERIODIC)" "&&"
   fi
 
+  if [[ ! $TARGET =~ windows.* ]]; then
+    add_to_label_filter "(!Windows)" "&&"
+    add_to_label_filter "(!Sysprep)" "&&"
+  fi
+
 fi
 
 # No lane currently supports loading a custom policy

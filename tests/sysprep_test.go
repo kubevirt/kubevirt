@@ -29,7 +29,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -217,85 +216,25 @@ func insertProductKeyToAnswerFileTemplate(answerFileTemplate string) string {
 	return fmt.Sprintf(answerFileTemplate, productKey)
 }
 
-// addExplicitPodNetworkInterface
-//
-// Deprecated: Use libvmi
-func addExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+func withFeatures(features v1.Features) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Features = &features
+	}
 }
 
-// Deprecated: Use libvmi
-func getWindowsSysprepVMISpec() v1.VirtualMachineInstanceSpec {
-	gracePeriod := int64(0)
-	spinlocks := uint32(8191)
-	firmware := types.UID(libvmifact.WindowsFirmware)
-	_false := false
-	return v1.VirtualMachineInstanceSpec{
-		TerminationGracePeriodSeconds: &gracePeriod,
-		Domain: v1.DomainSpec{
-			CPU: &v1.CPU{Cores: 2},
-			Features: &v1.Features{
-				ACPI: v1.FeatureState{},
-				APIC: &v1.FeatureAPIC{},
-				Hyperv: &v1.FeatureHyperv{
-					Relaxed:   &v1.FeatureState{},
-					VAPIC:     &v1.FeatureState{},
-					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
-				},
-			},
-			Clock: &v1.Clock{
-				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
-				Timer: &v1.Timer{
-					HPET:   &v1.HPETTimer{Enabled: &_false},
-					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
-					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
-					Hyperv: &v1.HypervTimer{},
-				},
-			},
-			Firmware: &v1.Firmware{UUID: firmware},
-			Resources: v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
-				},
-			},
-			Devices: v1.Devices{
-				Disks: []v1.Disk{
-					{
-						Name:       windowsSealedDisk,
-						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusSATA}},
-					},
-					{
-						Name:       "sysprep",
-						DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{Bus: v1.DiskBusSATA}},
-					},
-				},
-			},
-		},
-		Volumes: []v1.Volume{
-			{
-				Name: windowsSealedDisk,
-				VolumeSource: v1.VolumeSource{
-					Ephemeral: &v1.EphemeralVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: diskWindowsSysprep,
-						},
-					},
-				},
-			},
-			{
-				Name: "sysprep",
-				VolumeSource: v1.VolumeSource{
-					Sysprep: &v1.SysprepSource{
-						ConfigMap: &k8sv1.LocalObjectReference{
-							Name: "sysprepautounattend",
-						},
-					},
-				},
-			},
-		},
+func withClock(clock v1.Clock) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Clock = &clock
 	}
+}
 
+func withFirmwareUID(uid types.UID) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		vmi.Spec.Domain.Firmware.UUID = uid
+	}
 }
 
 const (
@@ -304,7 +243,6 @@ const (
 )
 
 var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", Serial, decorators.Sysprep, decorators.SigCompute, func() {
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	var windowsVMI *v1.VirtualMachineInstance
@@ -312,66 +250,87 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 	BeforeEach(func() {
 		const OSWindowsSysprep = "windows-sysprep"
 		virtClient = kubevirt.Client()
-		checks.SkipIfMissingRequiredImage(virtClient, diskWindowsSysprep)
+		checks.RecycleImageOrFail(virtClient, diskWindowsSysprep)
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
-		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
-		windowsVMI = libvmi.New()
-		windowsVMI.Spec = getWindowsSysprepVMISpec()
-		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
-		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
-		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
+
+		// TODO: Figure out why we have both Autounattend and Unattend
+		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": insertProductKeyToAnswerFileTemplate(answerFileTemplate), "Unattend.xml": insertProductKeyToAnswerFileTemplate(answerFileTemplate)})
+		_, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		addExplicitPodNetworkInterface(windowsVMI)
-		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
+
+		windowsVMI = libvmi.New(libvmi.WithInterface(e1000DefaultInterface()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithTerminationGracePeriod(0),
+			libvmi.WithCPUCount(2, 0, 0),
+			libvmi.WithEphemeralPersistentVolumeClaim(windowsSealedDisk, diskWindowsSysprep),
+			libvmi.WithCDRomAndVolume(v1.DiskBusSATA, v1.Volume{
+				Name: "sysprep",
+				VolumeSource: v1.VolumeSource{
+					Sysprep: &v1.SysprepSource{
+						ConfigMap: &k8sv1.LocalObjectReference{
+							Name: cm.Name,
+						},
+					},
+				},
+			}),
+			libvmi.WithResourceMemory("2048Mi"),
+			withFeatures(v1.Features{
+				ACPI: v1.FeatureState{},
+				APIC: &v1.FeatureAPIC{},
+				Hyperv: &v1.FeatureHyperv{
+					Relaxed:   &v1.FeatureState{},
+					VAPIC:     &v1.FeatureState{},
+					Spinlocks: &v1.FeatureSpinlocks{Retries: pointer.P(uint32(8191))},
+				},
+			}),
+			withClock(v1.Clock{
+				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
+				Timer: &v1.Timer{
+					HPET:   &v1.HPETTimer{Enabled: pointer.P(false)},
+					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
+					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
+					Hyperv: &v1.HypervTimer{},
+				},
+			}),
+			withFirmwareUID(types.UID(libvmifact.WindowsFirmware)),
+		)
 	})
 
 	Context("[ref_id:5105]should create the Admin user as specified in the Autounattend.xml", func() {
 		var winrmcliPod *k8sv1.Pod
-		var cli []string
-		var output string
-		var vmiIp string
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
-			winrmcliPod = winRMCliPod()
-			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
+			var err error
+			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winRMCliPod(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the windows VirtualMachineInstance")
 			windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			libwait.WaitForSuccessfulVMIStart(windowsVMI,
+			windowsVMI = libwait.WaitForSuccessfulVMIStart(windowsVMI,
 				libwait.WithTimeout(720),
 			)
+		})
 
-			windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
-			vmiIp = windowsVMI.Status.Interfaces[0].IP
-			cli = []string{
+		It("[test_id:5843]Should run echo command on machine using the credentials specified in the Autounattend.xml file", func() {
+			command := []string{
 				winrmCliCmd,
 				"-hostname",
-				vmiIp,
+				windowsVMI.Status.Interfaces[0].IP,
 				"-username",
 				windowsSysprepedVMIUser,
 				"-password",
 				windowsSysprepedVMIPassword,
-			}
-		})
-
-		It("[test_id:5843]Should run echo command on machine using the credentials specified in the Autounattend.xml file", func() {
-			command := append(cli, "echo works")
-			Eventually(func() error {
-				fmt.Printf("Running \"%s\" command via winrm-cli\n", command)
-				output, err = exec.ExecuteCommandOnPod(
+				"echo works"}
+			Eventually(func() (string, error) {
+				return exec.ExecuteCommandOnPod(
 					winrmcliPod,
 					winrmcliPod.Spec.Containers[0].Name,
 					command,
 				)
-				fmt.Printf("Result \"%v\" command via winrm-cli\n", err)
-				return err
-			}, time.Minute*10, time.Second*60).ShouldNot(HaveOccurred())
-			By("Checking that the Windows VirtualMachineInstance has expected UUID")
-			Expect(output).Should(ContainSubstring("works"))
+			}, time.Minute*10, time.Second*60).Should(ContainSubstring("works"))
 		})
 	})
 })

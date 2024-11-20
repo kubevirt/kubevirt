@@ -24,11 +24,15 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = archConverter(&archConverterPPC64{})
+var _ = ArchConverter(&archConverterPPC64{})
 
 type archConverterPPC64 struct{}
 
-func (archConverterPPC64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) {
+func (archConverterPPC64) GetArchitecture() string {
+	return "ppc64le"
+}
+
+func (archConverterPPC64) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
@@ -53,4 +57,27 @@ func (archConverterPPC64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 
 func (archConverterPPC64) supportCPUHotplug() bool {
 	return true
+}
+
+func (archConverterPPC64) isSMBiosNeeded() bool {
+	// SMBios option does not work in Power, attempting to set it will result in the following error message:
+	// "Option not supported for this target" issued by qemu-system-ppc64, so don't set it in case GOARCH is ppc64le
+	return false
+}
+
+func (archConverterPPC64) transitionalModelType(useVirtioTransitional bool) string {
+	return defaultTransitionalModelType(useVirtioTransitional)
+}
+
+func (archConverterPPC64) isROMTuningSupported() bool {
+	return true
+}
+
+func (archConverterPPC64) requiresMPXCPUValidation() bool {
+	// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
+	return false
+}
+
+func (archConverterPPC64) shouldVerboseLogsBeEnabled() bool {
+	return false
 }

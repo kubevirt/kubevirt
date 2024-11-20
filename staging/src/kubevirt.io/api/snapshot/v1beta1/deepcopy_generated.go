@@ -223,6 +223,11 @@ func (in *VirtualMachineRestoreList) DeepCopyObject() runtime.Object {
 func (in *VirtualMachineRestoreSpec) DeepCopyInto(out *VirtualMachineRestoreSpec) {
 	*out = *in
 	in.Target.DeepCopyInto(&out.Target)
+	if in.TargetReadinessPolicy != nil {
+		in, out := &in.TargetReadinessPolicy, &out.TargetReadinessPolicy
+		*out = new(TargetReadinessPolicy)
+		**out = **in
+	}
 	if in.Patches != nil {
 		in, out := &in.Patches, &out.Patches
 		*out = make([]string, len(*in))

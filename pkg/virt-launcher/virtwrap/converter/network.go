@@ -83,7 +83,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			domainIface.Type = "ethernet"
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-			} else if !isS390X(vmi.Spec.Architecture) {
+			} else if NewArchConverter(vmi.Spec.Architecture).isROMTuningSupported() {
 				// s390x does not support setting ROM tuning, as it is for PCI Devices only
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}

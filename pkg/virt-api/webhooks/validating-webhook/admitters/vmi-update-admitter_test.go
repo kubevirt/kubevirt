@@ -944,7 +944,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
-	It("should allow change for a persistent volume if it is a migrated volume", func() {
+	DescribeTable("should allow change for a persistent volume if it is a migrated volume", func(hotpluggable bool) {
 		disks := []v1.Disk{
 			{
 				Name:       "vol0",
@@ -961,6 +961,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc0"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -969,6 +970,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -979,6 +981,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc0"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -987,6 +990,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc2"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -1004,5 +1008,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			},
 		}
 		Expect(admitStorageUpdate(newVols, oldVols, disks, disks, volumeStatuses, vmi, vmiUpdateAdmitter.clusterConfig)).To(BeNil())
-	})
+	},
+		Entry("and not hotpluggable", false),
+		Entry("and hotpluggable", true),
+	)
 })

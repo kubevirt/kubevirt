@@ -145,11 +145,10 @@ func SkipTestIfNotSEVESCapable() {
 	ginkgo.Skip("no node capable of running SEV-ES workloads detected", 1)
 }
 
-// Deprecated: SkipIfMissingRequiredImage should be converted to check & fail
-func SkipIfMissingRequiredImage(virtClient kubecli.KubevirtClient, imageName string) {
+func RecycleImageOrFail(virtClient kubecli.KubevirtClient, imageName string) {
 	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, metav1.GetOptions{})
 	if err != nil || windowsPv.Status.Phase == k8sv1.VolumePending || windowsPv.Status.Phase == k8sv1.VolumeFailed {
-		ginkgo.Skip(fmt.Sprintf("Skip tests that requires PV %s", imageName))
+		ginkgo.Fail(fmt.Sprintf("Skip tests that requires PV %s", imageName))
 	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
 		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})

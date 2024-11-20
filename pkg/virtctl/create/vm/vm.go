@@ -442,10 +442,10 @@ func (c *createVM) usage() string {
   # Create a manifest for a VirtualMachine with multiple volumes and inferred instancetype and preference with specified volumes
   {{ProgramName}} create vm --volume-import=type:ds,src:my-annotated-ds --volume-pvc=my-annotated-pvc --infer-instancetype=my-annotated-ds --infer-preference=my-annotated-pvc
 
-  # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and cloned PVC
+  # Create a manifest for a VirtualMachine with a cloned PVC
   {{ProgramName}} create vm --volume-import=type:pvc,src:my-ns/my-pvc
 
-  # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and directly used PVC
+  # Create a manifest for a VirtualMachine using a PVC without cloning it
   {{ProgramName}} create vm --volume-pvc=src:my-pvc
 
   # Create a manifest for a VirtualMachine with a clone DataSource and a blank volume

@@ -66,10 +66,19 @@ const (
 
 	restoreErrorEvent = "VirtualMachineRestoreError"
 
+	restoreVMNotReadyEvent = "RestoreTargetNotReady"
+
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
 )
 
+var (
+	restoreGracePeriodExceededError = fmt.Sprintf("Restore target failed to be ready within %s", snapshotv1.DefaultGracePeriod)
+	restoreTargetNotReady           = "Restore target not ready"
+	restoredFailed                  = "Operation failed"
+)
+
 type restoreTarget interface {
+	Stop() error
 	Ready() (bool, error)
 	Reconcile() (bool, error)
 	Own(obj metav1.Object)
@@ -102,8 +111,17 @@ func restoreDVName(vmRestore *snapshotv1.VirtualMachineRestore, name string) str
 	return restorePVCName(vmRestore, name)
 }
 
+func vmRestoreFailed(vmRestore *snapshotv1.VirtualMachineRestore) bool {
+	return vmRestore.Status != nil &&
+		hasConditionType(vmRestore.Status.Conditions, snapshotv1.ConditionFailure)
+}
+
+func vmRestoreCompleted(vmRestore *snapshotv1.VirtualMachineRestore) bool {
+	return vmRestore.Status != nil && vmRestore.Status.Complete != nil && *vmRestore.Status.Complete
+}
+
 func VmRestoreProgressing(vmRestore *snapshotv1.VirtualMachineRestore) bool {
-	return vmRestore.Status == nil || vmRestore.Status.Complete == nil || !*vmRestore.Status.Complete
+	return !vmRestoreCompleted(vmRestore) && !vmRestoreFailed(vmRestore)
 }
 
 func vmRestoreDeleting(vmRestore *snapshotv1.VirtualMachineRestore) bool {
@@ -156,6 +174,15 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		}
 	}
 
+	ready, err := target.Ready()
+	if err != nil {
+		logger.Reason(err).Error("Error checking target ready")
+		return 0, ctrl.doUpdateError(vmRestoreIn, err)
+	}
+	if !ready {
+		return 0, ctrl.handleVMRestoreTargetNotReady(vmRestoreOut, target)
+	}
+
 	err = target.UpdateRestoreInProgress()
 	if err != nil {
 		return 0, err
@@ -170,19 +197,6 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"))
 		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"))
 		return 0, ctrl.doUpdateStatus(vmRestoreIn, vmRestoreOut)
-	}
-
-	ready, err := target.Ready()
-	if err != nil {
-		logger.Reason(err).Error("Error checking target ready")
-		return 0, ctrl.doUpdateError(vmRestoreIn, err)
-	}
-	if !ready {
-		reason := "Waiting for target to be ready"
-		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, reason))
-		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, reason))
-		// try again in 5 secs
-		return 5 * time.Second, ctrl.doUpdateStatus(vmRestoreIn, vmRestoreOut)
 	}
 
 	updated, err = target.Reconcile()
@@ -284,6 +298,48 @@ func (ctrl *VMRestoreController) handleVMRestoreDeletion(vmRestore *snapshotv1.V
 	}
 	_, err = ctrl.Client.VirtualMachineRestore(vmRestore.Namespace).Patch(context.Background(), vmRestore.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	return err
+}
+
+func (ctrl *VMRestoreController) handleVMRestoreTargetNotReady(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
+	vmRestoreCpy := vmRestore.DeepCopy()
+
+	// default policy is having a grace period for the user the make
+	// the target ready
+	policy := snapshotv1.VirtualMachineRestoreWaitGracePeriodAndFail
+	if vmRestore.Spec.TargetReadinessPolicy != nil {
+		policy = *vmRestore.Spec.TargetReadinessPolicy
+	}
+
+	eventMsg := "Restore target VMI still exists"
+	ctrl.Recorder.Event(vmRestoreCpy, corev1.EventTypeNormal, restoreVMNotReadyEvent, eventMsg)
+	reason := "Waiting for target to be ready"
+	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, reason))
+	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, reason))
+
+	switch policy {
+	case snapshotv1.VirtualMachineRestoreWaitEventually:
+	case snapshotv1.VirtualMachineRestoreStopTarget:
+		err := target.Stop()
+		if err != nil {
+			return ctrl.doUpdateError(vmRestore, err)
+		}
+	case snapshotv1.VirtualMachineRestoreWaitGracePeriodAndFail:
+		if vmRestoreTargetReadyGracePeriodExceeded(vmRestore) {
+			updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, restoredFailed))
+			updateRestoreCondition(vmRestoreCpy, newFailureCondition(corev1.ConditionTrue, restoreGracePeriodExceededError))
+			updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, restoredFailed))
+		}
+	case snapshotv1.VirtualMachineRestoreFailImmediate:
+		updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, restoredFailed))
+		updateRestoreCondition(vmRestoreCpy, newFailureCondition(corev1.ConditionTrue, restoreTargetNotReady))
+		updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, restoredFailed))
+	}
+	return ctrl.doUpdateStatus(vmRestore, vmRestoreCpy)
+}
+
+func vmRestoreTargetReadyGracePeriodExceeded(vmRestore *snapshotv1.VirtualMachineRestore) bool {
+	deadline := vmRestore.CreationTimestamp.Add(snapshotv1.DefaultGracePeriod)
+	return time.Until(deadline) < 0
 }
 
 func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) (bool, error) {
@@ -433,6 +489,15 @@ func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
 	return nil
 }
 
+func (t *vmRestoreTarget) Stop() error {
+	if !t.Exists() {
+		return nil
+	}
+
+	log.Log.Infof("Stopping VM before restore [%s/%s]", t.vm.Namespace, t.vm.Name)
+	return t.controller.Client.VirtualMachine(t.vm.Namespace).Stop(context.Background(), t.vm.Name, &kubevirtv1.StopOptions{})
+}
+
 func (t *vmRestoreTarget) Ready() (bool, error) {
 	if !t.Exists() {
 		return true, nil
@@ -440,26 +505,14 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 
 	log.Log.Object(t.vmRestore).V(3).Info("Checking VM ready")
 
-	rs, err := t.vm.RunStrategy()
-	if err != nil {
-		return false, err
-	}
-
-	if rs != kubevirtv1.RunStrategyHalted {
-		return false, fmt.Errorf("invalid RunStrategy %q", rs)
-	}
-
 	vmiKey, err := controller.KeyFunc(t.vm)
 	if err != nil {
 		return false, err
 	}
 
 	_, exists, err := t.controller.VMIInformer.GetStore().GetByKey(vmiKey)
-	if err != nil {
-		return false, err
-	}
 
-	return !exists, nil
+	return !exists, err
 }
 
 func (t *vmRestoreTarget) Reconcile() (bool, error) {

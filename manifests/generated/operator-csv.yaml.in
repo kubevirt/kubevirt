@@ -636,6 +636,7 @@ spec:
         - apiGroups:
           - subresources.kubevirt.io
           resources:
+          - virtualmachines/stop
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
           - virtualmachineinstances/freeze

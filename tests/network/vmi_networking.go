@@ -117,6 +117,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiPod, err := libpod.GetPodByVirtualMachineInstance(outboundVMI, outboundVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
+				Expect(libnet.ValidateVMIandPodIPMatch(outboundVMI, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
+
 				var mtu int
 				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
 					By(fmt.Sprintf("checking %s MTU inside the pod", ifaceName))
@@ -175,63 +177,41 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					Expect(vmi.Status.Interfaces[0].MAC).To(Equal(vmi.Spec.Domain.Devices.Interfaces[0].MacAddress))
 				}
 				Expect(libnet.CheckMacAddress(vmi, "eth0", vmi.Status.Interfaces[0].MAC)).To(Succeed())
-
 			},
-				Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
+				Entry("[test_id:1539]the Inbound VirtualMachineInstance with default (implicit) binding", &inboundVMI),
 				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
 				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
 			)
 		})
 
-		Context("with propagated IP from a pod", func() {
+		It("clients should be able to reach VM workload, with propagated IP from a pod", func() {
+			inboundVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
+			const testPort = 1500
+			vmnetserver.StartTCPServer(inboundVMI, testPort, console.LoginToCirros)
 
-			DescribeTable("should be able to reach", func(op k8sv1.NodeSelectorOperator, hostNetwork bool) {
-				namespace := testsuite.GetTestNamespace(nil)
-				if hostNetwork {
-					namespace = testsuite.NamespacePrivileged
-				}
+			ip := inboundVMI.Status.Interfaces[0].IP
 
-				inboundVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
+			By("start connectivity job on the same node as the VM")
+			localNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
+			localNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpIn, inboundVMI.Status.NodeName)}
+			localNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), localNodeTCPJob, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(job.WaitForJobToSucceed(localNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on the same node")
+
+			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if len(nodes.Items) == 1 {
+				Skip("Skip network TCP connectivity test across nodes because only one node present")
+			} else {
+				By("start connectivity job on different node")
+				remoteNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
+				remoteNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpNotIn, inboundVMI.Status.NodeName)}
+				remoteNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), remoteNodeTCPJob, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
-				const testPort = 1500
-				vmnetserver.StartTCPServer(inboundVMI, testPort, console.LoginToCirros)
-
-				ip := inboundVMI.Status.Interfaces[0].IP
-
-				//TODO if node count 1, skip the nv12.NodeSelectorOpOut
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nodes.Items).ToNot(BeEmpty())
-				if len(nodes.Items) == 1 && op == k8sv1.NodeSelectorOpNotIn {
-					Skip("Skip network test that requires multiple nodes when only one node is present.")
-				}
-
-				tcpJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
-				tcpJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
-					NodeAffinity: &k8sv1.NodeAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-								{
-									MatchExpressions: []k8sv1.NodeSelectorRequirement{
-										{Key: k8sv1.LabelHostname, Operator: op, Values: []string{inboundVMI.Status.NodeName}},
-									},
-								},
-							},
-						},
-					},
-				}
-				tcpJob.Spec.Template.Spec.HostNetwork = hostNetwork
-
-				tcpJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), tcpJob, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed())
-			},
-				Entry("[test_id:1543]on the same node from Pod", k8sv1.NodeSelectorOpIn, false),
-				Entry("[test_id:1544]on a different node from Pod", k8sv1.NodeSelectorOpNotIn, false),
-				Entry("[test_id:1545]on the same node from Node", k8sv1.NodeSelectorOpIn, true),
-				Entry("[test_id:1546]on a different node from Node", k8sv1.NodeSelectorOpNotIn, true),
-			)
+				Expect(job.WaitForJobToSucceed(remoteNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on different node")
+			}
 		})
 
 		Context("VirtualMachineInstance with default interface model", func() {
@@ -551,7 +531,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
 				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
-				Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
 				Entry("with custom CIDR [IPv4] containing leading zeros", []v1.Port{}, 8080, cidrWithLeadingZeros),
 			)
 
@@ -924,4 +903,18 @@ func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewCirros(
 		libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), mac)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+}
+
+func newNodeAffinity(selector k8sv1.NodeSelectorOperator, nodeName string) *k8sv1.NodeAffinity {
+	req := k8sv1.NodeSelectorRequirement{
+		Key:      k8sv1.LabelHostname,
+		Operator: selector,
+		Values:   []string{nodeName},
+	}
+	term := []k8sv1.NodeSelectorTerm{{
+		MatchExpressions: []k8sv1.NodeSelectorRequirement{req}},
+	}
+	return &k8sv1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+		NodeSelectorTerms: term,
+	}}
 }

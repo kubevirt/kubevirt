@@ -27,15 +27,11 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/network"
-
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -57,8 +53,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -1089,12 +1083,6 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 				} else {
 					return hotplugSyncErr, pod
 				}
-			}
-		}
-
-		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := network.CalculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi); dynamicIfacesExist {
-			if err := c.updateMultusAnnotation(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
-				return common.NewSyncError(fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err), controller.FailedHotplugSyncReason), pod
 			}
 		}
 	}
@@ -2138,7 +2126,7 @@ func (c *Controller) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (vi
 		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
 	}
 
-	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig), nil
+	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig)
 }
 
 func (c *Controller) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
@@ -2170,34 +2158,6 @@ func (c *Controller) getVolumePhaseMessageReason(volume *virtv1.Volume, namespac
 		return virtv1.VolumeBound, controller.PVCNotReadyReason, "PVC is in phase Bound"
 	}
 	return virtv1.VolumePending, controller.PVCNotReadyReason, "PVC is in phase Lost"
-}
-
-func (c *Controller) updateMultusAnnotation(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
-	podAnnotations := pod.GetAnnotations()
-
-	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(networks, multus.NetworkStatusesFromPod(pod))
-	multusAnnotations, err := multus.GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, podIfaceNamesByNetworkName, c.clusterConfig)
-	if err != nil {
-		return err
-	}
-
-	currentMultusAnnotation := podAnnotations[networkv1.NetworkAttachmentAnnot]
-	log.Log.Object(pod).V(4).Infof(
-		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
-		currentMultusAnnotation,
-		multusAnnotations,
-	)
-
-	if multusAnnotations != currentMultusAnnotation {
-		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
-		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
-		if err != nil {
-			return err
-		}
-		*pod = *patchedPod
-	}
-
-	return nil
 }
 
 func (c *Controller) syncHotplugCondition(vmi *virtv1.VirtualMachineInstance, conditionType virtv1.VirtualMachineInstanceConditionType) {
