@@ -144,6 +144,19 @@ func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
 func RenderVMIWithDataVolume(dvName, ns string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	defaultOptions := []libvmi.Option{
 		libvmi.WithDataVolume("disk0", dvName),
+	}
+	return renderVMI(ns, append(defaultOptions, opts...)...)
+}
+
+func RenderVMIWithHotplugDataVolume(dvName, ns string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	defaultOptions := []libvmi.Option{
+		libvmi.WithHotplugDataVolume("disk0", dvName),
+	}
+	return renderVMI(ns, append(defaultOptions, opts...)...)
+}
+
+func renderVMI(ns string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	defaultOptions := []libvmi.Option{
 		// This default can be optimized further to 128Mi on certain setups
 		libvmi.WithResourceMemory("256Mi"),
 		libvmi.WithNamespace(ns),
