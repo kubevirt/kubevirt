@@ -80,7 +80,7 @@ const (
 	BlankVolumeFlag      = "volume-blank"
 
 	SysprepDisk      = "sysprepdisk"
-	SysprepConfigMap = "configMap"
+	SysprepConfigMap = "configmap"
 	SysprepSecret    = "secret"
 
 	CloudInitDisk         = "cloudinitdisk"
@@ -104,9 +104,9 @@ const (
 	snapshot = "snapshot"
 	ds       = "ds"
 
-	VolumeExistsErrorFmt                 = "there is already a volume with name '%s'"
-	InvalidInferenceVolumeError          = "inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"
-	DVInvalidInferenceVolumeError        = "this DataVolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
+	VolumeExistsErrorFmt                 = "there is already a volume with name \"%s\""
+	InvalidInferenceVolumeError          = "inference of instancetype or preference works only with datasources, datavolumes or pvcs"
+	DVInvalidInferenceVolumeError        = "this datavolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
 	accessCredUserInvalidError           = "user cannot be specified with selected access credential type and method"
 	accessCredMethodFlagMismatchErrorFmt = "method param and value passed to --%s have to match: %s vs %s"
 )
@@ -194,14 +194,6 @@ var volumeImportSizeOptional = map[string]bool{
 	ds:       true,
 }
 
-var runStrategies = []string{
-	string(v1.RunStrategyAlways),
-	string(v1.RunStrategyManual),
-	string(v1.RunStrategyHalted),
-	string(v1.RunStrategyOnce),
-	string(v1.RunStrategyRerunOnFailure),
-}
-
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	c := defaultCreateVM(clientConfig)
 	cmd := &cobra.Command{
@@ -248,7 +240,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&c.user, UserFlag, c.user, "Specify the user in the cloud-init user data that is added to the VM.")
 	cmd.Flags().StringVar(&c.passwordFile, PasswordFileFlag, c.passwordFile, "Specify a file to read the password from for the cloud-init user data that is added to the VM.")
 	cmd.Flags().StringSliceVar(&c.sshKeys, SSHKeyFlag, c.sshKeys, "Specify one or more SSH authorized keys in the cloud-init user data that is added to the VM.")
-	cmd.Flags().BoolVar(&c.gaManageSSH, GAManageSSHFlag, c.gaManageSSH, "Specify if the qemu-guest-agent should be able to manage SSH in the cloud-init user data that is added to the VM.\nThis is useful in combination with the 'credentials add-ssh-key' command or when using the --access-cred flag.")
+	cmd.Flags().BoolVar(&c.gaManageSSH, GAManageSSHFlag, c.gaManageSSH, "Specify if the qemu-guest-agent should be able to manage SSH in the cloud-init user data that is added to the VM.\nThis is useful in combination with the \"credentials add-ssh-key\" command or when using the --access-cred flag.")
 	cmd.Flags().StringArrayVar(&c.accessCreds, AccessCredFlag, c.accessCreds, fmt.Sprintf("Specify an access credential to be injected into the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(accessCredential{})))
 
 	cmd.Flags().StringVar(&c.cloudInit, CloudInitFlag, c.cloudInit, fmt.Sprintf("Specify the type of the generated cloud-init data source.\nSupported values: %s, %s, %s", CloudInitNoCloud, CloudInitConfigDrive, CloudInitNone))
@@ -298,7 +290,7 @@ func volumeShouldExist(vm *v1.VirtualMachine, name string) (*v1.Volume, error) {
 		return vol, nil
 	}
 
-	return nil, fmt.Errorf("there is no volume with name '%s'", name)
+	return nil, fmt.Errorf("there is no volume with name \"%s\"", name)
 }
 
 func volumeShouldNotExist(flag string, vm *v1.VirtualMachine, name string) error {
@@ -782,14 +774,22 @@ func (c *createVM) buildCloudInitConfig() (string, error) {
 }
 
 func (c *createVM) withRunStrategy(vm *v1.VirtualMachine) error {
+	runStrategies := []string{
+		string(v1.RunStrategyAlways),
+		string(v1.RunStrategyManual),
+		string(v1.RunStrategyHalted),
+		string(v1.RunStrategyOnce),
+		string(v1.RunStrategyRerunOnFailure),
+	}
+
 	for _, runStrategy := range runStrategies {
-		if runStrategy == c.runStrategy {
-			vm.Spec.RunStrategy = pointer.P(v1.VirtualMachineRunStrategy(c.runStrategy))
+		if strings.ToLower(runStrategy) == strings.ToLower(c.runStrategy) {
+			vm.Spec.RunStrategy = pointer.P(v1.VirtualMachineRunStrategy(runStrategy))
 			return nil
 		}
 	}
 
-	return params.FlagErr(RunStrategyFlag, "invalid RunStrategy \"%s\", supported values are: %s", c.runStrategy, strings.Join(runStrategies, ", "))
+	return params.FlagErr(RunStrategyFlag, "invalid run strategy \"%s\", supported values are: %s", c.runStrategy, strings.Join(runStrategies, ", "))
 }
 
 func (c *createVM) withInstancetype(vm *v1.VirtualMachine) error {
@@ -798,6 +798,7 @@ func (c *createVM) withInstancetype(vm *v1.VirtualMachine) error {
 		return params.FlagErr(InstancetypeFlag, "%w", err)
 	}
 
+	kind = strings.ToLower(kind)
 	if kind != "" && kind != instancetype.SingularResourceName && kind != instancetype.ClusterSingularResourceName {
 		return params.FlagErr(InstancetypeFlag, "invalid instancetype kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularResourceName, instancetype.ClusterSingularResourceName)
 	}
@@ -818,8 +819,9 @@ func (c *createVM) withPreference(vm *v1.VirtualMachine) error {
 		return params.FlagErr(PreferenceFlag, "%w", err)
 	}
 
+	kind = strings.ToLower(kind)
 	if kind != "" && kind != instancetype.SingularPreferenceResourceName && kind != instancetype.ClusterSingularPreferenceResourceName {
-		return params.FlagErr(InstancetypeFlag, "invalid preference kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularPreferenceResourceName, instancetype.ClusterSingularPreferenceResourceName)
+		return params.FlagErr(PreferenceFlag, "invalid preference kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularPreferenceResourceName, instancetype.ClusterSingularPreferenceResourceName)
 	}
 
 	// If kind is empty we rely on the vm-mutator to fill in the default value VirtualMachineClusterPreference
@@ -883,7 +885,7 @@ func (c *createVM) withPvcVolume(vm *v1.VirtualMachine) error {
 			return params.FlagErr(PvcVolumeFlag, "src invalid: %w", err)
 		}
 		if namespace != "" {
-			return params.FlagErr(PvcVolumeFlag, "not allowed to specify namespace of pvc '%s'", name)
+			return params.FlagErr(PvcVolumeFlag, "not allowed to specify namespace of pvc \"%s\"", name)
 		}
 
 		if vol.Name == "" {
@@ -928,7 +930,7 @@ func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
 		return params.FlagErr(SysprepVolumeFlag, "src invalid: %w", err)
 	}
 	if namespace != "" {
-		return params.FlagErr(SysprepVolumeFlag, "not allowed to specify namespace of ConfigMap or Secret '%s'", name)
+		return params.FlagErr(SysprepVolumeFlag, "not allowed to specify namespace of configmap or secret \"%s\"", name)
 	}
 
 	if vol.Type == "" {
@@ -940,7 +942,7 @@ func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
 	}
 
 	var src *v1.SysprepSource
-	switch vol.Type {
+	switch strings.ToLower(vol.Type) {
 	case SysprepConfigMap:
 		src = &v1.SysprepSource{
 			ConfigMap: &k8sv1.LocalObjectReference{
@@ -954,7 +956,7 @@ func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
 			},
 		}
 	default:
-		return params.FlagErr(SysprepVolumeFlag, "invalid source type \"%s\", supported values are: %s, %s", vol.Type, SysprepConfigMap, SysprepSecret)
+		return params.FlagErr(SysprepVolumeFlag, "invalid sysprep source type \"%s\", supported values are: %s, %s", vol.Type, SysprepConfigMap, SysprepSecret)
 	}
 
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
@@ -976,7 +978,7 @@ func (c *createVM) withImportedVolume(vm *v1.VirtualMachine) error {
 
 		sourceFn, found := volumeImportOptions[volumeSourceType]
 		if !found {
-			return params.FlagErr(VolumeImportFlag, fmt.Sprintf("unknown source type used - %s", volumeSourceType))
+			return params.FlagErr(VolumeImportFlag, "invalid volume import type \"%s\", see help for supported values", volumeSourceType)
 		}
 
 		spec, bootOrder, err := sourceFn(volume)
@@ -1028,7 +1030,7 @@ func withVolumeSourceGcs(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) 
 	}
 
 	if sourceStruct.URL == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "URL is required with GCS volume source")
+		return nil, nil, params.FlagErr(VolumeImportFlag, "url is required with gcs volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
@@ -1048,7 +1050,7 @@ func withVolumeSourceHttp(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error)
 	}
 
 	if sourceStruct.URL == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "URL is required with http volume source")
+		return nil, nil, params.FlagErr(VolumeImportFlag, "url is required with http volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
@@ -1071,7 +1073,7 @@ func withVolumeSourceImageIO(paramStr string) (*cdiv1.DataVolumeSpec, *uint, err
 	}
 
 	if sourceStruct.URL == "" || sourceStruct.DiskId == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "URL and diskid are both required with imageIO volume source")
+		return nil, nil, params.FlagErr(VolumeImportFlag, "url and diskid are both required with imageio volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
@@ -1102,7 +1104,7 @@ func withVolumeSourcePVC(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) 
 	}
 
 	if namespace == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "namespace of pvc '%s' must be specified", name)
+		return nil, nil, params.FlagErr(VolumeImportFlag, "namespace of pvc \"%s\" must be specified", name)
 	}
 
 	return &cdiv1.DataVolumeSpec{
@@ -1167,7 +1169,7 @@ func withVolumeSourceS3(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
 	}
 
 	if sourceStruct.URL == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "URL is required with S3 volume source")
+		return nil, nil, params.FlagErr(VolumeImportFlag, "url is required with s3 volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
@@ -1188,23 +1190,23 @@ func withVolumeSourceVDDK(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error)
 	}
 
 	if sourceStruct.URL == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "URL is required with VDDK volume source")
+		return nil, nil, params.FlagErr(VolumeImportFlag, "url is required with vddk volume source")
 	}
 
 	if sourceStruct.UUID == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "UUID is required with VDDK volume source")
+		return nil, nil, params.FlagErr(VolumeImportFlag, "uuid is required with vddk volume source")
 	}
 
 	if sourceStruct.ThumbPrint == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "ThumbPrint is required with VDDK volume source")
+		return nil, nil, params.FlagErr(VolumeImportFlag, "thumbprint is required with vddk volume source")
 	}
 
 	if sourceStruct.SecretRef == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "SecretRef is required with VDDK volume source")
+		return nil, nil, params.FlagErr(VolumeImportFlag, "secretref is required with vddk volume source")
 	}
 
 	if sourceStruct.BackingFile == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "BackingFile is required with VDDK volume source")
+		return nil, nil, params.FlagErr(VolumeImportFlag, "backingfile is required with vddk volume source")
 	}
 
 	return &cdiv1.DataVolumeSpec{
@@ -1237,7 +1239,7 @@ func withVolumeSourceSnapshot(paramStr string) (*cdiv1.DataVolumeSpec, *uint, er
 	}
 
 	if namespace == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "namespace of snapshot '%s' must be specified", name)
+		return nil, nil, params.FlagErr(VolumeImportFlag, "namespace of snapshot \"%s\" must be specified", name)
 	}
 
 	return &cdiv1.DataVolumeSpec{

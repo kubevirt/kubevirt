@@ -1302,7 +1302,7 @@ chpasswd: { expire: False }`
 	Describe("Manifest is not created successfully", func() {
 		DescribeTable("Invalid arguments to RunStrategyFlag", func(runStrategy string) {
 			out, err := runCmd(setFlag(RunStrategyFlag, runStrategy))
-			Expect(err).To(MatchError(fmt.Sprintf("failed to parse \"--run-strategy\" flag: invalid RunStrategy \"%s\", supported values are: Always, Manual, Halted, Once, RerunOnFailure", runStrategy)))
+			Expect(err).To(MatchError(fmt.Sprintf("failed to parse \"--run-strategy\" flag: invalid run strategy \"%s\", supported values are: Always, Manual, Halted, Once, RerunOnFailure", runStrategy)))
 			Expect(out).To(BeEmpty())
 		},
 			Entry("some string", "not-a-bool"),
@@ -1352,7 +1352,7 @@ chpasswd: { expire: False }`
 
 		It("Volume specified in InferInstancetypeFromFlag should exist", func() {
 			out, err := runCmd(setFlag(InferInstancetypeFromFlag, "does-not-exist"))
-			Expect(err).To(MatchError("there is no volume with name 'does-not-exist'"))
+			Expect(err).To(MatchError("there is no volume with name \"does-not-exist\""))
 			Expect(out).To(BeEmpty())
 		})
 
@@ -1375,7 +1375,7 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Invalid kind", "madethisup/my-preference", "failed to parse \"--instancetype\" flag: invalid preference kind \"madethisup\", supported values are: virtualmachinepreference, virtualmachineclusterpreference"),
+			Entry("Invalid kind", "madethisup/my-preference", "failed to parse \"--preference\" flag: invalid preference kind \"madethisup\", supported values are: virtualmachinepreference, virtualmachineclusterpreference"),
 			Entry("Invalid argument count", "virtualmachinepreference/my-preference/madethisup", "failed to parse \"--preference\" flag: invalid count 3 of slashes in prefix/name"),
 			Entry("Empty name", "virtualmachinepreference/", "failed to parse \"--preference\" flag: name cannot be empty"),
 		)
@@ -1394,7 +1394,7 @@ chpasswd: { expire: False }`
 
 		It("Volume specified in InferPreferenceFromFlag should exist", func() {
 			out, err := runCmd(setFlag(InferPreferenceFromFlag, "does-not-exist"))
-			Expect(err).To(MatchError("there is no volume with name 'does-not-exist'"))
+			Expect(err).To(MatchError("there is no volume with name \"does-not-exist\""))
 			Expect(out).To(BeEmpty())
 		})
 
@@ -1466,7 +1466,7 @@ chpasswd: { expire: False }`
 			Entry("Missing src", "name:test", "failed to parse \"--volume-import\" flag: src must be specified"),
 			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty"),
 			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "failed to parse \"--volume-import\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
-			Entry("Missing namespace in src", "src:my-pvc", "failed to parse \"--volume-import\" flag: namespace of pvc 'my-pvc' must be specified"),
+			Entry("Missing namespace in src", "src:my-pvc", "failed to parse \"--volume-import\" flag: namespace of pvc \"my-pvc\" must be specified"),
 			Entry("Invalid quantity in size", "size:10Gu", "failed to parse \"--volume-import\" flag: failed to parse param \"size\": unable to parse quantity's suffix"),
 			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
 			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-import\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
@@ -1484,7 +1484,7 @@ chpasswd: { expire: False }`
 			Entry("Missing src", "name:test", "failed to parse \"--volume-pvc\" flag: src must be specified"),
 			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-pvc\" flag: src invalid: name cannot be empty"),
 			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "failed to parse \"--volume-pvc\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
-			Entry("Namespace in src", "src:my-ns/my-pvc", "failed to parse \"--volume-pvc\" flag: not allowed to specify namespace of pvc 'my-pvc'"),
+			Entry("Namespace in src", "src:my-ns/my-pvc", "failed to parse \"--volume-pvc\" flag: not allowed to specify namespace of pvc \"my-pvc\""),
 			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
 			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
 			Entry("Bootorder set to 0", "src:my-pvc,bootorder:0", "failed to parse \"--volume-pvc\" flag: bootorder must be greater than 0"),
@@ -1508,38 +1508,39 @@ chpasswd: { expire: False }`
 		},
 			Entry("Missing size with blank volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:blank")),
 			Entry("Missing type value", "failed to parse \"--volume-import\" flag: type must be specified", setFlag(VolumeImportFlag, "size:256Mi")),
+			Entry("Invalid type value", "failed to parse \"--volume-import\" flag: invalid volume import type \"madeup\", see help for supported values", setFlag(VolumeImportFlag, "type:madeup")),
 			Entry("Unknown param for blank volume source", "failed to parse \"--volume-import\" flag: unknown param(s): testparam:", setFlag(VolumeImportFlag, "type:blank,size:256Mi,testparam:")),
 			Entry("Missing size with GCS volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:gcs,url:http://url.com")),
-			Entry("Missing url with GCS volume source", "failed to parse \"--volume-import\" flag: URL is required with GCS volume source", setFlag(VolumeImportFlag, "type:gcs,size:256Mi")),
+			Entry("Missing url with GCS volume source", "failed to parse \"--volume-import\" flag: url is required with gcs volume source", setFlag(VolumeImportFlag, "type:gcs,size:256Mi")),
 			Entry("Missing size with http volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:http,url:http://url.com")),
-			Entry("Missing url with http volume source", "failed to parse \"--volume-import\" flag: URL is required with http volume source", setFlag(VolumeImportFlag, "type:http,size:256Mi")),
+			Entry("Missing url with http volume source", "failed to parse \"--volume-import\" flag: url is required with http volume source", setFlag(VolumeImportFlag, "type:http,size:256Mi")),
 			Entry("Missing size with imageIO volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,diskid:0")),
-			Entry("Missing url with imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,diskid:0,size:256Mi")),
-			Entry("Missing diskid with imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,size:256Mi")),
+			Entry("Missing url with imageIO volume source", "failed to parse \"--volume-import\" flag: url and diskid are both required with imageio volume source", setFlag(VolumeImportFlag, "type:imageio,diskid:0,size:256Mi")),
+			Entry("Missing diskid with imageIO volume source", "failed to parse \"--volume-import\" flag: url and diskid are both required with imageio volume source", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,size:256Mi")),
 			Entry("Missing src in pvc volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi")),
-			Entry("Invalid src without slash in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc 'noslashingvalue' must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:noslashingvalue")),
+			Entry("Invalid src without slash in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc \"noslashingvalue\" must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:noslashingvalue")),
 			Entry("Invalid src in pvc volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:")),
-			Entry("Missing src namespace in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc 'my-pvc' must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:/my-pvc")),
+			Entry("Missing src namespace in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc \"my-pvc\" must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:/my-pvc")),
 			Entry("Missing src name in pvc volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:default/")),
 			Entry("Missing src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi")),
-			Entry("Invalid src without slash in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'noslashingvalue' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:noslashingvalue")),
+			Entry("Invalid src without slash in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot \"noslashingvalue\" must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:noslashingvalue")),
 			Entry("Invalid src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:")),
-			Entry("Missing src namespace in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'my-snapshot' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:/my-snapshot")),
+			Entry("Missing src namespace in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot \"my-snapshot\" must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:/my-snapshot")),
 			Entry("Missing src name in snapshot volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:default/")),
 			Entry("Missing size with S3 volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:s3,url:http://url.com")),
-			Entry("Missing url in S3 volume source", "failed to parse \"--volume-import\" flag: URL is required with S3 volume source", setFlag(VolumeImportFlag, "type:s3,size:256Mi")),
+			Entry("Missing url in S3 volume source", "failed to parse \"--volume-import\" flag: url is required with s3 volume source", setFlag(VolumeImportFlag, "type:s3,size:256Mi")),
 			Entry("Missing size with registry volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:registry,imagestream:my-image")),
 			Entry("Invalid value for pullmethod with registry volume source", "failed to parse \"--volume-import\" flag: pullmethod must be set to pod or node", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:invalid,imagestream:my-image")),
 			Entry("Both url and imagestream defined in registry volume source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:node,imagestream:my-image,url:http://url.com")),
 			Entry("Missing url and imagestream in registry volume source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi")),
 			Entry("Missing size with vddk volume source", "failed to parse \"--volume-import\" flag: size must be specified", setFlag(VolumeImportFlag, "type:vddk,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
-			Entry("Missing backingfile with vddk volume source", "failed to parse \"--volume-import\" flag: BackingFile is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
-			Entry("Missing secretref with vddk volume source", "failed to parse \"--volume-import\" flag: SecretRef is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
-			Entry("Missing thumbprint with vddk volume source", "failed to parse \"--volume-import\" flag: ThumbPrint is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,url:http://url.com,uuid:test-uuid")),
-			Entry("Missing url with vddk volume source", "failed to parse \"--volume-import\" flag: URL is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,uuid:test-uuid")),
-			Entry("Missing uuid with vddk volume source", "failed to parse \"--volume-import\" flag: UUID is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com")),
+			Entry("Missing backingfile with vddk volume source", "failed to parse \"--volume-import\" flag: backingfile is required with vddk volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
+			Entry("Missing secretref with vddk volume source", "failed to parse \"--volume-import\" flag: secretref is required with vddk volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,thumbprint:test-thumb,url:http://url.com,uuid:test-uuid")),
+			Entry("Missing thumbprint with vddk volume source", "failed to parse \"--volume-import\" flag: thumbprint is required with vddk volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,url:http://url.com,uuid:test-uuid")),
+			Entry("Missing url with vddk volume source", "failed to parse \"--volume-import\" flag: url is required with vddk volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,uuid:test-uuid")),
+			Entry("Missing uuid with vddk volume source", "failed to parse \"--volume-import\" flag: uuid is required with vddk volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com")),
 			Entry("Missing src in ds volume source ref", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:ds,size:256Mi")),
-			Entry("Volume already exists", "failed to parse \"--volume-import\" flag: there is already a volume with name 'duplicated'", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated"), setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated")),
+			Entry("Volume already exists", "failed to parse \"--volume-import\" flag: there is already a volume with name \"duplicated\"", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated"), setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated")),
 			Entry("Empty name in src", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,name:my-ns/")),
 			Entry("Invalid slashes count in src", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,name:my-ns/my-pvc/madethisup")),
 			Entry("Invalid quantity in size", "failed to parse \"--volume-import\" flag: failed to parse param \"size\": unable to parse quantity's suffix", setFlag(VolumeImportFlag, "type:blank,size:10Gu")),
@@ -1557,9 +1558,10 @@ chpasswd: { expire: False }`
 			Entry("Invalid param", "test=test", "failed to parse \"--volume-sysprep\" flag: params need to have at least one colon: test=test"),
 			Entry("Unknown param", "test:test", "failed to parse \"--volume-sysprep\" flag: unknown param(s): test:test"),
 			Entry("Missing src", "type:configMap", "failed to parse \"--volume-sysprep\" flag: src must be specified"),
+			Entry("Invalid type", "type:madeup,src:my-src", "failed to parse \"--volume-sysprep\" flag: invalid sysprep source type \"madeup\", supported values are: configmap, secret"),
 			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-sysprep\" flag: src invalid: name cannot be empty"),
 			Entry("Invalid slashes count in src", "src:my-ns/my-src/madethisup", "failed to parse \"--volume-sysprep\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
-			Entry("Namespace in src", "src:my-ns/my-src", "failed to parse \"--volume-sysprep\" flag: not allowed to specify namespace of ConfigMap or Secret 'my-src'"),
+			Entry("Namespace in src", "src:my-ns/my-src", "failed to parse \"--volume-sysprep\" flag: not allowed to specify namespace of configmap or secret \"my-src\""),
 		)
 
 		DescribeTable("Duplicate DataVolumeTemplates or Volumes are not allowed", func(errMsg string, flags ...string) {
@@ -1567,51 +1569,51 @@ chpasswd: { expire: False }`
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Duplicate Containerdisk", "failed to parse \"--volume-containerdisk\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate Containerdisk", "failed to parse \"--volume-containerdisk\" flag: there is already a volume with name \"my-name\"",
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 			),
-			Entry("Duplicate DataSource", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate DataSource", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-name"),
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
 				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 			),
-			Entry("Duplicate PVC", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC", "failed to parse \"--volume-pvc\" flag: there is already a volume with name \"my-name\"",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 			),
-			Entry("Duplicate blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
 				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 			),
-			Entry("Duplicate PVC and Containerdisk", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC and Containerdisk", "failed to parse \"--volume-pvc\" flag: there is already a volume with name \"my-name\"",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 			),
-			Entry("Duplicate PVC and DataSource", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC and DataSource", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate PVC and imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC and imported PVC", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:my-name"),
 			),
-			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name 'my-name'",
+			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-import\" flag: there is already a volume with name \"my-name\"",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(VolumeImportFlag, "type:blank,size:10Gi,name:my-name"),
 			),
-			Entry("There can only be one cloudInitDisk (UserData)", "there is already a volume with name 'cloudinitdisk'",
+			Entry("There can only be one cloudInitDisk (UserData)", "there is already a volume with name \"cloudinitdisk\"",
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitUserDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))),
 			),
-			Entry("There can only be one cloudInitDisk (NetworkData)", "there is already a volume with name 'cloudinitdisk'",
+			Entry("There can only be one cloudInitDisk (NetworkData)", "there is already a volume with name \"cloudinitdisk\"",
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitNetworkDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))),
 			),
-			Entry("There can only be one sysprepDisk", "failed to parse \"--volume-sysprep\" flag: there is already a volume with name 'sysprepdisk'",
+			Entry("There can only be one sysprepDisk", "failed to parse \"--volume-sysprep\" flag: there is already a volume with name \"sysprepdisk\"",
 				setFlag(VolumeImportFlag, "type:pvc,src:my-ns/my-pvc,name:sysprepdisk"),
 				setFlag(SysprepVolumeFlag, "src:my-src"),
 			),
