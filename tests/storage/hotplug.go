@@ -425,6 +425,29 @@ var _ = SIGDescribe("Hotplug", func() {
 		return vm
 	}
 
+	createBootableHotplugVM := func(storageClass string) *v1.VirtualMachine {
+		opts := []libvmi.Option{
+			libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+		}
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(storageClass),
+				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
+			),
+		)
+		vm := libvmi.NewVirtualMachine(
+			libstorage.RenderVMIWithHotplugDataVolume(dv.Name, dv.Namespace, opts...),
+			libvmi.WithDataVolumeTemplate(dv),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+		return vm
+	}
+
 	verifyHotplugAttachedAndUseable := func(vmi *v1.VirtualMachineInstance, names []string) []string {
 		targets := getTargetsFromVolumeStatus(vmi, names...)
 		for _, target := range targets {
@@ -582,6 +605,17 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("Should be able to boot from bock volume", func() {
+			dvName := "disk0"
+			vm = createBootableHotplugVM(sc)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dvName)
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", dvName)
+			getVmiConsoleAndLogin(vmi)
+			verifySingleAttachmentPod(vmi)
+		})
+
 		DescribeTable("Should start with a hotplug block", func(addVolumeFunc addVolumeFunction) {
 			dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
 
@@ -685,11 +719,21 @@ var _ = SIGDescribe("Hotplug", func() {
 				Skip("Skip no wffc storage class available")
 			}
 			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
+		})
 
-			vm = createAndStartWFFCStorageHotplugVM()
+		It("Should be able to boot from WFFC local storage", func() {
+			dvName := "disk0"
+			vm = createBootableHotplugVM(sc)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dvName)
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", dvName)
+			getVmiConsoleAndLogin(vmi)
+			verifySingleAttachmentPod(vmi)
 		})
 
 		It("Should be able to add and use WFFC local storage", func() {
+			vm = createAndStartWFFCStorageHotplugVM()
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
