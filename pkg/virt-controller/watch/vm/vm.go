@@ -3197,11 +3197,11 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 	} else {
 		// In the case live-updates aren't enable the volume set of the VM can be still changed by volume hotplugging.
 		// For imperative volume hotplug, first the VM status with the request AND the VMI spec are updated, then in the
-		// next iteration, the VM spec is update as well. Here, we're in this iteration where the currentVM has for the first
-		// time the updated hotplugged volumes. Hence, we can compare the current VM volumes and disks with the ones blonging
+		// next iteration, the VM spec is updated as well. Here, we're in this iteration where the currentVM has for the first
+		// time the updated hotplugged volumes. Hence, we can compare the current VM volumes and disks with the ones belonging
 		// to the VMI.
 		// In case of a declarative update, the flow is the opposite, first we update the VM spec and then the VMI. Therefore, if
-		// change was declarative the VMI would still not have the update.
+		// the change was declarative, then the VMI would still not have the update.
 		if equality.Semantic.DeepEqual(currentVM.Spec.Template.Spec.Volumes, vmi.Spec.Volumes) &&
 			equality.Semantic.DeepEqual(currentVM.Spec.Template.Spec.Domain.Devices.Disks, vmi.Spec.Domain.Devices.Disks) {
 			lastSeenVMSpec.Template.Spec.Volumes = currentVM.Spec.Template.Spec.Volumes
