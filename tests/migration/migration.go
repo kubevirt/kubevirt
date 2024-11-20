@@ -1696,8 +1696,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
 					libvmi.WithResourceMemory("1Gi"),
-					// this annotation causes virt launcher to immediately fail a migration
-					libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
+					// this annotation prevents virt launcher from finishing the target pod preparation.
+					libvmi.WithAnnotation(v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation, ""),
 				)
 
 				By("Starting the VirtualMachineInstance")
