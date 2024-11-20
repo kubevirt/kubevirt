@@ -6322,6 +6322,7 @@ var _ = Describe("VirtualMachine", func() {
 				var (
 					originalVM *v1.VirtualMachine
 					updatedVM  *v1.VirtualMachine
+					vmi        *v1.VirtualMachineInstance
 
 					controllerrevisionInformerStore cache.Store
 
@@ -6329,7 +6330,7 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				BeforeEach(func() {
-					originalVM, _ = DefaultVirtualMachine(true)
+					originalVM, vmi = DefaultVirtualMachine(true)
 					originalVM.Spec.Template.Spec.Domain = v1.DomainSpec{}
 
 					controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
@@ -6402,8 +6403,7 @@ var _ = Describe("VirtualMachine", func() {
 						Kind:         instancetypeapi.SingularResourceName,
 						RevisionName: updatedRevision.Name,
 					}
-
-					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)).To(BeFalse())
+					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeFalse())
 					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
 					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeFalse())
 				})
@@ -6428,7 +6428,7 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: updatedRevision.Name,
 					}
 
-					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)).To(BeTrue())
+					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeTrue())
 					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
 					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeTrue())
 				})
@@ -6692,6 +6692,87 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("should not appear if both the VM rollout strategy and feature gate are set",
 					[]string{virtconfig.VMLiveUpdateFeaturesGate}, &liveUpdate, Not(restartRequiredMatcher(k8sv1.ConditionTrue))),
 			)
+
+			Context("for hotplugged volumes", func() {
+				addVolume := func() {
+					hpSource := v1.HotplugVolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name:         "hotplug-dv",
+							Hotpluggable: true,
+						},
+					}
+					disk := v1.Disk{
+						Name: "hotplug",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+						}}
+					vm.Status.VolumeRequests = append(vm.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{
+						AddVolumeOptions: &v1.AddVolumeOptions{
+							Name:         "hotplug",
+							VolumeSource: &hpSource,
+							Disk:         &disk,
+						},
+					})
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+				}
+
+				It("shouldn't appear without rollout strategy and when a volume is added with a hotplug volume request", func() {
+					By("Creating a VM")
+					vmi = controller.setupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+
+					By("Creating a Controller Revision")
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding an hotplugged volume to the VM")
+					addVolume()
+
+					By("Executing the controller expecting the RestartRequired not to appear")
+					sanityExecute(vm)
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
+						v1.VirtualMachineRestartRequired)).To(BeFalse())
+				})
+
+				It("should appear when the volume is directly added to the spec", func() {
+					By("Creating a VM")
+					vmi = controller.setupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+
+					By("Creating a Controller Revision")
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding an hotplugged volume to the VM")
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "hotplug",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name:         "hotplug-dv",
+								Hotpluggable: true,
+							},
+						},
+					})
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+						Name: "hotplug",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+						}})
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					By("Executing the controller expecting the RestartRequired not to appear")
+					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
+						v1.VirtualMachineRestartRequired)).To(BeTrue())
+				})
+			})
 		})
 
 		Context("RunStrategy", func() {
