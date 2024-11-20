@@ -271,9 +271,7 @@ var _ = Describe("AccessCredentials", func() {
 		mockDomain.EXPECT().Free().Times(1)
 
 		Expect(manager.HandleQemuAgentAccessCredentials(vmi)).To(Succeed())
-		DeferCleanup(func() {
-			manager.Stop()
-		})
+		defer manager.Stop()
 
 		// Wait until ssh keys reload is detected
 		Eventually(keysLoaded, 5*time.Second, 50*time.Millisecond).Should(BeClosed())
