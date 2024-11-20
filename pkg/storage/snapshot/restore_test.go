@@ -45,6 +45,8 @@ var _ = Describe("Restore controller", func() {
 		uid            = "uid"
 		vmName         = "testvm"
 		vmSnapshotName = "snapshot"
+		newVMUID       = "new-vm-UID"
+		newVMName      = "new-vm-name"
 	)
 
 	var (
@@ -134,15 +136,20 @@ var _ = Describe("Restore controller", func() {
 		return pvcs
 	}
 
-	createSnapshot := func() *snapshotv1.VirtualMachineSnapshot {
+	createSnapshotWith := func(phase snapshotv1.VirtualMachineSnapshotPhase, ready bool) *snapshotv1.VirtualMachineSnapshot {
 		s := createVirtualMachineSnapshot(testNamespace, vmSnapshotName, vmName)
 		s.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
 		s.Status = &snapshotv1.VirtualMachineSnapshotStatus{
-			ReadyToUse:   pointer.P(true),
+			ReadyToUse:   pointer.P(ready),
 			CreationTime: timeFunc(),
 			SourceUID:    &vmUID,
+			Phase:        phase,
 		}
 		return s
+	}
+
+	createSnapshot := func() *snapshotv1.VirtualMachineSnapshot {
+		return createSnapshotWith(snapshotv1.Succeeded, true)
 	}
 
 	createSnapshotVM := func() *kubevirtv1.VirtualMachine {
@@ -415,7 +422,7 @@ var _ = Describe("Restore controller", func() {
 				storageClassSource.Add(storageClass)
 			})
 
-			It("should error if snapshot does not exist", func() {
+			DescribeTable("should error if snapshot", func(vmSnapshot *snapshotv1.VirtualMachineSnapshot, expectedError string) {
 				r := createRestoreWithOwner()
 				vm := createModifiedVM()
 				rc := r.DeepCopy()
@@ -423,13 +430,46 @@ var _ = Describe("Restore controller", func() {
 				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: pointer.P(false),
 					Conditions: []snapshotv1.Condition{
-						newProgressingCondition(corev1.ConditionFalse, "VMSnapshot default/snapshot does not exist"),
-						newReadyCondition(corev1.ConditionFalse, "VMSnapshot default/snapshot does not exist"),
+						newProgressingCondition(corev1.ConditionFalse, expectedError),
+						newReadyCondition(corev1.ConditionFalse, expectedError),
 					},
 				}
 				vmSnapshotSource.Delete(createSnapshot())
+				if vmSnapshot != nil {
+					vmSnapshotSource.Add(vmSnapshot)
+				}
 				vmSource.Add(vm)
-				expectUpdateVMRestoreInProgress(vm)
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
+				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
+				Expect(*updateStatusCalls).To(Equal(1))
+			},
+				Entry("does not exist", nil, "VMSnapshot default/snapshot does not exist"),
+				Entry("in failed state", createSnapshotWith(snapshotv1.Failed, false), "VMSnapshot default/snapshot failed and is invalid to use"),
+				Entry("not ready", createSnapshotWith(snapshotv1.InProgress, false), "VMSnapshot default/snapshot not ready"),
+			)
+
+			It("should error if target exists before the restore and it is not the same as the source", func() {
+				r := createRestoreWithOwner()
+				vm := createModifiedVM()
+				newVM := createVirtualMachine(testNamespace, newVMName)
+				newVM.UID = newVMUID
+				r.Spec.Target.Name = newVM.Name
+
+				rc := r.DeepCopy()
+				rc.ResourceVersion = "1"
+				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: pointer.P(false),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "restore source and restore target are different but restore target already exists"),
+						newReadyCondition(corev1.ConditionFalse, "restore source and restore target are different but restore target already exists"),
+					},
+				}
+
+				vmSource.Add(vm)
+				vmSource.Add(newVM)
+
 				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
@@ -1191,7 +1231,7 @@ var _ = Describe("Restore controller", func() {
 
 				It("should be able to restore to a new VM", func() {
 					By("Creating new VM")
-					newVM := createVirtualMachine(testNamespace, "new-test-vm")
+					newVM := createVirtualMachine(testNamespace, newVMName)
 					newVM.UID = ""
 
 					By("Creating VM restore")
@@ -1233,11 +1273,12 @@ var _ = Describe("Restore controller", func() {
 					Expect(*updateStatusCalls).To(Equal(1))
 				})
 
-				It("should own the vmrestore after creation", func() {
+				It("should own the vmrestore after creation of new target", func() {
 					By("Creating new VM")
-					newVM := createVirtualMachine(testNamespace, "new-test-vm")
+					newVM := createVirtualMachine(testNamespace, newVMName)
 					newVM.Status.RestoreInProgress = &vmRestoreName
-					newVM.UID = ""
+					newVM.UID = newVMUID
+					newVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
 					vmSource.Add(newVM)
 
 					By("Creating VM restore")
@@ -1260,7 +1301,7 @@ var _ = Describe("Restore controller", func() {
 							APIVersion:         kubevirtv1.GroupVersion.String(),
 							Kind:               "VirtualMachine",
 							Name:               newVM.Name,
-							UID:                newVM.UID,
+							UID:                newVMUID,
 							Controller:         pointer.P(true),
 							BlockOwnerDeletion: pointer.P(true),
 						},
@@ -1370,7 +1411,7 @@ var _ = Describe("Restore controller", func() {
 
 				It("should update condition if deleted and failed to restore", func() {
 					// This VM will never be created
-					newVM := createVirtualMachine(testNamespace, "new-test-vm")
+					newVM := createVirtualMachine(testNamespace, newVMName)
 					newVM.UID = ""
 
 					By("Creating VM restore")
@@ -1395,7 +1436,7 @@ var _ = Describe("Restore controller", func() {
 
 				It("should remove restore finalizer if deleted and failed to restore", func() {
 					// This VM will never be created
-					newVM := createVirtualMachine(testNamespace, "new-test-vm")
+					newVM := createVirtualMachine(testNamespace, newVMName)
 					newVM.UID = ""
 
 					By("Creating VM restore")

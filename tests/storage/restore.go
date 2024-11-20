@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 
 	expect "github.com/google/goexpect"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -300,6 +301,20 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			deleteVM(vm)
 		})
 
+		Context("and no snapshot", func() {
+			It("should wait for snapshot to exist and be ready", func() {
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				restore := createRestoreDef(vm.Name, fmt.Sprintf("snapshot-%s", vm.Name))
+
+				restore, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				events.ExpectEvent(restore, corev1.EventTypeWarning, "VirtualMachineRestoreError")
+				createSnapshot(vm)
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+			})
+		})
+
 		Context("with run strategy and snapshot", func() {
 			var err error
 			var snapshot *snapshotv1.VirtualMachineSnapshot
@@ -478,8 +493,26 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				By("Creating a VM restore")
 				restore := createRestoreDef(newVM.Name, snapshot.Name)
-				_, err = virtClient.VirtualMachineRestore(newVM.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred(), "Admission webhooks should reject this restore since target VM is different then source and already exists")
+				restore, err = virtClient.VirtualMachineRestore(newVM.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				events.ExpectEvent(restore, corev1.EventTypeWarning, "VirtualMachineRestoreError")
+				Eventually(func() *snapshotv1.VirtualMachineRestoreStatus {
+					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					return restore.Status
+				}, 30*time.Second, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Conditions": ContainElements(
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Type":   Equal(snapshotv1.ConditionReady),
+							"Status": Equal(corev1.ConditionFalse),
+							"Reason": Equal("restore source and restore target are different but restore target already exists")}),
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Type":   Equal(snapshotv1.ConditionProgressing),
+							"Status": Equal(corev1.ConditionFalse),
+							"Reason": Equal("restore source and restore target are different but restore target already exists")}),
+					),
+				})))
 			})
 
 			Context("restore to a new VM that does not exist", func() {
