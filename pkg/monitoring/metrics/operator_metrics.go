@@ -16,6 +16,7 @@ const (
 )
 
 const (
+	SystemHealthStatusUnknown float64 = 0
 	SystemHealthStatusHealthy float64 = iota
 	SystemHealthStatusWarning
 	SystemHealthStatusError
@@ -119,14 +120,17 @@ func IsHCOMetricHyperConvergedExists() (bool, error) {
 }
 
 func SetHCOSystemHealthy() {
+	systemHealthStatus.Reset()
 	systemHealthStatus.WithLabelValues("healthy").Set(SystemHealthStatusHealthy)
 }
 
 func SetHCOSystemWarning(reason string) {
+	systemHealthStatus.Reset()
 	systemHealthStatus.WithLabelValues(reason).Set(SystemHealthStatusWarning)
 }
 
 func SetHCOSystemError(reason string) {
+	systemHealthStatus.Reset()
 	systemHealthStatus.WithLabelValues(reason).Set(SystemHealthStatusError)
 }
 
@@ -137,7 +141,7 @@ func GetHCOMetricSystemHealthStatus(reason string) (float64, error) {
 	value := dto.Gauge.GetValue()
 
 	if err != nil {
-		return 0, err
+		return SystemHealthStatusUnknown, err
 	}
 	return value, nil
 }

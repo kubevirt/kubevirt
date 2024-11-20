@@ -192,7 +192,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "Initializing HyperConverged cluster",
 				})))
 
-				verifySystemHealthStatusError(foundResource)
+				verifySystemHealthStatusError(foundResource, reconcileInit)
 
 				expectedFeatureGates := []string{
 					"CPUManager",
@@ -314,7 +314,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "Initializing HyperConverged cluster",
 				})))
 
-				verifySystemHealthStatusError(foundResource)
+				verifySystemHealthStatusError(foundResource, reconcileInit)
 
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
@@ -401,7 +401,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: reconcileCompletedMessage,
 				})))
 
-				verifySystemHealthStatusError(foundResource)
+				verifySystemHealthStatusError(foundResource, "SSPConditions")
 
 				Expect(foundResource.Status.RelatedObjects).To(HaveLen(21))
 				expectedRef := corev1.ObjectReference{
@@ -3893,10 +3893,10 @@ func verifySystemHealthStatusHealthy(hco *hcov1beta1.HyperConverged) {
 	ExpectWithOffset(1, systemHealthStatusMetric).To(Equal(metrics.SystemHealthStatusHealthy))
 }
 
-func verifySystemHealthStatusError(hco *hcov1beta1.HyperConverged) {
+func verifySystemHealthStatusError(hco *hcov1beta1.HyperConverged, reason string) {
 	ExpectWithOffset(1, hco.Status.SystemHealthStatus).To(Equal(systemHealthStatusError))
 
-	systemHealthStatusMetric, err := metrics.GetHCOMetricSystemHealthStatus(reconcileInit)
+	systemHealthStatusMetric, err := metrics.GetHCOMetricSystemHealthStatus(reason)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, systemHealthStatusMetric).To(Equal(metrics.SystemHealthStatusError))
 }
