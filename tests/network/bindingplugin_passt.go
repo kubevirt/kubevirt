@@ -335,11 +335,11 @@ EOL`, inetSuffix, serverIP, serverPort)
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			By("Starting a VMI")
-			migrateVMI := startPasstVMI(libvmifact.NewFedora, console.LoginToFedora)
+			migrateVMI := startPasstVMI()
 			beforeMigNodeName := migrateVMI.Status.NodeName
 
 			By("Starting another VMI")
-			anotherVMI := startPasstVMI(libvmifact.NewAlpine, console.LoginToAlpine)
+			anotherVMI := startPasstVMI()
 
 			By("Verify the VMIs can ping each other")
 			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
@@ -398,7 +398,7 @@ func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi
 	}, 30*time.Second).Should(Equal(k8sv1.PodSucceeded))
 }
 
-func startPasstVMI(vmiBuilder func(opts ...libvmi.Option) *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
+func startPasstVMI() *v1.VirtualMachineInstance {
 	networkData, err := cloudinit.NewNetworkData(
 		cloudinit.WithEthernet("eth0",
 			cloudinit.WithDHCP4Enabled(),
