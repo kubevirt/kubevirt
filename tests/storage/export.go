@@ -1840,7 +1840,18 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+
+		vm := libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				// TODO: Rendering this VM with more size than usual as fully expanded images are likely
+				// to leave scratch space PVC without space if files such as lost+found exist.
+				// More info in https://issues.redhat.com/browse/CNV-51575.
+				libdv.StorageWithVolumeSize("1024Mi")),
+		))
+
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -1876,7 +1887,17 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+		vm := libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				// TODO: Rendering this VM with more size than usual as fully expanded images are likely
+				// to leave scratch space PVC without space if files such as lost+found exist.
+				// More info in https://issues.redhat.com/browse/CNV-51575.
+				libdv.StorageWithVolumeSize("1024Mi")),
+		))
+
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
