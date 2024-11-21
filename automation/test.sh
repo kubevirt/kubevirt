@@ -436,11 +436,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-compute-migrations && !(GPU,VGPU))'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    ginko_params="${ginko_params} --focus=\\[Serial\\]"
-    label_filter='((sig-compute) && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    ginko_params="${ginko_params} --skip=\\[Serial\\]"
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
