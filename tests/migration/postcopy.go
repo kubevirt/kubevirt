@@ -187,10 +187,10 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
 				},
 					Entry("a migration policy", applyWithMigrationPolicy),
-					Entry("[Serial] Kubevirt CR", Serial, applyWithKubevirtCR),
+					Entry(" Kubevirt CR", Serial, applyWithKubevirtCR),
 				)
 
-				Context("[Serial] and fail", Serial, func() {
+				Context(" and fail", Serial, func() {
 					var createdPods []string
 					BeforeEach(func() {
 						createdPods = []string{}

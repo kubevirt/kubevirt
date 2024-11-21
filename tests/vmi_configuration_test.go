@@ -267,7 +267,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			),
 		)
 
-		Context("[Serial][rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", Serial, func() {
+		Context("[rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", Serial, func() {
 			var availableNumberOfCPUs int
 			var vmi *v1.VirtualMachineInstance
 
@@ -446,7 +446,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 60)).To(Succeed(), "should report number of threads")
 			})
 
-			It("[Serial][test_id:1664]should map cores to virtio block queues", Serial, func() {
+			It("[test_id:1664]should map cores to virtio block queues", Serial, func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
@@ -524,7 +524,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("[Serial][rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", Serial, func() {
+		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", Serial, func() {
 			BeforeEach(func() {
 				kv := libkubevirt.GetCurrentKv(virtClient)
 
@@ -686,8 +686,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(domXml).To(MatchRegexp(fileName))
 			}
 		},
-			Entry("[Serial][test_id:1668]should use EFI without secure boot", Serial, alpineWithUefiWithoutSecureBoot, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
-			Entry("[Serial][test_id:4437]should enable EFI secure boot", Serial, fedoraWithUefiSecuredBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
+			Entry("[test_id:1668]should use EFI without secure boot", Serial, alpineWithUefiWithoutSecureBoot, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
+			Entry("[test_id:4437]should enable EFI secure boot", Serial, fedoraWithUefiSecuredBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
 		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
@@ -1107,9 +1107,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
-				Entry("[Serial][test_id:1671]hugepages-2Mi", Serial, "2Mi", "64Mi", "None"),
-				Entry("[Serial][test_id:1672]hugepages-1Gi", Serial, "1Gi", "1Gi", "None"),
-				Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", Serial, "2Mi", "70Mi", "64Mi"),
+				Entry("[test_id:1671]hugepages-2Mi", Serial, "2Mi", "64Mi", "None"),
+				Entry("[test_id:1672]hugepages-1Gi", Serial, "1Gi", "1Gi", "None"),
+				Entry("[test_id:1672]hugepages-2Mi with guest memory set explicitly", Serial, "2Mi", "70Mi", "64Mi"),
 			)
 
 			Context("with unsupported page size", func() {
@@ -1275,7 +1275,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 			})
 
-			Context("[Serial]with cluster config changes", Serial, func() {
+			Context("with cluster config changes", Serial, func() {
 				BeforeEach(func() {
 					kv := libkubevirt.GetCurrentKv(virtClient)
 
@@ -1577,7 +1577,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("[Serial]using defaultRuntimeClass configuration", Serial, func() {
+		Context("using defaultRuntimeClass configuration", Serial, func() {
 			var runtimeClassName string
 
 			BeforeEach(func() {
@@ -1626,7 +1626,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(pod.Spec.RuntimeClassName).To(BeNil())
 		})
 
-		Context("[Serial]with geust-to-request memory ", Serial, func() {
+		Context("with geust-to-request memory ", Serial, func() {
 			setHeadroom := func(ratioStr string) {
 				kv := libkubevirt.GetCurrentKv(virtClient)
 
@@ -1818,7 +1818,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", Serial, func() {
+	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", Serial, func() {
 		testEmulatedMachines := []string{"q35*", "pc-q35*", "pc*"}
 
 		BeforeEach(func() {
@@ -1873,7 +1873,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 		})
 
-		It("[Serial][test_id:3126]should set machine type from kubevirt-config", Serial, func() {
+		It("[test_id:3126]should set machine type from kubevirt-config", Serial, func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			testEmulatedMachines := []string{"pc"}
 
@@ -1937,7 +1937,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(cpuRequest.String()).To(Equal("100m"))
 		})
 
-		It("[Serial][test_id:3129]should set CPU request from kubevirt-config", Serial, func() {
+		It("[test_id:3129]should set CPU request from kubevirt-config", Serial, func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
@@ -1956,7 +1956,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[Serial]with automatic CPU limit configured in the CR", Serial, func() {
+	Context("with automatic CPU limit configured in the CR", Serial, func() {
 		const autoCPULimitLabel = "autocpulimit"
 		BeforeEach(func() {
 			By("Adding a label selector to the CR for auto CPU limit")
@@ -2505,7 +2505,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 		})
 
-		Context("[Serial]with cpu pinning enabled", Serial, func() {
+		Context("with cpu pinning enabled", Serial, func() {
 
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
@@ -2867,7 +2867,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("[Serial]cpu pinning with fedora images, dedicated and non dedicated cpu should be possible on same node via spec.domain.cpu.cores", Serial, func() {
+		Context("cpu pinning with fedora images, dedicated and non dedicated cpu should be possible on same node via spec.domain.cpu.cores", Serial, func() {
 
 			var cpuvmi, vmi *v1.VirtualMachineInstance
 			var node string
@@ -2953,7 +2953,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
-		It("[Serial][test_id:2927]Test Chassis value in a newly created VM", Serial, func() {
+		It("[test_id:2927]Test Chassis value in a newly created VM", Serial, func() {
 			vmi := libvmifact.NewFedora()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
@@ -3096,7 +3096,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[Serial][test_id:5269]across all available PCI root bus slots", Serial, 2, numOfSlotsToTest, false),
+			Entry("[test_id:5269]across all available PCI root bus slots", Serial, 2, numOfSlotsToTest, false),
 			Entry("[test_id:5270]across all available PCI functions of a single slot", 0, numOfFuncsToTest, true),
 		)
 	})

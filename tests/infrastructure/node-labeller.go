@@ -313,7 +313,7 @@ var _ = DescribeSerialInfra("Node-labeller", func() {
 		})
 	})
 
-	Context("[Serial]node with obsolete host-model cpuModel", Serial, func() {
+	Context("node with obsolete host-model cpuModel", Serial, func() {
 		var node *k8sv1.Node
 		var obsoleteModel string
 		var kvConfig *v1.KubeVirtConfiguration
@@ -381,7 +381,7 @@ var _ = DescribeSerialInfra("Node-labeller", func() {
 			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
 		})
 
-		It("[Serial]should not schedule vmi with host-model cpuModel to node with obsolete host-model cpuModel", func() {
+		It("should not schedule vmi with host-model cpuModel to node with obsolete host-model cpuModel", func() {
 			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),

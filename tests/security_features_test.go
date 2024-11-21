@@ -61,7 +61,7 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 		virtClient = kubevirt.Client()
 	})
 
-	Context("[Serial]Check virt-launcher securityContext", Serial, func() {
+	Context("Check virt-launcher securityContext", Serial, func() {
 		var kubevirtConfiguration *v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
@@ -255,7 +255,7 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 			}
 		})
 	})
-	Context("[Serial]Disabling the custom SELinux policy", Serial, func() {
+	Context("Disabling the custom SELinux policy", Serial, func() {
 		var policyRemovedByTest = false
 		AfterEach(func() {
 			if policyRemovedByTest {

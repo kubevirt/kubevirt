@@ -117,7 +117,7 @@ type vmYamlDefinition struct {
 	vmSnapshots   []vmSnapshotDef
 }
 
-var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperator, func() {
+var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
 
 	const (
 		virtApiDepName        = "virt-api"
@@ -560,7 +560,7 @@ spec:
 		waitForKv(kv)
 	})
 
-	Describe("[Serial]should reconcile components", Serial, func() {
+	Describe("should reconcile components", Serial, func() {
 
 		deploymentName := "virt-controller"
 		daemonSetName := "virt-handler"
@@ -857,7 +857,7 @@ spec:
 		})
 	})
 
-	Describe("[test_id:4744][Serial]should apply component customization", Serial, func() {
+	Describe("[test_id:4744]should apply component customization", Serial, func() {
 
 		It("test applying and removing a patch", func() {
 			annotationPatchValue := "new-annotation-value"
@@ -2313,7 +2313,7 @@ spec:
 		})
 	})
 
-	Context("[Serial] Seccomp configuration", Serial, func() {
+	Context(" Seccomp configuration", Serial, func() {
 
 		Context("Kubevirt profile", func() {
 			var nodeName string
@@ -2451,7 +2451,7 @@ spec:
 		})
 	})
 
-	Context("[Serial] Deployment of common-instancetypes", Serial, func() {
+	Context(" Deployment of common-instancetypes", Serial, func() {
 		var (
 			originalConfig *v1.CommonInstancetypesDeployment
 			appComponent   string

@@ -84,7 +84,7 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 		}, 1*time.Minute, 5*time.Second).Should(Equal(calcExpectedReplicas(numberOfNodes)), "number of virt API should be as expected")
 	})
 
-	It("[Serial]virt-api replicas should be determined by patch if exist", Serial, func() {
+	It("virt-api replicas should be determined by patch if exist", Serial, func() {
 		originalKv := libkubevirt.GetCurrentKv(virtClient)
 		expectedResult := calcExpectedReplicas(numberOfNodes)
 		expectedResult += 1

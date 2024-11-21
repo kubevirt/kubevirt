@@ -298,7 +298,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			)
 		})
 
-		Context("[Serial]with sidecar feature gate disabled", Serial, func() {
+		Context("with sidecar feature gate disabled", Serial, func() {
 			BeforeEach(func() {
 				kvconfig.DisableFeatureGate(virtconfig.SidecarGate)
 			})

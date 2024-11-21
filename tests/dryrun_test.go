@@ -481,7 +481,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			kv = libkubevirt.GetCurrentKv(virtClient)
 		})
 
-		It("[Serial][test_id:7648]delete a KubeVirt CR", Serial, func() {
+		It("[test_id:7648]delete a KubeVirt CR", Serial, func() {
 			By("Make a Dry-Run request to delete a KubeVirt CR")
 			deletePolicy := metav1.DeletePropagationForeground
 			opts := metav1.DeleteOptions{

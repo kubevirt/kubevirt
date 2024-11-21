@@ -84,7 +84,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			ExpectWithOffset(1, err).NotTo(HaveOccurred())
 		}
 
-		DescribeTable("[Serial] should be successfully started and accessible", Serial, func(namespace string) {
+		DescribeTable(" should be successfully started and accessible", Serial, func(namespace string) {
 			if namespace == testsuite.NamespacePrivileged {
 				kvconfig.EnableFeatureGate(virtconfig.VirtIOFSGate)
 			} else {
@@ -182,7 +182,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 		}
 
-		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
+		DescribeTable(" should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
 			createHostPathPV(pvc, namespace)
 			libstorage.CreateHostPathPVC(pvc, namespace, "1G")
 			defer func() {
@@ -283,7 +283,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			}
 		})
 
-		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
+		DescribeTable(" should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
 			if namespace == testsuite.NamespacePrivileged {
 				kvconfig.EnableFeatureGate(virtconfig.VirtIOFSGate)
 			} else {

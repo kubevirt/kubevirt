@@ -51,7 +51,7 @@ const (
 	diskName   = "disk0"
 )
 
-var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
+var _ = SIGDescribe("K8s IO events", Serial, func() {
 	var (
 		nodeName   string
 		virtClient kubecli.KubevirtClient

@@ -61,7 +61,7 @@ const (
 	bytesInKib          = 1024
 )
 
-var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]SwapTest", Serial, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

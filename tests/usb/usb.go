@@ -34,7 +34,7 @@ const (
 	cmdNumberUSBs   = "dmesg | grep -c idVendor=46f4"
 )
 
-var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, decorators.SigCompute, decorators.USB, func() {
+var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.SigCompute, decorators.USB, func() {
 	var virtClient kubecli.KubevirtClient
 	var config v1.KubeVirtConfiguration
 	var vmi *v1.VirtualMachineInstance
