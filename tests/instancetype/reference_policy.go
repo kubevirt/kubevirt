@@ -25,7 +25,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute][serial] InstancetypeReferencePolicy",
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] InstancetypeReferencePolicy",
 	decorators.SigCompute, Serial, func() {
 		var virtClient kubecli.KubevirtClient
 

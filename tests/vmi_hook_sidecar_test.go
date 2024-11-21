@@ -98,7 +98,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			})
 
-			It("[test_id:3155][serial]should successfully start with hook sidecar annotation", Serial, func() {
+			It("[test_id:3155]should successfully start with hook sidecar annotation", Serial, func() {
 				resources := v1.ResourceRequirementsWithoutClaims{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceCPU:    resource.MustParse("1m"),

@@ -1681,7 +1681,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("[test_id:10002]1 to 1 cpu and mem ratio", Serial, float64(1), float64(1)),
-			Entry("[test_id:10003]Serial]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
+			Entry("[test_id:10003]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
 			Entry("[test_id:10004]2 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(2), float64(4)),
 			Entry("[test_id:10005]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", Serial, float64(2.25), float64(5.75)),
 		)
