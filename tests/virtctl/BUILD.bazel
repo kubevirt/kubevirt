@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "create_vm.go",
         "imageupload.go",
+        "memorydump.go",
         "scp.go",
         "ssh.go",
     ],
@@ -27,6 +28,7 @@ go_library(
         "//tests/decorators:go_default_library",
         "//tests/exec:go_default_library",
         "//tests/flags:go_default_library",
+        "//tests/framework/checks:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libconfigmap:go_default_library",
