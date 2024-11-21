@@ -104,9 +104,6 @@ const (
 	// Enable using a plugin to bind the pod and the VM network
 	kvHNetworkBindingPluginsGate = "NetworkBindingPlugins"
 
-	// Deploy common-instancetypes using virt-operator
-	kvDeployCommonInstancetypes = "CommonInstancetypesDeploymentGate"
-
 	// Enable VM live update, to allow live propagation of VM changes to their VMI
 	kvVMLiveUpdateFeatures = "VMLiveUpdateFeatures"
 )
@@ -129,7 +126,6 @@ var (
 		kvKubevirtSeccompProfile,
 		kvVMPersistentState,
 		kvHNetworkBindingPluginsGate,
-		kvDeployCommonInstancetypes,
 		kvVMLiveUpdateFeatures,
 	}
 

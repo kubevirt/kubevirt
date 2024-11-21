@@ -209,7 +209,6 @@ var _ = Describe("HyperconvergedController", func() {
 					"KubevirtSeccompProfile",
 					"VMPersistentState",
 					"NetworkBindingPlugins",
-					"CommonInstancetypesDeploymentGate",
 					"VMLiveUpdateFeatures",
 				}
 				// Get the KV
