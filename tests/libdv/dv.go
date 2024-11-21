@@ -266,6 +266,11 @@ func StorageWithBlockVolumeMode() storageOption {
 	return StorageWithVolumeMode(corev1.PersistentVolumeBlock)
 }
 
+// StorageWithFilesystemVolumeMode adds the PersistentVolumeBlock volume mode to the DV
+func StorageWithFilesystemVolumeMode() storageOption {
+	return StorageWithVolumeMode(corev1.PersistentVolumeFilesystem)
+}
+
 // StorageWithAccessMode overrides the DV default access mode (ReadWriteOnce) with the accessMode parameter
 func StorageWithAccessMode(accessMode corev1.PersistentVolumeAccessMode) storageOption {
 	return func(storage *v1beta1.StorageSpec) {
