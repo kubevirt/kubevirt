@@ -40,7 +40,6 @@ func validateInterfaceBinding(
 		causes = append(causes, validateInterfaceBindingExists(fieldPath, idx, iface)...)
 		causes = append(causes, validateMasqueradeBinding(fieldPath, idx, iface, networksByName[iface.Name])...)
 		causes = append(causes, validateBridgeBinding(fieldPath, idx, iface, networksByName[iface.Name], config)...)
-		causes = append(causes, validateBindingPlugin(fieldPath, idx, iface, config)...)
 		causes = append(causes, validateMacvtapBinding(fieldPath, idx, iface, networksByName[iface.Name], config)...)
 		causes = append(causes, validatePasstBinding(fieldPath, idx, iface, networksByName[iface.Name], config)...)
 	}
@@ -93,17 +92,6 @@ func validateBridgeBinding(
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
-			Field:   fieldPath.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-		}}
-	}
-	return nil
-}
-
-func validateBindingPlugin(fieldPath *field.Path, idx int, iface v1.Interface, config clusterConfigChecker) []metav1.StatusCause {
-	if iface.Binding != nil && !config.NetworkBindingPlugingsEnabled() {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Binding plugins feature gate is not enabled",
 			Field:   fieldPath.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 		}}
 	}

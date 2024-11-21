@@ -69,7 +69,7 @@ func GenerateCNIAnnotationFromNameScheme(
 				NewAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 
-		if config != nil && config.NetworkBindingPlugingsEnabled() {
+		if config != nil {
 			if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
 				bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
 					config.GetConfig(), iface.Binding.Name, namespace, network.Name)

@@ -44,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -468,10 +467,6 @@ var istioTestsWithMasqueradeBinding = func() {
 }
 
 var istioTestsWithPasstBinding = func() {
-	BeforeEach(func() {
-		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
-	})
-
 	BeforeEach(func() {
 		const passtBindingName = "passt"
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
