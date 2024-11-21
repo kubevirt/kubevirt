@@ -44,6 +44,7 @@ const (
 type result struct {
 	vmi       string
 	namespace string
+	node      string
 
 	domainJobInfo stats.DomainJobInfo
 	timestamp     time.Time
@@ -107,6 +108,7 @@ func (q *queue) collect() {
 	r := result{
 		vmi:       q.vmi.Name,
 		namespace: q.vmi.Namespace,
+		node:      q.vmi.Status.NodeName,
 
 		domainJobInfo: *values.MigrateDomainJobInfo,
 		timestamp:     time.Now(),

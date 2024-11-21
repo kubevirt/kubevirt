@@ -115,6 +115,7 @@ func newCR(r *result, metric operatormetrics.Metric, value float64) operatormetr
 	vmiLabels := map[string]string{
 		"namespace": r.namespace,
 		"name":      r.vmi,
+		"node":      r.node,
 	}
 
 	return operatormetrics.CollectorResult{
