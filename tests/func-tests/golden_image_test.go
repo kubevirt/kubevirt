@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	expectedImages       = []string{"centos-stream9-image-cron", "centos-stream9-image-cron-is", "fedora-image-cron"}
+	expectedImages       = []string{"centos-stream10-image-cron", "centos-stream9-image-cron", "centos-stream9-image-cron-is", "fedora-image-cron"}
 	imageNamespace       = defaultImageNamespace
 	expectedImageStreams = []tests.ImageStreamConfig{
 		{

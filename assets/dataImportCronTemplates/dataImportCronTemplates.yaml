@@ -18,6 +18,23 @@
 - metadata:
     annotations:
       cdi.kubevirt.io/storage.bind.immediate.requested: "true"
+    name: centos-stream10-image-cron
+  spec:
+    schedule: "0 */12 * * *"
+    template:
+      spec:
+        source:
+          registry:
+            url: docker://quay.io/containerdisks/centos-stream:10
+        storage:
+          resources:
+            requests:
+              storage: 10Gi
+    garbageCollect: Outdated
+    managedDataSource: centos-stream10
+- metadata:
+    annotations:
+      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: fedora-image-cron
   spec:
     schedule: "0 */12 * * *"
