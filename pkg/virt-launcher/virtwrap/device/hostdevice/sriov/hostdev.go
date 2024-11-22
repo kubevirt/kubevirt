@@ -20,17 +20,17 @@
 package sriov
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -89,19 +89,19 @@ func newPCIAddressPoolWithNetworkStatusFromFile(path string) (*PCIAddressWithNet
 
 func readFileUntilNotEmpty(networkPCIMapPath string) ([]byte, error) {
 	var networkPCIMapBytes []byte
-	err := wait.PollImmediate(100*time.Millisecond, time.Second, func() (bool, error) {
+	err := virtwait.PollImmediately(100*time.Millisecond, time.Second, func(_ context.Context) (bool, error) {
 		var err error
 		networkPCIMapBytes, err = os.ReadFile(networkPCIMapPath)
 		return len(networkPCIMapBytes) > 0, err
 	})
-	if errors.Is(err, wait.ErrWaitTimeout) {
+	if errors.Is(err, context.DeadlineExceeded) {
 		return nil, fmt.Errorf("%w: file is not populated with network-info", err)
 	}
 	return networkPCIMapBytes, err
 }
 
 func isFileEmptyAfterTimeout(err error, data []byte) bool {
-	return errors.Is(err, wait.ErrWaitTimeout) && len(data) == 0
+	return errors.Is(err, context.DeadlineExceeded) && len(data) == 0
 }
 
 func CreateHostDevicesFromIfacesAndPool(ifaces []v1.Interface, pool hostdevice.AddressPooler) ([]api.HostDevice, error) {

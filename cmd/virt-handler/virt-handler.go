@@ -33,6 +33,7 @@ import (
 	"syscall"
 	"time"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
@@ -42,7 +43,6 @@ import (
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -453,7 +453,7 @@ func (app *virtHandlerApp) Run() {
 		// This triggers the migration proxy to no longer accept new connections
 		migrationProxy.InitiateGracefulShutdown()
 
-		err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
+		err := virtwait.PollImmediately(connectionInterval, connectionTimeout, func(_ context.Context) (done bool, err error) {
 			count := migrationProxy.OpenListenerCount()
 			if count > 0 {
 				log.Log.Infof("waiting for %d migration listeners to terminate", count)

@@ -38,6 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/client-go/log"
+
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 )
 
 type TermFileError struct{}
@@ -114,7 +116,7 @@ func (v *VirtTail) watchFS() error {
 
 	// Add a path.
 	dirPath := filepath.Dir(v.logFile)
-	err = wait.PollUntilContextTimeout(context.Background(), 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (bool, error) {
+	err = virtwait.PollImmediately(100*time.Millisecond, 3*time.Second, func(_ context.Context) (bool, error) {
 		if _, derr := os.Stat(dirPath); derr == nil {
 			if err = watcher.Add(dirPath); err != nil {
 				log.Log.V(3).Infof("watcher error: %v - %s", err, dirPath)

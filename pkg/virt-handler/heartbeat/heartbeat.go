@@ -10,12 +10,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
@@ -106,7 +106,7 @@ func (h *HeartBeat) labelNodeUnschedulable() (done chan struct{}) {
 // waitForDevicePlugins gives the device plugins additional time to successfully connect to the kubelet.
 // If the connection can not be established it just delays the heartbeat start for devicePluginWaitTimeout.
 func (h *HeartBeat) waitForDevicePlugins(stopCh chan struct{}) {
-	_ = utilwait.PollImmediate(h.devicePluginPollIntervall, h.devicePluginWaitTimeout, func() (done bool, err error) {
+	_ = virtwait.PollImmediately(h.devicePluginPollIntervall, h.devicePluginWaitTimeout, func(_ context.Context) (done bool, err error) {
 		select {
 		case <-stopCh:
 			return true, nil
