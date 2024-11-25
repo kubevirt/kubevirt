@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -62,215 +61,203 @@ import (
 
 var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 	var (
-		virtClient kubecli.KubevirtClient
-		err        error
+		virtClient      kubecli.KubevirtClient
+		migrationPolicy *migrationsv1.MigrationPolicy
+		err             error
 	)
 
 	BeforeEach(func() {
-		checks.SkipIfMigrationIsNotPossible()
 		virtClient = kubevirt.Client()
+
+		By("Allowing post-copy and limiting migration bandwidth")
+		policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
+		migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
+		migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
+		migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(1))
+		migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
 	})
 
-	Describe("Starting a VirtualMachineInstance ", func() {
+	Context("with datavolume", func() {
+		var dv *cdiv1.DataVolume
 
-		Context("migration postcopy", func() {
+		BeforeEach(func() {
+			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
+			if !foundSC {
+				Skip("Skip test when Filesystem storage is not present")
+			}
 
-			var migrationPolicy *migrationsv1.MigrationPolicy
+			dv = libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+					libdv.StorageWithReadWriteManyAccessMode(),
+				),
+			)
 
-			BeforeEach(func() {
-				By("Allowing post-copy and limit migration bandwidth")
-				policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
-				migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
-				migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
-				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(1))
-				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			libstorage.DeleteDataVolume(&dv)
+		})
+
+		It("[test_id:5004] should be migrated successfully, using guest agent on VM with post-copy", func() {
+			VMIMigrationWithGuestAgent(virtClient, dv.Name, "1Gi", migrationPolicy)
+		})
+
+	})
+
+	Context("should migrate using post-copy", func() {
+
+		applyMigrationPolicy := func(vmi *v1.VirtualMachineInstance) {
+			AlignPolicyAndVmi(vmi, migrationPolicy)
+			migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
+		}
+
+		applyKubevirtCR := func() {
+			config := getCurrentKvConfig(virtClient)
+			config.MigrationConfiguration.AllowPostCopy = migrationPolicy.Spec.AllowPostCopy
+			config.MigrationConfiguration.CompletionTimeoutPerGiB = migrationPolicy.Spec.CompletionTimeoutPerGiB
+			config.MigrationConfiguration.BandwidthPerMigration = migrationPolicy.Spec.BandwidthPerMigration
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+		}
+
+		type applySettingsType string
+		const (
+			applyWithMigrationPolicy applySettingsType = "policy"
+			applyWithKubevirtCR      applySettingsType = "kubevirt"
+		)
+
+		DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Namespace = testsuite.NamespacePrivileged
+
+			switch settingsType {
+			case applyWithMigrationPolicy:
+				applyMigrationPolicy(vmi)
+			case applyWithKubevirtCR:
+				applyKubevirtCR()
+			}
+
+			By("Starting the VirtualMachineInstance")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Checking that the VirtualMachineInstance console has expected output")
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			// Need to wait for cloud init to finish and start the agent inside the vmi.
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			runStressTest(vmi, "350M")
+
+			// execute a migration, wait for finalized state
+			By("Starting the Migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 150)
+
+			// check VMI, confirm migration state
+			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
+		},
+			Entry("a migration policy", applyWithMigrationPolicy),
+			Entry(" Kubevirt CR", Serial, applyWithKubevirtCR),
+		)
+
+		Context("and fail", Serial, func() {
+			var killerPod string
+
+			runVirtHandlerKillerPod := func(nodeName string) {
+				podName := "migration-killer-pod-"
+
+				// Kill the handler every 15 seconds
+				pod := libpod.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{"date; pkill -e -9 virt-handler || echo not found"})
+
+				pod.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				createdPod, err := virtClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should create killer pod")
+				killerPod = createdPod.Name
+			}
+
+			removeVirtHandlerKillerPod := func() {
+				Expect(killerPod).NotTo(BeEmpty())
+				Eventually(func() error {
+					err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), killerPod, metav1.DeleteOptions{})
+					return err
+				}, 10*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
+
+				Eventually(func() error {
+					_, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), killerPod, metav1.GetOptions{})
+					return err
+				}, 5*time.Minute, 1*time.Second).Should(
+					MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The killer pod should be gone within the given timeout")
+
+				By("Waiting for virt-handler to come back online")
+				Eventually(func() error {
+					handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					if handler.Status.DesiredNumberScheduled == handler.Status.NumberAvailable {
+						return nil
+					}
+					return fmt.Errorf("waiting for virt-handler pod to come back online")
+				}, 2*time.Minute, 1*time.Second).Should(Succeed(), "Virt handler should come online")
+			}
+
+			AfterEach(func() {
+				By("Ensuring the virt-handler killer pod is removed")
+				removeVirtHandlerKillerPod()
 			})
 
-			Context("with datavolume", func() {
-				var dv *cdiv1.DataVolume
-
-				BeforeEach(func() {
-					sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
-					if !foundSC {
-						Skip("Skip test when Filesystem storage is not present")
-					}
-
-					dv = libdv.NewDataVolume(
-						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
-						libdv.WithStorage(
-							libdv.StorageWithStorageClass(sc),
-							libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
-							libdv.StorageWithReadWriteManyAccessMode(),
-						),
-					)
-
-					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				})
-
-				AfterEach(func() {
-					libstorage.DeleteDataVolume(&dv)
-				})
-
-				It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
-					VMIMigrationWithGuestAgent(virtClient, dv.Name, "1Gi", migrationPolicy)
-				})
-
-			})
-
-			Context("should migrate using for postcopy", func() {
-
-				applyMigrationPolicy := func(vmi *v1.VirtualMachineInstance) {
-					AlignPolicyAndVmi(vmi, migrationPolicy)
-					migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
-				}
-
-				applyKubevirtCR := func() {
-					config := getCurrentKvConfig(virtClient)
-					config.MigrationConfiguration.AllowPostCopy = migrationPolicy.Spec.AllowPostCopy
-					config.MigrationConfiguration.CompletionTimeoutPerGiB = migrationPolicy.Spec.CompletionTimeoutPerGiB
-					config.MigrationConfiguration.BandwidthPerMigration = migrationPolicy.Spec.BandwidthPerMigration
-					kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-				}
-
-				type applySettingsType string
-				const (
-					applyWithMigrationPolicy applySettingsType = "policy"
-					applyWithKubevirtCR      applySettingsType = "kubevirt"
+			It("and make sure VMs restart after failure", func() {
+				By("creating a large VM with RunStrategyRerunOnFailure")
+				vmi := libvmifact.NewFedora(
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithResourceMemory("3Gi"),
+					libvmi.WithRng(),
+					libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				)
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure))
 
-				DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
-					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
-					vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-					vmi.Namespace = testsuite.NamespacePrivileged
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-					switch settingsType {
-					case applyWithMigrationPolicy:
-						applyMigrationPolicy(vmi)
-					case applyWithKubevirtCR:
-						applyKubevirtCR()
-					}
+				// update the migration policy to ensure slow pre-copy migration progress instead of an immediate cancellation.
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
+				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("1Mi"))
+				applyKubevirtCR()
 
-					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				By("Waiting for the VirtualMachine to be ready")
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
-					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(console.LoginToFedora(vmi)).To(Succeed())
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				Eventually(matcher.ThisVMI(vmi), 4*time.Minute, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-					// Need to wait for cloud init to finish and start the agent inside the vmi.
-					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				runStressTest(vmi, "350M")
 
-					runStressTest(vmi, "350M", stressDefaultSleepDuration)
+				By("Starting the Migration")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigration(virtClient, migration)
 
-					// execute a migration, wait for finalized state
-					By("Starting the Migration")
-					migration := libmigration.New(vmi.Name, vmi.Namespace)
-					migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 150)
+				// check VMI, confirm migration state
+				libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPostCopy, 4*time.Minute)
 
-					// check VMI, confirm migration state
-					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-					libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
-				},
-					Entry("a migration policy", applyWithMigrationPolicy),
-					Entry(" Kubevirt CR", Serial, applyWithKubevirtCR),
-				)
+				By("Starting virt-handler killer pod")
+				runVirtHandlerKillerPod(vmi.Status.NodeName)
 
-				Context(" and fail", Serial, func() {
-					var createdPods []string
-					BeforeEach(func() {
-						createdPods = []string{}
-					})
+				By("Making sure that post-copy migration failed")
+				Eventually(matcher.ThisMigration(migration), 4*time.Minute, time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
 
-					runMigrationKillerPod := func(nodeName string) {
-						podName := fmt.Sprintf("migration-killer-pod-%s", rand.String(5))
+				By("Removing virt-handler killer pod")
+				removeVirtHandlerKillerPod()
 
-						// kill the handler
-						pod := libpod.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do pkill -9 virt-handler && sleep 5; done")})
-
-						pod.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-						createdPod, err := virtClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
-						Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
-						createdPods = append(createdPods, createdPod.Name)
-						Expect(createdPods).ToNot(BeEmpty(), "There is no node for migration")
-					}
-
-					removeMigrationKillerPod := func() {
-						for _, podName := range createdPods {
-							Eventually(func() error {
-								err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), podName, metav1.DeleteOptions{})
-								return err
-							}, 10*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
-
-							Eventually(func() error {
-								_, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
-								return err
-							}, 300*time.Second, 1*time.Second).Should(
-								SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
-								"The killer pod should be gone within the given timeout",
-							)
-						}
-
-						By("Waiting for virt-handler to come back online")
-						Eventually(func() error {
-							handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-							if err != nil {
-								return err
-							}
-
-							if handler.Status.DesiredNumberScheduled == handler.Status.NumberAvailable {
-								return nil
-							}
-							return fmt.Errorf("waiting for virt-handler pod to come back online")
-						}, 120*time.Second, 1*time.Second).Should(Succeed(), "Virt handler should come online")
-					}
-					It("should make sure that VM restarts after failure", func() {
-						By("creating a large VM with RunStrategyRerunOnFailure")
-						vmi := libvmifact.NewFedora(
-							libnet.WithMasqueradeNetworking(),
-							libvmi.WithResourceMemory("3Gi"),
-							libvmi.WithRng(),
-							libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-						)
-						vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure))
-
-						vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-						Expect(err).ToNot(HaveOccurred())
-
-						// update the migration policy to ensure slow pre-copy migration progress instead of an immidiate cancelation.
-						migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
-						migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("1Mi"))
-						applyKubevirtCR()
-
-						By("Waiting for the VirtualMachine to be ready")
-						vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
-
-						// Need to wait for cloud init to finish and start the agent inside the vmi.
-						Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-						runStressTest(vmi, "350M", stressDefaultSleepDuration)
-
-						By("Starting the Migration")
-						migration := libmigration.New(vmi.Name, vmi.Namespace)
-						migration = libmigration.RunMigration(virtClient, migration)
-
-						// check VMI, confirm migration state
-						libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPostCopy, 300)
-
-						// launch a migration killer pod on the node
-						By("Starting migration killer pods")
-						runMigrationKillerPod(vmi.Status.NodeName)
-
-						By("Making sure that post-copy migration failed")
-						Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
-
-						By("Removing migration killer pods")
-						removeMigrationKillerPod()
-
-						By("Ensuring the VirtualMachineInstance is restarted")
-						Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
-					})
-				})
+				By("Ensuring the VirtualMachineInstance is restarted")
+				Eventually(matcher.ThisVMI(vmi), 4*time.Minute, time.Second).Should(matcher.BeRestarted(vmi.UID))
 			})
 		})
 	})
@@ -321,7 +308,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 
 	if mode == v1.MigrationPostCopy {
 		By("Running stress test to allow transition to post-copy")
-		runStressTest(vmi, stressLargeVMSize, stressDefaultSleepDuration)
+		runStressTest(vmi, stressLargeVMSize)
 	}
 
 	// execute a migration, wait for finalized state
