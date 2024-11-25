@@ -10,6 +10,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/hooks",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/wait:go_default_library",
         "//pkg/cloud-init:go_default_library",
         "//pkg/hooks/info:go_default_library",
         "//pkg/hooks/v1alpha1:go_default_library",
