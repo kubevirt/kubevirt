@@ -77,6 +77,21 @@ var (
 
 const blockPVCName = "pvc_block_test"
 
+// MultiArchEntry returns a slice of Ginkgo TableEntry starting from one.
+// It repeats the same TableEntry for every architecture.
+// This is pretty useful when the same behavior is expected for every arch.
+// **IMPORTANT**
+// This requires the DescribeTable body func to have `arch string` as first
+// parameter.
+func MultiArchEntry(text string, args ...interface{}) []TableEntry {
+	return []TableEntry{
+		Entry(fmt.Sprintf("%s on %s", text, amd64), append([]interface{}{amd64}, args...)...),
+		Entry(fmt.Sprintf("%s on %s", text, arm64), append([]interface{}{arm64}, args...)...),
+		Entry(fmt.Sprintf("%s on %s", text, ppc64le), append([]interface{}{ppc64le}, args...)...),
+		Entry(fmt.Sprintf("%s on %s", text, s390x), append([]interface{}{s390x}, args...)...),
+	}
+}
+
 func memBalloonWithModelAndPeriod(model string, period int) string {
 	const argMemBalloonFmt = `<memballoon model="%s" freePageReporting="on">%s</memballoon>`
 	if model == "none" {
@@ -172,14 +187,8 @@ var _ = Describe("Converter", func() {
 			Expect(apiDisk.Capacity).ToNot(BeNil())
 			Expect(*apiDisk.Capacity).To(Equal(expected))
 		},
-			Entry("Higher request than capacity on amd64", amd64, int64(9999), int64(1111), int64(1111)),
-			Entry("Lower request than capacity on amd64", amd64, int64(1111), int64(9999), int64(1111)),
-			Entry("Higher request than capacity on arm64", arm64, int64(9999), int64(1111), int64(1111)),
-			Entry("Lower request than capacity on arm64", arm64, int64(1111), int64(9999), int64(1111)),
-			Entry("Higher request than capacity on ppc64le", ppc64le, int64(9999), int64(1111), int64(1111)),
-			Entry("Lower request than capacity on ppc64le", ppc64le, int64(1111), int64(9999), int64(1111)),
-			Entry("Higher request than capacity on s390x", s390x, int64(9999), int64(1111), int64(1111)),
-			Entry("Lower request than capacity on s390x", s390x, int64(1111), int64(9999), int64(1111)),
+			MultiArchEntry("Higher request than capacity", int64(9999), int64(1111), int64(1111)),
+			MultiArchEntry("Lower request than capacity", int64(1111), int64(9999), int64(1111)),
 		)
 
 		DescribeTable("Should assign scsi controller to", func(diskDevice v1.DiskDevice) {
@@ -248,10 +257,7 @@ var _ = Describe("Converter", func() {
 </Disk>`
 			Expect(xml).To(Equal(expectedXML))
 		},
-			Entry("on amd64", amd64),
-			Entry("on arm64", arm64),
-			Entry("on ppc64le", ppc64le),
-			Entry("on s390x", s390x),
+			MultiArchEntry(""),
 		)
 
 		DescribeTable("should not set disk I/O mode if not requested", func(arch string) {
@@ -265,10 +271,7 @@ var _ = Describe("Converter", func() {
 </Disk>`
 			Expect(xml).To(Equal(expectedXML))
 		},
-			Entry("on amd64", amd64),
-			Entry("on arm64", arm64),
-			Entry("on ppc64le", ppc64le),
-			Entry("on s390x", s390x),
+			MultiArchEntry(""),
 		)
 
 		DescribeTable("Should omit boot order when not provided", func(arch, expectedModel string) {
@@ -1705,7 +1708,7 @@ var _ = Describe("Converter", func() {
 
 	Context("graphics and video device", func() {
 
-		DescribeTable("should check autoAttachGraphicsDevices", func(autoAttach *bool, devices int, arch string) {
+		DescribeTable("should check autoAttachGraphicsDevices", func(arch string, autoAttach *bool, devices int) {
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -1747,18 +1750,9 @@ var _ = Describe("Converter", func() {
 				}
 			}
 		},
-			Entry("and add the graphics and video device if it is not set on amd64", nil, 1, amd64),
-			Entry("and add the graphics and video device if it is set to true on amd64", pointer.P(true), 1, amd64),
-			Entry("and not add the graphics and video device if it is set to false on amd64", pointer.P(false), 0, amd64),
-			Entry("and add the graphics and video device if it is not set on arm64", nil, 1, arm64),
-			Entry("and add the graphics and video device if it is set to true on arm64", pointer.P(true), 1, arm64),
-			Entry("and not add the graphics and video device if it is set to false on arm64", pointer.P(false), 0, arm64),
-			Entry("and add the graphics and video device if it is not set on ppc64le", nil, 1, ppc64le),
-			Entry("and add the graphics and video device if it is set to true on ppc64le", pointer.P(true), 1, ppc64le),
-			Entry("and not add the graphics and video device if it is set to false on ppc64le", pointer.P(false), 0, ppc64le),
-			Entry("and add the graphics and video device if it is not set on s390x", nil, 1, s390x),
-			Entry("and add the graphics and video device if it is set to true on s390x", pointer.P(true), 1, s390x),
-			Entry("and not add the graphics and video device if it is set to false on s390x", pointer.P(false), 0, s390x),
+			MultiArchEntry("and add the graphics and video device if it is not set", nil, 1),
+			MultiArchEntry("and add the graphics and video device if it is set to true", pointer.P(true), 1),
+			MultiArchEntry("and not add the graphics and video device if it is set to false", pointer.P(false), 0),
 		)
 
 		DescribeTable("Should have one vnc", func(arch string) {
@@ -1779,10 +1773,7 @@ var _ = Describe("Converter", func() {
 				"Type": Equal("vnc"),
 			})))
 		},
-			Entry("on amd64", amd64),
-			Entry("on arm64", arm64),
-			Entry("on ppc64le", ppc64le),
-			Entry("on s390x", s390x),
+			MultiArchEntry(""),
 		)
 	})
 
