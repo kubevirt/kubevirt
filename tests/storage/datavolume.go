@@ -1494,30 +1494,6 @@ func volumeExpansionAllowed(sc string) bool {
 		*storageClass.AllowVolumeExpansion
 }
 
-func newRandomVMWithDataVolume() (*v1.VirtualMachine, bool) {
-	sc, exists := libstorage.GetRWOFileSystemStorageClass()
-	if !exists {
-		return nil, false
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-		libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
-	)
-
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dataVolume.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm, true
-}
-
 func renderVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
 	dv := libdv.NewDataVolume(
 		libdv.WithNamespace(testsuite.GetTestNamespace(nil)),

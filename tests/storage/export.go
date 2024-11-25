@@ -2599,25 +2599,3 @@ func (matcher *ConditionNoTimeMatcher) FailureMessage(actual interface{}) (messa
 func (matcher *ConditionNoTimeMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return format.Message(actual, "not to match without time", matcher.Cond)
 }
-
-func newVMWithDataVolumeForExport(storageClass string) *v1.VirtualMachine {
-	dv := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithStorage(
-			libdv.StorageWithStorageClass(storageClass),
-			libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
-		),
-	)
-	vm := libvmi.NewVirtualMachine(
-		libvmifact.NewCirros(
-			libvmi.WithDataVolume("disk0", dv.Name),
-			libvmi.WithResourceMemory("256Mi"),
-			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		),
-		libvmi.WithDataVolumeTemplate(dv),
-	)
-
-	return vm
-}
