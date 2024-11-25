@@ -24,16 +24,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 const (
 	dvRandomNameLength = 12
+	defaultVolumeSize  = "512Mi"
 )
 
 // dvOption is an option type for the NewDataVolume function
@@ -80,13 +80,13 @@ type storageOption func(*v1beta1.StorageSpec)
 // The default values are:
 // * no storage class
 // * access mode from the StorgeProfile
-// * volume size of cd.CirrosVolumeSize
+// * volume size of defaultVolumeSize
 // * volume mode from the storageProfile
 func WithStorage(options ...storageOption) dvOption {
 	storage := &v1beta1.StorageSpec{
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				"storage": resource.MustParse(cd.CirrosVolumeSize),
+				"storage": resource.MustParse(defaultVolumeSize),
 			},
 		},
 	}
@@ -109,7 +109,7 @@ func WithPVC(options ...pvcOption) dvOption {
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
-				"storage": resource.MustParse(cd.CirrosVolumeSize),
+				"storage": resource.MustParse(defaultVolumeSize),
 			},
 		},
 	}
@@ -236,7 +236,7 @@ func StorageWithStorageClass(sc string) storageOption {
 	}
 }
 
-// StorageWithVolumeSize overrides the default volume size (cd.CirrosVolumeSize), with the size parameter
+// StorageWithVolumeSize overrides the default volume size (defaultVolumeSize), with the size parameter
 // The size parameter must be in parsable valid quantity string.
 func StorageWithVolumeSize(size string) storageOption {
 	return func(storage *v1beta1.StorageSpec) {

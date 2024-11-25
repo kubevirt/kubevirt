@@ -10,6 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/config:go_default_library",
+        "//pkg/libdv:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/virt-config:go_default_library",
@@ -23,7 +24,6 @@ go_library(
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libconfigmap:go_default_library",
-        "//tests/libdv:go_default_library",
         "//tests/libkubevirt:go_default_library",
         "//tests/libkubevirt/config:go_default_library",
         "//tests/libpod:go_default_library",
