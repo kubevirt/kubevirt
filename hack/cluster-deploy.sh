@@ -59,6 +59,8 @@ function _ensure_cdi_deployment() {
     if [[ $CDI_DV_GC != $CDI_DV_GC_DEFAULT ]]; then
         _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
     fi
+
+    _kubectl apply -f hack/cdi-operator.yaml
 }
 
 function configure_prometheus() {
