@@ -52,6 +52,8 @@ function _ensure_cdi_deployment() {
     host_port=$(${KUBEVIRT_PATH}kubevirtci/cluster-up/cli.sh ports uploadproxy | xargs)
     override="https://127.0.0.1:$host_port"
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
+
+    _kubectl apply -f hack/cdi-operator.yaml
 }
 
 function configure_prometheus() {
