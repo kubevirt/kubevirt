@@ -585,7 +585,7 @@ func (r *ReconcileHyperConverged) updateHyperConverged(request *common.HcoReques
 
 	err := r.updateHyperConvergedStatus(request)
 	if err != nil {
-		r.logHyperConvergedUpdateError(request, err, "Failed to update HCO Status")
+		request.Logger.Error(err, "Failed to update HCO Status")
 		return false, err
 	}
 
@@ -595,12 +595,12 @@ func (r *ReconcileHyperConverged) updateHyperConverged(request *common.HcoReques
 		request.Instance.ObjectMeta.Labels = meta.Labels
 		request.Instance.Spec = spec
 
-		err := r.updateHyperConvergedSpecMetadata(request)
+		err = r.updateHyperConvergedSpecMetadata(request)
 		if err != nil {
-			r.logHyperConvergedUpdateError(request, err, "Failed to update HCO CR")
+			request.Logger.Error(err, "Failed to update HCO CR")
 			return false, err
 		}
-		// version update is a two step process
+		// version update is a two steps process
 		knownHcoVersion, _ := GetVersion(&request.Instance.Status, hcoVersionName)
 		if r.ownVersion != knownHcoVersion && request.StatusDirty {
 			return true, nil
@@ -626,17 +626,6 @@ func (r *ReconcileHyperConverged) updateHyperConvergedStatus(request *common.Hco
 	}
 
 	return r.client.Status().Update(request.Ctx, request.Instance)
-}
-
-// logHyperConvergedUpdateError logs an error that occurred during resource update,
-// as well as emits a corresponding event.
-func (r *ReconcileHyperConverged) logHyperConvergedUpdateError(request *common.HcoRequest, err error, errMsg string) {
-	r.eventEmitter.EmitEvent(request.Instance,
-		corev1.EventTypeWarning,
-		"HcoUpdateError",
-		errMsg)
-
-	request.Logger.Error(err, errMsg)
 }
 
 func (r *ReconcileHyperConverged) validateNamespace(req *common.HcoRequest) (bool, error) {
@@ -964,15 +953,19 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 		})
 	}
 
+	// check if HCO was available before this reconcile loop
+	hcoWasAvailable := apimetav1.IsStatusConditionTrue(req.Instance.Status.Conditions, hcov1beta1.ConditionAvailable) &&
+		apimetav1.IsStatusConditionFalse(req.Instance.Status.Conditions, hcov1beta1.ConditionProgressing)
+
 	if hcoReady {
 		// If no operator whose conditions we are watching reports an error, then it is safe
 		// to set readiness.
-		r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "ReconcileHCO", "HCO Reconcile completed successfully")
+		if !hcoWasAvailable { // only when become available
+			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "ReconcileHCO", "HCO Reconcile completed successfully")
+		}
 	} else {
 		// If for any reason we marked ourselves !upgradeable...then unset readiness
-		if r.upgradeMode {
-			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "ReconcileHCO", "HCO Upgrade in progress")
-		} else {
+		if !r.upgradeMode && hcoWasAvailable { // only when become not ready
 			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "ReconcileHCO", "Not all the operators are ready")
 		}
 	}
@@ -982,8 +975,7 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 
 // This function is used to exit from the reconcile function, updating the conditions and returns the reconcile result
 func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) {
-	conditions := make([]metav1.Condition, len(req.Instance.Status.Conditions))
-	copy(conditions, req.Instance.Status.Conditions)
+	conditions := slices.Clone(req.Instance.Status.Conditions)
 
 	for _, condType := range common.HcoConditionTypes {
 		cond, found := req.Conditions[condType]
