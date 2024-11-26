@@ -145,10 +145,8 @@ http_file(
 
 http_file(
     name = "virtio_win_image",
-    sha256 = "d5b5739cf297f0538d263e30678d5a09bba470a7c6bcbd8dff74e44153f16549",
     urls = [
-        "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-0.1.248-1/virtio-win-0.1.248.iso",
-        "https://storage.googleapis.com/builddeps/d5b5739cf297f0538d263e30678d5a09bba470a7c6bcbd8dff74e44153f16549",
+        "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-0.1.266-1/virtio-win-0.1.266.iso",
     ],
 )
 
