@@ -44,17 +44,9 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.DownwardMetrics = &ptrVar1
 	}
-	if in.Spec.FeatureGates.WithHostPassthroughCPU == nil {
-		var ptrVar1 bool = false
-		in.Spec.FeatureGates.WithHostPassthroughCPU = &ptrVar1
-	}
 	if in.Spec.FeatureGates.EnableCommonBootImageImport == nil {
 		var ptrVar1 bool = true
 		in.Spec.FeatureGates.EnableCommonBootImageImport = &ptrVar1
-	}
-	if in.Spec.FeatureGates.DeployTektonTaskResources == nil {
-		var ptrVar1 bool = false
-		in.Spec.FeatureGates.DeployTektonTaskResources = &ptrVar1
 	}
 	if in.Spec.FeatureGates.DeployVMConsoleProxy == nil {
 		var ptrVar1 bool = false
@@ -68,10 +60,6 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.DeployKubevirtIpamController = &ptrVar1
 	}
-	if in.Spec.FeatureGates.NonRoot == nil {
-		var ptrVar1 bool = true
-		in.Spec.FeatureGates.NonRoot = &ptrVar1
-	}
 	if in.Spec.FeatureGates.DisableMDevConfiguration == nil {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.DisableMDevConfiguration = &ptrVar1
@@ -79,10 +67,6 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 	if in.Spec.FeatureGates.PersistentReservation == nil {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.PersistentReservation = &ptrVar1
-	}
-	if in.Spec.FeatureGates.EnableManagedTenantQuota == nil {
-		var ptrVar1 bool = false
-		in.Spec.FeatureGates.EnableManagedTenantQuota = &ptrVar1
 	}
 	if in.Spec.FeatureGates.AutoResourceLimits == nil {
 		var ptrVar1 bool = false

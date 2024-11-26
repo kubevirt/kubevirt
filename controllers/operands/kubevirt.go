@@ -152,13 +152,11 @@ var (
 
 // KubeVirt feature gates that are exposed in HCO API
 const (
-	kvDownwardMetrics        = "DownwardMetrics"
-	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
-	kvRoot                   = "Root"
-	kvDisableMDevConfig      = "DisableMDEVConfiguration"
-	kvPersistentReservation  = "PersistentReservation"
-	kvAutoResourceLimits     = "AutoResourceLimitsGate"
-	kvAlignCPUs              = "AlignCPUs"
+	kvDownwardMetrics       = "DownwardMetrics"
+	kvDisableMDevConfig     = "DisableMDEVConfiguration"
+	kvPersistentReservation = "PersistentReservation"
+	kvAutoResourceLimits    = "AutoResourceLimitsGate"
+	kvAlignCPUs             = "AlignCPUs"
 )
 
 // CPU Plugin default values
@@ -824,14 +822,6 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 	if featureGates.DownwardMetrics != nil && *featureGates.DownwardMetrics {
 		fgs = append(fgs, kvDownwardMetrics)
 	}
-
-	if featureGates.WithHostPassthroughCPU != nil && *featureGates.WithHostPassthroughCPU {
-		fgs = append(fgs, kvWithHostPassthroughCPU)
-	}
-
-	if featureGates.NonRoot != nil && !*featureGates.NonRoot { //nolint SA1019
-		fgs = append(fgs, kvRoot)
-	}
 	if featureGates.DisableMDevConfiguration != nil && *featureGates.DisableMDevConfiguration {
 		fgs = append(fgs, kvDisableMDevConfig)
 	}
@@ -975,7 +965,7 @@ func getMandatoryKvFeatureGates(isKVMEmulation bool) []string {
 // get list of feature gates or KV FG list
 func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	checks := getFeatureGateChecks(fgs)
-	res := make([]string, 0, len(checks)+len(mandatoryKvFeatureGates)+1)
+	res := make([]string, 0, len(checks)+len(mandatoryKvFeatureGates))
 	res = append(res, mandatoryKvFeatureGates...)
 	res = append(res, checks...)
 

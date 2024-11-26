@@ -66,7 +66,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false,"autoResourceLimits": false, "enableApplicationAwareQuota": false, "primaryUserDefinedNetworkBinding": false}
+	// +kubebuilder:default={"downwardMetrics": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "disableMDevConfiguration": false, "persistentReservation": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false, "primaryUserDefinedNetworkBinding": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -406,8 +406,7 @@ type HyperConvergedFeatureGates struct {
 	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
 	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 	// +optional
-	// +kubebuilder:default=false
-	// +default=false
+	// Deprecated: there is no such FG in KubeVirt. This field is ignored
 	WithHostPassthroughCPU *bool `json:"withHostPassthroughCPU,omitempty"`
 
 	// Opt-in to automatic delivery/updates of the common data import cron templates.
@@ -418,14 +417,6 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=true
 	// +default=true
 	EnableCommonBootImageImport *bool `json:"enableCommonBootImageImport,omitempty"`
-
-	// deploy resources (kubevirt tekton tasks and example pipelines) in SSP operator
-	// +optional
-	// +kubebuilder:default=false
-	// +default=false
-	// +kubebuilder:deprecatedversion:warning="deployTektonTaskResources feature gate ignored"
-	// Deprecated: This field is ignored.
-	DeployTektonTaskResources *bool `json:"deployTektonTaskResources,omitempty"`
 
 	// deploy VM console proxy resources in SSP operator
 	// +optional
@@ -446,16 +437,6 @@ type HyperConvergedFeatureGates struct {
 	// +default=false
 	DeployKubevirtIpamController *bool `json:"deployKubevirtIpamController,omitempty"`
 
-	// TODO: remove NonRoot in the next release
-
-	// Enables rootless virt-launcher.
-	//
-	// Deprecated: please use the root FG.
-	// +optional
-	// +kubebuilder:default=true
-	// +default=true
-	NonRoot *bool `json:"nonRoot,omitempty"`
-
 	// Disable mediated devices handling on KubeVirt
 	// +optional
 	// +kubebuilder:default=false
@@ -470,13 +451,6 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	// +default=false
 	PersistentReservation *bool `json:"persistentReservation,omitempty"`
-
-	// +optional
-	// +kubebuilder:default=false
-	// +default=false
-	// +kubebuilder:deprecatedversion:warning="tektonPipelinesNamespace field is ignored"
-	// Deprecated: This field is ignored.
-	EnableManagedTenantQuota *bool `json:"enableManagedTenantQuota,omitempty"`
 
 	// TODO update description to also include cpu limits as well, after 4.14
 
@@ -868,7 +842,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false, "primaryUserDefinedNetworkBinding": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": true}}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "deployKubevirtIpamController": false, "disableMDevConfiguration": false, "persistentReservation": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false, "primaryUserDefinedNetworkBinding": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": true}}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

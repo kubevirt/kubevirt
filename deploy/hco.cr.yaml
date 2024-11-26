@@ -16,17 +16,13 @@ spec:
     autoResourceLimits: false
     deployKubeSecondaryDNS: false
     deployKubevirtIpamController: false
-    deployTektonTaskResources: false
     deployVmConsoleProxy: false
     disableMDevConfiguration: false
     downwardMetrics: false
     enableApplicationAwareQuota: false
     enableCommonBootImageImport: true
-    enableManagedTenantQuota: false
-    nonRoot: true
     persistentReservation: false
     primaryUserDefinedNetworkBinding: false
-    withHostPassthroughCPU: false
   higherWorkloadDensity:
     memoryOvercommitPercentage: 100
   infra: {}

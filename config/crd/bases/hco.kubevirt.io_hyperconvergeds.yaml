@@ -60,17 +60,13 @@ spec:
                 autoResourceLimits: false
                 deployKubeSecondaryDNS: false
                 deployKubevirtIpamController: false
-                deployTektonTaskResources: false
                 deployVmConsoleProxy: false
                 disableMDevConfiguration: false
                 downwardMetrics: false
                 enableApplicationAwareQuota: false
                 enableCommonBootImageImport: true
-                enableManagedTenantQuota: false
-                nonRoot: true
                 persistentReservation: false
                 primaryUserDefinedNetworkBinding: false
-                withHostPassthroughCPU: false
               liveMigrationConfig:
                 allowAutoConverge: false
                 allowPostCopy: false
@@ -1044,17 +1040,13 @@ spec:
                   autoResourceLimits: false
                   deployKubeSecondaryDNS: false
                   deployKubevirtIpamController: false
-                  deployTektonTaskResources: false
                   deployVmConsoleProxy: false
                   disableMDevConfiguration: false
                   downwardMetrics: false
                   enableApplicationAwareQuota: false
                   enableCommonBootImageImport: true
-                  enableManagedTenantQuota: false
-                  nonRoot: true
                   persistentReservation: false
                   primaryUserDefinedNetworkBinding: false
-                  withHostPassthroughCPU: false
                 description: |-
                   featureGates is a map of feature gate flags. Setting a flag to `true` will enable
                   the feature. Setting `false` or removing the feature gate, disables the feature.
@@ -1086,12 +1078,6 @@ spec:
                       Deploy KubevirtIpamController by CNAO.
                       Allows having persistent IPs for Kubevirt user defined networks.
                     type: boolean
-                  deployTektonTaskResources:
-                    default: false
-                    description: |-
-                      deploy resources (kubevirt tekton tasks and example pipelines) in SSP operator
-                      Deprecated: This field is ignored.
-                    type: boolean
                   deployVmConsoleProxy:
                     default: false
                     description: deploy VM console proxy resources in SSP operator
@@ -1118,17 +1104,6 @@ spec:
                       templates that can be added to the dataImportCronTemplates field. This feature gates only control the common
                       templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.
                     type: boolean
-                  enableManagedTenantQuota:
-                    default: false
-                    description: 'Deprecated: This field is ignored.'
-                    type: boolean
-                  nonRoot:
-                    default: true
-                    description: |-
-                      Enables rootless virt-launcher.
-
-                      Deprecated: please use the root FG.
-                    type: boolean
                   persistentReservation:
                     default: false
                     description: |-
@@ -1145,10 +1120,10 @@ spec:
                       Note: this feature is in Developer Preview.
                     type: boolean
                   withHostPassthroughCPU:
-                    default: false
                     description: |-
                       Allow migrating a virtual machine with CPU host-passthrough mode. This should be
                       enabled only when the Cluster is homogeneous from CPU HW perspective doc here
+                      Deprecated: there is no such FG in KubeVirt. This field is ignored
                     type: boolean
                 type: object
               filesystemOverhead:

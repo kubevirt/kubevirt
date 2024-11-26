@@ -142,13 +142,7 @@ virtual machine.
 **Default**: `false`
 
 ### withHostPassthroughCPU Feature Gate
-Set the `withHostPassthroughCPU` feature gate in order to allow migrating a virtual machine with CPU host-passthrough
-mode. This can provide slightly better CPU performance, but should be enabled only when the Cluster is homogeneous from
-CPU HW perspective.
-
-**Default**: `false`
-
-Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/LibvirtXMLCPUModel)
+This feature gate is deprecated and is ignored.
 
 ### enableCommonBootImageImport Feature Gate
 
@@ -186,15 +180,6 @@ Note that if used on K8s cluster (non OCP), a cert manager is required to be dep
 
 **Default**: `false`
 
-### nonRoot Feature Gate
-Disable the `nonRoot` feature gate in order to not run your virtual machines in rootless virt-launcher.
-
-**Note**: You can migrate rootless virt-launcher-es to root implementation by triggering migration or restarting the VM.
-
-**Note**: the `nonRoot` feature gate is now deprecated but still available; in the future only the nonRoot mode will be available.
-
-**Default**: `true`
-
 ### persistentReservation Feature Gate
 Set the `persistentReservation` feature gate to true in order to enable the reservation of a LUN through the SCSI Persistent Reserve commands.
 
@@ -214,10 +199,6 @@ VMI example:
 **Note**: An important aspect of this feature is that the SCSI persistent reservation doesn't support migration. Even if you apply the reservation to an RWX PVC provisioning SCSI devices, the restriction is due to the reservation done by the initiator on the node. The VM could be migrated but not the reservation.
 
 **Default**: `false`
-
-### enableManagedTenantQuota Feature Gate
-**Note**: the `enableManagedTenantQuota` feature gate is now deprecated and ignored
-
 
 ### autoResourceLimits Feature Gate
 Set the `autoResourceLimits` feature gate to true in order to enable KubeVirt to set automatic limits when they are needed.
@@ -265,12 +246,9 @@ spec:
   infra: {}
   workloads: {}
   featureGates:
-    withHostPassthroughCPU: true
     enableCommonBootImageImport: true
-    deployTektonTaskResources: true
     deployKubeSecondaryDNS: true
     deployKubevirtIpamController: false
-    enableManagedTenantQuota: true
     enableApplicationAwareQuota: true
 ```
 
