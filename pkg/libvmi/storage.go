@@ -153,6 +153,12 @@ func WithIOThreadsPolicy(policy v1.IOThreadsPolicy) Option {
 	}
 }
 
+func WithIOThreads(iothreads v1.DiskIOThreads) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.IOThreads = pointer.P(iothreads)
+	}
+}
+
 func addDisk(vmi *v1.VirtualMachineInstance, disk v1.Disk) {
 	if !diskExists(vmi, disk) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
