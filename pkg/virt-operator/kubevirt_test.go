@@ -84,8 +84,8 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 77
-	patchCount    = 50
+	resourceCount = 78
+	patchCount    = 51
 	updateCount   = 28
 )
 
@@ -1216,6 +1216,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, components.NewOperatorWebhookService(NAMESPACE))
 	all = append(all, components.NewPrometheusService(NAMESPACE))
 	all = append(all, components.NewApiServerService(NAMESPACE))
+	all = append(all, components.NewControllerService(NAMESPACE))
 	all = append(all, components.NewExportProxyService(NAMESPACE))
 
 	apiDeployment, _ := getDefaultVirtApiDeployment(NAMESPACE, config)
@@ -2406,7 +2407,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(HaveLen(16))
-			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
+			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(BeEmpty())
 			Expect(kvTestData.controller.stores.ValidationWebhookCache.List()).To(HaveLen(3))
