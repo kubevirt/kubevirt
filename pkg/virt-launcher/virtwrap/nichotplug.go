@@ -96,7 +96,7 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 }
 
 func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain) error {
-	for _, domainIface := range interfacesToHotUnplug(vmi.Spec.Domain.Devices.Interfaces, currentDomain.Spec.Devices.Interfaces) {
+	for _, domainIface := range interfacesToHotUnplug(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, currentDomain.Spec.Devices.Interfaces) {
 		log.Log.Infof("preparing to hot-unplug %s", domainIface.Alias.GetName())
 
 		ifaceXML, err := xml.Marshal(domainIface)
@@ -112,14 +112,16 @@ func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachi
 	return nil
 }
 
-func interfacesToHotUnplug(vmiSpecInterfaces []v1.Interface, domainSpecInterfaces []api.Interface) []api.Interface {
+func interfacesToHotUnplug(vmiSpecInterfaces []v1.Interface, vmiSpecNets []v1.Network, domainSpecInterfaces []api.Interface) []api.Interface {
 	ifaces2remove := netvmispec.FilterInterfacesSpec(vmiSpecInterfaces, func(iface v1.Interface) bool {
 		return iface.State == v1.InterfaceStateAbsent
 	})
+
+	networksByName := netvmispec.IndexNetworkSpecByName(vmiSpecNets)
 	var domainIfacesToRemove []api.Interface
 	for _, vmiIface := range ifaces2remove {
 		if domainIface := lookupDomainInterfaceByName(domainSpecInterfaces, vmiIface.Name); domainIface != nil {
-			if hasDeviceWithHashedTapName(domainIface.Target, vmiIface) {
+			if hasDeviceWithHashedTapName(domainIface.Target, vmiIface, networksByName[vmiIface.Name]) {
 				domainIfacesToRemove = append(domainIfacesToRemove, *domainIface)
 			}
 		}
@@ -127,9 +129,9 @@ func interfacesToHotUnplug(vmiSpecInterfaces []v1.Interface, domainSpecInterface
 	return domainIfacesToRemove
 }
 
-func hasDeviceWithHashedTapName(target *api.InterfaceTarget, vmiIface v1.Interface) bool {
+func hasDeviceWithHashedTapName(target *api.InterfaceTarget, vmiIface v1.Interface, vmiNet v1.Network) bool {
 	return target != nil &&
-		target.Device == virtnetlink.GenerateTapDeviceName(namescheme.GenerateHashedInterfaceName(vmiIface.Name))
+		target.Device == virtnetlink.GenerateTapDeviceName(namescheme.GenerateHashedInterfaceName(vmiIface.Name), vmiNet)
 }
 
 func lookupDomainInterfaceByName(domainIfaces []api.Interface, networkName string) *api.Interface {

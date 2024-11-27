@@ -534,7 +534,7 @@ var _ = Describe("netpod", func() {
 						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:       "tapt-iface",
+						Name:       "tap0",
 						TypeName:   nmstate.TypeTap,
 						State:      nmstate.IfaceStateUp,
 						MTU:        1500,

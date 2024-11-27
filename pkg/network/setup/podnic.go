@@ -137,7 +137,7 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 
 func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain, domainAttachment string) domainspec.LibvirtSpecGenerator {
 	if domainAttachment == string(v1.Tap) {
-		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
+		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, *l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
 	}
 	return nil
 }
