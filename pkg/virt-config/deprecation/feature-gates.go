@@ -64,6 +64,12 @@ const (
 	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
 	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests" // GA
 
+	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
+	// Alpha: v1.1.0
+	// Beta:  v1.4.0
+	// GA:    v1.5.0
+	NetworkBindingPlugingsGate = "NetworkBindingPlugins" // GA
+
 	PasstGate   = "Passt"   // Deprecated
 	MacvtapGate = "Macvtap" // Deprecated
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
@@ -91,6 +97,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HotplugNetworkIfacesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: BochsDisplayForEFIGuests, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMLiveUpdateFeaturesGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: NetworkBindingPlugingsGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})

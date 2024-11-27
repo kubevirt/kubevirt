@@ -56,10 +56,6 @@ const (
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
 	VMPersistentState = "VMPersistentState"
 	MultiArchitecture = "MultiArchitecture"
-	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
-	// Alpha: v1.1.0
-	// Beta:  v1.4.0
-	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
 	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
 	AutoResourceLimitsGate = "AutoResourceLimitsGate"
 
@@ -223,10 +219,6 @@ func (config *ClusterConfig) VMPersistentStateEnabled() bool {
 
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(MultiArchitecture)
-}
-
-func (config *ClusterConfig) NetworkBindingPlugingsEnabled() bool {
-	return config.isFeatureGateEnabled(NetworkBindingPlugingsGate)
 }
 
 func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
