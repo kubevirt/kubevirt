@@ -21,33 +21,51 @@ package expand
 import (
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
-	"kubevirt.io/kubevirt/pkg/instancetype/find"
-	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	utils "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-type Expander struct {
+type vmiApplier interface {
+	ApplyToVMI(
+		field *k8sfield.Path,
+		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+		vmiSpec *virtv1.VirtualMachineInstanceSpec,
+		vmiMetadata *metav1.ObjectMeta,
+	) (conflicts apply.Conflicts)
+}
+
+type specFinder interface {
+	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+}
+
+type preferenceSpecFinder interface {
+	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+}
+
+type expander struct {
 	clusterConfig      *virtconfig.ClusterConfig
-	vmiApplier         *apply.VMIApplier
-	instancetypeFinder *find.SpecFinder
-	preferenceFinder   *preferenceFind.SpecFinder
+	vmiApplier         vmiApplier
+	instancetypeFinder specFinder
+	preferenceFinder   preferenceSpecFinder
 }
 
 func New(
 	clusterConfig *virtconfig.ClusterConfig,
-	instancetypeFinder *find.SpecFinder,
-	preferenceFinder *preferenceFind.SpecFinder,
-) *Expander {
-	return &Expander{
+	instancetypeFinder specFinder,
+	preferenceFinder preferenceSpecFinder,
+) *expander {
+	return &expander{
 		clusterConfig:      clusterConfig,
 		vmiApplier:         apply.NewVMIApplier(),
 		instancetypeFinder: instancetypeFinder,
@@ -55,7 +73,7 @@ func New(
 	}
 }
 
-func (e *Expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+func (e *expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
 	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
 		return vm, nil
 	}

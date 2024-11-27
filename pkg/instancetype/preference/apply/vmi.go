@@ -25,9 +25,13 @@ import (
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
-type VMIApplier struct{}
+type vmiApplier struct{}
 
-func (a *VMIApplier) Apply(
+func New() *vmiApplier {
+	return &vmiApplier{}
+}
+
+func (a *vmiApplier) Apply(
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 	vmiMetadata *metav1.ObjectMeta,

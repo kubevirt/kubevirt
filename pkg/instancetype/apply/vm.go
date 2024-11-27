@@ -23,26 +23,32 @@ import (
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	virtv1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/instancetype/find"
-	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
-type VMApplier struct {
-	vmiApplier         *VMIApplier
-	instancetypeFinder *find.SpecFinder
-	preferenceFinder   *preferenceFind.SpecFinder
+type specFinder interface {
+	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
 }
 
-func NewVMApplier(instancetypeFinder *find.SpecFinder, preferenceFinder *preferenceFind.SpecFinder) *VMApplier {
-	return &VMApplier{
+type preferenceSpecFinder interface {
+	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+}
+
+type vmApplier struct {
+	vmiApplier         *vmiApplier
+	instancetypeFinder specFinder
+	preferenceFinder   preferenceSpecFinder
+}
+
+func NewVMApplier(instancetypeFinder specFinder, preferenceFinder preferenceSpecFinder) *vmApplier {
+	return &vmApplier{
 		vmiApplier:         NewVMIApplier(),
 		instancetypeFinder: instancetypeFinder,
 		preferenceFinder:   preferenceFinder,
 	}
 }
 
-func (a *VMApplier) ApplyToVM(vm *virtv1.VirtualMachine) error {
+func (a *vmApplier) ApplyToVM(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
 		return nil
 	}

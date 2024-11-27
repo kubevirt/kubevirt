@@ -27,17 +27,17 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-type RevisionFinder struct {
-	controllerRevisionFinder *ControllerRevisionFinder
+type revisionFinder struct {
+	controllerRevisionFinder *controllerRevisionFinder
 }
 
-func NewRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *RevisionFinder {
-	return &RevisionFinder{
+func NewRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *revisionFinder {
+	return &revisionFinder{
 		controllerRevisionFinder: NewControllerRevisionFinder(store, virtClient),
 	}
 }
 
-func (f *RevisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (f *revisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}

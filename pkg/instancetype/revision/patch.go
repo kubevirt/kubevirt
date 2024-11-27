@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
-func (h *RevisionHandler) patchVM(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision, vm *virtv1.VirtualMachine) error {
+func (h *revisionHandler) patchVM(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision, vm *virtv1.VirtualMachine) error {
 	// Batch any writes to the VirtualMachine into a single Patch() call to avoid races in the controller.
 	logger := func() *log.FilteredLogger { return log.Log.Object(vm) }
 	revisionPatch, err := GeneratePatch(instancetypeRevision, preferenceRevision)

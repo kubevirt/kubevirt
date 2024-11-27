@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-func (h *RevisionHandler) Store(vm *virtv1.VirtualMachine) error {
+func (h *revisionHandler) Store(vm *virtv1.VirtualMachine) error {
 	instancetypeRevision, err := h.storeInstancetypeRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Failed to store ControllerRevision of VirtualMachineInstancetypeSpec for the Virtualmachine.")
@@ -59,7 +59,7 @@ func (h *RevisionHandler) Store(vm *virtv1.VirtualMachine) error {
 	return h.patchVM(instancetypeRevision, preferenceRevision, vm)
 }
 
-func (h *RevisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.RevisionName != "" {
 		return nil, nil
 	}
@@ -73,7 +73,7 @@ func (h *RevisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (
 	return storedRevision, nil
 }
 
-func (h *RevisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	switch strings.ToLower(vm.Spec.Instancetype.Kind) {
 	case api.SingularResourceName, api.PluralResourceName:
 		instancetype, err := find.NewInstancetypeFinder(h.instancetypeStore, h.virtClient).Find(vm)
@@ -110,7 +110,7 @@ func (h *RevisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 	}
 }
 
-func (h *RevisionHandler) checkForInstancetypeConflicts(
+func (h *revisionHandler) checkForInstancetypeConflicts(
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 	vmiMetadata *metav1.ObjectMeta,
@@ -124,7 +124,7 @@ func (h *RevisionHandler) checkForInstancetypeConflicts(
 	return nil
 }
 
-func (h *RevisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (h *revisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Preference == nil || vm.Spec.Preference.RevisionName != "" {
 		return nil, nil
 	}
@@ -138,7 +138,7 @@ func (h *RevisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) (*a
 	return storedRevision, nil
 }
 
-func (h *RevisionHandler) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (h *revisionHandler) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	switch strings.ToLower(vm.Spec.Preference.Kind) {
 	case api.SingularPreferenceResourceName, api.PluralPreferenceResourceName:
 		preference, err := preferenceFind.NewPreferenceFinder(h.preferenceStore, h.virtClient).Find(vm)
@@ -204,7 +204,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 	}, nil
 }
 
-func (h *RevisionHandler) storeControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
+func (h *revisionHandler) storeControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
 	revision, err := CreateControllerRevision(vm, object)
 	if err != nil {
 		return nil, err

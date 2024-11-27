@@ -29,19 +29,19 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-type ClusterInstancetypeFinder struct {
+type clusterInstancetypeFinder struct {
 	store      cache.Store
 	virtClient kubecli.KubevirtClient
 }
 
-func NewClusterInstancetypeFinder(store cache.Store, virtClient kubecli.KubevirtClient) *ClusterInstancetypeFinder {
-	return &ClusterInstancetypeFinder{
+func NewClusterInstancetypeFinder(store cache.Store, virtClient kubecli.KubevirtClient) *clusterInstancetypeFinder {
+	return &clusterInstancetypeFinder{
 		store:      store,
 		virtClient: virtClient,
 	}
 }
 
-func (f *ClusterInstancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineClusterInstancetype, error) {
+func (f *clusterInstancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineClusterInstancetype, error) {
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}

@@ -24,7 +24,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-type RevisionHandler struct {
+type revisionHandler struct {
 	instancetypeStore        cache.Store
 	clusterInstancetypeStore cache.Store
 	preferenceStore          cache.Store
@@ -38,8 +38,8 @@ func New(
 	preferenceStore,
 	clusterPreferenceStore cache.Store,
 	virtClient kubecli.KubevirtClient,
-) *RevisionHandler {
-	return &RevisionHandler{
+) *revisionHandler {
+	return &revisionHandler{
 		instancetypeStore:        instancetypeStore,
 		clusterInstancetypeStore: clusterInstancetypeStore,
 		preferenceStore:          preferenceStore,

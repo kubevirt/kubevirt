@@ -31,12 +31,12 @@ import (
 
 const logVerbosityLevel = 3
 
-type Handler struct {
+type handler struct {
 	virtClient kubecli.KubevirtClient
 }
 
-func New(virtClient kubecli.KubevirtClient) *Handler {
-	return &Handler{
+func New(virtClient kubecli.KubevirtClient) *handler {
+	return &handler{
 		virtClient: virtClient,
 	}
 }
@@ -45,7 +45,7 @@ func shouldIgnoreFailure(ignoreFailurePolicy *virtv1.InferFromVolumeFailurePolic
 	return ignoreFailurePolicy != nil && *ignoreFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
 }
 
-func (h *Handler) Instancetype(vm *virtv1.VirtualMachine) error {
+func (h *handler) Instancetype(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype == nil {
 		return nil
 	}
@@ -78,7 +78,7 @@ func (h *Handler) Instancetype(vm *virtv1.VirtualMachine) error {
 	return nil
 }
 
-func (h *Handler) Preference(vm *virtv1.VirtualMachine) error {
+func (h *handler) Preference(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Preference == nil {
 		return nil
 	}

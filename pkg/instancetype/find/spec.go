@@ -32,14 +32,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 )
 
-type SpecFinder struct {
-	instancetypeFinder        *InstancetypeFinder
-	clusterInstancetypeFinder *ClusterInstancetypeFinder
-	revisionFinder            *RevisionFinder
+type specFinder struct {
+	instancetypeFinder        *instancetypeFinder
+	clusterInstancetypeFinder *clusterInstancetypeFinder
+	revisionFinder            *revisionFinder
 }
 
-func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient kubecli.KubevirtClient) *SpecFinder {
-	return &SpecFinder{
+func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient kubecli.KubevirtClient) *specFinder {
+	return &specFinder{
 		instancetypeFinder:        NewInstancetypeFinder(store, virtClient),
 		clusterInstancetypeFinder: NewClusterInstancetypeFinder(clusterStore, virtClient),
 		revisionFinder:            NewRevisionFinder(revisionStore, virtClient),
@@ -48,7 +48,7 @@ func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient ku
 
 const unexpectedKindFmt = "got unexpected kind in InstancetypeMatcher: %s"
 
-func (f *SpecFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error) {
+func (f *specFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error) {
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}

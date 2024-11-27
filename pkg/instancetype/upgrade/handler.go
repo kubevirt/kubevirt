@@ -37,19 +37,23 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 )
 
-type Upgrader struct {
-	controllerRevisionFinder *find.ControllerRevisionFinder
+type controllerRevisionFinder interface {
+	Find(types.NamespacedName) (*appsv1.ControllerRevision, error)
+}
+
+type upgrader struct {
+	controllerRevisionFinder controllerRevisionFinder
 	virtClient               kubecli.KubevirtClient
 }
 
-func New(store cache.Store, virtClient kubecli.KubevirtClient) *Upgrader {
-	return &Upgrader{
+func New(store cache.Store, virtClient kubecli.KubevirtClient) *upgrader {
+	return &upgrader{
 		controllerRevisionFinder: find.NewControllerRevisionFinder(store, virtClient),
 		virtClient:               virtClient,
 	}
 }
 
-func (u *Upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
+func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
 		return nil
 	}
@@ -101,21 +105,21 @@ func (u *Upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	return nil
 }
 
-func (u *Upgrader) upgradeInstancetypeCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
+func (u *upgrader) upgradeInstancetypeCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.RevisionName == "" {
 		return nil, nil
 	}
 	return u.upgradeControllerRevision(vm, vm.Spec.Instancetype.RevisionName, "/spec/instancetype/revisionName", vmPatchSet)
 }
 
-func (u *Upgrader) upgradePreferenceCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
+func (u *upgrader) upgradePreferenceCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Preference == nil || vm.Spec.Preference.RevisionName == "" {
 		return nil, nil
 	}
 	return u.upgradeControllerRevision(vm, vm.Spec.Preference.RevisionName, "/spec/preference/revisionName", vmPatchSet)
 }
 
-func (u *Upgrader) upgradeControllerRevision(
+func (u *upgrader) upgradeControllerRevision(
 	vm *virtv1.VirtualMachine,
 	crName, jsonPath string,
 	vmPatchSet *patch.PatchSet,

@@ -28,17 +28,21 @@ import (
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 )
 
-type VMIApplier struct {
-	preferenceApplier *preferenceApply.VMIApplier
+type preferenceApplier interface {
+	Apply(*v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceSpec, *metav1.ObjectMeta)
 }
 
-func NewVMIApplier() *VMIApplier {
-	return &VMIApplier{
-		preferenceApplier: &preferenceApply.VMIApplier{},
+type vmiApplier struct {
+	preferenceApplier preferenceApplier
+}
+
+func NewVMIApplier() *vmiApplier {
+	return &vmiApplier{
+		preferenceApplier: preferenceApply.New(),
 	}
 }
 
-func (a *VMIApplier) ApplyToVMI(
+func (a *vmiApplier) ApplyToVMI(
 	field *k8sfield.Path,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,

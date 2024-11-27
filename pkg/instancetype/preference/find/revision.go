@@ -30,17 +30,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 )
 
-type RevisionFinder struct {
-	controllerRevisionFinder *find.ControllerRevisionFinder
+type controllerRevisionFinder interface {
+	Find(types.NamespacedName) (*appsv1.ControllerRevision, error)
 }
 
-func NewRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *RevisionFinder {
-	return &RevisionFinder{
+type revisionFinder struct {
+	controllerRevisionFinder controllerRevisionFinder
+}
+
+func NewRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *revisionFinder {
+	return &revisionFinder{
 		controllerRevisionFinder: find.NewControllerRevisionFinder(store, virtClient),
 	}
 }
 
-func (f *RevisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (f *revisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}

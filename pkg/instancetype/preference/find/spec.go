@@ -32,14 +32,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 )
 
-type SpecFinder struct {
-	preferenceFinder        *PreferenceFinder
-	clusterPreferenceFinder *ClusterPreferenceFinder
-	revisionFinder          *RevisionFinder
+type specFinder struct {
+	preferenceFinder        *preferenceFinder
+	clusterPreferenceFinder *clusterPreferenceFinder
+	revisionFinder          *revisionFinder
 }
 
-func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient kubecli.KubevirtClient) *SpecFinder {
-	return &SpecFinder{
+func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient kubecli.KubevirtClient) *specFinder {
+	return &specFinder{
 		preferenceFinder:        NewPreferenceFinder(store, virtClient),
 		clusterPreferenceFinder: NewClusterPreferenceFinder(clusterStore, virtClient),
 		revisionFinder:          NewRevisionFinder(revisionStore, virtClient),
@@ -48,7 +48,7 @@ func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient ku
 
 const unexpectedKindFmt = "got unexpected kind in PreferenceMatcher: %s"
 
-func (f *SpecFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error) {
+func (f *specFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}

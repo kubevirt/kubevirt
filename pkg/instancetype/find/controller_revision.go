@@ -29,19 +29,19 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-type ControllerRevisionFinder struct {
+type controllerRevisionFinder struct {
 	store      cache.Store
 	virtClient kubecli.KubevirtClient
 }
 
-func NewControllerRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *ControllerRevisionFinder {
-	return &ControllerRevisionFinder{
+func NewControllerRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *controllerRevisionFinder {
+	return &controllerRevisionFinder{
 		store:      store,
 		virtClient: virtClient,
 	}
 }
 
-func (f *ControllerRevisionFinder) Find(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
+func (f *controllerRevisionFinder) Find(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
 	if f.store == nil {
 		return f.virtClient.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(
 			context.Background(), namespacedName.Name, metav1.GetOptions{})

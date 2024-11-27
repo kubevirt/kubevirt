@@ -52,7 +52,7 @@ Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourcePVC -> Persi
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
 */
-func (h *Handler) fromVolumes(
+func (h *handler) fromVolumes(
 	vm *virtv1.VirtualMachine, inferFromVolumeName, defaultNameLabel, defaultKindLabel string,
 ) (defaultName, defaultKind string, err error) {
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
@@ -78,7 +78,7 @@ func fromLabels(labels map[string]string, defaultNameLabel, defaultKindLabel str
 	return defaultName, labels[defaultKindLabel], nil
 }
 
-func (h *Handler) fromPVC(pvcName, pvcNamespace, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
+func (h *handler) fromPVC(pvcName, pvcNamespace, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
 	pvc, err := h.virtClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 	if err != nil {
 		return "", "", err
@@ -86,7 +86,7 @@ func (h *Handler) fromPVC(pvcName, pvcNamespace, defaultNameLabel, defaultKindLa
 	return fromLabels(pvc.Labels, defaultNameLabel, defaultKindLabel)
 }
 
-func (h *Handler) fromDataVolume(
+func (h *handler) fromDataVolume(
 	vm *virtv1.VirtualMachine, dvName, defaultNameLabel, defaultKindLabel string,
 ) (defaultName, defaultKind string, err error) {
 	if len(vm.Spec.DataVolumeTemplates) > 0 {
@@ -114,7 +114,7 @@ func (h *Handler) fromDataVolume(
 	return h.fromDataVolumeSpec(&dv.Spec, defaultNameLabel, defaultKindLabel, vm.Namespace)
 }
 
-func (h *Handler) fromDataVolumeSpec(
+func (h *handler) fromDataVolumeSpec(
 	dataVolumeSpec *cdiv1beta1.DataVolumeSpec, defaultNameLabel, defaultKindLabel, vmNameSpace string,
 ) (defaultName, defaultKind string, err error) {
 	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil && dataVolumeSpec.Source.PVC != nil {
@@ -126,7 +126,7 @@ func (h *Handler) fromDataVolumeSpec(
 	return "", "", instancetypeErrors.NewIgnoreableInferenceError(errors.New(unsupportedDataVolumeSource))
 }
 
-func (h *Handler) fromDataSource(
+func (h *handler) fromDataSource(
 	dataSourceName, dataSourceNamespace, defaultNameLabel, defaultKindLabel string,
 ) (defaultName, defaultKind string, err error) {
 	ds, err := h.virtClient.CdiClient().CdiV1beta1().DataSources(dataSourceNamespace).Get(
@@ -145,7 +145,7 @@ func (h *Handler) fromDataSource(
 	return "", "", instancetypeErrors.NewIgnoreableInferenceError(errors.New(missingDataVolumeSourcePVC))
 }
 
-func (h *Handler) fromDataVolumeSourceRef(
+func (h *handler) fromDataVolumeSourceRef(
 	sourceRef *cdiv1beta1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace string,
 ) (defaultName, defaultKind string, err error) {
 	if sourceRef.Kind == "DataSource" {

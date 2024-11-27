@@ -29,19 +29,19 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-type ClusterPreferenceFinder struct {
+type clusterPreferenceFinder struct {
 	store      cache.Store
 	virtClient kubecli.KubevirtClient
 }
 
-func NewClusterPreferenceFinder(store cache.Store, virtClient kubecli.KubevirtClient) *ClusterPreferenceFinder {
-	return &ClusterPreferenceFinder{
+func NewClusterPreferenceFinder(store cache.Store, virtClient kubecli.KubevirtClient) *clusterPreferenceFinder {
+	return &clusterPreferenceFinder{
 		store:      store,
 		virtClient: virtClient,
 	}
 }
 
-func (f *ClusterPreferenceFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineClusterPreference, error) {
+func (f *clusterPreferenceFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineClusterPreference, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
