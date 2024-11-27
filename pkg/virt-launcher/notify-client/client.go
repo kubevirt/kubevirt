@@ -340,10 +340,10 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 				updateEvents(event, domain, events)
 			}
 		}
-		if interfaceStatus != nil {
+		if len(interfaceStatus) != 0 {
 			domain.Status.Interfaces = interfaceStatus
 		}
-		if osInfo != nil {
+		if osInfo != nil && osInfo.Name != "" {
 			domain.Status.OSInfo = *osInfo
 		}
 

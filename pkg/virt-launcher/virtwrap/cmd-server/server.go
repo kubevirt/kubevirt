@@ -414,10 +414,10 @@ func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.D
 
 	if len(list) > 0 {
 		domainObj := list[0]
-		if osInfo := l.domainManager.GetGuestOSInfo(); osInfo != nil {
+		if osInfo := l.domainManager.GetGuestOSInfo(); osInfo != nil && osInfo.Name != "" {
 			domainObj.Status.OSInfo = *osInfo
 		}
-		if interfaces := l.domainManager.InterfacesStatus(); interfaces != nil {
+		if interfaces := l.domainManager.InterfacesStatus(); len(interfaces) != 0 {
 			domainObj.Status.Interfaces = interfaces
 		}
 		if domain, err := json.Marshal(domainObj); err != nil {
