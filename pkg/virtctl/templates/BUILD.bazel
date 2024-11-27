@@ -2,10 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "target.go",
-        "templates.go",
-    ],
+    srcs = ["templates.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/templates",
     visibility = ["//visibility:public"],
     deps = [
@@ -18,14 +15,6 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = [
-        "target_test.go",
-        "templates_suite_test.go",
-    ],
-    deps = [
-        ":go_default_library",
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
-    ],
+    srcs = ["templates_suite_test.go"],
+    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
 )

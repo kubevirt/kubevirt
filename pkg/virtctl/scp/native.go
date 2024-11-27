@@ -11,10 +11,9 @@ import (
 	"github.com/povsister/scp"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-func (o *SCP) nativeSCP(local templates.LocalSCPArgument, remote templates.RemoteSCPArgument, toRemote bool) error {
+func (o *SCP) nativeSCP(local LocalArgument, remote RemoteArgument, toRemote bool) error {
 	sshClient := ssh.NativeSSHConnection{
 		ClientConfig: o.clientConfig,
 		Options:      o.options,
