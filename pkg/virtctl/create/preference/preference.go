@@ -51,12 +51,6 @@ type createPreference struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-var optFns = map[string]func(*createPreference, *instancetypev1beta1.VirtualMachinePreferenceSpec) error{
-	VolumeStorageClassFlag: withVolumeStorageClass,
-	MachineTypeFlag:        withMachineType,
-	CPUTopologyFlag:        withCPUTopology,
-}
-
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	c := createPreference{
 		clientConfig: clientConfig,
@@ -99,21 +93,29 @@ func (c *createPreference) setDefaults(cmd *cobra.Command) error {
 	return nil
 }
 
-func withVolumeStorageClass(c *createPreference, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+func (c *createPreference) optFns() map[string]func(*instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+	return map[string]func(*instancetypev1beta1.VirtualMachinePreferenceSpec) error{
+		VolumeStorageClassFlag: c.withVolumeStorageClass,
+		MachineTypeFlag:        c.withMachineType,
+		CPUTopologyFlag:        c.withCPUTopology,
+	}
+}
+
+func (c *createPreference) withVolumeStorageClass(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 	preferenceSpec.Volumes = &instancetypev1beta1.VolumePreferences{
 		PreferredStorageClassName: c.preferredStorageClass,
 	}
 	return nil
 }
 
-func withMachineType(c *createPreference, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+func (c *createPreference) withMachineType(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 	preferenceSpec.Machine = &instancetypev1beta1.MachinePreferences{
 		PreferredMachineType: c.machineType,
 	}
 	return nil
 }
 
-func withCPUTopology(c *createPreference, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+func (c *createPreference) withCPUTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 	preferredCPUTopology := instancetypev1beta1.PreferredCPUTopology(c.cpuTopology)
 	if !instancetype.IsPreferredTopologySupported(preferredCPUTopology) {
 		return params.FlagErr(CPUTopologyFlag, "CPU topology must have a value of sockets, cores, threads or spread")
@@ -169,9 +171,9 @@ func (c *createPreference) newPreference() *instancetypev1beta1.VirtualMachinePr
 }
 
 func (c *createPreference) applyFlags(cmd *cobra.Command, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-	for flag := range optFns {
+	for flag := range c.optFns() {
 		if cmd.Flags().Changed(flag) {
-			if err := optFns[flag](c, preferenceSpec); err != nil {
+			if err := c.optFns()[flag](preferenceSpec); err != nil {
 				return err
 			}
 		}

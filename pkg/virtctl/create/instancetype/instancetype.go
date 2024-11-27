@@ -71,12 +71,6 @@ type hostDevice struct {
 	DeviceName string `param:"devicename"`
 }
 
-var optFns = map[string]func(*createInstancetype, *instancetypev1beta1.VirtualMachineInstancetypeSpec) error{
-	GPUFlag:             withGPUs,
-	HostDeviceFlag:      withHostDevices,
-	IOThreadsPolicyFlag: withIOThreadsPolicy,
-}
-
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	c := createInstancetype{
 		clientConfig: clientConfig,
@@ -128,7 +122,15 @@ func (c *createInstancetype) setDefaults(cmd *cobra.Command) error {
 	return nil
 }
 
-func withGPUs(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) optFns() map[string]func(*instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+	return map[string]func(*instancetypev1beta1.VirtualMachineInstancetypeSpec) error{
+		GPUFlag:             c.withGPUs,
+		HostDeviceFlag:      c.withHostDevices,
+		IOThreadsPolicyFlag: c.withIOThreadsPolicy,
+	}
+}
+
+func (c *createInstancetype) withGPUs(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	for _, param := range c.gpus {
 		obj := gpu{}
 		if err := params.Map(GPUFlag, param, &obj); err != nil {
@@ -148,7 +150,7 @@ func withGPUs(c *createInstancetype, instancetypeSpec *instancetypev1beta1.Virtu
 	return nil
 }
 
-func withHostDevices(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) withHostDevices(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	for _, param := range c.hostDevices {
 		obj := hostDevice{}
 		if err := params.Map(HostDeviceFlag, param, &obj); err != nil {
@@ -168,7 +170,7 @@ func withHostDevices(c *createInstancetype, instancetypeSpec *instancetypev1beta
 	return nil
 }
 
-func withIOThreadsPolicy(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) withIOThreadsPolicy(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	var policy v1.IOThreadsPolicy
 	switch c.ioThreadsPolicy {
 	case string(v1.IOThreadsPolicyAuto):
@@ -247,9 +249,9 @@ func (c *createInstancetype) newClusterInstancetype() *instancetypev1beta1.Virtu
 }
 
 func (c *createInstancetype) applyFlags(cmd *cobra.Command, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
-	for flag := range optFns {
+	for flag := range c.optFns() {
 		if cmd.Flags().Changed(flag) {
-			if err := optFns[flag](c, instancetypeSpec); err != nil {
+			if err := c.optFns()[flag](instancetypeSpec); err != nil {
 				return err
 			}
 		}
