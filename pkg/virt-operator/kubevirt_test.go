@@ -98,7 +98,7 @@ type KubeVirtTestData struct {
 
 	recorder *record.FakeRecorder
 
-	mockQueue      *testutils.MockWorkQueue
+	mockQueue      *testutils.MockWorkQueue[string]
 	virtClient     *kubecli.MockKubevirtClient
 	virtFakeClient *kubevirtfake.Clientset
 	kubeClient     *fake.Clientset
@@ -192,7 +192,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 		ValidatingAdmissionPolicyEnabled:        true,
 	}
 	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, config, informers, NAMESPACE)
-	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
+	k.controller.delayedQueueAdder = func(key string, queue workqueue.TypedRateLimitingInterface[string]) {
 		// no delay to speed up tests
 		queue.Add(key)
 	}

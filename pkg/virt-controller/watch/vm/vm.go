@@ -139,7 +139,10 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 ) (*Controller, error) {
 
 	c := &Controller{
-		Queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vm"),
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
+		),
 		vmiIndexer:             vmiInformer.GetIndexer(),
 		vmIndexer:              vmInformer.GetIndexer(),
 		dataVolumeStore:        dataVolumeInformer.GetStore(),
@@ -237,7 +240,7 @@ type synchronizer interface {
 
 type Controller struct {
 	clientset              kubecli.KubevirtClient
-	Queue                  workqueue.RateLimitingInterface
+	Queue                  workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer             cache.Indexer
 	vmIndexer              cache.Indexer
 	dataVolumeStore        cache.Store
@@ -290,12 +293,12 @@ func (c *Controller) Execute() bool {
 		return false
 	}
 
-	virtControllerVMWorkQueueTracer.StartTrace(key.(string), "virt-controller VM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
-	defer virtControllerVMWorkQueueTracer.StopTrace(key.(string))
+	virtControllerVMWorkQueueTracer.StartTrace(key, "virt-controller VM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerVMWorkQueueTracer.StopTrace(key)
 
 	defer c.Queue.Done(key)
 
-	if err := c.execute(key.(string)); err != nil {
+	if err := c.execute(key); err != nil {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachine %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {

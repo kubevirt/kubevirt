@@ -70,7 +70,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		var controller *Controller
 		var recorder *record.FakeRecorder
-		var mockQueue *testutils.MockWorkQueue
+		var mockQueue *testutils.MockWorkQueue[string]
 		var cdiClient *cdifake.Clientset
 		var k8sClient *k8sfake.Clientset
 		var virtClient *kubecli.MockKubevirtClient

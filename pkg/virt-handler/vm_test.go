@@ -82,15 +82,15 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var ctrl *gomock.Controller
 	var controller *VirtualMachineController
-	var mockQueue *testutils.MockWorkQueue
+	var mockQueue *testutils.MockWorkQueue[string]
 	var mockIsolationDetector *isolation.MockPodIsolationDetector
 	var mockIsolationResult *isolation.MockIsolationResult
 	var mockContainerDiskMounter *containerdisk.MockMounter
 	var mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
 	var mockCgroupManager *cgroup.MockManager
 
-	var vmiFeeder *testutils.VirtualMachineFeeder
-	var domainFeeder *testutils.DomainFeeder
+	var vmiFeeder *testutils.VirtualMachineFeeder[string]
+	var domainFeeder *testutils.DomainFeeder[string]
 
 	var recorder *record.FakeRecorder
 

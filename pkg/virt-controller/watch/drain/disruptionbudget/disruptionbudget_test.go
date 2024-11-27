@@ -40,10 +40,10 @@ var _ = Describe("Disruptionbudget", func() {
 	var podInformer cache.SharedIndexInformer
 	var vmimInformer cache.SharedIndexInformer
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
+	var mockQueue *testutils.MockWorkQueue[string]
 	var kubeClient *fake.Clientset
-	var pdbFeeder *testutils.PodDisruptionBudgetFeeder
-	var vmiFeeder *testutils.VirtualMachineFeeder
+	var pdbFeeder *testutils.PodDisruptionBudgetFeeder[string]
+	var vmiFeeder *testutils.VirtualMachineFeeder[string]
 	var config *virtconfig.ClusterConfig
 
 	var controller *disruptionbudget.DisruptionBudgetController

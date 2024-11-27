@@ -100,7 +100,7 @@ var _ = Describe("Apply", func() {
 		var stores util.Stores
 
 		operatorNamespace := "opNamespace"
-		queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		queue := workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]())
 		duration := &metav1.Duration{
 			Duration: time.Hour,
 		}

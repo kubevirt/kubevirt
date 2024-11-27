@@ -66,7 +66,7 @@ var _ = Describe("Migration watcher", func() {
 	var (
 		controller    *Controller
 		recorder      *record.FakeRecorder
-		mockQueue     *testutils.MockWorkQueue
+		mockQueue     *testutils.MockWorkQueue[string]
 		virtClientset *kubevirtfake.Clientset
 		kubeClient    *fake.Clientset
 		networkClient *fakenetworkclient.Clientset

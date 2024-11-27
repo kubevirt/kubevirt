@@ -49,7 +49,7 @@ type VMCloneController struct {
 	pvcStore             cache.Store
 	recorder             record.EventRecorder
 
-	vmCloneQueue workqueue.RateLimitingInterface
+	vmCloneQueue workqueue.TypedRateLimitingInterface[string]
 	hasSynced    func() bool
 }
 
@@ -63,7 +63,10 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		snapshotContentStore: snapshotContentInformer.GetStore(),
 		pvcStore:             pvcInformer.GetStore(),
 		recorder:             recorder,
-		vmCloneQueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
+		vmCloneQueue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmclone"},
+		),
 	}
 
 	ctrl.hasSynced = func() bool {
@@ -324,7 +327,7 @@ func (ctrl *VMCloneController) Execute() bool {
 	}
 	defer ctrl.vmCloneQueue.Done(key)
 
-	err := ctrl.execute(key.(string))
+	err := ctrl.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing clone %v", key)

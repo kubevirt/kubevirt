@@ -40,7 +40,7 @@ const (
 
 type EvacuationController struct {
 	clientset             kubecli.KubevirtClient
-	Queue                 workqueue.RateLimitingInterface
+	Queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer            cache.Indexer
 	vmiPodIndexer         cache.Indexer
 	migrationStore        cache.Store
@@ -62,7 +62,10 @@ func NewEvacuationController(
 ) (*EvacuationController, error) {
 
 	c := &EvacuationController{
-		Queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-evacuation"),
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-evacuation"},
+		),
 		vmiIndexer:            vmiInformer.GetIndexer(),
 		migrationStore:        migrationInformer.GetStore(),
 		nodeStore:             nodeInformer.GetStore(),
@@ -311,7 +314,7 @@ func (c *EvacuationController) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)

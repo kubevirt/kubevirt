@@ -37,20 +37,14 @@ import (
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
-func ProcessWorkItem(queue workqueue.RateLimitingInterface, handler func(string) (time.Duration, error)) bool {
+func ProcessWorkItem(queue workqueue.TypedRateLimitingInterface[string], handler func(string) (time.Duration, error)) bool {
 	obj, shutdown := queue.Get()
 	if shutdown {
 		return false
 	}
 
-	err := func(obj interface{}) error {
+	err := func(key string) error {
 		defer queue.Done(obj)
-		key, ok := obj.(string)
-		if !ok {
-			queue.Forget(obj)
-			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
-			return nil
-		}
 
 		if requeueAfter, err := handler(key); requeueAfter > 0 || err != nil {
 			if requeueAfter > 0 {

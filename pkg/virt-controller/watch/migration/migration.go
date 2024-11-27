@@ -95,7 +95,7 @@ var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 type Controller struct {
 	templateService      services.TemplateService
 	clientset            kubecli.KubevirtClient
-	Queue                workqueue.RateLimitingInterface
+	Queue                workqueue.TypedRateLimitingInterface[string]
 	vmiStore             cache.Store
 	podIndexer           cache.Indexer
 	migrationIndexer     cache.Indexer
@@ -139,8 +139,11 @@ func NewController(templateService services.TemplateService,
 ) (*Controller, error) {
 
 	c := &Controller{
-		templateService:      templateService,
-		Queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
+		templateService: templateService,
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-migration"},
+		),
 		vmiStore:             vmiInformer.GetStore(),
 		podIndexer:           podInformer.GetIndexer(),
 		migrationIndexer:     migrationInformer.GetIndexer(),
@@ -243,7 +246,7 @@ func (c *Controller) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing Migration %v", key)

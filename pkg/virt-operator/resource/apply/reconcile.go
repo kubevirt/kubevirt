@@ -522,7 +522,7 @@ func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, st
 	}, nil
 }
 
-func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
+func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (bool, error) {
 	// Avoid log spam by logging this issue once early instead of for once each object created
 	if !util.IsValidLabel(r.kv.Spec.ProductVersion) {
 		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")

@@ -34,7 +34,7 @@ const (
 // Controller is the main Controller struct.
 type Controller struct {
 	clientset        kubecli.KubevirtClient
-	Queue            workqueue.RateLimitingInterface
+	Queue            workqueue.TypedRateLimitingInterface[string]
 	nodeStore        cache.Store
 	vmiStore         cache.Store
 	recorder         record.EventRecorder
@@ -46,8 +46,11 @@ type Controller struct {
 // NewController creates a new instance of the NodeController struct.
 func NewController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*Controller, error) {
 	c := &Controller{
-		clientset:        clientset,
-		Queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
+		clientset: clientset,
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-node"},
+		),
 		nodeStore:        nodeInformer.GetStore(),
 		vmiStore:         vmiInformer.GetStore(),
 		recorder:         recorder,
@@ -149,7 +152,7 @@ func (c *Controller) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing node %v", key)
