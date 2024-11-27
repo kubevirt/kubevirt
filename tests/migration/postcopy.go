@@ -48,7 +48,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -277,13 +276,13 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						runMigrationKillerPod(vmi.Status.NodeName)
 
 						By("Making sure that post-copy migration failed")
-						Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(BeInPhase(v1.MigrationFailed))
+						Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
 
 						By("Removing migration killer pods")
 						removeMigrationKillerPod()
 
 						By("Ensuring the VirtualMachineInstance is restarted")
-						Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
+						Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
 					})
 				})
 			})
