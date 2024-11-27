@@ -38,6 +38,7 @@ go_test(
     srcs = [
         "knownhosts_test.go",
         "ssh_suite_test.go",
+        "ssh_test.go",
         "wrapped_test.go",
     ],
     embed = [":go_default_library"],
