@@ -27,7 +27,6 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/virtctl/ssh:go_default_library",
-        "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

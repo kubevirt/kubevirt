@@ -13,6 +13,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/ssh",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virtctl/portforward:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/typed/core/v1:go_default_library",
