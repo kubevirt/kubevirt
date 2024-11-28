@@ -44,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -54,6 +55,7 @@ import (
 	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -367,6 +369,14 @@ var _ = Describe("Migration watcher", func() {
 		return migrationConfiguration
 	}
 
+	sanityExecute := func() {
+		controllertesting.SanityExecute(controller, []cache.Store{
+			controller.vmiStore, controller.podIndexer, controller.migrationIndexer, controller.nodeStore,
+			controller.pvcStore, controller.pdbIndexer, controller.migrationPolicyStore, controller.resourceQuotaIndexer,
+			controller.storageClassStore, controller.storageProfileStore,
+		}, Default)
+	}
+
 	Context("Migration with hotplug volumes", func() {
 		var (
 			vmi           *virtv1.VirtualMachineInstance
@@ -391,7 +401,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(sourcePod)
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectAttachmentPodCreation(migration.Namespace, string(migration.UID))
@@ -404,7 +414,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(targetPod)
 			addPod(attachmentPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectMigrationSchedulingState(migration.Namespace, migration.Name)
 		})
@@ -423,7 +433,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(targetPod)
 			addPod(attachmentPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
 				"TargetNode":             Equal("node01"),
@@ -446,7 +456,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(targetPod)
 			addPod(attachmentPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
 			expectMigrationFailedState(migration.Namespace, migration.Name)
@@ -506,7 +516,7 @@ var _ = Describe("Migration watcher", func() {
 				addPod(sourcePod)
 				addPod(targetPod)
 
-				controller.Execute()
+				sanityExecute()
 
 				testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
 				expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
@@ -558,7 +568,7 @@ var _ = Describe("Migration watcher", func() {
 				addPod(sourcePod)
 				addPod(targetPod)
 
-				controller.Execute()
+				sanityExecute()
 
 				testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
 				expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
@@ -606,7 +616,7 @@ var _ = Describe("Migration watcher", func() {
 				addPod(newSourcePodForVirtualMachine(vmi))
 				addPod(runningTargetPod)
 
-				controller.Execute()
+				sanityExecute()
 
 				testutils.ExpectEvent(recorder, virtcontroller.SuccessfulMigrationReason)
 				expectMigrationCompletedState(migration.Namespace, migration.Name)
@@ -625,7 +635,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
@@ -643,7 +653,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
@@ -663,7 +673,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			controller.Execute()
+			sanityExecute()
 
 			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -699,7 +709,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(newVMI)
 			}
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
@@ -727,7 +737,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 			}
 
-			controller.Execute()
+			sanityExecute()
 
 			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
 		})
@@ -763,7 +773,7 @@ var _ = Describe("Migration watcher", func() {
 				addPod(pod)
 			}
 
-			controller.Execute()
+			sanityExecute()
 
 			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
 		})
@@ -786,7 +796,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 			}
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
@@ -810,7 +820,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 			}
 
-			controller.Execute()
+			sanityExecute()
 
 			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
 		})
@@ -868,7 +878,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 2, 1, 1)
@@ -884,7 +894,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectMigrationSchedulingState(migration.Namespace, migration.Name)
 		})
@@ -911,7 +921,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			if phase != virtv1.MigrationScheduled {
 				testutils.ExpectEvent(recorder, virtcontroller.MigrationTargetPodUnschedulable)
@@ -947,7 +957,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			if shouldTimeout {
 				testutils.ExpectEvent(recorder, virtcontroller.SuccessfulDeletePodReason)
@@ -1020,7 +1030,7 @@ var _ = Describe("Migration watcher", func() {
 			Expect(controller.podIndexer.Add(sourcePod)).To(Succeed())
 			Expect(controller.vmiStore.Add(vmi)).To(Succeed())
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.IgnoreEvents(recorder)
 			migrationsStored, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{
@@ -1059,7 +1069,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
 			expectMigrationFailedState(migration.Namespace, migration.Name)
@@ -1089,7 +1099,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
 			expectMigrationFailedState(migration.Namespace, migration.Name)
@@ -1120,7 +1130,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
 			expectMigrationFailedState(migration.Namespace, migration.Name)
@@ -1148,7 +1158,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
@@ -1185,7 +1195,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, BeNil())
 		},
@@ -1213,7 +1223,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
@@ -1244,7 +1254,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
@@ -1272,7 +1282,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
 				"MigrationUID": Equal(migration.UID),
@@ -1295,7 +1305,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
@@ -1327,7 +1337,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectMigrationPreparingTargetState(migration.Namespace, migration.Name)
 		})
@@ -1350,7 +1360,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectMigrationTargetReadyState(migration.Namespace, migration.Name)
 		})
@@ -1374,7 +1384,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectMigrationRunningState(migration.Namespace, migration.Name)
 		})
@@ -1402,7 +1412,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulMigrationReason)
 			expectPodAnnotationTimestamp(targetPod.Namespace, targetPod.Name, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
@@ -1441,7 +1451,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectMigrationRunningState(migration.Namespace, migration.Name)
 			expectPodAnnotationTimestamp(targetPod.Namespace, targetPod.Name, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
@@ -1473,7 +1483,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			expectMigrationStateUpdated(migration.Namespace, migration.Name, vmi.Status.MigrationState)
 			expectMigrationFinalizerRemoved(migration.Namespace, migration.Name)
@@ -1483,7 +1493,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", "somevmi", virtv1.MigrationRunning)
 			addMigration(migration)
 
-			controller.Execute()
+			sanityExecute()
 
 			_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
@@ -1515,7 +1525,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulAbortMigrationReason)
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
@@ -1548,7 +1558,7 @@ var _ = Describe("Migration watcher", func() {
 				addPod(targetPod)
 			}
 
-			controller.Execute()
+			sanityExecute()
 
 			// in this case, we have two failed events. one for the VMI and one on the Migration object.
 			if initializeMigrationState {
@@ -1606,7 +1616,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addNode(node)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 1)
@@ -1641,7 +1651,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPDB(pdb)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
 			expectPDB(migration.Namespace, migration.Name, string(vmi.UID))
@@ -1664,7 +1674,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPDB(pdb)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
@@ -1685,7 +1695,7 @@ var _ = Describe("Migration watcher", func() {
 				addPod(newSourcePodForVirtualMachine(vmi))
 				addPDB(pdb)
 
-				controller.Execute()
+				sanityExecute()
 
 				testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
 				expectPDB(migration.Namespace, migration.Name, string(vmi.UID))
@@ -1805,7 +1815,7 @@ var _ = Describe("Migration watcher", func() {
 			testMigrationConfigs(expectedConfigs)
 
 			By("Running the controller")
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
 			fields := Fields{
@@ -1913,7 +1923,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.NoSuitableNodesForHostModelMigration)
 			testutils.ExpectEvent(recorder, virtcontroller.MigrationTargetPodUnschedulable)
@@ -1938,13 +1948,13 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		It("expect abort condition", func() {
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
 			expectMigrationCondition(migration.Namespace, migration.Name, virtv1.VirtualMachineInstanceMigrationAbortRequested)
 		})
 
 		It("expect failure phase", func() {
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
 			expectMigrationFailedState(migration.Namespace, migration.Name)
 		})
@@ -1972,7 +1982,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addMigration(failedMigration)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, "MigrationBackoff")
 			expectMigrationPendingState(pendingMigration.Namespace, pendingMigration.Name)
@@ -2000,7 +2010,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addMigration(failedMigration)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, pendingMigration.UID, 1, 0, 0)
@@ -2031,7 +2041,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(failedMigration)
 			addMigration(successfulMigration)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, pendingMigration.UID, 1, 0, 0)
@@ -2053,7 +2063,7 @@ var _ = Describe("Migration watcher", func() {
 			sourcePod := newSourcePodForVirtualMachine(vmi)
 			addPod(sourcePod)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
@@ -2073,7 +2083,7 @@ var _ = Describe("Migration watcher", func() {
 				sourcePod := newSourcePodForVirtualMachine(vmi)
 				addPod(sourcePod)
 
-				controller.Execute()
+				sanityExecute()
 
 				testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 				expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
@@ -2105,7 +2115,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				addPod(sourcePod)
 
-				controller.Execute()
+				sanityExecute()
 
 				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2141,7 +2151,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
@@ -2162,7 +2172,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
