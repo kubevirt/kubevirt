@@ -134,7 +134,6 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 						return libnet.ValidateVMIandPodIPMatch(vmi, vmiPod)
 					}, 5*time.Second, time.Second).Should(Succeed())
 				})
-
 			})
 
 			When("no Guest Agent exists", func() {

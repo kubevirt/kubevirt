@@ -192,9 +192,11 @@ var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindin
 			)
 			primaryNetwork := v1.Network{
 				Name: "mynet1",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
-					NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
-					Default:     true},
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{
+						NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
+						Default:     true,
+					},
 				},
 			}
 			primaryIface.MacAddress = "de:ad:00:00:be:af"

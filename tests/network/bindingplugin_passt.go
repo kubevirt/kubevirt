@@ -58,7 +58,7 @@ var _ = SIGDescribe(" VirtualMachineInstance with passt network binding plugin",
 	BeforeEach(func() {
 		const passtBindingName = "passt"
 
-		var passtComputeMemoryOverheadWhenAllPortsAreForwarded = resource.MustParse("500Mi")
+		passtComputeMemoryOverheadWhenAllPortsAreForwarded := resource.MustParse("500Mi")
 
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
@@ -133,7 +133,7 @@ var _ = SIGDescribe(" VirtualMachineInstance with passt network binding plugin",
 			}
 
 			Context("TCP", func() {
-				verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
+				verifyClientServerConnectivity := func(clientVMI, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
 					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 					err := libnet.PingFromVMConsole(clientVMI, serverIP)
 					if err != nil {

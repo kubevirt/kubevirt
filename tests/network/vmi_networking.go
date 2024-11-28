@@ -62,7 +62,6 @@ import (
 )
 
 var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", decorators.Networking, func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -476,7 +475,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
 			const cidrWithLeadingZeros = "10.10.010.0/24"
 
-			verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
+			verifyClientServerConnectivity := func(clientVMI, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
 				serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 				err := libnet.PingFromVMConsole(clientVMI, serverIP)
 				if err != nil {
@@ -903,8 +902,10 @@ func newNodeAffinity(selector k8sv1.NodeSelectorOperator, nodeName string) *k8sv
 		Operator: selector,
 		Values:   []string{nodeName},
 	}
-	term := []k8sv1.NodeSelectorTerm{{
-		MatchExpressions: []k8sv1.NodeSelectorRequirement{req}},
+	term := []k8sv1.NodeSelectorTerm{
+		{
+			MatchExpressions: []k8sv1.NodeSelectorRequirement{req},
+		},
 	}
 	return &k8sv1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 		NodeSelectorTerms: term,

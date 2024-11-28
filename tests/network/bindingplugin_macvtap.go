@@ -189,7 +189,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 	})
 })
 
-func waitForPodCompleted(podNamespace string, podName string) error {
+func waitForPodCompleted(podNamespace, podName string) error {
 	pod, err := kubevirt.Client().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		return err

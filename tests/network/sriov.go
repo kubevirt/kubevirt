@@ -80,12 +80,11 @@ const (
 )
 
 var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	sriovResourceName := readSRIOVResourceName()
 
-	createSriovNetworkAttachmentDefinition := func(networkName string, namespace string, networkAttachmentDefinition string) error {
+	createSriovNetworkAttachmentDefinition := func(networkName, namespace, networkAttachmentDefinition string) error {
 		sriovNad := fmt.Sprintf(networkAttachmentDefinition, networkName, namespace, sriovResourceName)
 		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, sriovNad)
 	}
@@ -165,7 +164,6 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 			By("checking cloudinit meta-data")
 			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
-
 		})
 
 		It("should have cloud-init meta_data with tagged sriov nics", func() {
@@ -320,7 +318,6 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		Context("migration", func() {
-
 			BeforeEach(func() {
 				if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
 					Skip("Migration tests require at least 2 nodes: " + err.Error())
@@ -450,7 +447,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			ipB, err := libnet.CidrToIP(cidrB)
 			Expect(err).ToNot(HaveOccurred())
 
-			//create two vms on the same sriov network
+			// create two vms on the same sriov network
 			vmi1, err := createSRIOVVmiOnNode(sriovNode, sriovnetLinkEnabled, cidrA)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi1)

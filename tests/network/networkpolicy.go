@@ -84,7 +84,6 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 				assertHTTPPingFailed(clientVMI, serverVMI, 80)
 				assertHTTPPingFailed(clientVMI, serverVMI, 81)
 			})
-
 		})
 
 		Context("and vms limited by allow same namespace networkpolicy", func() {
@@ -111,7 +110,6 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			When("client vmi is on default namespace", func() {
-
 				BeforeEach(func() {
 					var err error
 					clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
@@ -272,7 +270,6 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 				assertHTTPPingFailed(clientVMI, serverVMI, 81)
 			})
 		})
-
 	})
 })
 
@@ -288,7 +285,6 @@ func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
 }
 
 func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
-
 	EventuallyWithOffset(1, func() error {
 		var err error
 		for _, toIp := range toVmi.Status.Interfaces[0].IPs {

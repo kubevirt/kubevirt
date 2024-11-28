@@ -48,7 +48,6 @@ import (
 )
 
 var _ = SIGDescribe("Slirp", decorators.Networking, decorators.NetCustomBindingPlugins, Serial, func() {
-
 	BeforeEach(libnet.SkipWhenClusterNotSupportIpv4)
 
 	const slirpBindingName = "slirp"

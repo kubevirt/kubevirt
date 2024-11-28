@@ -45,7 +45,6 @@ import (
 )
 
 var _ = SIGDescribe(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
-
 	sriovResourceName := readSRIOVResourceName()
 
 	BeforeEach(func() {
@@ -120,7 +119,7 @@ var _ = SIGDescribe(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 	})
 })
 
-func createSRIOVNetworkAttachmentDefinition(namespace, networkName string, sriovResourceName string) error {
+func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourceName string) error {
 	return libnet.CreateNetworkAttachmentDefinition(
 		networkName,
 		namespace,
