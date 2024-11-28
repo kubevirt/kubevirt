@@ -259,24 +259,23 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
 			// Use alpine because cirros dhcp client starts prematurely before link is ready
-			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-			masqIface.Model = "e1000"
-			masqIface.PciAddress = "0000:02:01.0"
+			e1000ModelIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+			e1000ModelIface.Model = "e1000"
+			e1000ModelIface.PciAddress = "0000:02:01.0"
 
-			bridgeIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
-			bridgeIface.PciAddress = "0000:03:00.0"
-			
-			e1000VMI := libvmifact.NewAlpine(
-				libvmi.WithInterface(masqIface),
+			defaultModelIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
+			defaultModelIface.PciAddress = "0000:03:00.0"
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithInterface(e1000ModelIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(bridgeIface),
+				libvmi.WithInterface(defaultModelIface),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			)
 
 			var err error
-			e1000VMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), e1000VMI, metav1.CreateOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By("verifying vendors for respective PCI devices")
 			const (
@@ -287,12 +286,12 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				redhatVendorID = "0x1af4"
 			)
 
-			err = console.SafeExpectBatch(e1000VMI, []expect.Batcher{
+			err = console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: fmt.Sprintf(vendorCmd, masqIface.PciAddress)},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, e1000ModelIface.PciAddress)},
 				&expect.BExp{R: intelVendorID},
-				&expect.BSnd{S: fmt.Sprintf(vendorCmd, bridgeIface.PciAddress)},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, defaultModelIface.PciAddress)},
 				&expect.BExp{R: redhatVendorID},
 			}, 40)
 			Expect(err).ToNot(HaveOccurred())
