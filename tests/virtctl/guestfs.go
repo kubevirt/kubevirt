@@ -25,8 +25,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/spf13/cobra"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -91,8 +89,8 @@ var _ = Describe("[sig-storage][virtctl][rfe_id:6364]Guestfs", decorators.SigSto
 			if setGroup {
 				options = append(options, "--fsGroup", testGroup)
 			}
-			guestfsCmd := clientcmd.NewVirtctlCommand(options...)
-			Expect(guestfsCmd.Execute()).To(HaveOccurred())
+			guestfsCmd := clientcmd.NewRepeatableVirtctlCommand(options...)
+			Expect(guestfsCmd()).To(HaveOccurred())
 		})
 
 		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", Label("guestfs", "Block"), func() {
@@ -153,7 +151,7 @@ func runGuestfsOnPVC(f *fakeAttacher, pvcClaim, namespace string, setGroup bool,
 	if setGroup {
 		o = append(o, "--fsGroup", testGroup)
 	}
-	guestfsCmd := clientcmd.NewVirtctlCommand(o...)
+	guestfsCmd := clientcmd.NewRepeatableVirtctlCommand(o...)
 	go guestfsWithSync(f, guestfsCmd)
 	// Waiting until the libguestfs pod is running
 	Eventually(func() bool {
@@ -174,11 +172,11 @@ func runGuestfsOnPVC(f *fakeAttacher, pvcClaim, namespace string, setGroup bool,
 	}, 30*time.Second, 2*time.Second).Should(BeTrue())
 }
 
-func guestfsWithSync(f *fakeAttacher, guestfsCmd *cobra.Command) {
+func guestfsWithSync(f *fakeAttacher, guestfsCmd func() error) {
 	defer GinkgoRecover()
 	errChan := make(chan error)
 	go func() {
-		errChan <- guestfsCmd.Execute()
+		errChan <- guestfsCmd()
 	}()
 	select {
 	case <-f.doneGuestfs:
