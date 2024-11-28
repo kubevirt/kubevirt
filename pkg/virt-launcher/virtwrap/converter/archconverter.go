@@ -27,6 +27,10 @@ import (
 const (
 	graphicsDeviceDefaultHeads uint = 1
 	graphicsDeviceDefaultVRAM  uint = 16384
+	amd64                           = "amd64"
+	arm64                           = "arm64"
+	ppc64le                         = "ppc64le"
+	s390x                           = "s390x"
 )
 
 type ArchConverter interface {
@@ -43,14 +47,14 @@ type ArchConverter interface {
 }
 
 func NewArchConverter(arch string) ArchConverter {
-	switch {
-	case isARM64(arch):
+	switch arch {
+	case arm64:
 		return archConverterARM64{}
-	case isPPC64(arch):
+	case ppc64le:
 		return archConverterPPC64{}
-	case isS390X(arch):
+	case s390x:
 		return archConverterS390X{}
-	case isAMD64(arch):
+	case amd64:
 		return archConverterAMD64{}
 	default:
 		log.Log.Warning("Trying to create an arch converter from an unknown arch: " + arch + ". Falling back to AMD64")
