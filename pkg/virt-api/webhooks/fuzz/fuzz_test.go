@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	v1 "kubevirt.io/api/core/v1"
 
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -44,7 +45,10 @@ func FuzzAdmitter(f *testing.F) {
 			gvk:     webhooks.VirtualMachineInstanceGroupVersionResource,
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-				adm := &admitters.VMICreateAdmitter{ClusterConfig: config}
+				adm := &admitters.VMICreateAdmitter{
+					ClusterConfig: config,
+					Validators:    []admitters.Validator{netadmitter.NewValidator(config)},
+				}
 				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(withSyntaxErrors),
@@ -54,7 +58,10 @@ func FuzzAdmitter(f *testing.F) {
 			gvk:     webhooks.VirtualMachineInstanceGroupVersionResource,
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-				adm := &admitters.VMICreateAdmitter{ClusterConfig: config}
+				adm := &admitters.VMICreateAdmitter{
+					ClusterConfig: config,
+					Validators:    []admitters.Validator{netadmitter.NewValidator(config)},
+				}
 				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(),

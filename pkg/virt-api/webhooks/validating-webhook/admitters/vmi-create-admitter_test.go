@@ -98,6 +98,31 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		disableFeatureGates()
 	})
 
+	It("when network validator pass, should allow creation", func() {
+		ar, err := newAdmissionReviewForVMICreation(newBaseVmi())
+		Expect(err).ToNot(HaveOccurred())
+
+		admitter := &VMICreateAdmitter{ClusterConfig: config, Validators: []Validator{validatorStub{}}}
+		resp := admitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+	It("when network validator fails, should reject creation", func() {
+		ar, err := newAdmissionReviewForVMICreation(newBaseVmi())
+		Expect(err).ToNot(HaveOccurred())
+
+		expectedStatusCause := []metav1.StatusCause{{Type: "test", Message: "test", Field: "test"}}
+		admitter := &VMICreateAdmitter{
+			ClusterConfig: config,
+			Validators: []Validator{validatorStub{
+				statusCauses: expectedStatusCause,
+			}},
+		}
+		resp := admitter.Admit(context.Background(), ar)
+
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(Equal(expectedStatusCause))
+	})
+
 	It("should reject invalid VirtualMachineInstance spec on create", func() {
 		vmi := newBaseVmi()
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{

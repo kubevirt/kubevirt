@@ -95,6 +95,7 @@ var isValidExpression = regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
 
 type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	Validators    []Validator
 }
 
 func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -114,8 +115,9 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
 	}
 
-	netValidator := netadmitter.NewValidator(admitter.ClusterConfig)
-	causes = append(causes, netValidator.ValidateCreation(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	for _, validator := range admitter.Validators {
+		causes = append(causes, validator.ValidateCreation(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	}
 
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
