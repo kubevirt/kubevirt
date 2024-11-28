@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = DescribeInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes, decorators.Kubernetes130, func() {
+var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes, decorators.Kubernetes130, func() {
 
 	var (
 		virtClient kubecli.KubevirtClient

@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
+var _ = DescribeSerialInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
 	var (
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset

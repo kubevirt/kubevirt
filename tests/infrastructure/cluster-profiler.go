@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-var _ = DescribeInfra("cluster profiler for pprof data aggregation", func() {
+var _ = DescribeSerialInfra("cluster profiler for pprof data aggregation", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)

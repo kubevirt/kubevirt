@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
-var _ = DescribeInfra("tls configuration", func() {
+var _ = DescribeSerialInfra("tls configuration", func() {
 
 	var virtClient kubecli.KubevirtClient
 
