@@ -41,7 +41,7 @@ var _ = Describe("Validating macvtap core binding", func() {
 		spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 		clusterConfig := stubClusterConfigChecker{macvtapFeatureGateEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -62,7 +62,7 @@ var _ = Describe("Validating macvtap core binding", func() {
 			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
 		}}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -84,7 +84,7 @@ var _ = Describe("Validating macvtap core binding", func() {
 		}}
 
 		clusterConfig := stubClusterConfigChecker{macvtapFeatureGateEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(BeEmpty())
 	})
 })

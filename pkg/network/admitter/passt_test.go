@@ -44,7 +44,7 @@ var _ = Describe("Validating passt core binding", func() {
 		}}
 
 		clusterConfig := stubClusterConfigChecker{passtFeatureGateEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -62,7 +62,7 @@ var _ = Describe("Validating passt core binding", func() {
 		}}
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -81,7 +81,7 @@ var _ = Describe("Validating passt core binding", func() {
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 		clusterConfig := stubClusterConfigChecker{passtFeatureGateEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(BeEmpty())
 	})
 })

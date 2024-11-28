@@ -114,7 +114,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
 	}
 
-	netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
+	netValidator := netadmitter.NewValidator(admitter.ClusterConfig)
 	causes = append(causes, netValidator.ValidateCreation(k8sfield.NewPath("spec"), &vmi.Spec)...)
 
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
@@ -176,7 +176,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 	causes = append(causes, validateArchitecture(field, spec, config)...)
 
-	netValidator := netadmitter.NewValidator(field, spec, config)
+	netValidator := netadmitter.NewValidator(config)
 	causes = append(causes, netValidator.Validate(field, spec)...)
 
 	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)

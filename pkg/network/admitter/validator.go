@@ -34,17 +34,11 @@ type clusterConfigChecker interface {
 }
 
 type Validator struct {
-	field         *k8sfield.Path
-	vmiSpec       *v1.VirtualMachineInstanceSpec
 	configChecker clusterConfigChecker
 }
 
-func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, configChecker clusterConfigChecker) *Validator {
-	return &Validator{
-		field:         field,
-		vmiSpec:       vmiSpec,
-		configChecker: configChecker,
-	}
+func NewValidator(configChecker clusterConfigChecker) *Validator {
+	return &Validator{configChecker: configChecker}
 }
 
 func (v Validator) Validate(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {

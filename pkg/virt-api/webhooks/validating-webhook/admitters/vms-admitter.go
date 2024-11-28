@@ -132,7 +132,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 			causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec)...)
 		}
 
-		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmCopy.Spec.Template.Spec, admitter.ClusterConfig)
+		netValidator := netadmitter.NewValidator(admitter.ClusterConfig)
 		if causes = netValidator.ValidateCreation(k8sfield.NewPath("spec"), &vmCopy.Spec.Template.Spec); len(causes) > 0 {
 			return webhookutils.ToAdmissionResponse(causes)
 		}

@@ -46,7 +46,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		vm.Spec.Networks = []v1.Network{
 			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},
 		}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
 	},
 		Entry("is empty", v1.InterfaceState("")),
@@ -57,7 +57,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		vm := api.NewMinimalVMI("testvm")
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo", State: v1.InterfaceState("foo")}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
@@ -76,7 +76,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		vm.Spec.Networks = []v1.Network{
 			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},
 		}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
@@ -95,7 +95,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",

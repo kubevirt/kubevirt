@@ -42,7 +42,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -57,7 +57,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		spec.Networks = []v1.Network{}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -85,7 +85,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			},
 		}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -106,7 +106,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}}},
 		}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ContainElements(metav1.StatusCause{
@@ -124,7 +124,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		}}
 		spec.Networks = []v1.Network{{Name: "bad.name", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueInvalid",
 			Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
@@ -138,7 +138,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		spec.Domain.Devices.Interfaces[0].Model = "invalid_model"
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueNotSupported",
 			Message: "interface fake.domain.devices.interfaces[0].name uses model invalid_model that is not supported.",
@@ -152,7 +152,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		spec.Domain.Devices.Interfaces[0].Model = v1.VirtIO
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(BeEmpty())
 	})
 
@@ -162,7 +162,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		spec.Domain.Devices.Interfaces[0].MacAddress = macAddress
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueInvalid",
 			Message: expectedMessage,
@@ -192,7 +192,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		spec.Domain.Devices.Interfaces[0].MacAddress = macAddress
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(BeEmpty())
 	},
 		Entry("valid address in lowercase and colon separated", "de:ad:00:00:be:af"),
@@ -207,7 +207,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueInvalid",
 			Message: fmt.Sprintf("interface fake.domain.devices.interfaces[0].name has malformed PCI address (%s).", pciAddress),
@@ -225,7 +225,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(BeEmpty())
 	},
 		Entry("valid address A", "0000:81:11.1"),
@@ -242,7 +242,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			}}
 			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			validator := admitter.NewValidator(stubClusterConfigChecker{})
 			Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(ConsistOf(expectedCauses))
 		},
 			Entry(
@@ -301,7 +301,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			}}
 			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			validator := admitter.NewValidator(stubClusterConfigChecker{})
 			Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(BeEmpty())
 		},
 			Entry("single minimal port", []v1.Port{{Port: 80}}),
@@ -323,7 +323,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			}}
 			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			validator := admitter.NewValidator(stubClusterConfigChecker{})
 			Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(ConsistOf(expectedCauses))
 		},
 			Entry(
@@ -373,7 +373,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			}}
 			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			validator := admitter.NewValidator(stubClusterConfigChecker{})
 			Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(BeEmpty())
 		},
 			Entry("  valid DHCPPrivateOptions", v1.DHCPOptions{

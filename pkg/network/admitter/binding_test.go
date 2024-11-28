@@ -43,7 +43,7 @@ var _ = Describe("Validating network binding combinations", func() {
 		}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true, bindingPluginFGEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
@@ -60,7 +60,7 @@ var _ = Describe("Validating network binding combinations", func() {
 		}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		clusterConfig := stubClusterConfigChecker{bindingPluginFGEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
 	})
 
@@ -72,7 +72,7 @@ var _ = Describe("Validating network binding combinations", func() {
 		}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
 	})
 })
@@ -90,7 +90,7 @@ var _ = Describe("Validating core binding", func() {
 			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
 		}}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -111,7 +111,7 @@ var _ = Describe("Validating core binding", func() {
 			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 		}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -126,7 +126,7 @@ var _ = Describe("Validating core binding", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{

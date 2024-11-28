@@ -44,7 +44,7 @@ var _ = Describe("Validate network source", func() {
 			{Name: net2Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 		}
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		causes := validator.Validate(k8sfield.NewPath("fake"), &vmi.Spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("more than one interface is connected to a pod network in fake.interfaces"))
@@ -64,7 +64,7 @@ var _ = Describe("Validate network source", func() {
 		}
 
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("should have only one network type"))
@@ -79,7 +79,7 @@ var _ = Describe("Validate network source", func() {
 		iface1 := v1.Interface{Name: net1.Name}
 		spec.Networks = []v1.Network{net1}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("should have a network type"))
@@ -93,7 +93,7 @@ var _ = Describe("Validate network source", func() {
 			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
 		}}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("CNI delegating plugin must have a networkName"))
@@ -124,7 +124,7 @@ var _ = Describe("Validate network source", func() {
 			},
 		}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
@@ -155,7 +155,7 @@ var _ = Describe("Validate network source", func() {
 		}
 
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
+		validator := admitter.NewValidator(clusterConfig)
 		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))

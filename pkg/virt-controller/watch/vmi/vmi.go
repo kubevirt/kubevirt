@@ -1024,7 +1024,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			return common.NewSyncError(fmt.Errorf(services.FailedToRenderLaunchManifestErrFormat, err), controller.FailedCreatePodReason), pod
 		}
 
-		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig)
+		netValidator := netadmitter.NewValidator(c.clusterConfig)
 		var validateErrors []error
 		for _, cause := range netValidator.ValidateCreation(k8sfield.NewPath("spec"), &vmi.Spec) {
 			validateErrors = append(validateErrors, errors.New(cause.String()))
