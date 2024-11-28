@@ -47,7 +47,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},
 		}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
-		Expect(validator.Validate()).To(BeEmpty())
+		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
 	},
 		Entry("is empty", v1.InterfaceState("")),
 		Entry("is absent when bridge binding is used", v1.InterfaceStateAbsent),
@@ -58,7 +58,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo", State: v1.InterfaceState("foo")}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
-		Expect(validator.Validate()).To(
+		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "logical foo interface state value is unsupported: foo",
@@ -77,7 +77,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},
 		}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
-		Expect(validator.Validate()).To(
+		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "\"foo\" interface's state \"absent\" is supported only for bridge binding",
@@ -96,7 +96,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
-		Expect(validator.Validate()).To(
+		Expect(validator.Validate(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "\"foo\" interface's state \"absent\" is not supported on default networks",

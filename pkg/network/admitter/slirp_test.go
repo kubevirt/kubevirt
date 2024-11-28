@@ -43,7 +43,7 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 		)
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.Validate()
+		causes := validator.Validate(k8sfield.NewPath("fake"), &vmi.Spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("Slirp interface is not enabled in kubevirt-config"))
 	})
@@ -58,7 +58,7 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 		)
 		config := stubClusterConfigChecker{slirpEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, config)
-		causes := validator.Validate()
+		causes := validator.Validate(k8sfield.NewPath("fake"), &vmi.Spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("Slirp interface only implemented with pod network"))
 	})
@@ -74,7 +74,7 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 
 		config := stubClusterConfigChecker{slirpEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, config)
-		Expect(validator.Validate()).To(BeEmpty())
+		Expect(validator.Validate(k8sfield.NewPath("fake"), &vmi.Spec)).To(BeEmpty())
 	})
 })
 

@@ -42,7 +42,7 @@ var _ = Describe("Validating macvtap core binding", func() {
 
 		clusterConfig := stubClusterConfigChecker{macvtapFeatureGateEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
-		causes := validator.Validate()
+		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueInvalid",
@@ -63,7 +63,7 @@ var _ = Describe("Validating macvtap core binding", func() {
 		}}
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
-		causes := validator.Validate()
+		causes := validator.Validate(k8sfield.NewPath("fake"), spec)
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueInvalid",
@@ -85,6 +85,6 @@ var _ = Describe("Validating macvtap core binding", func() {
 
 		clusterConfig := stubClusterConfigChecker{macvtapFeatureGateEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
-		Expect(validator.Validate()).To(BeEmpty())
+		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(BeEmpty())
 	})
 })

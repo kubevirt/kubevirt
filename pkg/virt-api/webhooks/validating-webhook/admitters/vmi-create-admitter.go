@@ -177,7 +177,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateArchitecture(field, spec, config)...)
 
 	netValidator := netadmitter.NewValidator(field, spec, config)
-	causes = append(causes, netValidator.Validate()...)
+	causes = append(causes, netValidator.Validate(field, spec)...)
 
 	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
 

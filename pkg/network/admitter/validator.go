@@ -47,20 +47,20 @@ func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, 
 	}
 }
 
-func (v Validator) Validate() []metav1.StatusCause {
+func (v Validator) Validate(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	causes = append(causes, validateSinglePodNetwork(v.field, v.vmiSpec)...)
-	causes = append(causes, validateSingleNetworkSource(v.field, v.vmiSpec)...)
-	causes = append(causes, validateMultusNetworkSource(v.field, v.vmiSpec)...)
-	causes = append(causes, validateInterfaceStateValue(v.field, v.vmiSpec)...)
-	causes = append(causes, validateInterfaceBinding(v.field, v.vmiSpec, v.configChecker)...)
-	causes = append(causes, validateSlirpBinding(v.field, v.vmiSpec, v.configChecker)...)
-	causes = append(causes, validateNetworkNameUnique(v.field, v.vmiSpec)...)
-	causes = append(causes, validateNetworksAssignedToInterfaces(v.field, v.vmiSpec)...)
-	causes = append(causes, validateInterfaceNameUnique(v.field, v.vmiSpec)...)
-	causes = append(causes, validateInterfacesAssignedToNetworks(v.field, v.vmiSpec)...)
-	causes = append(causes, validateInterfacesFields(v.field, v.vmiSpec)...)
+	causes = append(causes, validateSinglePodNetwork(field, vmiSpec)...)
+	causes = append(causes, validateSingleNetworkSource(field, vmiSpec)...)
+	causes = append(causes, validateMultusNetworkSource(field, vmiSpec)...)
+	causes = append(causes, validateInterfaceStateValue(field, vmiSpec)...)
+	causes = append(causes, validateInterfaceBinding(field, vmiSpec, v.configChecker)...)
+	causes = append(causes, validateSlirpBinding(field, vmiSpec, v.configChecker)...)
+	causes = append(causes, validateNetworkNameUnique(field, vmiSpec)...)
+	causes = append(causes, validateNetworksAssignedToInterfaces(field, vmiSpec)...)
+	causes = append(causes, validateInterfaceNameUnique(field, vmiSpec)...)
+	causes = append(causes, validateInterfacesAssignedToNetworks(field, vmiSpec)...)
+	causes = append(causes, validateInterfacesFields(field, vmiSpec)...)
 
 	return causes
 }
