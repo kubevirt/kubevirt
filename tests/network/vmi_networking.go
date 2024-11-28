@@ -243,7 +243,18 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("VirtualMachineInstance with custom interface model", func() {
+	Context("VirtualMachineInstance with custom and default interface models", func() {
+		const (
+			secondaryNetName = "secondary-net"
+			nadName          = "simple-bridge"
+		)
+		BeforeEach(func() {
+			const linuxBridgeNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"%s\"}]}"}}`
+			ns := testsuite.GetTestNamespace(nil)
+			Expect(libnet.CreateNetworkAttachmentDefinition(nadName, ns,
+				fmt.Sprintf(linuxBridgeNAD, nadName, ns, nadName, secondaryNetName),
+			)).To(Succeed())
+		})
 		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
@@ -251,14 +262,20 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 			masqIface.Model = "e1000"
 			masqIface.PciAddress = "0000:02:01.0"
+
+			bridgeIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
+			bridgeIface.PciAddress = "0000:03:00.0"
+			
 			e1000VMI := libvmifact.NewAlpine(
 				libvmi.WithInterface(masqIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(bridgeIface),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			)
+
 			var err error
 			e1000VMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), e1000VMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-
 			libwait.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
 
 			By("verifying vendors for respective PCI devices")
@@ -266,6 +283,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vendorCmd = "cat /sys/bus/pci/devices/%s/vendor\n"
 				// https://admin.pci-ids.ucw.cz/read/PC/8086
 				intelVendorID = "0x8086"
+				// https://admin.pci-ids.ucw.cz/read/PC/1af4
+				redhatVendorID = "0x1af4"
 			)
 
 			err = console.SafeExpectBatch(e1000VMI, []expect.Batcher{
@@ -273,6 +292,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: fmt.Sprintf(vendorCmd, masqIface.PciAddress)},
 				&expect.BExp{R: intelVendorID},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, bridgeIface.PciAddress)},
+				&expect.BExp{R: redhatVendorID},
 			}, 40)
 			Expect(err).ToNot(HaveOccurred())
 		})
