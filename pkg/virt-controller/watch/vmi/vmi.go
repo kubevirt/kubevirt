@@ -1026,7 +1026,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 
 		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig)
 		var validateErrors []error
-		for _, cause := range netValidator.ValidateCreation() {
+		for _, cause := range netValidator.ValidateCreation(k8sfield.NewPath("spec"), &vmi.Spec) {
 			validateErrors = append(validateErrors, errors.New(cause.String()))
 		}
 		if validateErr := errors.Join(validateErrors...); validateErrors != nil {

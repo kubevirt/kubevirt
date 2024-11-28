@@ -65,10 +65,10 @@ func (v Validator) Validate() []metav1.StatusCause {
 	return causes
 }
 
-func (v Validator) ValidateCreation() []metav1.StatusCause {
+func (v Validator) ValidateCreation(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	causes = append(causes, validateCreationSlirpBinding(v.field, v.vmiSpec)...)
+	causes = append(causes, validateCreationSlirpBinding(field, vmiSpec)...)
 
 	return causes
 }

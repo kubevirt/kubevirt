@@ -89,7 +89,7 @@ var _ = Describe("Validate creation of interface with SLIRP binding", func() {
 		)
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.ValidateCreation()
+		causes := validator.ValidateCreation(k8sfield.NewPath("fake"), &vmi.Spec)
 		Expect(causes).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
