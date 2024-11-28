@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["cpu.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/instancetype/preference/validation",
+    visibility = ["//visibility:public"],
+    deps = ["//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library"],
+)

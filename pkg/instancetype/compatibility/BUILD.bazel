@@ -1,0 +1,40 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["compatibility.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/instancetype/compatibility",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/api/instancetype/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1alpha2:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubevirt/scheme:go_default_library",
+        "//vendor/k8s.io/api/apps/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/sigs.k8s.io/json:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "compatibility_suite_test.go",
+        "compatibility_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/pointer:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1alpha2:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/apps/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+    ],
+)

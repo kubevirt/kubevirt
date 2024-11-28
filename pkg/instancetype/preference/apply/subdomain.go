@@ -13,24 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors
  *
  */
+package apply
 
-package instancetype
+import (
+	virtv1 "kubevirt.io/api/core/v1"
+	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+)
 
-type IgnoreableInferenceError struct {
-	err error
-}
-
-func (e *IgnoreableInferenceError) Error() string {
-	return e.err.Error()
-}
-
-func (e *IgnoreableInferenceError) Unwrap() error {
-	return e.err
-}
-
-func NewIgnoreableInferenceError(err error) error {
-	return &IgnoreableInferenceError{err: err}
+func applySubdomain(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if vmiSpec.Subdomain == "" && preferenceSpec.PreferredSubdomain != nil {
+		vmiSpec.Subdomain = *preferenceSpec.PreferredSubdomain
+	}
 }

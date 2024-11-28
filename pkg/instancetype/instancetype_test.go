@@ -27,6 +27,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 
@@ -233,7 +236,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				clusterInstancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(clusterInstancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(clusterInstancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -275,7 +278,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -301,7 +304,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetype.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
@@ -422,7 +425,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -464,7 +467,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -490,7 +493,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetype.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
@@ -686,7 +689,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, clusterPreferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, clusterPreferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -724,7 +727,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, clusterPreferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, clusterPreferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -820,7 +823,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, preferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -858,7 +861,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, preferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -2366,7 +2369,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				nil,
+				&v1.VirtualMachineInstanceSpec{},
 			),
 			Entry("by an instance type for Memory",
 				&instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -2381,7 +2384,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				nil,
+				&v1.VirtualMachineInstanceSpec{},
 			),
 			Entry("by a VM for vCPUs using PreferSockets (default)",
 				nil,
@@ -2575,7 +2578,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				},
 				nil,
 				instancetype.Conflicts{k8sfield.NewPath("spec", "instancetype")},
-				fmt.Sprintf(instancetype.InsufficientInstanceTypeCPUResourcesErrorFmt, uint32(1), uint32(2)),
+				fmt.Sprintf(requirements.InsufficientInstanceTypeCPUResourcesErrorFmt, uint32(1), uint32(2)),
 			),
 			Entry("by an instance type for Memory",
 				&instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -2592,7 +2595,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				},
 				nil,
 				instancetype.Conflicts{k8sfield.NewPath("spec", "instancetype")},
-				fmt.Sprintf(instancetype.InsufficientInstanceTypeMemoryResourcesErrorFmt, "1Gi", "2Gi"),
+				fmt.Sprintf(requirements.InsufficientInstanceTypeMemoryResourcesErrorFmt, "1Gi", "2Gi"),
 			),
 			Entry("by a VM for vCPUs using PreferSockets (default)",
 				nil,
@@ -2614,7 +2617,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "sockets"),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "sockets"),
 			),
 			Entry("by a VM for vCPUs using PreferCores",
 				nil,
@@ -2636,7 +2639,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "cores"),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "cores"),
 			),
 			Entry("by a VM for vCPUs using PreferThreads",
 				nil,
@@ -2658,7 +2661,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "threads"),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "threads"),
 			),
 			Entry("by a VM for vCPUs using PreferSpread by default across SocketsCores",
 				nil,
@@ -2681,7 +2684,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCores),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCores),
 			),
 			Entry("by a VM for vCPUs using PreferSpread across CoresThreads",
 				nil,
@@ -2707,7 +2710,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossCoresThreads),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossCoresThreads),
 			),
 			Entry("by a VM for vCPUs using PreferSpread across SocketsCoresThreads",
 				nil,
@@ -2734,7 +2737,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 			),
 			Entry("by a VM for vCPUs using PreferAny",
 				nil,
@@ -2762,7 +2765,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"),
 					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads"),
 				},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(2), uint32(4), "cores, sockets and threads"),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(2), uint32(4), "cores, sockets and threads"),
 			),
 			Entry("by a VM for Memory",
 				nil,
@@ -2781,7 +2784,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "memory")},
-				fmt.Sprintf(instancetype.InsufficientVMMemoryResourcesErrorFmt, "1Gi", "2Gi"),
+				fmt.Sprintf(requirements.InsufficientVMMemoryResourcesErrorFmt, "1Gi", "2Gi"),
 			))
 	})
 })
