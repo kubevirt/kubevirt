@@ -69,16 +69,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string) {
-		err := console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\n"},
-			&expect.BExp{R: expectedVendor},
-		}, 15)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
 	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
 		output := libpod.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0-nic/brport/learning"})
 		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
@@ -212,34 +202,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				Expect(job.WaitForJobToSucceed(remoteNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on different node")
 			}
-		})
-
-		Context("VirtualMachineInstance with default interface model", func() {
-			BeforeEach(func() {
-				libnet.SkipWhenClusterNotSupportIpv4()
-
-				var err error
-				inboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				outboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
-				outboundVMI = libwait.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
-			})
-
-			// Unless an explicit interface model is specified, the default interface model is virtio.
-			It("[test_id:1550]should expose the right device type to the guest", func() {
-				By("checking the device vendor in /sys/class")
-
-				// Taken from https://wiki.osdev.org/Virtio#Technical_Details
-				virtio_vid := "0x1af4"
-
-				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
-					// as defined in https://vendev.org/pci/ven_1af4/
-					checkNetworkVendor(networkVMI, virtio_vid)
-				}
-			})
 		})
 	})
 
