@@ -1161,6 +1161,83 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal("Embedded DataVolume namespace another-namespace differs from VM namespace vm-namespace"))
 	})
 
+	DescribeTable("should reject update of DataVolumeTemplate", func(mutateFn func(*v1.VirtualMachine)) {
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "testdisk",
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "testdisk",
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
+				},
+			},
+		})
+
+		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "vm-namespace",
+			},
+			Spec: v1.VirtualMachineSpec{
+				Running: pointer.P(false),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "dv1",
+			},
+			Spec: cdiv1.DataVolumeSpec{
+				Storage: &cdiv1.StorageSpec{
+					Resources: k8sv1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{"storage": resource.MustParse("1Gi")},
+					},
+				},
+				Source: &cdiv1.DataVolumeSource{
+					Blank: &cdiv1.DataVolumeBlankImage{},
+				},
+			},
+		})
+
+		oldObjectBytes, _ := json.Marshal(vm)
+
+		updatedVM := vm.DeepCopy()
+		mutateFn(updatedVM)
+		objectBytes, _ := json.Marshal(updatedVM)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Update,
+				Resource:  webhooks.VirtualMachineGroupVersionResource,
+				OldObject: runtime.RawExtension{
+					Raw: oldObjectBytes,
+				},
+				Object: runtime.RawExtension{
+					Raw: objectBytes,
+				},
+			},
+		}
+
+		testutils.AddDataVolumeAPI(crdInformer)
+		resp := vmsAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
+		Expect(resp.Result.Details.Causes[0].Message).To(Equal("DataVolumeTemplates is immutable and cannot be updated"))
+		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplates"))
+	},
+		Entry("datavolume name", func(updatedVM *v1.VirtualMachine) {
+			updatedVM.Spec.DataVolumeTemplates[0].Name = "dv2"
+			updatedVM.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name = "dv2"
+		}),
+		Entry("datavolume size", func(updatedVM *v1.VirtualMachine) {
+			updatedVM.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests = k8sv1.ResourceList{"storage": resource.MustParse("2Gi")}
+		}),
+	)
+
 	Context("with Volume", func() {
 
 		BeforeEach(func() {

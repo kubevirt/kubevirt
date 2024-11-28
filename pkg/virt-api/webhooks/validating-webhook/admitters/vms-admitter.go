@@ -142,7 +142,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes, err = admitter.validateVirtualMachineDataVolumeTemplateNamespace(ar.Request, &vm)
+	causes, err = admitter.validateVirtualMachineDataVolumeTemplate(ar.Request, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -294,7 +294,7 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 	return nil, nil, causes
 }
 
-func (admitter *VMsAdmitter) validateVirtualMachineDataVolumeTemplateNamespace(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+func (admitter *VMsAdmitter) validateVirtualMachineDataVolumeTemplate(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	var causes []metav1.StatusCause
 
 	if ar.Operation == admissionv1.Update || ar.Operation == admissionv1.Delete {
@@ -308,6 +308,13 @@ func (admitter *VMsAdmitter) validateVirtualMachineDataVolumeTemplateNamespace(a
 
 		if equality.Semantic.DeepEqual(oldVM.Spec.DataVolumeTemplates, vm.Spec.DataVolumeTemplates) {
 			return nil, nil
+		}
+		if ar.Operation == admissionv1.Update {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeForbidden,
+				Message: fmt.Sprintf("DataVolumeTemplates is immutable and cannot be updated"),
+				Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").String(),
+			}}, nil
 		}
 	}
 
