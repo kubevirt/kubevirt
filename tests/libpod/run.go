@@ -21,6 +21,7 @@ package libpod
 
 import (
 	"context"
+	"encoding/json"
 
 	. "github.com/onsi/gomega"
 
@@ -56,4 +57,18 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	output, err := exec.ExecuteCommandOnPod(pod, "compute", command)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return output
+}
+
+type QemuAgentCommandReturnData struct {
+	Return struct {
+		Pid int `json:"pid,omitempty"`
+	} `json:"return"`
+}
+
+func QemuAgentCommand(vmi *v1.VirtualMachineInstance, command string) QemuAgentCommandReturnData {
+	out := RunCommandOnVmiPod(vmi, []string{"virsh", "qemu-agent-command", "1", command})
+	var returnData QemuAgentCommandReturnData
+	err := json.Unmarshal([]byte(out), &returnData)
+	Expect(err).ShouldNot(HaveOccurred())
+	return returnData
 }
