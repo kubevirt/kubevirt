@@ -16,8 +16,8 @@ const (
 )
 
 const (
-	SystemHealthStatusUnknown float64 = 0
-	SystemHealthStatusHealthy float64 = iota
+	SystemHealthStatusUnknown float64 = iota
+	SystemHealthStatusHealthy
 	SystemHealthStatusWarning
 	SystemHealthStatusError
 )
@@ -138,12 +138,11 @@ func SetHCOSystemError(reason string) {
 func GetHCOMetricSystemHealthStatus(reason string) (float64, error) {
 	dto := &ioprometheusclient.Metric{}
 	err := systemHealthStatus.WithLabelValues(reason).Write(dto)
-	value := dto.Gauge.GetValue()
-
 	if err != nil {
 		return SystemHealthStatusUnknown, err
 	}
-	return value, nil
+
+	return dto.Gauge.GetValue(), nil
 }
 
 func getLabelsForObj(kind string, name string) string {

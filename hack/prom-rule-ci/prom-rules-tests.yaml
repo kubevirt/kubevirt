@@ -774,22 +774,21 @@ tests:
 # Test OperatorConditionsUnhealthy
 - interval: 1m
   input_series:
+    - series: 'kubevirt_hco_system_health_status{reason="healthy"}'
+    - values: "stale 1 stale stale stale"
+
     - series: 'kubevirt_hco_system_health_status{reason="SOME_ERROR"}'
-      values: "stale stale 2 stale"
+      values: "stale stale stale 3 stale"
 
     - series: 'kubevirt_hco_system_health_status{reason="SOME_WARNING"}'
-      values: "stale stale stale stale 1 stale"
+      values: "stale stale stale stale stale 2 stale"
 
   alert_rule_test:
     - eval_time: 1m
       alertname: OperatorConditionsUnhealthy
       exp_alerts: [ ]
 
-    - eval_time: 1m
-      alertname: OperatorConditionsUnhealthy
-      exp_alerts: [ ]
-
-    - eval_time: 2m
+    - eval_time: 3m
       alertname: OperatorConditionsUnhealthy
       exp_alerts:
         - exp_annotations:
@@ -803,7 +802,7 @@ tests:
             kubernetes_operator_component: "hyperconverged-cluster-operator"
             reason: "SOME_ERROR"
 
-    - eval_time: 4m
+    - eval_time: 5m
       alertname: OperatorConditionsUnhealthy
       exp_alerts:
         - exp_annotations:
