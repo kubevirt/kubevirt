@@ -250,6 +250,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			// Use alpine because cirros dhcp client starts prematurely before link is ready
 			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 			masqIface.Model = "e1000"
+			masqIface.PciAddress = "0000:02:01.0"
 			e1000VMI := libvmifact.NewAlpine(
 				libvmi.WithInterface(masqIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -259,8 +260,21 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
-			// as defined in https://vendev.org/pci/ven_8086/
-			checkNetworkVendor(e1000VMI, "0x8086")
+
+			By("verifying vendors for respective PCI devices")
+			const (
+				vendorCmd = "cat /sys/bus/pci/devices/%s/vendor\n"
+				// https://admin.pci-ids.ucw.cz/read/PC/8086
+				intelVendorID = "0x8086"
+			)
+
+			err = console.SafeExpectBatch(e1000VMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, masqIface.PciAddress)},
+				&expect.BExp{R: intelVendorID},
+			}, 40)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
