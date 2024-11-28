@@ -39,18 +39,21 @@ const (
 var ErrFailedToFindCdi error = errors.New("No CDI instances found")
 var ErrMultipleCdiInstances error = errors.New("Detected more than one CDI instance")
 
-func GetFilesystemOverhead(volumeMode *k8sv1.PersistentVolumeMode, storageClass *string, cdiConfig *cdiv1.CDIConfig) cdiv1.Percent {
+func GetFilesystemOverhead(volumeMode *k8sv1.PersistentVolumeMode, storageClass *string, cdiConfig *cdiv1.CDIConfig) (cdiv1.Percent, error) {
 	if IsPVCBlock(volumeMode) {
-		return "0"
+		return "0", nil
+	}
+	if cdiConfig.Status.FilesystemOverhead == nil {
+		return "0", errors.New("CDI config not initialized")
 	}
 	if storageClass == nil {
-		return cdiConfig.Status.FilesystemOverhead.Global
+		return cdiConfig.Status.FilesystemOverhead.Global, nil
 	}
 	fsOverhead, ok := cdiConfig.Status.FilesystemOverhead.StorageClass[*storageClass]
 	if !ok {
-		return cdiConfig.Status.FilesystemOverhead.Global
+		return cdiConfig.Status.FilesystemOverhead.Global, nil
 	}
-	return fsOverhead
+	return fsOverhead, nil
 }
 
 func roundUpToUnit(size, unit float64) float64 {
@@ -79,6 +82,9 @@ func GetSizeIncludingDefaultFSOverhead(size *resource.Quantity) (*resource.Quant
 }
 
 func GetSizeIncludingFSOverhead(size *resource.Quantity, storageClass *string, volumeMode *k8sv1.PersistentVolumeMode, cdiConfig *cdiv1.CDIConfig) (*resource.Quantity, error) {
-	cdiFSOverhead := GetFilesystemOverhead(volumeMode, storageClass, cdiConfig)
+	cdiFSOverhead, err := GetFilesystemOverhead(volumeMode, storageClass, cdiConfig)
+	if err != nil {
+		return nil, err
+	}
 	return GetSizeIncludingGivenOverhead(size, cdiFSOverhead)
 }
