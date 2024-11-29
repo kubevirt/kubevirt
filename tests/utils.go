@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
@@ -49,7 +48,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", fmt.Errorf("failed to get vmi, %s", err)
 	}
 
-	vmiPod, err := libpod.GetPodByVirtualMachineInstance(freshVMI, testsuite.GetTestNamespace(freshVMI))
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(freshVMI, freshVMI.Namespace)
 	if err != nil {
 		return "", err
 	}
