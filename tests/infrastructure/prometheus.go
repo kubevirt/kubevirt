@@ -149,15 +149,11 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 		}
 		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint")
 
-		// We need a token from a service account that can view all namespaces in the cluster
-		By("extracting virt-operator sa token")
-		cmd := []string{"cat", "/var/run/secrets/kubernetes.io/serviceaccount/token"}
-		token, stderr, err := exec.ExecuteCommandOnPodWithResults(&op, "virt-operator", cmd)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), token, stderr, err))
-		Expect(token).ToNot(BeEmpty(), "virt-operator sa token returned empty")
+		// the Service Account needs to have access to the Prometheus subresource api
+		token := kubevirt.Client().Config().BearerToken
 
 		By("querying Prometheus API endpoint for a VMI exported metric")
-		cmd = []string{
+		cmd := []string{
 			"curl",
 			"-L",
 			"-k",
