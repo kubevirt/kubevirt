@@ -3,7 +3,7 @@ kind: VirtualMachine
 metadata:
   name: testvm
 spec:
-  running: false
+  runStrategy: Halted
   template:
     metadata:
       labels:
