@@ -45,7 +45,6 @@ import (
 )
 
 var _ = DescribeSerialInfra("tls configuration", func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	// FIPS-compliant so we can test on different platforms (otherwise won't revert properly)
@@ -70,7 +69,6 @@ var _ = DescribeSerialInfra("tls configuration", func() {
 		newKv := libkubevirt.GetCurrentKv(virtClient)
 		Expect(newKv.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(BeEquivalentTo(v1.VersionTLS12))
 		Expect(newKv.Spec.Configuration.TLSConfiguration.Ciphers).To(BeEquivalentTo([]string{cipher.Name}))
-
 	})
 
 	It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components", func() {
@@ -89,9 +87,12 @@ var _ = DescribeSerialInfra("tls configuration", func() {
 			func(i int, pod k8sv1.Pod) {
 				stopChan := make(chan struct{})
 				defer close(stopChan)
-				Expect(libpod.ForwardPorts(&pod, []string{fmt.Sprintf("844%d:%d", i, 8443)}, stopChan, 10*time.Second)).To(Succeed())
+				expectTimeout := 10 * time.Second
+				portNumber := 8443
+				Expect(libpod.ForwardPorts(&pod, []string{fmt.Sprintf("844%d:%d", i, portNumber)}, stopChan, expectTimeout)).To(Succeed())
 
 				acceptedTLSConfig := &tls.Config{
+					//nolint:gosec
 					InsecureSkipVerify: true,
 					MaxVersion:         tls.VersionTLS12,
 					CipherSuites:       kvtls.CipherSuiteIds([]string{cipher.Name}),
@@ -103,6 +104,7 @@ var _ = DescribeSerialInfra("tls configuration", func() {
 				Expect(conn.ConnectionState().CipherSuite).To(BeEquivalentTo(cipher.ID), "Configure Cipher should be used")
 
 				rejectedTLSConfig := &tls.Config{
+					//nolint:gosec
 					InsecureSkipVerify: true,
 					MaxVersion:         tls.VersionTLS11,
 				}

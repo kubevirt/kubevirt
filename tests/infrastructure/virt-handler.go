@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -42,12 +43,12 @@ import (
 )
 
 var _ = DescribeSerialInfra("virt-handler", func() {
-
 	var (
 		virtClient       kubecli.KubevirtClient
 		originalKubeVirt *v1.KubeVirt
 		nodesToEnableKSM []string
 	)
+	const trueStr = "true"
 
 	getNodesWithKSMAvailable := func(virtCli kubecli.KubevirtClient) []string {
 		nodes := libnode.GetAllSchedulableNodes(virtCli)
@@ -65,7 +66,7 @@ var _ = DescribeSerialInfra("virt-handler", func() {
 
 	forceMemoryPressureOnNodes := func(nodes []string) {
 		for _, node := range nodes {
-			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s", "%s": "%s"}}}`,
+			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {%q: %q, %q: %q}}}`,
 				v1.KSMFreePercentOverride, "1.0",
 				v1.KSMPagesDecayOverride, "-300",
 			))
@@ -76,9 +77,13 @@ var _ = DescribeSerialInfra("virt-handler", func() {
 
 	restoreNodes := func(nodes []string) {
 		for _, node := range nodes {
-			patchBytes := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}, {"op": "remove", "path": "/metadata/annotations/%s"}]`,
-				strings.ReplaceAll(v1.KSMFreePercentOverride, "/", "~1"), strings.ReplaceAll(v1.KSMPagesDecayOverride, "/", "~1")))
-			_, err := virtClient.CoreV1().Nodes().Patch(context.Background(), node, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			patchSet := patch.New(patch.WithRemove(fmt.Sprintf("/metadata/annotations/%s",
+				strings.ReplaceAll(v1.KSMFreePercentOverride, "/", "~1"))))
+			patchSet.AddOption(patch.WithRemove(fmt.Sprintf("/metadata/annotations/%s",
+				strings.ReplaceAll(v1.KSMPagesDecayOverride, "/", "~1"))))
+			patchBytes, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			if err != nil {
 				node2, err2 := virtClient.CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
 				Expect(err2).NotTo(HaveOccurred())
@@ -128,7 +133,7 @@ var _ = DescribeSerialInfra("virt-handler", func() {
 					return false, err
 				}
 				value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]
-				return found && value == "true", nil
+				return found && value == trueStr, nil
 			}, 3*time.Minute, 2*time.Second).Should(BeTrue(), fmt.Sprintf("Node %s should have %s annotation", node, v1.KSMHandlerManagedAnnotation))
 		}
 
@@ -152,8 +157,10 @@ var _ = DescribeSerialInfra("virt-handler", func() {
 					return false, err
 				}
 				value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]
-				return found && value == "true", nil
-			}, 3*time.Minute, 2*time.Second).Should(BeFalse(), fmt.Sprintf("Annotation %s should be removed from the node %s", v1.KSMHandlerManagedAnnotation, node))
+				return found && value == trueStr, nil
+			}, 3*time.Minute, 2*time.Second).Should(BeFalse(), fmt.Sprintf(
+				"Annotation %s should be removed from the node %s",
+				v1.KSMHandlerManagedAnnotation, node))
 		}
 	})
 })

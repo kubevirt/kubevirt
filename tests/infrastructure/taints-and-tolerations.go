@@ -43,10 +43,7 @@ import (
 )
 
 var _ = DescribeSerialInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
@@ -97,7 +94,9 @@ var _ = DescribeSerialInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com
 
 			patchData, err := patch.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, taints)
 			Expect(err).ToNot(HaveOccurred())
-			selectedNode, err = virtClient.CoreV1().Nodes().Patch(context.Background(), selectedNode.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			_, err = virtClient.CoreV1().Nodes().Patch(
+				context.Background(), selectedNode.Name,
+				types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -126,7 +125,9 @@ var _ = DescribeSerialInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com
 
 			patchData, err := patch.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, otherTaints)
 			Expect(err).NotTo(HaveOccurred())
-			selectedNode, err = virtClient.CoreV1().Nodes().Patch(context.Background(), selectedNode.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			_, err = virtClient.CoreV1().Nodes().Patch(
+				context.Background(), selectedNode.Name,
+				types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			// Waiting until all affected deployments have at least 1 ready replica
@@ -159,16 +160,22 @@ var _ = DescribeSerialInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com
 		})
 
 		It("[test_id:4134] kubevirt components on that node should not evict", func() {
+			timeout := 10 * time.Second
 			Consistently(func(g Gomega) {
 				for _, podName := range kubevirtPodsOnNode {
 					pod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), podName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("error getting pod %s/%s", flags.KubeVirtInstallNamespace, podName))
-					g.Expect(pod.DeletionTimestamp).To(BeNil(), fmt.Sprintf("pod %s/%s is being deleted", flags.KubeVirtInstallNamespace, podName))
-					g.Expect(pod.Spec.NodeName).To(Equal(possiblyTaintedNodeName), fmt.Sprintf("pod %s/%s does not run on tainted node", flags.KubeVirtInstallNamespace, podName))
-				}
-			}, time.Second*10, time.Second).Should(Succeed())
-		})
+					g.Expect(err).NotTo(HaveOccurred(),
+						fmt.Sprintf("error getting pod %s/%s",
+							flags.KubeVirtInstallNamespace, podName))
 
+					g.Expect(pod.DeletionTimestamp).To(BeNil(), fmt.Sprintf("pod %s/%s is being deleted", flags.KubeVirtInstallNamespace, podName))
+
+					g.Expect(pod.Spec.NodeName).To(Equal(possiblyTaintedNodeName),
+						fmt.Sprintf("pod %s/%s does not run on tainted node",
+							flags.KubeVirtInstallNamespace, podName))
+				}
+			}, timeout, time.Second).Should(Succeed())
+		})
 	})
 })
 
@@ -182,8 +189,8 @@ func getNodeWithOneOfPods(virtClient kubecli.KubevirtClient, pods []k8sv1.Pod) s
 	// control-plane nodes should never have the CriticalAddonsOnly taint because core components might not
 	// tolerate this taint because it is meant to be used on compute nodes only. If we set this taint
 	// on a control-plane node, we risk in breaking the test cluster.
-	for _, pod := range pods {
-		node, ok := schedulableNodes[pod.Spec.NodeName]
+	for i := range pods {
+		node, ok := schedulableNodes[pods[i].Spec.NodeName]
 		if !ok {
 			// Pod is running on a non-schedulable node?
 			continue
@@ -207,13 +214,13 @@ func filterKubevirtPods(pods []k8sv1.Pod) []string {
 	}
 
 	var result []string
-	for _, pod := range pods {
-		if pod.Namespace != flags.KubeVirtInstallNamespace {
+	for i := range pods {
+		if pods[i].Namespace != flags.KubeVirtInstallNamespace {
 			continue
 		}
 		for _, prefix := range kubevirtPodPrefixes {
-			if strings.HasPrefix(pod.Name, prefix) {
-				result = append(result, pod.Name)
+			if strings.HasPrefix(pods[i].Name, prefix) {
+				result = append(result, pods[i].Name)
 				break
 			}
 		}
@@ -227,12 +234,13 @@ func getDeploymentsForPods(virtClient kubecli.KubevirtClient, pods []k8sv1.Pod) 
 	Expect(err).NotTo(HaveOccurred())
 
 	var result []types.NamespacedName
-	for _, deployment := range allDeployments.Items {
+	for i := range allDeployments.Items {
+		deployment := allDeployments.Items[i]
 		selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
 		Expect(err).NotTo(HaveOccurred())
 
-		for _, pod := range pods {
-			if selector.Matches(labels.Set(pod.Labels)) {
+		for k := range pods {
+			if selector.Matches(labels.Set(pods[k].Labels)) {
 				result = append(result, types.NamespacedName{
 					Namespace: deployment.Namespace,
 					Name:      deployment.Name,

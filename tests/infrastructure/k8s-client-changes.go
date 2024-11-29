@@ -48,6 +48,7 @@ var _ = DescribeSerialInfra("changes to the kubernetes client", func() {
 		virtClient kubecli.KubevirtClient
 		err        error
 	)
+	const replicas = 10
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
@@ -74,8 +75,8 @@ var _ = DescribeSerialInfra("changes to the kubernetes client", func() {
 		replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(context.Background(), replicaset, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		start := time.Now()
-		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
-		fastDuration := time.Now().Sub(start)
+		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, replicas)
+		fastDuration := time.Since(start)
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 0)
 
 		By("reducing the throughput on controller")
@@ -93,9 +94,10 @@ var _ = DescribeSerialInfra("changes to the kubernetes client", func() {
 		config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 		By("starting a replicaset with reduced throughput")
 		start = time.Now()
-		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
-		slowDuration := time.Now().Sub(start)
-		Expect(slowDuration.Seconds()).To(BeNumerically(">", 2*fastDuration.Seconds()))
+		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, replicas)
+		slowDuration := time.Since(start)
+		minExpectedDuration := 2 * fastDuration.Seconds()
+		Expect(slowDuration.Seconds()).To(BeNumerically(">", minExpectedDuration))
 	})
 
 	It("on the virt handler rate limiter should lead to delayed VMI running states", func() {
@@ -109,7 +111,7 @@ var _ = DescribeSerialInfra("changes to the kubernetes client", func() {
 		replicaset := replicaset.New(vmi, 0)
 		replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(context.Background(), replicaset, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
+		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, replicas)
 		Eventually(matcher.AllVMIs(replicaset.Namespace), 90*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))
 		vmis, err := matcher.AllVMIs(replicaset.Namespace)()
 		Expect(err).ToNot(HaveOccurred())
@@ -133,11 +135,12 @@ var _ = DescribeSerialInfra("changes to the kubernetes client", func() {
 		config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 
 		By("starting a replicaset with reduced throughput")
-		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
+		libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, replicas)
 		Eventually(matcher.AllVMIs(replicaset.Namespace), 180*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))
 		vmis, err = matcher.AllVMIs(replicaset.Namespace)()
 		Expect(err).ToNot(HaveOccurred())
 		slowDuration := scheduledToRunning(vmis)
-		Expect(slowDuration.Seconds()).To(BeNumerically(">", 1.5*fastDuration.Seconds()))
+		minExpectedDuration := 1.5 * fastDuration.Seconds()
+		Expect(slowDuration.Seconds()).To(BeNumerically(">", minExpectedDuration))
 	})
 })

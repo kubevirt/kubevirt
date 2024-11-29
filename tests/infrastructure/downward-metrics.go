@@ -42,17 +42,15 @@ import (
 )
 
 var _ = DescribeInfra("downwardMetrics", func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
+	const vmiStartTimeout = 180
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
 	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
-
 		vmi := libvmifact.NewFedora(via)
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiStartTimeout)
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 		metrics, err := metricsGetter(vmi)
@@ -67,7 +65,6 @@ var _ = DescribeInfra("downwardMetrics", func() {
 			return libinfra.GetTimeFromMetrics(metrics)
 		}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
 		Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
-
 	},
 		Entry("[test_id:6535]using a disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
 		Entry("using a virtio serial device", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio),
@@ -75,7 +72,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 
 	It("metric ResourceProcessorLimit should be present", func() {
 		vmi := libvmifact.NewFedora(libvmi.WithCPUCount(1, 1, 1), libvmi.WithDownwardMetricsVolume("vhostmd"))
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiStartTimeout)
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 		metrics, err := libinfra.GetDownwardMetricsDisk(vmi)
