@@ -25,7 +25,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 const runCmdGAManageSSH = "runcmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"
@@ -1830,7 +1830,7 @@ func setFlag(flag, parameter string) string {
 
 func runCmd(extraArgs ...string) ([]byte, error) {
 	args := append([]string{create.CREATE, "vm"}, extraArgs...)
-	return clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
+	return testing.NewRepeatableVirtctlCommandWithOut(args...)()
 }
 
 func decodeVM(bytes []byte) (*v1.VirtualMachine, error) {

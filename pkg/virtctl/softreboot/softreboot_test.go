@@ -6,14 +6,14 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virtctl/softreboot"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Soft rebooting", func() {
@@ -29,7 +29,7 @@ var _ = Describe("Soft rebooting", func() {
 
 	Context("With missing input parameters", func() {
 		It("should fail", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT)
+			cmd := testing.NewRepeatableVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 		})
@@ -41,7 +41,7 @@ var _ = Describe("Soft rebooting", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().SoftReboot(context.Background(), vmi.Name).Return(nil).Times(1)
 
-		cmd := clientcmd.NewVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT, vmi.Name)
-		Expect(cmd.Execute()).To(Succeed())
+		cmd := testing.NewRepeatableVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT, vmi.Name)
+		Expect(cmd()).To(Succeed())
 	})
 })
