@@ -52,7 +52,8 @@ var _ = DescribeInfra("CRDs", func() {
 		}
 
 		for _, name := range ourCRDs {
-			crd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), name, metav1.GetOptions{})
+			crd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(
+				context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(crd).To(matcher.HaveConditionMissingOrFalse(v1ext.NonStructuralSchema))
