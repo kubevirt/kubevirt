@@ -341,6 +341,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 	)
 
 	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
+	vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiNetworkName)
 
 	bridgeIface := nmstate.Interface{
 		Name:     link.GenerateBridgeName(podIfaceName),
@@ -381,7 +382,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 	}
 
 	tapIface := nmstate.Interface{
-		Name:       link.GenerateTapDeviceName(podIfaceName),
+		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
 		MTU:        podStatusIface.MTU,
@@ -456,7 +457,7 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 	}
 
 	tapIface := nmstate.Interface{
-		Name:       link.GenerateTapDeviceName(podIfaceName),
+		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
 		MTU:        podIface.MTU,
@@ -475,6 +476,7 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStatusByName map[string]nmstate.Interface) ([]nmstate.Interface, error) {
 
 	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
+	vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiNetworkName)
 
 	podIfaceAlternativeName := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
 	podStatusIface, exist := ifaceStatusByName[podIfaceAlternativeName]
@@ -503,7 +505,7 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 	}
 
 	tapIface := nmstate.Interface{
-		Name:       link.GenerateTapDeviceName(podIfaceName),
+		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
 		MTU:        podStatusIface.MTU,

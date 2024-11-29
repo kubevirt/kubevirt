@@ -41,12 +41,14 @@ type LibvirtSpecGenerator interface {
 
 func NewTapLibvirtSpecGenerator(
 	iface *v1.Interface,
+	network v1.Network,
 	domain *api.Domain,
 	podInterfaceName string,
 	handler netdriver.NetworkHandler,
 ) *TapLibvirtSpecGenerator {
 	return &TapLibvirtSpecGenerator{
 		vmiSpecIface:     iface,
+		vmiSpecNetwork:   network,
 		domain:           domain,
 		podInterfaceName: podInterfaceName,
 		handler:          handler,
@@ -55,6 +57,7 @@ func NewTapLibvirtSpecGenerator(
 
 type TapLibvirtSpecGenerator struct {
 	vmiSpecIface     *v1.Interface
+	vmiSpecNetwork   v1.Network
 	domain           *api.Domain
 	podInterfaceName string
 	handler          netdriver.NetworkHandler
@@ -108,7 +111,7 @@ func (b *TapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, err
 // The method tries to find a tap device based on the hashed network name
 // in case such device doesn't exist, the pod interface is used as the target
 func (b *TapLibvirtSpecGenerator) getTargetName() (string, error) {
-	tapName := virtnetlink.GenerateTapDeviceName(b.podInterfaceName)
+	tapName := virtnetlink.GenerateTapDeviceName(b.podInterfaceName, b.vmiSpecNetwork)
 	if _, err := b.handler.LinkByName(tapName); err != nil {
 		var linkNotFoundErr netlink.LinkNotFoundError
 		if errors.As(err, &linkNotFoundErr) {
