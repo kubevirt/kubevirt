@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -135,7 +134,7 @@ func guestfsCmd(pvcClaim, namespace string, setGroup bool, extraArgs ...string) 
 		const testGroup = "2000"
 		args = append(args, "--fsGroup", testGroup)
 	}
-	return clientcmd.NewRepeatableVirtctlCommand(args...)
+	return newRepeatableVirtctlCommand(args...)
 }
 
 func runGuestfsOnPVC(done chan struct{}, pvcClaim, namespace string, setGroup bool, extraArgs ...string) {
