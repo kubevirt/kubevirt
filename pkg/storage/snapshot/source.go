@@ -377,7 +377,11 @@ func (s *vmSnapshotSource) Unfreeze() error {
 }
 
 func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
-	volumes, err := storageutils.GetVolumes(s.vm, s.controller.Client, storageutils.WithAllVolumes)
+	opts, err := getVolumeOptions(s)
+	if err != nil {
+		return map[string]string{}, err
+	}
+	volumes, err := storageutils.GetVolumes(s.vm, s.controller.Client, opts...)
 	if err != nil {
 		return map[string]string{}, err
 	}

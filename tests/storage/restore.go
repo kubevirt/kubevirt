@@ -1447,16 +1447,29 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pvcs.Items).To(HaveLen(1))
 
-				doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, true, getTargetVMName(restoreToNewVM, newVmName))
-				startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", true, console.LoginToFedora)
-				Expect(restore.Status.Restores).To(HaveLen(2))
+				// TODO: Currently, only offline snapshot supports backend PVC
+				tpm := true
+				if restoreToNewVM || onlineSnapshot {
+					tpm = false
+				}
+
+				doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, tpm, getTargetVMName(restoreToNewVM, newVmName))
+				startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", tpm, console.LoginToFedora)
+
+				// TODO: Currently, only offline snapshot supports backend PVC
+				expectedLen := 2
+				if onlineSnapshot {
+					expectedLen = 1
+				}
+
+				Expect(restore.Status.Restores).To(HaveLen(expectedLen))
 
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
 			},
-				Entry("to the same VM with online snapshot", false, true),
 				Entry("to the same VM with offline snapshot", false, false),
+				Entry("to the same VM with online snapshot", false, true),
 				Entry("to a new VM with online snapshot", true, true),
 				Entry("to a new VM with offline snapshot", true, false),
 			)

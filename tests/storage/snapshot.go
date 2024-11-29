@@ -1511,7 +1511,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pvcs.Items).To(HaveLen(1))
-				pvc := pvcs.Items[0]
+
+				// Stop VM before snapshotting as currently, only offline snapshot is supported for backend PVC
+				vm = libvmops.StopVirtualMachine(vm)
 
 				By("Create Snapshot")
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
@@ -1533,7 +1535,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(2))
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[0]).Should(Equal("snapshotablevolume"))
-				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[1]).Should(Equal(pvc.Name))
+				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[1]).Should(Equal(fmt.Sprintf("persistent-state-for-%s", vm.Name)))
 			})
 		})
 
