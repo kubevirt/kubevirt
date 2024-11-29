@@ -34,7 +34,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -195,13 +194,9 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 		})
 
 		It("VirtApiRESTErrorsBurst and VirtApiRESTErrorsHigh should be triggered when requests to virt-api are failing", func() {
-			randVmName := rand.String(6)
-
 			Eventually(func(g Gomega) {
-				cmd := clientcmd.NewVirtctlCommand("vnc", randVmName)
-				err := cmd.Execute()
-				Expect(err).To(HaveOccurred())
-
+				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).VNC(rand.String(6))
+				g.Expect(err).To(MatchError(ContainSubstring("not found")))
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsBurtsAlert)).To(BeTrue())
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
