@@ -190,7 +190,9 @@ func (c *createPreference) run(cmd *cobra.Command) error {
 	var out []byte
 	var err error
 
-	c.setDefaults(cmd)
+	if err = c.setDefaults(cmd); err != nil {
+		return err
+	}
 
 	if c.namespaced {
 		preference := c.newPreference()
