@@ -300,6 +300,7 @@ func ConvertKubeVirtFeaturesToDomainFeatureList(features *api.Features) *libvirt
 	f.PMU = setDomainFeatureState(features.PMU)
 	f.HyperV = ConvertKubeVirtFeatureHypervToDomainFeatureHyperV(features.Hyperv)
 	f.KVM = ConverKubeVirtFeatureKVMToDomainFeatureKVM(features.KVM)
+	f.VMPort = setDomainFeatureState(features.VMPort)
 	return f
 
 }

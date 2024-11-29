@@ -72,10 +72,19 @@ func (d *Defaulter) SetDefaults_SysInfo(sysinfo *SysInfo) {
 	}
 }
 
+func (d *Defaulter) SetDefaults_Features(spec *DomainSpec) {
+	if spec.Features == nil {
+		spec.Features = &Features{}
+	}
+
+	spec.Features.VMPort = &FeatureState{State: "off"}
+}
+
 func (d *Defaulter) SetObjectDefaults_Domain(in *Domain) {
 	d.SetDefaults_DomainSpec(&in.Spec)
 	d.SetDefaults_OSType(&in.Spec.OS.Type)
 	if in.Spec.SysInfo != nil {
 		d.SetDefaults_SysInfo(in.Spec.SysInfo)
 	}
+	d.SetDefaults_Features(&in.Spec)
 }
