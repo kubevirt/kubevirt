@@ -70,6 +70,8 @@ const (
 	restoreVMNotReadyEvent = "RestoreTargetNotReady"
 
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
+
+	restoreBackendExcludedEvent = "restoreBackendExcluded"
 )
 
 var (
@@ -366,7 +368,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 		return false, err
 	}
 
-	noRestore, err := ctrl.volumesNotForRestore(content)
+	noRestore, err := ctrl.volumesNotForRestore(content, target, vmRestore)
 	if err != nil {
 		return false, err
 	}
@@ -562,6 +564,11 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 }
 
 func (t *vmRestoreTarget) reconcileBackendVolume() (bool, error) {
+	if !t.Exists() {
+		// Only offline snapshot to the same VM supported.
+		return true, nil
+	}
+
 	vmSnapshot, err := t.controller.getVMSnapshot(t.vmRestore)
 	if err != nil {
 		return false, err
@@ -1385,7 +1392,7 @@ func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Co
 
 // Returns a set of volumes not for restore
 // Currently only memory dump volumes should not be restored
-func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) (sets.String, error) {
+func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent, target restoreTarget, vmRestore *snapshotv1.VirtualMachineRestore) (sets.String, error) {
 	noRestore := sets.NewString()
 
 	volumes, err := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, ctrl.Client)
@@ -1396,6 +1403,19 @@ func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.Virtua
 	for _, volume := range volumes {
 		if volume.MemoryDump != nil {
 			noRestore.Insert(volume.Name)
+		}
+	}
+
+	if !target.Exists() {
+		// Restoring backend storage not supported when target is not equal to the source
+		volumes, err := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, ctrl.Client, storageutils.WithBackendVolume)
+		if err != nil && !storageutils.IsErrNoBackendPVC(err) {
+			return noRestore, err
+		}
+		for _, volume := range volumes {
+			noRestore.Insert(volume.Name)
+			ctrl.Recorder.Eventf(vmRestore, corev1.EventTypeWarning, restoreBackendExcludedEvent,
+				"Backend volume %s excluded from restore: Only restoring to the same VM supported", volume.Name)
 		}
 	}
 
