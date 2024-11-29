@@ -7,15 +7,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/client-go/api"
-
-	"github.com/spf13/cobra"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Pausing", func() {
@@ -38,33 +36,29 @@ var _ = Describe("Pausing", func() {
 
 	Context("With missing input parameters", func() {
 		It("should fail a pause", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand(COMMAND_PAUSE)
+			cmd := testing.NewRepeatableVirtctlCommand(COMMAND_PAUSE)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	DescribeTable("should pause VMI", func(pauseOptions *v1.PauseOptions) {
-
 		vmi := api.NewMinimalVMI(vmName)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().Pause(context.Background(), vmi.Name, pauseOptions).Return(nil).Times(1)
 
-		var command *cobra.Command
-		if len(pauseOptions.DryRun) == 0 {
-			command = clientcmd.NewVirtctlCommand(COMMAND_PAUSE, "vmi", vmName)
-		} else {
-			command = clientcmd.NewVirtctlCommand(COMMAND_PAUSE, "--dry-run", "vmi", vmName)
+		args := []string{COMMAND_PAUSE, "vmi", vmName}
+		if len(pauseOptions.DryRun) > 0 {
+			args = append(args, "--dry-run")
 		}
-		Expect(command.Execute()).To(Succeed())
+		Expect(testing.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	},
 		Entry("", &v1.PauseOptions{}),
 		Entry("with dry-run option", &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 	)
 
 	DescribeTable("should pause VM", func(pauseOptions *v1.PauseOptions) {
-
 		vmi := api.NewMinimalVMI(vmName)
 		vm := kubecli.NewMinimalVM(vmName)
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
@@ -77,13 +71,11 @@ var _ = Describe("Pausing", func() {
 		vmInterface.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
 		vmiInterface.EXPECT().Pause(context.Background(), vm.Name, pauseOptions).Return(nil).Times(1)
 
-		var command *cobra.Command
-		if len(pauseOptions.DryRun) == 0 {
-			command = clientcmd.NewVirtctlCommand(COMMAND_PAUSE, "vm", vmName)
-		} else {
-			command = clientcmd.NewVirtctlCommand(COMMAND_PAUSE, "--dry-run", "vm", vmName)
+		args := []string{COMMAND_PAUSE, "vm", vmName}
+		if len(pauseOptions.DryRun) > 0 {
+			args = append(args, "--dry-run")
 		}
-		Expect(command.Execute()).To(Succeed())
+		Expect(testing.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	},
 		Entry("", &v1.PauseOptions{}),
 		Entry("with dry-run option", &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),

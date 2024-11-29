@@ -13,25 +13,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega/gstruct"
+
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
+	k8stesting "k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 const vmeName = "test-vme"
@@ -470,8 +470,8 @@ var _ = Describe("vmexport", func() {
 
 		Context("Successfully create and download", func() {
 			updateVMEStatusOnCreate := func(format exportv1.ExportVolumeFormat) {
-				virtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (bool, runtime.Object, error) {
-					create, ok := action.(testing.CreateAction)
+				virtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					create, ok := action.(k8stesting.CreateAction)
 					Expect(ok).To(BeTrue())
 					vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
 					Expect(ok).To(BeTrue())
@@ -978,20 +978,20 @@ func setFlag(flag, parameter string) string {
 
 func runCmd(args ...string) error {
 	_args := append([]string{"vmexport"}, args...)
-	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+	return testing.NewRepeatableVirtctlCommand(_args...)()
 }
 
 func runCreateCmd(args ...string) error {
 	_args := append([]string{"vmexport", vmexport.CREATE, vmeName}, args...)
-	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+	return testing.NewRepeatableVirtctlCommand(_args...)()
 }
 
 func runDeleteCmd(args ...string) error {
 	_args := append([]string{"vmexport", vmexport.DELETE, vmeName}, args...)
-	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+	return testing.NewRepeatableVirtctlCommand(_args...)()
 }
 
 func runDownloadCmd(args ...string) error {
 	_args := append([]string{"vmexport", vmexport.DOWNLOAD, vmeName}, args...)
-	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+	return testing.NewRepeatableVirtctlCommand(_args...)()
 }

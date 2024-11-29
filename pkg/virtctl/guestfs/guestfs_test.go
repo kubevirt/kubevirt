@@ -5,21 +5,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/testing"
 
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
-
-	virtctlcmd "kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 const (
@@ -53,7 +52,7 @@ var _ = Describe("Guestfs shell", func() {
 	}
 	fakeCreateClientPVC := func(config *rest.Config, virtClientConfig clientcmd.ClientConfig) (*guestfs.K8sClient, error) {
 		kubeClient = fake.NewSimpleClientset(pvc)
-		kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (bool, runtime.Object, error) {
+		kubeClient.Fake.PrependReactor("get", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
 			podRunning := &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "libguestfs-tools",
@@ -119,13 +118,13 @@ var _ = Describe("Guestfs shell", func() {
 
 		It("Succesfully attach to PVC", func() {
 			guestfs.CreateClientFunc = fakeCreateClientPVC
-			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
+			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName)
 			Expect(cmd()).To(Succeed())
 		})
 
 		It("PVC in use", func() {
 			guestfs.CreateClientFunc = fakeCreateClientPVCinUse
-			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
+			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("PVC %s is used by another pod", pvcName)))
@@ -133,7 +132,7 @@ var _ = Describe("Guestfs shell", func() {
 
 		It("PVC doesn't exist", func() {
 			guestfs.CreateClientFunc = fakeCreateClient
-			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
+			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("The PVC %s doesn't exist", pvcName)))
@@ -141,14 +140,14 @@ var _ = Describe("Guestfs shell", func() {
 
 		It("UID cannot be used with root", func() {
 			guestfs.CreateClientFunc = fakeCreateClientPVC
-			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName, "--root=true", "--uid=1001")
+			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName, "--root=true", "--uid=1001")
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("cannot set uid if root is true")))
 		})
 		It("GID can be use only together with the uid flag", func() {
 			guestfs.CreateClientFunc = fakeCreateClientPVC
-			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName, "--gid=1001")
+			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName, "--gid=1001")
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("gid requires the uid to be set")))

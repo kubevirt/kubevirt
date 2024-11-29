@@ -27,10 +27,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Migrate command", func() {
@@ -46,7 +47,7 @@ var _ = Describe("Migrate command", func() {
 	})
 
 	It("should fail with missing input parameters", func() {
-		cmd := clientcmd.NewRepeatableVirtctlCommand("migrate")
+		cmd := testing.NewRepeatableVirtctlCommand("migrate")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
 		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
@@ -58,14 +59,11 @@ var _ = Describe("Migrate command", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		vmInterface.EXPECT().Migrate(context.Background(), vm.Name, migrateOptions).Return(nil).Times(1)
 
-		var cmd func() error
-		if len(migrateOptions.DryRun) == 0 {
-			cmd = clientcmd.NewRepeatableVirtctlCommand("migrate", vmName)
-		} else {
-			cmd = clientcmd.NewRepeatableVirtctlCommand("migrate", "--dry-run", vmName)
+		args := []string{"migrate", vmName}
+		if len(migrateOptions.DryRun) > 0 {
+			args = append(args, "--dry-run")
 		}
-
-		Expect(cmd()).To(Succeed())
+		Expect(testing.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	},
 		Entry("with default", &v1.MigrateOptions{}),
 		Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
