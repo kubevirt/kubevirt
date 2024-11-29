@@ -135,10 +135,10 @@ func (c *createPreference) usage() string {
   {{ProgramName}} create preference
 	
   # Create a manifest for a ClusterPreference with a specified CPU topology:
-  {{ProgramName}} create preference --cpu-topology preferSockets
+  {{ProgramName}} create preference --cpu-topology sockets
 
   # Create a manifest for a Preference with a specified CPU topology:
-  {{ProgramName}} create preference --cpu-topology preferSockets --namespaced
+  {{ProgramName}} create preference --cpu-topology sockets --namespaced
 	
   # Create a manifest for a ClusterPreference and use it to create a resource with kubectl
   {{ProgramName}} create preference --volume-storage-class hostpath-provisioner | kubectl create -f -`
@@ -190,7 +190,9 @@ func (c *createPreference) run(cmd *cobra.Command) error {
 	var out []byte
 	var err error
 
-	c.setDefaults(cmd)
+	if err = c.setDefaults(cmd); err != nil {
+		return err
+	}
 
 	if c.namespaced {
 		preference := c.newPreference()
