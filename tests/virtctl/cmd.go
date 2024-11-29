@@ -17,7 +17,7 @@
  *
  */
 
-package clientcmd
+package virtctl
 
 import (
 	"bytes"
@@ -28,32 +28,30 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
-func NewVirtctlCommand(args ...string) *cobra.Command {
-	commandline := []string{}
-	master := flag.Lookup("master").Value
-	if master != nil && master.String() != "" {
-		commandline = append(commandline, serverName, master.String())
+func newVirtctlCommand(extraArgs ...string) *cobra.Command {
+	var args []string
+	if server := flag.Lookup("server"); server != nil && server.Value.String() != "" {
+		args = append(args, "--server="+server.Value.String())
 	}
-	kubeconfig := flag.Lookup("kubeconfig").Value
-	if kubeconfig != nil && kubeconfig.String() != "" {
-		commandline = append(commandline, "--kubeconfig", kubeconfig.String())
+	if kubeconfig := flag.Lookup("kubeconfig"); kubeconfig != nil && kubeconfig.Value.String() != "" {
+		args = append(args, "--kubeconfig="+kubeconfig.Value.String())
 	}
 	cmd, _ := virtctl.NewVirtctlCommand()
-	cmd.SetArgs(append(commandline, args...))
+	cmd.SetArgs(append(args, extraArgs...))
 	return cmd
 }
 
-func NewRepeatableVirtctlCommand(args ...string) func() error {
+func newRepeatableVirtctlCommand(args ...string) func() error {
 	return func() error {
-		cmd := NewVirtctlCommand(args...)
+		cmd := newVirtctlCommand(args...)
 		return cmd.Execute()
 	}
 }
 
-func NewRepeatableVirtctlCommandWithOut(args ...string) func() ([]byte, error) {
+func newRepeatableVirtctlCommandWithOut(args ...string) func() ([]byte, error) {
 	return func() ([]byte, error) {
 		out := &bytes.Buffer{}
-		cmd := NewVirtctlCommand(args...)
+		cmd := newVirtctlCommand(args...)
 		cmd.SetOut(out)
 		err := cmd.Execute()
 		return out.Bytes(), err
