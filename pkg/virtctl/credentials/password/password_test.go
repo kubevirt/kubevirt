@@ -3,24 +3,24 @@ package password_test
 import (
 	"context"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/golang/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	v1 "kubevirt.io/api/core/v1"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Credentials set-password", func() {
@@ -211,5 +211,5 @@ func expectSecretToContainUserWithPassword(kubeClient kubernetes.Interface, secr
 }
 
 func runSetPasswordCommand(args ...string) error {
-	return clientcmd.NewRepeatableVirtctlCommand(append([]string{"credentials", "set-password"}, args...)...)()
+	return testing.NewRepeatableVirtctlCommand(append([]string{"credentials", "set-password"}, args...)...)()
 }
