@@ -49,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -735,7 +734,7 @@ func setFlag(flag, parameter string) string {
 
 func runCreateVmCmd(args ...string) ([]byte, error) {
 	_args := append([]string{create.CREATE, "vm"}, args...)
-	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
+	return newRepeatableVirtctlCommandWithOut(_args...)()
 }
 
 func decodeVM(bytes []byte) (*v1.VirtualMachine, error) {
@@ -803,7 +802,7 @@ func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.Pe
 
 func runSSHCommand(namespace, name, user, keyFile string) {
 	libssh.DisableSSHAgent()
-	err := clientcmd.NewRepeatableVirtctlCommand(
+	err := newRepeatableVirtctlCommand(
 		"ssh",
 		"--namespace", namespace,
 		"--username", user,
