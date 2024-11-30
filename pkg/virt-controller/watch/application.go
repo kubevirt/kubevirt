@@ -657,9 +657,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 		topologyHinter,
 		netAnnotationsGenerator,
-		func(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-			return netvmicontroller.UpdateStatus(clusterConfig, vmi, pod)
-		},
+		netvmicontroller.UpdateStatus,
 	)
 	if err != nil {
 		panic(err)

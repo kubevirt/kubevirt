@@ -33,16 +33,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-type clusterConfigChecker interface {
-	DynamicPodInterfaceNamingEnabled() bool
-}
-
-func UpdateStatus(clusterConfig clusterConfigChecker, vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
+func UpdateStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
 	networkStatuses := multus.NetworkStatusesFromPod(pod)
 
-	interfaceStatuses = append(interfaceStatuses, calculatePrimaryIfaceStatus(vmi, networkStatuses, clusterConfig)...)
+	interfaceStatuses = append(interfaceStatuses, calculatePrimaryIfaceStatus(vmi, networkStatuses)...)
 
 	secondaryIfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, networkStatuses)
 	if err != nil {
@@ -61,18 +57,9 @@ func UpdateStatus(clusterConfig clusterConfigChecker, vmi *v1.VirtualMachineInst
 func calculatePrimaryIfaceStatus(
 	vmi *v1.VirtualMachineInstance,
 	networkStatuses []networkv1.NetworkStatus,
-	clusterConfig clusterConfigChecker,
 ) []v1.VirtualMachineInstanceNetworkInterface {
 	primaryNetworkSpec := vmispec.LookUpDefaultNetwork(vmi.Spec.Networks)
 	if primaryNetworkSpec == nil {
-		return nil
-	}
-
-	primaryIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, primaryNetworkSpec.Name)
-	if !clusterConfig.DynamicPodInterfaceNamingEnabled() {
-		if primaryIfaceStatus != nil {
-			return []v1.VirtualMachineInstanceNetworkInterface{*primaryIfaceStatus}
-		}
 		return nil
 	}
 
@@ -81,6 +68,7 @@ func calculatePrimaryIfaceStatus(
 		primaryPodIfaceName = namescheme.PrimaryPodInterfaceName
 	}
 
+	primaryIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, primaryNetworkSpec.Name)
 	if primaryIfaceStatus == nil {
 		return []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: primaryNetworkSpec.Name, PodInterfaceName: primaryPodIfaceName},

@@ -80,7 +80,6 @@ go_test(
         "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
         "//pkg/testutils:go_default_library",
-        "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-controller/watch/clone:go_default_library",
         "//pkg/virt-controller/watch/drain/disruptionbudget:go_default_library",

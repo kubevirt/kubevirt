@@ -73,8 +73,7 @@ const (
 	// This feature requires following Kubernetes feature gate "ServiceAccountTokenPodNodeInfo". The feature gate is available
 	// in Kubernetes 1.30 as Beta.
 	NodeRestrictionGate = "NodeRestriction"
-	// DynamicPodInterfaceNaming enables a mechanism to dynamically determine the primary pod interface for KuveVirt virtual machines.
-	DynamicPodInterfaceNamingGate = "DynamicPodInterfaceNaming"
+
 	// Owner: @lyarwood
 	// Alpha: v1.4.0
 	//
@@ -239,8 +238,4 @@ func (config *ClusterConfig) VolumeMigrationEnabled() bool {
 
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(NodeRestrictionGate)
-}
-
-func (config *ClusterConfig) DynamicPodInterfaceNamingEnabled() bool {
-	return config.isFeatureGateEnabled(DynamicPodInterfaceNamingGate)
 }

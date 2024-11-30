@@ -18,7 +18,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -108,7 +107,7 @@ func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance
 	return changeOwnershipOfHostDisks(vmi, res)
 }
 
-func getTapDevices(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance, networkBindings map[string]v1.InterfaceBindingPlugin) (map[string]string, error) {
+func getTapDevices(vmi *v1.VirtualMachineInstance, networkBindings map[string]v1.InterfaceBindingPlugin) (map[string]string, error) {
 	tapNetworks := map[string]struct{}{}
 	domainAttachmentByInterfaceName := domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, networkBindings)
 	for _, inf := range vmi.Spec.Domain.Devices.Interfaces {
@@ -118,9 +117,7 @@ func getTapDevices(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachi
 	}
 
 	networkNameScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)
-	if clusterConfig.DynamicPodInterfaceNamingEnabled() {
-		networkNameScheme = namescheme.UpdatePrimaryPodIfaceNameFromVMIStatus(networkNameScheme, vmi.Spec.Networks, vmi.Status.Interfaces)
-	}
+	networkNameScheme = namescheme.UpdatePrimaryPodIfaceNameFromVMIStatus(networkNameScheme, vmi.Spec.Networks, vmi.Status.Interfaces)
 
 	tapDevices := map[string]string{}
 	for _, net := range vmi.Spec.Networks {
@@ -135,7 +132,7 @@ func getTapDevices(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachi
 }
 
 func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	networkToTapDeviceNames, err := getTapDevices(d.clusterConfig, vmi, d.clusterConfig.GetNetworkBindings())
+	networkToTapDeviceNames, err := getTapDevices(vmi, d.clusterConfig.GetNetworkBindings())
 	if err != nil {
 		return err
 	}
