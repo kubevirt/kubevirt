@@ -202,22 +202,25 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 	hashedDevice := "tap" + namescheme.GenerateHashedInterfaceName(networkName)[3:]
 
 	DescribeTable("domain interfaces to hot-unplug",
-		func(vmiSpecIfaces []v1.Interface, domainSpecIfaces []api.Interface, expectedDomainSpecIfaces []api.Interface) {
-			Expect(interfacesToHotUnplug(vmiSpecIfaces, domainSpecIfaces)).To(ConsistOf(expectedDomainSpecIfaces))
+		func(vmiSpecIfaces []v1.Interface, vmiSpecNets []v1.Network, domainSpecIfaces []api.Interface, expectedDomainSpecIfaces []api.Interface) {
+			Expect(interfacesToHotUnplug(vmiSpecIfaces, vmiSpecNets, domainSpecIfaces)).To(ConsistOf(expectedDomainSpecIfaces))
 		},
-		Entry("given no VMI interfaces and no domain interfaces", nil, nil, nil),
+		Entry("given no VMI interfaces and no domain interfaces", nil, nil, nil, nil),
 		Entry("given no VMI interfaces and 1 domain interface",
+			nil,
 			nil,
 			[]api.Interface{{Alias: api.NewUserDefinedAlias(networkName)}},
 			nil,
 		),
 		Entry("given 1 VMI non-absent interface and an associated interface in the domain",
 			[]v1.Interface{{Name: networkName}},
+			[]v1.Network{{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
 			[]api.Interface{{Alias: api.NewUserDefinedAlias(networkName)}},
 			nil,
 		),
 		Entry("given 1 VMI absent interface and an associated interface in the domain is using ordinal device",
 			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}},
+			[]v1.Network{{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
 			[]api.Interface{
 				{Target: &api.InterfaceTarget{Device: ordinalDevice}, Alias: api.NewUserDefinedAlias(networkName)},
 			},
@@ -225,6 +228,7 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 		),
 		Entry("given 1 VMI absent interface and an associated interface in the domain is using hashed device",
 			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}},
+			[]v1.Network{{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
 			[]api.Interface{{
 				Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName)},
 			},

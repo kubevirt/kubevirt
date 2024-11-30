@@ -81,7 +81,12 @@ var _ = Describe("Pod Network", func() {
 				tapInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: tapName}}
 				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(iface, nil)
 				specGenerator = NewTapLibvirtSpecGenerator(
-					&vmi.Spec.Domain.Devices.Interfaces[0], domain, primaryPodIfaceName, mockNetwork)
+					&vmi.Spec.Domain.Devices.Interfaces[0],
+					vmi.Spec.Networks[0],
+					domain,
+					primaryPodIfaceName,
+					mockNetwork,
+				)
 			})
 
 			It("Should use the tap device as the target", func() {

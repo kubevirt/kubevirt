@@ -23,11 +23,20 @@ import (
 	"fmt"
 	"strings"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func GenerateTapDeviceName(podInterfaceName string) string {
-	return "tap" + podInterfaceName[3:]
+const tapNameForPrimaryIface = "tap0"
+
+func GenerateTapDeviceName(podInterfaceName string, network v1.Network) string {
+	if vmispec.IsSecondaryMultusNetwork(network) {
+		return "tap" + podInterfaceName[3:]
+	}
+
+	return tapNameForPrimaryIface
 }
 
 func GenerateBridgeName(podInterfaceName string) string {
