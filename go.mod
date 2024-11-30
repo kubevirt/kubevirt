@@ -18,6 +18,7 @@ require (
 	github.com/golang/glog v1.2.1
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
+	github.com/google/cel-go v0.21.0
 	github.com/google/go-github/v32 v32.0.0
 	github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 	github.com/google/gofuzz v1.2.0
@@ -67,6 +68,7 @@ require (
 	k8s.io/api v0.31.0
 	k8s.io/apiextensions-apiserver v0.31.0
 	k8s.io/apimachinery v0.31.0
+	k8s.io/apiserver v0.31.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-aggregator v0.26.4
@@ -86,8 +88,10 @@ require (
 
 require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cilium/ebpf v0.7.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
@@ -139,14 +143,17 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/seccomp/libseccomp-golang v0.10.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/u-root/uio v0.0.0-20230220225925-ffce2a382923 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.mongodb.org/mongo-driver v1.8.4 // indirect
+	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9 // indirect
 	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
@@ -154,7 +161,7 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.31.0 // indirect
+	k8s.io/component-base v0.31.0 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
