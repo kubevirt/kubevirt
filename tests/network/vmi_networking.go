@@ -836,14 +836,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	})
 })
 
-func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-	vmi = libwait.WaitForSuccessfulVMIStart(vmi)
-
-	// make sure that the OS is up by waiting until we can login
-	Expect(loginTo(vmi)).To(Succeed())
-	return vmi
-}
-
 func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess bool) []expect.Batcher {
 	expectResult := console.ShellFail
 	if expectSuccess {
