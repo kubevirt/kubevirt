@@ -23,10 +23,6 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"path/filepath"
-
-	expect "github.com/google/goexpect"
-	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -35,7 +31,6 @@ import (
 
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -82,15 +77,4 @@ func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.Domai
 
 	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
 	return &runningVMISpec, err
-}
-
-func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
-	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
-	err := console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: testData},
-	}, 15)
-	Expect(err).ToNot(HaveOccurred())
 }
