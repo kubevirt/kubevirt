@@ -9,14 +9,9 @@ We aim to run e2e tests in parallel by default. As such the following rules shou
    to create resources outside the test namespaces, discuss potential
    solutions on such a PR.
  * If you really have to run tests serial (destructive tests, infra-tests,
-  ...), mark the test with a `[Serial]` tag and add the [Serial decorator](https://onsi.github.io/ginkgo/#serial-specs) to the test.
+  ...), add the [Serial decorator](https://onsi.github.io/ginkgo/#serial-specs) to the test.
  * If tests are not using the default cleanup code, additional custom
    preparations may be necessary.
-
-The following types of tests need to be marked as `[Serial]` right now:
-
- * Tests which use PVCs or DataVolumes (parallelizing these is on the way).
- * Tests which use `BeforeAll`.
 
 Additional suggestions:
 

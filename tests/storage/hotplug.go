@@ -607,7 +607,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Entry("PersistentVolume", addPVCVolumeVM),
 		)
 
-		It("[Serial]Should preserve access to block devices if virt-handler crashes", Serial, func() {
+		It("Should preserve access to block devices if virt-handler crashes", Serial, func() {
 			blockDevices := []string{"/dev/disk0"}
 
 			By("Adding a hotplug block volume")
@@ -931,7 +931,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				Entry("with VMs", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
 				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
+				Entry(" with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 			)
 
 			It("should allow to hotplug 75 volumes simultaneously", func() {
@@ -1316,7 +1316,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeFilesystem, false),
 				Entry("with DataVolume and VMI directly", addDVVolumeVMI, removeVolumeVMI, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeBlock, false),
+				Entry(" with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeBlock, false),
 			)
 		})
 	})
@@ -1680,10 +1680,10 @@ var _ = SIGDescribe("Hotplug", func() {
 			_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[test_id:10002][Serial]1 to 1 cpu and mem ratio", Serial, float64(1), float64(1)),
-			Entry("[test_id:10003]Serial]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
-			Entry("[test_id:10004][Serial]2 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(2), float64(4)),
-			Entry("[test_id:10005][Serial]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", Serial, float64(2.25), float64(5.75)),
+			Entry("[test_id:10002]1 to 1 cpu and mem ratio", Serial, float64(1), float64(1)),
+			Entry("[test_id:10003]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
+			Entry("[test_id:10004]2 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(2), float64(4)),
+			Entry("[test_id:10005]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", Serial, float64(2.25), float64(5.75)),
 		)
 	})
 
@@ -1856,7 +1856,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	// Some of the functions used here don't behave well in parallel (CreateSCSIDisk).
 	// The device is created directly on the node and the addition and removal
 	// of the scsi_debug kernel module could create flakiness in parallel.
-	Context("[Serial]Hotplug LUN disk", Serial, func() {
+	Context("Hotplug LUN disk", Serial, func() {
 		var (
 			nodeName, address, device string
 			pvc                       *k8sv1.PersistentVolumeClaim

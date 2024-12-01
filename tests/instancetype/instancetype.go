@@ -183,7 +183,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Field).To(Equal("spec.preference"))
 		})
 	})
-	Context("[Serial]with cluster memory overcommit being applied", Serial, func() {
+	Context("with cluster memory overcommit being applied", Serial, func() {
 		BeforeEach(func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 

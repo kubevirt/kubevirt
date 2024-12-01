@@ -56,11 +56,11 @@ func init() {
 }
 
 func SIGDescribe(text string, args ...interface{}) bool {
-	return Describe("[sig-performance][Serial] "+text, decorators.SigPerformance, Serial, args)
+	return Describe("[sig-performance] "+text, decorators.SigPerformance, Serial, args)
 }
 
 func FSIGDescribe(text string, args ...interface{}) bool {
-	return FDescribe("[sig-performance][Serial] "+text, Serial, args)
+	return FDescribe("[sig-performance] "+text, Serial, args)
 }
 
 func skipIfNoPerformanceTests() {

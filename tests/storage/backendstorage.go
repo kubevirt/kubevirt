@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = SIGDescribe("[Serial]Backend Storage", Serial, func() {
+var _ = SIGDescribe("Backend Storage", Serial, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

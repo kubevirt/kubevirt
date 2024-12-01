@@ -55,7 +55,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = Describe("[Serial][sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 

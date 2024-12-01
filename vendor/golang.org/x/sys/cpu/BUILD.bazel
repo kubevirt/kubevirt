@@ -19,6 +19,7 @@ go_library(
         "cpu_linux_mips64x.go",
         "cpu_linux_noinit.go",
         "cpu_linux_ppc64x.go",
+        "cpu_linux_riscv64.go",
         "cpu_linux_s390x.go",
         "cpu_mips64x.go",
         "cpu_mipsx.go",

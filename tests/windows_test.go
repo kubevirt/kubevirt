@@ -62,7 +62,7 @@ const (
 	winrmCliCmd = "winrm-cli"
 )
 
-var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, decorators.Windows, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorators.Windows, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

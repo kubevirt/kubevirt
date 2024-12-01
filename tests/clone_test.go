@@ -49,7 +49,7 @@ const (
 	vmAPIGroup = "kubevirt.io"
 )
 
-var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
+var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

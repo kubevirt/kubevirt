@@ -927,7 +927,7 @@ var _ = SIGDescribe("Export", func() {
 		)
 	})
 
-	Context("[Serial]Ingress", Serial, func() {
+	Context("Ingress", Serial, func() {
 		const (
 			tlsSecretName = "test-tls"
 		)
@@ -1507,7 +1507,7 @@ var _ = SIGDescribe("Export", func() {
 			removeLimitRangeFromNamespace()
 		})
 
-		It("[Serial] should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", Serial, func() {
+		It(" should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", Serial, func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
@@ -1975,7 +1975,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 	})
 
-	Context("[Serial] with potential KubeVirt CR update", Serial, func() {
+	Context(" with potential KubeVirt CR update", Serial, func() {
 		var beforeCertParams *v1.KubeVirtCertificateRotateStrategy
 
 		BeforeEach(func() {

@@ -231,7 +231,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))
 			})
 
-			Context("[Serial] with node tainted during node drain", Serial, func() {
+			Context(" with node tainted during node drain", Serial, func() {
 
 				var (
 					nodeAffinity     *k8sv1.NodeAffinity
@@ -453,7 +453,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				})
 			})
 		})
-		Context("[Serial]with multiple VMIs with eviction policies set", Serial, func() {
+		Context("with multiple VMIs with eviction policies set", Serial, func() {
 
 			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
@@ -534,7 +534,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 		})
 	})
 
-	Describe("[Serial] with a cluster-wide live-migrate eviction strategy set", Serial, func() {
+	Describe(" with a cluster-wide live-migrate eviction strategy set", Serial, func() {
 		var originalKV *v1.KubeVirt
 
 		BeforeEach(func() {

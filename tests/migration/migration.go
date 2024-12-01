@@ -758,7 +758,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Eventually(matcher.ThisMigration(migration)).WithPolling(5 * time.Second).WithTimeout(2 * time.Minute).Should(matcher.BeInPhase(v1.MigrationFailed))
 			})
 		})
-		Context("[Serial] with auto converge enabled", Serial, func() {
+		Context(" with auto converge enabled", Serial, func() {
 			BeforeEach(func() {
 
 				// set autoconverge flag
@@ -1114,7 +1114,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			return dv
 		}
 
-		Context("[Serial] migration to nonroot", Serial, func() {
+		Context(" migration to nonroot", Serial, func() {
 			var dv *cdiv1.DataVolume
 			size := "256Mi"
 			var clusterIsRoot bool
@@ -1199,7 +1199,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}, console.LoginToAlpine),
 			)
 		})
-		Context("[Serial] migration to root", Serial, func() {
+		Context(" migration to root", Serial, func() {
 			var dv *cdiv1.DataVolume
 			var clusterIsRoot bool
 			size := "256Mi"
@@ -1291,7 +1291,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			)
 		})
 		Context("migration security", func() {
-			Context("[Serial] with TLS disabled", Serial, func() {
+			Context(" with TLS disabled", Serial, func() {
 				It("[test_id:6976] should be successfully migrated", func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
@@ -1471,7 +1471,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 		})
 
-		Context("[Serial] migration monitor", Serial, func() {
+		Context(" migration monitor", Serial, func() {
 			var createdPods []string
 			AfterEach(func() {
 				for _, podName := range createdPods {
@@ -2023,7 +2023,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 			})
 
-			Context("[Serial]when target pod cannot be scheduled and is suck in Pending phase", Serial, func() {
+			Context("when target pod cannot be scheduled and is suck in Pending phase", Serial, func() {
 
 				var nodesSetUnschedulable []string
 
@@ -2197,7 +2197,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				expectFeatureToBeSupportedOnNode(newNode, requiredFeatures)
 			})
 
-			Context("[Serial]Should trigger event if vmi with host-model start on source node with uniq host-model", Serial, func() {
+			Context("Should trigger event if vmi with host-model start on source node with uniq host-model", Serial, func() {
 
 				var vmi *v1.VirtualMachineInstance
 				var node *k8sv1.Node
@@ -2255,7 +2255,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			})
 
-			Context("[Serial]Should trigger event if the nodes doesn't contain MigrationSelectorLabel for the vmi host-model type", Serial, func() {
+			Context("Should trigger event if the nodes doesn't contain MigrationSelectorLabel for the vmi host-model type", Serial, func() {
 
 				var vmi *v1.VirtualMachineInstance
 				var nodes []k8sv1.Node
@@ -2339,7 +2339,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 		})
 
-		Context("[Serial] with migration policies", Serial, func() {
+		Context(" with migration policies", Serial, func() {
 
 			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName *string) {
 				By("Verifying the VMI's configuration source")
@@ -2397,7 +2397,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 		})
 
-		Context("[Serial] with freePageReporting", Serial, func() {
+		Context(" with freePageReporting", Serial, func() {
 
 			BeforeEach(func() {
 				kv := libkubevirt.GetCurrentKv(virtClient)
@@ -2476,7 +2476,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 	})
 
-	Context("[Serial] With Huge Pages", Serial, func() {
+	Context(" With Huge Pages", Serial, func() {
 		DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
 			hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
 
@@ -2518,7 +2518,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		)
 	})
 
-	Context("[Serial] with CPU pinning and huge pages", Serial, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+	Context(" with CPU pinning and huge pages", Serial, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		It("should not make migrations fail", func() {
 			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 			var err error
@@ -2565,7 +2565,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 	})
 
-	Context("[Serial]Testing host-model cpuModel edge cases in the cluster if the cluster is host-model migratable", Serial, func() {
+	Context("Testing host-model cpuModel edge cases in the cluster if the cluster is host-model migratable", Serial, func() {
 
 		var sourceNode *k8sv1.Node
 		var targetNode *k8sv1.Node
@@ -2891,7 +2891,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 	})
 
-	Context("[Serial] with a dedicated migration network", Serial, func() {
+	Context(" with a dedicated migration network", Serial, func() {
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
 

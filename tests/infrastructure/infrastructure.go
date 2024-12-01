@@ -26,7 +26,7 @@ import (
 )
 
 func DescribeSerialInfra(text string, args ...interface{}) bool {
-	return Describe("[Serial][sig-compute]Infrastructure "+text, Serial, decorators.SigCompute, args)
+	return Describe("[sig-compute]Infrastructure "+text, Serial, decorators.SigCompute, args)
 }
 
 func DescribeInfra(text string, args ...interface{}) bool {

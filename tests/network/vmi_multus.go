@@ -95,7 +95,7 @@ const (
 	bridge10MacSpoofCheck = false
 )
 
-var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
+var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

@@ -79,7 +79,7 @@ const (
 	sriovnetLinkEnabled = "sriov-linked"
 )
 
-var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
+var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 	var virtClient kubecli.KubevirtClient
 

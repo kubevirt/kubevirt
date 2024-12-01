@@ -56,7 +56,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		Context("when virt-handler is responsive", func() {
-			DescribeTable("[Serial]VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
+			DescribeTable("VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
 				var vmiOptions []libvmi.Option
 
 				if bridgeNetworking {

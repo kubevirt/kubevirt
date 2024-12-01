@@ -1355,7 +1355,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 	})
 
-	Context("[Serial] when node becomes unhealthy", Serial, func() {
+	Context(" when node becomes unhealthy", Serial, func() {
 		const componentName = "virt-handler"
 		var nodeName string
 
@@ -1369,7 +1369,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				config.ExpectResourceVersionToBeLessEqualThanConfigVersion, 120*time.Second)
 		})
 
-		It("[Serial] the VMs running in that node should be respawned", func() {
+		It(" the VMs running in that node should be respawned", func() {
 			By("Starting VM")
 			vm := libvmops.StartVirtualMachine(createVM(virtClient, libvmifact.NewCirros()))
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})

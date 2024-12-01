@@ -85,7 +85,7 @@ var (
 	}
 )
 
-var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorators.SigMonitoring, func() {
+var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigMonitoring, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var scales *libmonitoring.Scaling

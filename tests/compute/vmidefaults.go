@@ -146,7 +146,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			Expect(*domain.Devices.Ballooning).To(Equal(expected), "Default to virtio model and 10 seconds pooling")
 		})
 
-		DescribeTable("[Serial]Should override period in domain if present in virt-config ", Serial, func(period uint32, expected api.MemBalloon) {
+		DescribeTable("Should override period in domain if present in virt-config ", Serial, func(period uint32, expected api.MemBalloon) {
 			By("Adding period to virt-config")
 			kvConfigurationCopy := kvConfiguration.DeepCopy()
 			kvConfigurationCopy.MemBalloonStatsPeriod = &period
