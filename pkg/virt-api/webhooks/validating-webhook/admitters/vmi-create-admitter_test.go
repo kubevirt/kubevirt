@@ -394,9 +394,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with VirtualMachineInstance metadata", func() {
 		DescribeTable(
 			"Should allow VMI creation with kubevirt.io/ labels only for kubevirt service accounts",
-			func(vmiLabels map[string]string, userAccount string, positive bool) {
-				vmi := api.NewMinimalVMI("testvmi")
-				vmi.Labels = vmiLabels
+			func(labels map[string]string, userAccount string, positive bool) {
+				vmi := newBaseVmi()
+				vmi.Labels = labels
 
 				ar, err := newAdmissionReviewForVMICreation(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -438,10 +438,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			),
 		)
 		DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, expectedMsg string) {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.ObjectMeta = metav1.ObjectMeta{
-				Annotations: annotations,
-			}
+			vmi := newBaseVmi()
+			vmi.Annotations = annotations
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -462,13 +460,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
 			),
 		)
-
 		DescribeTable("should accept annotations which require feature gate enabled", func(annotations map[string]string, featureGate string) {
 			enableFeatureGate(featureGate)
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.ObjectMeta = metav1.ObjectMeta{
-				Annotations: annotations,
-			}
+			vmi := newBaseVmi()
+			vmi.Annotations = annotations
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).ToNot(HaveOccurred())
