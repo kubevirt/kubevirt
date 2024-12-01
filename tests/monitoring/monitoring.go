@@ -118,55 +118,29 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 	})
 
 	Context("System Alerts", func() {
-		disableVirtHandler := func() {
-			originalKv := libkubevirt.GetCurrentKv(virtClient)
-			customizedComponents := v1.CustomizeComponents{
-				Patches: []v1.CustomizeComponentsPatch{
-					{
-						ResourceName: virtHandler.deploymentName,
-						ResourceType: "DaemonSet",
-						Patch:        `{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/hostname":"does-not-exist"}}}}}`,
-						Type:         v1.StrategicMergePatchType,
-					},
-				},
-			}
+		var originalKv *v1.KubeVirt
 
-			patchBytes, err := patch.New(patch.WithAdd("/spec/customizeComponents", customizedComponents)).GeneratePayload()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() string {
-				vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vh.Spec.Template.Spec.NodeSelector[k8sv1.LabelHostname]
-			}).WithTimeout(90 * time.Second).WithPolling(5 * time.Second).Should(Equal("does-not-exist"))
-
-			Eventually(func() int {
-				vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return int(vh.Status.NumberAvailable + vh.Status.NumberUnavailable)
-			}).WithTimeout(90 * time.Second).WithPolling(5 * time.Second).Should(Equal(0))
-		}
-
-		restoreVirtHandler := func() {
-			originalKv := libkubevirt.GetCurrentKv(virtClient)
-			patchBytes, err := patch.New(patch.WithRemove("/spec/customizeComponents")).GeneratePayload()
-			Expect(err).ToNot(HaveOccurred())
-
-			_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
+		BeforeEach(func() {
+			originalKv = libkubevirt.GetCurrentKv(virtClient)
+		})
 
 		It("KubeVirtNoAvailableNodesToRunVMs should be triggered when there are no available nodes in the cluster to run VMs", func() {
 			By("Scaling down virt-handler")
-			disableVirtHandler()
+			err := disableVirtHandler(virtClient, originalKv)
+			Expect(err).ToNot(HaveOccurred(), "Failed to disable virt-handler")
+
+			By("Ensuring virt-handler is unschedulable on all nodes")
+			waitForVirtHandlerNodeSelector(1, virtClient, originalKv.Namespace, "does-not-exist", 90*time.Second, 5*time.Second)
+
+			By("Verifying virt-handler has no available pods")
+			waitForVirtHandlerPodCount(1, virtClient, originalKv.Namespace, 0, 90*time.Second, 5*time.Second)
 
 			By("Verifying KubeVirtNoAvailableNodesToRunVMs alert exists if emulation is disabled")
 			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
 
 			By("Restoring virt-handler")
-			restoreVirtHandler()
+			err = restoreVirtHandler(virtClient, originalKv)
+			Expect(err).ToNot(HaveOccurred(), "Failed to restore virt-handler")
 			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, "KubeVirtNoAvailableNodesToRunVMs")
 		})
 	})
@@ -189,6 +163,57 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 	})
 
 })
+
+func disableVirtHandler(virtClient kubecli.KubevirtClient, originalKv *v1.KubeVirt) error {
+	customizedComponents := v1.CustomizeComponents{
+		Patches: []v1.CustomizeComponentsPatch{
+			{
+				ResourceName: virtHandler.deploymentName,
+				ResourceType: "DaemonSet",
+				Patch:        `{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/hostname":"does-not-exist"}}}}}`,
+				Type:         v1.StrategicMergePatchType,
+			},
+		},
+	}
+
+	patchBytes, err := patch.New(patch.WithAdd("/spec/customizeComponents", customizedComponents)).GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	return err
+}
+
+func restoreVirtHandler(virtClient kubecli.KubevirtClient, originalKv *v1.KubeVirt) error {
+	patchBytes, err := patch.New(patch.WithRemove("/spec/customizeComponents")).GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	return err
+}
+
+func waitForVirtHandlerNodeSelector(offset int, virtClient kubecli.KubevirtClient, namespace, expectedValue string, timeout, polling time.Duration) {
+	EventuallyWithOffset(offset, func() (string, error) {
+		vh, err := virtClient.AppsV1().DaemonSets(namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
+		if err != nil {
+			return "", err
+		}
+		return vh.Spec.Template.Spec.NodeSelector[k8sv1.LabelHostname], nil
+	}).WithTimeout(timeout).WithPolling(polling).Should(Equal(expectedValue))
+}
+
+func waitForVirtHandlerPodCount(offset int, virtClient kubecli.KubevirtClient, namespace string, expectedCount int, timeout, polling time.Duration) {
+	EventuallyWithOffset(offset, func() (int, error) {
+		vh, err := virtClient.AppsV1().DaemonSets(namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
+		if err != nil {
+			return 0, err
+		}
+		return int(vh.Status.NumberAvailable + vh.Status.NumberUnavailable), nil
+	}).WithTimeout(timeout).WithPolling(polling).Should(Equal(expectedCount))
+}
 
 func checkRequiredAnnotations(rule promv1.Rule) {
 	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("summary", Not(BeEmpty())),
