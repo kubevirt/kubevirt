@@ -86,13 +86,11 @@ func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.Domai
 
 func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
 	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
-	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "sudo su -\n"},
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: testData},
 	}, 15)
-	if err != nil {
-		Expect(res[1].Output).To(ContainSubstring(testData))
-	}
+	Expect(err).ToNot(HaveOccurred())
 }
