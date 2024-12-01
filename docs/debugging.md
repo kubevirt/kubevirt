@@ -112,6 +112,75 @@ Having scaled down virt-operator, patch or edit the respetive k8s workload manif
   `dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec <binary>`
 - Turn off probes, tweak securityContext and anything else that could interfere with slow execution
 
+Here's a working example of a `virt-controller` deployment patch 
+
+```bash
+cluster-up/kubectl.sh --namespace kubevirt patch deployment virt-controller --type='json' -p '[
+   {
+      "op":"add",
+      "path":"/spec/template/spec/containers/-",
+      "value":{
+         "name":"dlv-debugger",
+         "image":"golang:1.23-alpine",
+         "command":[
+            "sh",
+            "-c",
+            "apk add --no-cache git bash && go install github.com/go-delve/delve/cmd/dlv@latest && \\
+dlv attach $(pgrep virt-controller) --headless --accept-multiclient --api-version 2 --listen=:2345"
+         ],
+         "securityContext":{
+            "seccompProfile":{
+               "type":"Unconfined"
+            },
+            "runAsUser":0
+         }
+      }
+   },
+   {
+      "op":"add",
+      "path":"/spec/template/spec/shareProcessNamespace",
+      "value":true
+   },
+   {
+      "op":"replace",
+      "path":"/spec/template/spec/containers/0/image",
+      "value":"registry:5000/kubevirt/virt-controller:debug"
+   },
+   {
+      "op":"replace",
+      "path":"/spec/replicas",
+      "value":1
+   },
+   {
+      "op":"replace",
+      "path":"/spec/template/spec/containers/0/imagePullPolicy",
+      "value":"Always"
+   },
+   {
+      "op":"replace",
+      "path":"/spec/template/spec/containers/0/securityContext",
+      "value":{
+         "runAsUser":0
+      }
+   },
+   {
+      "op":"replace",
+      "path":"/spec/template/spec/securityContext",
+      "value":{
+         
+      }
+   },
+   {
+      "op":"remove",
+      "path":"/spec/template/spec/containers/0/readinessProbe"
+   },
+   {
+      "op":"remove",
+      "path":"/spec/template/spec/containers/0/livenessProbe"
+   }
+]'
+```
+
 ### Step 3 - port-forward a local port to the target pod desgnated debug port
 `kubectl port-forward <pod> 2345`
 
