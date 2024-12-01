@@ -2047,7 +2047,7 @@ Version: 1.2.3`)
 
 					Expect(existingResource.Spec.Configuration.NetworkConfiguration).NotTo(BeNil())
 					Expect(existingResource.Spec.Configuration.NetworkConfiguration.Binding).NotTo(BeNil())
-					expectedInterfaceBindingPlugin := kubevirtcorev1.InterfaceBindingPlugin{
+					expectedPasstInterfaceBindingPlugin := kubevirtcorev1.InterfaceBindingPlugin{
 						NetworkAttachmentDefinition: primaryUDNNetworkBindingNADNamespace + "/" + primaryUDNNetworkBindingNADName,
 						SidecarImage:                expectedPrimaryUDNImage,
 						Migration: &kubevirtcorev1.InterfaceBindingMigration{
@@ -2059,7 +2059,8 @@ Version: 1.2.3`)
 							},
 						},
 					}
-					Expect(existingResource.Spec.Configuration.NetworkConfiguration.Binding[primaryUDNNetworkBindingName]).To(Equal(expectedInterfaceBindingPlugin))
+					Expect(existingResource.Spec.Configuration.NetworkConfiguration.Binding).To(HaveKeyWithValue(primaryUDNNetworkBindingName, primaryUserDefinedNetworkBinding()))
+					Expect(existingResource.Spec.Configuration.NetworkConfiguration.Binding).To(HaveKeyWithValue(passtUDNNetworkBindingName, expectedPasstInterfaceBindingPlugin))
 				})
 
 				It("should not add the Primary User Defined Network Binding to Kubevirt CR if PrimaryUserDefinedNetworkBinding is false in HyperConverged CR", func() {
