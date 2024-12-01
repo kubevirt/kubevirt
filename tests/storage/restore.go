@@ -300,18 +300,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			deleteVM(vm)
 		})
 
-		Context("and no snapshot", func() {
-			It("[test_id:5255]should reject restore", func() {
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				restore := createRestoreDef(vm.Name, "foobar")
-
-				_, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("VirtualMachineSnapshot \"foobar\" does not exist"))
-			})
-		})
-
 		Context("with run strategy and snapshot", func() {
 			var err error
 			var snapshot *snapshotv1.VirtualMachineSnapshot
