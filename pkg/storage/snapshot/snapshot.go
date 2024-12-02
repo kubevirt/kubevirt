@@ -89,7 +89,7 @@ func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.
 }
 
 func vmSnapshotFailed(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
-	return vmSnapshot.Status != nil && vmSnapshot.Status.Phase == snapshotv1.Failed
+	return vmSnapshot != nil && vmSnapshot.Status != nil && vmSnapshot.Status.Phase == snapshotv1.Failed
 }
 
 func vmSnapshotSucceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
