@@ -441,8 +441,11 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 
 	// Remove the finalizer and conditions if the migration has already completed
 	if migration.IsFinal() {
-		// store the finalized migration state data from the VMI status in the migration object
-		migrationCopy.Status.MigrationState = vmi.Status.MigrationState
+
+		if vmi.Status.MigrationState != nil && migration.UID == vmi.Status.MigrationState.MigrationUID {
+			// Store the finalized migration state data from the VMI status in the migration object
+			migrationCopy.Status.MigrationState = vmi.Status.MigrationState
+		}
 
 		// remove the migration finalizer
 		controller.RemoveFinalizer(migrationCopy, virtv1.VirtualMachineInstanceMigrationFinalizer)
