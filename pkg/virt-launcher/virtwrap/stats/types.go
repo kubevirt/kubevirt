@@ -180,6 +180,8 @@ type DomainStatsMemory struct {
 // mimic existing structs, but data is taken from
 // DomainJobInfo
 type DomainJobInfo struct {
+	DataTotalSet     bool
+	DataTotal        uint64
 	DataProcessedSet bool
 	DataProcessed    uint64
 	MemoryBpsSet     bool
