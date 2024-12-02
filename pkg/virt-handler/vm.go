@@ -1691,11 +1691,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 		}
 	}
 
-	heartBeatDone := make(chan struct{})
-	go func() {
-		c.heartBeat.Run(c.heartBeatInterval, stopCh)
-		close(heartBeatDone)
-	}()
+	heartBeatDone := c.heartBeat.Run(c.heartBeatInterval, stopCh)
 
 	go c.ioErrorRetryManager.Run(stopCh)
 
@@ -1704,8 +1700,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	<-stopCh
 	<-heartBeatDone
+	<-stopCh
 	log.Log.Info("Stopping virt-handler controller.")
 }
 
