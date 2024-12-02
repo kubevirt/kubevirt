@@ -210,7 +210,6 @@ go_test(
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/google/uuid:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
-        "//vendor/github.com/mitchellh/go-vnc:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/reporters:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
