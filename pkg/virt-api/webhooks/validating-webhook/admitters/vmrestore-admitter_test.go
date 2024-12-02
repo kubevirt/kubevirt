@@ -263,7 +263,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 			})
 
-			It("should reject when VM is running", func() {
+			It("should reject when VMI exists", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "restore",
@@ -279,16 +279,22 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.Running = &t
+				vmi := &v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: vmName,
+						UID:  "vmi-UID",
+					},
+				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot, vmi).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
+				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VirtualMachineInstance %q exists, VM must be stopped before restore", vmName)))
 			})
 
-			It("should reject when VM run strategy is not halted", func() {
+			It("should allow when VM run strategy is not halted", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "restore",
@@ -308,10 +314,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(HaveLen(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
-				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vmName, v1.RunStrategyHalted)))
+				Expect(resp.Allowed).To(BeTrue())
 			})
 
 			It("should reject when snapshot does not exist", func() {
@@ -662,17 +665,22 @@ func createTestVMRestoreAdmitter(
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
 	vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
+	vmiInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 	kubevirtClient := kubevirtfake.NewSimpleClientset(objs...)
 
 	virtClient.EXPECT().VirtualMachineSnapshot("default").
 		Return(kubevirtClient.SnapshotV1alpha1().VirtualMachineSnapshots("default")).AnyTimes()
 	virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
+	virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
 
+	var vmi *v1.VirtualMachineInstance
 	restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 	for _, obj := range objs {
-		r, ok := obj.(*snapshotv1.VirtualMachineRestore)
-		if ok {
-			restoreInformer.GetIndexer().Add(r)
+		switch v := obj.(type) {
+		case *snapshotv1.VirtualMachineRestore:
+			restoreInformer.GetIndexer().Add(v)
+		case *v1.VirtualMachineInstance:
+			vmi = v
 		}
 	}
 
@@ -681,7 +689,16 @@ func createTestVMRestoreAdmitter(
 			return vm, nil
 		}
 
-		err := errors.NewNotFound(schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachines"}, "foo")
+		err := errors.NewNotFound(schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachines"}, name)
+		return nil, err
+	}).AnyTimes()
+
+	vmiInterface.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, name string, getOptions metav1.GetOptions) (*v1.VirtualMachineInstance, error) {
+		if vmi != nil && name == vmi.Name {
+			return vmi, nil
+		}
+
+		err := errors.NewNotFound(schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineInstances"}, name)
 		return nil, err
 	}).AnyTimes()
 
