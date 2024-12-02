@@ -92,16 +92,14 @@ var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindin
 
 	Context("with domain attachment tap type", func() {
 		const (
-			macvtapNetworkConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
-			macvtapBindingName    = "macvtap"
-			macvtapLowerDevice    = "eth0"
-			macvtapNetworkName    = "net1"
+			macvtapBindingName = "macvtap"
+			macvtapLowerDevice = "eth0"
+			macvtapNetworkName = "net1"
 		)
 
 		BeforeEach(func() {
-			macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, macvtapNetworkName, testsuite.GetTestNamespace(nil), macvtapLowerDevice, macvtapNetworkName)
 			namespace := testsuite.GetTestNamespace(nil)
-			Expect(libnet.CreateNetworkAttachmentDefinition(macvtapNetworkName, namespace, macvtapNad)).
+			Expect(libnet.CreateMacvtapNetworkAttachmentDefinition(namespace, macvtapNetworkName, macvtapLowerDevice)).
 				To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
 		})
 
@@ -180,12 +178,25 @@ var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindin
 			nodeName := nodeList.Items[0].Name
 
 			const (
-				linuxBridgeConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"%s\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }}]}"}}`
+				pluginType         = "bridge"
 				linuxBridgeNADName = "bridge0"
 			)
 			namespace := testsuite.GetTestNamespace(nil)
-			bridgeNAD := fmt.Sprintf(linuxBridgeConfNAD, linuxBridgeNADName, namespace, "br10", "10.1.1.0/24")
-			Expect(libnet.CreateNetworkAttachmentDefinition(linuxBridgeNADName, namespace, bridgeNAD)).To(Succeed())
+			netAttachDef := libnet.NewNetAttachDef(
+				linuxBridgeNADName,
+				libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(
+					pluginType,
+					map[string]interface{}{
+						"bridge": "br10",
+						"ipam": map[string]string{
+							"type":   "host-local",
+							"subnet": "10.1.1.0/24",
+						},
+					},
+				)),
+			)
+			_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+			Expect(err).ToNot(HaveOccurred())
 
 			primaryIface := libvmi.InterfaceWithBindingPlugin(
 				"mynet1", v1.PluginBinding{Name: bindingName},
@@ -215,7 +226,6 @@ var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindin
 			}
 			clientVMI := libvmifact.NewAlpineWithTestTooling(opts...)
 
-			var err error
 			ns := testsuite.GetTestNamespace(nil)
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

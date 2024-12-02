@@ -21,49 +21,29 @@ package libnet
 
 import (
 	"context"
-	"fmt"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
-const PasstNetAttDef = "netbindingpasst"
+const (
+	// ResourceNameAnnotation represents a resource name that is associated with the network.
+	// It could be found on NetworkAttachmentDefinition objects.
+	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
+
+	PasstNetAttDef = "netbindingpasst"
+)
 
 func CreatePasstNetworkAttachmentDefinition(namespace string) error {
-	const passtType = "kubevirt-passt-binding" // #nosec G101
-	const netAttDefFmt = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":%q,"namespace":%q},` +
-		`"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"%s\"}]}"}}`
-	return CreateNetworkAttachmentDefinition(
-		PasstNetAttDef,
-		namespace,
-		fmt.Sprintf(netAttDefFmt, PasstNetAttDef, namespace, PasstNetAttDef, passtType),
-	)
+	const pluginType = "kubevirt-passt-binding" // #nosec G101
+	netAttachDef := NewNetAttachDef(PasstNetAttDef, NewNetConfig(PasstNetAttDef, NewNetPluginConfig(pluginType, nil)))
+	_, err := CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+	return err
 }
 
 func CreateMacvtapNetworkAttachmentDefinition(namespace, networkName, macvtapLowerDevice string) error {
-	const macvtapNADFmt = `{
-		"apiVersion":"k8s.cni.cncf.io/v1",
-		"kind":"NetworkAttachmentDefinition",
-		"metadata":{
-			"name":"%s",
-			"namespace":"%s", 
-			"annotations": {
-				"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"
-			}
-		},
-		"spec":{
-			"config":"{\"cniVersion\": \"0.3.1\",\"name\": \"%s\",\"type\": \"macvtap\"}"
-		}
-	}`
-	macvtapNad := fmt.Sprintf(macvtapNADFmt, networkName, namespace, macvtapLowerDevice, networkName)
-	return CreateNetworkAttachmentDefinition(networkName, namespace, macvtapNad)
-}
-
-func CreateNetworkAttachmentDefinition(name, namespace, netConf string) error {
-	const postURL = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
-	return kubevirt.Client().RestClient().
-		Post().
-		RequestURI(fmt.Sprintf(postURL, namespace, name)).
-		Body([]byte(netConf)).
-		Do(context.Background()).
-		Error()
+	const pluginType = "macvtap"
+	netAttachDef := NewNetAttachDef(networkName, NewNetConfig(networkName, NewNetPluginConfig(pluginType, nil)))
+	netAttachDef.Annotations = map[string]string{
+		ResourceNameAnnotation: "macvtap.network.kubevirt.io/" + macvtapLowerDevice,
+	}
+	_, err := CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+	return err
 }

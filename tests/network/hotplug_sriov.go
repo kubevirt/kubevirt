@@ -21,7 +21,6 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -118,11 +117,23 @@ var _ = SIGDescribe(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 })
 
 func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourceName string) error {
-	return libnet.CreateNetworkAttachmentDefinition(
+	const pluginType = "sriov"
+	netAttachDef := libnet.NewNetAttachDef(
 		networkName,
-		namespace,
-		fmt.Sprintf(sriovConfNAD, networkName, namespace, sriovResourceName),
+		libnet.NewNetConfig("sriov", libnet.NewNetPluginConfig(
+			pluginType,
+			map[string]interface{}{
+				"vlan": 0,
+				"ipam": map[string]string{
+					"type":   "host-local",
+					"subnet": "10.1.1.0/24",
+				},
+			},
+		)),
 	)
+	netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
+	_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+	return err
 }
 
 func newSRIOVNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {

@@ -199,17 +199,22 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	})
 
 	Context("VirtualMachineInstance with custom and default interface models", func() {
-		const (
-			secondaryNetName = "secondary-net"
-			nadName          = "simple-bridge"
-		)
+		const nadName = "simple-bridge"
+
 		BeforeEach(func() {
-			const linuxBridgeNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"%s\"}]}"}}`
-			ns := testsuite.GetTestNamespace(nil)
-			Expect(libnet.CreateNetworkAttachmentDefinition(nadName, ns,
-				fmt.Sprintf(linuxBridgeNAD, nadName, ns, nadName, secondaryNetName),
-			)).To(Succeed())
+			const pluginType = "bridge"
+			const bridgeName = "br10"
+			netAttachDef := libnet.NewNetAttachDef(
+				nadName,
+				libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(
+					pluginType,
+					map[string]interface{}{"bridge": bridgeName},
+				)),
+			)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).ToNot(HaveOccurred())
 		})
+
 		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
@@ -218,6 +223,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			e1000ModelIface.Model = "e1000"
 			e1000ModelIface.PciAddress = "0000:02:01.0"
 
+			const secondaryNetName = "secondary-net"
 			defaultModelIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
 			defaultModelIface.PciAddress = "0000:03:00.0"
 			vmi := libvmifact.NewAlpine(

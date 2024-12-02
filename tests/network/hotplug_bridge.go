@@ -21,7 +21,6 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -293,15 +292,16 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 })
 
 func createBridgeNetworkAttachmentDefinition(namespace, networkName, bridgeName string) error {
-	const (
-		bridgeCNIType  = "bridge"
-		linuxBridgeNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"%s\", \"bridge\": \"%s\"}]}"}}`
-	)
-	return libnet.CreateNetworkAttachmentDefinition(
+	const pluginType = "bridge"
+	netAttachDef := libnet.NewNetAttachDef(
 		networkName,
-		namespace,
-		fmt.Sprintf(linuxBridgeNAD, networkName, namespace, bridgeCNIType, bridgeName),
+		libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(
+			pluginType,
+			map[string]interface{}{"bridge": bridgeName},
+		)),
 	)
+	_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+	return err
 }
 
 func newBridgeNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
