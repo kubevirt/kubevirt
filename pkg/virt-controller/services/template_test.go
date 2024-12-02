@@ -5054,13 +5054,14 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pod).ToNot(BeNil())
-			containCGL := ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Name": Equal("guest-console-log"),
+			containGCL := ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Name":          Equal("guest-console-log"),
+				"RestartPolicy": Equal(pointer.P(k8sv1.ContainerRestartPolicyAlways)),
 			}))
 			if expected {
-				Expect(pod.Spec.Containers).To(containCGL)
+				Expect(pod.Spec.InitContainers).To(containGCL)
 			} else {
-				Expect(pod.Spec.Containers).ToNot(containCGL)
+				Expect(pod.Spec.InitContainers).ToNot(containGCL)
 			}
 
 		},
