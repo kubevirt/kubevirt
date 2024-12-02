@@ -170,9 +170,7 @@ var istioTests = func(vmType VmType) {
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		})
 		Describe("Live Migration", decorators.SigComputeMigrations, func() {
-			var (
-				sourcePodName string
-			)
+			var sourcePodName string
 			allContainersCompleted := func(podName string) error {
 				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 				if err != nil {
@@ -389,10 +387,9 @@ var istioTests = func(vmType VmType) {
 				ingressGatewayService, err := virtClient.CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				ingressGatewayServiceIP = ingressGatewayService.Spec.ClusterIP
-
 			})
 
-			checkHTTPServiceReturnCode := func(ingressGatewayAddress string, returnCode string) error {
+			checkHTTPServiceReturnCode := func(ingressGatewayAddress, returnCode string) error {
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -497,7 +494,6 @@ func istioServiceMeshDeployed() bool {
 func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineInstance, error) {
 	if vmType == Masquerade {
 		return createMasqueradeVm(ports), nil
-
 	}
 	if vmType == Passt {
 		return createPasstVm(ports), nil

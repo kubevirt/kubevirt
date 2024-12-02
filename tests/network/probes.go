@@ -296,7 +296,7 @@ func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineIn
 	return libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
-func createTCPProbe(period int32, initialSeconds int32, port int) *v1.Probe {
+func createTCPProbe(period, initialSeconds int32, port int) *v1.Probe {
 	httpHandler := v1.Handler{
 		TCPSocket: &k8sv1.TCPSocketAction{
 			Port: intstr.FromInt(port),
@@ -305,7 +305,7 @@ func createTCPProbe(period int32, initialSeconds int32, port int) *v1.Probe {
 	return createProbeSpecification(period, initialSeconds, 1, httpHandler)
 }
 
-func createGuestAgentPingProbe(period int32, initialSeconds int32) *v1.Probe {
+func createGuestAgentPingProbe(period, initialSeconds int32) *v1.Probe {
 	handler := v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}}
 	return createProbeSpecification(period, initialSeconds, 1, handler)
 }
@@ -319,7 +319,7 @@ func patchProbeWithIPAddr(existingProbe *v1.Probe, ipHostIP string) *v1.Probe {
 	return existingProbe
 }
 
-func createHTTPProbe(period int32, initialSeconds int32, port int) *v1.Probe {
+func createHTTPProbe(period, initialSeconds int32, port int) *v1.Probe {
 	httpHandler := v1.Handler{
 		HTTPGet: &k8sv1.HTTPGetAction{
 			Port: intstr.FromInt(port),
@@ -328,12 +328,12 @@ func createHTTPProbe(period int32, initialSeconds int32, port int) *v1.Probe {
 	return createProbeSpecification(period, initialSeconds, 1, httpHandler)
 }
 
-func createExecProbe(period int32, initialSeconds int32, timeoutSeconds int32, command ...string) *v1.Probe {
+func createExecProbe(period, initialSeconds, timeoutSeconds int32, command ...string) *v1.Probe {
 	execHandler := v1.Handler{Exec: &k8sv1.ExecAction{Command: command}}
 	return createProbeSpecification(period, initialSeconds, timeoutSeconds, execHandler)
 }
 
-func createProbeSpecification(period int32, initialSeconds int32, timeoutSeconds int32, handler v1.Handler) *v1.Probe {
+func createProbeSpecification(period, initialSeconds, timeoutSeconds int32, handler v1.Handler) *v1.Probe {
 	return &v1.Probe{
 		PeriodSeconds:       period,
 		InitialDelaySeconds: initialSeconds,
