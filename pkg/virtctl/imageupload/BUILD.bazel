@@ -37,7 +37,6 @@ go_test(
     tags = ["cov"],
     deps = [
         ":go_default_library",
-        "//pkg/virtctl/utils:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/client-go/containerizeddataimporter/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
