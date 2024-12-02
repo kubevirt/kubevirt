@@ -58,7 +58,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				foundContainer := false
-				for _, container := range virtlauncherPod.Spec.Containers {
+				for _, container := range virtlauncherPod.Spec.InitContainers {
 					if container.Name == "guest-console-log" {
 						foundContainer = true
 					}
@@ -87,7 +87,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				foundContainer := false
-				for _, container := range virtlauncherPod.Spec.Containers {
+				for _, container := range virtlauncherPod.Spec.InitContainers {
 					if container.Name == "guest-console-log" {
 						foundContainer = true
 					}
@@ -115,13 +115,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 		Context("fetch logs", func() {
 			var vmi *v1.VirtualMachineInstance
 
-			var cirrosLogo = `
-  ____               ____  ____
- / __/ __ ____ ____ / __ \/ __/
-/ /__ / // __// __// /_/ /\ \ 
-\___//_//_/  /_/   \____/___/ 
-   http://cirros-cloud.net
-`
+			var cirrosCheck = "http://cirros-cloud.net"
 
 			It("[QUARANTINE] it should fetch logs for a running VM with logs API", decorators.Quarantine, func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
@@ -135,7 +129,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				Eventually(func(g Gomega) bool {
 					logs, err := getConsoleLogs(virtlauncherPod)
 					g.Expect(err).ToNot(HaveOccurred())
-					return strings.Contains(logs, cirrosLogo)
+					return strings.Contains(logs, cirrosCheck)
 				}, cirrosStartupTimeout*time.Second, 2*time.Second).Should(BeTrue())
 
 				By("Obtaining the serial console, logging in and executing a command there")
@@ -186,10 +180,10 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				_, err = getConsoleLogs(virtlauncherPod)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Ensuring that we have 4 rotated log files (+term one)")
+				By("Ensuring that we have 4 rotated log files")
 				outputString, err := exec.ExecuteCommandOnPod(virtlauncherPod, "guest-console-log", []string{"/bin/ls", "-l", fmt.Sprintf("/var/run/kubevirt-private/%v", vmi.UID)})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4 + 1))
+				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4))
 			})
 
 			It("[QUARANTINE] it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", decorators.Quarantine, decorators.Periodic, func() {
