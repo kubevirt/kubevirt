@@ -192,7 +192,7 @@ func (l *Launcher) SyncVirtualMachineCPUs(_ context.Context, request *cmdv1.VMIR
 }
 
 func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
+	log.Log.Info("Received SyncVirtualMachine command")
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
