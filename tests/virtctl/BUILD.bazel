@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "cmd.go",
         "create_vm.go",
+        "framework.go",
         "guestfs.go",
         "imageupload.go",
         "memorydump.go",
