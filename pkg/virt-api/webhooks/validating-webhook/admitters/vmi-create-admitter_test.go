@@ -394,7 +394,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with VirtualMachineInstance metadata", func() {
 		DescribeTable(
 			"Should allow VMI creation with kubevirt.io/ labels only for kubevirt service accounts",
-			func(labels map[string]string, userAccount string, positive bool) {
+			func(labels map[string]string, userAccount string) {
 				vmi := newBaseVmi()
 				vmi.Labels = labels
 
@@ -403,40 +403,38 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				ar.Request.UserInfo = authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + userAccount}
 
 				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
-				if positive {
-					Expect(resp.Allowed).To(BeTrue())
-				} else {
-					Expect(resp.Allowed).To(BeFalse())
-					Expect(resp.Result.Details.Causes).To(HaveLen(1))
-					Expect(resp.Result.Details.Causes[0].Message).To(Equal("creation of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
-				}
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
 			},
 			Entry("Create restricted label by API",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				components.ApiServiceAccountName,
-				true,
 			),
 			Entry("Create restricted label by Handler",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				components.HandlerServiceAccountName,
-				true,
 			),
 			Entry("Create restricted label by Controller",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				components.ControllerServiceAccountName,
-				true,
-			),
-			Entry("Create restricted label by non kubevirt user",
-				map[string]string{v1.NodeNameLabel: "someValue"},
-				"user-account",
-				false,
 			),
 			Entry("Create non restricted kubevirt.io prefixed label by non kubevirt user",
 				map[string]string{"kubevirt.io/l": "someValue"},
 				"user-account",
-				true,
 			),
 		)
+		It("should reject restricted label by non kubevirt user", func() {
+			vmi := newBaseVmi(libvmi.WithLabel(v1.NodeNameLabel, "someValue"))
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			ar.Request.UserInfo = authv1.UserInfo{Username: "system:serviceaccount:fake:" + "user-account"}
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("creation of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
+		})
 		DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, expectedMsg string) {
 			vmi := newBaseVmi()
 			vmi.Annotations = annotations
