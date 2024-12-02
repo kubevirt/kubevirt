@@ -1939,7 +1939,6 @@ func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 		// if we're still the migration target, we need to keep trying until the migration fails.
 		// it's possible we're simply waiting for another target pod to come online.
 		d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-
 	} else if shouldUpdate {
 		log.Log.Object(vmi).Info("Processing vmi migration target update")
 
@@ -3244,7 +3243,9 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities, disksInfo, d.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, d.clusterConfig.GetNetworkBindings())
 
+	log.Log.Object(vmi).Info("Sending SyncVMI command")
 	err = client.SyncVirtualMachine(vmi, options)
+	log.Log.Object(vmi).Info("SyncVMI command returned")
 	if err != nil {
 		isSecbootError := strings.Contains(err.Error(), "EFI OVMF rom missing")
 		if isSecbootError {
