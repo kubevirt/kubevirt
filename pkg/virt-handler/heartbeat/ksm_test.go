@@ -31,8 +31,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +38,7 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	gomegatypes "github.com/onsi/gomega/types"
 )
@@ -125,7 +124,7 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(virtconfig.CPUManager), "mynode")
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(featuregate.CPUManager), "mynode")
 
 			heartbeat.do()
 			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})

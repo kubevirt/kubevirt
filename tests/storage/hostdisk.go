@@ -26,7 +26,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -39,7 +40,7 @@ func CreateHostDisk(diskPath string) *k8sv1.Pod {
 	dir := filepath.Dir(diskPath)
 
 	command := fmt.Sprintf(`dd if=/dev/zero of=%s bs=1 count=0 seek=1G && ls -l %s`, diskPath, dir)
-	if !checks.HasFeature(virtconfig.Root) {
+	if !checks.HasFeature(featuregate.Root) {
 		command = command + fmt.Sprintf(" && chown 107:107 %s", diskPath)
 	}
 
