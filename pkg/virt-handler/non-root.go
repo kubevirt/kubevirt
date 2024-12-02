@@ -100,7 +100,7 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 	return nil
 }
 
-func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+func (c *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
 	if err := changeOwnershipOfBlockDevices(vmi, res); err != nil {
 		return err
 	}
@@ -131,8 +131,8 @@ func getTapDevices(vmi *v1.VirtualMachineInstance, networkBindings map[string]v1
 	return tapDevices, nil
 }
 
-func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	networkToTapDeviceNames, err := getTapDevices(vmi, d.clusterConfig.GetNetworkBindings())
+func (c *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+	networkToTapDeviceNames, err := getTapDevices(vmi, c.clusterConfig.GetNetworkBindings())
 	if err != nil {
 		return err
 	}
@@ -242,18 +242,18 @@ func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res
 	return nil
 }
 
-func (d *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineInstance) error {
-	res, err := d.podIsolationDetector.Detect(origVMI)
+func (c *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineInstance) error {
+	res, err := c.podIsolationDetector.Detect(origVMI)
 	if err != nil {
 		return err
 	}
-	if err := d.prepareStorage(origVMI, res); err != nil {
+	if err := c.prepareStorage(origVMI, res); err != nil {
 		return err
 	}
-	if err := d.prepareTap(origVMI, res); err != nil {
+	if err := c.prepareTap(origVMI, res); err != nil {
 		return err
 	}
-	if err := d.prepareVFIO(origVMI, res); err != nil {
+	if err := c.prepareVFIO(origVMI, res); err != nil {
 		return err
 	}
 	return nil
