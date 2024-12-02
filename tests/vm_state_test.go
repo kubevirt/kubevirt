@@ -185,16 +185,16 @@ var _ = Describe("[sig-compute]VM state", func() {
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[test_id:10818]TPM across migration and restart", decorators.SigComputeMigrations, tpm, !efi, rwx, "migrate", "restart"),
-			Entry("[test_id:10819]TPM across restart and migration", decorators.SigComputeMigrations, tpm, !efi, rwx, "restart", "migrate"),
-			Entry("[test_id:10820]EFI across migration and restart", decorators.SigComputeMigrations, !tpm, efi, rwx, "migrate", "restart"),
-			Entry("[test_id:10821]TPM+EFI across migration and restart", decorators.SigComputeMigrations, tpm, efi, rwx, "migrate", "restart"),
+			Entry("[test_id:10818]TPM across migration and restart", decorators.SigComputeMigrations, decorators.RequiresRWXFsVMStateStorageClass, tpm, !efi, rwx, "migrate", "restart"),
+			Entry("[test_id:10819]TPM across restart and migration", decorators.SigComputeMigrations, decorators.RequiresRWXFsVMStateStorageClass, tpm, !efi, rwx, "restart", "migrate"),
+			Entry("[test_id:10820]EFI across migration and restart", decorators.SigComputeMigrations, decorators.RequiresRWXFsVMStateStorageClass, !tpm, efi, rwx, "migrate", "restart"),
+			Entry("[test_id:10821]TPM+EFI across migration and restart", decorators.SigComputeMigrations, decorators.RequiresRWXFsVMStateStorageClass, tpm, efi, rwx, "migrate", "restart"),
 			// The entries below are clones of the entries above, but made for cluster that *do not* support RWX FS.
 			// They can't be flake-checked since the flake-checker cluster does support RWX FS.
-			Entry("TPM across migration and restart", decorators.SigCompute, decorators.NoFlakeCheck, tpm, !efi, rwo, "migrate", "restart"),
-			Entry("TPM across restart and migration", decorators.SigCompute, decorators.NoFlakeCheck, tpm, !efi, rwo, "restart", "migrate"),
-			Entry("EFI across migration and restart", decorators.SigCompute, decorators.NoFlakeCheck, !tpm, efi, rwo, "migrate", "restart"),
-			Entry("TPM+EFI across migration and restart", decorators.SigCompute, decorators.NoFlakeCheck, tpm, efi, rwo, "migrate", "restart"),
+			Entry("TPM across migration and restart", decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, tpm, !efi, rwo, "migrate", "restart"),
+			Entry("TPM across restart and migration", decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, tpm, !efi, rwo, "restart", "migrate"),
+			Entry("EFI across migration and restart", decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, !tpm, efi, rwo, "migrate", "restart"),
+			Entry("TPM+EFI across migration and restart", decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, tpm, efi, rwo, "migrate", "restart"),
 		)
 		It("should remove persistent storage PVC if VMI is not owned by a VM", decorators.SigCompute, func() {
 			By("Creating a VMI with persistent TPM enabled")
