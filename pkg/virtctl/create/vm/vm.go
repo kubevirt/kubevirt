@@ -1301,7 +1301,7 @@ func createDataVolume(spec *cdiv1.DataVolumeSpec, size string, name string, vm *
 
 	dvt.Spec.Storage = &cdiv1.StorageSpec{}
 	if size != "" {
-		dvt.Spec.Storage.Resources = k8sv1.ResourceRequirements{
+		dvt.Spec.Storage.Resources = k8sv1.VolumeResourceRequirements{
 			Requests: k8sv1.ResourceList{
 				k8sv1.ResourceStorage: resource.MustParse(size),
 			},
