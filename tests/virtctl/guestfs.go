@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-storage][virtctl]Guestfs", decorators.SigStorage, func() {
+var _ = VirtctlDescribe("[sig-storage]Guestfs", decorators.SigStorage, func() {
 	var (
 		pvcClaim string
 		done     chan struct{}

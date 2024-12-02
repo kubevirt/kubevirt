@@ -50,7 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-storage][virtctl]Memory dump", decorators.SigStorage, func() {
+var _ = VirtctlDescribe("[sig-storage]Memory dump", decorators.SigStorage, func() {
 	const (
 		claimNameFlag   = "--claim-name"
 		createClaimFlag = "--create-claim"
