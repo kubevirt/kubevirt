@@ -1440,6 +1440,46 @@ var _ = Describe("Migration watcher", func() {
 			expectMigrationCompletedState(migration.Namespace, migration.Name)
 		})
 
+		It("should not override the MigrationState of a completed migration when a new one is created", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			addNodeNameToVMI(vmi, "node02")
+
+			completedMigration := newMigration("completed-migration", vmi.Name, virtv1.MigrationSucceeded)
+			completedMigration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: completedMigration.UID,
+				TargetNode:   "node02",
+				SourceNode:   "node01",
+				Failed:       false,
+				Completed:    true,
+			}
+			runningMigration := newMigration("running-migration", vmi.Name, virtv1.MigrationRunning)
+
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID:                   runningMigration.UID,
+				TargetNode:                     "node01",
+				SourceNode:                     "node02",
+				TargetNodeAddress:              "10.10.10.10:1234",
+				StartTimestamp:                 pointer.P(metav1.Now()),
+				EndTimestamp:                   pointer.P(metav1.Now()),
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				Failed:                         false,
+				Completed:                      true,
+			}
+
+			addMigration(completedMigration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(newTargetPodForVirtualMachine(vmi, completedMigration, k8sv1.PodRunning))
+
+			addMigration(runningMigration)
+
+			sanityExecute()
+
+			oldMigration, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(completedMigration.Namespace).Get(context.TODO(), completedMigration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(oldMigration.Status.MigrationState.MigrationUID).To(Equal(completedMigration.UID))
+		})
+
 		DescribeTable("should not transit to succeeded phase when VMI status has", func(conditions []virtv1.VirtualMachineInstanceConditionType) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			addNodeNameToVMI(vmi, "node02")
