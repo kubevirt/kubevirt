@@ -3142,7 +3142,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			basicCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range RequiredGuestAgentCommands {
+			for _, cmdName := range requiredGuestAgentCommands {
 				basicCommands = append(basicCommands, v1.GuestAgentCommandInfo{
 					Name:    cmdName,
 					Enabled: true,
@@ -3150,7 +3150,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			sshCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range SSHRelatedGuestAgentCommands {
+			for _, cmdName := range sshRelatedGuestAgentCommands {
 				sshCommands = append(sshCommands, v1.GuestAgentCommandInfo{
 					Name:    cmdName,
 					Enabled: true,
@@ -3158,7 +3158,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			oldSshCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range OldSSHRelatedGuestAgentCommands {
+			for _, cmdName := range oldSSHRelatedGuestAgentCommands {
 				oldSshCommands = append(oldSshCommands, v1.GuestAgentCommandInfo{
 					Name:    cmdName,
 					Enabled: true,
@@ -3166,7 +3166,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			passwordCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range PasswordRelatedGuestAgentCommands {
+			for _, cmdName := range passwordRelatedGuestAgentCommands {
 				passwordCommands = append(passwordCommands, v1.GuestAgentCommandInfo{
 					Name:    cmdName,
 					Enabled: true,

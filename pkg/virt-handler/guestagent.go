@@ -21,7 +21,7 @@ package virthandler
 
 import v1 "kubevirt.io/api/core/v1"
 
-var RequiredGuestAgentCommands = []string{
+var requiredGuestAgentCommands = []string{
 	"guest-ping",
 	"guest-get-time",
 	"guest-info",
@@ -34,13 +34,13 @@ var RequiredGuestAgentCommands = []string{
 	"guest-get-osinfo",
 }
 
-var SSHRelatedGuestAgentCommands = []string{
+var sshRelatedGuestAgentCommands = []string{
 	"guest-ssh-get-authorized-keys",
 	"guest-ssh-add-authorized-keys",
 	"guest-ssh-remove-authorized-keys",
 }
 
-var OldSSHRelatedGuestAgentCommands = []string{
+var oldSSHRelatedGuestAgentCommands = []string{
 	"guest-exec-status",
 	"guest-exec",
 	"guest-file-open",
@@ -49,32 +49,26 @@ var OldSSHRelatedGuestAgentCommands = []string{
 	"guest-file-write",
 }
 
-var PasswordRelatedGuestAgentCommands = []string{
+var passwordRelatedGuestAgentCommands = []string{
 	"guest-set-user-password",
 }
 
-func _guestAgentCommandSubsetSupported(requiredCommands []string, commands []v1.GuestAgentCommandInfo) bool {
-	var found bool
+func guestAgentCommandSubsetSupported(requiredCommands []string, availableCmdsMap map[string]bool) bool {
 	for _, cmd := range requiredCommands {
-		found = false
-		for _, foundCmd := range commands {
-			if cmd == foundCmd.Name {
-				if foundCmd.Enabled {
-					found = true
-				}
-				break
-			}
-		}
-		if found == false {
+		if enabled, exists := availableCmdsMap[cmd]; !exists || !enabled {
 			return false
 		}
 	}
 	return true
-
 }
 
 func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAgentCommandInfo) (bool, string) {
-	if !_guestAgentCommandSubsetSupported(RequiredGuestAgentCommands, commands) {
+	availableCmdsMap := make(map[string]bool, len(commands))
+	for _, command := range commands {
+		availableCmdsMap[command.Name] = command.Enabled
+	}
+
+	if !guestAgentCommandSubsetSupported(requiredGuestAgentCommands, availableCmdsMap) {
 		return false, "This guest agent doesn't support required basic commands"
 	}
 
@@ -91,22 +85,21 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 				// defer checking the command list so we only do that once
 				checkPasswd = true
 			}
-
 		}
 	}
 
-	if checkSSH && !sshRelatedCommandsSupported(commands) {
+	if checkSSH && !sshRelatedCommandsSupported(availableCmdsMap) {
 		return false, "This guest agent doesn't support required public key commands"
 	}
 
-	if checkPasswd && !_guestAgentCommandSubsetSupported(PasswordRelatedGuestAgentCommands, commands) {
+	if checkPasswd && !guestAgentCommandSubsetSupported(passwordRelatedGuestAgentCommands, availableCmdsMap) {
 		return false, "This guest agent doesn't support required password commands"
 	}
 
 	return true, "This guest agent is supported"
 }
 
-func sshRelatedCommandsSupported(commands []v1.GuestAgentCommandInfo) bool {
-	return _guestAgentCommandSubsetSupported(SSHRelatedGuestAgentCommands, commands) ||
-		_guestAgentCommandSubsetSupported(OldSSHRelatedGuestAgentCommands, commands)
+func sshRelatedCommandsSupported(availableCmdsMap map[string]bool) bool {
+	return guestAgentCommandSubsetSupported(sshRelatedGuestAgentCommands, availableCmdsMap) ||
+		guestAgentCommandSubsetSupported(oldSSHRelatedGuestAgentCommands, availableCmdsMap)
 }
