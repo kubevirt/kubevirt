@@ -27,11 +27,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Start command", func() {
@@ -47,7 +48,7 @@ var _ = Describe("Start command", func() {
 	})
 
 	It("should fail with missing input parameters", func() {
-		cmd := clientcmd.NewRepeatableVirtctlCommand("start")
+		cmd := testing.NewRepeatableVirtctlCommand("start")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
 		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
@@ -60,7 +61,7 @@ var _ = Describe("Start command", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
 
-		cmd := clientcmd.NewRepeatableVirtctlCommand("start", vmName, "--dry-run")
+		cmd := testing.NewRepeatableVirtctlCommand("start", vmName, "--dry-run")
 		Expect(cmd()).To(Succeed())
 	})
 
@@ -74,7 +75,7 @@ var _ = Describe("Start command", func() {
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{Paused: false, DryRun: nil}).Return(nil).Times(1)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand("start", vmName)
+			cmd := testing.NewRepeatableVirtctlCommand("start", vmName)
 			Expect(cmd()).To(Succeed())
 		})
 
@@ -85,7 +86,7 @@ var _ = Describe("Start command", func() {
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{Paused: false, DryRun: nil}).Return(nil).Times(1)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand("start", vmName)
+			cmd := testing.NewRepeatableVirtctlCommand("start", vmName)
 			Expect(cmd()).To(Succeed())
 		})
 	})
@@ -97,7 +98,7 @@ var _ = Describe("Start command", func() {
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{Paused: true, DryRun: nil}).Return(nil).Times(1)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand("start", vmName, "--paused")
+			cmd := testing.NewRepeatableVirtctlCommand("start", vmName, "--paused")
 			Expect(cmd()).To(Succeed())
 		})
 
@@ -107,7 +108,7 @@ var _ = Describe("Start command", func() {
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{Paused: false, DryRun: nil}).Return(nil).Times(1)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand("start", vmName, "--paused=false")
+			cmd := testing.NewRepeatableVirtctlCommand("start", vmName, "--paused=false")
 			Expect(cmd()).To(Succeed())
 		})
 	})

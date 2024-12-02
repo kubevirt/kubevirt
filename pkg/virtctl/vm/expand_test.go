@@ -24,10 +24,10 @@ import (
 	"errors"
 	"os"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/golang/mock/gomock"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
@@ -36,8 +36,8 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	kvtesting "kubevirt.io/client-go/testing"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 var _ = Describe("Expand command", func() {
@@ -56,23 +56,23 @@ var _ = Describe("Expand command", func() {
 	})
 
 	It("should fail with missing input parameters", func() {
-		cmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND)
+		cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND)
 		Expect(cmd()).Should(MatchError("error invalid arguments - VirtualMachine name or file must be provided"))
 	})
 
 	It("should fail when called with non supported output format", func() {
-		cmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--vm", vmName, "--output", "test-format")
+		cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--vm", vmName, "--output", "test-format")
 		Expect(cmd()).Should(MatchError("error not supported output format defined: test-format"))
 	})
 
 	It("should fail when called on non existing vm", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return((virtClient.KubevirtV1().VirtualMachines(k8smetav1.NamespaceDefault))).Times(1)
-		cmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--vm", "non-existing-vm")
+		cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--vm", "non-existing-vm")
 		Expect(cmd()).Should(MatchError("error expanding VirtualMachine - non-existing-vm in namespace - default: virtualmachines.kubevirt.io \"non-existing-vm\" not found"))
 	})
 
 	It("should fail when input file does not exist", func() {
-		cmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", "invalid/path")
+		cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", "invalid/path")
 		Expect(cmd()).To(MatchError("error reading file open invalid/path: no such file or directory"))
 	})
 
@@ -82,7 +82,7 @@ var _ = Describe("Expand command", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		args := append([]string{virtctl.COMMAND_EXPAND, "--vm", vmName}, extraArgs...)
-		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+		cmd := testing.NewRepeatableVirtctlCommand(args...)
 
 		Expect(cmd()).To(Succeed())
 		Expect(kvtesting.FilterActions(&virtClient.Fake, "get", "virtualmachines", "expand-spec")).To(HaveLen(1))
@@ -128,14 +128,14 @@ var _ = Describe("Expand command", func() {
 				It("should expand vm spec", func() {
 					kubecli.MockKubevirtClientInstance.EXPECT().ExpandSpec(k8smetav1.NamespaceDefault).Return(expandSpecInterface).Times(1)
 					expandSpecInterface.EXPECT().ForVirtualMachine(vm).Return(vm, nil).Times(1)
-					cmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", file.Name())
+					cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", file.Name())
 					Expect(cmd()).ToNot(HaveOccurred())
 				})
 
 				It("should handle error returned by API", func() {
 					kubecli.MockKubevirtClientInstance.EXPECT().ExpandSpec(k8smetav1.NamespaceDefault).Return(expandSpecInterface).Times(1)
 					expandSpecInterface.EXPECT().ForVirtualMachine(vm).Return(nil, errors.New("error expanding vm")).Times(1)
-					cmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", file.Name())
+					cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", file.Name())
 					Expect(cmd()).Should(MatchError("error expanding VirtualMachine - testvm in namespace - default: error expanding vm"))
 				})
 			})
@@ -145,7 +145,7 @@ var _ = Describe("Expand command", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = file.Close()
 				Expect(err).ToNot(HaveOccurred())
-				cmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", file.Name())
+				cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", file.Name())
 				Expect(cmd()).Should(MatchError("error decoding VirtualMachine error converting YAML to JSON: yaml: mapping values are not allowed in this context"))
 			})
 		})
@@ -183,13 +183,13 @@ var _ = Describe("Expand command", func() {
 				expandSpecInterface.EXPECT().ForVirtualMachine(vm).Return(vm, nil).Times(1)
 
 				writeToStdin(vmSpec)
-				cmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", "-")
+				cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", "-")
 				Expect(cmd()).To(Succeed())
 			})
 
 			It("should fail when called with invalid yaml in stdin input", func() {
 				writeToStdin([]byte(invalidYaml))
-				cmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", "-")
+				cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", "-")
 				Expect(cmd()).To(MatchError("error decoding VirtualMachine error converting YAML to JSON: yaml: mapping values are not allowed in this context"))
 			})
 		})
