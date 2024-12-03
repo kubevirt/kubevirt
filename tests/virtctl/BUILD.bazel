@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "create_vm.go",
+        "guestfs.go",
         "imageupload.go",
         "memorydump.go",
         "scp.go",
@@ -18,6 +19,7 @@ go_library(
         "//pkg/pointer:go_default_library",
         "//pkg/virtctl/create:go_default_library",
         "//pkg/virtctl/create/vm:go_default_library",
+        "//pkg/virtctl/guestfs:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
