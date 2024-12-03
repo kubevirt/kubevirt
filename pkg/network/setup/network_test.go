@@ -45,6 +45,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Name:          "default",
 				NetworkSource: v1.NetworkSource{},
 			}}
+			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: "eth0"}}
 			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 			var domain *api.Domain
 			err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain, vmi.Spec.Networks)
@@ -64,6 +65,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 					Name: networkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 				}}
+				vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{{Name: networkName, PodInterfaceName: "pod123456"}}
 
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil)
 
