@@ -567,10 +567,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 					libmigration.ConfirmMigrationDataIsStored(virtClient, migration, vmi)
 
-					newvmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 					By("Check if Migrated VMI has updated IP and IPs fields")
 					Eventually(func() error {
+						newvmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 						vmiPod, err := libpod.GetPodByVirtualMachineInstance(newvmi, vmi.Namespace)
 						Expect(err).NotTo(HaveOccurred())
 						return libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)
