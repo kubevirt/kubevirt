@@ -45,7 +45,7 @@ kubectl create -f myvm.yaml
 
 # Start an VirtualMachine:
 kubectl patch virtualmachine myvm --type=merge -p \
-    '{"spec":{"running": true}}'
+    '{"spec":{"runStrategy": "Always"}}'
 
 # Look at VirtualMachine status and associated events:
 kubectl describe virtualmachine myvm
@@ -55,7 +55,7 @@ kubectl describe virtualmachine myvm
 
 # Stop an VirtualMachine:
 kubectl patch virtualmachine myvm --type=merge -p \
-    '{"spec":{"running": false}}'
+    '{"spec":{"runStrategy": "Halted"}}'
 
 # Implicit cascade delete (first deletes the vm and then the vm)
 kubectl delete virtualmachine myvm
@@ -118,7 +118,7 @@ kind: VirtualMachine
 metadata:
   name: myvm
 spec:
-  running: false
+  runStrategy: Halted
   template:
     metadata:
       labels:
@@ -142,8 +142,8 @@ The file specification follows the Kubernetes guide. The apiVersion is linked
 with the KubeVirt release cycle.
 
 In the metadata section, there is a *required* field, the **name**. Then
-following the spec section, there are two important parts. The **running**, which
-indicates the current state of the VirtualMachineInstance attached to this VirtualMachineInstance.
+following the spec section, there are two important parts. The **runStrategy**, which
+indicates the desired state of the VirtualMachineInstance attached to this VirtualMachineInstance.
 Second is the **template**, which is the VirtualMachineInstance template.
 
 Let us go over each of these fields.
@@ -256,7 +256,7 @@ metadata:
 
 For now implicit: OnDelete. Can later be extended to RollingUpdate if needed.
 Spec changes have no direct effect on already running VMIs, and they will not
-directly be propagated to the VMI. If a VMI should be running (spec.running=true)
+directly be propagated to the VMI. If a VMI should be running
 and it is powered down (VMI object delete, OS shutdown, ...),
 the VMI will be re-created by the controller with the new spec.
 
@@ -313,7 +313,7 @@ autogenerating the Kubernetes resources: client, lister and watcher.
 
 The controller is responsible for watching the change in the registered
 virtual machines and update the state of the system. It is also
-responsible for creating new VirtualMachineInstance when the `running` is set to `true`.
+responsible for creating new VirtualMachineInstance when a fitting `runStrategy` is specified.
 Moreover the controller attaches the `metadata.OwnerReference` to the created
 VirtualMachineInstance. With this mechanism it can link the VirtualMachine to the
 VirtualMachineInstance and show combined status.
