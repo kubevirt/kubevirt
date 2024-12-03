@@ -82,6 +82,10 @@ var _ = Describe("netpod", func() {
 	})
 
 	It("fails setup when reading nmstate status fails", func() {
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
@@ -91,11 +95,16 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{readErr: errNMStateRead}),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		Expect(netPod.Setup()).To(MatchError(errNMStateRead))
 	})
 
 	It("fails setup when applying nmstate status fails", func() {
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
@@ -117,6 +126,7 @@ var _ = Describe("netpod", func() {
 				},
 			}),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		err := netPod.Setup()
 		Expect(err).To(MatchError(errNMStateApply))
@@ -126,6 +136,10 @@ var _ = Describe("netpod", func() {
 	})
 
 	It("fails setup when applying nmstate status with undefined binding", func() {
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{Name: defaultPodNetworkName}},
@@ -141,12 +155,17 @@ var _ = Describe("netpod", func() {
 				}},
 			}}),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		err := netPod.Setup()
 		Expect(err.Error()).To(HavePrefix("undefined binding method"))
 	})
 
 	It("fails setup when masquerade (nft) setup fails", func() {
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
@@ -166,11 +185,16 @@ var _ = Describe("netpod", func() {
 			}}),
 			netpod.WithMasqueradeAdapter(&masqueradeStub{setupErr: errMasqueradeSetup}),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		Expect(netPod.Setup()).To(MatchError(errMasqueradeSetup))
 	})
 
 	DescribeTable("fails setup discovery when pod interface is missing", func(binding v1.InterfaceBindingMethod) {
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{Name: defaultPodNetworkName, InterfaceBindingMethod: binding}},
@@ -179,6 +203,7 @@ var _ = Describe("netpod", func() {
 				Interfaces: []nmstate.Interface{{Name: "other0"}},
 			}}),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		err := netPod.Setup()
 		Expect(err.Error()).To(HavePrefix("pod link (eth0) is missing"))
@@ -223,6 +248,11 @@ var _ = Describe("netpod", func() {
 			Name:                   defaultPodNetworkName,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 		}
+
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{vmiIface},
@@ -230,6 +260,7 @@ var _ = Describe("netpod", func() {
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithMasqueradeAdapter(&masqstub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -343,12 +374,18 @@ var _ = Describe("netpod", func() {
 			Name:                   defaultPodNetworkName,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 		}
+
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{vmiIface},
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -611,6 +648,10 @@ var _ = Describe("netpod", func() {
 			}},
 		}}
 
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
@@ -620,6 +661,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -763,9 +805,16 @@ var _ = Describe("netpod", func() {
 		})
 
 		DescribeTable("setup masquerade (primary) and bridge (secondary) binding", func(asHotPlug bool) {
+			ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+				{Name: secondaryNetworkName, PodInterfaceName: secondaryPodInterfaceName},
+			}
+
 			initialNetworksToPlug, initialInterfacesToPlug := specNetworks, specInterfaces
+			initialIfaceStatuses := ifaceStatuses
 			if asHotPlug {
 				initialNetworksToPlug, initialInterfacesToPlug = specNetworks[:1], specInterfaces[:1]
+				initialIfaceStatuses = ifaceStatuses[:1]
 			}
 			netPod := netpod.NewNetPod(
 				initialNetworksToPlug,
@@ -774,6 +823,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithVMIIfaceStatuses(initialIfaceStatuses),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -825,6 +875,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithVMIIfaceStatuses(ifaceStatuses),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -895,6 +946,12 @@ var _ = Describe("netpod", func() {
 
 		It("setup secondary bridge binding with hashed pod interfaces and absent set", func() {
 			specInterfaces[1].State = v1.InterfaceStateAbsent
+
+			ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+				{Name: secondaryNetworkName, PodInterfaceName: secondaryPodInterfaceName},
+			}
+
 			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
@@ -902,6 +959,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithVMIIfaceStatuses(ifaceStatuses),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
@@ -976,6 +1034,12 @@ var _ = Describe("netpod", func() {
 
 		It("setup secondary bridge binding with ordered pod interfaces", func() {
 			nmstatestub.status.Interfaces[1].Name = secondaryPodInterfaceOrderedName
+
+			ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+				{Name: secondaryNetworkName, PodInterfaceName: secondaryPodInterfaceOrderedName},
+			}
+
 			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
@@ -983,6 +1047,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithVMIIfaceStatuses(ifaceStatuses),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
@@ -1096,12 +1161,18 @@ var _ = Describe("netpod", func() {
 			Name:                   defaultPodNetworkName,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
 		}
+
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{vmiIface},
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -1133,6 +1204,11 @@ var _ = Describe("netpod", func() {
 				},
 			},
 		}}
+
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: "somenet", PodInterfaceName: "eth0"},
+		}
+
 		netPod := netpod.NewNetPod(
 			[]v1.Network{
 				{
@@ -1144,6 +1220,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(expNmstateSpec))
@@ -1169,6 +1246,7 @@ var _ = Describe("netpod", func() {
 		var (
 			specNetworks   []v1.Network
 			specInterfaces []v1.Interface
+			ifaceStatuses  []v1.VirtualMachineInstanceNetworkInterface
 			nmstatestub    *nmstateStub
 		)
 
@@ -1185,6 +1263,12 @@ var _ = Describe("netpod", func() {
 				},
 				{Name: testNet1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 				{Name: testNet2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			}
+
+			ifaceStatuses = []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+				{Name: testNet1, PodInterfaceName: "pod7087ef4cd1f"},
+				{Name: testNet2, PodInterfaceName: "podbc6cc93fa1e"},
 			}
 
 			nmstatestub = &nmstateStub{status: nmstate.Status{
@@ -1222,6 +1306,7 @@ var _ = Describe("netpod", func() {
 				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(nmstatestub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithVMIIfaceStatuses(ifaceStatuses),
 			)
 
 			Expect(netPod.Setup()).To(Succeed())
@@ -1244,6 +1329,7 @@ var _ = Describe("netpod", func() {
 				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(nmstatestub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithVMIIfaceStatuses(ifaceStatuses),
 			)
 
 			Expect(netPod.Setup()).To(Succeed())
@@ -1353,12 +1439,14 @@ var _ = Describe("netpod", func() {
 		It("unplug 2 out of 2 secondary bridge binding networks", func() {
 			specInterfaces[1].State = v1.InterfaceStateAbsent
 			specInterfaces[2].State = v1.InterfaceStateAbsent
+
 			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
 				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(nmstatestub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithVMIIfaceStatuses(ifaceStatuses),
 			)
 
 			Expect(netPod.Setup()).To(Succeed())
@@ -1465,12 +1553,14 @@ var _ = Describe("netpod", func() {
 
 			By("Unplug the 3rd network")
 			specInterfaces[2].State = v1.InterfaceStateAbsent
+
 			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
 				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(nmstatestub),
 				netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithVMIIfaceStatuses(ifaceStatuses),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -1606,6 +1696,12 @@ var _ = Describe("netpod", func() {
 			{Name: testNet2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 		}
 
+		ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+			{Name: testNet1, PodInterfaceName: "pod7087ef4cd1f"},
+			{Name: testNet2, PodInterfaceName: "podbc6cc93fa1e"},
+		}
+
 		nmstatestub := &nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{
 				{
@@ -1642,6 +1738,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses[:2]),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 
@@ -1653,6 +1750,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		err := netPod.Setup()
 		Expect(err).To(MatchError(errNMStateApply))
@@ -1672,6 +1770,7 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(ifaceStatuses),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 
@@ -1782,6 +1881,10 @@ var _ = Describe("netpod", func() {
 		const managedTap = "managed-tap"
 
 		It("fails setup config when pod interface is missing", func() {
+			ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+			}
+
 			netPod := netpod.NewNetPod(
 				[]v1.Network{*v1.DefaultPodNetwork()},
 				[]v1.Interface{{Name: defaultPodNetworkName, Binding: &v1.PluginBinding{Name: managedTap}}},
@@ -1793,6 +1896,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithBindingPlugins(map[string]v1.InterfaceBindingPlugin{
 					managedTap: {DomainAttachmentType: v1.ManagedTap},
 				}),
+				netpod.WithVMIIfaceStatuses(ifaceStatuses),
 			)
 			err := netPod.Setup()
 			Expect(err).To(MatchError(ContainSubstring("pod link (eth0) is missing")))
@@ -1827,6 +1931,11 @@ var _ = Describe("netpod", func() {
 			}}
 
 			vmiIface := v1.Interface{Name: defaultPodNetworkName, Binding: &v1.PluginBinding{Name: managedTap}}
+
+			ifaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultPodNetworkName, PodInterfaceName: "eth0"},
+			}
+
 			netPod := netpod.NewNetPod(
 				[]v1.Network{*v1.DefaultPodNetwork()},
 				[]v1.Interface{vmiIface},
@@ -1836,6 +1945,7 @@ var _ = Describe("netpod", func() {
 				netpod.WithBindingPlugins(map[string]v1.InterfaceBindingPlugin{
 					managedTap: {DomainAttachmentType: v1.ManagedTap},
 				}),
+				netpod.WithVMIIfaceStatuses(ifaceStatuses),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(

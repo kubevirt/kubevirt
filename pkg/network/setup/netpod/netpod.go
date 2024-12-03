@@ -80,7 +80,8 @@ type NetPod struct {
 
 	bindingPluginsByName map[string]v1.InterfaceBindingPlugin
 
-	log *log.FilteredLogger
+	log                    *log.FilteredLogger
+	podIfaceNamesByNetName map[string]string
 }
 
 type option func(*NetPod)
@@ -106,6 +107,11 @@ func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string
 	for _, opt := range opts {
 		opt(&n)
 	}
+
+	ifaceStatusesByName := vmispec.IndexInterfaceStatusByName(n.vmiIfaceStatuses, vmispec.HasIfaceStatusOriginatedFromSpec)
+
+	n.podIfaceNamesByNetName = namescheme.CreateFromIfaceStatuses(n.vmiSpecNets, ifaceStatusesByName)
+
 	return n
 }
 
