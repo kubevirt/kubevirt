@@ -24,3 +24,4 @@ tests/libssh
 tests/libvmifact
 tests/libwait
 tests/scale
+tests/usb

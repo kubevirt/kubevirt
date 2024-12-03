@@ -61,9 +61,12 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 
 	AfterEach(func() {
 		// Make sure to delete the VMI before ending the test otherwise a device could still be taken
-		err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+		const deleteTimeout = 180
+		err := virtClient.VirtualMachineInstance(
+			testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+
+		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout)
 	})
 
 	Context("with usb storage", func() {
@@ -82,8 +85,10 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 							{
 								Vendor:  "46f4",
 								Product: "0001",
-							}},
-					}},
+							},
+						},
+					},
+				},
 			}
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
@@ -104,16 +109,17 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			By("Making sure the usb is present inside the VMI")
+			const expectTimeout = 15
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: fmt.Sprintf("%s\n", cmdNumberUSBs)},
 				&expect.BExp{R: console.RetValue(fmt.Sprintf("%d", len(deviceNames)))},
-			}, 15)).To(Succeed(), "Device not found")
+			}, expectTimeout)).To(Succeed(), "Device not found")
 
 			By("Verifying ownership is properly set in the host")
-			domainXml, err := tests.GetRunningVMIDomainSpec(vmi)
+			domainXML, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			for _, hostDevice := range domainXml.Devices.HostDevices {
+			for _, hostDevice := range domainXML.Devices.HostDevices {
 				if hostDevice.Type != api.HostDeviceUSB {
 					continue
 				}
