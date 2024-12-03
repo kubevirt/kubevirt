@@ -143,6 +143,70 @@ var _ = Describe("Network Name Scheme", func() {
 		)
 	})
 
+	Context("CreateFromIfaceStatuses", func() {
+		const (
+			networkName1 = "net1"
+			networkName2 = "net2"
+
+			podIfaceName1 = "podIface1"
+			podIfaceName2 = "podIface2"
+		)
+
+		DescribeTable("Should return an empty map",
+			func(networks []virtv1.Network, ifaceStatusesByName map[string]virtv1.VirtualMachineInstanceNetworkInterface) {
+				Expect(namescheme.CreateFromIfaceStatuses(networks, ifaceStatusesByName)).To(BeEmpty())
+			},
+			Entry("when there are no networks and no iface statuses", nil, nil),
+			Entry("when there are no networks",
+				nil, map[string]virtv1.VirtualMachineInstanceNetworkInterface{
+					networkName1: {Name: networkName1},
+					"":           {Name: ""},
+				},
+			),
+		)
+
+		DescribeTable("Should return a map of network name to pod interface name",
+			func(networks []virtv1.Network,
+				ifaceStatusesByName map[string]virtv1.VirtualMachineInstanceNetworkInterface,
+				expectedResult map[string]string,
+			) {
+				Expect(namescheme.CreateFromIfaceStatuses(networks, ifaceStatusesByName)).To(Equal(expectedResult))
+			},
+			Entry("when all networks have a matching pod iface name",
+				[]virtv1.Network{
+					{Name: networkName1},
+					{Name: networkName2},
+				},
+				map[string]virtv1.VirtualMachineInstanceNetworkInterface{
+					networkName1: {Name: networkName1, PodInterfaceName: podIfaceName1},
+					networkName2: {Name: networkName2, PodInterfaceName: podIfaceName2},
+				},
+				map[string]string{networkName1: podIfaceName1, networkName2: podIfaceName2},
+			),
+			Entry("when a network does not have a matching interface status entry",
+				[]virtv1.Network{
+					{Name: networkName1},
+					{Name: networkName2},
+				},
+				map[string]virtv1.VirtualMachineInstanceNetworkInterface{
+					networkName2: {Name: networkName2, PodInterfaceName: podIfaceName2},
+				},
+				map[string]string{networkName1: "", networkName2: podIfaceName2},
+			),
+			Entry("when a network has a matching interface status entry but PodInterfaceName is missing",
+				[]virtv1.Network{
+					{Name: networkName1},
+					{Name: networkName2},
+				},
+				map[string]virtv1.VirtualMachineInstanceNetworkInterface{
+					networkName1: {Name: networkName1, PodInterfaceName: podIfaceName1},
+					networkName2: {Name: networkName2, PodInterfaceName: ""},
+				},
+				map[string]string{networkName1: podIfaceName1, networkName2: ""},
+			),
+		)
+	})
+
 	Context("PodHasOrdinalInterfaceName", func() {
 		DescribeTable("should return TRUE, given network status with ordinal interface names",
 			func(podNetworkStatuses []networkv1.NetworkStatus) {
