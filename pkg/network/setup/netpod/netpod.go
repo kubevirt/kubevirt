@@ -108,7 +108,18 @@ func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string
 		opt(&n)
 	}
 
-	ifaceStatusesByName := vmispec.IndexInterfaceStatusByName(n.vmiIfaceStatuses, vmispec.HasIfaceStatusOriginatedFromSpec)
+	ifaceStatusesByName := vmispec.IndexInterfaceStatusByName(n.vmiIfaceStatuses,
+		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+			return vmispec.HasIfaceStatusOriginatedFromSpec(ifaceStatus) && ifaceStatus.PodInterfaceName != ""
+		},
+	)
+
+	n.vmiSpecIfaces = vmispec.FilterInterfacesSpec(n.vmiSpecIfaces, func(iface v1.Interface) bool {
+		_, hasPodIfaceName := ifaceStatusesByName[iface.Name]
+		return hasPodIfaceName
+	})
+
+	n.vmiSpecNets = vmispec.FilterNetworksByInterfaces(n.vmiSpecNets, n.vmiSpecIfaces)
 
 	n.podIfaceNamesByNetName = namescheme.CreateFromIfaceStatuses(n.vmiSpecNets, ifaceStatusesByName)
 
