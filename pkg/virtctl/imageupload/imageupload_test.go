@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 
+	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,6 +65,7 @@ var _ = Describe("ImageUpload", func() {
 		kubeClient *fakek8sclient.Clientset
 		cdiClient  *fakecdiclient.Clientset
 		server     *httptest.Server
+		g          *errgroup.Group
 
 		dvCreateCalled  = atomic.Bool{}
 		pvcCreateCalled = atomic.Bool{}
@@ -73,7 +75,8 @@ var _ = Describe("ImageUpload", func() {
 		archiveFilePath string
 	)
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx context.Context) {
+		g, _ = errgroup.WithContext(ctx)
 		ctrl = gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
@@ -98,6 +101,7 @@ var _ = Describe("ImageUpload", func() {
 	AfterEach(func() {
 		os.Remove(imagePath)
 		os.Remove(archiveFilePath)
+		Expect(g.Wait()).To(Succeed())
 	})
 
 	pvcSpec := func() *v1.PersistentVolumeClaim {
@@ -191,7 +195,7 @@ var _ = Describe("ImageUpload", func() {
 		return dv
 	}
 
-	addPodPhaseAnnotation := func() {
+	addPodPhaseAnnotation := func() error {
 		defer GinkgoRecover()
 		time.Sleep(10 * time.Millisecond)
 		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
@@ -203,9 +207,10 @@ var _ = Describe("ImageUpload", func() {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}
 		Expect(err).ToNot(HaveOccurred())
+		return nil
 	}
 
-	addDvPhase := func() {
+	addDvPhase := func() error {
 		defer GinkgoRecover()
 		time.Sleep(10 * time.Millisecond)
 		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
@@ -216,6 +221,7 @@ var _ = Describe("ImageUpload", func() {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}
 		Expect(err).ToNot(HaveOccurred())
+		return nil
 	}
 
 	createPVC := func(dv *cdiv1.DataVolume) {
@@ -245,8 +251,11 @@ var _ = Describe("ImageUpload", func() {
 			Expect(dvCreateCalled.Load()).To(BeFalse())
 			dvCreateCalled.Store(true)
 
-			go createPVC(dv)
-			go addDvPhase()
+			g.Go(func() error {
+				createPVC(dv)
+				return nil
+			})
+			g.Go(addDvPhase)
 
 			return false, nil, nil
 		})
@@ -263,7 +272,7 @@ var _ = Describe("ImageUpload", func() {
 			pvcCreateCalled.Store(true)
 
 			if !dvCreateCalled.Load() {
-				go addPodPhaseAnnotation()
+				g.Go(addPodPhaseAnnotation)
 			}
 
 			return false, nil, nil
@@ -278,7 +287,7 @@ var _ = Describe("ImageUpload", func() {
 			Expect(pvc.Name).To(Equal(targetName))
 
 			if !dvCreateCalled.Load() && !pvcCreateCalled.Load() && !updateCalled.Load() {
-				go addPodPhaseAnnotation()
+				g.Go(addPodPhaseAnnotation)
 			}
 
 			updateCalled.Store(true)
@@ -895,7 +904,7 @@ var _ = Describe("ImageUpload", func() {
 			if forcebind {
 				cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 					"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--force-bind")
-				go addDvPhase()
+				g.Go(addDvPhase)
 				Expect(cmd()).To(Succeed())
 				Expect(pvcCreateCalled.Load()).To(BeFalse())
 				Expect(dvCreateCalled.Load()).To(BeFalse())
