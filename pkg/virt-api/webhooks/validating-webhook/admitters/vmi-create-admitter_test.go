@@ -178,43 +178,43 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Entry("when path is absolute and has trailing slash", "/a/b/c/"),
 	)
 
-	Context("tolerations with eviction policies given", func() {
-		var vmi *v1.VirtualMachineInstance
-		var policyMigrate = v1.EvictionStrategyLiveMigrate
-		var policyMigrateIfPossible = v1.EvictionStrategyLiveMigrateIfPossible
-		var policyNone = v1.EvictionStrategyNone
-		var policyExternal = v1.EvictionStrategyExternal
+	Context("with eviction strategies", func() {
+		DescribeTable("it should allow", func(vmi *v1.VirtualMachineInstance) {
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
-		BeforeEach(func() {
-			enableFeatureGate(deprecation.LiveMigrationGate)
-			vmi = api.NewMinimalVMI("testvmi")
-			vmi.Spec.EvictionStrategy = nil
-		})
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 
-		DescribeTable("it should allow", func(policy *v1.EvictionStrategy) {
-			vmi.Spec.EvictionStrategy = policy
-			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(resp).To(BeEmpty())
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
 		},
-			Entry("migration policy to be set to LiveMigrate", &policyMigrate),
-			Entry("migration policy to be set None", &policyNone),
-			Entry("migration policy to be set External", &policyExternal),
-			Entry("migration policy to be set to LiveMigrateIfPossible", &policyMigrateIfPossible),
-			Entry("migration policy to be set nil", nil),
+			Entry("eviction strategy to be set to LiveMigrate",
+				newBaseVmi(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate)),
+			),
+			Entry("eviction strategy to be set None",
+				newBaseVmi(libvmi.WithEvictionStrategy(v1.EvictionStrategyNone)),
+			),
+			Entry("eviction strategy to be set External",
+				newBaseVmi(libvmi.WithEvictionStrategy(v1.EvictionStrategyExternal)),
+			),
+			Entry("eviction strategy to be set to LiveMigrateIfPossible",
+				newBaseVmi(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrateIfPossible)),
+			),
+			Entry("eviction strategy to be set to nil (unspecified)",
+				newBaseVmi(),
+			),
 		)
 
-		It("should allow no eviction policy to be set", func() {
-			vmi.Spec.EvictionStrategy = nil
-			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(resp).To(BeEmpty())
-		})
+		It("should not allow unknown eviction strategy", func() {
+			vmi := newBaseVmi(libvmi.WithEvictionStrategy(v1.EvictionStrategy("fantasy")))
 
-		It("should  not allow unknown eviction policies", func() {
-			policy := v1.EvictionStrategy("fantasy")
-			vmi.Spec.EvictionStrategy = &policy
-			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(resp).To(HaveLen(1))
-			Expect(resp[0].Message).To(Equal("fake.evictionStrategy is set with an unrecognized option: fantasy"))
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(Equal("spec.evictionStrategy is set with an unrecognized option: fantasy"))
 		})
 	})
 
