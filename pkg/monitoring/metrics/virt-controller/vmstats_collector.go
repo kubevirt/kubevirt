@@ -32,7 +32,7 @@ import (
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -165,6 +165,14 @@ var (
 		},
 		[]string{"name", "namespace", "persistentvolumeclaim", "volume_mode", "device"},
 	)
+
+	vmCreationTimestamp = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_created_timestamp_seconds",
+			Help: "Virtual Machine creation timestamp.",
+		},
+		[]string{"name", "namespace"},
+	)
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -181,6 +189,7 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 	}
 
 	var results []operatormetrics.CollectorResult
+	results = append(results, CollectVMCreatedTime(vms)...)
 	results = append(results, CollectDiskAllocatedSize(vms)...)
 	results = append(results, CollectVMsInfo(vms)...)
 	results = append(results, CollectResourceRequestsAndLimits(vms)...)
@@ -554,6 +563,22 @@ func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.Colle
 				Metric: vmDiskAllocatedSize,
 				Value:  float64(pvcSize.Value()),
 				Labels: []string{vm.Name, vm.Namespace, pvcName, volumeMode, diskName},
+			})
+		}
+	}
+
+	return cr
+}
+
+func CollectVMCreatedTime(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		if vm.Spec.Template != nil {
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: vmCreationTimestamp,
+				Labels: []string{vm.Name, vm.Namespace},
+				Value:  float64(vm.CreationTimestamp.Unix()),
 			})
 		}
 	}
