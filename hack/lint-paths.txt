@@ -11,6 +11,7 @@ pkg/network/vmicontroller
 pkg/storage/pod/annotations
 pkg/virtctl/credentials
 tests/console
+tests/decorators
 tests/infrastructure
 tests/instancetype
 tests/libconfigmap
