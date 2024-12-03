@@ -507,4 +507,75 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "null", "rootdisk"}))
 		})
 	})
+
+	Context("VM creation time metric collection", func() {
+		It("should collect VM creation time correctly", func() {
+			testTime := time.Now()
+
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "test-ns",
+					Name:              "test-vm",
+					CreationTimestamp: metav1.NewTime(testTime),
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{},
+				},
+			}
+
+			results := collectVMCreationTimestamp([]*k6tv1.VirtualMachine{vm})
+
+			Expect(results).ToNot(BeEmpty())
+			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_create_date_timestamp_seconds"))
+			Expect(results[0].Value).To(Equal(float64(testTime.Unix())))
+			Expect(results[0].Labels).To(Equal([]string{"test-vm", "test-ns"}))
+		})
+
+		It("should collect correct creation times for multiple VMs", func() {
+			vm1 := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "test-ns",
+					Name:              "test-vm1",
+					CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{},
+				},
+			}
+			vm2 := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "test-ns",
+					Name:              "test-vm2",
+					CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{},
+				},
+			}
+
+			vms := []*k6tv1.VirtualMachine{vm1, vm2}
+			results := collectVMCreationTimestamp(vms)
+
+			Expect(results).To(HaveLen(2))
+			Expect(results[0].Value).To(Equal(float64(vm1.CreationTimestamp.Unix())))
+			Expect(results[1].Value).To(Equal(float64(vm2.CreationTimestamp.Unix())))
+		})
+
+		It("metric should not exists if the VM creation timestamp is zero", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "test-ns",
+					Name:              "test-vm-zero-time",
+					CreationTimestamp: metav1.Time{},
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{},
+				},
+			}
+
+			results := collectVMCreationTimestamp([]*k6tv1.VirtualMachine{vm})
+
+			Expect(results).To(BeEmpty(), "kubevirt_vm_create_date_timestamp_seconds should not be collected for VMs with zero creation timestamp")
+		})
+	})
 })
