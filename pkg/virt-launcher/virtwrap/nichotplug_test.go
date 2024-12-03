@@ -112,8 +112,9 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 				},
 				Status: v1.VirtualMachineInstanceStatus{
 					Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
-						Name:       networkName,
-						InfoSource: vmispec.InfoSourceMultusStatus,
+						Name:             networkName,
+						PodInterfaceName: "pod123456",
+						InfoSource:       vmispec.InfoSourceMultusStatus,
 					}},
 				},
 			},
@@ -345,8 +346,9 @@ func vmiWithSingleBridgeInterfaceWithPodInterfaceReady(ifaceName string, nadName
 		},
 		Status: v1.VirtualMachineInstanceStatus{
 			Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
-				Name:       ifaceName,
-				InfoSource: vmispec.InfoSourceMultusStatus,
+				Name:             ifaceName,
+				PodInterfaceName: "pod123456",
+				InfoSource:       vmispec.InfoSourceMultusStatus,
 			}},
 		},
 	}
