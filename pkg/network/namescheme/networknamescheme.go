@@ -55,19 +55,6 @@ func CreateHashedNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 	return networkNameSchemeMap
 }
 
-func HashedPodInterfaceName(network v1.Network, ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface) string {
-	if vmispec.IsSecondaryMultusNetwork(network) {
-		return GenerateHashedInterfaceName(network.Name)
-	}
-
-	if primaryIfaceStatus := vmispec.LookupInterfaceStatusByName(ifaceStatuses, network.Name); primaryIfaceStatus != nil &&
-		primaryIfaceStatus.PodInterfaceName != "" {
-		return primaryIfaceStatus.PodInterfaceName
-	}
-
-	return PrimaryPodInterfaceName
-}
-
 func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[string]string {
 	networkNameSchemeMap := map[string]string{}
 	for _, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
@@ -95,16 +82,6 @@ func CreateOrdinalNetworkNameScheme(vmiNetworks []v1.Network) map[string]string 
 	}
 
 	return networkNameSchemeMap
-}
-
-// OrdinalPodInterfaceName returns the ordinal interface name for the given network name.
-// Rereuse the `CreateOrdinalNetworkNameScheme` for various networks helps find the target interface name.
-func OrdinalPodInterfaceName(name string, networks []v1.Network) string {
-	networkNameSchemeMap := CreateOrdinalNetworkNameScheme(networks)
-	if ordinalName, exist := networkNameSchemeMap[name]; exist {
-		return ordinalName
-	}
-	return ""
 }
 
 func mapMultusNonDefaultNetworksToPodInterfaceOrdinalName(networks []v1.Network) map[string]string {
