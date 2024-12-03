@@ -23,7 +23,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"maps"
 	"regexp"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -169,25 +168,4 @@ func OrdinalSecondaryInterfaceName(name string) bool {
 		return false
 	}
 	return match
-}
-
-func UpdatePrimaryPodIfaceNameFromVMIStatus(
-	podIfaceNamesByNetworkName map[string]string,
-	networks []v1.Network,
-	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
-) map[string]string {
-	primaryNetwork := vmispec.LookUpDefaultNetwork(networks)
-	if primaryNetwork == nil {
-		return podIfaceNamesByNetworkName
-	}
-
-	primaryIfaceStatus := vmispec.LookupInterfaceStatusByName(ifaceStatuses, primaryNetwork.Name)
-	if primaryIfaceStatus == nil || primaryIfaceStatus.PodInterfaceName == "" {
-		return podIfaceNamesByNetworkName
-	}
-
-	updatedPodIfaceNamesByNetworkName := maps.Clone(podIfaceNamesByNetworkName)
-	updatedPodIfaceNamesByNetworkName[primaryNetwork.Name] = primaryIfaceStatus.PodInterfaceName
-
-	return updatedPodIfaceNamesByNetworkName
 }
