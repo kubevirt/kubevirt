@@ -1538,6 +1538,11 @@ func (in *Features) DeepCopyInto(out *Features) {
 		*out = new(FeatureState)
 		**out = **in
 	}
+	if in.VMPort != nil {
+		in, out := &in.VMPort, &out.VMPort
+		*out = new(FeatureState)
+		**out = **in
+	}
 	return
 }
 
