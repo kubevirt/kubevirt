@@ -24,6 +24,8 @@ package isolation
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -79,7 +81,7 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 }
 
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
-	pid, err := s.getPid(socket)
+	pid, err := GetPid(socket)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
 		return nil, err
@@ -207,7 +209,17 @@ func setProcessMemoryLockRLimit(pid int, size int64) error {
 	return nil
 }
 
-func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
+func GetPid(socket string) (int, error) {
+	// If the socket path is longern then 108 char then the connection will fail
+	// Reduce the lenght of the entire path by changing the directory where the file is located
+	if len(socket) > 108 {
+		dir := filepath.Dir(socket)
+		if err := os.Chdir(dir); err != nil {
+			return -1, err
+		}
+		socket = filepath.Base(socket)
+	}
+
 	sock, err := net.DialTimeout("unix", socket, time.Duration(isolationDialTimeout)*time.Second)
 	if err != nil {
 		return -1, err
