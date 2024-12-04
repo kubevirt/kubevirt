@@ -59,6 +59,25 @@ function _ensure_cdi_deployment() {
     if [[ $CDI_DV_GC != $CDI_DV_GC_DEFAULT ]]; then
         _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
     fi
+
+    # W/A for nfs server being unreachable mid run
+    _kubectl delete sc nfs-csi
+    local podip=$(_kubectl get pod -n nfs-csi -l=app=nfs-server -ojsonpath="{ $.items[0].status.podIP }")
+    _kubectl create -f - <<EOF
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-csi
+mountOptions:
+- nfsvers=4.1
+parameters:
+  server: $podip
+  share: /
+provisioner: nfs.csi.k8s.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+EOF
 }
 
 function configure_prometheus() {
