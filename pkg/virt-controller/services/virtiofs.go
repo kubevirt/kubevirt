@@ -9,8 +9,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/kubevirt/pkg/config"
-
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -138,31 +137,23 @@ func isAutoMount(volume *v1.Volume) bool {
 	return volume.ServiceAccount != nil
 }
 
-func virtioFSMountPoint(volume *v1.Volume) string {
-	volumeMountPoint := fmt.Sprintf("/%s", volume.Name)
+// needExtraVirtiofs returns is the container needs an extra virtiofs volumes where the socket for the virtiofs placeholder
+// will be located
+func needExtraVirtiofs(vmi *v1.VirtualMachineInstance) bool {
+	return virtiofs.HasFilesystemPersistentVolumes(vmi)
+}
 
-	if volume.ConfigMap != nil {
-		volumeMountPoint = config.GetConfigMapSourcePath(volume.Name)
-	} else if volume.Secret != nil {
-		volumeMountPoint = config.GetSecretSourcePath(volume.Name)
-	} else if volume.ServiceAccount != nil {
-		volumeMountPoint = config.ServiceAccountSourceDir
-	} else if volume.DownwardAPI != nil {
-		volumeMountPoint = config.GetDownwardAPISourcePath(volume.Name)
+func extraVirtiofsVolume() *k8sv1.Volume {
+	return &k8sv1.Volume{
+		Name: virtiofs.ExtraVolName,
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
 	}
-
-	return volumeMountPoint
 }
 
 func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
-
-	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
-	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
-
-	args := []string{socketPathArg, sourceArg, "--sandbox=none", "--cache=auto"}
-
 	securityProfile := restricted
-
 	volumeMounts := []k8sv1.VolumeMount{
 		// This is required to pass socket to compute
 		{
@@ -171,10 +162,35 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 		},
 	}
 
+	var (
+		cmd  []string
+		args []string
+	)
+	switch {
+	case storagetypes.IsPVCVolume(volume):
+		cmd = []string{"/usr/bin/virtiofs-placeholder"}
+		args = []string{
+			"--socket", virtiofs.VirtiofsPlaceholderSocket(volume.Name),
+		}
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      virtiofs.ExtraVolName,
+			MountPath: virtiofs.PlaceholderSocketDir,
+		})
+	case storagetypes.IsConfigVolume(volume):
+		cmd = []string{"/usr/libexec/virtiofsd"}
+		socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
+		sourceArg := fmt.Sprintf("--shared-dir=%s", virtiofs.VirtioFSMountPoint(volume))
+		args = []string{socketPathArg, sourceArg, "--cache=auto"}
+
+		sandbox := "none"
+		sandboxArg := fmt.Sprintf("--sandbox=%s", sandbox)
+		args = append(args, sandboxArg)
+	}
+
 	if !isAutoMount(volume) {
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      volume.Name,
-			MountPath: virtioFSMountPoint(volume),
+			MountPath: virtiofs.VirtioFSMountPoint(volume),
 		})
 	}
 
@@ -182,7 +198,7 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 		Name:            fmt.Sprintf("virtiofs-%s", volume.Name),
 		Image:           image,
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
-		Command:         []string{"/usr/libexec/virtiofsd"},
+		Command:         cmd,
 		Args:            args,
 		VolumeMounts:    volumeMounts,
 		Resources:       resources,
