@@ -179,6 +179,7 @@ container_image(
         ":virt-handler",
         "//cmd/container-disk-v2alpha:container-disk",
         "//cmd/virt-chroot",
+        "//cmd/virtiofs-dispatcher",
     ],
     visibility = ["//visibility:public"],
 )
