@@ -19,10 +19,10 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-github/v32 v32.0.0
-	github.com/google/goexpect v0.0.0-20190425035906-112704a48083
+	github.com/google/goexpect v0.0.0-20210430020637-ab937bf7fd6f
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.6.0
-	github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed
+	github.com/gordonklaus/ineffassign v0.1.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/imdario/mergo v0.3.16
 	github.com/insomniacslk/dhcp v0.0.0-20230908212754-65c27093e38a
@@ -33,7 +33,7 @@ require (
 	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230627123556-81a891d4462a
 	github.com/machadovilaca/operator-observability v0.0.22
 	github.com/mdlayher/vsock v1.2.1
-	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
+	github.com/mitchellh/go-ps v1.0.0
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/nunnatsa/ginkgolinter v0.14.0
@@ -46,7 +46,7 @@ require (
 	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87 // branch: release-4.17
 	github.com/openshift/library-go v0.0.0-20241118144106-bfd968d8eef4 // branch: release-4.17
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
-	github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
+	github.com/povsister/scp v0.0.0-20240802064259-28781e87b246
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/client_model v0.6.1
@@ -162,7 +162,7 @@ require (
 
 require (
 	github.com/containers/common v0.50.1
-	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect; indirect github.com/gophercloud/gophercloud v0.4.0 // indirect
+	github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f // indirect
 )
 
 replace (
