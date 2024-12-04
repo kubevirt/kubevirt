@@ -38,7 +38,7 @@ require (
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/nunnatsa/ginkgolinter v0.14.0
-	github.com/nxadm/tail v1.4.8
+	github.com/nxadm/tail v1.4.11
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.34.2
 	github.com/opencontainers/runc v1.1.12
@@ -68,7 +68,7 @@ require (
 	k8s.io/api v0.31.0
 	k8s.io/apiextensions-apiserver v0.31.0
 	k8s.io/apimachinery v0.31.0
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.31.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-aggregator v0.31.0
 	k8s.io/kube-openapi v0.31.0
@@ -169,8 +169,6 @@ require (
 replace (
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
 
-	github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
-
 	k8s.io/api => k8s.io/api v0.31.0
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.31.0
 	k8s.io/apimachinery => k8s.io/apimachinery v0.31.0
@@ -200,6 +198,4 @@ replace (
 
 	kubevirt.io/api => ./staging/src/kubevirt.io/api
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
-
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )
