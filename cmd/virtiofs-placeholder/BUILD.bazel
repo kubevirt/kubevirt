@@ -1,3 +1,5 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
 cc_binary(
     name = "virtiofs-placeholder",
     srcs = ["main.c"],
@@ -5,4 +7,22 @@ cc_binary(
         "-static",
     ],
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "main_test.go",
+        "virtiofs-placeholder_suite_test.go",
+    ],
+    args = [
+        "--placeholder-binary",
+        "$(location //cmd/virtiofs-placeholder:virtiofs-placeholder)",
+    ],
+    data = ["//cmd/virtiofs-placeholder"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
 )
