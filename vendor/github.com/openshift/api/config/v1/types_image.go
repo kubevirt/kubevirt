@@ -9,11 +9,23 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // Image governs policies related to imagestream imports and runtime configuration
 // for external registries. It allows cluster admins to configure which registries
 // OpenShift is allowed to import images from, extra CA trust bundles for external
-// registries, and policies to blacklist/whitelist registry hostnames.
+// registries, and policies to block or allow registry hostnames.
 // When exposing OpenShift's image registry to the public, this also lets cluster
 // admins specify the external hostname.
+//
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/470
+// +openshift:file-pattern=cvoRunLevel=0000_10,operatorName=config-operator,operatorOrdering=01
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=images,scope=Cluster
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=release.openshift.io/bootstrap-required=true
 type Image struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds user settable values for configuration
@@ -58,12 +70,10 @@ type ImageSpec struct {
 }
 
 type ImageStatus struct {
-
 	// internalRegistryHostname sets the hostname for the default internal image
 	// registry. The value must be in "hostname[:port]" format.
 	// This value is set by the image registry operator which controls the internal registry
-	// hostname. For backward compatibility, users can still use OPENSHIFT_DEFAULT_REGISTRY
-	// environment variable but this setting overrides the environment variable.
+	// hostname.
 	// +optional
 	InternalRegistryHostname string `json:"internalRegistryHostname,omitempty"`
 
@@ -77,8 +87,13 @@ type ImageStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type ImageList struct {
 	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard list's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Image `json:"items"`
@@ -102,14 +117,22 @@ type RegistrySources struct {
 	// insecureRegistries are registries which do not have a valid TLS certificates or only support HTTP connections.
 	// +optional
 	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
-	// blockedRegistries are blacklisted from image pull/push. All other registries are allowed.
+	// blockedRegistries cannot be used for image pull and push actions. All other registries are permitted.
 	//
 	// Only one of BlockedRegistries or AllowedRegistries may be set.
 	// +optional
 	BlockedRegistries []string `json:"blockedRegistries,omitempty"`
-	// allowedRegistries are whitelisted for image pull/push. All other registries are blocked.
+	// allowedRegistries are the only registries permitted for image pull and push actions. All other registries are denied.
 	//
 	// Only one of BlockedRegistries or AllowedRegistries may be set.
 	// +optional
 	AllowedRegistries []string `json:"allowedRegistries,omitempty"`
+	// containerRuntimeSearchRegistries are registries that will be searched when pulling images that do not have fully qualified
+	// domains in their pull specs. Registries will be searched in the order provided in the list.
+	// Note: this search list only works with the container runtime, i.e CRI-O. Will NOT work with builds or imagestream imports.
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:Format=hostname
+	// +listType=set
+	ContainerRuntimeSearchRegistries []string `json:"containerRuntimeSearchRegistries,omitempty"`
 }

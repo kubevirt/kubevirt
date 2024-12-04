@@ -4,11 +4,13 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
-	securityv1 "github.com/openshift/api/security/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "github.com/openshift/api/security/v1"
+	securityv1 "github.com/openshift/client-go/security/applyconfigurations/security/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -19,24 +21,24 @@ type FakeSecurityContextConstraints struct {
 	Fake *FakeSecurityV1
 }
 
-var securitycontextconstraintsResource = schema.GroupVersionResource{Group: "security.openshift.io", Version: "v1", Resource: "securitycontextconstraints"}
+var securitycontextconstraintsResource = v1.SchemeGroupVersion.WithResource("securitycontextconstraints")
 
-var securitycontextconstraintsKind = schema.GroupVersionKind{Group: "security.openshift.io", Version: "v1", Kind: "SecurityContextConstraints"}
+var securitycontextconstraintsKind = v1.SchemeGroupVersion.WithKind("SecurityContextConstraints")
 
 // Get takes name of the securityContextConstraints, and returns the corresponding securityContextConstraints object, and an error if there is any.
-func (c *FakeSecurityContextConstraints) Get(ctx context.Context, name string, options v1.GetOptions) (result *securityv1.SecurityContextConstraints, err error) {
+func (c *FakeSecurityContextConstraints) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.SecurityContextConstraints, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(securitycontextconstraintsResource, name), &securityv1.SecurityContextConstraints{})
+		Invokes(testing.NewRootGetAction(securitycontextconstraintsResource, name), &v1.SecurityContextConstraints{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*securityv1.SecurityContextConstraints), err
+	return obj.(*v1.SecurityContextConstraints), err
 }
 
 // List takes label and field selectors, and returns the list of SecurityContextConstraints that match those selectors.
-func (c *FakeSecurityContextConstraints) List(ctx context.Context, opts v1.ListOptions) (result *securityv1.SecurityContextConstraintsList, err error) {
+func (c *FakeSecurityContextConstraints) List(ctx context.Context, opts metav1.ListOptions) (result *v1.SecurityContextConstraintsList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(securitycontextconstraintsResource, securitycontextconstraintsKind, opts), &securityv1.SecurityContextConstraintsList{})
+		Invokes(testing.NewRootListAction(securitycontextconstraintsResource, securitycontextconstraintsKind, opts), &v1.SecurityContextConstraintsList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -45,8 +47,8 @@ func (c *FakeSecurityContextConstraints) List(ctx context.Context, opts v1.ListO
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &securityv1.SecurityContextConstraintsList{ListMeta: obj.(*securityv1.SecurityContextConstraintsList).ListMeta}
-	for _, item := range obj.(*securityv1.SecurityContextConstraintsList).Items {
+	list := &v1.SecurityContextConstraintsList{ListMeta: obj.(*v1.SecurityContextConstraintsList).ListMeta}
+	for _, item := range obj.(*v1.SecurityContextConstraintsList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -55,52 +57,73 @@ func (c *FakeSecurityContextConstraints) List(ctx context.Context, opts v1.ListO
 }
 
 // Watch returns a watch.Interface that watches the requested securityContextConstraints.
-func (c *FakeSecurityContextConstraints) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeSecurityContextConstraints) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(securitycontextconstraintsResource, opts))
 }
 
 // Create takes the representation of a securityContextConstraints and creates it.  Returns the server's representation of the securityContextConstraints, and an error, if there is any.
-func (c *FakeSecurityContextConstraints) Create(ctx context.Context, securityContextConstraints *securityv1.SecurityContextConstraints, opts v1.CreateOptions) (result *securityv1.SecurityContextConstraints, err error) {
+func (c *FakeSecurityContextConstraints) Create(ctx context.Context, securityContextConstraints *v1.SecurityContextConstraints, opts metav1.CreateOptions) (result *v1.SecurityContextConstraints, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(securitycontextconstraintsResource, securityContextConstraints), &securityv1.SecurityContextConstraints{})
+		Invokes(testing.NewRootCreateAction(securitycontextconstraintsResource, securityContextConstraints), &v1.SecurityContextConstraints{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*securityv1.SecurityContextConstraints), err
+	return obj.(*v1.SecurityContextConstraints), err
 }
 
 // Update takes the representation of a securityContextConstraints and updates it. Returns the server's representation of the securityContextConstraints, and an error, if there is any.
-func (c *FakeSecurityContextConstraints) Update(ctx context.Context, securityContextConstraints *securityv1.SecurityContextConstraints, opts v1.UpdateOptions) (result *securityv1.SecurityContextConstraints, err error) {
+func (c *FakeSecurityContextConstraints) Update(ctx context.Context, securityContextConstraints *v1.SecurityContextConstraints, opts metav1.UpdateOptions) (result *v1.SecurityContextConstraints, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(securitycontextconstraintsResource, securityContextConstraints), &securityv1.SecurityContextConstraints{})
+		Invokes(testing.NewRootUpdateAction(securitycontextconstraintsResource, securityContextConstraints), &v1.SecurityContextConstraints{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*securityv1.SecurityContextConstraints), err
+	return obj.(*v1.SecurityContextConstraints), err
 }
 
 // Delete takes name of the securityContextConstraints and deletes it. Returns an error if one occurs.
-func (c *FakeSecurityContextConstraints) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakeSecurityContextConstraints) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(securitycontextconstraintsResource, name), &securityv1.SecurityContextConstraints{})
+		Invokes(testing.NewRootDeleteActionWithOptions(securitycontextconstraintsResource, name, opts), &v1.SecurityContextConstraints{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeSecurityContextConstraints) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+func (c *FakeSecurityContextConstraints) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
 	action := testing.NewRootDeleteCollectionAction(securitycontextconstraintsResource, listOpts)
 
-	_, err := c.Fake.Invokes(action, &securityv1.SecurityContextConstraintsList{})
+	_, err := c.Fake.Invokes(action, &v1.SecurityContextConstraintsList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched securityContextConstraints.
-func (c *FakeSecurityContextConstraints) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *securityv1.SecurityContextConstraints, err error) {
+func (c *FakeSecurityContextConstraints) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.SecurityContextConstraints, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(securitycontextconstraintsResource, name, pt, data, subresources...), &securityv1.SecurityContextConstraints{})
+		Invokes(testing.NewRootPatchSubresourceAction(securitycontextconstraintsResource, name, pt, data, subresources...), &v1.SecurityContextConstraints{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*securityv1.SecurityContextConstraints), err
+	return obj.(*v1.SecurityContextConstraints), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied securityContextConstraints.
+func (c *FakeSecurityContextConstraints) Apply(ctx context.Context, securityContextConstraints *securityv1.SecurityContextConstraintsApplyConfiguration, opts metav1.ApplyOptions) (result *v1.SecurityContextConstraints, err error) {
+	if securityContextConstraints == nil {
+		return nil, fmt.Errorf("securityContextConstraints provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(securityContextConstraints)
+	if err != nil {
+		return nil, err
+	}
+	name := securityContextConstraints.Name
+	if name == nil {
+		return nil, fmt.Errorf("securityContextConstraints.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(securitycontextconstraintsResource, *name, types.ApplyPatchType, data), &v1.SecurityContextConstraints{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1.SecurityContextConstraints), err
 }

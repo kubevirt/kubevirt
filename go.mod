@@ -42,9 +42,9 @@ require (
 	github.com/onsi/gomega v1.34.2
 	github.com/opencontainers/runc v1.1.12
 	github.com/opencontainers/selinux v1.11.0
-	github.com/openshift/api v0.0.0
-	github.com/openshift/client-go v0.0.0
-	github.com/openshift/library-go v0.0.0-20211220195323-eca2c467c492
+	github.com/openshift/api v0.0.0-20240527133614-ba11c1587003 // branch: release-4.17
+	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87 // branch: release-4.17
+	github.com/openshift/library-go v0.0.0-20241118144106-bfd968d8eef4 // branch: release-4.17
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
 	github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
@@ -69,7 +69,7 @@ require (
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kube-aggregator v0.26.4
+	k8s.io/kube-aggregator v0.31.0
 	k8s.io/kube-openapi v0.31.0
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
@@ -169,8 +169,6 @@ replace (
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
 
 	github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
-	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
-	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 
 	k8s.io/api => k8s.io/api v0.31.0

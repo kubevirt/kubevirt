@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["internal.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/client-go/route/applyconfigurations/internal",
+    importpath = "github.com/openshift/client-go/route/applyconfigurations/internal",
+    visibility = ["//vendor/github.com/openshift/client-go/route/applyconfigurations:__subpackages__"],
+    deps = ["//vendor/sigs.k8s.io/structured-merge-diff/v4/typed:go_default_library"],
+)
