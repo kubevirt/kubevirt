@@ -52,6 +52,25 @@ function _ensure_cdi_deployment() {
     host_port=$(${KUBEVIRT_PATH}kubevirtci/cluster-up/cli.sh ports uploadproxy | xargs)
     override="https://127.0.0.1:$host_port"
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
+
+    # W/A for nfs server becoming unreachable mid run
+    _kubectl delete sc nfs-csi
+    local podip=$(_kubectl get pod -n nfs-csi -l=app=nfs-server -ojsonpath="{ $.items[0].status.podIP }")
+    _kubectl create -f - <<EOF
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-csi
+mountOptions:
+- nfsvers=4.1
+parameters:
+  server: $podip
+  share: /
+provisioner: nfs.csi.k8s.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+EOF
 }
 
 function configure_prometheus() {
