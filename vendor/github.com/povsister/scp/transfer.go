@@ -179,6 +179,10 @@ type DirTransferOption struct {
 	// Default: 0 (Means no limit)
 	// TODO: not implemented yet
 	SpeedLimit int64
+	// ContentOnly skips creating the source directory on the receiving side, and
+	// only transfers the source directory's contents.
+	// Default: false
+	ContentOnly bool
 }
 
 // CopyDirToRemote recursively copies a directory to remoteDir.
@@ -268,7 +272,9 @@ func traverseDir(ctx context.Context, rootDir bool, dir *os.File, opt *DirTransf
 		return
 	}
 
-	deliverDir(ctx, curDirStat, opt, jobCh)
+	if !(rootDir && opt.ContentOnly) {
+		deliverDir(ctx, curDirStat, opt, jobCh)
+	}
 
 	var subDirs []os.FileInfo
 	for i := range list {

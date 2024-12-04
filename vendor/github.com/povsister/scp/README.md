@@ -121,6 +121,13 @@ do := &scp.DirTransferOption{
     PreserveProp: true,
 }
 err:= scpClient.CopyDirToRemote("/path/to/local/dir", "/path/to/remote/dir", do)
+
+// recursively copy directory contents to remote. Does not create the
+// source directory on the target side, like `scp -r /path/to/dir/* ...`
+do := &scp.DirTransferOption{
+    ContentOnly: true,
+}
+err := scpClient.CopyDirToRemote("/path/to/local/dir", "/path/to/remote/dir", do)
 ```
 
 ### Recursively copy a directory from remote

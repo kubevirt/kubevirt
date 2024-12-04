@@ -167,14 +167,14 @@ github.com/google/go-github/v32/github
 # github.com/google/go-querystring v1.0.0
 ## explicit
 github.com/google/go-querystring/query
-# github.com/google/goexpect v0.0.0-20190425035906-112704a48083
-## explicit
+# github.com/google/goexpect v0.0.0-20210430020637-ab937bf7fd6f
+## explicit; go 1.12
 github.com/google/goexpect
 # github.com/google/gofuzz v1.2.0
 ## explicit; go 1.12
 github.com/google/gofuzz
 github.com/google/gofuzz/bytesource
-# github.com/google/goterm v0.0.0-20190311235235-ce302be1d114
+# github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f
 ## explicit
 github.com/google/goterm/term
 # github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db
@@ -187,7 +187,7 @@ github.com/google/renameio/v2/maybe
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed
+# github.com/gordonklaus/ineffassign v0.1.0
 ## explicit; go 1.14
 github.com/gordonklaus/ineffassign/pkg/ineffassign
 # github.com/gorilla/websocket v1.5.0
@@ -262,8 +262,8 @@ github.com/mdlayher/socket
 # github.com/mdlayher/vsock v1.2.1
 ## explicit; go 1.20
 github.com/mdlayher/vsock
-# github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
-## explicit
+# github.com/mitchellh/go-ps v1.0.0
+## explicit; go 1.13
 github.com/mitchellh/go-ps
 # github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 ## explicit
@@ -412,7 +412,7 @@ github.com/pkg/diff/write
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
+# github.com/povsister/scp v0.0.0-20240802064259-28781e87b246
 ## explicit; go 1.15
 github.com/povsister/scp
 # github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
