@@ -44,15 +44,19 @@ func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout
 }
 
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	return runVMI(vmi, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, watcher.WarningsPolicy{FailOnWarnings: true}, timeout)
+	return runVMI(vmi, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running},
+		watcher.WarningsPolicy{FailOnWarnings: true}, timeout)
 }
 
-func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
+func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy,
+) *v1.VirtualMachineInstance {
 	return runVMI(vmi, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, wp, timeout)
 }
 
-func runVMI(vmi *v1.VirtualMachineInstance, phases []v1.VirtualMachineInstancePhase, wp watcher.WarningsPolicy, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+func runVMI(vmi *v1.VirtualMachineInstance, phases []v1.VirtualMachineInstancePhase, wp watcher.WarningsPolicy, timeout int,
+) *v1.VirtualMachineInstance {
+	vmi, err := kubevirt.Client().VirtualMachineInstance(
+		testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	By("Waiting until the VirtualMachineInstance reaches the desired phase")
 	return libwait.WaitForVMIPhase(vmi, phases, libwait.WithWarningsPolicy(&wp), libwait.WithTimeout(timeout))

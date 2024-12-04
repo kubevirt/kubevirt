@@ -23,6 +23,7 @@ tests/libregistry
 tests/libsecret
 tests/libssh
 tests/libvmifact
+tests/libvmops
 tests/libwait
 tests/scale
 tests/usb
