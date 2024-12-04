@@ -1,0 +1,8 @@
+cc_binary(
+    name = "virtiofs-dispatcher",
+    srcs = ["main.c"],
+    linkopts = [
+        "-static",
+    ],
+    visibility = ["//visibility:public"],
+)
