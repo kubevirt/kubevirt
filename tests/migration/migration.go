@@ -64,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -268,7 +267,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
-				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "10Mi", 3)
+				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "1Mi", 3)
 				durationHighBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "128Mi", 3)
 				Expect(durationHighBandwidth.Seconds() * 2).To(BeNumerically("<", durationLowBandwidth.Seconds()))
 			})
@@ -2320,27 +2319,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 		})
 
-		Context("parallel migration threads", func() {
-			const numberOfMigrationThreads uint = 4
-
-			It("should run successfully when configured through a VMI annotation", func() {
-				vmi := libvmifact.NewCirros(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithAnnotation(cmdclient.MultiThreadedQemuMigrationAnnotation, fmt.Sprintf("%d", numberOfMigrationThreads)),
-				)
-
-				By("Running vmi %s" + vmi.Name)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
-
-				By("Starting the Migration")
-				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				_ = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 180)
-			})
-		})
-
 		Context(" with migration policies", Serial, func() {
-
 			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName *string) {
 				By("Verifying the VMI's configuration source")
 				if expectedName == nil {

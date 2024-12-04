@@ -1998,17 +1998,15 @@ var _ = Describe("Manager", func() {
 			isBlockMigration := migrationType == "block"
 			isVmiPaused := migrationType == "paused"
 
-			var parallelMigrationThreads *uint = nil
-			if migrationType == "parallel" {
-				var fakeNumberOfThreads uint = 123
-				parallelMigrationThreads = &fakeNumberOfThreads
+			options := &cmdclient.MigrationOptions{
+				UnsafeMigration:   migrationType == "unsafe",
+				AllowAutoConverge: migrationType == "autoConverge",
+				AllowPostCopy:     migrationType == "postCopy",
 			}
 
-			options := &cmdclient.MigrationOptions{
-				UnsafeMigration:          migrationType == "unsafe",
-				AllowAutoConverge:        migrationType == "autoConverge",
-				AllowPostCopy:            migrationType == "postCopy",
-				ParallelMigrationThreads: parallelMigrationThreads,
+			shouldConfigureParallel, parallelMigrationThreads := shouldConfigureParallelMigration(options)
+			if shouldConfigureParallel {
+				options.ParallelMigrationThreads = virtpointer.P(uint(parallelMigrationThreads))
 			}
 
 			flags := generateMigrationFlags(isBlockMigration, isVmiPaused, options)
@@ -2028,7 +2026,7 @@ var _ = Describe("Manager", func() {
 			if migrationType == "paused" {
 				expectedMigrateFlags |= libvirt.MIGRATE_PAUSED
 			}
-			if migrationType == "parallel" {
+			if shouldConfigureParallel {
 				expectedMigrateFlags |= libvirt.MIGRATE_PARALLEL
 			}
 			Expect(flags).To(Equal(expectedMigrateFlags), "libvirt migration flags are not set as expected")
@@ -2039,7 +2037,6 @@ var _ = Describe("Manager", func() {
 		Entry("migration auto converge", "autoConverge"),
 		Entry("migration using postcopy", "postCopy"),
 		Entry("migration of paused vmi", "paused"),
-		Entry("migration with parallel threads", "parallel"),
 	)
 
 	DescribeTable("on successful list all domains",
@@ -3062,6 +3059,27 @@ var _ = Describe("Manager helper functions", func() {
 			Entry("filesystem source and block destination with hostdisks", false, true, volHostDisk),
 			Entry("block source and filesystem destination with hostdisks", true, false, volHostDisk),
 		)
+	})
+
+	Context("shouldConfigureParallelMigration", func() {
+		DescribeTable("should not configure parallel migration", func(options *cmdclient.MigrationOptions) {
+			shouldConfigure, _ := shouldConfigureParallelMigration(options)
+			Expect(shouldConfigure).To(BeFalse())
+		},
+			Entry("with nil options", nil),
+			Entry("with nil migration threads", &cmdclient.MigrationOptions{ParallelMigrationThreads: nil}),
+			Entry("with nil migration threads and post-copy allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: nil, AllowPostCopy: true}),
+			Entry("with non-nil migration threads and post-copy allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: virtpointer.P(uint(3)), AllowPostCopy: true}),
+		)
+
+		It("should configure parallel migration with non-nil migration threads and post-copy not allowed", func() {
+			options := &cmdclient.MigrationOptions{
+				ParallelMigrationThreads: virtpointer.P(uint(3)),
+				AllowPostCopy:            false,
+			}
+			shouldConfigure, _ := shouldConfigureParallelMigration(options)
+			Expect(shouldConfigure).To(BeTrue())
+		})
 	})
 
 })
