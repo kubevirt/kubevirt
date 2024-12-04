@@ -30,6 +30,8 @@ metadata:
   namespace: {{.CSVNamespace}}
 spec:
   apiservicedefinitions: {}
+  cleanup:
+    enabled: false
   customresourcedefinitions:
     owned:
     - description: Represents a KubeVirt deployment
