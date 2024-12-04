@@ -674,6 +674,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	pod.Spec.Volumes = append(pod.Spec.Volumes, sidecarVolumes...)
+	if virtiofsRequiresExtraVolume(vmi) {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, virtiofsExtraVolume())
+	}
 
 	return &pod, nil
 }
