@@ -18,7 +18,6 @@ go_library(
         "extensions.go",
         "filter.go",
         "filter_adapter.go",
-        "json.go",
         "jsr311.go",
         "logger.go",
         "mime.go",

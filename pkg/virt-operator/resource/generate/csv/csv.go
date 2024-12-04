@@ -19,14 +19,12 @@
 package csv
 
 import (
-	"encoding/json"
 	"fmt"
 
-	"github.com/coreos/go-semver/semver"
-	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
+	"github.com/blang/semver/v4"
+	"github.com/operator-framework/api/pkg/lib/version"
+	csvv1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -71,27 +69,6 @@ type NewClusterServiceVersionData struct {
 	GsImage               string
 	PrHelperImage         string
 	SidecarShimImage      string
-}
-
-type csvClusterPermissions struct {
-	ServiceAccountName string              `json:"serviceAccountName"`
-	Rules              []rbacv1.PolicyRule `json:"rules"`
-}
-
-type csvPermissions struct {
-	ServiceAccountName string              `json:"serviceAccountName"`
-	Rules              []rbacv1.PolicyRule `json:"rules"`
-}
-
-type csvDeployments struct {
-	Name string                `json:"name"`
-	Spec appsv1.DeploymentSpec `json:"spec,omitempty"`
-}
-
-type csvStrategySpec struct {
-	ClusterPermissions []csvClusterPermissions `json:"clusterPermissions"`
-	Permissions        []csvPermissions        `json:"permissions"`
-	Deployments        []csvDeployments        `json:"deployments"`
 }
 
 var description = `
@@ -200,30 +177,25 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 	clusterRules := rbac.NewOperatorClusterRole().Rules
 	rules := rbac.NewOperatorRole(data.Namespace).Rules
 
-	strategySpec := csvStrategySpec{
-		ClusterPermissions: []csvClusterPermissions{
+	strategySpec := csvv1.StrategyDetailsDeployment{
+		ClusterPermissions: []csvv1.StrategyDeploymentPermissions{
 			{
 				ServiceAccountName: "kubevirt-operator",
 				Rules:              clusterRules,
 			},
 		},
-		Permissions: []csvPermissions{
+		Permissions: []csvv1.StrategyDeploymentPermissions{
 			{
 				ServiceAccountName: "kubevirt-operator",
 				Rules:              rules,
 			},
 		},
-		Deployments: []csvDeployments{
+		DeploymentSpecs: []csvv1.StrategyDeploymentSpec{
 			{
 				Name: "virt-operator",
 				Spec: deployment.Spec,
 			},
 		},
-	}
-
-	strategySpecJsonBytes, err := json.Marshal(strategySpec)
-	if err != nil {
-		return nil, err
 	}
 
 	almExampleFmt := `
@@ -242,6 +214,11 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
       ]`
 
 	almExample := fmt.Sprintf(almExampleFmt, virtv1.ApiLatestVersion)
+
+	csvVersion, err := semver.Parse(data.CsvVersion)
+	if err != nil {
+		return nil, err
+	}
 
 	return &csvv1.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
@@ -269,9 +246,11 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 			DisplayName: "KubeVirt",
 			Description: description,
 			Keywords:    []string{"KubeVirt", "Virtualization"},
-			Version:     *semver.New(data.CsvVersion),
-			Maturity:    "alpha",
-			Replaces:    data.ReplacesCsvVersion,
+			Version: version.OperatorVersion{
+				Version: csvVersion,
+			},
+			Maturity: "alpha",
+			Replaces: data.ReplacesCsvVersion,
 			Maintainers: []csvv1.Maintainer{{
 				Name:  "KubeVirt project",
 				Email: "kubevirt-dev@googlegroups.com",
@@ -322,8 +301,8 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 				},
 			},
 			InstallStrategy: csvv1.NamedInstallStrategy{
-				StrategyName:    "deployment",
-				StrategySpecRaw: json.RawMessage(strategySpecJsonBytes),
+				StrategyName: "deployment",
+				StrategySpec: strategySpec,
 			},
 			CustomResourceDefinitions: csvv1.CustomResourceDefinitions{
 

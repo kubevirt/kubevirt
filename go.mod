@@ -3,11 +3,12 @@ module kubevirt.io/kubevirt
 go 1.23.0
 
 require (
+	github.com/blang/semver/v4 v4.0.0
 	github.com/cheggaaa/pb/v3 v3.1.0
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.1.1
 	github.com/coreos/go-semver v0.3.1
-	github.com/emicklei/go-restful/v3 v3.11.0
+	github.com/emicklei/go-restful/v3 v3.11.2
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-kit/kit v0.13.0
@@ -45,7 +46,7 @@ require (
 	github.com/openshift/api v0.0.0-20240527133614-ba11c1587003 // branch: release-4.17
 	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87 // branch: release-4.17
 	github.com/openshift/library-go v0.0.0-20241118144106-bfd968d8eef4 // branch: release-4.17
-	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
+	github.com/operator-framework/api v0.27.0
 	github.com/povsister/scp v0.0.0-20240802064259-28781e87b246
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
 	github.com/prometheus/client_golang v1.19.1
@@ -86,7 +87,7 @@ require (
 
 require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
+	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cilium/ebpf v0.7.0 // indirect
@@ -101,7 +102,7 @@ require (
 	github.com/go-openapi/analysis v0.20.0 // indirect
 	github.com/go-openapi/errors v0.19.9 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
-	github.com/go-openapi/jsonreference v0.20.2 // indirect
+	github.com/go-openapi/jsonreference v0.20.4 // indirect
 	github.com/go-openapi/loads v0.20.2 // indirect
 	github.com/go-openapi/runtime v0.19.24 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
@@ -169,7 +170,6 @@ replace (
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
 
 	github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
-	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 
 	k8s.io/api => k8s.io/api v0.31.0
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.31.0
