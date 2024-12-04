@@ -63,6 +63,7 @@ pkg_tar(
         "//cmd/virt-launcher-monitor",
         "//cmd/virt-probe",
         "//cmd/virt-tail",
+        "//cmd/virtiofs-placeholder",
     ],
     package_dir = "/usr/bin",
 )
