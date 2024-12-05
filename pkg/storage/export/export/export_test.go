@@ -65,6 +65,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -1359,7 +1360,8 @@ var _ = Describe("Export controller", func() {
 
 	It("Should properly replace DVTemplates", func() {
 		vm := createVMWithDVTemplateAndPVC()
-		res := controller.updateHttpSourceDataVolumeTemplate(vm)
+		res, err := controller.updateHttpSourceDataVolumeTemplate(vm)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(res).ToNot(BeNil())
 		Expect(res.Spec.DataVolumeTemplates).To(HaveLen(1))
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
@@ -1375,7 +1377,8 @@ var _ = Describe("Export controller", func() {
 		pvc.Spec.DataSourceRef = &k8sv1.TypedObjectReference{}
 		pvcInformer.GetStore().Add(pvc)
 		vm := createVMWithDVTemplateAndPVC()
-		dvs := controller.generateDataVolumesFromVm(vm)
+		dvs, err := controller.generateDataVolumesFromVm(vm)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(dvs).To(HaveLen(1))
 		Expect(dvs[0]).ToNot(BeNil())
 		Expect(dvs[0].Name).To((Equal("pvc")))
@@ -1628,6 +1631,24 @@ func createPVC(name, contentType string) *k8sv1.PersistentVolumeClaim {
 			Namespace: testNamespace,
 			Annotations: map[string]string{
 				annContentType: contentType,
+			},
+		},
+		Status: k8sv1.PersistentVolumeClaimStatus{
+			Phase: k8sv1.ClaimBound,
+		},
+	}
+}
+
+func createBackendPVC(vmName string) *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s-", backendstorage.PVCPrefix, vmName),
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				annContentType: "archive",
+			},
+			Labels: map[string]string{
+				backendstorage.PVCPrefix: vmName,
 			},
 		},
 		Status: k8sv1.PersistentVolumeClaimStatus{
