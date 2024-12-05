@@ -122,7 +122,7 @@ func getQEMUPID(handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
 				fmt.Sprintf("grep -l '[g]uest=%s_%s' /proc/*/cmdline", vmi.Namespace, vmi.Name),
 			})
 		return err
-	}, 3*time.Second, 500*time.Millisecond).Should(Succeed(), stderr)
+	}, 3*time.Second, 500*time.Millisecond).Should(Succeed(), stderr, stdout)
 
 	strs := strings.Split(stdout, "\n")
 	Expect(strs).To(HaveLen(2), "more (or less?) than one matching process was found")
