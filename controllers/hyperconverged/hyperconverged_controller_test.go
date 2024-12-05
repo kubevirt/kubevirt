@@ -211,6 +211,8 @@ var _ = Describe("HyperconvergedController", func() {
 					"NetworkBindingPlugins",
 					"VMLiveUpdateFeatures",
 					"DynamicPodInterfaceNaming",
+					"VolumesUpdateStrategy",
+					"VolumeMigration",
 				}
 				// Get the KV
 				kvList := &kubevirtcorev1.KubeVirtList{}

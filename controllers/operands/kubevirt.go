@@ -110,6 +110,12 @@ const (
 
 	// kvDynamicPodInterfaceNaming enables a mechanism to dynamically determine the primary pod interface for KubeVirt virtual machines.
 	kvDynamicPodInterfaceNamingGate = "DynamicPodInterfaceNaming"
+
+	// enables to specify the strategy on the volume updates.
+	kvVolumesUpdateStrategyGate = "VolumesUpdateStrategy"
+
+	// enables to migrate the storage. It depends on the VolumesUpdateStrategy feature.
+	kvVolumeMigrationGate = "VolumeMigration"
 )
 
 const (
@@ -132,6 +138,8 @@ var (
 		kvHNetworkBindingPluginsGate,
 		kvVMLiveUpdateFeatures,
 		kvDynamicPodInterfaceNamingGate,
+		kvVolumesUpdateStrategyGate,
+		kvVolumeMigrationGate,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
