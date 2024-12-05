@@ -2336,6 +2336,39 @@ var _ = Describe("Validating VM Admitter", func() {
 			HavePrefix("feature gate test-deprecated is deprecated"),
 			HavePrefix("spec.running is deprecated, please use spec.runStrategy instead.")))
 	})
+
+	It("when a validator pass, should allow creation", func() {
+		vmi := newBaseVmi()
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				RunStrategy: pointer.P(v1.RunStrategyAlways),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+		vmsAdmitter.Validators = []Validator{validatorStub{}}
+
+		resp := admitVmCreate(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+	It("when a validator fails, should reject creation", func() {
+		vmi := newBaseVmi()
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				RunStrategy: pointer.P(v1.RunStrategyAlways),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+		expectedStatusCause := []metav1.StatusCause{{Type: "test", Message: "test", Field: "test"}}
+		vmsAdmitter.Validators = []Validator{validatorStub{statusCauses: expectedStatusCause}}
+
+		resp := admitVmCreate(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(Equal(expectedStatusCause))
+	})
 })
 
 func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
@@ -2347,6 +2380,22 @@ func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.Admissio
 			Object: runtime.RawExtension{
 				Raw: vmBytes,
 			},
+		},
+	}
+
+	return admitter.Admit(context.Background(), ar)
+}
+
+func admitVmCreate(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
+	vmBytes, _ := json.Marshal(vm)
+
+	ar := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: webhooks.VirtualMachineGroupVersionResource,
+			Object: runtime.RawExtension{
+				Raw: vmBytes,
+			},
+			Operation: admissionv1.Create,
 		},
 	}
 
