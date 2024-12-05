@@ -877,7 +877,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers, networkValidator)
 	})
 	http.HandleFunc(components.VMIRSValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
@@ -916,7 +916,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVmClusterPreferences(w, r)
 	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers, networkValidator)
 	})
 	http.HandleFunc(components.LauncherEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)

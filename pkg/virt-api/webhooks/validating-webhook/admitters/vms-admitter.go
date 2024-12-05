@@ -44,7 +44,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
@@ -63,15 +62,22 @@ type VMsAdmitter struct {
 	NamespaceInformer   cache.SharedIndexInformer
 	InstancetypeMethods instancetype.Methods
 	ClusterConfig       *virtconfig.ClusterConfig
+	Validators          []Validator
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers) *VMsAdmitter {
+func NewVMsAdmitter(
+	clusterConfig *virtconfig.ClusterConfig,
+	client kubecli.KubevirtClient,
+	informers *webhooks.Informers,
+	validators ...Validator,
+) *VMsAdmitter {
 	return &VMsAdmitter{
 		VirtClient:          client,
 		DataSourceInformer:  informers.DataSourceInformer,
 		NamespaceInformer:   informers.NamespaceInformer,
 		InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: client},
 		ClusterConfig:       clusterConfig,
+		Validators:          validators,
 	}
 }
 
@@ -132,9 +138,10 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 			causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec)...)
 		}
 
-		netValidator := netadmitter.NewValidator(admitter.ClusterConfig)
-		if causes = netValidator.ValidateCreation(k8sfield.NewPath("spec"), &vmCopy.Spec.Template.Spec); len(causes) > 0 {
-			return webhookutils.ToAdmissionResponse(causes)
+		for _, validator := range admitter.Validators {
+			if causes = validator.ValidateCreation(k8sfield.NewPath("spec", "template", "spec"), &vmCopy.Spec.Template.Spec); len(causes) > 0 {
+				return webhookutils.ToAdmissionResponse(causes)
+			}
 		}
 	}
 	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, accountName)

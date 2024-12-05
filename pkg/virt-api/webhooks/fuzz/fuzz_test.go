@@ -74,6 +74,7 @@ func FuzzAdmitter(f *testing.F) {
 				adm := &admitters.VMsAdmitter{
 					ClusterConfig:       config,
 					InstancetypeMethods: testutils.NewMockInstancetypeMethods(),
+					Validators:          []admitters.Validator{netadmitter.NewValidator(config)},
 				}
 				return adm.Admit(context.Background(), request)
 			},
@@ -87,6 +88,7 @@ func FuzzAdmitter(f *testing.F) {
 				adm := &admitters.VMsAdmitter{
 					ClusterConfig:       config,
 					InstancetypeMethods: testutils.NewMockInstancetypeMethods(),
+					Validators:          []admitters.Validator{netadmitter.NewValidator(config)},
 				}
 				return adm.Admit(context.Background(), request)
 			},
