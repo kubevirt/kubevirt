@@ -21,23 +21,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
-var _ = Describe("Root", func() {
-
-	It("returns virtctl", func() {
-		Expect(virtctl.GetProgramName("virtctl")).To(BeEquivalentTo("virtctl"))
-	})
-
-	It("returns virtctl as default", func() {
-		Expect(virtctl.GetProgramName("42")).To(BeEquivalentTo("virtctl"))
-	})
-
-	It("returns kubectl", func() {
-		Expect(virtctl.GetProgramName("kubectl-virt")).To(BeEquivalentTo("kubectl virt"))
-	})
-
-	It("returns oc", func() {
-		Expect(virtctl.GetProgramName("oc-virt")).To(BeEquivalentTo("oc virt"))
-	})
+var _ = Describe("virtctl", func() {
+	DescribeTable("GetProgramName", func(binary, expected string) {
+		Expect(virtctl.GetProgramName(binary)).To(Equal(expected))
+	},
+		Entry("returns virtctl", "virtctl", "virtctl"),
+		Entry("returns virtctl as default", "42", "virtctl"),
+		Entry("returns kubectl", "kubectl-virt", "kubectl virt"),
+		Entry("returns oc", "oc-virt", "oc virt"),
+	)
 
 	It("Execute should print a message if and error occured and server and client virtctl versions are different", func() {
 		ctrl := gomock.NewController(GinkgoT())
