@@ -6,12 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/spf13/cobra"
-
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	client_version "kubevirt.io/client-go/version"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/adm"
 	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
@@ -133,8 +134,36 @@ func Execute() {
 	log.InitializeLogging(programName)
 	cmd, clientConfig := NewVirtctlCommand()
 	if err := cmd.Execute(); err != nil {
-		version.CheckClientServerVersion(&clientConfig, cmd)
-		fmt.Fprintln(cmd.Root().ErrOrStderr(), strings.TrimSpace(err.Error()))
+		if err := CheckClientServerVersion(clientConfig); err != nil {
+			cmd.PrintErrln(err)
+		}
+		cmd.PrintErrln(err)
 		os.Exit(1)
 	}
+}
+
+func CheckClientServerVersion(clientConfig clientcmd.ClientConfig) error {
+	clientSemVer, err := semver.NewVersion(strings.TrimPrefix(client_version.Get().GitVersion, "v"))
+	if err != nil {
+		return err
+	}
+
+	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
+	if err != nil {
+		return err
+	}
+	serverVersion, err := virtClient.ServerVersion().Get()
+	if err != nil {
+		return err
+	}
+	serverSemVer, err := semver.NewVersion(strings.TrimPrefix(serverVersion.GitVersion, "v"))
+	if err != nil {
+		return err
+	}
+
+	if clientSemVer.Major != serverSemVer.Major || clientSemVer.Minor != serverSemVer.Minor {
+		return fmt.Errorf("You are using a client virtctl version that is different from the KubeVirt version running in the cluster\nClient Version: %s\nServer Version: %s\n", client_version.Get(), *serverVersion)
+	}
+
+	return nil
 }
