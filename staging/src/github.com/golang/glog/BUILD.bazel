@@ -5,5 +5,5 @@ go_library(
     srcs = ["glog.go"],
     importpath = "github.com/golang/glog",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/go-kit/kit/log:go_default_library"],
+    deps = ["//vendor/github.com/go-kit/log:go_default_library"],
 )
