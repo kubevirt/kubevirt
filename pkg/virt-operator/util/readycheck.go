@@ -48,10 +48,7 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 		log.Log.V(4).Infof("DaemonSet %v not ready yet", daemonset.Name)
 		return false
 	}
-	var hash string
-	if daemonset.Annotations != nil {
-		hash = daemonset.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
-	}
+	hash := daemonset.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
 
 	// cross check that we have 'daemonset.Status.NumberReady' pods with
 	// the desired version tag. This ensures we wait for rolling update to complete

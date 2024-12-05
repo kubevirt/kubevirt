@@ -158,10 +158,7 @@ func (r *Reconciler) patchDaemonSet(oldDs, newDs *appsv1.DaemonSet) (*appsv1.Dae
 
 func (r *Reconciler) getCanaryPods(daemonSet *appsv1.DaemonSet) []*corev1.Pod {
 	canaryPods := []*corev1.Pod{}
-	var hash string
-	if daemonSet.Annotations != nil {
-		hash = daemonSet.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
-	}
+	hash := daemonSet.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
 
 	for _, obj := range r.stores.InfrastructurePodCache.List() {
 		pod := obj.(*corev1.Pod)
@@ -176,10 +173,8 @@ func (r *Reconciler) getCanaryPods(daemonSet *appsv1.DaemonSet) []*corev1.Pod {
 
 func (r *Reconciler) howManyUpdatedAndReadyPods(daemonSet *appsv1.DaemonSet) int32 {
 	var updatedReadyPods int32
-	var hash string
-	if daemonSet.Annotations != nil {
-		hash = daemonSet.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
-	}
+	hash := daemonSet.Annotations[v1.KubeVirtPodTemplateAnnotationHash]
+
 	for _, obj := range r.stores.InfrastructurePodCache.List() {
 		pod := obj.(*corev1.Pod)
 		owner := metav1.GetControllerOf(pod)

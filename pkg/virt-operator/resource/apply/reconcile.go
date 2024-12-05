@@ -92,7 +92,7 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 
 func injectPodTemplateOperatorMetadata(objectMeta *metav1.ObjectMeta, templateSpec *corev1.PodTemplateSpec) {
 	// Clear hash annotation before calculate new hash, in case of podTemplateSpec hash change by hash annotation itself
-	templateSpec.ObjectMeta.Annotations[v1.KubeVirtPodTemplateAnnotationHash] = ""
+	delete(templateSpec.ObjectMeta.Annotations, v1.KubeVirtPodTemplateAnnotationHash)
 	hash := util.ComputeHash(templateSpec)
 	objectMeta.Annotations[v1.KubeVirtPodTemplateAnnotationHash] = hash
 	templateSpec.ObjectMeta.Annotations[v1.KubeVirtPodTemplateAnnotationHash] = hash
