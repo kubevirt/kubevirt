@@ -356,11 +356,11 @@ func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
 	}
 	defer util.CloseIOAndCheckErr(f, nil)
 
-	logicalSize, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKSSZGET)
+	logicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKSSZGET)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get logical block size from device %v: %v", path, err)
 	}
-	physicalSize, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKBSZGET)
+	physicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKBSZGET)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get physical block size from device %v: %v", path, err)
 	}
