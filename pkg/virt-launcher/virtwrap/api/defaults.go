@@ -76,8 +76,6 @@ func (d *Defaulter) setDefaults_Features(spec *DomainSpec) {
 	if spec.Features == nil {
 		spec.Features = &Features{}
 	}
-
-	spec.Features.VMPort = &FeatureState{State: "off"}
 }
 
 func (d *Defaulter) SetObjectDefaults_Domain(in *Domain) {

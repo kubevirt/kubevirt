@@ -82,3 +82,7 @@ func (archConverterS390X) requiresMPXCPUValidation() bool {
 func (archConverterS390X) shouldVerboseLogsBeEnabled() bool {
 	return false
 }
+
+func (archConverterS390X) hasVMPort() bool {
+	return true
+}
