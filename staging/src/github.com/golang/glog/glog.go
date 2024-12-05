@@ -31,7 +31,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	log2 "github.com/go-kit/kit/log"
+	log2 "github.com/go-kit/log"
 )
 
 const timestampNow = "2006-01-02T15:04:05.000000Z"
