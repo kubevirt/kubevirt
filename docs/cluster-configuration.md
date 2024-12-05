@@ -168,18 +168,6 @@ For additional information, see here: [KubeSecondaryDNS](https://github.com/kube
 
 **Default**: `false`
 
-### deployKubevirtIpamController Feature Gate
-Set the `deployKubevirtIpamController` feature gate to true to allow deploying Kubevirt IPAM controller by CNAO.
-For additional information, see here: [KubevirtIpamController](https://github.com/maiqueb/kubevirt-ipam-claims)
-
-The component allows having persistent IPs for Kubevirt VM user defined networks.
-OVN k8s implements the SDN side, hence required to be deployed as well.
-
-Note that if used on K8s cluster (non OCP), a cert manager is required to be deployed.
-[cert-manager](https://github.com/cert-manager/cert-manager) is recommended.
-
-**Default**: `false`
-
 ### persistentReservation Feature Gate
 Set the `persistentReservation` feature gate to true in order to enable the reservation of a LUN through the SCSI Persistent Reserve commands.
 
@@ -248,7 +236,6 @@ spec:
   featureGates:
     enableCommonBootImageImport: true
     deployKubeSecondaryDNS: true
-    deployKubevirtIpamController: false
     enableApplicationAwareQuota: true
 ```
 

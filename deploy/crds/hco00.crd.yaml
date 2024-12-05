@@ -59,7 +59,6 @@ spec:
               featureGates:
                 autoResourceLimits: false
                 deployKubeSecondaryDNS: false
-                deployKubevirtIpamController: false
                 deployVmConsoleProxy: false
                 disableMDevConfiguration: false
                 downwardMetrics: false
@@ -1039,7 +1038,6 @@ spec:
                 default:
                   autoResourceLimits: false
                   deployKubeSecondaryDNS: false
-                  deployKubevirtIpamController: false
                   deployVmConsoleProxy: false
                   disableMDevConfiguration: false
                   downwardMetrics: false
@@ -1073,10 +1071,9 @@ spec:
                     description: Deploy KubeSecondaryDNS by CNAO
                     type: boolean
                   deployKubevirtIpamController:
-                    default: false
                     description: |-
                       Deploy KubevirtIpamController by CNAO.
-                      Allows having persistent IPs for Kubevirt user defined networks.
+                      Deprecated: this field is ignored and will be removed in the next version of the API.
                     type: boolean
                   deployVmConsoleProxy:
                     default: false

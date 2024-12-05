@@ -151,11 +151,12 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 	Context("validate node placement in workloads nodes", func() {
 		It("[test_id:5677] all expected 'workloads' pod must be on infra node", Label("test_id:5677"), func(ctx context.Context) {
 			expectedWorkloadsPods := map[string]bool{
-				"bridge-marker":  false,
-				"cni-plugins":    false,
-				"ovs-cni-marker": false,
-				"virt-handler":   false,
-				"secondary-dns":  false,
+				"bridge-marker":       false,
+				"cni-plugins":         false,
+				"ovs-cni-marker":      false,
+				"virt-handler":        false,
+				"secondary-dns":       false,
+				"ipam-virt-workloads": false,
 			}
 
 			By("Getting Network Addons Configs")
@@ -165,10 +166,6 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 			}
 			if cnaoCR.Spec.KubeSecondaryDNS == nil {
 				delete(expectedWorkloadsPods, "secondary-dns")
-			}
-
-			if cnaoCR.Spec.KubevirtIpamController != nil {
-				expectedWorkloadsPods["kubevirt-ipam-claims-controller-manager"] = false
 			}
 
 			Eventually(func(g Gomega, ctx context.Context) {

@@ -272,8 +272,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"deployKubevirtIpamController": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deploy KubevirtIpamController by CNAO. Allows having persistent IPs for Kubevirt user defined networks.",
-							Default:     false,
+							Description: "Deploy KubevirtIpamController by CNAO. Deprecated: this field is ignored and will be removed in the next version of the API.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

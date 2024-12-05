@@ -40,6 +40,18 @@
       "jsonPatchApplyOptions": {
         "allowMissingPathOnRemove": true
       }
+    },
+    {
+      "semverRange": "<=1.14.0",
+      "jsonPatch": [
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/deployKubevirtIpamController"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "allowMissingPathOnRemove": true
+      }
     }
   ],
   "objectsToBeRemoved": [

@@ -140,9 +140,10 @@ func setDeployOvsAnnotation(req *common.HcoRequest, found *networkaddonsv1.Netwo
 func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkaddonsv1.NetworkAddonsConfig, error) {
 
 	cnaoSpec := networkaddonsshared.NetworkAddonsConfigSpec{
-		Multus:      &networkaddonsshared.Multus{},
-		LinuxBridge: &networkaddonsshared.LinuxBridge{},
-		KubeMacPool: &networkaddonsshared.KubeMacPool{},
+		Multus:                 &networkaddonsshared.Multus{},
+		LinuxBridge:            &networkaddonsshared.LinuxBridge{},
+		KubeMacPool:            &networkaddonsshared.KubeMacPool{},
+		KubevirtIpamController: &networkaddonsshared.KubevirtIpamController{},
 	}
 
 	nameServerIP, err := getKSDNameServerIP(hc.Spec.KubeSecondaryDNSNameServerIP)
@@ -156,10 +157,6 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 			Domain:       baseDomain,
 			NameServerIP: nameServerIP,
 		}
-	}
-
-	if hc.Spec.FeatureGates.DeployKubevirtIpamController != nil && *hc.Spec.FeatureGates.DeployKubevirtIpamController {
-		cnaoSpec.KubevirtIpamController = &networkaddonsshared.KubevirtIpamController{}
 	}
 
 	cnaoSpec.Ovs = hcoAnnotation2CnaoSpec(hc.ObjectMeta.Annotations)

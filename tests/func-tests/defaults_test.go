@@ -68,7 +68,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		defaultFeatureGates := v1beta1.HyperConvergedFeatureGates{
 			DownwardMetrics:                  ptr.To(false),
 			DeployKubeSecondaryDNS:           ptr.To(false),
-			DeployKubevirtIpamController:     ptr.To(false),
 			DeployVMConsoleProxy:             ptr.To(false),
 			DisableMDevConfiguration:         ptr.To(false),
 			EnableCommonBootImageImport:      ptr.To(true),
@@ -92,7 +91,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		},
 			Entry("when removing /spec/featureGates/downwardMetrics", "/spec/featureGates/downwardMetrics"),
 			Entry("when removing /spec/featureGates/deployKubeSecondaryDNS", "/spec/featureGates/deployKubeSecondaryDNS"),
-			Entry("when removing /spec/featureGates/deployKubevirtIpamController", "/spec/featureGates/deployKubevirtIpamController"),
 			Entry("when removing /spec/featureGates/deployVmConsoleProxy", "/spec/featureGates/deployVmConsoleProxy"),
 			Entry("when removing /spec/featureGates/enableCommonBootImageImport", "/spec/featureGates/enableCommonBootImageImport"),
 			Entry("when removing /spec/featureGates/persistentReservation", "/spec/featureGates/persistentReservation"),
