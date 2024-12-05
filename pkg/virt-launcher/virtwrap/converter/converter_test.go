@@ -917,13 +917,14 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
 			})
 
-			It("should define hotplugable default topology", func() {
+			DescribeTable("should define hotplugable default topology", func(arch string) {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:      2,
 					MaxSockets: 3,
 					Sockets:    2,
 				}
+				c.Architecture = NewArchConverter(arch)
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(2)), "Expect cores")
 				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(3)), "Expect sockets")
@@ -943,7 +944,11 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.VCPUs.VCPU[3].Enabled).To(Equal("yes"), "Expecting the 4th vcpu to be enabled")
 				Expect(domainSpec.VCPUs.VCPU[4].Enabled).To(Equal("no"), "Expecting the 5th vcpu to be disabled")
 				Expect(domainSpec.VCPUs.VCPU[5].Enabled).To(Equal("no"), "Expecting the 6th vcpu to be disabled")
-			})
+			},
+				Entry("on amd64", amd64),
+				Entry("on ppc64le", ppc64le),
+				Entry("on s390x", s390x),
+			)
 
 			It("should not define hotplugable topology for ARM64", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
