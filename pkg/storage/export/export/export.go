@@ -1403,7 +1403,6 @@ func (ctrl *VMExportController) expandVirtualMachine(vm *virtv1.VirtualMachine) 
 }
 
 func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
-	// TODO: Need to find a way to include/represent backend storage in the export VM manifest
 	volumes, err := storageutils.GetVolumes(vm, nil)
 	if err != nil {
 		return nil, err
@@ -1473,7 +1472,6 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 
 func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
 	res := make([]*cdiv1.DataVolume, 0)
-	// TODO: Need to find a way to include/represent backend storage in the export VM manifest
 	volumes, err := storageutils.GetVolumes(vm, nil)
 	if err != nil {
 		return nil, err

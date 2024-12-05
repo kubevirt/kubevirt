@@ -551,7 +551,7 @@ func (t *vmRestoreTarget) updateVMRestoreRestores() (bool, error) {
 	}
 	for k := range restores {
 		restore := &restores[k]
-		volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithBackendVolume)
+		volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithAllVolumes)
 		if err != nil {
 			return false, err
 		}
@@ -612,7 +612,7 @@ func (t *vmRestoreTarget) generateRestoredVMSpec() (*kubevirtv1.VirtualMachine, 
 		t.DeepCopyInto(&newTemplates[i])
 	}
 
-	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithBackendVolume)
+	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithAllVolumes)
 	if err != nil {
 		return nil, err
 	}
@@ -1258,7 +1258,7 @@ func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Co
 func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) (sets.String, error) {
 	noRestore := sets.NewString()
 
-	volumes, err := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, ctrl.Client, storageutils.WithBackendVolume)
+	volumes, err := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, ctrl.Client, storageutils.WithAllVolumes)
 	if err != nil {
 		return noRestore, err
 	}

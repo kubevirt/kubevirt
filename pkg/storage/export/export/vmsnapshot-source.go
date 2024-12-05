@@ -127,6 +127,7 @@ func (ctrl *VMExportController) handlePVCsForVirtualMachineSnapshot(vmExport *ex
 		if exists {
 			sourceVm := content.Spec.Source.VirtualMachine
 			totalVolumes = len(content.Status.VolumeSnapshotStatus)
+
 			for _, volumeBackup := range content.Spec.VolumeBackups {
 				if pvc, err := ctrl.getOrCreatePVCFromSnapshot(vmExport, &volumeBackup, sourceVm); err != nil {
 					return nil, 0, err
