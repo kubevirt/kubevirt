@@ -1351,6 +1351,42 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
 		})
 
+		It("should not override the MigrationState of a completed migration when a new one is created", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			vmi.Status.NodeName = "node02"
+
+			completedMigration := newMigration("completed-migration", vmi.Name, virtv1.MigrationSucceeded)
+			completedMigration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: completedMigration.UID,
+				TargetNode:   "node02",
+				SourceNode:   "node01",
+				Failed:       false,
+				Completed:    true,
+			}
+
+			runningMigration := newMigration("running-migration", vmi.Name, virtv1.MigrationRunning)
+
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID:                   runningMigration.UID,
+				TargetNode:                     "node01",
+				SourceNode:                     "node02",
+				TargetNodeAddress:              "10.10.10.10:1234",
+				StartTimestamp:                 now(),
+				EndTimestamp:                   now(),
+				TargetNodeDomainReadyTimestamp: now(),
+				Failed:                         false,
+				Completed:                      true,
+			}
+
+			addMigration(completedMigration)
+			addVirtualMachineInstance(vmi)
+			addMigration(runningMigration)
+
+			migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Times(0)
+
+			controller.Execute()
+		})
+
 		DescribeTable("should not transit to succeeded phase when VMI status has", func(conditions []virtv1.VirtualMachineInstanceConditionType) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
