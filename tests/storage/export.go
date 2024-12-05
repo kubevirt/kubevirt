@@ -1835,7 +1835,7 @@ var _ = SIGDescribe("Export", func() {
 		waitForDisksComplete(resVM)
 	}
 
-	It("[QUARANTINE] should generate updated DataVolumeTemplates on http endpoint when exporting", decorators.Quarantine, func() {
+	It("should generate updated DataVolumeTemplates on http endpoint when exporting", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
@@ -1878,7 +1878,7 @@ var _ = SIGDescribe("Export", func() {
 		checkWithJsonOutput(pod, export, vm)
 	})
 
-	It("[QUARANTINE] should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", decorators.Quarantine, func() {
+	It("should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", func() {
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
