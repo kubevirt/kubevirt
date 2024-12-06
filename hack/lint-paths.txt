@@ -1,5 +1,6 @@
 pkg/instancetype
 pkg/libvmi
+pkg/monitoring/domainstats
 pkg/network/admitter
 pkg/network/deviceinfo
 pkg/network/domainspec
