@@ -41,8 +41,22 @@ var logger = logf.Log.WithName("hyperconverged-operator-monitoring-reconciler")
 
 func NewMonitoringReconciler(ci hcoutil.ClusterInfo, cl client.Client, ee hcoutil.EventEmitter, scheme *runtime.Scheme) *MonitoringReconciler {
 	deployment := ci.GetDeployment()
-	namespace := deployment.Namespace
-	owner := getDeploymentReference(deployment)
+
+	var (
+		namespace string
+		owner     metav1.OwnerReference
+	)
+
+	if deployment == nil {
+		var err error
+		namespace, err = hcoutil.GetOperatorNamespace(logger)
+		if err != nil {
+			return nil
+		}
+	} else {
+		namespace = deployment.Namespace
+		owner = getDeploymentReference(deployment)
+	}
 
 	alertRuleReconciler, err := newAlertRuleReconciler(namespace, owner)
 	if err != nil {

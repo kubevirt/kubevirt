@@ -101,8 +101,7 @@ gsutil cp ./hco-bundle "gs://${hco_bucket}/${build_date}/hco-bundle-image"
 gsutil cp ./hco-index "gs://${hco_bucket}/${build_date}/hco-index-image"
 
 # download operator-sdk
-#sdk_url=$(curl https://api.github.com/repos/operator-framework/operator-sdk/releases/latest | jq -rM '.assets[] | select(.name == "operator-sdk_linux_amd64") | .browser_download_url')
-sdk_url=https://github.com/operator-framework/operator-sdk/releases/download/v1.37.0/operator-sdk_linux_amd64
+sdk_url=$(curl https://api.github.com/repos/operator-framework/operator-sdk/releases/latest | jq -rM '.assets[] | select(.name == "operator-sdk_linux_amd64") | .browser_download_url')
 wget $sdk_url -O operator-sdk
 chmod +x operator-sdk
 
