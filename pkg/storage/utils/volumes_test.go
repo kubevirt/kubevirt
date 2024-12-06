@@ -23,11 +23,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-var _ = Describe("GetVirtualMachineInstanceVolumes", func() {
+var _ = Describe("GetVolumes", func() {
 
 	const backendVolume = "persistent-state-for-"
 
@@ -73,13 +74,14 @@ var _ = Describe("GetVirtualMachineInstanceVolumes", func() {
 	}
 
 	DescribeTable("should handle volume exclusions based on flags",
-		func(hasEFI, hasTPM bool, expectedVolumes []string, ops ...VolumeOption) {
+		func(hasEFI, hasTPM bool, expectedVolumes []string, opts ...VolumeOption) {
 			vmi := createVMI(hasEFI, hasTPM)
-			volumes := GetVirtualMachineInstanceVolumes(vmi, ops...)
+			client := kubecli.NewMockKubevirtClient(nil) // Mock client for testing
+			volumes, _ := GetVolumes(vmi, client, opts...)
 
 			Expect(volumes).To(HaveLen(len(expectedVolumes)))
-			for i, expectedVolumeName := range expectedVolumes {
-				Expect(volumes[i].Name).To(Equal(expectedVolumeName))
+			for _, expectedVolumeName := range expectedVolumes {
+				Expect(volumes).To(ContainElement(HaveField("Name", Equal(expectedVolumeName))))
 			}
 		},
 		Entry("when no options are provided",
@@ -90,10 +92,10 @@ var _ = Describe("GetVirtualMachineInstanceVolumes", func() {
 		Entry("when WithBackendVolume is provided and both EFI and TPM are set",
 			true,
 			true,
-			[]string{"rootdisk", backendVolume},
+			[]string{backendVolume},
 			WithBackendVolume,
 		),
-		Entry("when WithOnlyRegularVolumes is provided and only EFI is set",
+		Entry("when WithRegularVolumes is provided and only EFI is set",
 			true,
 			false,
 			[]string{"rootdisk"},
@@ -102,8 +104,20 @@ var _ = Describe("GetVirtualMachineInstanceVolumes", func() {
 		Entry("when no backend volumes and WithBackendVolume is set",
 			false,
 			false,
-			[]string{"rootdisk"},
+			[]string{},
 			WithBackendVolume,
+		),
+		Entry("when WithAllVolumes is provided and both EFI and TPM are set",
+			true,
+			true,
+			[]string{"rootdisk", backendVolume},
+			WithAllVolumes,
+		),
+		Entry("when WithAllVolumes is provided and no EFI or TPM is set",
+			false,
+			false,
+			[]string{"rootdisk"},
+			WithAllVolumes,
 		),
 	)
 })
