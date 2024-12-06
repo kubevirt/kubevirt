@@ -6879,6 +6879,15 @@ var CRDsValidation map[string]string = map[string]string{
                             Defaults to a random generated uid.
                           type: string
                       type: object
+                    ioThreads:
+                      description: IOThreads specifies the IOThreads options.
+                      properties:
+                        count:
+                          description: Count specifies how many iothreads are allocated
+                            for the dedicated policy.
+                          format: int32
+                          type: integer
+                      type: object
                     ioThreadsPolicy:
                       description: |-
                         Controls whether or not disks will share IOThreads.
@@ -12085,6 +12094,15 @@ var CRDsValidation map[string]string = map[string]string{
                     Defaults to a random generated uid.
                   type: string
               type: object
+            ioThreads:
+              description: IOThreads specifies the IOThreads options.
+              properties:
+                count:
+                  description: Count specifies how many iothreads are allocated for
+                    the dedicated policy.
+                  format: int32
+                  type: integer
+              type: object
             ioThreadsPolicy:
               description: |-
                 Controls whether or not disks will share IOThreads.
@@ -15273,6 +15291,15 @@ var CRDsValidation map[string]string = map[string]string{
                     Defaults to a random generated uid.
                   type: string
               type: object
+            ioThreads:
+              description: IOThreads specifies the IOThreads options.
+              properties:
+                count:
+                  description: Count specifies how many iothreads are allocated for
+                    the dedicated policy.
+                  format: int32
+                  type: integer
+              type: object
             ioThreadsPolicy:
               description: |-
                 Controls whether or not disks will share IOThreads.
@@ -17684,6 +17711,15 @@ var CRDsValidation map[string]string = map[string]string{
                             UUID reported by the vmi bios.
                             Defaults to a random generated uid.
                           type: string
+                      type: object
+                    ioThreads:
+                      description: IOThreads specifies the IOThreads options.
+                      properties:
+                        count:
+                          description: Count specifies how many iothreads are allocated
+                            for the dedicated policy.
+                          format: int32
+                          type: integer
                       type: object
                     ioThreadsPolicy:
                       description: |-
@@ -22200,6 +22236,15 @@ var CRDsValidation map[string]string = map[string]string{
                                     UUID reported by the vmi bios.
                                     Defaults to a random generated uid.
                                   type: string
+                              type: object
+                            ioThreads:
+                              description: IOThreads specifies the IOThreads options.
+                              properties:
+                                count:
+                                  description: Count specifies how many iothreads
+                                    are allocated for the dedicated policy.
+                                  format: int32
+                                  type: integer
                               type: object
                             ioThreadsPolicy:
                               description: |-
@@ -27411,6 +27456,15 @@ var CRDsValidation map[string]string = map[string]string{
                                         UUID reported by the vmi bios.
                                         Defaults to a random generated uid.
                                       type: string
+                                  type: object
+                                ioThreads:
+                                  description: IOThreads specifies the IOThreads options.
+                                  properties:
+                                    count:
+                                      description: Count specifies how many iothreads
+                                        are allocated for the dedicated policy.
+                                      format: int32
+                                      type: integer
                                   type: object
                                 ioThreadsPolicy:
                                   description: |-
