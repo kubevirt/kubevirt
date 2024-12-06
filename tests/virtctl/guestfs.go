@@ -90,7 +90,7 @@ var _ = Describe("[sig-storage][virtctl]Guestfs", decorators.SigStorage, func() 
 				Entry("setting the uid", "--uid", "1002"),
 			)
 
-			It("[posneg:negative][test_id:6480]Should fail to run the guestfs command on a PVC in use", func() {
+			It("[posneg:negative]Should fail to run the guestfs command on a PVC in use", func() {
 				runGuestfsOnPVC(done, pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
 				cmd := guestfsCmd(pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
 				Expect(cmd()).To(MatchError(fmt.Sprintf("PVC %s is used by another pod", pvcClaim)))
