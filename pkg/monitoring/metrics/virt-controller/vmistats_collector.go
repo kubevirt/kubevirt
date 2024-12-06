@@ -95,7 +95,7 @@ var (
 				"interface associated with the VMI in the 'address' label, and about the type of address, such as " +
 				"internal IP, in the 'type' label.",
 		},
-		[]string{"node", "namespace", "name", "address", "type"},
+		[]string{"node", "namespace", "name", "network_name", "address", "type"},
 	)
 )
 
@@ -308,18 +308,24 @@ func collectVMIInterfacesInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetri
 	var crs []operatormetrics.CollectorResult
 
 	for _, iface := range vmi.Status.Interfaces {
-		crs = append(crs, collectVMIInterfaceInfo(vmi, iface))
+		if cr := collectVMIInterfaceInfo(vmi, iface); cr != nil {
+			crs = append(crs, *cr)
+		}
 	}
 
 	return crs
 }
 
-func collectVMIInterfaceInfo(vmi *k6tv1.VirtualMachineInstance, iface k6tv1.VirtualMachineInstanceNetworkInterface) operatormetrics.CollectorResult {
-	return operatormetrics.CollectorResult{
+func collectVMIInterfaceInfo(vmi *k6tv1.VirtualMachineInstance, iface k6tv1.VirtualMachineInstanceNetworkInterface) *operatormetrics.CollectorResult {
+	if iface.IP == "" && iface.Name == "" {
+		return nil
+	}
+
+	return &operatormetrics.CollectorResult{
 		Metric: vmiAddresses,
 		Labels: []string{
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-			iface.IP, "InternalIP",
+			iface.Name, iface.IP, "InternalIP",
 		},
 		Value: 1.0,
 	}
